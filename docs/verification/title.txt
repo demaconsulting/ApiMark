@@ -1,0 +1,16 @@
+---
+title: "ApiMark Verification Design Document"
+subtitle: "Compact AI-friendly API reference documentation"
+author: "DEMA Consulting"
+description: "Verification Design Document for ApiMark"
+lang: en-US
+keywords:
+  - Verification
+  - Testing
+  - ApiMark
+  - Markdown
+  - API Documentation
+  - .NET
+  - MSBuild
+  - Mono.Cecil
+---

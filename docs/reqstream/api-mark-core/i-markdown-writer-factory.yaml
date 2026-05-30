@@ -1,0 +1,23 @@
+---
+# IMarkdownWriterFactory unit requirements
+sections:
+  - title: ApiMarkCore Requirements
+    sections:
+      - title: IMarkdownWriterFactory Requirements
+        requirements:
+          - id: ApiMarkCore-IMarkdownWriterFactory-DefineCreateMarkdownMethod
+            title: IMarkdownWriterFactory shall define a CreateMarkdown operation that accepts a subFolder string and a name string and returns an IMarkdownWriter.
+            justification: |
+              Language generators need to open individual output files without knowing
+              the storage mechanism so that the same generator code can write to disk
+              in production and to memory in tests.
+            tests:
+              - IMarkdownWriterFactory_HasCreateMarkdown_Method
+          - id: ApiMarkCore-IMarkdownWriterFactory-SupportRootLevelFiles
+            title: IMarkdownWriterFactory shall support creating root-level files when subFolder is an empty string.
+            justification: |
+              The api.md entrypoint file is always at the root of the output tree, so
+              the factory must accept an empty subFolder without error to allow
+              generators to create that fixed entrypoint.
+            tests:
+              - IMarkdownWriterFactory_CreateMarkdown_EmptySubFolder_IsRootLevel

@@ -1,0 +1,13 @@
+---
+title: "ApiMark Software Design Document"
+subtitle: "Compact AI-friendly API reference documentation"
+author: "DEMA Consulting"
+description: "Software Design Document for ApiMark"
+lang: en-US
+keywords:
+  - Design
+  - Software Design Document
+  - .NET
+  - MSBuild
+  - C#
+---

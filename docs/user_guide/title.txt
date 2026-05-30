@@ -1,0 +1,12 @@
+---
+title: "ApiMark User Guide"
+subtitle: "Compact AI-friendly API reference documentation"
+author: "DEMA Consulting"
+description: "User Guide for ApiMark"
+lang: en-US
+keywords:
+  - User Guide
+  - C#
+  - .NET
+  - MSBuild
+---

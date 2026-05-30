@@ -1,0 +1,37 @@
+---
+# ApiMarkDotNet system-level requirements
+sections:
+  - title: ApiMarkDotNet Requirements
+    requirements:
+      - id: ApiMarkDotNet-DotNetGenerator-GenerateDocumentationFromAssembliesAndXml
+        title: ApiMarkDotNet shall generate API documentation from .NET assemblies and XML documentation files.
+        justification: |
+          ApiMark needs to document compiled .NET libraries without requiring source
+          code access, using the assembly for API structure and the XML file for the
+          developer-authored descriptions that belong in the markdown output.
+        children:
+          - ApiMarkDotNet-DotNetGenerator-AcceptAssemblyAndXmlInputs
+          - ApiMarkDotNet-DotNetGenerator-ReadAssemblyMetadataWithMonoCecil
+          - ApiMarkDotNet-DotNetGenerator-ReadXmlDocumentationComments
+          - ApiMarkDotNet-DotNetGenerator-FilterByVisibility
+          - ApiMarkDotNet-DotNetGenerator-IncludeObsoleteApisWhenRequested
+          - ApiMarkDotNet-DotNetGenerator-ApplyComplexityRule
+          - ApiMarkDotNet-DotNetGenerator-ProduceConsistentOutputFileStructure
+        tests:
+          - ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown
+      - id: ApiMarkDotNet-TypeNameSimplifier-ProduceReadableTypeNames
+        title: ApiMarkDotNet shall render .NET type names in a concise C#-style form that is readable in generated documentation.
+        justification: |
+          Raw CLR type names are noisy and difficult to read, so the .NET system needs
+          a consistent simplification policy that keeps signatures compact for both
+          developers and AI consumers.
+        children:
+          - ApiMarkDotNet-TypeNameSimplifier-SimplifyPrimitiveAliases
+          - ApiMarkDotNet-TypeNameSimplifier-SimplifyArrayTypes
+          - ApiMarkDotNet-TypeNameSimplifier-RenderNullableValueTypesWithQuestionMark
+          - ApiMarkDotNet-TypeNameSimplifier-SimplifyWellKnownNamespaces
+          - ApiMarkDotNet-TypeNameSimplifier-SimplifyContextNamespaceTypes
+          - ApiMarkDotNet-TypeNameSimplifier-SimplifyGenericArgumentsRecursively
+          - ApiMarkDotNet-TypeNameSimplifier-AppendNullableReferenceSuffix
+        tests:
+          - ApiMarkDotNet_TypeNames_CommonSignatures_RenderReadably

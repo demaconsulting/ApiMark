@@ -1,0 +1,23 @@
+---
+# ApiMarkTool system-level requirements
+sections:
+  - title: ApiMarkTool Requirements
+    requirements:
+      - id: ApiMarkTool-Program-ProvideMultiLanguageCli
+        title: ApiMarkTool shall provide a .NET executable that supports multiple documentation language subcommands.
+        justification: |
+          A command-line executable gives ApiMarkTask and developers an automation-friendly
+          way to run ApiMark for any supported language. Targeting net8.0 as a standalone
+          process allows use of language libraries that do not support netstandard2.0.
+        children:
+          - ApiMarkTool-Program-AcceptLanguageArgument
+          - ApiMarkTool-Program-DispatchToGenerator
+          - ApiMarkTool-Program-SupportDotNetOptions
+          - ApiMarkTool-Program-SupportCppOptions
+          - ApiMarkTool-Program-SupportVersionOption
+          - ApiMarkTool-Program-SupportHelpOption
+          - ApiMarkTool-Program-SupportSilentAndLogOptions
+          - ApiMarkTool-Program-SupportValidateOption
+        tests:
+          - Program_Main_DotNetCommand_GeneratesExpectedOutput
+

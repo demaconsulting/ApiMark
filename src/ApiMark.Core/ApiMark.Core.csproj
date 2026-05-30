@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>ApiMark.Core</AssemblyName>
+    <RootNamespace>ApiMark.Core</RootNamespace>
+    <Description>Shared contracts and file-path helpers for ApiMark generators.</Description>
+    <Authors>DEMA Consulting</Authors>
+    <Company>DEMA Consulting</Company>
+  </PropertyGroup>
+</Project>

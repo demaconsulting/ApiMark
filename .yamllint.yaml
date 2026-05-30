@@ -1,0 +1,32 @@
+---
+# YAML Linting Standards
+#
+# DO NOT MODIFY: These rules represent coding standards.
+# If files fail linting, fix the files to meet these standards.
+extends: default
+ignore: |
+  **/.git/**
+  **/node_modules/**
+  **/.venv/**
+  **/thirdparty/**
+  **/third-party/**
+  **/3rd-party/**
+  **/generated/**
+  **/.agent-logs/**
+rules:
+  # Allow 'on:' in GitHub Actions workflows (not a boolean value)
+  truthy:
+    allowed-values: ['true', 'false']
+    check-keys: false
+
+  # Disable line-length rule
+  line-length: disable
+
+  # Ensure proper indentation
+  indentation:
+    spaces: 2
+    indent-sequences: true
+
+  # Ensure proper comment formatting
+  comments:
+    min-spaces-from-content: 2

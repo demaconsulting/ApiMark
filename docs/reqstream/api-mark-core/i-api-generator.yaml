@@ -1,0 +1,31 @@
+---
+# IApiGenerator unit requirements
+sections:
+  - title: ApiMarkCore Requirements
+    sections:
+      - title: IApiGenerator Requirements
+        requirements:
+          - id: ApiMarkCore-IApiGenerator-DefineGenerateMethod
+            title: IApiGenerator shall define a Generate method that accepts an IMarkdownWriterFactory parameter.
+            justification: |
+              The caller needs one consistent invocation point for every language
+              generator so documentation can be written to any output destination
+              (file-system or in-memory) without language-specific orchestration logic.
+            tests:
+              - IApiGenerator_HasGenerate_Method
+          - id: ApiMarkCore-IApiGenerator-ProduceEntrypointFile
+            title: IApiGenerator implementations shall produce a file named "api.md" as the fixed top-level entrypoint of every generated output tree.
+            justification: |
+              Callers (CLI and MSBuild) need a predictable entry point to reference or
+              present to the user without inspecting output directory contents. A fixed
+              name eliminates language-specific post-processing.
+            tests:
+              - IApiGenerator_Generate_OutputDirectory_ContainsApiMd
+          - id: ApiMarkCore-IApiGenerator-AllowConstructionTimeConfiguration
+            title: IApiGenerator shall allow language-specific configuration to be supplied when an implementation is constructed before Generate is called.
+            justification: |
+              Language modules require different inputs and policies, such as input
+              file paths or visibility settings, so configuration must be captured
+              before generation starts while keeping the runtime invocation uniform.
+            tests:
+              - IApiGenerator_Implementation_UsesConstructionConfiguration

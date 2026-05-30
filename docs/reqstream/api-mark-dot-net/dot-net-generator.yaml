@@ -1,0 +1,60 @@
+---
+# DotNetGenerator unit requirements
+sections:
+  - title: ApiMarkDotNet Requirements
+    sections:
+      - title: DotNetGenerator Requirements
+        requirements:
+          - id: ApiMarkDotNet-DotNetGenerator-AcceptAssemblyAndXmlInputs
+            title: DotNetGenerator shall accept an assembly path and an XML documentation path as generator inputs.
+            justification: |
+              The generator cannot produce complete .NET documentation unless it can
+              locate both the compiled API surface and the compiler-produced XML
+              documentation that describes it.
+            tests:
+              - DotNetGenerator_Constructor_AcceptsAssemblyAndXmlPaths
+          - id: ApiMarkDotNet-DotNetGenerator-ReadAssemblyMetadataWithMonoCecil
+            title: DotNetGenerator shall read type and member information from .NET assemblies via Mono.Cecil.
+            justification: |
+              Assembly inspection must avoid loading the target library into the current
+              process so documentation generation can run reliably against arbitrary
+              build outputs and dependency graphs.
+            tests:
+              - DotNetGenerator_ReadAssembly_WithMonoCecil_ReturnsTypesAndMembers
+          - id: ApiMarkDotNet-DotNetGenerator-ReadXmlDocumentationComments
+            title: DotNetGenerator shall read XML documentation comments from the configured XML documentation file and include that content in generated markdown.
+            justification: |
+              Developer-authored summaries, remarks, parameter descriptions, returns,
+              exceptions, and examples belong in the published API reference and are
+              available from the XML documentation file produced by the C# compiler.
+            tests:
+              - DotNetGenerator_ReadXmlComments_SummaryAndRemarks_AppearInMarkdown
+          - id: ApiMarkDotNet-DotNetGenerator-FilterByVisibility
+            title: DotNetGenerator shall support ApiVisibility filtering for Public, PublicAndProtected, and All.
+            justification: |
+              Different consumers need different views of the same assembly, ranging from
+              a public API reference to broader internal documentation for development.
+            tests:
+              - DotNetGenerator_Visibility_PublicPublicAndProtectedAll_FilterExpectedApis
+          - id: ApiMarkDotNet-DotNetGenerator-IncludeObsoleteApisWhenRequested
+            title: DotNetGenerator shall include obsolete APIs when IncludeObsolete is enabled and omit them when it is disabled.
+            justification: |
+              Teams sometimes need complete historical reference output and sometimes need
+              only the actively supported API surface, so obsolete items must be controllable.
+            tests:
+              - DotNetGenerator_IncludeObsolete_Toggle_ControlsObsoleteOutput
+          - id: ApiMarkDotNet-DotNetGenerator-ApplyComplexityRule
+            title: DotNetGenerator shall apply the complexity rule to determine which members receive their own detail files.
+            justification: |
+              Large member descriptions overwhelm type summary pages, so complex members
+              must be promoted to their own files while simple members remain inline.
+            tests:
+              - DotNetGenerator_ComplexityRule_ComplexMembers_GetSeparateFiles
+          - id: ApiMarkDotNet-DotNetGenerator-ProduceConsistentOutputFileStructure
+            title: DotNetGenerator shall produce output files following the established naming convention using IMarkdownWriterFactory.
+            justification: |
+              Consistent file and folder naming allows navigation between the entrypoint,
+              namespace summaries, type pages, and member detail pages without relying on
+              a separate path-resolution helper.
+            tests:
+              - DotNetGenerator_OutputFiles_FollowNamingConvention

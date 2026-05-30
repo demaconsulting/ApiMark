@@ -1,0 +1,12 @@
+---
+title: "ApiMark Trace Matrix"
+subtitle: "Compact AI-friendly API reference documentation"
+author: "DEMA Consulting"
+description: "Trace Matrix for ApiMark"
+lang: en-US
+keywords:
+  - Requirements
+  - Trace Matrix
+  - C#
+  - .NET
+---

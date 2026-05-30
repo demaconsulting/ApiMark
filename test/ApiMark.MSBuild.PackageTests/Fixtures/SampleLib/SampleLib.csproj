@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+
+    <!--
+      Required: tells the C# compiler to emit an XML documentation file alongside the
+      assembly. ApiMark reads this file to extract /// summary and remarks comments; without
+      it ApiMark still runs but member descriptions will be empty.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Package identity — required for dotnet pack -->
+    <PackageId>SampleLib</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>DEMA Consulting</Authors>
+    <!-- NU5125: readme omitted intentionally for this minimal fixture -->
+    <NoWarn>$(NoWarn);NU5125</NoWarn>
+
+    <!--
+      Optional: include the generated api/ documentation folder in the NuGet package so
+      consumers (and AI agents) can access the Markdown directly from the .nupkg.
+      Defaults to false when not set; set to true to opt in.
+    -->
+    <ApiMarkPackDocs>true</ApiMarkPackDocs>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Pulls in the ApiMark MSBuild task. After build, it spawns ApiMark.Tool to read the
+      compiled assembly and XML doc file and write Markdown under $(ApiMarkOutputDir)
+      (defaults to $(MSBuildProjectDirectory)\api).
+    -->
+    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.0.0" />
+  </ItemGroup>
+</Project>

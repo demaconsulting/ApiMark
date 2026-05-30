@@ -1,0 +1,12 @@
+---
+title: "ApiMark Code Quality Report"
+subtitle: "Compact AI-friendly API reference documentation"
+author: "DEMA Consulting"
+description: "Code Quality Report for ApiMark"
+lang: en-US
+keywords:
+  - Code Quality
+  - Static Analysis
+  - C#
+  - .NET
+---

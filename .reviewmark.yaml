@@ -1,0 +1,100 @@
+---
+# ReviewMark Configuration File
+#
+# Defines review sets for the ApiMark project organized by the software-item hierarchy.
+# System: api-mark (ApiMark)
+# Subsystem: dot-net
+# Units: core, dot-net/generator, dot-net/msbuild, tool
+# OTS: mono-cecil
+needs-review:
+  - README.md
+  - docs/user_guide/**/*.md
+  - '**/*.cs'
+  - requirements.yaml
+  - docs/reqstream/**/*.yaml
+  - docs/design/**/*.md
+  - docs/verification/**/*.md
+  - '!**/obj/**'
+  - '!**/bin/**'
+  - '!**/generated/**'
+evidence-source:
+  type: none
+reviews:
+  - id: ApiMark-Purpose
+    title: Review that Advertised Features Match System Design
+    paths:
+      - README.md
+      - docs/user_guide/**/*.md
+      - docs/design/introduction.md
+  - id: ApiMark-Architecture
+    title: Review that ApiMark Architecture Satisfies Requirements
+    paths: [docs/design/introduction.md, docs/verification/introduction.md]
+  - id: ApiMark-Design
+    title: Review that ApiMark Design is Consistent and Complete
+    paths:
+      - docs/design/introduction.md
+      - docs/design/api-mark/**/*.md
+      - docs/design/ots.md
+  - id: ApiMark-Verification
+    title: Review that ApiMark Verification is Consistent and Complete
+    paths:
+      - docs/verification/introduction.md
+      - docs/verification/api-mark/**/*.md
+      - docs/verification/ots.md
+  - id: ApiMark-AllRequirements
+    title: Review that All ApiMark Requirements are Complete
+    paths: [requirements.yaml, docs/reqstream/**/*.yaml]
+  - id: ApiMark-Core
+    title: Review that ApiMark Core Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark/core.yaml
+      - docs/design/api-mark/core.md
+      - docs/verification/api-mark/core.md
+      - src/ApiMark.Core/**/*.cs
+      - test/ApiMark.Core.Tests/**/*.cs
+  - id: ApiMark-DotNet
+    title: Review that ApiMark DotNet Satisfies Subsystem Requirements
+    paths:
+      - docs/reqstream/api-mark/dot-net.yaml
+      - docs/design/api-mark/dot-net.md
+      - docs/verification/api-mark/dot-net.md
+  - id: ApiMark-DotNet-Generator
+    title: Review that ApiMark DotNet Generator Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark/dot-net/generator.yaml
+      - docs/design/api-mark/dot-net/generator.md
+      - docs/verification/api-mark/dot-net/generator.md
+      - src/ApiMark.DotNet/**/*.cs
+      - test/ApiMark.DotNet.Tests/**/*.cs
+  - id: ApiMark-DotNet-Msbuild
+    title: Review that ApiMark DotNet Msbuild Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-msbuild.yaml
+      - docs/reqstream/api-mark-msbuild/api-mark-task.yaml
+      - docs/design/api-mark-msbuild.md
+      - docs/design/api-mark-msbuild/api-mark-task.md
+      - docs/verification/api-mark-msbuild.md
+      - docs/verification/api-mark-msbuild/api-mark-task.md
+      - src/ApiMark.MSBuild/**/*.cs
+      - test/ApiMark.MSBuild.Tests/**/*.cs
+      - test/ApiMark.MSBuild.PackageTests/**/*.cs
+  - id: ApiMark-Cpp
+    title: Review that ApiMark Cpp System Design is Complete
+    paths:
+      - docs/design/api-mark-cpp.md
+      - docs/design/api-mark-cpp/**/*.md
+      - docs/design/ots/cpp-ast-net.md
+  - id: ApiMark-Tool
+    title: Review that ApiMark Tool Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark/tool.yaml
+      - docs/design/api-mark/tool.md
+      - docs/verification/api-mark/tool.md
+      - src/ApiMark.Tool/**/*.cs
+      - test/ApiMark.Tool.Tests/**/*.cs
+  - id: OTS-MonoCecil
+    title: Review that Mono.Cecil Provides Required Functionality
+    paths:
+      - docs/reqstream/ots/mono-cecil.yaml
+      - docs/design/ots/mono-cecil.md
+      - docs/verification/ots/mono-cecil.md

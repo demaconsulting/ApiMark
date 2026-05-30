@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>ApiMark.Core.TestHelpers</AssemblyName>
+    <RootNamespace>ApiMark.Core.TestHelpers</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ApiMark.Core\ApiMark.Core.csproj" />
+  </ItemGroup>
+</Project>

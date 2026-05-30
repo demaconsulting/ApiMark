@@ -1,0 +1,20 @@
+---
+# ApiMarkMsbuild system-level requirements
+sections:
+  - title: ApiMarkMsbuild Requirements
+    requirements:
+      - id: ApiMarkMsbuild-ApiMarkTask-IntegrateWithMsbuild
+        title: ApiMarkMsbuild shall integrate ApiMark documentation generation as an MSBuild task for both .csproj and .vcxproj builds.
+        justification: |
+          Teams using C# and C++ need documentation generation to run automatically
+          during normal builds so the published API reference stays aligned with the
+          compiled output, regardless of project type.
+        children:
+          - ApiMarkMsbuild-ApiMarkTask-InferLanguageFromProjectType
+          - ApiMarkMsbuild-ApiMarkTask-SpawnToolForDotNet
+          - ApiMarkMsbuild-ApiMarkTask-SpawnToolForCpp
+          - ApiMarkMsbuild-ApiMarkTask-ForwardOutputDirectoryProperty
+          - ApiMarkMsbuild-ApiMarkTask-ForwardVisibilityProperty
+          - ApiMarkMsbuild-ApiMarkTask-SupportDisableProperty
+        tests:
+          - ApiMarkMsbuild_Build_WithDotNetProject_GeneratesDocumentation
