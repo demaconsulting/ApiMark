@@ -218,19 +218,14 @@ internal static class Validation
         try
         {
             var extension = Path.GetExtension(context.ResultsFile).ToLowerInvariant();
-            string content;
+            var content = extension switch
+            {
+                ".trx" => TrxSerializer.Serialize(testResults),
+                ".xml" => JUnitSerializer.Serialize(testResults),
+                _ => null,
+            };
 
-            if (extension == ".trx")
-            {
-                // Serialize in Visual Studio TRX format
-                content = TrxSerializer.Serialize(testResults);
-            }
-            else if (extension == ".xml")
-            {
-                // Serialize in JUnit XML format for CI system compatibility
-                content = JUnitSerializer.Serialize(testResults);
-            }
-            else
+            if (content is null)
             {
                 context.WriteError($"Error: Unsupported results file format '{extension}'. Use .trx or .xml extension.");
                 return;

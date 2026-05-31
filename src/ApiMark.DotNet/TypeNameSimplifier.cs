@@ -77,59 +77,48 @@ public static class TypeNameSimplifier
     /// <returns>A simplified C# type name without a trailing nullable-reference <c>?</c>.</returns>
     private static string SimplifyCore(TypeReference typeRef, string contextNamespace)
     {
-        // Rule 1: primitive check only applies to non-composite types
-        if (typeRef is not GenericInstanceType && typeRef is not ArrayType && Primitives.TryGetValue(typeRef.FullName, out var alias))
+        return typeRef switch
         {
-            return alias;
-        }
+            // Rule 2: array types recurse on the element type
+            ArrayType arr
+                => Simplify(arr.ElementType, contextNamespace) + "[]",
 
-        // Rule 2: array types recurse on the element type
-        if (typeRef is ArrayType arr)
-        {
-            return Simplify(arr.ElementType, contextNamespace) + "[]";
-        }
+            // Rule 3: Nullable<T> is represented as T?
+            GenericInstanceType { GenericArguments.Count: 1 } git
+                when git.ElementType.FullName.StartsWith("System.Nullable", StringComparison.Ordinal)
+                => Simplify(git.GenericArguments[0], contextNamespace) + "?",
 
-        // Rule 3: Nullable<T> is represented as T?
-        if (typeRef is GenericInstanceType git &&
-            git.ElementType.FullName.StartsWith("System.Nullable", StringComparison.Ordinal) &&
-            git.GenericArguments.Count == 1)
-        {
-            return Simplify(git.GenericArguments[0], contextNamespace) + "?";
-        }
+            // Rules 4 & 6: generic types — strip well-known namespace or context namespace, then list args
+            GenericInstanceType git
+                => BuildGenericName(git, contextNamespace),
 
-        // Rules 4 & 6: generic types — strip well-known namespace or context namespace, then list args
-        if (typeRef is GenericInstanceType genericInstance)
-        {
-            var baseName = StripArity(genericInstance.ElementType.Name);
-            var ns = genericInstance.ElementType.Namespace;
+            // Rule 1: C# primitive aliases (only non-composite types reach this arm)
+            _ when Primitives.TryGetValue(typeRef.FullName, out var alias)
+                => alias,
 
-            if (!WellKnownNamespaces.Contains(ns))
-            {
-                baseName = ApplyContextStrip(genericInstance.ElementType, contextNamespace);
-                baseName = StripArity(baseName);
-            }
+            // Rule 5: plain named type — strip context namespace prefix when present
+            { Namespace: var ns } when ns == contextNamespace
+                => StripArity(typeRef.Name),
 
-            var args = string.Join(", ", genericInstance.GenericArguments
-                .Select(a => Simplify(a, contextNamespace)));
-            return $"{baseName}<{args}>";
-        }
+            { Namespace: var ns } when !string.IsNullOrEmpty(ns) && ns.StartsWith(contextNamespace + ".", StringComparison.Ordinal)
+                => $"{ns.Substring(contextNamespace.Length + 1)}.{StripArity(typeRef.Name)}",
 
-        // Rule 5: plain named type — strip the context namespace prefix when present
-        if (!string.IsNullOrEmpty(typeRef.Namespace))
-        {
-            if (typeRef.Namespace == contextNamespace)
-            {
-                return StripArity(typeRef.Name);
-            }
+            _ => StripArity(typeRef.Name),
+        };
+    }
 
-            if (typeRef.Namespace.StartsWith(contextNamespace + ".", StringComparison.Ordinal))
-            {
-                var relative = typeRef.Namespace.Substring(contextNamespace.Length + 1);
-                return $"{relative}.{StripArity(typeRef.Name)}";
-            }
-        }
-
-        return StripArity(typeRef.Name);
+    /// <summary>Builds the simplified type name for a generic type instance.</summary>
+    /// <param name="git">The generic instance type to represent.</param>
+    /// <param name="contextNamespace">The namespace of the enclosing type, used for prefix stripping.</param>
+    /// <returns>A string of the form <c>Name&lt;Arg1, Arg2&gt;</c>.</returns>
+    private static string BuildGenericName(GenericInstanceType git, string contextNamespace)
+    {
+        var ns = git.ElementType.Namespace;
+        var baseName = WellKnownNamespaces.Contains(ns)
+            ? StripArity(git.ElementType.Name)
+            : StripArity(ApplyContextStrip(git.ElementType, contextNamespace));
+        var args = string.Join(", ", git.GenericArguments.Select(a => Simplify(a, contextNamespace)));
+        return $"{baseName}<{args}>";
     }
 
     /// <summary>Removes the generic arity suffix (e.g. <c>`1</c>) from a type name.</summary>
@@ -150,20 +139,16 @@ public static class TypeNameSimplifier
     /// <returns>The shortest name that is unambiguous in the given context.</returns>
     private static string ApplyContextStrip(TypeReference typeRef, string contextNamespace)
     {
-        if (string.IsNullOrEmpty(typeRef.Namespace))
+        var ns = typeRef.Namespace;
+
+        if (string.IsNullOrEmpty(ns) || ns == contextNamespace)
         {
             return typeRef.Name;
         }
 
-        if (typeRef.Namespace == contextNamespace)
+        if (ns.StartsWith(contextNamespace + ".", StringComparison.Ordinal))
         {
-            return typeRef.Name;
-        }
-
-        if (typeRef.Namespace.StartsWith(contextNamespace + ".", StringComparison.Ordinal))
-        {
-            var relative = typeRef.Namespace.Substring(contextNamespace.Length + 1);
-            return $"{relative}.{typeRef.Name}";
+            return $"{ns.Substring(contextNamespace.Length + 1)}.{typeRef.Name}";
         }
 
         return typeRef.Name;

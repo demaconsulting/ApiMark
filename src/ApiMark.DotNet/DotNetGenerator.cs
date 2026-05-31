@@ -309,30 +309,14 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <summary>Returns a numeric access level for a method, where higher values are more permissive.</summary>
     /// <param name="method">The method to evaluate.</param>
     /// <returns>An integer from 0 (private) to 4 (public).</returns>
-    private static int GetAccessLevel(MethodDefinition method)
+    private static int GetAccessLevel(MethodDefinition method) => method switch
     {
-        if (method.IsPublic)
-        {
-            return 4;
-        }
-
-        if (method.IsFamilyOrAssembly)
-        {
-            return 3;
-        }
-
-        if (method.IsFamily)
-        {
-            return 2;
-        }
-
-        if (method.IsAssembly)
-        {
-            return 1;
-        }
-
-        return 0;
-    }
+        { IsPublic: true } => 4,
+        { IsFamilyOrAssembly: true } => 3,
+        { IsFamily: true } => 2,
+        { IsAssembly: true } => 1,
+        _ => 0,
+    };
 
     /// <summary>
     ///     Returns <c>true</c> when <paramref name="type"/> satisfies the visibility
@@ -527,15 +511,13 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <returns>A string of the form <c>public class Name</c> or <c>public interface Name&lt;T&gt;</c>.</returns>
     private static string BuildTypeSignature(TypeDefinition type)
     {
-        string keyword;
-        if (type.IsInterface)
-            keyword = "interface";
-        else if (type.IsEnum)
-            keyword = "enum";
-        else if (type.IsValueType)
-            keyword = "struct";
-        else
-            keyword = "class";
+        var keyword = type switch
+        {
+            { IsInterface: true } => "interface",
+            { IsEnum: true } => "enum",
+            { IsValueType: true } => "struct",
+            _ => "class",
+        };
 
         var name = StripArity(type.Name);
         if (type.HasGenericParameters)
@@ -629,20 +611,15 @@ public sealed class DotNetGenerator : IApiGenerator
         var typeName = TypeNameSimplifier.Simplify(field.FieldType, contextNamespace);
 
         // Determine modifier(s) from compile-time flags; literals imply IsStatic so they
-        // must be tested first, before the IsStatic branch, to avoid showing "static const"
-        string modifiers;
-        if (field.IsLiteral)
+        // must be tested before the IsStatic arm to avoid showing "static const"
+        var modifiers = field switch
         {
-            modifiers = "const";
-        }
-        else if (field.IsStatic)
-        {
-            modifiers = field.IsInitOnly ? "static readonly" : "static";
-        }
-        else
-        {
-            modifiers = field.IsInitOnly ? "readonly" : string.Empty;
-        }
+            { IsLiteral: true } => "const",
+            { IsStatic: true, IsInitOnly: true } => "static readonly",
+            { IsStatic: true } => "static",
+            { IsInitOnly: true } => "readonly",
+            _ => string.Empty,
+        };
 
         var gap = modifiers.Length > 0 ? " " : string.Empty;
         return $"public {modifiers}{gap}{typeName} {field.Name}";
@@ -661,30 +638,14 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <summary>Returns the C# accessibility keyword for a method (e.g. <c>"public"</c> or <c>"protected"</c>).</summary>
     /// <param name="method">The method whose accessibility to report.</param>
     /// <returns>The lowercase C# accessibility keyword string.</returns>
-    private static string GetAccessibilityKeyword(MethodDefinition method)
+    private static string GetAccessibilityKeyword(MethodDefinition method) => method switch
     {
-        if (method.IsPublic)
-        {
-            return "public";
-        }
-
-        if (method.IsFamilyOrAssembly)
-        {
-            return "protected internal";
-        }
-
-        if (method.IsFamily)
-        {
-            return "protected";
-        }
-
-        if (method.IsAssembly)
-        {
-            return "internal";
-        }
-
-        return "private";
-    }
+        { IsPublic: true } => "public",
+        { IsFamilyOrAssembly: true } => "protected internal",
+        { IsFamily: true } => "protected",
+        { IsAssembly: true } => "internal",
+        _ => "private",
+    };
 
     /// <summary>Returns the display name for a member as it should appear in documentation tables.</summary>
     /// <param name="member">The member whose display name to compute.</param>
