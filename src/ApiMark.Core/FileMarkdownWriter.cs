@@ -135,12 +135,8 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
         // Guard against use-after-dispose
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // Emit a standard fenced code block identical in structure to WriteSignature;
-        // the distinction between signature and example lives at the semantic level
-        _writer.WriteLine($"```{language}");
-        _writer.WriteLine(code);
-        _writer.WriteLine("```");
-        _writer.WriteLine();
+        // The fenced code block format is identical to WriteSignature; delegate to avoid duplication
+        WriteSignature(language, code);
     }
 
     /// <summary>

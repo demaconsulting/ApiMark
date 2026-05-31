@@ -12,6 +12,11 @@ tools:
     command: git --version
     regex: (?i)git version (?<version>\d+\.\d+\.\d+)
 
+  # SonarScanner for .NET (from dotnet tool list)
+  dotnet-sonarscanner:
+    command: dotnet tool list
+    regex: (?i)dotnet-sonarscanner\s+(?<version>\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?)
+
   # Node.js
   node:
     command: node --version

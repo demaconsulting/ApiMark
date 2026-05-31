@@ -185,7 +185,7 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <param name="member">The member whose page is being written.</param>
     /// <param name="xmlDocs">XML documentation index.</param>
     /// <param name="memberId">Pre-computed XML doc member identifier for <paramref name="member"/>.</param>
-    private void WriteMemberPage(
+    private static void WriteMemberPage(
         IMarkdownWriterFactory factory,
         string namespaceName,
         TypeDefinition type,
@@ -527,10 +527,15 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <returns>A string of the form <c>public class Name</c> or <c>public interface Name&lt;T&gt;</c>.</returns>
     private static string BuildTypeSignature(TypeDefinition type)
     {
-        var keyword = type.IsInterface ? "interface"
-            : type.IsEnum ? "enum"
-            : type.IsValueType ? "struct"
-            : "class";
+        string keyword;
+        if (type.IsInterface)
+            keyword = "interface";
+        else if (type.IsEnum)
+            keyword = "enum";
+        else if (type.IsValueType)
+            keyword = "struct";
+        else
+            keyword = "class";
 
         var name = StripArity(type.Name);
         if (type.HasGenericParameters)
@@ -546,7 +551,7 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <param name="member">The member to represent.</param>
     /// <param name="contextNamespace">Used to simplify type names in the signature.</param>
     /// <returns>A human-readable C# declaration signature string.</returns>
-    private string BuildMemberSignature(IMemberDefinition member, string contextNamespace)
+    private static string BuildMemberSignature(IMemberDefinition member, string contextNamespace)
     {
         return member switch
         {
@@ -562,7 +567,7 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <param name="method">The method definition.</param>
     /// <param name="contextNamespace">Used to simplify type names in parameters and return type.</param>
     /// <returns>The method signature string.</returns>
-    private string BuildMethodSignature(MethodDefinition method, string contextNamespace)
+    private static string BuildMethodSignature(MethodDefinition method, string contextNamespace)
     {
         var returnType = TypeNameSimplifier.Simplify(method.ReturnType, contextNamespace);
 
@@ -584,7 +589,7 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <param name="prop">The property definition.</param>
     /// <param name="contextNamespace">Used to simplify the property type name.</param>
     /// <returns>The property signature string.</returns>
-    private string BuildPropertySignature(PropertyDefinition prop, string contextNamespace)
+    private static string BuildPropertySignature(PropertyDefinition prop, string contextNamespace)
     {
         var typeName = TypeNameSimplifier.Simplify(prop.PropertyType, contextNamespace);
         var accessibility = GetAccessibilityKeyword(prop.GetMethod ?? prop.SetMethod!);
@@ -619,7 +624,7 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <param name="field">The field definition.</param>
     /// <param name="contextNamespace">Used to simplify the field type name.</param>
     /// <returns>The field signature string.</returns>
-    private string BuildFieldSignature(FieldDefinition field, string contextNamespace)
+    private static string BuildFieldSignature(FieldDefinition field, string contextNamespace)
     {
         var typeName = TypeNameSimplifier.Simplify(field.FieldType, contextNamespace);
 
@@ -647,7 +652,7 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <param name="evt">The event definition.</param>
     /// <param name="contextNamespace">Used to simplify the event type name.</param>
     /// <returns>The event signature string.</returns>
-    private string BuildEventSignature(EventDefinition evt, string contextNamespace)
+    private static string BuildEventSignature(EventDefinition evt, string contextNamespace)
     {
         var typeName = TypeNameSimplifier.Simplify(evt.EventType, contextNamespace);
         return $"public event {typeName} {evt.Name}";
@@ -701,7 +706,7 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <param name="member">The member whose type name to compute.</param>
     /// <param name="contextNamespace">Used to simplify the type name.</param>
     /// <returns>The simplified type name string.</returns>
-    private string GetMemberTypeName(IMemberDefinition member, string contextNamespace)
+    private static string GetMemberTypeName(IMemberDefinition member, string contextNamespace)
     {
         return member switch
         {

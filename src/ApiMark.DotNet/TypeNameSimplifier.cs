@@ -78,12 +78,9 @@ public static class TypeNameSimplifier
     private static string SimplifyCore(TypeReference typeRef, string contextNamespace)
     {
         // Rule 1: primitive check only applies to non-composite types
-        if (typeRef is not GenericInstanceType && typeRef is not ArrayType)
+        if (typeRef is not GenericInstanceType && typeRef is not ArrayType && Primitives.TryGetValue(typeRef.FullName, out var alias))
         {
-            if (Primitives.TryGetValue(typeRef.FullName, out var alias))
-            {
-                return alias;
-            }
+            return alias;
         }
 
         // Rule 2: array types recurse on the element type
