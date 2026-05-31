@@ -16,13 +16,20 @@ words:
   - buildmark
   - Cecil
   - csproj
+  - declspec
   - Dema
+  - dllexport
   - docstrings
   - fileassert
   - frontmatter
   - GHDL
+  - isystem
+  - libclang
   - msbuild
   - MSBuild
+  - msvc
+  - mylib
+  - MYLIB
   - netstandard
   - Pandoc
   - postconditions

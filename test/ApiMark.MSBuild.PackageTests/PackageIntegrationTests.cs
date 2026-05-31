@@ -93,7 +93,7 @@ public class PackageIntegrationTests
 
     /// <summary>
     ///     Validates that the <c>api/</c> documentation folder is <em>not</em> included in the
-    ///     <c>.nupkg</c> when <c>ApiMarkPackDocs</c> is not set (opt-in behaviour).
+    ///     <c>.nupkg</c> when <c>ApiMarkPackDocs</c> is not set (opt-in behavior).
     /// </summary>
     [Fact]
     public void ApiMarkMsbuild_NuGetPackage_DotNetProject_DoesNotPackDocs_ByDefault()
