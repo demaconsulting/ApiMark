@@ -150,6 +150,13 @@ public class PackageIntegrationTests
     ///     Runs <paramref name="action"/> in an isolated temp directory pre-populated with the
     ///     fixture project files and a local <c>nuget.config</c>, then cleans up on exit.
     /// </summary>
+    /// <remarks>
+    ///     The fixture <c>SampleLib.csproj</c> uses a placeholder version of
+    ///     <c>0.0.0</c> for the <c>DemaConsulting.ApiMark.MSBuild</c> package reference.
+    ///     This method detects the actual version from the <c>.nupkg</c> filename and patches
+    ///     the copy in the isolated directory so <c>dotnet restore</c> can resolve it
+    ///     regardless of whether the build is a local dev build or a CI versioned build.
+    /// </remarks>
     private static void RunInIsolation(string packagesDir, Action<string> action)
     {
         var testBinDir = Path.GetDirectoryName(typeof(PackageIntegrationTests).Assembly.Location)!;
@@ -163,6 +170,18 @@ public class PackageIntegrationTests
             {
                 File.Copy(file, Path.Combine(workDir, Path.GetFileName(file)));
             }
+
+            // Detect the actual package version from the .nupkg filename and patch the
+            // fixture .csproj so dotnet restore resolves it in both dev and CI builds.
+            var nupkgPath = Directory.GetFiles(packagesDir, "DemaConsulting.ApiMark.MSBuild.*.nupkg").First();
+            var packageVersion = Path.GetFileNameWithoutExtension(nupkgPath)
+                .Substring("DemaConsulting.ApiMark.MSBuild.".Length);
+            var csprojPath = Path.Combine(workDir, "SampleLib.csproj");
+            File.WriteAllText(
+                csprojPath,
+                File.ReadAllText(csprojPath).Replace(
+                    "Include=\"DemaConsulting.ApiMark.MSBuild\" Version=\"0.0.0\"",
+                    $"Include=\"DemaConsulting.ApiMark.MSBuild\" Version=\"{packageVersion}\""));
 
             // Write a nuget.config so NuGet restores DemaConsulting.ApiMark.MSBuild from the
             // local packages directory without reaching out to nuget.org.

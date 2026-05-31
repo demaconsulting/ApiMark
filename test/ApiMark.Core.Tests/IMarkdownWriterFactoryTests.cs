@@ -11,6 +11,26 @@ namespace ApiMark.Core.Tests;
 public sealed class IMarkdownWriterFactoryTests
 {
     /// <summary>
+    ///     Verifies the system-level contract that <see cref="IMarkdownWriterFactory"/> can produce
+    ///     writers at both the root level (empty subFolder) and within a named subfolder, satisfying
+    ///     the decoupling contract needed by language generators.
+    /// </summary>
+    [Fact]
+    public void ApiMarkCore_WriterFactory_CanCreate_RootAndSubfolderWriters()
+    {
+        // Arrange: obtain the factory via the interface type to exercise the contract
+        IMarkdownWriterFactory factory = new InMemoryMarkdownWriterFactory();
+
+        // Act: create a root-level writer and a subfolder writer
+        using var rootWriter = factory.CreateMarkdown("", "api");
+        using var subWriter = factory.CreateMarkdown("types", "MyType");
+
+        // Assert: both writers must be non-null and independently usable
+        Assert.NotNull(rootWriter);
+        Assert.NotNull(subWriter);
+    }
+
+    /// <summary>
     ///     Verifies that <see cref="IMarkdownWriterFactory.CreateMarkdown"/> returns
     ///     a non-null <see cref="IMarkdownWriter"/> when given valid arguments.
     /// </summary>
