@@ -466,6 +466,21 @@ jobs:
       - name: Install npm dependencies
         run: npm install
 
+      - name: Set browser path for Mermaid (Windows)
+        shell: pwsh
+        run: |
+          $chromePaths = @(
+            "C:\Program Files\Google\Chrome\Application\chrome.exe",
+            "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+          )
+          foreach ($path in $chromePaths) {
+            if (Test-Path $path) {
+              "PUPPETEER_EXECUTABLE_PATH=$path" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+              Write-Host "Set PUPPETEER_EXECUTABLE_PATH to $path"
+              break
+            }
+          }
+
       - name: Restore Tools
         run: dotnet tool restore
 
