@@ -1,0 +1,27 @@
+---
+resource-path:
+  - docs/design
+  - docs/template
+input-files:
+  - docs/design/title.txt
+  - docs/design/introduction.md
+  - docs/design/api-mark-core.md
+  - docs/design/api-mark-core/i-api-generator.md
+  - docs/design/api-mark-core/i-markdown-writer-factory.md
+  - docs/design/api-mark-core/i-markdown-writer.md
+  - docs/design/api-mark-dot-net.md
+  - docs/design/api-mark-dot-net/dot-net-generator.md
+  - docs/design/api-mark-dot-net/type-name-simplifier.md
+  - docs/design/api-mark-msbuild.md
+  - docs/design/api-mark-msbuild/api-mark-task.md
+  - docs/design/api-mark-tool.md
+  - docs/design/api-mark-tool/cli.md
+  - docs/design/api-mark-tool/cli/context.md
+  - docs/design/api-mark-tool/self-test.md
+  - docs/design/api-mark-tool/self-test/validation.md
+  - docs/design/api-mark-tool/program.md
+  - docs/design/ots.md
+  - docs/design/ots/mono-cecil.md
+template: template.html
+table-of-contents: true
+number-sections: true

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>ApiMark.Tool.Tests</AssemblyName>
+    <RootNamespace>ApiMark.Tool.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ApiMark.Tool\ApiMark.Tool.csproj" />
+    <ProjectReference Include="..\ApiMark.Core.TestHelpers\ApiMark.Core.TestHelpers.csproj" />
+    <ProjectReference Include="..\ApiMark.DotNet.Fixtures\ApiMark.DotNet.Fixtures.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,62 @@
+---
+# ApiMarkTask unit requirements
+sections:
+  - title: ApiMarkMsbuild Requirements
+    sections:
+      - title: ApiMarkTask Requirements
+        requirements:
+          - id: ApiMarkMsbuild-ApiMarkTask-InferLanguageFromProjectType
+            title: ApiMarkTask shall infer the documentation language from the project extension when ApiMarkLanguage is not explicitly set.
+            justification: |
+              Most projects do not need to set ApiMarkLanguage explicitly; convention-based
+              inference removes boilerplate and makes the package easy to adopt for both
+              .csproj and .vcxproj projects.
+            tests:
+              - ApiMarkTask_Language_InferredAsCpp_ForVcxproj
+              - ApiMarkTask_Language_InferredAsDotNet_ForCsproj
+          - id: ApiMarkMsbuild-ApiMarkTask-SpawnToolForDotNet
+            title: ApiMarkTask shall spawn ApiMark.Tool with the dotnet subcommand and pass assembly and XML documentation paths for .NET builds.
+            justification: |
+              Out-of-process generation allows ApiMark.Tool to use net8.0 libraries that
+              do not support netstandard2.0, keeping the MSBuild task thin and broadly
+              compatible while enabling full .NET generator functionality.
+            tests:
+              - ApiMarkTask_DotNet_SpawnsToolWithCorrectAssemblyAndXmlDocArguments
+              - ApiMarkTask_Execute_WithDotNetProject_GeneratesDocumentation
+          - id: ApiMarkMsbuild-ApiMarkTask-SpawnToolForCpp
+            title: ApiMarkTask shall spawn ApiMark.Tool with the cpp subcommand and pass include paths for C++ builds.
+            justification: |
+              C++ API generation requires CppAst.Net, which only supports net8.0; the
+              out-of-process model is the only viable integration strategy for vcxproj
+              builds run under .NET Framework MSBuild inside Visual Studio.
+            tests:
+              - ApiMarkTask_Cpp_SpawnsToolWithCorrectIncludePathArguments
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardOutputDirectoryProperty
+            title: ApiMarkTask shall forward the ApiMarkOutputDir property to the tool as the --output argument.
+            justification: |
+              Build authors need to control where generated documentation is written so it
+              fits their packaging, publishing, and CI artifact workflows.
+            tests:
+              - ApiMarkTask_OutputDir_ForwardedToToolAsOutputArgument
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardVisibilityProperty
+            title: ApiMarkTask shall forward the ApiMarkVisibility property to the tool as the --visibility argument.
+            justification: |
+              MSBuild integration must expose the same public-surface filtering choices as
+              the underlying generators so project files can select the intended audience.
+            tests:
+              - ApiMarkTask_Visibility_ForwardedToToolAsVisibilityArgument
+          - id: ApiMarkMsbuild-ApiMarkTask-SupportDisableProperty
+            title: ApiMarkTask shall return success immediately without spawning the tool when DisableApiMark is true.
+            justification: |
+              Projects must be able to suppress generation in specific configurations
+              (e.g., debug builds, CI environments without the SDK) without removing the
+              NuGet package reference or breaking the build.
+            tests:
+              - ApiMarkTask_DisableApiMark_True_SkipsToolInvocation
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardIncludeObsoleteFlag
+            title: ApiMarkTask shall forward the ApiMarkIncludeObsolete property to the tool as the --include-obsolete flag when true.
+            justification: |
+              Build authors need to opt in to including deprecated API surface in generated
+              documentation without modifying the NuGet package reference or the build pipeline.
+            tests:
+              - ApiMarkTask_IncludeObsolete_True_ForwardsIncludeObsoleteFlag

@@ -1,0 +1,19 @@
+---
+# Root requirements file
+includes:
+  - docs/reqstream/api-mark-core.yaml
+  - docs/reqstream/api-mark-core/i-api-generator.yaml
+  - docs/reqstream/api-mark-core/i-markdown-writer-factory.yaml
+  - docs/reqstream/api-mark-core/i-markdown-writer.yaml
+  - docs/reqstream/api-mark-dot-net.yaml
+  - docs/reqstream/api-mark-dot-net/dot-net-generator.yaml
+  - docs/reqstream/api-mark-dot-net/type-name-simplifier.yaml
+  - docs/reqstream/api-mark-msbuild.yaml
+  - docs/reqstream/api-mark-msbuild/api-mark-task.yaml
+  - docs/reqstream/api-mark-tool.yaml
+  - docs/reqstream/api-mark-tool/program.yaml
+  - docs/reqstream/api-mark-tool/cli.yaml
+  - docs/reqstream/api-mark-tool/cli/context.yaml
+  - docs/reqstream/api-mark-tool/self-test.yaml
+  - docs/reqstream/api-mark-tool/self-test/validation.yaml
+  - docs/reqstream/ots/mono-cecil.yaml

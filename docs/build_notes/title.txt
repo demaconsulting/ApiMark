@@ -1,0 +1,13 @@
+---
+title: "ApiMark Build Notes"
+subtitle: "Compact AI-friendly API reference documentation"
+author: "DEMA Consulting"
+description: "Build Notes for ApiMark"
+lang: en-US
+keywords:
+  - Build Notes
+  - ApiMark
+  - .NET
+  - C#
+  - MSBuild
+---

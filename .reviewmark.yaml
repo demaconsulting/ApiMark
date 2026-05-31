@@ -1,0 +1,250 @@
+---
+# ReviewMark Configuration File
+# This file defines which files require review, where the evidence store is located,
+# and how files are grouped into named review-sets following hierarchical scope principles.
+# Patterns identifying all files that require review.
+# Processed in order; prefix a pattern with '!' to exclude.
+needs-review:
+  - README.md  # Root README file
+  - requirements.yaml  # Root requirements file
+  - '**/*.cs'  # All C# source and test files
+  - docs/reqstream/**/*.yaml  # Requirements files
+  - docs/design/**/*.md  # Design documentation files
+  - docs/verification/**/*.md  # Verification documentation files
+  - docs/user_guide/**/*.md  # User guide documentation
+  - '!**/obj/**'  # Exclude build output
+  - '!**/bin/**'  # Exclude build output
+  - '!**/generated/**'  # Exclude generated output
+evidence-source:
+  type: none
+reviews:
+  # Purpose
+  - id: ApiMark-Purpose
+    title: Review that Advertised Features Match System Design
+    paths:
+      - README.md
+      - requirements.yaml
+      - docs/user_guide/**/*.md
+      - docs/design/introduction.md
+      - docs/verification/introduction.md
+
+  # ApiMarkCore - Specials
+  - id: ApiMark-Core-Architecture
+    title: Review that ApiMark Core Architecture Satisfies Requirements
+    paths:
+      - docs/reqstream/api-mark-core.yaml
+      - docs/design/introduction.md
+      - docs/design/api-mark-core.md
+      - docs/verification/introduction.md
+      - docs/verification/api-mark-core.md
+  - id: ApiMark-Core-AllRequirements
+    title: Review that All ApiMark Core Requirements are Complete
+    paths:
+      - docs/reqstream/api-mark-core.yaml
+      - docs/reqstream/api-mark-core/**/*.yaml
+  - id: ApiMark-Core-Design
+    title: Review that ApiMark Core Design is Consistent and Complete
+    paths: [docs/design/api-mark-core.md, docs/design/api-mark-core/**/*.md]
+  - id: ApiMark-Core-Verification
+    title: Review that ApiMark Core Verification is Consistent and Complete
+    paths:
+      - docs/verification/api-mark-core.md
+      - docs/verification/api-mark-core/**/*.md
+  - id: ApiMark-Core-TestHelpers
+    title: Review that ApiMark Core TestHelpers Implementation is Correct
+    paths:
+      - test/ApiMark.Core.TestHelpers/**/*.cs
+
+  # ApiMarkCore - IApiGenerator
+  - id: ApiMark-Core-IApiGenerator
+    title: Review that ApiMark Core IApiGenerator Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-core/i-api-generator.yaml
+      - docs/design/api-mark-core/i-api-generator.md
+      - docs/verification/api-mark-core/i-api-generator.md
+      - src/ApiMark.Core/IApiGenerator.cs
+      - test/ApiMark.Core.Tests/IApiGeneratorTests.cs
+
+  # ApiMarkCore - MarkdownWriter
+  - id: ApiMark-Core-MarkdownWriter
+    title: Review that ApiMark Core IMarkdownWriter Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-core/i-markdown-writer.yaml
+      - docs/design/api-mark-core/i-markdown-writer.md
+      - docs/verification/api-mark-core/i-markdown-writer.md
+      - src/ApiMark.Core/IMarkdownWriter.cs
+      - src/ApiMark.Core/FileMarkdownWriter.cs
+      - test/ApiMark.Core.Tests/IMarkdownWriterTests.cs
+      - test/ApiMark.Core.Tests/FileMarkdownWriterTests.cs
+
+  # ApiMarkCore - MarkdownWriterFactory
+  - id: ApiMark-Core-MarkdownWriterFactory
+    title: Review that ApiMark Core IMarkdownWriterFactory Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-core/i-markdown-writer-factory.yaml
+      - docs/design/api-mark-core/i-markdown-writer-factory.md
+      - docs/verification/api-mark-core/i-markdown-writer-factory.md
+      - src/ApiMark.Core/IMarkdownWriterFactory.cs
+      - src/ApiMark.Core/FileMarkdownWriterFactory.cs
+      - test/ApiMark.Core.Tests/IMarkdownWriterFactoryTests.cs
+      - test/ApiMark.Core.Tests/FileMarkdownWriterFactoryTests.cs
+
+  # ApiMarkDotNet - Specials
+  - id: ApiMark-DotNet-Architecture
+    title: Review that ApiMark DotNet Architecture Satisfies Requirements
+    paths:
+      - docs/reqstream/api-mark-dot-net.yaml
+      - docs/design/introduction.md
+      - docs/design/api-mark-dot-net.md
+      - docs/verification/introduction.md
+      - docs/verification/api-mark-dot-net.md
+  - id: ApiMark-DotNet-AllRequirements
+    title: Review that All ApiMark DotNet Requirements are Complete
+    paths:
+      - docs/reqstream/api-mark-dot-net.yaml
+      - docs/reqstream/api-mark-dot-net/**/*.yaml
+  - id: ApiMark-DotNet-Design
+    title: Review that ApiMark DotNet Design is Consistent and Complete
+    paths:
+      - docs/design/api-mark-dot-net.md
+      - docs/design/api-mark-dot-net/**/*.md
+  - id: ApiMark-DotNet-Verification
+    title: Review that ApiMark DotNet Verification is Consistent and Complete
+    paths:
+      - docs/verification/api-mark-dot-net.md
+      - docs/verification/api-mark-dot-net/**/*.md
+
+  # ApiMarkDotNet - Generator
+  - id: ApiMark-DotNet-Generator
+    title: Review that ApiMark DotNet Generator Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-dot-net/dot-net-generator.yaml
+      - docs/design/api-mark-dot-net/dot-net-generator.md
+      - docs/verification/api-mark-dot-net/dot-net-generator.md
+      - src/ApiMark.DotNet/ApiVisibility.cs
+      - src/ApiMark.DotNet/DotNetGenerator.cs
+      - src/ApiMark.DotNet/DotNetGeneratorOptions.cs
+      - src/ApiMark.DotNet/XmlDocReader.cs
+      - test/ApiMark.DotNet.Fixtures/**/*.cs
+      - test/ApiMark.DotNet.Tests/DotNetGeneratorTests.cs
+      - test/ApiMark.DotNet.Tests/XmlDocReaderTests.cs
+      - test/ApiMark.DotNet.Tests/FixturePaths.cs
+
+  # ApiMarkDotNet - TypeNameSimplifier
+  - id: ApiMark-DotNet-TypeNameSimplifier
+    title: Review that ApiMark DotNet TypeNameSimplifier Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-dot-net/type-name-simplifier.yaml
+      - docs/design/api-mark-dot-net/type-name-simplifier.md
+      - docs/verification/api-mark-dot-net/type-name-simplifier.md
+      - src/ApiMark.DotNet/TypeNameSimplifier.cs
+      - test/ApiMark.DotNet.Tests/TypeNameSimplifierTests.cs
+
+  # ApiMarkMSBuild - Specials
+  - id: ApiMark-MSBuild-Architecture
+    title: Review that ApiMark MSBuild Architecture Satisfies Requirements
+    paths:
+      - docs/reqstream/api-mark-msbuild.yaml
+      - docs/design/introduction.md
+      - docs/design/api-mark-msbuild.md
+      - docs/verification/introduction.md
+      - docs/verification/api-mark-msbuild.md
+  - id: ApiMark-MSBuild-AllRequirements
+    title: Review that All ApiMark MSBuild Requirements are Complete
+    paths:
+      - docs/reqstream/api-mark-msbuild.yaml
+      - docs/reqstream/api-mark-msbuild/**/*.yaml
+  - id: ApiMark-MSBuild-Design
+    title: Review that ApiMark MSBuild Design is Consistent and Complete
+    paths:
+      - docs/design/api-mark-msbuild.md
+      - docs/design/api-mark-msbuild/**/*.md
+  - id: ApiMark-MSBuild-Verification
+    title: Review that ApiMark MSBuild Verification is Consistent and Complete
+    paths:
+      - docs/verification/api-mark-msbuild.md
+      - docs/verification/api-mark-msbuild/**/*.md
+
+  # ApiMarkMSBuild - ApiMarkTask
+  - id: ApiMark-MSBuild-Task
+    title: Review that ApiMark MSBuild ApiMarkTask Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-msbuild/api-mark-task.yaml
+      - docs/design/api-mark-msbuild/api-mark-task.md
+      - docs/verification/api-mark-msbuild/api-mark-task.md
+      - src/ApiMark.MSBuild/ApiMarkTask.cs
+      - test/ApiMark.MSBuild.Tests/ApiMarkTaskTests.cs
+      - test/ApiMark.MSBuild.PackageTests/**/*.cs
+
+  # ApiMarkTool - Specials
+  - id: ApiMark-Tool-Architecture
+    title: Review that ApiMark Tool Architecture Satisfies Requirements
+    paths:
+      - docs/reqstream/api-mark-tool.yaml
+      - docs/design/introduction.md
+      - docs/design/api-mark-tool.md
+      - docs/verification/introduction.md
+      - docs/verification/api-mark-tool.md
+  - id: ApiMark-Tool-AllRequirements
+    title: Review that All ApiMark Tool Requirements are Complete
+    paths:
+      - docs/reqstream/api-mark-tool.yaml
+      - docs/reqstream/api-mark-tool/**/*.yaml
+  - id: ApiMark-Tool-Design
+    title: Review that ApiMark Tool Design is Consistent and Complete
+    paths: [docs/design/api-mark-tool.md, docs/design/api-mark-tool/**/*.md]
+  - id: ApiMark-Tool-Verification
+    title: Review that ApiMark Tool Verification is Consistent and Complete
+    paths:
+      - docs/verification/api-mark-tool.md
+      - docs/verification/api-mark-tool/**/*.md
+
+  # ApiMarkTool - Program
+  - id: ApiMark-Tool-Program
+    title: Review that ApiMark Tool Program Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-tool/program.yaml
+      - docs/design/api-mark-tool/program.md
+      - docs/verification/api-mark-tool/program.md
+      - src/ApiMark.Tool/Program.cs
+      - test/ApiMark.Tool.Tests/ProgramTests.cs
+
+  # ApiMarkTool - Cli
+  - id: ApiMark-Tool-Cli
+    title: Review that ApiMark Tool Cli Satisfies Subsystem Requirements
+    paths:
+      - docs/reqstream/api-mark-tool/cli.yaml
+      - docs/design/api-mark-tool/cli.md
+      - docs/verification/api-mark-tool/cli.md
+  - id: ApiMark-Tool-Cli-Context
+    title: Review that ApiMark Tool Cli Context Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-tool/cli/context.yaml
+      - docs/design/api-mark-tool/cli/context.md
+      - docs/verification/api-mark-tool/cli/context.md
+      - src/ApiMark.Tool/Cli/Context.cs
+      - test/ApiMark.Tool.Tests/Cli/ContextTests.cs
+
+  # ApiMarkTool - SelfTest
+  - id: ApiMark-Tool-SelfTest
+    title: Review that ApiMark Tool SelfTest Satisfies Subsystem Requirements
+    paths:
+      - docs/reqstream/api-mark-tool/self-test.yaml
+      - docs/design/api-mark-tool/self-test.md
+      - docs/verification/api-mark-tool/self-test.md
+  - id: ApiMark-Tool-SelfTest-Validation
+    title: Review that ApiMark Tool SelfTest Validation Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-tool/self-test/validation.yaml
+      - docs/design/api-mark-tool/self-test/validation.md
+      - docs/verification/api-mark-tool/self-test/validation.md
+      - src/ApiMark.Tool/SelfTest/Validation.cs
+      - test/ApiMark.Tool.Tests/SelfTest/ValidationTests.cs
+
+  # OTS Items
+  - id: OTS-MonoCecil
+    title: Review that Mono.Cecil Provides Required Functionality
+    paths:
+      - docs/reqstream/ots/mono-cecil.yaml
+      - docs/design/ots/mono-cecil.md
+      - docs/verification/ots/mono-cecil.md

@@ -1,0 +1,34 @@
+# .gitignore
+# Covers C# and common tools for the ApiMark project.
+
+# Build outputs
+bin/
+obj/
+artifacts/
+test/packages/
+
+# Test results
+**/TestResults/
+
+# .NET
+*.user
+*.suo
+.vs/
+*.slnx.user
+
+# Python virtual environment
+.venv/
+
+# Node
+node_modules/
+/package-lock.json
+
+# Generated compliance documents (build outputs — never committed)
+**/generated/
+
+# Agent logs
+.agent-logs/
+
+# OS
+.DS_Store
+Thumbs.db

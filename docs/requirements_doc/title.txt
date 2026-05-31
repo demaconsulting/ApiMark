@@ -1,0 +1,11 @@
+---
+title: "ApiMark Requirements Document"
+subtitle: "Compact AI-friendly API reference documentation"
+author: "DEMA Consulting"
+description: "Requirements Document for ApiMark"
+lang: en-US
+keywords:
+  - Requirements
+  - C#
+  - .NET
+---

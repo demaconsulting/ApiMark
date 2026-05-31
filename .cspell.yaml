@@ -1,0 +1,60 @@
+---
+# Spell-Checking
+#
+# PURPOSE:
+# - Maintain professional documentation and code quality
+# - Catch spelling errors before publication
+# - Support consistent technical terminology usage
+# - NEVER add a misspelled word - fix the typo in the source instead
+# - NEVER add a British-English spelling - correct to US-English in the source
+# - PROPOSE only genuine technical terms/names as needed
+version: '0.2'
+language: en
+words:
+  - apimark
+  - ApiMark
+  - buildmark
+  - Cecil
+  - csproj
+  - declspec
+  - Dema
+  - dllexport
+  - docstrings
+  - fileassert
+  - frontmatter
+  - GHDL
+  - isystem
+  - libclang
+  - msbuild
+  - MSBuild
+  - msvc
+  - mylib
+  - MYLIB
+  - netstandard
+  - Pandoc
+  - postconditions
+  - reqstream
+  - reviewmark
+  - sarif
+  - sarifmark
+  - slnx
+  - sonar
+  - sonarmark
+  - versionmark
+  - VHDL
+  - Weasyprint
+  - xunit
+  - Xunit
+  - yamlfix
+ignorePaths:
+  - '**/.git/**'
+  - '**/node_modules/**'
+  - '**/.venv/**'
+  - '**/thirdparty/**'
+  - '**/third-party/**'
+  - '**/3rd-party/**'
+  - '**/.agent-logs/**'
+  - '**/bin/**'
+  - '**/obj/**'
+  - '**/generated/**'
+  - package-lock.json

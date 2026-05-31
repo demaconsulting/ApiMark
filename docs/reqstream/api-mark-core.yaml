@@ -1,0 +1,44 @@
+---
+# ApiMarkCore system-level requirements
+sections:
+  - title: ApiMarkCore Requirements
+    requirements:
+      - id: ApiMarkCore-IApiGenerator-ProvideLanguageGeneratorContract
+        title: ApiMarkCore shall provide a language-generator contract that callers can use to invoke any supported language module.
+        justification: |
+          ApiMark needs a common contract so the CLI and any build integration can
+          trigger documentation generation without knowing the implementation details
+          of each language-specific module.
+        children:
+          - ApiMarkCore-IApiGenerator-DefineGenerateMethod
+          - ApiMarkCore-IApiGenerator-AllowConstructionTimeConfiguration
+          - ApiMarkCore-IApiGenerator-ProduceEntrypointFile
+        tests:
+          - ApiMarkCore_GeneratorContract_SupportedLanguage_CanBeInvoked
+      - id: ApiMarkCore-IMarkdownWriterFactory-ProvideMarkdownWriterFactoryInterface
+        title: ApiMarkCore shall provide a factory interface for creating per-file Markdown writers so that language generators are decoupled from the file-system.
+        justification: |
+          Decoupling generators from the file-system via a factory contract allows
+          the same generator code to write to disk in production and to memory in
+          tests, making generator output fully verifiable without I/O.
+        children:
+          - ApiMarkCore-IMarkdownWriterFactory-DefineCreateMarkdownMethod
+          - ApiMarkCore-IMarkdownWriterFactory-SupportRootLevelFiles
+        tests:
+          - ApiMarkCore_WriterFactory_CanCreate_RootAndSubfolderWriters
+      - id: ApiMarkCore-IMarkdownWriter-ProvideMarkdownOutputInterface
+        title: ApiMarkCore shall provide a markdown output interface for writing individual documentation files.
+        justification: |
+          A shared markdown-writing abstraction keeps the generated document shape
+          consistent while allowing output helpers to evolve without changing each
+          language generator.
+        children:
+          - ApiMarkCore-IMarkdownWriter-ImplementIDisposable
+          - ApiMarkCore-IMarkdownWriter-DefineWriteHeading
+          - ApiMarkCore-IMarkdownWriter-DefineWriteSignature
+          - ApiMarkCore-IMarkdownWriter-DefineWriteParagraph
+          - ApiMarkCore-IMarkdownWriter-DefineWriteTable
+          - ApiMarkCore-IMarkdownWriter-DefineWriteCodeBlock
+          - ApiMarkCore-IMarkdownWriter-DefineWriteLink
+        tests:
+          - ApiMarkCore_MarkdownWriterContract_FileSections_RenderConsistently

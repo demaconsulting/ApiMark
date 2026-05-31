@@ -1,0 +1,255 @@
+using System.Reflection;
+using ApiMark.Core;
+using ApiMark.DotNet;
+using ApiMark.Tool.Cli;
+using ApiMark.Tool.SelfTest;
+
+namespace ApiMark.Tool;
+
+/// <summary>
+///     CLI entry point for the ApiMark documentation tool.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Dispatch is priority-ordered: version check first (no banner), then banner, then help,
+///         then self-validation, then main tool logic. Only the highest-priority matching action
+///         is executed per invocation.
+///     </para>
+///     <para>
+///         <see cref="ArgumentException"/> and <see cref="InvalidOperationException"/> from
+///         <see cref="Cli.Context.Create"/> are treated as expected errors: their messages are
+///         written to stderr and exit code 1 is returned without a stack trace. Any other
+///         exception propagated out of <see cref="Main"/> is re-thrown so that the runtime can
+///         record it in event logs.
+///     </para>
+/// </remarks>
+internal static class Program
+{
+    /// <summary>
+    ///     Gets the application version string.
+    /// </summary>
+    /// <remarks>
+    ///     The version is read from the <see cref="AssemblyInformationalVersionAttribute"/> via
+    ///     reflection on every access. Callers that need the value more than once should store
+    ///     the result locally.
+    /// </remarks>
+    public static string Version
+    {
+        get
+        {
+            // Read the informational version from assembly metadata; fall back to AssemblyVersion
+            // or a safe default when neither attribute is present (e.g., during unit tests)
+            var assembly = typeof(Program).Assembly;
+            return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                   ?? assembly.GetName().Version?.ToString()
+                   ?? "0.0.0";
+        }
+    }
+
+    /// <summary>
+    ///     Application entry point.
+    /// </summary>
+    /// <param name="args">Command-line arguments from the host environment.</param>
+    /// <returns>0 on success; non-zero on error.</returns>
+    /// <exception cref="Exception">
+    ///     Thrown when an unexpected error occurs; re-thrown after writing to stderr.
+    /// </exception>
+    public static int Main(string[] args)
+    {
+        try
+        {
+            // Create context from command-line arguments; argument parsing failures throw here
+            using var context = Context.Create(args);
+
+            // Run the program logic and return the exit code
+            Run(context);
+            return context.ExitCode;
+        }
+        catch (ArgumentException ex)
+        {
+            // Print expected argument exceptions and return error code
+            Console.Error.WriteLine($"Error: {ex.Message}");
+            return 1;
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Print expected operation exceptions (e.g., log file open failure) and return error code
+            Console.Error.WriteLine($"Error: {ex.Message}");
+            return 1;
+        }
+        catch (Exception ex)
+        {
+            // Print unexpected exceptions and re-throw to generate event logs
+            Console.Error.WriteLine($"Unexpected error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    ///     Runs the program logic based on the provided context.
+    /// </summary>
+    /// <param name="context">The context containing command-line arguments and program state.</param>
+    /// <remarks>
+    ///     Dispatch is priority-ordered: version → banner → help → validate → main tool logic.
+    ///     The version flag short-circuits before the banner so that <c>--version</c> output is
+    ///     undecorated by the application header.
+    /// </remarks>
+    public static void Run(Context context)
+    {
+        // Priority 1: Version query — short-circuits before banner
+        if (context.Version)
+        {
+            context.WriteLine(Version);
+            return;
+        }
+
+        // Print application banner for all remaining paths
+        PrintBanner(context);
+
+        // Priority 2: Help
+        if (context.Help)
+        {
+            PrintHelp(context);
+            return;
+        }
+
+        // Priority 3: Self-Validation
+        if (context.Validate)
+        {
+            Validation.Run(context);
+            return;
+        }
+
+        // Priority 4: Main tool functionality
+        RunToolLogic(context);
+    }
+
+    /// <summary>
+    ///     Runs the main tool logic — validates required options, constructs the generator, and generates output.
+    /// </summary>
+    /// <param name="context">The context containing parsed options and program state.</param>
+    private static void RunToolLogic(Context context)
+    {
+        // Require a language subcommand before validating language-specific options
+        if (string.IsNullOrEmpty(context.Language))
+        {
+            context.WriteError("Error: No language subcommand specified.");
+            PrintHelp(context);
+            return;
+        }
+
+        // Require --output for every language subcommand
+        if (string.IsNullOrEmpty(context.Output))
+        {
+            context.WriteError("Error: --output is required.");
+            PrintHelp(context);
+            return;
+        }
+
+        // Validate dotnet-specific required options before constructing the generator
+        if (context.Language == "dotnet" && string.IsNullOrEmpty(context.Assembly))
+        {
+            context.WriteError("Error: --assembly is required for the dotnet subcommand.");
+            PrintHelp(context);
+            return;
+        }
+
+        try
+        {
+            // Construct the generator and invoke it with a file-system writer factory
+            var generator = CreateGenerator(context);
+            var factory = new FileMarkdownWriterFactory(context.Output!);
+            generator.Generate(factory);
+        }
+        // Catch all generator construction and execution errors so failures produce
+        // clean non-zero exits without an unhandled-exception stack trace
+        catch (Exception ex)
+        {
+            context.WriteError($"Error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    ///     Constructs and returns an <see cref="IApiGenerator"/> configured from the parsed context.
+    /// </summary>
+    /// <param name="context">Fully parsed CLI context.</param>
+    /// <returns>A configured <see cref="IApiGenerator"/> ready for <c>Generate</c> to be called.</returns>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <see cref="Context.Visibility"/> is not a recognized
+    ///     <see cref="ApiVisibility"/> value.
+    /// </exception>
+    /// <exception cref="NotSupportedException">
+    ///     Thrown when <see cref="Context.Language"/> identifies an unrecognized or
+    ///     not-yet-implemented language subcommand.
+    /// </exception>
+    private static IApiGenerator CreateGenerator(Context context)
+    {
+        // Parse the visibility string case-insensitively; reject unknown values early
+        if (!Enum.TryParse<ApiVisibility>(context.Visibility, ignoreCase: true, out var visibility))
+        {
+            throw new ArgumentException(
+                $"Invalid visibility value '{context.Visibility}'. " +
+                $"Valid values are: {string.Join(", ", Enum.GetNames<ApiVisibility>())}.");
+        }
+
+        return context.Language switch
+        {
+            // Construct a DotNetGenerator from the dotnet-specific options
+            "dotnet" => new DotNetGenerator(new DotNetGeneratorOptions
+            {
+                AssemblyPath = context.Assembly ?? string.Empty,
+                XmlDocPath = context.XmlDoc ?? string.Empty,
+                Visibility = visibility,
+                IncludeObsolete = context.IncludeObsolete,
+            }),
+
+            // cpp subcommand is planned but not yet implemented
+            "cpp" => throw new NotSupportedException("cpp language support is not yet implemented."),
+
+            // Any other token is an unrecognized subcommand
+            _ => throw new NotSupportedException(
+                $"Unrecognized language subcommand '{context.Language}'."),
+        };
+    }
+
+    /// <summary>
+    ///     Prints the application banner to the context output stream.
+    /// </summary>
+    /// <param name="context">The context for output.</param>
+    private static void PrintBanner(Context context)
+    {
+        context.WriteLine($"ApiMark.Tool version {Version}");
+        context.WriteLine("Copyright (c) DEMA Consulting");
+        context.WriteLine("");
+    }
+
+    /// <summary>
+    ///     Prints usage and option information to the context output stream.
+    /// </summary>
+    /// <param name="context">The context for output.</param>
+    private static void PrintHelp(Context context)
+    {
+        context.WriteLine("Usage: apimark [options] [language [language-options]]");
+        context.WriteLine("");
+        context.WriteLine("Options:");
+        context.WriteLine("  -v, --version              Display version information");
+        context.WriteLine("  -?, -h, --help             Display this help message");
+        context.WriteLine("  --silent                   Suppress console output");
+        context.WriteLine("  --validate                 Run self-validation tests");
+        context.WriteLine("  --results <file>           Write validation results to file (.trx or .xml)");
+        context.WriteLine("  --depth <#>                Set heading depth for validation output (default: 1)");
+        context.WriteLine("  --log <file>               Write all output to log file");
+        context.WriteLine("");
+        context.WriteLine("Languages:");
+        context.WriteLine("  dotnet    Generate API documentation from a .NET assembly");
+        context.WriteLine("  cpp       Generate API documentation from C++ headers (not yet implemented)");
+        context.WriteLine("");
+        context.WriteLine("dotnet options:");
+        context.WriteLine("  --assembly <path>          Path to the .NET assembly (required)");
+        context.WriteLine("  --xml-doc <path>           Path to the XML documentation file");
+        context.WriteLine("  --output <dir>             Output directory for Markdown files (required)");
+        context.WriteLine("  --visibility <value>       Visibility filter: Public, PublicAndProtected, All (default: Public)");
+        context.WriteLine("  --include-obsolete         Include obsolete members in generated output");
+    }
+}
+

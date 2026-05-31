@@ -1,0 +1,13 @@
+<Solution>
+  <Project Path="src/ApiMark.Core/ApiMark.Core.csproj" />
+  <Project Path="src/ApiMark.DotNet/ApiMark.DotNet.csproj" />
+  <Project Path="src/ApiMark.MSBuild/ApiMark.MSBuild.csproj" />
+  <Project Path="src/ApiMark.Tool/ApiMark.Tool.csproj" />
+  <Project Path="test/ApiMark.Core.TestHelpers/ApiMark.Core.TestHelpers.csproj" />
+  <Project Path="test/ApiMark.DotNet.Fixtures/ApiMark.DotNet.Fixtures.csproj" />
+  <Project Path="test/ApiMark.Core.Tests/ApiMark.Core.Tests.csproj" />
+  <Project Path="test/ApiMark.DotNet.Tests/ApiMark.DotNet.Tests.csproj" />
+  <Project Path="test/ApiMark.Tool.Tests/ApiMark.Tool.Tests.csproj" />
+  <Project Path="test/ApiMark.MSBuild.Tests/ApiMark.MSBuild.Tests.csproj" />
+  <Project Path="test/ApiMark.MSBuild.PackageTests/ApiMark.MSBuild.PackageTests.csproj" />
+</Solution>

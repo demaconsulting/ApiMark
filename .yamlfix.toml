@@ -1,0 +1,4 @@
+# YAML Auto-Fix Configuration
+preserve_quotes = true
+sequence_style = "keep_style"
+whitelines = 1

@@ -1,0 +1,44 @@
+---
+# Mono.Cecil OTS requirements
+sections:
+  - title: OTS Software Requirements
+    sections:
+      - title: MonoCecil Requirements
+        requirements:
+          - id: MonoCecil-Assembly-ReadWithoutLoading
+            title: Mono.Cecil shall read a compiled assembly's type metadata and member information without loading the assembly into the current process.
+            justification: |
+              Loading assemblies into the current process creates binding conflicts and
+              requires all transitive dependencies to be resolvable at runtime. Mono.Cecil's
+              reflection-free model allows ApiMark to inspect any assembly independently of
+              its dependency graph.
+            tests:
+              - DotNetGenerator_ReadAssembly_WithMonoCecil_ReturnsTypesAndMembers
+          - id: MonoCecil-Assembly-ExposeTypeMetadata
+            title: Mono.Cecil shall expose the fully qualified name, base type, implemented interfaces, and custom attributes of every type defined in a read assembly.
+            justification: |
+              ApiMark requires complete type-level information to generate accurate type
+              pages, inheritance summaries, and attribute annotations in the markdown output.
+            tests:
+              - DotNetGenerator_ReadAssembly_WithMonoCecil_ReturnsTypesAndMembers
+              - DotNetGenerator_Generate_ValidAssembly_CreatesTypePageForSampleClass
+          - id: MonoCecil-Assembly-ExposeMemberSignatures
+            title: Mono.Cecil shall expose the name, parameter types, return type, and generic parameters of every method, property, field, and event defined on a type.
+            justification: |
+              Member-level detail is needed to generate accurate API signatures in the
+              markdown output and to apply the complexity rule that determines when
+              per-member files are produced.
+            tests:
+              - ApiMarkDotNet_TypeNames_CommonSignatures_RenderReadably
+              - TypeNameSimplifier_GenericArguments_AreSimplifiedRecursively
+              - DotNetGenerator_Generate_MethodWithParameters_CreatesMemberPage
+          - id: MonoCecil-Assembly-ExposeAccessibilityModifiers
+            title: Mono.Cecil shall expose the accessibility modifier for every type and member so that ApiMark can apply visibility filtering.
+            justification: |
+              Correct visibility filtering requires the actual CLR accessibility of each
+              item. Mono.Cecil exposes this without compiling or loading the assembly,
+              enabling accurate ApiVisibility filtering in the generator.
+            tests:
+              - DotNetGenerator_Visibility_PublicPublicAndProtectedAll_FilterExpectedApis
+              - DotNetGenerator_Generate_PublicVisibility_ExcludesProtectedMethod
+              - DotNetGenerator_Generate_AllVisibility_IncludesPrivateMembers

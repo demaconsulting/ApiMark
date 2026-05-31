@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>apimark</ToolCommandName>
+    <PackageId>DemaConsulting.ApiMark.Tool</PackageId>
+    <AssemblyName>ApiMark.Tool</AssemblyName>
+    <RootNamespace>ApiMark.Tool</RootNamespace>
+    <Version>0.0.0</Version>
+    <Authors>DEMA Consulting</Authors>
+    <Company>DEMA Consulting</Company>
+    <Description>CLI tool that generates API documentation from source assemblies and headers.</Description>
+    <Copyright>Copyright DEMA Consulting</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Title>ApiMark Tool</Title>
+    <Product>DemaConsulting.ApiMark.Tool</Product>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="ApiMark.Tool.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ApiMark.DotNet\ApiMark.DotNet.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="DemaConsulting.TestResults" Version="1.7.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.300">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.26.0.140279">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Polyfill" Version="10.7.0" PrivateAssets="All" />
+  </ItemGroup>
+</Project>

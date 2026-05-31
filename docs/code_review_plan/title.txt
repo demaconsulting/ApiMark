@@ -1,0 +1,11 @@
+---
+title: "ApiMark Code Review Plan"
+subtitle: "Compact AI-friendly API reference documentation"
+author: "DEMA Consulting"
+description: "Code Review Plan for ApiMark"
+lang: en-US
+keywords:
+  - Code Review
+  - C#
+  - .NET
+---

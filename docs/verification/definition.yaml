@@ -1,0 +1,25 @@
+---
+resource-path: [docs/verification, docs/template]
+input-files:
+  - docs/verification/title.txt
+  - docs/verification/introduction.md
+  - docs/verification/api-mark-core.md
+  - docs/verification/api-mark-core/i-api-generator.md
+  - docs/verification/api-mark-core/i-markdown-writer-factory.md
+  - docs/verification/api-mark-core/i-markdown-writer.md
+  - docs/verification/api-mark-dot-net.md
+  - docs/verification/api-mark-dot-net/dot-net-generator.md
+  - docs/verification/api-mark-dot-net/type-name-simplifier.md
+  - docs/verification/api-mark-msbuild.md
+  - docs/verification/api-mark-msbuild/api-mark-task.md
+  - docs/verification/api-mark-tool.md
+  - docs/verification/api-mark-tool/cli.md
+  - docs/verification/api-mark-tool/cli/context.md
+  - docs/verification/api-mark-tool/self-test.md
+  - docs/verification/api-mark-tool/self-test/validation.md
+  - docs/verification/api-mark-tool/program.md
+  - docs/verification/ots.md
+  - docs/verification/ots/mono-cecil.md
+template: template.html
+table-of-contents: true
+number-sections: true

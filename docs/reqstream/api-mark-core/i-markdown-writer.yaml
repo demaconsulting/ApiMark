@@ -1,0 +1,57 @@
+---
+# IMarkdownWriter unit requirements
+sections:
+  - title: ApiMarkCore Requirements
+    sections:
+      - title: IMarkdownWriter Requirements
+        requirements:
+          - id: ApiMarkCore-IMarkdownWriter-ImplementIDisposable
+            title: IMarkdownWriter shall extend IDisposable so that implementations flush and close the underlying output file when disposed.
+            justification: |
+              Generators open one writer per output file and must be able to flush and
+              close each file reliably; IDisposable provides the standard .NET pattern
+              for deterministic resource cleanup and enables using-statement ergonomics.
+            tests:
+              - IMarkdownWriter_IsDisposable_ExtendsIDisposable
+          - id: ApiMarkCore-IMarkdownWriter-DefineWriteHeading
+            title: IMarkdownWriter shall define a WriteHeading operation that accepts a heading level and heading text.
+            justification: |
+              Generated files need a consistent way to emit section headings so readers
+              can navigate summary and detail pages with a predictable markdown structure.
+            tests:
+              - IMarkdownWriter_WriteHeading_ValidArgs_DoesNotThrow
+          - id: ApiMarkCore-IMarkdownWriter-DefineWriteSignature
+            title: IMarkdownWriter shall define a WriteSignature operation that accepts a language identifier and code text.
+            justification: |
+              Type and member signatures must be rendered distinctly from prose so the
+              generated documentation preserves the API surface in a readable format.
+            tests:
+              - IMarkdownWriter_WriteSignature_ValidArgs_DoesNotThrow
+          - id: ApiMarkCore-IMarkdownWriter-DefineWriteParagraph
+            title: IMarkdownWriter shall define a WriteParagraph operation that accepts paragraph text.
+            justification: |
+              Summaries, remarks, and return descriptions need a plain prose-writing
+              operation so generators can emit narrative documentation consistently.
+            tests:
+              - IMarkdownWriter_WriteParagraph_ValidText_DoesNotThrow
+          - id: ApiMarkCore-IMarkdownWriter-DefineWriteTable
+            title: IMarkdownWriter shall define a WriteTable operation that accepts headers and rows.
+            justification: |
+              Namespace, type, and member summaries rely on tables to present compact
+              API information that can be scanned quickly by humans and AI tools.
+            tests:
+              - IMarkdownWriter_WriteTable_ValidArgs_DoesNotThrow
+          - id: ApiMarkCore-IMarkdownWriter-DefineWriteCodeBlock
+            title: IMarkdownWriter shall define a WriteCodeBlock operation that accepts a language identifier and code text.
+            justification: |
+              Example content and other multi-line snippets need fenced code blocks so
+              documentation remains readable and syntax-aware in markdown viewers.
+            tests:
+              - IMarkdownWriter_WriteCodeBlock_ValidArgs_DoesNotThrow
+          - id: ApiMarkCore-IMarkdownWriter-DefineWriteLink
+            title: IMarkdownWriter shall define a WriteLink operation that accepts link text and a relative path.
+            justification: |
+              Gradual disclosure depends on explicit links between generated files, so
+              the writer contract must support relative navigation links directly.
+            tests:
+              - IMarkdownWriter_WriteLink_ValidArgs_DoesNotThrow
