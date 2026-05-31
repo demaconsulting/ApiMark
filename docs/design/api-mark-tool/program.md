@@ -16,35 +16,26 @@ implementation for the requested language using a language switch, and calls
 **Program**: Static class — contains the CLI entry point, dispatch logic, generator
 construction, and help/banner printing.
 
-**Context** (`Cli/Context.cs`): Internal sealed class that owns command-line parsing
-and output routing. Created via `Context.Create(string[] args)`. Implements
-`IDisposable` to release the log file writer. Exposes:
+**Program.Version** (public static `string` property): Returns the informational
+version string read from `AssemblyInformationalVersionAttribute` via reflection, with
+fallback to `AssemblyVersion`, then `"0.0.0"`. Used by `PrintBanner` and `Run` when
+responding to `--version`.
 
-- *Standard flags*: `Version` (`bool`), `Help` (`bool`), `Silent` (`bool`),
-  `Validate` (`bool`), `ResultsFile` (`string?`), `HeadingDepth` (`int`, default 1).
-- *Language subcommand*: `Language` (`string?`) — the first positional non-flag
-  token (`dotnet`, `cpp`, or null if not given).
-- *Language-specific options*: `Assembly` (`string?`), `XmlDoc` (`string?`),
-  `Includes` (`string[]`), `Output` (`string?`), `Visibility` (`string`, default
-  `"Public"`), `IncludeObsolete` (`bool`).
-- `ExitCode` (`int`) — 0 when no errors have been reported, 1 otherwise.
-- `WriteLine(string)` — writes to stdout (suppressed when `Silent`) and log file.
-- `WriteError(string)` — sets `ExitCode` to 1, writes to stderr (suppressed when
-  `Silent`) and log file.
+**Context** (`Cli/Context.cs`): See _Cli Subsystem Design_ (`cli.md`) and
+_Context Unit Design_ (`cli/context.md`) for the full data model and interface.
 
-**Validation** (`SelfTest/Validation.cs`): Internal static class that runs
-self-validation tests when `--validate` is specified. Executes version and help
-display tests via child `Context` instances and reports results. Supports writing
-results to a `.trx` (TRX) or `.xml` (JUnit) file.
+**Validation** (`SelfTest/Validation.cs`): See _SelfTest Subsystem Design_
+(`self-test.md`) and _Validation Unit Design_ (`self-test/validation.md`) for
+the full design.
 
 ### Key Methods
 
 **Program.Main**: CLI entry point.
 
-- *Parameters*: `string[] args` — command-line arguments from the host environment.
-- *Returns*: `int` — exit code; 0 on success, non-zero on error.
-- *Preconditions*: None — `Main` handles all argument parsing errors gracefully.
-- *Postconditions*: On success, the output directory contains a complete Markdown
+- _Parameters_: `string[] args` — command-line arguments from the host environment.
+- _Returns_: `int` — exit code; 0 on success, non-zero on error.
+- _Preconditions_: None — `Main` handles all argument parsing errors gracefully.
+- _Postconditions_: On success, the output directory contains a complete Markdown
   tree for the requested component. On error, a descriptive message is written to
   stderr and the process exits non-zero.
 
@@ -55,7 +46,7 @@ are written to `Console.Error` and re-thrown.
 
 **Program.Run** (public static): Priority-ordered dispatch method.
 
-- *Parameters*: `Context context` — fully initialized context.
+- _Parameters_: `Context context` — fully initialized context.
 - Priority 1: `--version` — writes version string, returns immediately (no banner).
 - Priority 2: banner printed for all subsequent paths.
 - Priority 3: `--help` — prints help text.
@@ -65,7 +56,7 @@ are written to `Console.Error` and re-thrown.
 **Program.RunToolLogic** (private static): Validates required options, constructs
 the generator, and calls `Generate`.
 
-- *Parameters*: `Context context`.
+- _Parameters_: `Context context`.
 - Validates `Language`, `Output`, and (for `dotnet`) `Assembly`; calls
   `context.WriteError` and `PrintHelp` if any are missing.
 - Calls `CreateGenerator(context)` and `generator.Generate(factory)` inside a
@@ -74,9 +65,9 @@ the generator, and calls `Generate`.
 **Program.CreateGenerator** (private static): Constructs and returns an
 `IApiGenerator` configured from the parsed context.
 
-- *Parameters*: `Context context` — fully parsed CLI context.
-- *Returns*: `IApiGenerator` — language-specific generator instance.
-- *Preconditions*: `context.Language` must be a recognized, implemented subcommand.
+- _Parameters_: `Context context` — fully parsed CLI context.
+- _Returns_: `IApiGenerator` — language-specific generator instance.
+- _Preconditions_: `context.Language` must be a recognized, implemented subcommand.
 - Throws `ArgumentException` for invalid `Visibility` values; throws
   `NotSupportedException` for unrecognized or not-yet-implemented language
   identifiers.
@@ -100,8 +91,12 @@ re-thrown.
 
 ### Dependencies
 
-- **Context** — owns argument parsing and output routing; created by Program.
-- **Validation** — runs self-validation tests when `--validate` is specified.
+- **Context** (Cli subsystem) — owns argument parsing and output routing; created by
+  Program — see _Cli Subsystem Design_ (`cli.md`) and _Context Unit Design_
+  (`cli/context.md`).
+- **Validation** (SelfTest subsystem) — runs self-validation tests when `--validate`
+  is specified — see _SelfTest Subsystem Design_ (`self-test.md`) and _Validation
+  Unit Design_ (`self-test/validation.md`).
 - **IApiGenerator** — Program references `IApiGenerator` from ApiMarkCore as the
   common interface for all language generators — see IApiGenerator Unit Design.
 - **DotNetGenerator** — Program constructs `DotNetGenerator` for the `dotnet`

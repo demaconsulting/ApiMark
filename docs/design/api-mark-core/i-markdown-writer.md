@@ -13,8 +13,14 @@ and closes the underlying file on Dispose.
 
 ### Data Model
 
-N/A — IMarkdownWriter is an interface with no fields or properties of its own.
-Implementing classes manage the underlying file stream or string builder internally.
+`IMarkdownWriter` is an interface with no fields or properties of its own. The file-system
+implementation, `FileMarkdownWriter`, holds:
+
+- `_writer` (`StreamWriter`, read-only): the underlying stream writer opened over the output file;
+  ownership transfers to `FileMarkdownWriter` on construction and is disposed when the writer is
+  disposed.
+- `_disposed` (`bool`): tracks whether `Dispose` has been called; prevents double-disposal and
+  guards each write method against use-after-dispose.
 
 ### Key Methods
 
@@ -60,7 +66,8 @@ Implementing classes manage the underlying file stream or string builder interna
 - *Parameters*: `string text` — display label; `string relativePath` — path to the
   linked file relative to the current output file.
 - *Returns*: `void`
-- *Postconditions*: A reference entry is appended to the current output file.
+- *Postconditions*: A Markdown inline link of the form `[text](relativePath)` is
+  appended to the current output file.
 
 **IMarkdownWriter.Dispose** (from IDisposable): Flushes and closes the underlying
 output file.
@@ -70,10 +77,17 @@ output file.
 
 ### Error Handling
 
-IMarkdownWriter itself defines no error-handling contract; it is an interface.
-Implementing classes are responsible for handling I/O errors (for example,
-IOException when the output directory is not writable) and documenting their error
-behavior in their own unit designs.
+`IMarkdownWriter` itself defines no error-handling contract; it is an interface.
+
+`FileMarkdownWriter` does not catch I/O errors. Any `IOException` raised by the
+underlying `StreamWriter` (for example, if the output directory is not writable or
+the disk is full) propagates directly to the caller. Callers are responsible for
+ensuring the output path is accessible before requesting a writer from
+`FileMarkdownWriterFactory`.
+
+Each write method guards against use-after-dispose by calling
+`ObjectDisposedException.ThrowIf` at the start of the method body; any call made
+after `Dispose` throws `ObjectDisposedException`.
 
 ### Dependencies
 

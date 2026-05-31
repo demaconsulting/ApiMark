@@ -80,8 +80,8 @@ public class ApiMarkTaskTests
 
     /// <summary>
     ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> produces an argument string
-    ///     containing the <c>--includes</c> flag with the configured include paths when the language
-    ///     is <c>cpp</c>.
+    ///     containing the <c>--includes</c> flag with include paths converted from the
+    ///     MSBuild semicolon-separated format to the comma-separated format expected by the tool.
     /// </summary>
     [Fact]
     public void ApiMarkTask_Cpp_SpawnsToolWithCorrectIncludePathArguments()
@@ -97,9 +97,10 @@ public class ApiMarkTaskTests
         // Act
         var args = task.BuildArguments("cpp");
 
-        // Assert: the --includes flag and the include path list must appear in the arguments
+        // Assert: the --includes flag must appear and semicolons must be converted to commas
         Assert.Contains("--includes", args);
-        Assert.Contains("/include1;/include2", args);
+        Assert.Contains("/include1,/include2", args);
+        Assert.DoesNotContain("/include1;/include2", args);
     }
 
     /// <summary>
@@ -181,12 +182,36 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> appends the <c>--include-obsolete</c>
+    ///     flag when <see cref="ApiMarkTask.ApiMarkIncludeObsolete"/> is <c>true</c>.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_IncludeObsolete_True_ForwardsIncludeObsoleteFlag()
+    {
+        // Arrange: set IncludeObsolete alongside the required dotnet paths
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".csproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/api.dll",
+            ApiMarkXmlDocPath = "/some/api.xml",
+            ApiMarkIncludeObsolete = true,
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet");
+
+        // Assert: the --include-obsolete flag must appear in the argument string
+        Assert.Contains("--include-obsolete", args);
+    }
+
+    /// <summary>
     ///     Validates that building a .NET project via <see cref="ApiMarkTask.Execute"/> with a real
     ///     fixture assembly spawns <c>ApiMark.Tool</c> and produces the expected <c>api.md</c>
     ///     output file.
     /// </summary>
     [Fact]
-    public void ApiMarkMsbuild_Build_WithDotNetProject_GeneratesDocumentation()
+    public void ApiMarkTask_Execute_WithDotNetProject_GeneratesDocumentation()
     {
         // Arrange: locate runtime artifacts in the test output directory
         var testDir = Path.GetDirectoryName(typeof(ApiMarkTaskTests).Assembly.Location)!;

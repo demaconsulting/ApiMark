@@ -21,3 +21,21 @@ sections:
               generators to create that fixed entrypoint.
             tests:
               - IMarkdownWriterFactory_CreateMarkdown_EmptySubFolder_IsRootLevel
+          - id: ApiMarkCore-IMarkdownWriterFactory-RejectInvalidOutputDirectory
+            title: IMarkdownWriterFactory shall reject a null, empty, or whitespace output directory path at construction time.
+            justification: |
+              Failing fast at construction with a clear ArgumentException prevents
+              obscure I/O failures later when the first file is created, making
+              misconfiguration easier to diagnose.
+            tests:
+              - FileMarkdownWriterFactory_Constructor_NullDirectory_ThrowsArgumentException
+              - FileMarkdownWriterFactory_Constructor_WhitespaceDirectory_ThrowsArgumentException
+          - id: ApiMarkCore-IMarkdownWriterFactory-EnsureOutputDirectory
+            title: IMarkdownWriterFactory shall create the output directory and any required subdirectory before returning the writer, so that callers do not need to pre-create the directory structure.
+            justification: |
+              Language generators work with logical paths and must not be responsible
+              for managing the physical directory tree; delegating directory creation
+              to the factory keeps generators free of I/O concerns.
+            tests:
+              - FileMarkdownWriterFactory_CreateMarkdown_NonExistentDirectory_CreatesDirectory
+              - FileMarkdownWriterFactory_CreateMarkdown_WithSubFolder_CreatesDirectoryAndFile

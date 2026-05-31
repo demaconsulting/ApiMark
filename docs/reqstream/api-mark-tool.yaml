@@ -18,6 +18,8 @@ sections:
           - ApiMarkTool-Program-SupportHelpOption
           - ApiMarkTool-Program-SupportSilentAndLogOptions
           - ApiMarkTool-Program-SupportValidateOption
+          - ApiMarkTool-Program-ReportInvalidArguments
+          - ApiMarkTool-Cli-ProvideCliArgumentParsing
+          - ApiMarkTool-SelfTest-RunSelfValidation
         tests:
           - Program_Main_DotNetCommand_GeneratesExpectedOutput
-

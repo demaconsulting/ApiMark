@@ -20,7 +20,8 @@ required.
 - All ApiMark.Tool integration tests pass with zero failures.
 - Valid arguments dispatch to the correct language generator and produce documentation.
 - Invalid arguments and missing inputs return non-zero exit codes with actionable error text.
-- Visibility options affect generated output as documented.
+- Visibility option values are forwarded to the generator; invalid values are rejected with a non-zero exit
+  code and an actionable error message.
 - The `apimark dotnet` subcommand generates the expected Markdown tree for a sample assembly.
 
 ## Test Scenarios

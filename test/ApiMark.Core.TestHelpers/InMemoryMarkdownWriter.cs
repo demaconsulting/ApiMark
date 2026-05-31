@@ -139,9 +139,11 @@ public sealed class InMemoryMarkdownWriter : IMarkdownWriter
         // Guard against use-after-dispose
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
-        // Materialize the row sequence immediately so that deferred-execution
-        // sequences produce correct results when assertions read Operations later
-        _operations.Add(new TableOperation(headers, rows.ToList()));
+        // Snapshot both collections so that the recorded operation is immune to
+        // post-call mutation: rows are materialized from any deferred-execution
+        // sequence, and headers are copied defensively because the caller owns
+        // the original array and may reuse or modify it after this call
+        _operations.Add(new TableOperation(headers.ToArray(), rows.ToList()));
     }
 
     /// <summary>

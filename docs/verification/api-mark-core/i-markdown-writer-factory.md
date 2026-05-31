@@ -27,14 +27,46 @@ in `ApiMark.Core.TestHelpers`.
 **Test double implements IMarkdownWriterFactory without errors**: Verifies that
 `InMemoryMarkdownWriterFactory` compiles cleanly and can be instantiated,
 confirming the interface contract has no hidden dependencies. Tested by
-`MarkdownWriterFactoryContract_TestDoubleCompiles`.
+`InMemoryMarkdownWriterFactory_Constructor_Default_ImplementsInterface`.
 
 **CreateMarkdown returns a usable IMarkdownWriter**: Verifies that calling
 `CreateMarkdown` with a subFolder and name returns a non-null IMarkdownWriter on
 which write methods can be called without error. Tested by
-`MarkdownWriterFactoryContract_CreateMarkdown_ReturnsWriter`.
+`InMemoryMarkdownWriterFactory_CreateMarkdown_ValidArgs_ReturnsNonNullWriter`.
 
 **Root-level file created with empty subFolder**: Verifies that passing an empty
 string for subFolder produces a root-level writer (i.e. no subdirectory prefix in
 the captured path). Tested by
-`MarkdownWriterFactoryContract_CreateMarkdown_EmptySubFolder_IsRootLevel`.
+`IMarkdownWriterFactory_CreateMarkdown_EmptySubFolder_IsRootLevel`.
+
+**File-system factory creates root-level file on disk**: Verifies that
+`FileMarkdownWriterFactory.CreateMarkdown` with an empty subFolder writes a real
+file directly under the output root directory and that the file exists after the
+writer is disposed. Tested by
+`FileMarkdownWriterFactory_CreateMarkdown_RootLevel_CreatesFile`.
+
+**File-system factory creates subfolder directory and nested file**: Verifies that
+`FileMarkdownWriterFactory.CreateMarkdown` with a non-empty subFolder creates the
+subdirectory on disk if it does not exist and writes the file inside it. Tested by
+`FileMarkdownWriterFactory_CreateMarkdown_WithSubFolder_CreatesDirectoryAndFile`.
+
+**File-system factory creates non-existent output directory on demand**: Verifies that
+`FileMarkdownWriterFactory` creates the output root directory the first time
+`CreateMarkdown` is called, so callers do not need to pre-create the output path.
+Tested by
+`FileMarkdownWriterFactory_CreateMarkdown_NonExistentDirectory_CreatesDirectory`.
+
+**File-system factory rejects null output directory**: Verifies that constructing
+`FileMarkdownWriterFactory` with a null output directory throws `ArgumentException`
+immediately, preventing a confusing I/O failure later. Tested by
+`FileMarkdownWriterFactory_Constructor_NullDirectory_ThrowsArgumentException`.
+
+**File-system factory rejects whitespace output directory**: Verifies that constructing
+`FileMarkdownWriterFactory` with a whitespace-only output directory throws
+`ArgumentException`. Tested by
+`FileMarkdownWriterFactory_Constructor_WhitespaceDirectory_ThrowsArgumentException`.
+
+**File-system factory rejects null file name**: Verifies that
+`FileMarkdownWriterFactory.CreateMarkdown` throws `ArgumentException` when the file
+name is null. Tested by
+`FileMarkdownWriterFactory_CreateMarkdown_NullName_ThrowsArgumentException`.

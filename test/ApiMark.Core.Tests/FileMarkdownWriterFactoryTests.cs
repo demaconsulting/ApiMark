@@ -45,6 +45,42 @@ public sealed class FileMarkdownWriterFactoryTests : IDisposable
     }
 
     /// <summary>
+    ///     Verifies that constructing <see cref="FileMarkdownWriterFactory"/> with a
+    ///     null output directory throws <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void FileMarkdownWriterFactory_Constructor_NullDirectory_ThrowsArgumentException()
+    {
+        // Arrange / Act / Assert: null must be rejected at construction time
+        Assert.Throws<ArgumentException>(() => new FileMarkdownWriterFactory(null!));
+    }
+
+    /// <summary>
+    ///     Verifies that constructing <see cref="FileMarkdownWriterFactory"/> with a
+    ///     whitespace-only output directory throws <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void FileMarkdownWriterFactory_Constructor_WhitespaceDirectory_ThrowsArgumentException()
+    {
+        // Arrange / Act / Assert: whitespace-only strings must be rejected at construction time
+        Assert.Throws<ArgumentException>(() => new FileMarkdownWriterFactory("   "));
+    }
+
+    /// <summary>
+    ///     Verifies that calling <see cref="FileMarkdownWriterFactory.CreateMarkdown"/>
+    ///     with a null file name throws <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void FileMarkdownWriterFactory_CreateMarkdown_NullName_ThrowsArgumentException()
+    {
+        // Arrange: create a factory pointing at the temp directory
+        var factory = new FileMarkdownWriterFactory(_tempDirectory);
+
+        // Act / Assert: null name must be rejected before any I/O is attempted
+        Assert.Throws<ArgumentException>(() => factory.CreateMarkdown("", null!));
+    }
+
+    /// <summary>
     ///     Verifies that passing an empty subfolder writes the file directly under
     ///     the output root and that the file exists after the writer is disposed.
     /// </summary>

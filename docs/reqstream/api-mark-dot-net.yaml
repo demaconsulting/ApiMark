@@ -11,7 +11,7 @@ sections:
           developer-authored descriptions that belong in the markdown output.
         children:
           - ApiMarkDotNet-DotNetGenerator-AcceptAssemblyAndXmlInputs
-          - ApiMarkDotNet-DotNetGenerator-ReadAssemblyMetadataWithMonoCecil
+          - ApiMarkDotNet-DotNetGenerator-ReadAssemblyMetadataWithoutLoading
           - ApiMarkDotNet-DotNetGenerator-ReadXmlDocumentationComments
           - ApiMarkDotNet-DotNetGenerator-FilterByVisibility
           - ApiMarkDotNet-DotNetGenerator-IncludeObsoleteApisWhenRequested

@@ -1,0 +1,41 @@
+---
+# Validation unit requirements
+sections:
+  - title: ApiMarkTool Requirements
+    sections:
+      - title: SelfTest Requirements
+        sections:
+          - title: Validation Requirements
+            requirements:
+              - id: ApiMarkTool-SelfTest-Validation-RunVersionDisplayTest
+                title: Validation shall run a test that invokes apimark --version in a child context and verifies the output contains a version number.
+                justification: |
+                  Version display is the simplest observable behavior of the tool and confirms
+                  that the executable is intact and able to run its own dispatch path.
+                tests:
+                  - Validation_Run_WritesVersionAndHelpTestResults
+              - id: ApiMarkTool-SelfTest-Validation-RunHelpDisplayTest
+                title: Validation shall run a test that invokes apimark --help in a child context and verifies the output contains "Usage:" and "Options:".
+                justification: |
+                  Help display exercises a larger fraction of the dispatch path than --version
+                  and confirms that the tool's usage information is intact and readable.
+                tests:
+                  - Validation_Run_WritesVersionAndHelpTestResults
+              - id: ApiMarkTool-SelfTest-Validation-WriteResultsFileOnRequest
+                title: Validation shall write test results to the file specified by --results when the extension is .trx or .xml.
+                justification: |
+                  CI systems need machine-readable test results for automated pass/fail
+                  reporting and traceability; .trx is the native Visual Studio format and
+                  .xml (JUnit) is supported by most CI platforms.
+                tests:
+                  - Validation_Run_WithResultsTrxFile_CreatesTrxFile
+                  - Validation_Run_WithResultsXmlFile_CreatesXmlFile
+              - id: ApiMarkTool-SelfTest-Validation-ReportFailuresViaWriteError
+                title: Validation shall set ExitCode to 1 and write diagnostic messages when any self-test fails or when the results file extension is unsupported.
+                justification: |
+                  Callers must detect validation failures through the standard exit-code
+                  mechanism; routing all failures through WriteError ensures that both
+                  console and log-file consumers see the diagnostic and that the exit
+                  code reflects the failure.
+                tests:
+                  - Validation_Run_WithUnsupportedResultsExtension_SetsExitCodeToOne

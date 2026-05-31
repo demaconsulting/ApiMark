@@ -17,17 +17,17 @@ public sealed class IApiGeneratorTests
     ///     be implemented and its Generate method called with a factory argument.
     /// </summary>
     [Fact]
-    public void IApiGenerator_HasGenerate_Method()
+    public void IApiGenerator_Generate_WithMinimalStub_ExecutesSuccessfully()
     {
         // Arrange: create a minimal stub that accepts the factory and does nothing
         var factory = new InMemoryMarkdownWriterFactory();
         IApiGenerator generator = new MinimalStubGenerator();
 
-        // Act: call Generate — the test verifies the method signature is callable
-        generator.Generate(factory);
+        // Act: call Generate through the interface — verifies the method signature is callable
+        var exception = Record.Exception(() => generator.Generate(factory));
 
-        // Assert: if we reach here the interface is correctly callable; no exception was thrown
-        Assert.True(true);
+        // Assert: no exception means the interface is correctly callable via the contract
+        Assert.Null(exception);
     }
 
     /// <summary>

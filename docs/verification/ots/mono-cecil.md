@@ -15,19 +15,21 @@ assemblies.
 **Assembly metadata discovery returns the expected public API surface**: Verifies that Mono.Cecil
 can read fixture assemblies and expose the namespaces, types, and members required for
 documentation generation. This scenario is tested by
-`ReadAssembly_WithPublicTypes_ReturnsExpectedMetadataSurface`.
+`DotNetGenerator_ReadAssembly_WithMonoCecil_ReturnsTypesAndMembers`.
 
 **Generic and nullable signatures are preserved accurately**: Verifies that the metadata exposed by
 Mono.Cecil is rich enough for ApiMark to render generic arguments, nullable value types, and
 nullable reference annotations in the expected display form. This scenario is tested by
-`ReadAssembly_WithGenericAndNullableMembers_PreservesSignatureInformation`.
+`TypeNameSimplifier_GenericArguments_AreSimplifiedRecursively`,
+`TypeNameSimplifier_NullableValueTypes_UseQuestionMarkForm`, and
+`TypeNameSimplifier_Simplify_NullableAnnotatedReferenceType_AppendsQuestionMark`.
 
 **Attributes and documentation-related metadata remain accessible**: Verifies that obsolete markers
 and related member metadata can be read so ApiMark can apply inclusion and presentation rules
 correctly. This scenario is tested by
-`ReadAssembly_WithObsoleteMembers_ExposesRequiredAttributes`.
+`DotNetGenerator_IncludeObsolete_Toggle_ControlsObsoleteOutput`.
 
 **Member metadata supports complexity-rule decisions**: Verifies that parameters, exceptions, and
 member shape information exposed through Mono.Cecil are sufficient to distinguish simple members
 from members that require dedicated detail pages. This scenario is tested by
-`ReadAssembly_WithComplexMembers_ProvidesMetadataNeededForClassification`.
+`DotNetGenerator_ComplexityRule_ComplexMembers_GetSeparateFiles`.

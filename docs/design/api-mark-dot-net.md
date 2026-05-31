@@ -31,7 +31,7 @@ interfaces. TypeNameSimplifier has no dependencies of its own beyond Mono.Cecil.
 ApiMarkCore.
 
 - *Type*: In-process .NET public API.
-- *Role*: Provider — ApiMarkMSBuildDotNet and ApiMarkTool construct DotNetGenerator
+- *Role*: Provider — ApiMarkMsbuild and ApiMarkTool construct DotNetGenerator
   and call Generate through the IApiGenerator interface.
 - *Contract*: `DotNetGenerator(DotNetGeneratorOptions options)` constructs a
   configured generator; `Generate(IMarkdownWriterFactory factory)` writes the
@@ -60,7 +60,7 @@ N/A — not a safety-classified software item.
 
 ## Data Flow
 
-1. The caller (ApiMarkMSBuildDotNet or ApiMarkTool) constructs DotNetGeneratorOptions
+1. The caller (ApiMarkMsbuild or ApiMarkTool) constructs DotNetGeneratorOptions
    with AssemblyPath, XmlDocPath, Visibility, and IncludeObsolete, then passes an
    IMarkdownWriterFactory to Generate.
 2. DotNetGenerator calls `AssemblyDefinition.ReadAssembly` (Mono.Cecil) to load

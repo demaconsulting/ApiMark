@@ -15,7 +15,7 @@ public sealed class IMarkdownWriterTests
     ///     as required by the interface definition.
     /// </summary>
     [Fact]
-    public void IMarkdownWriter_IsDisposable()
+    public void IMarkdownWriter_IsDisposable_ExtendsIDisposable()
     {
         // Arrange: obtain an IMarkdownWriter through the factory interface
         IMarkdownWriter writer = new InMemoryMarkdownWriter();
@@ -30,7 +30,7 @@ public sealed class IMarkdownWriterTests
     ///     with a valid level and text without throwing.
     /// </summary>
     [Fact]
-    public void IMarkdownWriter_HasWriteHeading_Method()
+    public void IMarkdownWriter_WriteHeading_ValidArgs_DoesNotThrow()
     {
         // Arrange: create an in-memory writer
         using IMarkdownWriter writer = new InMemoryMarkdownWriter();
@@ -47,7 +47,7 @@ public sealed class IMarkdownWriterTests
     ///     without throwing.
     /// </summary>
     [Fact]
-    public void IMarkdownWriter_HasWriteSignature_Method()
+    public void IMarkdownWriter_WriteSignature_ValidArgs_DoesNotThrow()
     {
         // Arrange: create an in-memory writer
         using IMarkdownWriter writer = new InMemoryMarkdownWriter();
@@ -64,7 +64,7 @@ public sealed class IMarkdownWriterTests
     ///     without throwing.
     /// </summary>
     [Fact]
-    public void IMarkdownWriter_HasWriteParagraph_Method()
+    public void IMarkdownWriter_WriteParagraph_ValidText_DoesNotThrow()
     {
         // Arrange: create an in-memory writer
         using IMarkdownWriter writer = new InMemoryMarkdownWriter();
@@ -81,7 +81,7 @@ public sealed class IMarkdownWriterTests
     ///     without throwing.
     /// </summary>
     [Fact]
-    public void IMarkdownWriter_HasWriteTable_Method()
+    public void IMarkdownWriter_WriteTable_ValidArgs_DoesNotThrow()
     {
         // Arrange: create an in-memory writer
         using IMarkdownWriter writer = new InMemoryMarkdownWriter();
@@ -100,7 +100,7 @@ public sealed class IMarkdownWriterTests
     ///     without throwing.
     /// </summary>
     [Fact]
-    public void IMarkdownWriter_HasWriteCodeBlock_Method()
+    public void IMarkdownWriter_WriteCodeBlock_ValidArgs_DoesNotThrow()
     {
         // Arrange: create an in-memory writer
         using IMarkdownWriter writer = new InMemoryMarkdownWriter();
@@ -117,7 +117,7 @@ public sealed class IMarkdownWriterTests
     ///     without throwing.
     /// </summary>
     [Fact]
-    public void IMarkdownWriter_HasWriteLink_Method()
+    public void IMarkdownWriter_WriteLink_ValidArgs_DoesNotThrow()
     {
         // Arrange: create an in-memory writer
         using IMarkdownWriter writer = new InMemoryMarkdownWriter();
@@ -134,7 +134,7 @@ public sealed class IMarkdownWriterTests
     ///     and assigned to an <see cref="IMarkdownWriter"/> variable.
     /// </summary>
     [Fact]
-    public void MarkdownWriterContract_TestDoubleCompiles()
+    public void InMemoryMarkdownWriter_Instantiate_AsInterface_Succeeds()
     {
         // Arrange / Act: construct and assign — compile-time + runtime check
         IMarkdownWriter writer = new InMemoryMarkdownWriter();
@@ -150,7 +150,7 @@ public sealed class IMarkdownWriterTests
     ///     to <see langword="true"/>.
     /// </summary>
     [Fact]
-    public void MarkdownWriterContract_IsDisposable()
+    public void InMemoryMarkdownWriter_Dispose_Called_SetsIsDisposedFlag()
     {
         // Arrange: create an in-memory writer
         var writer = new InMemoryMarkdownWriter();
@@ -169,7 +169,7 @@ public sealed class IMarkdownWriterTests
     ///     argument values.
     /// </summary>
     [Fact]
-    public void MarkdownWriterContract_ForwardsStructuredBlocks()
+    public void InMemoryMarkdownWriter_Write_AllMethods_RecordsOperations()
     {
         // Arrange: create an in-memory writer and prepare test data
         var writer = new InMemoryMarkdownWriter();
@@ -217,7 +217,7 @@ public sealed class IMarkdownWriterTests
     ///     corresponding write methods were called.
     /// </summary>
     [Fact]
-    public void MarkdownWriterContract_RecordsOperationsInOrder()
+    public void InMemoryMarkdownWriter_Write_MultipleOps_RecordsInOrder()
     {
         // Arrange: create an in-memory writer
         using var writer = new InMemoryMarkdownWriter();

@@ -173,8 +173,10 @@ public sealed class ApiMarkTask : Task
         }
         else
         {
-            // Include paths (semicolon-separated) are the primary input for C++ documentation
-            sb.Append($"cpp --includes \"{ApiMarkIncludePaths}\"");
+            // Include paths use semicolons as the MSBuild list separator; convert to commas
+            // because the tool's --includes argument is parsed as a comma-separated list
+            var commaIncludes = ApiMarkIncludePaths?.Replace(';', ',') ?? string.Empty;
+            sb.Append($"cpp --includes \"{commaIncludes}\"");
         }
 
         // Optional: output directory

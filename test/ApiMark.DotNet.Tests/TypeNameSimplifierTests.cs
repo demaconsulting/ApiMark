@@ -122,7 +122,7 @@ public class TypeNameSimplifierTests
 
     /// <summary>Validates that a non-annotated reference type does not spuriously receive a <c>?</c> suffix.</summary>
     [Fact]
-    public void TypeNameSimplifier_NullableReferenceTypes_UseQuestionMarkSuffix()
+    public void TypeNameSimplifier_Simplify_NonAnnotatedReferenceType_DoesNotAppendQuestionMark()
     {
         // Arrange: a plain reference type (string) in the fixture assembly
         // Non-nullable reference types must NOT receive a spurious ? suffix.

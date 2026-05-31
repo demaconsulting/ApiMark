@@ -15,6 +15,17 @@ sections:
           - ApiMarkMsbuild-ApiMarkTask-SpawnToolForCpp
           - ApiMarkMsbuild-ApiMarkTask-ForwardOutputDirectoryProperty
           - ApiMarkMsbuild-ApiMarkTask-ForwardVisibilityProperty
+          - ApiMarkMsbuild-ApiMarkTask-ForwardIncludeObsoleteFlag
           - ApiMarkMsbuild-ApiMarkTask-SupportDisableProperty
         tests:
-          - ApiMarkMsbuild_Build_WithDotNetProject_GeneratesDocumentation
+          - ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoDocumentsOnBuild
+      - id: ApiMarkMsbuild-IncludeDocsInNuGetPackage
+        title: ApiMarkMsbuild shall support an opt-in ApiMarkPackDocs property that, when set to true, includes generated documentation in the NuGet package.
+        justification: |
+          Projects that distribute API documentation alongside their library need a single
+          opt-in flag to bundle the generated markdown in the NuGet package so consumers
+          can access it without running the generator separately; documentation is excluded
+          by default to prevent accidental package size growth.
+        tests:
+          - ApiMarkMsbuild_NuGetPackage_DotNetProject_PacksDocs_WhenApiMarkPackDocsTrue
+          - ApiMarkMsbuild_NuGetPackage_DotNetProject_DoesNotPackDocs_ByDefault

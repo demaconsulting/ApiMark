@@ -13,8 +13,8 @@ sections:
               documentation that describes it.
             tests:
               - DotNetGenerator_Constructor_AcceptsAssemblyAndXmlPaths
-          - id: ApiMarkDotNet-DotNetGenerator-ReadAssemblyMetadataWithMonoCecil
-            title: DotNetGenerator shall read type and member information from .NET assemblies via Mono.Cecil.
+          - id: ApiMarkDotNet-DotNetGenerator-ReadAssemblyMetadataWithoutLoading
+            title: DotNetGenerator shall read type and member information from .NET assemblies without loading them into the current process.
             justification: |
               Assembly inspection must avoid loading the target library into the current
               process so documentation generation can run reliably against arbitrary
@@ -51,7 +51,7 @@ sections:
             tests:
               - DotNetGenerator_ComplexityRule_ComplexMembers_GetSeparateFiles
           - id: ApiMarkDotNet-DotNetGenerator-ProduceConsistentOutputFileStructure
-            title: DotNetGenerator shall produce output files following the established naming convention using IMarkdownWriterFactory.
+            title: DotNetGenerator shall produce output files following the established naming convention.
             justification: |
               Consistent file and folder naming allows navigation between the entrypoint,
               namespace summaries, type pages, and member detail pages without relying on

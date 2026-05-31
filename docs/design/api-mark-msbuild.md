@@ -23,6 +23,12 @@ pre-compiled `ApiMark.Tool` DLL and its dependencies under `tools/net8.0/`. The
 `.targets` file wires `ApiMarkTask` into `AfterTargets="Build"` and sets the
 `ToolDllPath` property to the bundled tool location.
 
+When `ApiMarkPackDocs` is set to `true`, the `.targets` file also hooks the
+`_ApiMarkIncludeDocsInPackage` target into `TargetsForTfmSpecificContentInPackage`
+so that `dotnet pack` includes the generated `api/` folder in the NuGet package under
+`api/`. This feature defaults to `false` so the package size is unaffected unless the
+project explicitly opts in.
+
 ## External Interfaces
 
 **MSBuild task (provided)**: ApiMarkTask is consumed by MSBuild as an in-process
@@ -32,10 +38,14 @@ task.
 - *Role*: Provider — `.csproj` and `.vcxproj` files reference the task via the
   NuGet package; MSBuild invokes the task at build time.
 - *Contract*: MSBuild properties `ApiMarkLanguage`, `ApiMarkOutputDir`,
-  `ApiMarkVisibility`, `ApiMarkIncludeObsolete`, `DisableApiMark`, and
-  language-specific properties (`ApiMarkAssemblyPath`, `ApiMarkXmlDocPath` for
-  dotnet; `ApiMarkIncludePaths` for cpp). Fires `AfterTargets="Build"` unless
-  `DisableApiMark` is true. Language is inferred from the project extension when
+  `ApiMarkVisibility`, `ApiMarkIncludeObsolete`, `DisableApiMark`,
+  `ProjectExtension` (required; maps to `$(MSBuildProjectExtension)` and is used
+  to infer the language when `ApiMarkLanguage` is not set), `ApiMarkPackDocs`
+  (opt-in; when `true`, causes the generated `api/` folder to be included in the
+  NuGet package via `TargetsForTfmSpecificContentInPackage`), and language-specific
+  properties (`ApiMarkAssemblyPath`, `ApiMarkXmlDocPath` for dotnet;
+  `ApiMarkIncludePaths` for cpp). Fires `AfterTargets="Build"` unless
+  `DisableApiMark` is true. Language is inferred from `ProjectExtension` when
   `ApiMarkLanguage` is not explicitly set.
 - *Constraints*: Must not load any language-generator libraries in the MSBuild
   process; all generation is delegated out-of-process. `dotnet` must be locatable
@@ -48,8 +58,9 @@ executable to perform generation.
 - *Role*: Consumer — ApiMarkTask locates `dotnet`, builds the argument list from
   MSBuild properties, and starts the process.
 - *Contract*: `dotnet <ToolDllPath> dotnet --assembly <path> --xml-doc <path>
-  --output <dir> [--visibility <value>] [--include-obsolete]` for .NET; analogous
-  `cpp` subcommand for C++ (options TBD when ApiMark.Cpp is implemented).
+  [--output <dir>] [--visibility <value>] [--include-obsolete]` for .NET;
+  `dotnet <ToolDllPath> cpp --includes <paths> [--output <dir>]
+  [--visibility <value>] [--include-obsolete]` for C++.
 - *Constraints*: `ToolDllPath` is set by the `.targets` file to the bundled
   `ApiMark.Tool.dll`. The `dotnet` executable is resolved from the
   `DOTNET_HOST_PATH` environment variable first, then from `PATH`. The task treats
@@ -80,9 +91,15 @@ N/A — not a safety-classified software item.
 6. ApiMarkTask starts the child process `dotnet <ToolDllPath> <language> [args]`
    and captures both stdout and stderr.
 7. While the process runs, ApiMarkTask pipes stdout lines as MSBuild messages and
-   stderr lines as MSBuild warnings or errors.
+   stderr lines as MSBuild errors.
 8. When the process exits, ApiMarkTask returns true if the exit code is zero or
    false if non-zero, causing MSBuild to mark the build as failed.
+
+**NuGet packaging flow (when `ApiMarkPackDocs` is `true`)**: The `.targets` file
+hooks `_ApiMarkIncludeDocsInPackage` into `TargetsForTfmSpecificContentInPackage`.
+During `dotnet pack`, this target collects all files under `ApiMarkOutputDir` as
+`TfmSpecificPackageFile` items with `PackagePath="api/..."`, causing them to be
+bundled in the NuGet package.
 
 ## Design Constraints
 

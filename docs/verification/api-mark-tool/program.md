@@ -22,7 +22,7 @@ output directory. No external service, privileged configuration, or network acce
   error text.
 - Invalid visibility option values are rejected with a non-zero exit code.
 - Missing input files produce a non-zero exit code and a clear file-not-found diagnostic.
-- `--help` and `--help` after a subcommand both display usage information and return exit code zero.
+- `--help` before and after a subcommand both display usage information and return exit code zero.
 - `--silent` suppresses console output; `--log <file>` captures output to a file.
 - `--validate` runs self-validation tests and returns exit code zero when all pass.
 

@@ -7,7 +7,7 @@ documentation in Markdown alongside the compiled output.
 ## MSBuild Properties
 
 | Property | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `ApiMarkOutputDir` | `$(MSBuildProjectDirectory)\api` | Output directory for generated Markdown |
 | `ApiMarkVisibility` | `Public` | Visibility filter: `Public`, `PublicAndProtected`, `All` |
 | `ApiMarkAssemblyPath` | `$(TargetPath)` | Path to the compiled assembly |

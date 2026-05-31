@@ -22,7 +22,7 @@ service, network dependency, or machine-specific configuration is required.
 - Type names and member signatures are simplified into the expected C#-friendly display form.
 - Complexity-rule decisions and output files match the documented generation rules.
 - Visibility filtering excludes members outside the selected audience.
-- Partial XML documentation coverage does not corrupt the output tree.
+- Obsolete member filtering correctly excludes or includes deprecated APIs based on the IncludeObsolete option.
 
 ## Test Scenarios
 
@@ -30,18 +30,23 @@ service, network dependency, or machine-specific configuration is required.
 system can walk a sample assembly and emit the expected namespace and type documentation without
 skipping discoverable items, confirming that the full generation path from metadata to Markdown
 file is wired correctly. This scenario is tested by
-`Generate_WithSampleAssembly_WritesExpectedNamespaceAndTypePages`.
+`ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown`.
 
 **Complex members become dedicated detail pages**: Verifies that constructors, methods, and indexers
 meeting the complexity rule are emitted as separate files rather than only table rows, preserving
 full detail where required. This scenario is tested by
-`Generate_WithComplexMembers_CreatesMemberDetailPages`.
+`DotNetGenerator_ComplexityRule_ComplexMembers_GetSeparateFiles`.
 
 **Visibility filters constrain the published API surface**: Verifies that the system honors the
 selected visibility mode so generated output matches the intended audience and excludes hidden
-members. This scenario is tested by `Generate_WithVisibilityFilter_ExcludesHiddenMembers`.
+members. This scenario is tested by `DotNetGenerator_Visibility_PublicPublicAndProtectedAll_FilterExpectedApis`.
 
-**Metadata-only generation remains stable when documentation coverage is partial**: Verifies that
-the system still emits structurally correct Markdown when some XML documentation fields are absent,
-preventing missing comments from corrupting the output tree. This scenario is tested by
-`Generate_WithPartialXmlDocumentation_WritesStableMarkdown`.
+**XML documentation content appears correctly in generated Markdown**: Verifies that the system
+includes XML documentation content in the generated output and correctly handles assembly
+documentation data during the generation pipeline. This scenario is tested by
+`DotNetGenerator_ReadXmlComments_SummaryAndRemarks_AppearInMarkdown`.
+
+**Obsolete member toggle controls whether deprecated APIs appear in output**: Verifies that setting
+IncludeObsolete to false excludes obsolete types from generated output while setting it to true
+includes them, confirming the option is correctly honoured end-to-end. This scenario is tested by
+`DotNetGenerator_IncludeObsolete_Toggle_ControlsObsoleteOutput`.

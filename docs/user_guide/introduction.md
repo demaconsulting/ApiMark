@@ -17,6 +17,6 @@ a CLI reference, and usage examples.
 
 ## References
 
-- [Installation](installation.md)
-- [CLI Reference](cli-reference.md)
-- [MSBuild Integration](msbuild-integration.md)
+- *Installation* — installation instructions for the CLI tool and MSBuild package
+- *CLI Reference* — command-line options, subcommands, and output structure
+- *MSBuild Integration* — MSBuild properties, configuration examples, and NuGet packaging

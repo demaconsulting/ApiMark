@@ -19,7 +19,9 @@ public interface IMarkdownWriterFactory
     ///     Subfolder path relative to the output root. Pass an empty string to
     ///     create a root-level file. Path separators should use '/' (forward slash).
     /// </param>
-    /// <param name="name">File name without extension.</param>
+    /// <param name="name">
+    ///     File name without extension. Must not be null, empty, or whitespace.
+    /// </param>
     /// <returns>
     ///     A new <see cref="IMarkdownWriter"/> positioned at the start of the file
     ///     and ready for write calls. The caller is responsible for disposing the
@@ -29,5 +31,8 @@ public interface IMarkdownWriterFactory
     ///     Implementations must create any required output directories before returning
     ///     the writer.
     /// </remarks>
+    /// <exception cref="ArgumentException">
+    ///     Thrown by implementations when <paramref name="name"/> is null, empty, or whitespace.
+    /// </exception>
     IMarkdownWriter CreateMarkdown(string subFolder, string name);
 }

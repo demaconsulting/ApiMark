@@ -6,10 +6,10 @@
 ### Purpose
 
 IApiGenerator is the contract every language-specific generator must implement.
-It decouples callers (ApiMarkMsbuild and ApiMarkTool) from any concrete
-language module. A caller constructs a generator, optionally configures it at
-construction time, and then calls Generate — the caller never needs to know which
-language it is processing.
+It decouples ApiMarkTool from any concrete language module. A caller constructs a
+generator, optionally configures it at construction time, and then calls Generate —
+the caller never needs to know which language it is processing. ApiMarkMsbuild
+invokes the generator indirectly by spawning ApiMarkTool as a child process.
 
 ### Data Model
 
@@ -46,9 +46,9 @@ on other units, OTS items, or shared packages.
 
 ### Callers
 
-- **ApiMarkTask** — constructs a DotNetGenerator (which implements IApiGenerator)
-  and calls Generate with a `FileMarkdownWriterFactory` built from MSBuild property
-  values.
+- **ApiMarkTask** — spawns ApiMark.Tool as a child process, within which the
+  appropriate IApiGenerator implementation is constructed and Generate is called.
+  ApiMarkTask does not call IApiGenerator directly.
 - **Program** — constructs the appropriate IApiGenerator for the requested language
   subcommand and calls Generate with a `FileMarkdownWriterFactory` built from CLI
   options.

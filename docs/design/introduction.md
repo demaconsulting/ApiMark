@@ -7,9 +7,9 @@ index, drill into a namespace summary, and then read a full type page — consum
 as much context as the task requires. The project is structured as four independent
 systems: ApiMark.Core (shared contracts and file-path helpers), ApiMark.DotNet
 (C#/.NET language generator), ApiMark.MSBuild (unified MSBuild task that spawns
-ApiMark.Tool out-of-process for both C# and C++ builds), and ApiMark.Tool (the .NET
-executable invoked by ApiMarkTask and directly by users or CI pipelines). One OTS
-item, Mono.Cecil, provides assembly reflection for the DotNet system.
+ApiMark.Tool out-of-process), and ApiMark.Tool (the .NET executable invoked by
+ApiMarkTask and directly by users or CI pipelines). One OTS item, Mono.Cecil,
+provides assembly reflection for the DotNet system.
 
 ## Purpose
 
@@ -46,18 +46,18 @@ ApiMarkDotNet (System)
 ├── DotNetGenerator (Unit)
 └── TypeNameSimplifier (Unit)
 
-ApiMarkCpp (System)
-└── CppGenerator (Unit)
-
 ApiMarkMsbuild (System)
 └── ApiMarkTask (Unit)
 
 ApiMarkTool (System)
+├── Cli (Subsystem)
+│   └── Context (Unit)
+├── SelfTest (Subsystem)
+│   └── Validation (Unit)
 └── Program (Unit)
 
 OTS Dependencies:
-├── Mono.Cecil (OTS)
-└── CppAst.Net (OTS)
+└── Mono.Cecil (OTS)
 ```
 
 ## Folder Layout
@@ -76,9 +76,6 @@ src/
 │   ├── DotNetGeneratorOptions.cs  - configuration options for the .NET generator
 │   ├── TypeNameSimplifier.cs      - simplifies rendered .NET type references
 │   └── XmlDocReader.cs            - parses XML documentation files produced by the C# compiler
-├── ApiMark.Cpp/
-│   ├── CppGenerator.cs            - C++ IApiGenerator implementation
-│   └── CppGeneratorOptions.cs     - configuration options for the C++ generator
 ├── ApiMark.MSBuild/
 │   └── ApiMarkTask.cs             - MSBuild task that spawns ApiMark.Tool out-of-process
 └── ApiMark.Tool/
@@ -93,7 +90,6 @@ test/
 ├── ApiMark.Core.Tests/            - unit tests for Core contracts
 ├── ApiMark.DotNet.Fixtures/       - multi-target fixture assembly for DotNet integration tests
 ├── ApiMark.DotNet.Tests/          - unit tests for DotNetGenerator and TypeNameSimplifier
-├── ApiMark.Cpp.Tests/             - unit tests for CppGenerator
 ├── ApiMark.MSBuild.Tests/         - unit tests for ApiMarkTask
 └── ApiMark.Tool.Tests/            - integration tests for the CLI tool
 ```
@@ -102,17 +98,17 @@ test/
 
 Each local software item has corresponding artifacts in parallel directory trees:
 
-- Requirements: `docs/reqstream/api-mark-core.yaml`, `docs/reqstream/api-mark-core/{item}.yaml`, `docs/reqstream/api-mark-dot-net.yaml`, `docs/reqstream/api-mark-dot-net/{item}.yaml`, `docs/reqstream/api-mark-cpp.yaml`, `docs/reqstream/api-mark-cpp/{item}.yaml`, `docs/reqstream/api-mark-msbuild.yaml`, `docs/reqstream/api-mark-msbuild/{item}.yaml`, `docs/reqstream/api-mark-tool.yaml`, `docs/reqstream/api-mark-tool/{item}.yaml`
-- Design: `docs/design/api-mark-core.md`, `docs/design/api-mark-core/{item}.md`, `docs/design/api-mark-dot-net.md`, `docs/design/api-mark-dot-net/{item}.md`, `docs/design/api-mark-cpp.md`, `docs/design/api-mark-cpp/{item}.md`, `docs/design/api-mark-msbuild.md`, `docs/design/api-mark-msbuild/{item}.md`, `docs/design/api-mark-tool.md`, `docs/design/api-mark-tool/{item}.md`
-- Verification: `docs/verification/api-mark-core.md`, `docs/verification/api-mark-core/{item}.md`, `docs/verification/api-mark-dot-net.md`, `docs/verification/api-mark-dot-net/{item}.md`, `docs/verification/api-mark-cpp.md`, `docs/verification/api-mark-cpp/{item}.md`, `docs/verification/api-mark-msbuild.md`, `docs/verification/api-mark-msbuild/{item}.md`, `docs/verification/api-mark-tool.md`, `docs/verification/api-mark-tool/{item}.md`
-- Source: `src/ApiMark.Core/`, `src/ApiMark.DotNet/`, `src/ApiMark.Cpp/`, `src/ApiMark.MSBuild/`, `src/ApiMark.Tool/`
-- Tests: `test/ApiMark.Core.TestHelpers/`, `test/ApiMark.Core.Tests/`, `test/ApiMark.DotNet.Tests/`, `test/ApiMark.Cpp.Tests/`, `test/ApiMark.MSBuild.Tests/`, `test/ApiMark.Tool.Tests/`
+- Requirements: `docs/reqstream/api-mark-core.yaml`, `docs/reqstream/api-mark-core/{item}.yaml`, `docs/reqstream/api-mark-dot-net.yaml`, `docs/reqstream/api-mark-dot-net/{item}.yaml`, `docs/reqstream/api-mark-msbuild.yaml`, `docs/reqstream/api-mark-msbuild/{item}.yaml`, `docs/reqstream/api-mark-tool.yaml`, `docs/reqstream/api-mark-tool/{item}.yaml`
+- Design: `docs/design/api-mark-core.md`, `docs/design/api-mark-core/{item}.md`, `docs/design/api-mark-dot-net.md`, `docs/design/api-mark-dot-net/{item}.md`, `docs/design/api-mark-msbuild.md`, `docs/design/api-mark-msbuild/{item}.md`, `docs/design/api-mark-tool.md`, `docs/design/api-mark-tool/{item}.md`
+- Verification: `docs/verification/api-mark-core.md`, `docs/verification/api-mark-core/{item}.md`, `docs/verification/api-mark-dot-net.md`, `docs/verification/api-mark-dot-net/{item}.md`, `docs/verification/api-mark-msbuild.md`, `docs/verification/api-mark-msbuild/{item}.md`, `docs/verification/api-mark-tool.md`, `docs/verification/api-mark-tool/{item}.md`
+- Source: `src/ApiMark.Core/`, `src/ApiMark.DotNet/`, `src/ApiMark.MSBuild/`, `src/ApiMark.Tool/`
+- Tests: `test/ApiMark.Core.TestHelpers/`, `test/ApiMark.Core.Tests/`, `test/ApiMark.DotNet.Tests/`, `test/ApiMark.MSBuild.Tests/`, `test/ApiMark.Tool.Tests/`
 
 OTS items have integration/usage design documentation parallel to system folders:
 
-- Requirements: `docs/reqstream/ots/mono-cecil.yaml`, `docs/reqstream/ots/cpp-ast-net.yaml`
-- Design: `docs/design/ots/mono-cecil.md`, `docs/design/ots/cpp-ast-net.md`
-- Verification: `docs/verification/ots/mono-cecil.md`, `docs/verification/ots/cpp-ast-net.md`
+- Requirements: `docs/reqstream/ots/mono-cecil.yaml`
+- Design: `docs/design/ots/mono-cecil.md`
+- Verification: `docs/verification/ots/mono-cecil.md`
 
 Review-sets: defined in `.reviewmark.yaml`
 

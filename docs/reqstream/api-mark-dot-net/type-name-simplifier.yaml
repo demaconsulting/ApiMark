@@ -54,4 +54,4 @@ sections:
               Nullable reference annotations communicate important API contracts and need a
               concise representation in generated signatures.
             tests:
-              - TypeNameSimplifier_NullableReferenceTypes_UseQuestionMarkSuffix
+              - TypeNameSimplifier_Simplify_NullableAnnotatedReferenceType_AppendsQuestionMark

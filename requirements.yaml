@@ -12,4 +12,8 @@ includes:
   - docs/reqstream/api-mark-msbuild/api-mark-task.yaml
   - docs/reqstream/api-mark-tool.yaml
   - docs/reqstream/api-mark-tool/program.yaml
+  - docs/reqstream/api-mark-tool/cli.yaml
+  - docs/reqstream/api-mark-tool/cli/context.yaml
+  - docs/reqstream/api-mark-tool/self-test.yaml
+  - docs/reqstream/api-mark-tool/self-test/validation.yaml
   - docs/reqstream/ots/mono-cecil.yaml

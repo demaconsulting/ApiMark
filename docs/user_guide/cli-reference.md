@@ -9,7 +9,7 @@ Usage: apimark [options] [language [language-options]]
 ## Global Options
 
 | Option | Description |
-|---|---|
+| --- | --- |
 | `-v`, `--version` | Display version information |
 | `-?`, `-h`, `--help` | Display the help message |
 | `--silent` | Suppress console output |
@@ -27,7 +27,7 @@ apimark dotnet [options]
 ```
 
 | Option | Description |
-|---|---|
+| --- | --- |
 | `--assembly <path>` | Path to the .NET assembly (required) |
 | `--xml-doc <path>` | Path to the XML documentation file |
 | `--output <dir>` | Output directory for Markdown files (required) |
@@ -39,7 +39,7 @@ apimark dotnet [options]
 ApiMark uses a three-tier gradual disclosure layout:
 
 | File | Description |
-|---|---|
+| --- | --- |
 | `api.md` | Root index — lists all namespaces with one-line summaries |
 | `{namespace}/{namespace}.md` | Namespace summary — lists all types with one-line summaries |
 | `{namespace}/{type}.md` | Full type page — members, signatures, and doc comment details |

@@ -13,6 +13,10 @@ input-files:
   - docs/verification/api-mark-msbuild.md
   - docs/verification/api-mark-msbuild/api-mark-task.md
   - docs/verification/api-mark-tool.md
+  - docs/verification/api-mark-tool/cli.md
+  - docs/verification/api-mark-tool/cli/context.md
+  - docs/verification/api-mark-tool/self-test.md
+  - docs/verification/api-mark-tool/self-test/validation.md
   - docs/verification/api-mark-tool/program.md
   - docs/verification/ots.md
   - docs/verification/ots/mono-cecil.md

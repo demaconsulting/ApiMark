@@ -25,6 +25,12 @@ projects to opt out of documentation generation without removing the package.
 selects the generation language. Accepted values: `dotnet`, `cpp`. When not set,
 the task infers the language: `.vcxproj` project → `cpp`, all others → `dotnet`.
 
+**ApiMarkTask.ProjectExtension**: `string` — MSBuild property
+`$(MSBuildProjectExtension)`; required. Provides the project file extension used
+to infer the generation language when `ApiMarkLanguage` is not explicitly set.
+A value of `.vcxproj` (case-insensitive) causes the task to infer `cpp`; all
+other extensions infer `dotnet`.
+
 **ApiMarkTask.ApiMarkOutputDir**: `string` — MSBuild property `$(ApiMarkOutputDir)`;
 the directory where Markdown output is written.
 
@@ -49,7 +55,9 @@ the `.targets` file when not explicitly set. If not set and the language is
 
 **ApiMarkTask.ApiMarkIncludePaths**: `string` — MSBuild property
 `$(ApiMarkIncludePaths)`; for the `cpp` language, a semicolon-separated list of
-include paths passed to the C++ parser.
+include paths. MSBuild uses semicolons as its standard list separator; the task
+converts semicolons to commas when forwarding this value to the `--includes`
+argument, which the tool parses as a comma-separated list.
 
 **ApiMarkTask.ToolDllPath**: `string` — set by the `.targets` file to the path of
 the bundled `ApiMark.Tool.dll` inside the NuGet package `tools/net8.0/` directory.
@@ -76,7 +84,9 @@ language from `ApiMarkLanguage` or project extension inference; if language is
 `dotnet` and `ApiMarkXmlDocPath` is not set, return true (skip generation); resolve
 the `dotnet` executable path (check `DOTNET_HOST_PATH` environment variable first,
 then search `PATH`); build the argument list from MSBuild properties according to
-language-specific mapping; start the child process and pipe stdout lines as MSBuild
+language-specific mapping (for `cpp`, semicolons in `ApiMarkIncludePaths` are
+converted to commas because the tool's `--includes` argument accepts a
+comma-separated list); start the child process and pipe stdout lines as MSBuild
 messages and stderr lines as MSBuild errors; wait for exit; return true if exit code
 is zero, otherwise log an error with the exit code and return false.
 

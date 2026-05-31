@@ -4,9 +4,9 @@ namespace ApiMark.Core;
 ///     Contract every language-specific generator must implement.
 /// </summary>
 /// <remarks>
-///     Decouples callers (ApiMarkMSBuildDotNet and ApiMarkTool) from any concrete
-///     language module. A caller constructs a generator with language-specific options,
-///     then calls Generate — the caller never needs to know which language it is processing.
+///     Decouples callers (ApiMarkTask and Program) from any concrete language module.
+///     A caller constructs a generator with language-specific options, then calls Generate —
+///     the caller never needs to know which language it is processing.
 /// </remarks>
 public interface IApiGenerator
 {

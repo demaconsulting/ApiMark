@@ -247,10 +247,15 @@ public class PackageIntegrationTests
         using var process = Process.Start(psi)
             ?? throw new InvalidOperationException($"Failed to start process: {executable}");
 
-        // Read both streams synchronously after the process exits to avoid deadlocks on large output
-        var output = process.StandardOutput.ReadToEnd();
-        var error = process.StandardError.ReadToEnd();
+        // Read both streams concurrently before waiting for exit to prevent deadlock:
+        // reading one stream synchronously while the process blocks writing to the other
+        // would deadlock when either output buffer fills. Async reads drain both buffers in parallel.
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
         process.WaitForExit();
+
+        var output = outputTask.GetAwaiter().GetResult();
+        var error = errorTask.GetAwaiter().GetResult();
 
         return (output, error, process.ExitCode);
     }

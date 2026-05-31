@@ -1,0 +1,22 @@
+---
+# ApiMarkTool Cli subsystem requirements
+sections:
+  - title: ApiMarkTool Requirements
+    sections:
+      - title: Cli Requirements
+        requirements:
+          - id: ApiMarkTool-Cli-ProvideCliArgumentParsing
+            title: The Cli subsystem shall parse all command-line arguments for ApiMarkTool into a structured Context object.
+            justification: |
+              A dedicated subsystem for argument parsing keeps Program.cs free of parsing
+              logic and enables isolated testing of the argument-parsing contract.
+            children:
+              - ApiMarkTool-Cli-Context-ParseGlobalFlags
+              - ApiMarkTool-Cli-Context-ParseLanguageSubcommand
+              - ApiMarkTool-Cli-Context-ParseLanguageOptions
+              - ApiMarkTool-Cli-Context-ParseDepthOption
+              - ApiMarkTool-Cli-Context-ParseResultsOption
+              - ApiMarkTool-Cli-Context-OpenLogFileOnRequest
+              - ApiMarkTool-Cli-Context-TrackErrorsViaWriteError
+            tests:
+              - Context_Cli_ParsesAllGlobalFlags

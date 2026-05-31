@@ -15,11 +15,10 @@ environment, and the scenarios that demonstrate correct Markdown generation beha
 
 Local items:
 
-- **ApiMarkCore**: system-level verification of the core output-contract interfaces and file-naming
-  helpers.
+- **ApiMarkCore**: system-level verification of the core output-contract interfaces.
 - **IApiGenerator**: unit verification of the language-generator contract interface.
+- **IMarkdownWriterFactory**: unit verification of the Markdown writer factory interface.
 - **IMarkdownWriter**: unit verification of the Markdown output interface.
-- **FileLayout**: unit verification of file-path and file-naming helpers.
 - **ApiMarkDotNet**: system-level verification of the .NET documentation generation pipeline.
 - **DotNetGenerator**: unit verification of type discovery, visibility filtering, complexity-rule
   evaluation, and Markdown output generation.
@@ -28,6 +27,10 @@ Local items:
   ApiMark.Tool process for documentation generation.
 - **ApiMarkTask**: unit verification of MSBuild property forwarding and task invocation.
 - **ApiMarkTool**: system-level verification of the CLI entry point.
+- **Cli**: subsystem-level verification of command-line argument parsing and context construction.
+- **Context**: unit verification of argument parsing, option storage, and output routing.
+- **SelfTest**: subsystem-level verification of the self-validation subsystem.
+- **Validation**: unit verification of the self-test execution logic.
 - **Program**: unit verification of CLI argument parsing, language dispatch, and error handling.
 
 OTS items:
@@ -47,35 +50,46 @@ Local items have parallel artifacts in:
 
 - Requirements: `docs/reqstream/api-mark-core.yaml`,
   `docs/reqstream/api-mark-core/i-api-generator.yaml`,
+  `docs/reqstream/api-mark-core/i-markdown-writer-factory.yaml`,
   `docs/reqstream/api-mark-core/i-markdown-writer.yaml`,
-  `docs/reqstream/api-mark-core/file-layout.yaml`,
   `docs/reqstream/api-mark-dot-net.yaml`,
   `docs/reqstream/api-mark-dot-net/dot-net-generator.yaml`,
   `docs/reqstream/api-mark-dot-net/type-name-simplifier.yaml`,
   `docs/reqstream/api-mark-msbuild.yaml`,
   `docs/reqstream/api-mark-msbuild/api-mark-task.yaml`,
   `docs/reqstream/api-mark-tool.yaml`,
-  `docs/reqstream/api-mark-tool/program.yaml`
+  `docs/reqstream/api-mark-tool/program.yaml`,
+  `docs/reqstream/api-mark-tool/cli.yaml`,
+  `docs/reqstream/api-mark-tool/cli/context.yaml`,
+  `docs/reqstream/api-mark-tool/self-test.yaml`,
+  `docs/reqstream/api-mark-tool/self-test/validation.yaml`
 - Design: `docs/design/api-mark-core.md`, `docs/design/api-mark-core/i-api-generator.md`,
-  `docs/design/api-mark-core/i-markdown-writer.md`, `docs/design/api-mark-core/file-layout.md`,
+  `docs/design/api-mark-core/i-markdown-writer-factory.md`,
+  `docs/design/api-mark-core/i-markdown-writer.md`,
   `docs/design/api-mark-dot-net.md`, `docs/design/api-mark-dot-net/dot-net-generator.md`,
   `docs/design/api-mark-dot-net/type-name-simplifier.md`,
   `docs/design/api-mark-msbuild.md`,
   `docs/design/api-mark-msbuild/api-mark-task.md`,
-  `docs/design/api-mark-tool.md`, `docs/design/api-mark-tool/program.md`
+  `docs/design/api-mark-tool.md`, `docs/design/api-mark-tool/program.md`,
+  `docs/design/api-mark-tool/cli.md`, `docs/design/api-mark-tool/cli/context.md`,
+  `docs/design/api-mark-tool/self-test.md`, `docs/design/api-mark-tool/self-test/validation.md`
 - Verification: `docs/verification/api-mark-core.md`,
   `docs/verification/api-mark-core/i-api-generator.md`,
+  `docs/verification/api-mark-core/i-markdown-writer-factory.md`,
   `docs/verification/api-mark-core/i-markdown-writer.md`,
-  `docs/verification/api-mark-core/file-layout.md`,
   `docs/verification/api-mark-dot-net.md`,
   `docs/verification/api-mark-dot-net/dot-net-generator.md`,
   `docs/verification/api-mark-dot-net/type-name-simplifier.md`,
   `docs/verification/api-mark-msbuild.md`,
   `docs/verification/api-mark-msbuild/api-mark-task.md`,
-  `docs/verification/api-mark-tool.md`, `docs/verification/api-mark-tool/program.md`
+  `docs/verification/api-mark-tool.md`, `docs/verification/api-mark-tool/program.md`,
+  `docs/verification/api-mark-tool/cli.md`, `docs/verification/api-mark-tool/cli/context.md`,
+  `docs/verification/api-mark-tool/self-test.md`,
+  `docs/verification/api-mark-tool/self-test/validation.md`
 - Source: `src/ApiMark.Core/`, `src/ApiMark.DotNet/`, `src/ApiMark.MSBuild/`,
   `src/ApiMark.Tool/`
-- Tests: `test/ApiMark.Core.Tests/`, `test/ApiMark.DotNet.Tests/`, `test/ApiMark.Tool.Tests/`
+- Tests: `test/ApiMark.Core.Tests/`, `test/ApiMark.DotNet.Tests/`, `test/ApiMark.MSBuild.Tests/`,
+  `test/ApiMark.Tool.Tests/`
 
 OTS items have integration and usage artifacts parallel to the system folders:
 

@@ -33,6 +33,7 @@ sections:
           consistent while allowing output helpers to evolve without changing each
           language generator.
         children:
+          - ApiMarkCore-IMarkdownWriter-ImplementIDisposable
           - ApiMarkCore-IMarkdownWriter-DefineWriteHeading
           - ApiMarkCore-IMarkdownWriter-DefineWriteSignature
           - ApiMarkCore-IMarkdownWriter-DefineWriteParagraph

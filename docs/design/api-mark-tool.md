@@ -5,13 +5,20 @@
 
 ## Architecture
 
-ApiMarkTool is a single-unit system containing only the Program unit. It is the
-.NET executable (`ApiMark.Tool.dll`) distributed as part of the NuGet package
-`ApiMark.MSBuild` (under `tools/net8.0/`, `tools/net9.0/`, and `tools/net10.0/`)
-and optionally as a standalone dotnet tool in the NuGet package
-`DemaConsulting.ApiMark.Tool`. The system parses command-line arguments, constructs
-the appropriate `IApiGenerator` implementation for the requested language subcommand,
-and calls `Generate`.
+ApiMarkTool is organized into two subsystems (`Cli` and `SelfTest`) and one top-level
+unit (`Program`). It is the .NET executable (`ApiMark.Tool.dll`) distributed as part of
+the NuGet package `ApiMark.MSBuild` (under `tools/net8.0/`, `tools/net9.0/`, and
+`tools/net10.0/`) and optionally as a standalone dotnet tool in the NuGet package
+`DemaConsulting.ApiMark.Tool`.
+
+- `Cli` subsystem — provides the `Context` unit, which parses command-line arguments into
+  typed properties and routes all program output (stdout, stderr, and an optional log file).
+- `SelfTest` subsystem — provides the `Validation` unit, which runs in-process
+  self-validation tests when `--validate` is specified.
+- `Program` unit — the CLI entry point; creates a `Context`, dispatches to the appropriate
+  action (version display, help, self-validation, or main tool logic), constructs the
+  appropriate `IApiGenerator` implementation for the requested language subcommand, and
+  calls `Generate`.
 
 ApiMarkTool targets `net8.0;net9.0;net10.0` (multi-target). It is packaged as a
 dotnet tool (`PackAsTool=true`, `ToolCommandName=apimark`). Because it runs as a
@@ -27,8 +34,9 @@ users or CI pipelines.
   installed as a dotnet tool).
 - *Role*: Provider — ApiMarkTask and end users invoke the tool directly.
 - *Contract*: `apimark [options] [language [language-options]]`. Standard options:
-  `-v, --version`, `-?, -h, --help`, `--silent`, `--validate`, `--results <file>`,
-  `--depth <#>`, `--log <file>`. Supported subcommands: `dotnet`, `cpp` (planned).
+  `-v, --version`, `-?, -h, --help`, `--silent`, `--validate`,
+  `--results <file>` (alias: `--result <file>`), `--depth <#>`, `--log <file>`.
+  Supported subcommands: `dotnet`, `cpp` (planned).
   Options for `dotnet`: `--assembly <path>`, `--xml-doc <path>`, `--output <dir>`,
   `--visibility <value>`, `--include-obsolete`. Options for `cpp` (planned):
   `--includes <paths>`, `--output <dir>`, `--visibility <value>`,
@@ -43,7 +51,7 @@ implementations from ApiMarkCore and dispatches to them.
 - *Type*: In-process .NET public API.
 - *Role*: Consumer — Program constructs the appropriate `IApiGenerator`
   implementation for the requested language and calls `Generate`.
-- *Contract*: `IApiGenerator.Generate(string outputDirectory)`.
+- *Contract*: `IApiGenerator.Generate(IMarkdownWriterFactory factory)`.
 - *Constraints*: The generator must be fully configured from CLI options before
   `Generate` is called.
 
@@ -64,15 +72,16 @@ N/A — not a safety-classified software item.
 
 1. The host environment (ApiMarkTask, user, or CI pipeline) invokes
    `dotnet ApiMark.Tool.dll [options] <language> [options]`.
-2. Program parses the command-line arguments using a single-pass parser into a
-   `Context` object and dispatches to the appropriate priority path (version, help,
-   validate, or main tool logic).
+2. Program creates a `Context` object via `Context.Create(args)` (Cli subsystem), which
+   parses the command-line arguments using a single-pass parser. Program then dispatches
+   to the appropriate priority path (version, help, validate, or main tool logic).
 3. Program validates that all required options for the requested language are
    present; exits non-zero with a usage message if any are missing.
 4. Program constructs the appropriate `IApiGenerator` implementation based on the
    language subcommand (`DotNetGenerator` for `dotnet`; `CppGenerator` for `cpp`
    when implemented).
-5. Program calls `IApiGenerator.Generate(outputDirectory)`.
+5. Program creates a `FileMarkdownWriterFactory` for the output directory and calls
+   `IApiGenerator.Generate(factory)`.
 6. On success, Program exits 0. On error, exceptions are caught, written to stderr,
    and Program exits non-zero.
 

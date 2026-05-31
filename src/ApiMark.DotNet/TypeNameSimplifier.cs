@@ -37,6 +37,15 @@ public static class TypeNameSimplifier
     ///     Converts <paramref name="typeRef"/> to a human-readable C# type name, stripping well-known
     ///     namespaces and the <paramref name="contextNamespace"/> prefix where applicable.
     /// </summary>
+    /// <remarks>
+    ///     Exists to make generated Markdown signatures readable to C# developers — raw Mono.Cecil type
+    ///     names include CLR full names and generic arity suffixes that are unfamiliar in documentation.
+    ///     Seven simplification rules are applied in a fixed priority order: (1) C# primitive aliases,
+    ///     (2) array bracket notation, (3) Nullable&lt;T&gt; → T?, (4) well-known namespace stripping,
+    ///     (5) context namespace prefix stripping, (6) recursive generic argument simplification, and
+    ///     (7) nullable reference annotation suffix. Stateless and thread-safe; no shared mutable state
+    ///     is modified during the call.
+    /// </remarks>
     /// <param name="typeRef">The Mono.Cecil type reference to simplify.</param>
     /// <param name="contextNamespace">The namespace of the type that owns this reference, used for prefix stripping.</param>
     /// <param name="isNullableAnnotated">

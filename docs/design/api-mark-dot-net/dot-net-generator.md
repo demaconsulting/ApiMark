@@ -80,11 +80,11 @@ warrants its own output file.
 
 ### Error Handling
 
-DotNetGenerator throws `FileNotFoundException` when AssemblyPath or XmlDocPath does
-not exist on disk. Invalid or corrupt assemblies surface as exceptions from
-Mono.Cecil and are not caught — they propagate to the caller (ApiMarkTask or
-Program). Missing XML documentation entries for a member produce empty
-documentation fields rather than an error.
+DotNetGenerator throws `FileNotFoundException` explicitly when XmlDocPath does not
+exist on disk (checked before opening the assembly). If AssemblyPath does not exist
+or is not a valid .NET assembly, Mono.Cecil raises an exception that propagates
+unchanged to the caller (ApiMarkTask or Program). Missing XML documentation entries
+for a member produce empty documentation fields rather than an error.
 
 ### Dependencies
 
@@ -94,6 +94,8 @@ documentation fields rather than an error.
   not implement IMarkdownWriter itself.
 - **TypeNameSimplifier** — DotNetGenerator calls TypeNameSimplifier to convert
   Mono.Cecil type references to idiomatic C# type names in output.
+- **XmlDocReader** — DotNetGenerator constructs an XmlDocReader from XmlDocPath during
+  Generate to parse and index the XML documentation file for O(1) per-member lookups.
 - **Mono.Cecil** — used to read assembly metadata without loading the assembly into
   the current process — see Mono.Cecil Integration Design.
 

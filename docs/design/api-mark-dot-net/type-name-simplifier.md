@@ -13,9 +13,17 @@ matches the naming conventions a C# developer would write by hand.
 ### Data Model
 
 N/A — TypeNameSimplifier is a stateless helper class. It exposes a single
-simplification method and holds no mutable state across calls. A private static
-readonly set (`WellKnownNamespaces`) contains the namespace prefixes that are
-stripped; this field is the intended place to add new prefixes as the tool evolves.
+simplification method and holds no mutable state across calls.
+
+**Primitives** (`private static readonly Dictionary<string, string>`): maps full
+CLR type names to their C# keyword aliases (e.g. `System.Int32` → `int`,
+`System.String` → `string`, `System.Void` → `void`, and all other standard C#
+keyword aliases). Checked in Rule 1 before any other simplification is applied.
+
+**WellKnownNamespaces** (`private static readonly HashSet<string>`): contains the
+namespace prefixes that are stripped when displaying generic or plain types.
+Current entries: `System.Collections.Generic` and `System.Threading.Tasks`. This
+field is the intended place to add new prefixes as the tool evolves.
 
 ### Key Methods
 
@@ -26,6 +34,12 @@ Mono.Cecil TypeReference.
   - `TypeReference typeRef` — Mono.Cecil type reference to simplify.
   - `string contextNamespace` — namespace of the type currently being documented;
     used for context-relative name shortening.
+  - `bool isNullableAnnotated` (optional, default `false`) — when `true`, a `?`
+    suffix is appended for reference types carrying a `NullableAttribute(2)`
+    annotation (C# 8+ nullable reference type syntax). This information is stored
+    on the containing member by the compiler, not on the `TypeReference` itself;
+    callers must inspect member custom attributes and pass `true` when byte value
+    2 is found.
 - *Returns*: `string` — simplified C# type name string.
 - *Preconditions*: `typeRef` must not be null.
 - *Postconditions*: The returned string is a valid C# type name that a developer

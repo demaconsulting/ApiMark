@@ -13,6 +13,9 @@ namespace ApiMark.Core.TestHelpers;
 ///     <see cref="Writers"/> or use the <see cref="HasWriter"/> and
 ///     <see cref="GetWriter"/> helpers to verify the expected files were created
 ///     with the expected content.
+///     Path keys are compared using ordinal (case-sensitive) string comparison;
+///     callers must use the same casing in <see cref="CreateMarkdown"/>,
+///     <see cref="HasWriter"/>, and <see cref="GetWriter"/>.
 /// </remarks>
 public sealed class InMemoryMarkdownWriterFactory : IMarkdownWriterFactory
 {

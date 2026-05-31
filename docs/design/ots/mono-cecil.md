@@ -31,7 +31,7 @@ coupling to the documented assembly.
 
 ### Integration Pattern
 
-Mono.Cecil is consumed via direct API calls in the Generator unit. No wrapper class
+Mono.Cecil is consumed via direct API calls in the DotNetGenerator and TypeNameSimplifier units. No wrapper class
 is introduced.
 
 1. At the start of `DotNetGenerator.Generate`, call

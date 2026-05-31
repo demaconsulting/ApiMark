@@ -1,9 +1,5 @@
 # Project Overview
 
-> **Downstream customization required**: Replace the `TODO` values below with
-> values specific to the target repository. These values are the canonical source
-> for project-wide template placeholders used throughout the repository.
-
 - **project-name**: ApiMark
 - **organization**: DEMA Consulting
 - **project-tagline**: Compact AI-friendly API reference documentation
@@ -16,9 +12,6 @@
 - **technologies**: .NET, MSBuild
 
 # Project Structure
-
-> **Downstream customization required**: Replace `{project}` and
-> `{test-project}` with the actual source and test project folder names.
 
 ```text
 ├── docs/
@@ -38,8 +31,12 @@
 │   ├── ApiMark.MSBuild/
 │   └── ApiMark.Tool/
 └── test/
+    ├── ApiMark.Core.TestHelpers/
     ├── ApiMark.Core.Tests/
+    ├── ApiMark.DotNet.Fixtures/
     ├── ApiMark.DotNet.Tests/
+    ├── ApiMark.MSBuild.PackageTests/
+    ├── ApiMark.MSBuild.Tests/
     └── ApiMark.Tool.Tests/
 ```
 

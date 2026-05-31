@@ -49,7 +49,7 @@ public sealed class IMarkdownWriterFactoryTests
     ///     be assigned to an <see cref="IMarkdownWriterFactory"/> variable.
     /// </summary>
     [Fact]
-    public void MarkdownWriterFactoryContract_TestDoubleCompiles()
+    public void InMemoryMarkdownWriterFactory_Constructor_Default_ImplementsInterface()
     {
         // Arrange / Act: construct and assign — this is a compile-time + runtime check
         IMarkdownWriterFactory factory = new InMemoryMarkdownWriterFactory();
@@ -63,7 +63,7 @@ public sealed class IMarkdownWriterFactoryTests
     ///     a usable writer when a non-empty subfolder is provided.
     /// </summary>
     [Fact]
-    public void MarkdownWriterFactoryContract_CreateMarkdown_ReturnsWriter()
+    public void InMemoryMarkdownWriterFactory_CreateMarkdown_ValidArgs_ReturnsNonNullWriter()
     {
         // Arrange: create the in-memory factory
         var factory = new InMemoryMarkdownWriterFactory();
@@ -77,28 +77,11 @@ public sealed class IMarkdownWriterFactoryTests
     }
 
     /// <summary>
-    ///     Verifies that a writer created with an empty subfolder is accessible at
-    ///     the root level with no subfolder prefix, matching the reqstream test ID.
+    ///     Verifies that both a root-level writer and a subfolder writer can be created
+    ///     in a single factory session and are each retrievable by their expected keys.
     /// </summary>
     [Fact]
-    public void MarkdownWriterFactoryContract_CreateMarkdown_EmptySubFolder_IsRootLevel()
-    {
-        // Arrange: create an in-memory factory
-        var factory = new InMemoryMarkdownWriterFactory();
-
-        // Act: create a root-level writer
-        using var _ = factory.CreateMarkdown("", "api");
-
-        // Assert: the writer must be retrievable at the root-level key
-        Assert.True(factory.HasWriter("", "api"));
-    }
-
-    /// <summary>
-    ///     System-level test: verifies that the factory can create writers for both
-    ///     root-level paths and subfolder paths in a single session.
-    /// </summary>
-    [Fact]
-    public void ApiMarkCore_WriterFactory_CanCreate_RootAndSubfolderWriters()
+    public void InMemoryMarkdownWriterFactory_CreateMarkdown_MultipleFiles_AllRegistered()
     {
         // Arrange: create an in-memory factory
         var factory = new InMemoryMarkdownWriterFactory();

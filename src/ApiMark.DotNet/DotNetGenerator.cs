@@ -4,12 +4,22 @@ using Mono.Cecil;
 namespace ApiMark.DotNet;
 
 /// <summary>Generates Markdown API documentation from a .NET assembly using Mono.Cecil.</summary>
+/// <remarks>
+///     Implements <see cref="IApiGenerator"/> for C#/.NET assemblies. Reads assembly metadata
+///     via Mono.Cecil without loading the target assembly into the current process, which ensures
+///     reliable operation against arbitrary build outputs and dependency graphs. Pairs the metadata
+///     with developer-authored content from the XML documentation file to produce a gradual-disclosure
+///     Markdown tree. Not thread-safe; construct and use one instance per generation run.
+/// </remarks>
 public sealed class DotNetGenerator : IApiGenerator
 {
     /// <summary>Configuration controlling which assembly, XML doc, and visibility filter to use.</summary>
     private readonly DotNetGeneratorOptions _options;
 
     /// <summary>Initializes a new instance of <see cref="DotNetGenerator"/> with the specified options.</summary>
+    /// <remarks>
+    ///     No file system access occurs at construction time; all I/O is deferred to <see cref="Generate"/>.
+    /// </remarks>
     /// <param name="options">The generator configuration options.</param>
     public DotNetGenerator(DotNetGeneratorOptions options)
     {
@@ -17,6 +27,13 @@ public sealed class DotNetGenerator : IApiGenerator
     }
 
     /// <summary>Generates API documentation into the provided writer factory.</summary>
+    /// <remarks>
+    ///     Opens the assembly via Mono.Cecil, builds an <see cref="XmlDocReader"/> index from
+    ///     the XML documentation file, then writes the complete Markdown tree: one assembly
+    ///     entrypoint page, one namespace summary per namespace, one type page per visible type,
+    ///     and one detail page per complex member. The <see cref="AssemblyDefinition"/> is
+    ///     disposed before this method returns.
+    /// </remarks>
     /// <param name="factory">The markdown writer factory used to create output files.</param>
     /// <exception cref="FileNotFoundException">Thrown when the XML documentation file does not exist.</exception>
     public void Generate(IMarkdownWriterFactory factory)
@@ -605,10 +622,25 @@ public sealed class DotNetGenerator : IApiGenerator
     private string BuildFieldSignature(FieldDefinition field, string contextNamespace)
     {
         var typeName = TypeNameSimplifier.Simplify(field.FieldType, contextNamespace);
-        var modifiers = field.IsStatic
-            ? (field.IsLiteral ? "const" : "static")
-            : "readonly";
-        return $"public {modifiers} {typeName} {field.Name}";
+
+        // Determine modifier(s) from compile-time flags; literals imply IsStatic so they
+        // must be tested first, before the IsStatic branch, to avoid showing "static const"
+        string modifiers;
+        if (field.IsLiteral)
+        {
+            modifiers = "const";
+        }
+        else if (field.IsStatic)
+        {
+            modifiers = field.IsInitOnly ? "static readonly" : "static";
+        }
+        else
+        {
+            modifiers = field.IsInitOnly ? "readonly" : string.Empty;
+        }
+
+        var gap = modifiers.Length > 0 ? " " : string.Empty;
+        return $"public {modifiers}{gap}{typeName} {field.Name}";
     }
 
     /// <summary>Builds a human-readable C# event declaration signature.</summary>

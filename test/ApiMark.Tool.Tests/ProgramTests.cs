@@ -190,6 +190,7 @@ public class ProgramTests
             // Assert: exits zero; log file exists and is non-empty
             Assert.Equal(0, exitCode);
             Assert.True(File.Exists(logFile), "Expected log file to be created");
+            Assert.True(new FileInfo(logFile).Length > 0, "Expected log file to be non-empty");
         }
         finally
         {

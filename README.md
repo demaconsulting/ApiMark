@@ -52,7 +52,7 @@ ApiMark generates documentation automatically after every `dotnet build`.
 
 ## Usage
 
-### CLI Tool
+### CLI Usage
 
 ```bash
 # Generate API documentation from a .NET assembly
@@ -61,7 +61,7 @@ apimark dotnet --assembly MyProject.dll --xml-doc MyProject.xml --output docs/ap
 
 Run `apimark --help` for all options. Run `apimark dotnet --help` for .NET-specific options.
 
-### MSBuild Integration
+### MSBuild Usage
 
 Documentation is generated automatically after `dotnet build`. Output goes to
 `$(MSBuildProjectDirectory)\api` by default. Configure with MSBuild properties:

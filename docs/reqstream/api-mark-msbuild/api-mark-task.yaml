@@ -22,6 +22,7 @@ sections:
               compatible while enabling full .NET generator functionality.
             tests:
               - ApiMarkTask_DotNet_SpawnsToolWithCorrectAssemblyAndXmlDocArguments
+              - ApiMarkTask_Execute_WithDotNetProject_GeneratesDocumentation
           - id: ApiMarkMsbuild-ApiMarkTask-SpawnToolForCpp
             title: ApiMarkTask shall spawn ApiMark.Tool with the cpp subcommand and pass include paths for C++ builds.
             justification: |
@@ -52,3 +53,10 @@ sections:
               NuGet package reference or breaking the build.
             tests:
               - ApiMarkTask_DisableApiMark_True_SkipsToolInvocation
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardIncludeObsoleteFlag
+            title: ApiMarkTask shall forward the ApiMarkIncludeObsolete property to the tool as the --include-obsolete flag when true.
+            justification: |
+              Build authors need to opt in to including deprecated API surface in generated
+              documentation without modifying the NuGet package reference or the build pipeline.
+            tests:
+              - ApiMarkTask_IncludeObsolete_True_ForwardsIncludeObsoleteFlag

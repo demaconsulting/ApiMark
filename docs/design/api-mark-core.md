@@ -21,8 +21,9 @@ flowchart TD
 ```
 
 ApiMarkDotNet implements IApiGenerator and calls IMarkdownWriterFactory to create
-per-file IMarkdownWriter instances. ApiMarkMsbuild and ApiMarkTool consume
-IApiGenerator. No system depends on ApiMarkCore beyond these interfaces.
+per-file IMarkdownWriter instances. ApiMarkTool directly consumes IApiGenerator;
+ApiMarkMsbuild spawns ApiMarkTool as a child process and never calls IApiGenerator
+in-process. No system depends on ApiMarkCore beyond these interfaces.
 
 ## External Interfaces
 
@@ -30,7 +31,8 @@ IApiGenerator. No system depends on ApiMarkCore beyond these interfaces.
 
 - *Type*: In-process .NET public API.
 - *Role*: Provider — ApiMarkCore publishes this interface; ApiMarkDotNet implements
-  it; ApiMarkMsbuild and ApiMarkTool consume it.
+  it; ApiMarkTool consumes it directly. ApiMarkMsbuild spawns ApiMarkTool as a child
+  process and does not call this interface in-process.
 - *Contract*: `void Generate(IMarkdownWriterFactory factory)` — writes the complete
   Markdown tree for a configured software component using the supplied factory. The
   output MUST include a file named `api.md` as the fixed entrypoint.
@@ -76,8 +78,9 @@ flow is:
 
 1. Language generators write Markdown content by calling IMarkdownWriter methods in
    document order.
-2. Callers (ApiMarkMsbuild and ApiMarkTool) invoke IApiGenerator.Generate to
-   trigger generation for a configured component.
+2. ApiMarkTool invokes IApiGenerator.Generate to trigger generation for a configured
+   component. ApiMarkMsbuild triggers generation by spawning ApiMarkTool as a child
+   process.
 
 ## Design Constraints
 

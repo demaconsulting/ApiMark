@@ -95,7 +95,7 @@ public sealed class FileMarkdownWriterTests : IDisposable
     ///     correct language tag.
     /// </summary>
     [Fact]
-    public void FileMarkdownWriter_WriteSignature_WritesCodeFence()
+    public void FileMarkdownWriter_WriteSignature_ValidArgs_WritesCodeFence()
     {
         // Arrange / Act: write a signature and read the result
         var content = WriteAndReadFile("signature", w =>
@@ -112,7 +112,7 @@ public sealed class FileMarkdownWriterTests : IDisposable
     ///     Verifies that WriteParagraph writes the paragraph text to the file.
     /// </summary>
     [Fact]
-    public void FileMarkdownWriter_WriteParagraph_WritesParagraphText()
+    public void FileMarkdownWriter_WriteParagraph_ValidText_WritesParagraphText()
     {
         // Arrange / Act: write a paragraph and read the result
         var content = WriteAndReadFile("paragraph", w =>
@@ -127,7 +127,7 @@ public sealed class FileMarkdownWriterTests : IDisposable
     ///     separator row.
     /// </summary>
     [Fact]
-    public void FileMarkdownWriter_WriteTable_WritesPipeTable()
+    public void FileMarkdownWriter_WriteTable_ValidArgs_WritesPipeTable()
     {
         // Arrange: prepare headers and rows
         string[] headers = ["Name", "Type", "Description"];
@@ -148,7 +148,7 @@ public sealed class FileMarkdownWriterTests : IDisposable
     ///     correct language tag.
     /// </summary>
     [Fact]
-    public void FileMarkdownWriter_WriteCodeBlock_WritesCodeFence()
+    public void FileMarkdownWriter_WriteCodeBlock_ValidArgs_WritesCodeFence()
     {
         // Arrange / Act: write a code block and read the result
         var content = WriteAndReadFile("codeblock", w =>
@@ -164,7 +164,7 @@ public sealed class FileMarkdownWriterTests : IDisposable
     ///     correct text and path.
     /// </summary>
     [Fact]
-    public void FileMarkdownWriter_WriteLink_WritesMarkdownLink()
+    public void FileMarkdownWriter_WriteLink_ValidArgs_WritesMarkdownLink()
     {
         // Arrange / Act: write a link and read the result
         var content = WriteAndReadFile("link", w =>
@@ -179,7 +179,7 @@ public sealed class FileMarkdownWriterTests : IDisposable
     ///     file handle is released and the file can be opened for reading by another caller.
     /// </summary>
     [Fact]
-    public void FileMarkdownWriter_Dispose_FlushesAndClosesFile()
+    public void FileMarkdownWriter_Dispose_AfterWrite_FlushesAndClosesFile()
     {
         // Arrange: create and dispose a writer
         var factory = new FileMarkdownWriterFactory(_tempDirectory);

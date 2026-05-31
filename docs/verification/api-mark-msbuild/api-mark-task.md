@@ -3,17 +3,17 @@
 ### Verification Approach
 
 `ApiMarkTask` is the MSBuild task that spawns the `ApiMark.Tool` child process with
-language-appropriate arguments. Verification uses integration tests in
-`test/ApiMark.MSBuild.Tests/` that exercise the real task with real property evaluation,
-asserting that the correct child-process arguments are constructed and that skip conditions
-are honored. The real process-spawn path is kept in place so the task is verified as it is
-shipped.
+language-appropriate arguments. Verification uses unit and integration tests in
+`test/ApiMark.MSBuild.Tests/` that directly instantiate `ApiMarkTask` and set properties on
+the task object, asserting that the correct child-process arguments are constructed and that
+skip conditions are honored. The real process-spawn path is exercised in the integration test
+so the unit is verified as it is shipped.
 
 ### Test Environment
 
-Tests require the .NET SDK, a pre-built `ApiMark.Tool.dll`, fixture MSBuild project files
-with ApiMark properties configured, and a writable output directory. No external service,
-network dependency, or elevated permission is required.
+Tests require the .NET SDK and a pre-built `ApiMark.Tool.dll`. The integration test requires a
+writable output directory for generated Markdown. No fixture MSBuild project files, external
+service, network dependency, or elevated permission is required.
 
 ### Acceptance Criteria
 
@@ -26,6 +26,7 @@ network dependency, or elevated permission is required.
   `ApiMarkIncludePaths`.
 - `ApiMarkOutputDir` is forwarded as `--output` in all cases.
 - `ApiMarkVisibility` is forwarded as `--visibility` when set.
+- `ApiMarkIncludeObsolete` is forwarded as `--include-obsolete` when true.
 - `DisableApiMark` suppresses tool invocation and returns true with no side effects.
 - A non-zero exit code from the spawned tool causes `Execute` to return false and log a
   MSBuild error.
@@ -46,8 +47,8 @@ path from `ApiMarkAssemblyPath` and the XML doc path from `ApiMarkXmlDocPath` ap
 `ApiMarkTask_DotNet_SpawnsToolWithCorrectAssemblyAndXmlDocArguments`.
 
 **Cpp tool invocation passes include paths**: Verifies that the semicolon-separated value
-of `ApiMarkIncludePaths` is correctly split and forwarded as `--includes` arguments to the
-spawned `cpp` subcommand. This scenario is tested by
+of `ApiMarkIncludePaths` is forwarded as-is to the `--includes` argument of the spawned
+`cpp` subcommand. This scenario is tested by
 `ApiMarkTask_Cpp_SpawnsToolWithCorrectIncludePathArguments`.
 
 **Output directory is forwarded as --output**: Verifies that the `ApiMarkOutputDir` value

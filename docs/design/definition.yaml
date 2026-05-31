@@ -15,6 +15,10 @@ input-files:
   - docs/design/api-mark-msbuild.md
   - docs/design/api-mark-msbuild/api-mark-task.md
   - docs/design/api-mark-tool.md
+  - docs/design/api-mark-tool/cli.md
+  - docs/design/api-mark-tool/cli/context.md
+  - docs/design/api-mark-tool/self-test.md
+  - docs/design/api-mark-tool/self-test/validation.md
   - docs/design/api-mark-tool/program.md
   - docs/design/ots.md
   - docs/design/ots/mono-cecil.md

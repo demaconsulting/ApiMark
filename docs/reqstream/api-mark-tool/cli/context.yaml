@@ -1,0 +1,75 @@
+---
+# Context unit requirements
+sections:
+  - title: ApiMarkTool Requirements
+    sections:
+      - title: Cli Requirements
+        sections:
+          - title: Context Requirements
+            requirements:
+              - id: ApiMarkTool-Cli-Context-ParseGlobalFlags
+                title: Context shall parse the global flags -v/--version, -?/-h/--help, --silent, and --validate.
+                justification: |
+                  Global flags must be available regardless of the language subcommand so that
+                  users can check the version, get help, or request silent operation without
+                  needing to specify a language first.
+                tests:
+                  - Context_Create_WithVersionFlag_SetsVersionTrue
+                  - Context_Create_WithShortVersionFlag_SetsVersionTrue
+                  - Context_Create_WithHelpFlag_SetsHelpTrue
+                  - Context_Create_WithHelpShortFlags_SetHelpTrue
+                  - Context_Create_WithSilentFlag_SetsSilentTrue
+                  - Context_Create_WithValidateFlag_SetsValidateTrue
+              - id: ApiMarkTool-Cli-Context-ParseLanguageSubcommand
+                title: Context shall set the Language property to the first positional non-flag token in the argument list.
+                justification: |
+                  A positional subcommand allows users to specify the documentation language
+                  without a flag prefix, matching common CLI conventions and keeping the
+                  invocation concise.
+                tests:
+                  - Context_Create_WithLanguageSubcommand_SetsLanguage
+              - id: ApiMarkTool-Cli-Context-ParseLanguageOptions
+                title: Context shall parse the language-specific options --assembly, --xml-doc, --output, --visibility, --include-obsolete, and --includes.
+                justification: |
+                  Language-specific options must be available to callers as typed properties so
+                  that generators can be configured without re-parsing the command line.
+                tests:
+                  - Context_Create_WithAssemblyOption_SetsAssemblyPath
+                  - Context_Create_WithXmlDocOption_SetsXmlDocPath
+                  - Context_Create_WithOutputOption_SetsOutputPath
+                  - Context_Create_WithVisibilityOption_SetsVisibility
+                  - Context_Create_WithIncludeObsoleteFlag_SetsIncludeObsoleteTrue
+                  - Context_Create_WithIncludesOption_SetsIncludes
+              - id: ApiMarkTool-Cli-Context-ParseDepthOption
+                title: Context shall parse the --depth option and set HeadingDepth to the specified integer value in the range 1–6, defaulting to 1 when the option is absent.
+                justification: |
+                  The --depth option controls the Markdown heading level used in generated output,
+                  allowing ApiMark output to be embedded into an existing document at the correct
+                  heading depth without manual post-processing. Restricting the range to 1–6
+                  matches the valid ATX heading levels in Markdown.
+                tests:
+                  - Context_Create_WithDepthOption_SetsHeadingDepth
+                  - Context_Create_WithDepthOptionOutOfRange_ThrowsArgumentException
+              - id: ApiMarkTool-Cli-Context-ParseResultsOption
+                title: Context shall parse the --results (alias --result) option and set ResultsFile to the specified path.
+                justification: |
+                  ApiMarkTask passes a results file path so that self-test output can be written
+                  to a discoverable location for the build pipeline to collect test evidence.
+                tests:
+                  - Context_Create_WithResultsOption_SetsResultsFile
+              - id: ApiMarkTool-Cli-Context-OpenLogFileOnRequest
+                title: Context shall open the file specified by --log and mirror all subsequent output written through WriteLine to that file.
+                justification: |
+                  ApiMarkTask invokes ApiMarkTool out-of-process and captures output by
+                  redirecting it to a log file; --log provides a reliable capture path that
+                  works even when stdout is not redirected.
+                tests:
+                  - Context_Create_WithLogFile_OpensAndWritesToLog
+              - id: ApiMarkTool-Cli-Context-TrackErrorsViaWriteError
+                title: Context shall set ExitCode to 1 when WriteError is called at least once.
+                justification: |
+                  Callers must be able to detect that errors occurred without inspecting
+                  individual error messages; a non-zero exit code is the conventional
+                  failure signal for command-line tools.
+                tests:
+                  - Context_WriteError_SetsExitCodeToOne
