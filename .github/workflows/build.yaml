@@ -194,7 +194,7 @@ jobs:
 
       - name: Test
         env:
-          APIMARK_TEST_PACKAGES_DIR: test/packages
+          APIMARK_TEST_PACKAGES_DIR: ${{ github.workspace }}/test/packages
         run: >
           dotnet test
           --no-build
