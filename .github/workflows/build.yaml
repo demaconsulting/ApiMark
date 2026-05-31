@@ -219,6 +219,7 @@ jobs:
           --no-restore
           --configuration Release
           --property:PackageVersion=${{ inputs.version }}
+          --output packages
 
       # === UPLOAD ARTIFACTS ===
       # This section uploads all generated artifacts for use by downstream jobs.
@@ -234,11 +235,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: packages-${{ matrix.os }}
-          path: |
-            src/ApiMark.Tool/bin/Release/*.nupkg
-            src/ApiMark.Tool/bin/Release/*.snupkg
-            src/ApiMark.MSBuild/bin/Release/*.nupkg
-            src/ApiMark.MSBuild/bin/Release/*.snupkg
+          path: packages/
 
   # Runs CodeQL security and quality analysis, gathering results to include
   # in the code quality report.
