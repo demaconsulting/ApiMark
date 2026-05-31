@@ -23,6 +23,20 @@
       ],
       "rollForward": false
     },
+    "demaconsulting.sarifmark": {
+      "version": "1.3.2",
+      "commands": [
+        "sarifmark"
+      ],
+      "rollForward": false
+    },
+    "demaconsulting.sonarmark": {
+      "version": "1.5.0",
+      "commands": [
+        "sonarmark"
+      ],
+      "rollForward": false
+    },
     "demaconsulting.reqstream": {
       "version": "1.10.0",
       "commands": [
@@ -55,13 +69,6 @@
       "version": "0.3.0",
       "commands": [
         "fileassert"
-      ],
-      "rollForward": false
-    },
-    "demaconsulting.dictionarymark": {
-      "version": "0.1.0-beta.1",
-      "commands": [
-        "dictionarymark"
       ],
       "rollForward": false
     }
