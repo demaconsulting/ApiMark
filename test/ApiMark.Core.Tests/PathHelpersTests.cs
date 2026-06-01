@@ -38,7 +38,7 @@ public sealed class PathHelpersTests
         // Act / Assert: path traversal attempt is rejected
         var exception = Assert.Throws<ArgumentException>(() =>
             PathHelpers.SafePathCombine(basePath, relativePath));
-        Assert.Contains("Invalid path component", exception.Message);
+        Assert.Contains("escapes base directory", exception.Message);
     }
 
     /// <summary>
@@ -54,44 +54,57 @@ public sealed class PathHelpersTests
         // Act / Assert: embedded traversal is rejected
         var exception = Assert.Throws<ArgumentException>(() =>
             PathHelpers.SafePathCombine(basePath, relativePath));
-        Assert.Contains("Invalid path component", exception.Message);
+        Assert.Contains("escapes base directory", exception.Message);
     }
 
     /// <summary>
-    ///     Verifies that rooted Unix-style paths are rejected as relative segments.
+    ///     Verifies that rooted Unix-style paths are accepted when the combined result stays within the base.
     /// </summary>
     [Fact]
-    public void PathHelpers_SafePathCombine_AbsolutePath_ThrowsArgumentException()
+    public void PathHelpers_SafePathCombine_AbsoluteSegment_WithinBase_CombinesCorrectly()
     {
-        // Arrange: rooted Unix-style path used as the relative argument
+        // Arrange: a segment starting with the directory separator — Path.Join folds it within the base
         var basePath = Path.Combine("home", "user", "project");
-        var relativePath = Path.DirectorySeparatorChar == '\\' ? "\\etc\\passwd" : "/etc/passwd";
+        var segment = Path.DirectorySeparatorChar + "sub";
 
-        // Act / Assert: rooted path is rejected
-        var exception = Assert.Throws<ArgumentException>(() =>
-            PathHelpers.SafePathCombine(basePath, relativePath));
-        Assert.Contains("Invalid path component", exception.Message);
+        // Act: the segment does not escape basePath so the call succeeds
+        var result = PathHelpers.SafePathCombine(basePath, segment);
+
+        // Assert: result is under the base path
+        Assert.StartsWith(basePath, result);
     }
 
     /// <summary>
-    ///     Verifies that Windows drive-letter paths are rejected on Windows.
+    ///     Verifies that backtracking within the base directory is allowed.
     /// </summary>
     [Fact]
-    public void PathHelpers_SafePathCombine_WindowsAbsolutePath_ThrowsArgumentException()
+    public void PathHelpers_SafePathCombine_BacktrackWithinBase_CombinesCorrectly()
     {
-        // Arrange: Windows drive-letter paths are only rooted on Windows
-        if (!OperatingSystem.IsWindows())
-        {
-            throw Xunit.Sdk.SkipException.ForSkip("Windows absolute-path guard only applies on Windows.");
-        }
+        // Arrange: segments that use ".." but stay within the base
+        var basePath = Path.GetFullPath(Path.Combine("home", "user", "project"));
 
-        var basePath = @"C:\Users\project";
-        var relativePath = @"C:\Windows\System32\file.txt";
+        // Act: "baa/.." resolves back to basePath — still within the base
+        var result = PathHelpers.SafePathCombine(basePath, "baa", "..");
 
-        // Act / Assert: Windows absolute path is rejected
-        var exception = Assert.Throws<ArgumentException>(() =>
-            PathHelpers.SafePathCombine(basePath, relativePath));
-        Assert.Contains("Invalid path component", exception.Message);
+        // Assert: result resolves to the base path
+        Assert.Equal(Path.GetFullPath(result), Path.GetFullPath(basePath));
+    }
+
+    /// <summary>
+    ///     Verifies that a filename containing ".." as a substring is accepted.
+    /// </summary>
+    [Fact]
+    public void PathHelpers_SafePathCombine_FilenameWithDoubleDots_CombinesCorrectly()
+    {
+        // Arrange: filename with ".." as part of the name, not a traversal segment
+        var basePath = Path.Combine("home", "user", "project");
+        const string FileName = "v1..2.md";
+
+        // Act: the filename does not escape basePath
+        var result = PathHelpers.SafePathCombine(basePath, FileName);
+
+        // Assert: result equals the expected combined path
+        Assert.Equal(Path.Join(basePath, FileName), result);
     }
 
     /// <summary>
@@ -162,18 +175,18 @@ public sealed class PathHelpersTests
     }
 
     /// <summary>
-    ///     Verifies that traversal in any later params segment is rejected.
+    ///     Verifies that traversal in any later params segment is rejected when it escapes the base.
     /// </summary>
     [Fact]
     public void PathHelpers_SafePathCombine_TraversalInLaterSegment_ThrowsArgumentException()
     {
-        // Arrange: valid first segment, traversal in second
+        // Arrange: valid first segment, then enough ".." to escape the base
         var basePath = Path.Combine("home", "user", "project");
 
-        // Act / Assert: traversal in any segment is rejected
+        // Act / Assert: traversal that escapes the base in any segment is rejected
         var exception = Assert.Throws<ArgumentException>(() =>
-            PathHelpers.SafePathCombine(basePath, "level1", Path.Combine("..", "etc", "passwd")));
-        Assert.Contains("Invalid path component", exception.Message);
+            PathHelpers.SafePathCombine(basePath, "level1", Path.Combine("..", "..", "..", "etc", "passwd")));
+        Assert.Contains("escapes base directory", exception.Message);
     }
 
     /// <summary>

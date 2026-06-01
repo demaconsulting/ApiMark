@@ -13,20 +13,18 @@ namespace ApiMark.Core;
 internal static class PathHelpers
 {
     /// <summary>
-    ///     Safely combines a base path with one or more caller-supplied relative path segments,
-    ///     rejecting any input that could escape the base directory.
+    ///     Safely combines a base path with one or more path segments, ensuring the result
+    ///     remains within the base directory.
     /// </summary>
     /// <remarks>
-    ///     Each segment in <paramref name="relativePaths"/> is validated and appended to the
-    ///     running combined path in order. Two validation layers are applied per segment:
-    ///     1. An upfront string check rejects segments that contain ".." components or are already
-    ///        rooted — these are the most common forms of directory-traversal attack.
-    ///     2. A defense-in-depth check resolves both paths with <see cref="Path.GetFullPath(string)"/>
-    ///        and uses <see cref="Path.GetRelativePath"/> to confirm the combined result stays under
-    ///        the base. This guards against edge cases (e.g. platform-specific path normalization)
-    ///        that could bypass the string check.
-    ///     Forward slashes in path segments are accepted on all platforms; <see cref="Path.Join"/>
-    ///     and <see cref="Path.GetFullPath(string)"/> normalize them correctly.
+    ///     All segments are joined using <see cref="Path.Join(ReadOnlySpan{string})"/>, then the
+    ///     combined result is normalized with <see cref="Path.GetFullPath(string)"/> and checked
+    ///     against the normalized base using <see cref="Path.GetRelativePath"/>. If the result
+    ///     resolves outside the base directory the method throws; otherwise the joined
+    ///     (un-normalized) path is returned.
+    ///     Individual segments may contain <c>..</c> or be rooted provided the combined result
+    ///     does not escape the base — for example segments <c>["baa", ".."]</c> on base
+    ///     <c>C:\foo</c> resolve back to <c>C:\foo</c> and are accepted.
     ///     This method is stateless and thread-safe.
     /// </remarks>
     /// <param name="basePath">
@@ -34,13 +32,12 @@ internal static class PathHelpers
     ///     not exist on disk because only string and normalized-path operations are performed.
     /// </param>
     /// <param name="relativePaths">
-    ///     One or more caller-supplied relative path segments to append in order. Must not be null.
-    ///     Each individual segment must not be null, must not contain ".." components, and must not
-    ///     be an absolute (rooted) path.
+    ///     One or more path segments to append in order. Must not be null, and each individual
+    ///     segment must not be null.
     /// </param>
     /// <returns>
-    ///     The result of combining <paramref name="basePath"/> with each segment in
-    ///     <paramref name="relativePaths"/> in order. The returned path is always within
+    ///     The result of joining <paramref name="basePath"/> with all segments in
+    ///     <paramref name="relativePaths"/>. The returned path always resolves within
     ///     <paramref name="basePath"/>.
     /// </returns>
     /// <exception cref="ArgumentNullException">
@@ -48,45 +45,29 @@ internal static class PathHelpers
     ///     individual segment within <paramref name="relativePaths"/> is null.
     /// </exception>
     /// <exception cref="ArgumentException">
-    ///     Thrown when any segment contains ".." components, is an absolute path, or resolves
-    ///     outside the current combined path after normalization.
+    ///     Thrown when the combined path resolves outside <paramref name="basePath"/>.
     /// </exception>
     internal static string SafePathCombine(string basePath, params string[] relativePaths)
     {
-        // Validate that basePath and the segments array are not null
         ArgumentNullException.ThrowIfNull(basePath);
         ArgumentNullException.ThrowIfNull(relativePaths);
 
-        // Apply validation and combination for each segment in order
-        var current = basePath;
-        foreach (var relativePath in relativePaths)
+        if (relativePaths.Any(segment => segment is null))
         {
-            // Validate the individual segment is not null
-            ArgumentNullException.ThrowIfNull(relativePath);
-
-            // Ensure the segment does not contain path traversal sequences
-            if (relativePath.Contains("..") || Path.IsPathRooted(relativePath))
-            {
-                throw new ArgumentException($"Invalid path component: {relativePath}", nameof(relativePaths));
-            }
-
-            // Path.Join is used (not Path.Combine) because we have validated that relativePath
-            // is not an absolute path; Path.Join performs simple concatenation and will not
-            // silently discard current even if relativePath were somehow absolute.
-            var combinedPath = Path.Join(current, relativePath);
-
-            // Defense-in-depth: ensure the combined path is still under the base path
-            var fullBasePath = Path.GetFullPath(basePath);
-            var fullCombinedPath = Path.GetFullPath(combinedPath);
-            var relativeCheck = Path.GetRelativePath(fullBasePath, fullCombinedPath);
-            if (relativeCheck.StartsWith("..") || Path.IsPathRooted(relativeCheck))
-            {
-                throw new ArgumentException($"Invalid path component: {relativePath}", nameof(relativePaths));
-            }
-
-            current = combinedPath;
+            throw new ArgumentNullException(nameof(relativePaths), "Individual path segments must not be null.");
         }
 
-        return current;
+        var combined = relativePaths.Aggregate(basePath, Path.Join);
+
+        var fullBase = Path.GetFullPath(basePath);
+        var fullCombined = Path.GetFullPath(combined);
+        var relative = Path.GetRelativePath(fullBase, fullCombined);
+
+        if (relative.StartsWith("..") || Path.IsPathRooted(relative))
+        {
+            throw new ArgumentException("Path escapes base directory.", nameof(relativePaths));
+        }
+
+        return combined;
     }
 }

@@ -24,24 +24,25 @@ relative path segments.
   — one or more caller-supplied relative path segments appended in order.
 - *Returns*: `string` — the combined path.
 - *Preconditions*: `basePath` must not be null. `relativePaths` must not be null. Each
-  segment must not be null, must not be rooted, and must not contain `..`.
-- *Postconditions*: The returned path is constructed by appending each validated segment
-  to `basePath` in order and remains within the normalized base path.
+  segment must not be null.
+- *Postconditions*: The returned path is the result of joining all segments to `basePath`
+  in order and resolves within the normalized base path.
 - *Throws*: `ArgumentNullException` when `basePath`, `relativePaths`, or any individual
-  segment is null. `ArgumentException` when any segment is rooted, contains `..`, or
-  normalizes outside the base path.
+  segment is null. `ArgumentException` when the combined path resolves outside `basePath`.
 
 ### Error Handling
 
-PathHelpers applies two validation layers for each caller-supplied segment:
+PathHelpers joins all segments using `Path.Join`, then applies a single escape check:
+`Path.GetFullPath` is called on both the base and the combined path, and
+`Path.GetRelativePath` confirms the result still resolves under the base. If the
+relative path starts with `..` or is itself rooted, the method throws `ArgumentException`.
 
-1. An upfront string validation rejects any segment that contains `..` or for which
-   `Path.IsPathRooted` returns `true`.
-2. A defense-in-depth validation uses `Path.GetFullPath` and `Path.GetRelativePath` to
-   confirm the normalized combined path still resolves under the normalized base path.
+Segments may contain `..` components or be rooted provided the combined result does not
+escape — for example segments `["baa", ".."]` on base `C:\foo` resolve back to `C:\foo`
+and are accepted. Only the final resolved position matters.
 
-After validation, the method uses `Path.Join` rather than `Path.Combine` so a rooted
-segment cannot silently replace the trusted base path.
+`Path.Join` is used rather than `Path.Combine` so no segment can silently replace the
+base path.
 
 ### Dependencies
 
@@ -52,7 +53,3 @@ packages.
 
 - **FileMarkdownWriterFactory** — combines the configured output root with caller-supplied
   subfolder and file-name segments before creating directories and files.
-- **ApiMarkTask** — validates candidate tool and output-path fragments before passing them
-  to process-launch or file-system operations.
-- **Validation** — validates generated log-file and results-file path segments used by the
-  self-test workflow before reading or writing files.
