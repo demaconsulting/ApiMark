@@ -195,13 +195,20 @@ public sealed class XmlDocReader
             return langword;
         }
 
+        // If the element provides explicit display text, prefer it over formatting the cref.
+        var explicitText = NormalizeDocumentationText(element.Value);
+        if (explicitText.Length > 0)
+        {
+            return explicitText;
+        }
+
         var cref = element.Attribute("cref")?.Value;
         if (!string.IsNullOrWhiteSpace(cref))
         {
             return FormatCref(cref);
         }
 
-        return NormalizeDocumentationText(element.Value);
+        return string.Empty;
     }
 
     private static string FormatCref(string cref)
