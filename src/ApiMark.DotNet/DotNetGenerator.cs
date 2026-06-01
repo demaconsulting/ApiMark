@@ -258,13 +258,20 @@ public sealed class DotNetGenerator : IApiGenerator
                         continue;
                     }
 
-                    var representative = overloads[0];
+                    // Ensure deterministic ordering for representative selection and page rendering.
+                    var orderedOverloads = overloads
+                        .OrderBy(m => m.GenericParameters.Count)
+                        .ThenBy(m => m.Parameters.Count)
+                        .ThenBy(m => string.Join(",", m.Parameters.Select(p => p.ParameterType.FullName)), StringComparer.Ordinal)
+                        .ToList();
+
+                    var representative = orderedOverloads[0];
                     var representativeMemberId = BuildMemberId(representative);
                     var representativeSummary = xmlDocs.GetSummary(representativeMemberId) ?? string.Empty;
                     var representativeTypeName = GetMemberTypeName(representative, namespaceName);
-                    var overloadDisplayName = GetMethodGroupDisplayName(representative, overloads.Count);
+                    var overloadDisplayName = GetMethodGroupDisplayName(representative, orderedOverloads.Count);
 
-                    WriteMethodOverloadPage(factory, namespaceName, namespaceFolderPath, type, overloads, xmlDocs);
+                    WriteMethodOverloadPage(factory, namespaceName, namespaceFolderPath, type, orderedOverloads, xmlDocs);
                     var memberLink = $"{type.Name}/{methodFileName}.md";
                     inlineRows.Add(new[] { $"[{overloadDisplayName}]({memberLink})", representativeTypeName, representativeSummary });
                     continue;
