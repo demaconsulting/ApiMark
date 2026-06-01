@@ -91,6 +91,28 @@ public sealed class XmlDocReader
             .ToList();
     }
 
+    /// <summary>Returns exception types and descriptions from <c>&lt;exception&gt;</c> elements for <paramref name="memberId"/>.</summary>
+    /// <param name="memberId">The XML doc member identifier.</param>
+    /// <returns>A read-only list of (Type, Description) tuples.</returns>
+    public IReadOnlyList<(string Type, string? Description)> GetExceptionDetails(string memberId)
+    {
+        if (!_members.TryGetValue(memberId, out var member))
+        {
+            return Array.Empty<(string, string?)>();
+        }
+
+        return member.Elements("exception")
+            .Select<XElement, (string Type, string? Description)>(e =>
+            {
+                var cref = e.Attribute("cref")?.Value;
+                var type = string.IsNullOrWhiteSpace(cref) ? string.Empty : FormatCref(cref);
+                var description = GetDocumentationText(e);
+                return (type, description);
+            })
+            .Where(e => e.Type.Length > 0)
+            .ToList();
+    }
+
     /// <summary>Returns parameter names and descriptions for <paramref name="memberId"/>.</summary>
     /// <param name="memberId">The XML doc member identifier.</param>
     /// <returns>A read-only list of (Name, Description) tuples.</returns>
