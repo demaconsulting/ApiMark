@@ -448,6 +448,24 @@ public class DotNetGeneratorTests
                 .Any(p => p.Text == "Returns true when status is Active or Pending."));
     }
 
+    /// <summary>Validates that static types render a <c>static class</c> signature.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_StaticTypeSignature_RendersStaticClass()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/ExceptionDocClass"];
+        Assert.Contains(
+            writer.Operations.OfType<SignatureOperation>(),
+            s => s.Code == "public static class ExceptionDocClass");
+    }
+
     /// <summary>Validates that extension method signatures include both <c>static</c> and <c>this</c>.</summary>
     [Fact]
     public void DotNetGenerator_Generate_ExtensionMethodSignature_RendersStaticAndThis()
@@ -468,6 +486,27 @@ public class DotNetGeneratorTests
             memberWriters,
             writer => writer.Operations.OfType<SignatureOperation>()
                 .Any(s => s.Code == "public static bool IsPassed(this SampleStatus status)"));
+    }
+
+    /// <summary>Validates that exception tables include both exception type and description text.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ExceptionDocumentation_RendersExceptionTypeAndDescription()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/ExceptionDocClass/Connect"];
+        var exceptionTable = writer.Operations
+            .OfType<TableOperation>()
+            .Single(t => t.Headers.Length == 2 && t.Headers[0] == "Exception" && t.Headers[1] == "Description");
+        Assert.Contains(
+            exceptionTable.Rows,
+            row => row[0] == "InvalidOperationException" && row[1] == "Already connected.");
     }
 
     /// <summary>Validates that overloaded complex methods share a single Markdown file.</summary>

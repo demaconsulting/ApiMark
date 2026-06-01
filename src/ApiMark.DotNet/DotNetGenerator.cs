@@ -353,11 +353,11 @@ public sealed class DotNetGenerator : IApiGenerator
         }
 
         // Emit exception table when documented exceptions exist
-        var exceptions = xmlDocs.GetExceptions(memberId);
+        var exceptions = xmlDocs.GetExceptionDetails(memberId);
         if (exceptions.Count > 0)
         {
             var exHeaders = new[] { "Exception", DescriptionColumnHeader };
-            var exRows = exceptions.Select(e => new[] { e, string.Empty });
+            var exRows = exceptions.Select(e => new[] { e.Type, e.Description ?? string.Empty });
             memberWriter.WriteTable(exHeaders, exRows);
         }
 
@@ -429,11 +429,11 @@ public sealed class DotNetGenerator : IApiGenerator
             memberWriter.WriteParagraph($"**Returns:** {returns}");
         }
 
-        var exceptions = xmlDocs.GetExceptions(memberId);
+        var exceptions = xmlDocs.GetExceptionDetails(memberId);
         if (exceptions.Count > 0)
         {
             var exHeaders = new[] { "Exception", DescriptionColumnHeader };
-            var exRows = exceptions.Select(e => new[] { e, string.Empty });
+            var exRows = exceptions.Select(e => new[] { e.Type, e.Description ?? string.Empty });
             memberWriter.WriteTable(exHeaders, exRows);
         }
 
@@ -764,8 +764,18 @@ public sealed class DotNetGenerator : IApiGenerator
             _ => "class",
         };
 
-        // Sealed is only meaningful on non-abstract reference types (not interfaces, enums, structs)
-        var sealedModifier = keyword == "class" && type.IsSealed && !type.IsAbstract ? "sealed " : string.Empty;
+        var classModifier = string.Empty;
+        if (keyword == "class")
+        {
+            if (type.IsAbstract && type.IsSealed)
+            {
+                classModifier = "static ";
+            }
+            else if (type.IsSealed)
+            {
+                classModifier = "sealed ";
+            }
+        }
 
         var name = StripArity(type.Name);
         if (type.HasGenericParameters)
@@ -774,7 +784,7 @@ public sealed class DotNetGenerator : IApiGenerator
             name = $"{name}<{args}>";
         }
 
-        return $"public {sealedModifier}{keyword} {name}";
+        return $"public {classModifier}{keyword} {name}";
     }
 
     /// <summary>Dispatches to the appropriate signature builder based on the runtime member type.</summary>
