@@ -60,6 +60,32 @@ public class XmlDocReaderTests
         }
     }
 
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummary"/> preserves inline symbol references and langwords.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_WithInlineReferences_PreservesReferencedNames()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.IsPassed(Foo.SampleStatus)">
+              <summary>Returns <see langword="true"/> when <paramref name="status"/> is <see cref="F:Foo.SampleStatus.Active"/> or <see cref="F:Foo.SampleStatus.Pending"/>.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+
+            // Assert
+            Assert.Equal(
+                "Returns true when status is Active or Pending.",
+                reader.GetSummary("M:Foo.Bar.IsPassed(Foo.SampleStatus)"));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     /// <summary>Validates that <see cref="XmlDocReader.GetSummary"/> returns null for a member not in the XML doc file.</summary>
     [Fact]
     public void XmlDocReader_GetSummary_MemberAbsent_ReturnsNull()

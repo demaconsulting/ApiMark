@@ -421,4 +421,70 @@ public class DotNetGeneratorTests
         Assert.NotNull(nameRow);
         Assert.Equal("string", nameRow![1]); // type column shows "string" not "System.String"
     }
+
+    /// <summary>Validates that inline XML documentation references preserve symbol names in generated Markdown.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_InlineReferences_PreserveSymbolNamesInMarkdown()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert
+        var typeWriter = factory.Writers["ApiMark.DotNet.Fixtures/SampleStatusExtensions"];
+        var typeParagraphs = typeWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains("Extensions for the SampleStatus enum.", typeParagraphs);
+
+        var memberWriters = factory.Writers
+            .Where(kvp => kvp.Key.StartsWith("ApiMark.DotNet.Fixtures/SampleStatusExtensions/IsPassed", StringComparison.Ordinal))
+            .Select(kvp => kvp.Value)
+            .ToList();
+        Assert.Contains(
+            memberWriters,
+            writer => writer.Operations.OfType<ParagraphOperation>()
+                .Any(p => p.Text == "Returns true when status is Active or Pending."));
+    }
+
+    /// <summary>Validates that extension method signatures include both <c>static</c> and <c>this</c>.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ExtensionMethodSignature_RendersStaticAndThis()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert
+        var memberWriters = factory.Writers
+            .Where(kvp => kvp.Key.StartsWith("ApiMark.DotNet.Fixtures/SampleStatusExtensions/IsPassed", StringComparison.Ordinal))
+            .Select(kvp => kvp.Value)
+            .ToList();
+        Assert.Contains(
+            memberWriters,
+            writer => writer.Operations.OfType<SignatureOperation>()
+                .Any(s => s.Code == "public static bool IsPassed(this SampleStatus status)"));
+    }
+
+    /// <summary>Validates that overloaded complex methods produce separate Markdown files.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_OverloadedMethods_CreateDistinctMemberPages()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert
+        Assert.Equal(
+            2,
+            factory.Writers.Keys.Count(k =>
+                k.StartsWith("ApiMark.DotNet.Fixtures/SampleStatusExtensions/IsPassed", StringComparison.Ordinal)));
+    }
 }

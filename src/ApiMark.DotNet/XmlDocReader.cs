@@ -1,3 +1,4 @@
+using System.Text;
 using System.Xml.Linq;
 
 namespace ApiMark.DotNet;
@@ -38,8 +39,7 @@ public sealed class XmlDocReader
             return null;
         }
 
-        var el = member.Element("summary");
-        return el?.Value.Trim();
+        return GetDocumentationText(member.Element("summary"));
     }
 
     /// <summary>Returns the trimmed remarks text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
@@ -52,8 +52,7 @@ public sealed class XmlDocReader
             return null;
         }
 
-        var el = member.Element("remarks");
-        return el?.Value.Trim();
+        return GetDocumentationText(member.Element("remarks"));
     }
 
     /// <summary>Returns <c>true</c> if the remarks for <paramref name="memberId"/> span more than one non-empty line.</summary>
@@ -105,7 +104,7 @@ public sealed class XmlDocReader
         return member.Elements("param")
             .Select<XElement, (string Name, string? Description)>(p => (
                 p.Attribute("name")?.Value ?? string.Empty,
-                p.Value.Trim()))
+                GetDocumentationText(p)))
             .Where(p => p.Name.Length > 0)
             .ToList();
     }
@@ -120,8 +119,7 @@ public sealed class XmlDocReader
             return null;
         }
 
-        var el = member.Element("returns");
-        return el?.Value.Trim();
+        return GetDocumentationText(member.Element("returns"));
     }
 
     /// <summary>Returns the trimmed example text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
@@ -136,5 +134,188 @@ public sealed class XmlDocReader
 
         var el = member.Element("example");
         return el?.Value.Trim();
+    }
+
+    private static string? GetDocumentationText(XElement? element)
+    {
+        if (element == null)
+        {
+            return null;
+        }
+
+        var builder = new StringBuilder();
+        AppendNodeText(builder, element.Nodes());
+        var text = NormalizeDocumentationText(builder.ToString());
+        return text.Length == 0 ? null : text;
+    }
+
+    private static void AppendNodeText(StringBuilder builder, IEnumerable<XNode> nodes)
+    {
+        foreach (var node in nodes)
+        {
+            switch (node)
+            {
+                case XText text:
+                    builder.Append(text.Value);
+                    break;
+                case XElement element:
+                    AppendElementText(builder, element);
+                    break;
+            }
+        }
+    }
+
+    private static void AppendElementText(StringBuilder builder, XElement element)
+    {
+        switch (element.Name.LocalName)
+        {
+            case "see":
+            case "seealso":
+                builder.Append(GetInlineReferenceText(element));
+                break;
+            case "paramref":
+            case "typeparamref":
+                builder.Append(element.Attribute("name")?.Value ?? string.Empty);
+                break;
+            case "para":
+                AppendNodeText(builder, element.Nodes());
+                builder.AppendLine();
+                break;
+            default:
+                AppendNodeText(builder, element.Nodes());
+                break;
+        }
+    }
+
+    private static string GetInlineReferenceText(XElement element)
+    {
+        var langword = element.Attribute("langword")?.Value;
+        if (!string.IsNullOrWhiteSpace(langword))
+        {
+            return langword;
+        }
+
+        var cref = element.Attribute("cref")?.Value;
+        if (!string.IsNullOrWhiteSpace(cref))
+        {
+            return FormatCref(cref);
+        }
+
+        return NormalizeDocumentationText(element.Value);
+    }
+
+    private static string FormatCref(string cref)
+    {
+        var separatorIndex = cref.IndexOf(':');
+        var kind = separatorIndex > 0 ? cref[0] : '\0';
+        var target = separatorIndex > 0 ? cref[(separatorIndex + 1)..] : cref;
+
+        var parameterIndex = target.IndexOf('(');
+        var parameters = parameterIndex >= 0 ? target[parameterIndex..] : string.Empty;
+        var memberTarget = parameterIndex >= 0 ? target[..parameterIndex] : target;
+
+        return kind switch
+        {
+            'T' => FormatTypeName(memberTarget),
+            'M' or 'P' or 'F' or 'E' => FormatMemberReference(kind, memberTarget, parameters),
+            _ => target,
+        };
+    }
+
+    private static string FormatMemberReference(char kind, string target, string parameters)
+    {
+        var lastDot = target.LastIndexOf('.');
+        if (lastDot < 0)
+        {
+            return target;
+        }
+
+        var typeName = target[..lastDot];
+        var memberName = target[(lastDot + 1)..];
+
+        if (kind == 'M' && memberName == "#ctor")
+        {
+            return FormatTypeName(typeName);
+        }
+
+        var formattedTypeName = FormatTypeName(typeName);
+        var formattedMemberName = StripArity(memberName);
+        var shouldIncludeTypeName = kind == 'M' || IsPrimitiveTypeName(typeName);
+        var memberDisplay = shouldIncludeTypeName
+            ? $"{formattedTypeName}.{formattedMemberName}"
+            : formattedMemberName;
+
+        return kind == 'M' && parameters.Length > 0
+            ? $"{memberDisplay}()"
+            : memberDisplay;
+    }
+
+    private static string FormatTypeName(string typeName)
+    {
+        return typeName switch
+        {
+            "System.Boolean" => "bool",
+            "System.Byte" => "byte",
+            "System.Char" => "char",
+            "System.Decimal" => "decimal",
+            "System.Double" => "double",
+            "System.Int16" => "short",
+            "System.Int32" => "int",
+            "System.Int64" => "long",
+            "System.Object" => "object",
+            "System.SByte" => "sbyte",
+            "System.Single" => "float",
+            "System.String" => "string",
+            "System.UInt16" => "ushort",
+            "System.UInt32" => "uint",
+            "System.UInt64" => "ulong",
+            "System.Void" => "void",
+            _ => StripArity(typeName[(typeName.LastIndexOf('.') + 1)..]),
+        };
+    }
+
+    private static bool IsPrimitiveTypeName(string typeName) => typeName.StartsWith("System.", StringComparison.Ordinal);
+
+    private static string StripArity(string typeName)
+    {
+        var tickIndex = typeName.IndexOf('`');
+        return tickIndex >= 0 ? typeName[..tickIndex] : typeName;
+    }
+
+    private static string NormalizeDocumentationText(string text)
+    {
+        return string.Join(
+                "\n",
+                text.Replace("\r\n", "\n", StringComparison.Ordinal)
+                    .Replace('\r', '\n')
+                    .Split('\n')
+                    .Select(CollapseWhitespace)
+                    .Select(line => line.Trim()))
+            .Trim();
+    }
+
+    private static string CollapseWhitespace(string text)
+    {
+        var builder = new StringBuilder(text.Length);
+        var previousWasWhitespace = false;
+
+        foreach (var character in text)
+        {
+            if (char.IsWhiteSpace(character))
+            {
+                if (!previousWasWhitespace)
+                {
+                    builder.Append(' ');
+                    previousWasWhitespace = true;
+                }
+
+                continue;
+            }
+
+            builder.Append(character);
+            previousWasWhitespace = false;
+        }
+
+        return builder.ToString();
     }
 }
