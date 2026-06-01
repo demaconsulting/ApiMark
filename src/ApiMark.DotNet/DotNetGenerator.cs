@@ -662,6 +662,9 @@ public sealed class DotNetGenerator : IApiGenerator
             _ => "class",
         };
 
+        // Sealed is only meaningful on non-abstract reference types (not interfaces, enums, structs)
+        var sealedModifier = keyword == "class" && type.IsSealed && !type.IsAbstract ? "sealed " : string.Empty;
+
         var name = StripArity(type.Name);
         if (type.HasGenericParameters)
         {
@@ -669,7 +672,7 @@ public sealed class DotNetGenerator : IApiGenerator
             name = $"{name}<{args}>";
         }
 
-        return $"public {keyword} {name}";
+        return $"public {sealedModifier}{keyword} {name}";
     }
 
     /// <summary>Dispatches to the appropriate signature builder based on the runtime member type.</summary>

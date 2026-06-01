@@ -618,6 +618,55 @@ public class DotNetGeneratorTests
             "Expected member page for InnerNamespaceClass.Compute at the correct hierarchical path");
     }
 
+    /// <summary>Validates that a sealed class produces a type page with <c>sealed</c> in the signature.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_SealedClass_SignatureContainsSealedModifier()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: type page exists
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SealedClass"),
+            "Expected a type page for SealedClass");
+
+        // Assert: signature contains the sealed modifier
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SealedClass"];
+        var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
+        Assert.NotNull(signature);
+        Assert.Contains("sealed", signature.Code, StringComparison.Ordinal);
+    }
+
+    /// <summary>Validates that overloaded methods on <see cref="IntVsIntArrayClass"/> each produce a separate member page.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_OverloadedMethods_EachHaveOwnMemberPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: exactly two separate pages exist for the two Process overloads
+        var overloadKeys = factory.Writers.Keys
+            .Where(k => k.StartsWith("ApiMark.DotNet.Fixtures/IntVsIntArrayClass/Process", StringComparison.Ordinal))
+            .ToList();
+        Assert.Equal(2, overloadKeys.Count);
+
+        // Assert: each page has a signature that identifies the method
+        foreach (var key in overloadKeys)
+        {
+            var sig = factory.Writers[key].Operations.OfType<SignatureOperation>().FirstOrDefault();
+            Assert.NotNull(sig);
+            Assert.Contains("Process", sig.Code, StringComparison.Ordinal);
+        }
+    }
+
     /// <summary>Validates that the child namespace page is placed inside the root namespace folder.</summary>
     [Fact]
     public void DotNetGenerator_Generate_ChildNamespacePage_PlacedInRootNamespaceFolder()
