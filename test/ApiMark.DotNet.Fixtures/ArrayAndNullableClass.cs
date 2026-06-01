@@ -1,7 +1,7 @@
 namespace ApiMark.DotNet.Fixtures;
 
 /// <summary>A class for testing array, nullable, and generic return types.</summary>
-public class ArrayAndNullableClass
+public static class ArrayAndNullableClass
 {
     /// <summary>Gets an array of names.</summary>
     /// <returns>An array of name strings.</returns>

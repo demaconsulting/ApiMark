@@ -15,14 +15,14 @@ public sealed class PathHelpersTests
     public void PathHelpers_SafePathCombine_ValidPaths_CombinesCorrectly()
     {
         // Arrange: create a base path and a valid relative path
-        var basePath = Path.Combine("home", "user", "project");
-        var relativePath = Path.Combine("subfolder", "file.txt");
+        var basePath = Path.Join("home", "user", "project");
+        var relativePath = Path.Join("subfolder", "file.txt");
 
         // Act: invoke SafePathCombine with the test inputs
         var result = PathHelpers.SafePathCombine(basePath, relativePath);
 
-        // Assert: result equals Path.Combine output
-        Assert.Equal(Path.Combine(basePath, relativePath), result);
+        // Assert: result equals Path.Join output
+        Assert.Equal(Path.Join(basePath, relativePath), result);
     }
 
     /// <summary>
@@ -32,8 +32,8 @@ public sealed class PathHelpersTests
     public void PathHelpers_SafePathCombine_PathTraversalWithDoubleDots_ThrowsArgumentException()
     {
         // Arrange: relative path with parent-directory traversal segment
-        var basePath = Path.Combine("home", "user", "project");
-        var relativePath = Path.Combine("..", "etc", "passwd");
+        var basePath = Path.Join("home", "user", "project");
+        var relativePath = Path.Join("..", "etc", "passwd");
 
         // Act / Assert: path traversal attempt is rejected
         var exception = Assert.Throws<ArgumentException>(() =>
@@ -48,8 +48,8 @@ public sealed class PathHelpersTests
     public void PathHelpers_SafePathCombine_DoubleDotsInMiddle_ThrowsArgumentException()
     {
         // Arrange: relative path with embedded traversal segment
-        var basePath = Path.Combine("home", "user", "project");
-        var relativePath = Path.Combine("subfolder", "..", "..", "..", "etc", "passwd");
+        var basePath = Path.Join("home", "user", "project");
+        var relativePath = Path.Join("subfolder", "..", "..", "..", "etc", "passwd");
 
         // Act / Assert: embedded traversal is rejected
         var exception = Assert.Throws<ArgumentException>(() =>
@@ -64,10 +64,8 @@ public sealed class PathHelpersTests
     public void PathHelpers_SafePathCombine_AbsoluteSegment_WithinBase_CombinesCorrectly()
     {
         // Arrange: a segment starting with the directory separator — Path.Join folds it within the base
-        var basePath = Path.Combine("home", "user", "project");
+        var basePath = Path.Join("home", "user", "project");
         var segment = Path.DirectorySeparatorChar + "sub";
-
-        // Act: the segment does not escape basePath so the call succeeds
         var result = PathHelpers.SafePathCombine(basePath, segment);
 
         // Assert: result is under the base path
@@ -81,7 +79,7 @@ public sealed class PathHelpersTests
     public void PathHelpers_SafePathCombine_BacktrackWithinBase_CombinesCorrectly()
     {
         // Arrange: segments that use ".." but stay within the base
-        var basePath = Path.GetFullPath(Path.Combine("home", "user", "project"));
+        var basePath = Path.GetFullPath(Path.Join("home", "user", "project"));
 
         // Act: "baa/.." resolves back to basePath — still within the base
         var result = PathHelpers.SafePathCombine(basePath, "baa", "..");
@@ -97,7 +95,7 @@ public sealed class PathHelpersTests
     public void PathHelpers_SafePathCombine_FilenameWithDoubleDots_CombinesCorrectly()
     {
         // Arrange: filename with ".." as part of the name, not a traversal segment
-        var basePath = Path.Combine("home", "user", "project");
+        var basePath = Path.Join("home", "user", "project");
         const string FileName = "v1..2.md";
 
         // Act: the filename does not escape basePath
@@ -114,14 +112,14 @@ public sealed class PathHelpersTests
     public void PathHelpers_SafePathCombine_CurrentDirectoryReference_CombinesCorrectly()
     {
         // Arrange: relative path starting with a current-directory reference
-        var basePath = Path.Combine("home", "user", "project");
-        var relativePath = Path.Combine(".", "subfolder", "file.txt");
+        var basePath = Path.Join("home", "user", "project");
+        var relativePath = Path.Join(".", "subfolder", "file.txt");
 
         // Act: invoke SafePathCombine with the test inputs
         var result = PathHelpers.SafePathCombine(basePath, relativePath);
 
-        // Assert: result equals Path.Combine output
-        Assert.Equal(Path.Combine(basePath, relativePath), result);
+        // Assert: result equals Path.Join output
+        Assert.Equal(Path.Join(basePath, relativePath), result);
     }
 
     /// <summary>
@@ -131,14 +129,14 @@ public sealed class PathHelpersTests
     public void PathHelpers_SafePathCombine_NestedPaths_CombinesCorrectly()
     {
         // Arrange: deeply nested relative path
-        var basePath = Path.Combine("home", "user", "project");
-        var relativePath = Path.Combine("level1", "level2", "level3", "file.txt");
+        var basePath = Path.Join("home", "user", "project");
+        var relativePath = Path.Join("level1", "level2", "level3", "file.txt");
 
         // Act: invoke SafePathCombine with the test inputs
         var result = PathHelpers.SafePathCombine(basePath, relativePath);
 
-        // Assert: result equals Path.Combine output
-        Assert.Equal(Path.Combine(basePath, relativePath), result);
+        // Assert: result equals Path.Join output
+        Assert.Equal(Path.Join(basePath, relativePath), result);
     }
 
     /// <summary>
@@ -148,14 +146,14 @@ public sealed class PathHelpersTests
     public void PathHelpers_SafePathCombine_EmptyRelativePath_ReturnsBasePath()
     {
         // Arrange: empty relative path
-        var basePath = Path.Combine("home", "user", "project");
+        var basePath = Path.Join("home", "user", "project");
         const string RelativePath = "";
 
         // Act: invoke SafePathCombine with the test inputs
         var result = PathHelpers.SafePathCombine(basePath, RelativePath);
 
-        // Assert: result equals Path.Combine output
-        Assert.Equal(Path.Combine(basePath, RelativePath), result);
+        // Assert: result equals Path.Join output
+        Assert.Equal(Path.Join(basePath, RelativePath), result);
     }
 
     /// <summary>
@@ -165,7 +163,7 @@ public sealed class PathHelpersTests
     public void PathHelpers_SafePathCombine_MultipleSegments_CombinesCorrectly()
     {
         // Arrange: base path and multiple valid relative segments
-        var basePath = Path.Combine("home", "user", "project");
+        var basePath = Path.Join("home", "user", "project");
 
         // Act: invoke SafePathCombine with multiple segments
         var result = PathHelpers.SafePathCombine(basePath, "level1", "level2", "file.txt");
@@ -181,11 +179,11 @@ public sealed class PathHelpersTests
     public void PathHelpers_SafePathCombine_TraversalInLaterSegment_ThrowsArgumentException()
     {
         // Arrange: valid first segment, then enough ".." to escape the base
-        var basePath = Path.Combine("home", "user", "project");
+        var basePath = Path.Join("home", "user", "project");
 
         // Act / Assert: traversal that escapes the base in any segment is rejected
         var exception = Assert.Throws<ArgumentException>(() =>
-            PathHelpers.SafePathCombine(basePath, "level1", Path.Combine("..", "..", "..", "etc", "passwd")));
+            PathHelpers.SafePathCombine(basePath, "level1", Path.Join("..", "..", "..", "etc", "passwd")));
         Assert.Contains("escapes base directory", exception.Message);
     }
 
@@ -210,10 +208,8 @@ public sealed class PathHelpersTests
     public void PathHelpers_SafePathCombine_NullRelativePath_ThrowsArgumentNullException()
     {
         // Arrange: create a null relative path segment
-        var basePath = Path.Combine("home", "user", "project");
+        var basePath = Path.Join("home", "user", "project");
         string? relativePath = null;
-
-        // Act / Assert: null relativePath is rejected before any path operation
         Assert.Throws<ArgumentNullException>(() =>
             PathHelpers.SafePathCombine(basePath, relativePath!));
     }

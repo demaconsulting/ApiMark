@@ -1,7 +1,7 @@
 namespace ApiMark.DotNet.Fixtures;
 
 /// <summary>A class for testing exception documentation handling.</summary>
-public class ExceptionDocClass
+public static class ExceptionDocClass
 {
     /// <summary>Opens the connection.</summary>
     /// <param name="host">The host to connect to.</param>

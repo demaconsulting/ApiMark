@@ -1,7 +1,7 @@
 namespace ApiMark.DotNet.Fixtures;
 
 /// <summary>A class for testing multi-line remarks documentation.</summary>
-public class RemarksDocClass
+public static class RemarksDocClass
 {
     /// <summary>Computes the result.</summary>
     /// <remarks>

@@ -8,9 +8,17 @@ name: "ApiMark CodeQL Config"
 paths-ignore:
   - "**/obj/**"
   - "**/bin/**"
-
 # Query filters to disable specific queries for certain paths
 query-filters:
+  # Suppress warnings in all generated build output under obj/
+  - exclude:
+      id: cs/useless-assignment-to-local
+    paths:
+      - "**/obj/**/*.cs"
+  - exclude:
+      id: cs/missed-ternary-operator
+    paths:
+      - "**/obj/**/*.cs"
   - exclude:
       id: cs/catch-of-all-exceptions
     paths:

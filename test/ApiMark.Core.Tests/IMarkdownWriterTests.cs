@@ -20,9 +20,8 @@ public sealed class IMarkdownWriterTests
         // Arrange: obtain an IMarkdownWriter through the factory interface
         using var writer = new InMemoryMarkdownWriter();
 
-        // Act / Assert: the using declaration above confirms IMarkdownWriter is IDisposable at compile time;
-        // the runtime check below verifies the interface assignment is valid
-        Assert.True(writer is IDisposable);
+        // Act / Assert: verifies at the interface level that IMarkdownWriter extends IDisposable
+        Assert.True(typeof(IMarkdownWriter).IsAssignableTo(typeof(IDisposable)));
     }
 
     /// <summary>
@@ -152,7 +151,7 @@ public sealed class IMarkdownWriterTests
     public void InMemoryMarkdownWriter_Dispose_Called_SetsIsDisposedFlag()
     {
         // Arrange: create an in-memory writer
-        var writer = new InMemoryMarkdownWriter();
+        using var writer = new InMemoryMarkdownWriter();
         Assert.False(writer.IsDisposed, "Writer must not be disposed before Dispose() is called.");
 
         // Act: dispose the writer
@@ -171,7 +170,7 @@ public sealed class IMarkdownWriterTests
     public void InMemoryMarkdownWriter_Write_AllMethods_RecordsOperations()
     {
         // Arrange: create an in-memory writer and prepare test data
-        var writer = new InMemoryMarkdownWriter();
+        using var writer = new InMemoryMarkdownWriter();
         string[] tableHeaders = ["Col1", "Col2"];
         string[][] tableRows = [["A", "B"], ["C", "D"]];
 
@@ -241,7 +240,7 @@ public sealed class IMarkdownWriterTests
     public void ApiMarkCore_MarkdownWriterContract_FileSections_RenderConsistently()
     {
         // Arrange: create an in-memory writer
-        var writer = new InMemoryMarkdownWriter();
+        using var writer = new InMemoryMarkdownWriter();
         string[] headers = ["Parameter", "Description"];
         string[][] rows = [["value", "The input value."]];
 
