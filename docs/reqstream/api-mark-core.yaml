@@ -42,3 +42,17 @@ sections:
           - ApiMarkCore-IMarkdownWriter-DefineWriteLink
         tests:
           - ApiMarkCore_MarkdownWriterContract_FileSections_RenderConsistently
+      - id: ApiMarkCore-PathHelpers-ProvideSafePathCombinationHelper
+        title: ApiMarkCore shall provide an internal helper for safely combining caller-supplied relative path segments with a trusted base path.
+        justification: |
+          ApiMark needs one auditable place to enforce path-safety rules so file-based
+          helpers do not each implement their own traversal checks inconsistently.
+        children:
+          - ApiMarkCore-PathHelpers-CombineValidRelativeSegments
+          - ApiMarkCore-PathHelpers-RejectTraversalSegments
+          - ApiMarkCore-PathHelpers-RejectNullArguments
+        tests:
+          - PathHelpers_SafePathCombine_ValidPaths_CombinesCorrectly
+          - PathHelpers_SafePathCombine_PathTraversalWithDoubleDots_ThrowsArgumentException
+          - PathHelpers_SafePathCombine_AbsoluteSegment_WithinBase_CombinesCorrectly
+          - PathHelpers_SafePathCombine_NullBasePath_ThrowsArgumentNullException

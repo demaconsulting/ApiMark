@@ -1,0 +1,40 @@
+---
+# PathHelpers unit requirements
+sections:
+  - title: ApiMarkCore Requirements
+    sections:
+      - title: PathHelpers Requirements
+        requirements:
+          - id: ApiMarkCore-PathHelpers-CombineValidRelativeSegments
+            title: PathHelpers shall combine a trusted base path with one or more caller-supplied path segments in order, provided the result resolves within the base.
+            justification: |
+              ApiMark callers need one reusable helper that can build derived file-system
+              paths without duplicating path-joining logic at every call site. Segments
+              that contain ".." or start with a separator are accepted as long as the
+              final combined path does not escape the base directory.
+            tests:
+              - PathHelpers_SafePathCombine_ValidPaths_CombinesCorrectly
+              - PathHelpers_SafePathCombine_CurrentDirectoryReference_CombinesCorrectly
+              - PathHelpers_SafePathCombine_NestedPaths_CombinesCorrectly
+              - PathHelpers_SafePathCombine_EmptyRelativePath_ReturnsBasePath
+              - PathHelpers_SafePathCombine_MultipleSegments_CombinesCorrectly
+              - PathHelpers_SafePathCombine_BacktrackWithinBase_CombinesCorrectly
+              - PathHelpers_SafePathCombine_FilenameWithDoubleDots_CombinesCorrectly
+              - PathHelpers_SafePathCombine_AbsoluteSegment_WithinBase_CombinesCorrectly
+          - id: ApiMarkCore-PathHelpers-RejectTraversalSegments
+            title: PathHelpers shall reject any caller-supplied path combination that resolves outside the base directory.
+            justification: |
+              Caller-supplied path fragments must never be allowed to escape the intended
+              output root because traversal would create a directory-traversal vulnerability.
+            tests:
+              - PathHelpers_SafePathCombine_PathTraversalWithDoubleDots_ThrowsArgumentException
+              - PathHelpers_SafePathCombine_DoubleDotsInMiddle_ThrowsArgumentException
+              - PathHelpers_SafePathCombine_TraversalInLaterSegment_ThrowsArgumentException
+          - id: ApiMarkCore-PathHelpers-RejectNullArguments
+            title: PathHelpers shall reject null base-path and relative-path arguments.
+            justification: |
+              Null argument rejection gives callers an immediate, deterministic diagnostic
+              instead of allowing a less clear failure later in the path-processing flow.
+            tests:
+              - PathHelpers_SafePathCombine_NullBasePath_ThrowsArgumentNullException
+              - PathHelpers_SafePathCombine_NullRelativePath_ThrowsArgumentNullException

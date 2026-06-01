@@ -5,6 +5,7 @@ includes:
   - docs/reqstream/api-mark-core/i-api-generator.yaml
   - docs/reqstream/api-mark-core/i-markdown-writer-factory.yaml
   - docs/reqstream/api-mark-core/i-markdown-writer.yaml
+  - docs/reqstream/api-mark-core/path-helpers.yaml
   - docs/reqstream/api-mark-dot-net.yaml
   - docs/reqstream/api-mark-dot-net/dot-net-generator.yaml
   - docs/reqstream/api-mark-dot-net/type-name-simplifier.yaml

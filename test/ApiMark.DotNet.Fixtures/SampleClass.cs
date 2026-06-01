@@ -18,7 +18,7 @@ public class SampleClass
     /// <summary>Gets a greeting for the specified name.</summary>
     /// <param name="name">The name to greet.</param>
     /// <returns>A greeting string.</returns>
-    public string GetGreeting(string name) => $"Hello, {name}!";
+    public static string GetGreeting(string name) => $"Hello, {name}!";
 
     /// <summary>Resets this instance to its default state.</summary>
     public void Reset()

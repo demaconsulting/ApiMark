@@ -19,7 +19,7 @@ public sealed class IMarkdownWriterFactoryTests
     public void ApiMarkCore_WriterFactory_CanCreate_RootAndSubfolderWriters()
     {
         // Arrange: obtain the factory via the interface type to exercise the contract
-        IMarkdownWriterFactory factory = new InMemoryMarkdownWriterFactory();
+        var factory = new InMemoryMarkdownWriterFactory();
 
         // Act: create a root-level writer and a subfolder writer
         using var rootWriter = factory.CreateMarkdown("", "api");
@@ -38,7 +38,7 @@ public sealed class IMarkdownWriterFactoryTests
     public void IMarkdownWriterFactory_HasCreateMarkdown_Method()
     {
         // Arrange: create an in-memory factory as the interface implementation under test
-        IMarkdownWriterFactory factory = new InMemoryMarkdownWriterFactory();
+        var factory = new InMemoryMarkdownWriterFactory();
 
         // Act: invoke CreateMarkdown and capture the result
         using var writer = factory.CreateMarkdown("", "test-file");

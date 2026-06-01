@@ -38,7 +38,7 @@ public class PackageIntegrationTests
 
         RunInIsolation(packagesDir, workDir =>
         {
-            outputDir = Path.Combine(workDir, "api");
+            outputDir = Path.Join(workDir, "api");
             var result = RunProcess(
                 "dotnet",
                 $"build SampleLib.csproj --configuration Release -p:ApiMarkOutputDir=\"{outputDir}\"",
@@ -50,7 +50,7 @@ public class PackageIntegrationTests
                 $"dotnet build failed (exit {result.ExitCode}).\nstdout:\n{result.Output}\nstderr:\n{result.Error}");
 
             Assert.True(
-                File.Exists(Path.Combine(outputDir, "api.md")),
+                File.Exists(Path.Join(outputDir, "api.md")),
                 $"api.md was not created in '{outputDir}'.\nBuild output:\n{result.Output}");
         });
     }
@@ -66,8 +66,8 @@ public class PackageIntegrationTests
 
         RunInIsolation(packagesDir, workDir =>
         {
-            var outputDir = Path.Combine(workDir, "api");
-            var packOutputDir = Path.Combine(workDir, "pkg");
+            var outputDir = Path.Join(workDir, "api");
+            var packOutputDir = Path.Join(workDir, "pkg");
             Directory.CreateDirectory(packOutputDir);
 
             var result = RunProcess(
@@ -102,8 +102,8 @@ public class PackageIntegrationTests
 
         RunInIsolation(packagesDir, workDir =>
         {
-            var outputDir = Path.Combine(workDir, "api");
-            var packOutputDir = Path.Combine(workDir, "pkg");
+            var outputDir = Path.Join(workDir, "api");
+            var packOutputDir = Path.Join(workDir, "pkg");
             Directory.CreateDirectory(packOutputDir);
 
             var result = RunProcess(
@@ -160,15 +160,17 @@ public class PackageIntegrationTests
     private static void RunInIsolation(string packagesDir, Action<string> action)
     {
         var testBinDir = Path.GetDirectoryName(typeof(PackageIntegrationTests).Assembly.Location)!;
-        var fixtureDir = Path.Combine(testBinDir, "Fixtures", "SampleLib");
-        var workDir = Path.Combine(Path.GetTempPath(), $"apimark-pkg-test-{Guid.NewGuid():N}");
+        var fixtureDir = Path.Join(testBinDir, "Fixtures", "SampleLib");
+        var workDir = Path.Join(
+            Path.GetTempPath(),
+            $"apimark-pkg-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(workDir);
 
         try
         {
             foreach (var file in Directory.GetFiles(fixtureDir))
             {
-                File.Copy(file, Path.Combine(workDir, Path.GetFileName(file)));
+                File.Copy(file, Path.Join(workDir, Path.GetFileName(file)));
             }
 
             // Detect the actual package version from the .nupkg filename and patch the
@@ -176,7 +178,7 @@ public class PackageIntegrationTests
             var nupkgPath = Directory.GetFiles(packagesDir, "DemaConsulting.ApiMark.MSBuild.*.nupkg").First();
             var packageVersion = Path.GetFileNameWithoutExtension(nupkgPath)
                 .Substring("DemaConsulting.ApiMark.MSBuild.".Length);
-            var csprojPath = Path.Combine(workDir, "SampleLib.csproj");
+            var csprojPath = Path.Join(workDir, "SampleLib.csproj");
             File.WriteAllText(
                 csprojPath,
                 File.ReadAllText(csprojPath).Replace(
@@ -195,7 +197,7 @@ public class PackageIntegrationTests
                   </packageSources>
                 </configuration>
                 """;
-            File.WriteAllText(Path.Combine(workDir, "nuget.config"), nugetConfig);
+            File.WriteAllText(Path.Join(workDir, "nuget.config"), nugetConfig);
 
             action(workDir);
         }
@@ -214,7 +216,10 @@ public class PackageIntegrationTests
     ///     from shadowing the freshly-packed <c>.nupkg</c>.
     /// </summary>
     private static Dictionary<string, string> IsolatedNuGetEnv(string workDir) =>
-        new() { ["NUGET_PACKAGES"] = Path.Combine(workDir, "nuget-packages") };
+        new()
+        {
+            ["NUGET_PACKAGES"] = Path.Join(workDir, "nuget-packages")
+        };
 
     /// <summary>
     ///     Resolves the directory containing the pre-built <c>DemaConsulting.ApiMark.MSBuild</c>
@@ -235,7 +240,7 @@ public class PackageIntegrationTests
 
         // Navigate from bin/[Config]/net8.0 up 4 levels to test/, then into packages/
         var testBinDir = Path.GetDirectoryName(typeof(PackageIntegrationTests).Assembly.Location)!;
-        return Path.GetFullPath(Path.Combine(testBinDir, "..", "..", "..", "..", "packages"));
+        return Path.GetFullPath(Path.Join(testBinDir, "..", "..", "..", "..", "packages"));
     }
 
     /// <summary>

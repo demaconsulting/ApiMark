@@ -103,9 +103,9 @@ public sealed class XmlDocReader
         }
 
         return member.Elements("param")
-            .Select(p => (
-                Name: p.Attribute("name")?.Value ?? string.Empty,
-                Description: (string?)p.Value.Trim()))
+            .Select<XElement, (string Name, string? Description)>(p => (
+                p.Attribute("name")?.Value ?? string.Empty,
+                p.Value.Trim()))
             .Where(p => p.Name.Length > 0)
             .ToList();
     }

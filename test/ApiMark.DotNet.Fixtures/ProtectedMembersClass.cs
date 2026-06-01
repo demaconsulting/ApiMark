@@ -15,5 +15,5 @@ public class ProtectedMembersClass
 
     /// <summary>Executes a private operation with the specified value.</summary>
     /// <param name="x">The integer value to process.</param>
-    private void PrivateMethod(int x) { _ = x; }
+    private static void PrivateMethod(int x) { _ = x; }
 }

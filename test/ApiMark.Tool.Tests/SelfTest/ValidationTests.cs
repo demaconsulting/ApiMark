@@ -30,7 +30,7 @@ public sealed class ValidationTests
     public void Validation_Run_WithResultsTrxFile_CreatesTrxFile()
     {
         // Arrange: create a temporary .trx path and a context requesting results output
-        var trxPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".trx");
+        var trxPath = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".trx");
 
         try
         {
@@ -61,7 +61,7 @@ public sealed class ValidationTests
     public void Validation_Run_WithResultsXmlFile_CreatesXmlFile()
     {
         // Arrange: create a temporary .xml path and a context requesting results output
-        var xmlPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".xml");
+        var xmlPath = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".xml");
 
         try
         {
@@ -90,7 +90,7 @@ public sealed class ValidationTests
     public void Validation_Run_WithUnsupportedResultsExtension_SetsExitCodeToOne()
     {
         // Arrange: create a context with an unsupported .json extension for results
-        var jsonPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".json");
+        var jsonPath = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".json");
         using var context = Context.Create(["--validate", "--silent", "--results", jsonPath]);
 
         // Act
@@ -107,7 +107,7 @@ public sealed class ValidationTests
     public void Validation_Run_WritesVersionAndHelpTestResults()
     {
         // Arrange: create a temporary log file to capture output
-        var logPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".log");
+        var logPath = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".log");
 
         try
         {

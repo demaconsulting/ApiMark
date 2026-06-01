@@ -382,7 +382,7 @@ internal sealed class Context : IDisposable
 
                 default:
                     // First positional non-flag token is the language subcommand
-                    if (!arg.StartsWith("-", StringComparison.Ordinal) && Language == null)
+                    if (!arg.StartsWith('-') && Language == null)
                     {
                         Language = arg;
                         return index;

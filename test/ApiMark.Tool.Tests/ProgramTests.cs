@@ -18,7 +18,7 @@ public class ProgramTests
         // Arrange: locate the fixture assembly and its XML doc using runtime type resolution
         var assemblyPath = typeof(SampleClass).Assembly.Location;
         var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
-        var outputDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
 
         try
         {
@@ -32,7 +32,9 @@ public class ProgramTests
 
             // Assert: tool exits successfully and produces the mandatory api.md entrypoint
             Assert.Equal(0, exitCode);
-            Assert.True(File.Exists(Path.Combine(outputDir, "api.md")), "Expected api.md in output directory");
+            Assert.True(
+                File.Exists(Path.Join(outputDir, "api.md")),
+                "Expected api.md in output directory");
         }
         finally
         {
@@ -53,7 +55,7 @@ public class ProgramTests
     {
         // Arrange: supply a visibility value that does not map to any ApiVisibility member
         var assemblyPath = typeof(SampleClass).Assembly.Location;
-        var outputDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
 
         // Act
         var exitCode = Program.Main([
@@ -75,9 +77,9 @@ public class ProgramTests
     public void Program_Main_WithMissingAssembly_PrintsErrorAndFails()
     {
         // Arrange: use a path that is guaranteed not to exist
-        var outputDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
         var originalError = Console.Error;
-        var errorWriter = new StringWriter();
+        using var errorWriter = new StringWriter();
 
         try
         {
@@ -124,7 +126,7 @@ public class ProgramTests
     {
         // Arrange: capture stdout so the test does not pollute the test runner output
         var originalOut = Console.Out;
-        var outputWriter = new StringWriter();
+        using var outputWriter = new StringWriter();
 
         try
         {
@@ -152,7 +154,7 @@ public class ProgramTests
     public void Program_Main_WithCppSubcommand_ReturnsNonZeroExitCode()
     {
         // Arrange: provide --output to pass the output validation before the language check
-        var outputDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
 
         // Act
         var exitCode = Program.Main(["cpp", "--output", outputDir]);
@@ -172,8 +174,8 @@ public class ProgramTests
         // Arrange
         var assemblyPath = typeof(SampleClass).Assembly.Location;
         var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
-        var outputDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        var logFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".log");
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var logFile = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".log");
 
         try
         {
@@ -214,7 +216,7 @@ public class ProgramTests
     {
         // Arrange: capture stdout to inspect the help output
         var originalOut = Console.Out;
-        var writer = new StringWriter();
+        using var writer = new StringWriter();
 
         try
         {
@@ -244,7 +246,7 @@ public class ProgramTests
     {
         // Arrange: capture stdout to suppress validation output from the test runner
         var originalOut = Console.Out;
-        var writer = new StringWriter();
+        using var writer = new StringWriter();
 
         try
         {
@@ -271,7 +273,7 @@ public class ProgramTests
     {
         // Arrange: capture stdout to inspect the help output
         var originalOut = Console.Out;
-        var writer = new StringWriter();
+        using var writer = new StringWriter();
 
         try
         {

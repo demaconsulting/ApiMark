@@ -20,7 +20,9 @@ public sealed class FileMarkdownWriterFactoryTests : IDisposable
     {
         // Use a unique subfolder under the system temp path to avoid collisions
         // between parallel test runs
-        _tempDirectory = Path.Combine(Path.GetTempPath(), "ApiMarkTests_" + Guid.NewGuid().ToString("N"));
+        _tempDirectory = Path.Join(
+            Path.GetTempPath(),
+            "ApiMarkTests_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_tempDirectory);
     }
 
@@ -97,7 +99,7 @@ public sealed class FileMarkdownWriterFactoryTests : IDisposable
         }
 
         // Assert: the file must exist at the expected root-level path
-        var expectedPath = Path.Combine(_tempDirectory, "api.md");
+        var expectedPath = Path.Join(_tempDirectory, "api.md");
         Assert.True(File.Exists(expectedPath), $"Expected file '{expectedPath}' to exist after dispose.");
     }
 
@@ -118,8 +120,8 @@ public sealed class FileMarkdownWriterFactoryTests : IDisposable
         }
 
         // Assert: both the directory and the file must exist
-        var expectedDir = Path.Combine(_tempDirectory, "namespaces");
-        var expectedFile = Path.Combine(expectedDir, "MyNamespace.md");
+        var expectedDir = Path.Join(_tempDirectory, "namespaces");
+        var expectedFile = Path.Join(expectedDir, "MyNamespace.md");
         Assert.True(Directory.Exists(expectedDir), $"Expected directory '{expectedDir}' to exist.");
         Assert.True(File.Exists(expectedFile), $"Expected file '{expectedFile}' to exist.");
     }
@@ -132,7 +134,9 @@ public sealed class FileMarkdownWriterFactoryTests : IDisposable
     public void FileMarkdownWriterFactory_CreateMarkdown_NonExistentDirectory_CreatesDirectory()
     {
         // Arrange: choose a directory path that does not yet exist
-        var nonExistentDir = Path.Combine(_tempDirectory, "new-output-" + Guid.NewGuid().ToString("N"));
+        var nonExistentDir = Path.Join(
+            _tempDirectory,
+            "new-output-" + Guid.NewGuid().ToString("N"));
         Assert.False(Directory.Exists(nonExistentDir), "Pre-condition: directory must not exist before the test.");
 
         var factory = new FileMarkdownWriterFactory(nonExistentDir);
@@ -145,6 +149,6 @@ public sealed class FileMarkdownWriterFactoryTests : IDisposable
 
         // Assert: the directory and file must both exist after the writer is disposed
         Assert.True(Directory.Exists(nonExistentDir), "Factory must create the output directory if it does not exist.");
-        Assert.True(File.Exists(Path.Combine(nonExistentDir, "index.md")));
+        Assert.True(File.Exists(Path.Join(nonExistentDir, "index.md")));
     }
 }

@@ -21,6 +21,8 @@ using Microsoft.Build.Utilities;
 /// </remarks>
 public sealed class ApiMarkTask : Task
 {
+    /// <summary>Language identifier for .NET documentation generation.</summary>
+    private const string DotNetLanguage = "dotnet";
     /// <summary>
     ///     Gets or sets a value indicating whether documentation generation is suppressed.
     /// </summary>
@@ -146,7 +148,7 @@ public sealed class ApiMarkTask : Task
             return "cpp";
         }
 
-        return "dotnet";
+        return DotNetLanguage;
     }
 
     /// <summary>
@@ -166,10 +168,10 @@ public sealed class ApiMarkTask : Task
         var sb = new StringBuilder();
 
         // Emit the language-specific required arguments first
-        if (language == "dotnet")
+        if (language == DotNetLanguage)
         {
             // Assembly and XML doc paths are both required for .NET documentation
-            sb.Append($"dotnet --assembly \"{ApiMarkAssemblyPath}\" --xml-doc \"{ApiMarkXmlDocPath}\"");
+            sb.Append($"{DotNetLanguage} --assembly \"{ApiMarkAssemblyPath}\" --xml-doc \"{ApiMarkXmlDocPath}\"");
         }
         else
         {
@@ -221,7 +223,7 @@ public sealed class ApiMarkTask : Task
         var language = ResolveLanguage();
 
         // For .NET projects, skip gracefully when no XML doc path is configured
-        if (language == "dotnet" && string.IsNullOrEmpty(ApiMarkXmlDocPath))
+        if (language == DotNetLanguage && string.IsNullOrEmpty(ApiMarkXmlDocPath))
         {
             Log.LogMessage(MessageImportance.Normal, "Skipping ApiMark: ApiMarkXmlDocPath not set.");
             return true;
@@ -332,7 +334,9 @@ public sealed class ApiMarkTask : Task
                 continue;
             }
 
-            var candidate = Path.Combine(dir, exeName);
+            // exeName is a known literal ("dotnet" or "dotnet.exe") and never starts with a
+            // separator, so Path.Join is correct and performs simple safe concatenation.
+            var candidate = Path.Join(dir, exeName);
             if (File.Exists(candidate))
             {
                 return candidate;

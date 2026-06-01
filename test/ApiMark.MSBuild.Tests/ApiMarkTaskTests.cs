@@ -215,10 +215,10 @@ public class ApiMarkTaskTests
     {
         // Arrange: locate runtime artifacts in the test output directory
         var testDir = Path.GetDirectoryName(typeof(ApiMarkTaskTests).Assembly.Location)!;
-        var toolDllPath = Path.Combine(testDir, "ApiMark.Tool.dll");
-        var fixtureAssembly = Path.Combine(testDir, "ApiMark.DotNet.Fixtures.dll");
+        var toolDllPath = Path.Join(testDir, "ApiMark.Tool.dll");
+        var fixtureAssembly = Path.Join(testDir, "ApiMark.DotNet.Fixtures.dll");
         var xmlDocPath = Path.ChangeExtension(fixtureAssembly, ".xml");
-        var outputDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var outputDir = Path.Join(Path.GetTempPath(), Guid.NewGuid().ToString());
 
         try
         {
@@ -239,7 +239,7 @@ public class ApiMarkTaskTests
             // Assert: task returns true and api.md is written to the output directory
             Assert.True(result);
             Assert.True(
-                File.Exists(Path.Combine(outputDir, "api.md")),
+                File.Exists(Path.Join(outputDir, "api.md")),
                 "Expected api.md to be created in the output directory.");
         }
         finally

@@ -40,7 +40,8 @@ of OTS items.
 ApiMarkCore (System)
 ├── IApiGenerator (Unit)
 ├── IMarkdownWriterFactory (Unit)
-└── IMarkdownWriter (Unit)
+├── IMarkdownWriter (Unit)
+└── PathHelpers (Unit)
 
 ApiMarkDotNet (System)
 ├── DotNetGenerator (Unit)
@@ -68,8 +69,9 @@ src/
 │   ├── IApiGenerator.cs                - interface every language generator must implement
 │   ├── IMarkdownWriterFactory.cs       - factory interface for creating per-file markdown writers
 │   ├── IMarkdownWriter.cs              - per-file markdown writing interface (IDisposable)
+│   ├── PathHelpers.cs                  - shared path-safety helper for combining validated relative paths
 │   ├── FileMarkdownWriterFactory.cs    - file-system implementation of IMarkdownWriterFactory
-│   └── FileMarkdownWriter.cs          - file-system implementation of IMarkdownWriter
+│   └── FileMarkdownWriter.cs           - file-system implementation of IMarkdownWriter
 ├── ApiMark.DotNet/
 │   ├── ApiVisibility.cs           - enum controlling which members are included in output
 │   ├── DotNetGenerator.cs         - C#/.NET IApiGenerator implementation
