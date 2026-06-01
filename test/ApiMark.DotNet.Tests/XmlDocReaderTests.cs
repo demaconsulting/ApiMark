@@ -60,7 +60,7 @@ public class XmlDocReaderTests
         }
     }
 
-    /// <summary>Validates that <see cref="XmlDocReader.GetSummary"/> preserves inline symbol references and langwords.</summary>
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummary"/> preserves inline symbol references and language keywords.</summary>
     [Fact]
     public void XmlDocReader_GetSummary_WithInlineReferences_PreservesReferencedNames()
     {
