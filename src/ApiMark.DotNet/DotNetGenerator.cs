@@ -39,6 +39,11 @@ public sealed class DotNetGenerator : IApiGenerator
     ///     entrypoint page, one namespace summary per namespace, one type page per visible type,
     ///     and one detail page per complex member. The <see cref="AssemblyDefinition"/> is
     ///     disposed before this method returns.
+    ///     <para>
+    ///         The entrypoint <c>api.md</c> lists only root namespaces and includes a file naming
+    ///         and path convention section. Each namespace page lists only its immediate child
+    ///         namespaces and types, enabling gradual disclosure for AI consumers.
+    ///     </para>
     /// </remarks>
     /// <param name="factory">The markdown writer factory used to create output files.</param>
     /// <exception cref="FileNotFoundException">Thrown when the XML documentation file does not exist.</exception>
@@ -64,44 +69,121 @@ public sealed class DotNetGenerator : IApiGenerator
         var byNamespace = visibleTypes
             .GroupBy(t => t.Namespace)
             .OrderBy(g => g.Key)
+            .ToDictionary(g => g.Key, g => g.OrderBy(t => t.Name).ToList());
+
+        var allNamespaces = byNamespace.Keys.OrderBy(n => n).ToList();
+
+        // Root namespaces: those not prefixed by any other namespace present in the assembly
+        var rootNamespaces = allNamespaces
+            .Where(n => !allNamespaces.Any(
+                other => !string.Equals(other, n, StringComparison.Ordinal) &&
+                         n.StartsWith(other + ".", StringComparison.Ordinal)))
+            .OrderBy(n => n)
             .ToList();
 
-        // Write the top-level assembly index page
+        // Write the top-level assembly index page with naming convention and root namespaces only
         using var apiWriter = factory.CreateMarkdown("", "api");
         apiWriter.WriteHeading(1, assembly.Name.Name);
 
-        var nsHeaders = new[] { "Namespace", DescriptionColumnHeader };
-        var nsRows = byNamespace.Select(g =>
+        // File naming and path convention section — enables direct short-circuiting by AI consumers
+        apiWriter.WriteHeading(2, "File Naming and Path Convention");
+        apiWriter.WriteParagraph(
+            "Paths are derived deterministically from fully-qualified symbol names. " +
+            "The root namespace uses its full dotted name as a single path segment. " +
+            "Child namespaces append their short name under the root folder. " +
+            "Types appear inside their namespace folder. " +
+            "Complex members (those with parameters, exceptions, multi-line remarks, or examples) " +
+            "appear in a sub-folder named after their declaring type. " +
+            "Overloaded members that would otherwise share a filename append a " +
+            "hyphen-separated parameter-type suffix.");
+        var conventionHeaders = new[] { "Symbol kind", "Path pattern" };
+        var conventionRows = new[]
         {
-            var nsName = g.Key;
-            var link = $"{nsName}/{nsName}.md";
+            new[] { "Root namespace", "`{Namespace}.md`" },
+            new[] { "Child namespace", "`{ParentPath}/{ChildName}.md`" },
+            new[] { "Type", "`{NamespacePath}/{TypeName}.md`" },
+            new[] { "Member (unique name)", "`{NamespacePath}/{TypeName}/{MemberName}.md`" },
+            new[] { "Member (overloaded)", "`{NamespacePath}/{TypeName}/{MemberName}-{ParamTypes}.md`" },
+        };
+        apiWriter.WriteTable(conventionHeaders, conventionRows);
+
+        // Root namespace table — only top-level entries
+        var nsHeaders = new[] { "Namespace", DescriptionColumnHeader };
+        var nsRows = rootNamespaces.Select(nsName =>
+        {
+            var link = $"{nsName}.md";
             return new[] { $"[{nsName}]({link})", string.Empty };
         });
         apiWriter.WriteTable(nsHeaders, nsRows);
 
-        // Write one namespace page and one type page per namespace group
-        foreach (var nsGroup in byNamespace)
+        // Write one namespace page per namespace, ordered so parents precede children
+        foreach (var namespaceName in allNamespaces)
         {
-            var namespaceName = nsGroup.Key;
-            var nsTypes = nsGroup.OrderBy(t => t.Name).ToList();
+            WriteNamespacePage(factory, namespaceName, allNamespaces, byNamespace, rootNamespaces, xmlDocs);
+        }
+    }
 
-            using var nsWriter = factory.CreateMarkdown(namespaceName, namespaceName);
-            nsWriter.WriteHeading(1, namespaceName);
+    /// <summary>
+    ///     Writes the Markdown summary page for a single namespace, listing its immediate
+    ///     child namespaces and the types declared directly in it.
+    /// </summary>
+    /// <param name="factory">Factory for creating output writers.</param>
+    /// <param name="namespaceName">The full namespace name to document.</param>
+    /// <param name="allNamespaces">All namespaces present in the assembly.</param>
+    /// <param name="byNamespace">Types grouped by namespace name.</param>
+    /// <param name="rootNamespaces">Namespaces that have no parent in this assembly.</param>
+    /// <param name="xmlDocs">XML documentation index for summary lookups.</param>
+    private void WriteNamespacePage(
+        IMarkdownWriterFactory factory,
+        string namespaceName,
+        List<string> allNamespaces,
+        Dictionary<string, List<TypeDefinition>> byNamespace,
+        List<string> rootNamespaces,
+        XmlDocReader xmlDocs)
+    {
+        var folderPath = GetNamespaceFolderPath(namespaceName, rootNamespaces);
+        SplitPath(folderPath, out var subFolder, out var shortName);
 
-            var typeHeaders = new[] { "Type", DescriptionColumnHeader };
-            var typeRows = nsTypes.Select(t =>
+        using var nsWriter = factory.CreateMarkdown(subFolder, shortName);
+        nsWriter.WriteHeading(1, namespaceName);
+
+        // List immediate child namespaces (gradual disclosure — one level at a time)
+        var children = GetImmediateChildNamespaces(namespaceName, allNamespaces)
+            .OrderBy(n => n)
+            .ToList();
+
+        if (children.Count > 0)
+        {
+            var childNsHeaders = new[] { "Namespace", DescriptionColumnHeader };
+            var childNsRows = children.Select(child =>
             {
-                var typeMemberId = BuildTypeId(t);
-                var summary = xmlDocs.GetSummary(typeMemberId) ?? string.Empty;
-                var link = $"{t.Name}.md";
-                return new[] { $"[{t.Name}]({link})", summary };
+                var childFolderPath = GetNamespaceFolderPath(child, rootNamespaces);
+                SplitPath(childFolderPath, out _, out var childShortName);
+                var link = $"{shortName}/{childShortName}.md";
+                return new[] { $"[{child}]({link})", string.Empty };
             });
-            nsWriter.WriteTable(typeHeaders, typeRows);
+            nsWriter.WriteTable(childNsHeaders, childNsRows);
+        }
 
-            foreach (var type in nsTypes)
-            {
-                WriteTypePage(factory, namespaceName, type, xmlDocs);
-            }
+        // List types declared directly in this namespace
+        if (!byNamespace.TryGetValue(namespaceName, out var nsTypes) || nsTypes.Count == 0)
+        {
+            return;
+        }
+
+        var typeHeaders = new[] { "Type", DescriptionColumnHeader };
+        var typeRows = nsTypes.Select(t =>
+        {
+            var typeMemberId = BuildTypeId(t);
+            var summary = xmlDocs.GetSummary(typeMemberId) ?? string.Empty;
+            var link = $"{shortName}/{t.Name}.md";
+            return new[] { $"[{t.Name}]({link})", summary };
+        });
+        nsWriter.WriteTable(typeHeaders, typeRows);
+
+        foreach (var type in nsTypes)
+        {
+            WriteTypePage(factory, namespaceName, folderPath, type, xmlDocs);
         }
     }
 
@@ -111,15 +193,20 @@ public sealed class DotNetGenerator : IApiGenerator
     /// </summary>
     /// <param name="factory">Factory for creating output writers.</param>
     /// <param name="namespaceName">The namespace that owns <paramref name="type"/>.</param>
+    /// <param name="namespaceFolderPath">
+    ///     The file-system folder path for the namespace (e.g. <c>ApiMark.DotNet.Fixtures/Inner</c>).
+    ///     Used as the subfolder when creating the type's output file.
+    /// </param>
     /// <param name="type">The type whose page is being written.</param>
     /// <param name="xmlDocs">XML documentation index for summary and remarks lookups.</param>
     private void WriteTypePage(
         IMarkdownWriterFactory factory,
         string namespaceName,
+        string namespaceFolderPath,
         TypeDefinition type,
         XmlDocReader xmlDocs)
     {
-        using var typeWriter = factory.CreateMarkdown(namespaceName, type.Name);
+        using var typeWriter = factory.CreateMarkdown(namespaceFolderPath, type.Name);
         typeWriter.WriteHeading(2, type.Name);
 
         // Emit the C# declaration signature so readers can see the type kind and modifiers
@@ -165,7 +252,7 @@ public sealed class DotNetGenerator : IApiGenerator
 
             if (IsComplex(member, xmlDocs))
             {
-                WriteMemberPage(factory, namespaceName, type, member, xmlDocs, memberId);
+                WriteMemberPage(factory, namespaceName, namespaceFolderPath, type, member, xmlDocs, memberId);
                 var memberLink = $"{type.Name}/{sanitizedName}.md";
                 inlineRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
             }
@@ -186,7 +273,11 @@ public sealed class DotNetGenerator : IApiGenerator
     ///     signature, parameters, returns, exceptions, remarks, and examples.
     /// </summary>
     /// <param name="factory">Factory for creating output writers.</param>
-    /// <param name="namespaceName">The namespace that owns the declaring type.</param>
+    /// <param name="namespaceName">The namespace that owns the declaring type (used for type name simplification).</param>
+    /// <param name="namespaceFolderPath">
+    ///     The file-system folder path for the namespace (e.g. <c>ApiMark.DotNet.Fixtures/Inner</c>).
+    ///     Used to construct the member file's subfolder path.
+    /// </param>
     /// <param name="type">The type that declares <paramref name="member"/>.</param>
     /// <param name="member">The member whose page is being written.</param>
     /// <param name="xmlDocs">XML documentation index.</param>
@@ -194,13 +285,14 @@ public sealed class DotNetGenerator : IApiGenerator
     private static void WriteMemberPage(
         IMarkdownWriterFactory factory,
         string namespaceName,
+        string namespaceFolderPath,
         TypeDefinition type,
         IMemberDefinition member,
         XmlDocReader xmlDocs,
         string memberId)
     {
         var sanitizedName = GetSanitizedMemberFileName(member, type);
-        using var memberWriter = factory.CreateMarkdown($"{namespaceName}/{type.Name}", sanitizedName);
+        using var memberWriter = factory.CreateMarkdown($"{namespaceFolderPath}/{type.Name}", sanitizedName);
 
         var displayName = GetMemberDisplayName(member);
         memberWriter.WriteHeading(3, displayName);
@@ -253,6 +345,77 @@ public sealed class DotNetGenerator : IApiGenerator
         if (!string.IsNullOrEmpty(example))
         {
             memberWriter.WriteCodeBlock("csharp", example);
+        }
+    }
+
+    /// <summary>
+    ///     Computes the file-system folder path for a namespace, treating the root namespace as atomic.
+    /// </summary>
+    /// <param name="namespaceName">The full namespace name.</param>
+    /// <param name="rootNamespaces">All root namespaces identified in the assembly.</param>
+    /// <returns>
+    ///     The folder path string. For a root namespace the entire dotted name is the path segment
+    ///     (e.g. <c>ApiMark.DotNet.Fixtures</c>). For a child namespace the root prefix is kept
+    ///     and subsequent segments use forward slashes
+    ///     (e.g. <c>ApiMark.DotNet.Fixtures/Inner</c>).
+    /// </returns>
+    private static string GetNamespaceFolderPath(string namespaceName, List<string> rootNamespaces)
+    {
+        var root = rootNamespaces.FirstOrDefault(r =>
+            string.Equals(r, namespaceName, StringComparison.Ordinal) ||
+            namespaceName.StartsWith(r + ".", StringComparison.Ordinal));
+
+        if (root == null)
+        {
+            return namespaceName; // fallback: no known root, use full name
+        }
+
+        if (string.Equals(namespaceName, root, StringComparison.Ordinal))
+        {
+            return root; // root namespace: full dotted name is the single path segment
+        }
+
+        // Child namespace: keep root intact, replace subsequent dots with slashes
+        var suffix = namespaceName.Substring(root.Length); // e.g. ".Inner" or ".Inner.Sub"
+        return root + suffix.Replace('.', '/');
+    }
+
+    /// <summary>
+    ///     Returns all immediate child namespaces of <paramref name="parent"/> from the given set.
+    ///     A namespace N is an immediate child when it starts with <c>parent.</c> and the
+    ///     remaining portion contains no further dots.
+    /// </summary>
+    /// <param name="parent">The parent namespace name.</param>
+    /// <param name="allNamespaces">All namespace names to search.</param>
+    /// <returns>An enumerable of immediate child namespace names.</returns>
+    private static IEnumerable<string> GetImmediateChildNamespaces(string parent, List<string> allNamespaces)
+    {
+        var prefix = parent + ".";
+        return allNamespaces.Where(n =>
+            n.StartsWith(prefix, StringComparison.Ordinal) &&
+            !n.Substring(prefix.Length).Contains('.'));
+    }
+
+    /// <summary>
+    ///     Splits a forward-slash-delimited folder path into a parent subfolder and a short name.
+    /// </summary>
+    /// <param name="path">The full folder path (e.g. <c>ApiMark.DotNet.Fixtures/Inner</c>).</param>
+    /// <param name="subFolder">
+    ///     The portion before the last slash, or an empty string when there is no slash.
+    /// </param>
+    /// <param name="shortName">The portion after the last slash, or the whole string when there is no slash.</param>
+    private static void SplitPath(string path, out string subFolder, out string shortName)
+    {
+        var lastSlash = path.LastIndexOf('/');
+        if (lastSlash < 0)
+        {
+            subFolder = string.Empty;
+            shortName = path;
+        }
+        else
+        {
+            subFolder = path.Substring(0, lastSlash);
+            shortName = path.Substring(lastSlash + 1);
         }
     }
 
@@ -499,6 +662,9 @@ public sealed class DotNetGenerator : IApiGenerator
             _ => "class",
         };
 
+        // Sealed is only meaningful on non-abstract reference types (not interfaces, enums, structs)
+        var sealedModifier = keyword == "class" && type.IsSealed && !type.IsAbstract ? "sealed " : string.Empty;
+
         var name = StripArity(type.Name);
         if (type.HasGenericParameters)
         {
@@ -506,7 +672,7 @@ public sealed class DotNetGenerator : IApiGenerator
             name = $"{name}<{args}>";
         }
 
-        return $"public {keyword} {name}";
+        return $"public {sealedModifier}{keyword} {name}";
     }
 
     /// <summary>Dispatches to the appropriate signature builder based on the runtime member type.</summary>

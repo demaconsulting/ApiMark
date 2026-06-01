@@ -70,10 +70,10 @@ public class DotNetGeneratorTests
         // Act
         generator.Generate(factory);
 
-        // Assert
+        // Assert: root namespace page sits at root level (not inside a subfolder)
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ApiMark.DotNet.Fixtures"),
-            "Expected namespace page for ApiMark.DotNet.Fixtures");
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures"),
+            "Expected root-level namespace page for ApiMark.DotNet.Fixtures");
     }
 
     /// <summary>Validates that a valid assembly produces a type page for <c>SampleClass</c>.</summary>
@@ -375,8 +375,8 @@ public class DotNetGeneratorTests
         // Assert: root entrypoint is "api"
         Assert.True(factory.Writers.ContainsKey("api"));
 
-        // Assert: namespace file key is "{namespace}/{namespace}"
-        Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ApiMark.DotNet.Fixtures"));
+        // Assert: root namespace file key is "{namespace}" (root level, not in a subfolder)
+        Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures"));
 
         // Assert: type file key is "{namespace}/{typeName}"
         Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleClass"));
@@ -516,5 +516,174 @@ public class DotNetGeneratorTests
         Assert.NotNull(intPage);    // int[] overload gets an "Array" token in its file name
         Assert.NotNull(scalarPage); // int overload does not contain "Array"
         Assert.NotEqual(intPage, scalarPage);
+    }
+
+    /// <summary>Validates that <c>api.md</c> contains a file naming and path convention section.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ApiMd_ContainsNamingConventionSection()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: api.md has a heading for the naming convention section
+        var apiWriter = factory.Writers["api"];
+        var headings = apiWriter.Operations.OfType<HeadingOperation>().Select(h => h.Text).ToList();
+        Assert.Contains(headings, h => h.Contains("File Naming") || h.Contains("Convention"));
+
+        // Assert: a convention table is present in api.md
+        var tables = apiWriter.Operations.OfType<TableOperation>().ToList();
+        Assert.True(tables.Count >= 2, "Expected at least a convention table and a namespace table in api.md");
+    }
+
+    /// <summary>Validates that <c>api.md</c> lists only root namespaces, not child namespaces.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ApiMd_ListsOnlyRootNamespaces()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: api.md namespace table contains the root namespace
+        var apiWriter = factory.Writers["api"];
+        var tables = apiWriter.Operations.OfType<TableOperation>().ToList();
+        var nsTable = tables.Last(); // last table is the namespace listing
+        Assert.Contains(nsTable.Rows, row => row[0].Contains("ApiMark.DotNet.Fixtures"));
+
+        // Assert: the child namespace does NOT appear in api.md's namespace table
+        Assert.DoesNotContain(nsTable.Rows, row => row[0].Contains("ApiMark.DotNet.Fixtures.Inner"));
+    }
+
+    /// <summary>Validates that the root namespace page lists its immediate child namespace.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_RootNamespacePage_ListsChildNamespace()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: the root namespace page exists at root level
+        Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures"),
+            "Root namespace page must be at root level");
+
+        // Assert: the root namespace page has a table that references the child namespace
+        var rootNsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
+        var tables = rootNsWriter.Operations.OfType<TableOperation>().ToList();
+        Assert.True(tables.Count > 0, "Root namespace page must have at least one table");
+        Assert.Contains(tables, t => t.Rows.Any(row => row[0].Contains("Inner")));
+    }
+
+    /// <summary>Validates that a type in a child namespace gets a page in the correct hierarchical path.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ChildNamespaceType_CreatesPageInCorrectPath()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: InnerNamespaceClass is in ApiMark.DotNet.Fixtures.Inner namespace
+        // Its page should be at ApiMark.DotNet.Fixtures/Inner/InnerNamespaceClass
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/Inner/InnerNamespaceClass"),
+            "Expected type page for InnerNamespaceClass at ApiMark.DotNet.Fixtures/Inner/InnerNamespaceClass");
+    }
+
+    /// <summary>Validates that a complex member in a child namespace type gets a page in the correct hierarchical path.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ChildNamespaceMember_CreatesPageInCorrectPath()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: Compute(int input) in InnerNamespaceClass has a parameter → gets its own page
+        // Page must be at ApiMark.DotNet.Fixtures/Inner/InnerNamespaceClass/Compute
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/Inner/InnerNamespaceClass/Compute"),
+            "Expected member page for InnerNamespaceClass.Compute at the correct hierarchical path");
+    }
+
+    /// <summary>Validates that a sealed class produces a type page with <c>sealed</c> in the signature.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_SealedClass_SignatureContainsSealedModifier()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: type page exists
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SealedClass"),
+            "Expected a type page for SealedClass");
+
+        // Assert: signature contains the sealed modifier
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SealedClass"];
+        var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
+        Assert.NotNull(signature);
+        Assert.Contains("sealed", signature.Code, StringComparison.Ordinal);
+    }
+
+    /// <summary>Validates that overloaded methods on <see cref="IntVsIntArrayClass"/> each produce a separate member page.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_OverloadedMethods_EachHaveOwnMemberPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: exactly two separate pages exist for the two Process overloads
+        var overloadKeys = factory.Writers.Keys
+            .Where(k => k.StartsWith("ApiMark.DotNet.Fixtures/IntVsIntArrayClass/Process", StringComparison.Ordinal))
+            .ToList();
+        Assert.Equal(2, overloadKeys.Count);
+
+        // Assert: each page has a signature that identifies the method
+        foreach (var key in overloadKeys)
+        {
+            var sig = factory.Writers[key].Operations.OfType<SignatureOperation>().FirstOrDefault();
+            Assert.NotNull(sig);
+            Assert.Contains("Process", sig.Code, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>Validates that the child namespace page is placed inside the root namespace folder.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ChildNamespacePage_PlacedInRootNamespaceFolder()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: child namespace page is at {rootNs}/{childShortName}, not at {childFullName}/{childFullName}
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/Inner"),
+            "Child namespace page must be at ApiMark.DotNet.Fixtures/Inner");
+        Assert.False(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures.Inner/ApiMark.DotNet.Fixtures.Inner"),
+            "Child namespace page must NOT be at the old flat path");
     }
 }
