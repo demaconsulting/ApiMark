@@ -111,23 +111,38 @@ natural name directly (e.g. operators).
 
 ### Level 0 — `api.md`
 
-Fixed entrypoint — always this name regardless of library. Lists all root
-namespaces so an AI can start navigation without knowing anything about the
-library in advance.
+Fixed entrypoint — always this name regardless of library. Contains a **file naming
+and path convention** section so an AI can infer file paths directly from
+fully-qualified symbol names, and lists only **root namespaces** so the hierarchy
+is disclosed one level at a time.
 
 ```markdown
 # ApiMark API Reference
 
+## File Naming and Path Convention
+
+Paths are derived deterministically from fully-qualified symbol names. ...
+
+| Symbol kind | Path pattern |
+|---|---|
+| Root namespace | `{Namespace}.md` |
+| Child namespace | `{ParentPath}/{ChildName}.md` |
+| Type | `{NamespacePath}/{TypeName}.md` |
+| Member (unique name) | `{NamespacePath}/{TypeName}/{MemberName}.md` |
+| Member (overloaded) | `{NamespacePath}/{TypeName}/{MemberName}-{ParamTypes}.md` |
+
 | Namespace | Description |
 |---|---|
 | [DemaConsulting.TestResults](DemaConsulting.TestResults.md) | Test result model and serialization |
-| [DemaConsulting.TestResults.IO](DemaConsulting.TestResults/IO.md) | TRX and JUnit serializers |
 ```
+
+`DemaConsulting.TestResults.IO` does **not** appear in `api.md`; it is listed in
+`DemaConsulting.TestResults.md` instead.
 
 ### Level 1 — `{RootNamespace}.md`
 
-Root namespace summary. Lists child namespaces and any types declared directly
-in the root namespace.
+Root namespace summary. Lists immediate child namespaces and any types declared
+directly in the root namespace.
 
 ```markdown
 # DemaConsulting.TestResults
@@ -138,28 +153,29 @@ Test result model and serialization for .NET.
 |---|---|
 | [DemaConsulting.TestResults.IO](DemaConsulting.TestResults/IO.md) | TRX and JUnit serializers |
 
-| Type | Kind | Description |
-|---|---|---|
-| [TestResult](DemaConsulting.TestResults/TestResult.md) | class | A single test case execution result |
-| [TestResults](DemaConsulting.TestResults/TestResults.md) | class | A collection of test results |
-| [TestOutcome](DemaConsulting.TestResults/TestOutcome.md) | enum | Possible outcomes of a test execution |
+| Type | Description |
+|---|---|
+| [TestResult](DemaConsulting.TestResults/TestResult.md) | A single test case execution result |
+| [TestResults](DemaConsulting.TestResults/TestResults.md) | A collection of test results |
+| [TestOutcome](DemaConsulting.TestResults/TestOutcome.md) | Possible outcomes of a test execution |
 ```
 
-### Level 2 — `{Namespace}/` folder, `{Parent}/{Namespace}.md`
+### Level 2 — `{Namespace}/` folder, `{Parent}/{ChildName}.md`
 
-Namespace summary. Lists child namespaces and types.
+Namespace summary. Lists immediate child namespaces and types declared in this
+namespace.
 
 ```markdown
 # DemaConsulting.TestResults.IO
 
 Serializers for reading and writing TRX and JUnit XML formats.
 
-| Type | Kind | Description |
-|---|---|---|
-| [JUnitSerializer](IO/JUnitSerializer.md) | class | Serializes and deserializes JUnit XML |
-| [TrxSerializer](IO/TrxSerializer.md) | class | Serializes and deserializes TRX XML |
-| [Serializer](IO/Serializer.md) | class | Auto-detecting deserializer |
-| [TestResultFormat](IO/TestResultFormat.md) | enum | Supported test result file formats |
+| Type | Description |
+|---|---|
+| [JUnitSerializer](IO/JUnitSerializer.md) | Serializes and deserializes JUnit XML |
+| [TrxSerializer](IO/TrxSerializer.md) | Serializes and deserializes TRX XML |
+| [Serializer](IO/Serializer.md) | Auto-detecting deserializer |
+| [TestResultFormat](IO/TestResultFormat.md) | Supported test result file formats |
 ```
 
 ### Level 3 — `{Namespace}/{TypeName}.md`
