@@ -470,9 +470,9 @@ public class DotNetGeneratorTests
                 .Any(s => s.Code == "public static bool IsPassed(this SampleStatus status)"));
     }
 
-    /// <summary>Validates that overloaded complex methods produce separate Markdown files.</summary>
+    /// <summary>Validates that overloaded complex methods share a single Markdown file.</summary>
     [Fact]
-    public void DotNetGenerator_Generate_OverloadedMethods_CreateDistinctMemberPages()
+    public void DotNetGenerator_Generate_OverloadedMethods_CreateSharedMemberPage()
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
@@ -483,14 +483,14 @@ public class DotNetGeneratorTests
 
         // Assert
         Assert.Equal(
-            2,
+            1,
             factory.Writers.Keys.Count(k =>
                 k.StartsWith("ApiMark.DotNet.Fixtures/SampleStatusExtensions/IsPassed", StringComparison.Ordinal)));
     }
 
-    /// <summary>Validates that overloads differing only in <c>int</c> vs <c>int[]</c> produce separate, distinct Markdown files.</summary>
+    /// <summary>Validates that overloads differing only in <c>int</c> vs <c>int[]</c> share one Markdown file.</summary>
     [Fact]
-    public void DotNetGenerator_Generate_IntVsIntArray_CreateDistinctMemberPages()
+    public void DotNetGenerator_Generate_IntVsIntArray_CreateSharedMemberPage()
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
@@ -499,23 +499,13 @@ public class DotNetGeneratorTests
         // Act
         generator.Generate(factory);
 
-        // Assert: both overloads generate pages
-        Assert.Equal(
-            2,
-            factory.Writers.Keys.Count(k =>
-                k.StartsWith("ApiMark.DotNet.Fixtures/IntVsIntArrayClass/Process", StringComparison.Ordinal)));
-
-        // Assert: int and int[] overloads have distinct page keys
-        var intPage = factory.Writers.Keys.FirstOrDefault(k =>
-            k.StartsWith("ApiMark.DotNet.Fixtures/IntVsIntArrayClass/Process", StringComparison.Ordinal) &&
-            k.Contains("Int32Array", StringComparison.Ordinal));
-        var scalarPage = factory.Writers.Keys.FirstOrDefault(k =>
-            k.StartsWith("ApiMark.DotNet.Fixtures/IntVsIntArrayClass/Process", StringComparison.Ordinal) &&
-            !k.Contains("Int32Array", StringComparison.Ordinal));
-
-        Assert.NotNull(intPage);    // int[] overload gets an "Array" token in its file name
-        Assert.NotNull(scalarPage); // int overload does not contain "Array"
-        Assert.NotEqual(intPage, scalarPage);
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/IntVsIntArrayClass/Process"),
+            "Expected a single Process member page");
+        Assert.False(
+            factory.Writers.Keys.Any(k =>
+                k.StartsWith("ApiMark.DotNet.Fixtures/IntVsIntArrayClass/Process-", StringComparison.Ordinal)),
+            "Did not expect parameter-type suffixed overload pages");
     }
 
     /// <summary>Validates that <c>api.md</c> contains a file naming and path convention section.</summary>
@@ -537,6 +527,8 @@ public class DotNetGeneratorTests
         // Assert: a convention table is present in api.md
         var tables = apiWriter.Operations.OfType<TableOperation>().ToList();
         Assert.True(tables.Count >= 2, "Expected at least a convention table and a namespace table in api.md");
+        Assert.DoesNotContain(tables[0].Rows, row => row[1].Contains("ParamTypes", StringComparison.Ordinal));
+        Assert.Contains(tables[0].Rows, row => row[1].Contains("{MemberName}.md", StringComparison.Ordinal));
     }
 
     /// <summary>Validates that <c>api.md</c> lists only root namespaces, not child namespaces.</summary>
@@ -641,9 +633,9 @@ public class DotNetGeneratorTests
         Assert.Contains("sealed", signature.Code, StringComparison.Ordinal);
     }
 
-    /// <summary>Validates that overloaded methods on <see cref="IntVsIntArrayClass"/> each produce a separate member page.</summary>
+    /// <summary>Validates that overloaded methods on <see cref="IntVsIntArrayClass"/> are documented together.</summary>
     [Fact]
-    public void DotNetGenerator_Generate_OverloadedMethods_EachHaveOwnMemberPage()
+    public void DotNetGenerator_Generate_OverloadedMethods_ShareOneMemberPageWithAllSignatures()
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
@@ -652,19 +644,32 @@ public class DotNetGeneratorTests
         // Act
         generator.Generate(factory);
 
-        // Assert: exactly two separate pages exist for the two Process overloads
-        var overloadKeys = factory.Writers.Keys
-            .Where(k => k.StartsWith("ApiMark.DotNet.Fixtures/IntVsIntArrayClass/Process", StringComparison.Ordinal))
-            .ToList();
-        Assert.Equal(2, overloadKeys.Count);
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/IntVsIntArrayClass/Process"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
 
-        // Assert: each page has a signature that identifies the method
-        foreach (var key in overloadKeys)
-        {
-            var sig = factory.Writers[key].Operations.OfType<SignatureOperation>().FirstOrDefault();
-            Assert.NotNull(sig);
-            Assert.Contains("Process", sig.Code, StringComparison.Ordinal);
-        }
+        Assert.Contains("public static void Process(int value)", signatures);
+        Assert.Contains("public static void Process(int[] values)", signatures);
+    }
+
+    /// <summary>Validates that the type page lists overloaded methods once and notes the overload count.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_TypePage_ListsOverloadedMethodOnceWithCount()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleStatusExtensions"];
+        var memberTable = writer.Operations.OfType<TableOperation>().Single();
+        var isPassedRows = memberTable.Rows.Where(row => row[0].Contains("IsPassed", StringComparison.Ordinal)).ToList();
+
+        Assert.Single(isPassedRows);
+        Assert.Contains("(2 overloads)", isPassedRows[0][0], StringComparison.Ordinal);
+        Assert.Contains("(SampleStatusExtensions/IsPassed.md)", isPassedRows[0][0], StringComparison.Ordinal);
     }
 
     /// <summary>Validates that the child namespace page is placed inside the root namespace folder.</summary>

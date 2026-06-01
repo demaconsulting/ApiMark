@@ -94,16 +94,14 @@ public sealed class DotNetGenerator : IApiGenerator
             "Types appear inside their namespace folder. " +
             "Complex members (those with parameters, exceptions, multi-line remarks, or examples) " +
             "appear in a sub-folder named after their declaring type. " +
-            "Overloaded members that would otherwise share a filename append a " +
-            "hyphen-separated parameter-type suffix.");
+            "Methods use a single file per method name, with overloads documented together.");
         var conventionHeaders = new[] { "Symbol kind", "Path pattern" };
         var conventionRows = new[]
         {
             new[] { "Root namespace", "`{Namespace}.md`" },
             new[] { "Child namespace", "`{ParentPath}/{ChildName}.md`" },
             new[] { "Type", "`{NamespacePath}/{TypeName}.md`" },
-            new[] { "Member (unique name)", "`{NamespacePath}/{TypeName}/{MemberName}.md`" },
-            new[] { "Member (overloaded)", "`{NamespacePath}/{TypeName}/{MemberName}-{ParamTypes}.md`" },
+            new[] { "Member", "`{NamespacePath}/{TypeName}/{MemberName}.md`" },
         };
         apiWriter.WriteTable(conventionHeaders, conventionRows);
 
@@ -240,10 +238,46 @@ public sealed class DotNetGenerator : IApiGenerator
 
         var memberHeaders = new[] { "Member", "Type", DescriptionColumnHeader };
         var inlineRows = new List<string[]>();
+        var methodGroups = members
+            .OfType<MethodDefinition>()
+            .GroupBy(m => BuildMethodFileName(m, type))
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
+        var documentedMethodGroups = new HashSet<string>(StringComparer.Ordinal);
 
         // Emit a link row for complex members (own page) and a plain row for simple ones
         foreach (var member in members)
         {
+            if (member is MethodDefinition method)
+            {
+                var methodFileName = BuildMethodFileName(method, type);
+                var overloads = methodGroups[methodFileName];
+                if (overloads.Count > 1)
+                {
+                    if (!documentedMethodGroups.Add(methodFileName))
+                    {
+                        continue;
+                    }
+
+                    // Ensure deterministic ordering for representative selection and page rendering.
+                    var orderedOverloads = overloads
+                        .OrderBy(m => m.GenericParameters.Count)
+                        .ThenBy(m => m.Parameters.Count)
+                        .ThenBy(m => string.Join(",", m.Parameters.Select(p => p.ParameterType.FullName)), StringComparer.Ordinal)
+                        .ToList();
+
+                    var representative = orderedOverloads[0];
+                    var representativeMemberId = BuildMemberId(representative);
+                    var representativeSummary = xmlDocs.GetSummary(representativeMemberId) ?? string.Empty;
+                    var representativeTypeName = GetMemberTypeName(representative, namespaceName);
+                    var overloadDisplayName = GetMethodGroupDisplayName(representative, orderedOverloads.Count);
+
+                    WriteMethodOverloadPage(factory, namespaceName, namespaceFolderPath, type, orderedOverloads, xmlDocs);
+                    var memberLink = $"{type.Name}/{methodFileName}.md";
+                    inlineRows.Add(new[] { $"[{overloadDisplayName}]({memberLink})", representativeTypeName, representativeSummary });
+                    continue;
+                }
+            }
+
             var memberId = BuildMemberId(member);
             var memberSummary = xmlDocs.GetSummary(memberId) ?? string.Empty;
             var memberTypeName = GetMemberTypeName(member, namespaceName);
@@ -297,6 +331,12 @@ public sealed class DotNetGenerator : IApiGenerator
         var displayName = GetMemberDisplayName(member);
         memberWriter.WriteHeading(3, displayName);
 
+        if (member is MethodDefinition method)
+        {
+            WriteMethodDocumentation(memberWriter, namespaceName, method, xmlDocs, memberId);
+            return;
+        }
+
         var signature = BuildMemberSignature(member, namespaceName);
         memberWriter.WriteSignature("csharp", signature);
 
@@ -306,8 +346,71 @@ public sealed class DotNetGenerator : IApiGenerator
             memberWriter.WriteParagraph(summary);
         }
 
-        // Emit a parameter table when the member is a method with at least one parameter
-        if (member is MethodDefinition method && method.HasParameters)
+        var returns = xmlDocs.GetReturns(memberId);
+        if (!string.IsNullOrEmpty(returns))
+        {
+            memberWriter.WriteParagraph($"**Returns:** {returns}");
+        }
+
+        // Emit exception table when documented exceptions exist
+        var exceptions = xmlDocs.GetExceptions(memberId);
+        if (exceptions.Count > 0)
+        {
+            var exHeaders = new[] { "Exception", DescriptionColumnHeader };
+            var exRows = exceptions.Select(e => new[] { e, string.Empty });
+            memberWriter.WriteTable(exHeaders, exRows);
+        }
+
+        var remarks = xmlDocs.GetRemarks(memberId);
+        if (!string.IsNullOrEmpty(remarks))
+        {
+            memberWriter.WriteParagraph(remarks);
+        }
+
+        var example = xmlDocs.GetExample(memberId);
+        if (!string.IsNullOrEmpty(example))
+        {
+            memberWriter.WriteCodeBlock("csharp", example);
+        }
+    }
+
+    private static void WriteMethodOverloadPage(
+        IMarkdownWriterFactory factory,
+        string namespaceName,
+        string namespaceFolderPath,
+        TypeDefinition type,
+        IReadOnlyList<MethodDefinition> overloads,
+        XmlDocReader xmlDocs)
+    {
+        var sanitizedName = BuildMethodFileName(overloads[0], type);
+        using var memberWriter = factory.CreateMarkdown($"{namespaceFolderPath}/{type.Name}", sanitizedName);
+
+        memberWriter.WriteHeading(3, GetMethodGroupName(overloads[0]));
+
+        foreach (var overload in overloads)
+        {
+            memberWriter.WriteHeading(4, BuildMethodDisplayName(overload));
+            WriteMethodDocumentation(memberWriter, namespaceName, overload, xmlDocs, BuildMemberId(overload));
+        }
+    }
+
+    private static void WriteMethodDocumentation(
+        IMarkdownWriter memberWriter,
+        string namespaceName,
+        MethodDefinition method,
+        XmlDocReader xmlDocs,
+        string memberId)
+    {
+        var signature = BuildMethodSignature(method, namespaceName);
+        memberWriter.WriteSignature("csharp", signature);
+
+        var summary = xmlDocs.GetSummary(memberId);
+        if (!string.IsNullOrEmpty(summary))
+        {
+            memberWriter.WriteParagraph(summary);
+        }
+
+        if (method.HasParameters)
         {
             var paramDocs = xmlDocs.GetParams(memberId);
             var paramHeaders = new[] { "Parameter", "Type", DescriptionColumnHeader };
@@ -326,7 +429,6 @@ public sealed class DotNetGenerator : IApiGenerator
             memberWriter.WriteParagraph($"**Returns:** {returns}");
         }
 
-        // Emit exception table when documented exceptions exist
         var exceptions = xmlDocs.GetExceptions(memberId);
         if (exceptions.Count > 0)
         {
@@ -850,9 +952,7 @@ public sealed class DotNetGenerator : IApiGenerator
 
     private static string BuildMethodDisplayName(MethodDefinition method)
     {
-        var baseName = method.Name == ConstructorMethodName
-            ? StripArity(method.DeclaringType.Name)
-            : method.Name;
+        var baseName = GetMethodGroupName(method);
 
         if (!method.HasParameters)
         {
@@ -866,68 +966,21 @@ public sealed class DotNetGenerator : IApiGenerator
 
     private static string BuildMethodFileName(MethodDefinition method, TypeDefinition declaringType)
     {
-        var baseName = method.Name == ConstructorMethodName
+        return method.Name == ConstructorMethodName
             ? StripArity(declaringType.Name)
             : method.Name;
-
-        if (!method.HasParameters || !HasOverloads(method))
-        {
-            return baseName;
-        }
-
-        var suffix = string.Join(
-            "-",
-            method.Parameters.Select(p => SanitizeFileNamePart(p.ParameterType.FullName)));
-        return $"{baseName}-{suffix}";
     }
 
-    private static bool HasOverloads(MethodDefinition method)
+    private static string GetMethodGroupDisplayName(MethodDefinition method, int overloadCount)
     {
-        var count = 0;
-        foreach (var candidate in method.DeclaringType.Methods)
-        {
-            if (candidate.Name == method.Name && ++count > 1)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        var baseName = GetMethodGroupName(method);
+        return overloadCount > 1 ? $"{baseName} ({overloadCount} overloads)" : baseName;
     }
 
-    private static string SanitizeFileNamePart(string value)
-    {
-        // Replace type modifiers with readable tokens before character-by-character sanitization
-        // to avoid collisions between e.g. System.Int32, System.Int32[], System.Int32&, System.Int32*
-        value = value
-            .Replace("[]", "Array")
-            .Replace("&", "Ref")
-            .Replace("*", "Ptr");
-
-        var invalidCharacters = Path.GetInvalidFileNameChars();
-        var buffer = new char[value.Length];
-
-        for (var index = 0; index < value.Length; index++)
-        {
-            var character = value[index];
-            if (char.IsLetterOrDigit(character) || character == '-')
-            {
-                buffer[index] = character;
-                continue;
-            }
-
-            if (invalidCharacters.Contains(character) ||
-                character is '.' or ',' or '<' or '>' or '(' or ')' or '{' or '}' or '/' or '\\')
-            {
-                buffer[index] = '-';
-                continue;
-            }
-
-            buffer[index] = character;
-        }
-
-        return new string(buffer).Trim('-');
-    }
+    private static string GetMethodGroupName(MethodDefinition method) =>
+        method.Name == ConstructorMethodName
+            ? StripArity(method.DeclaringType.Name)
+            : method.Name;
 
     private static bool IsExtensionMethod(MethodDefinition method) =>
         method.IsStatic && method.CustomAttributes.Any(attribute =>
