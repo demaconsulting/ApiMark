@@ -64,18 +64,19 @@ public sealed class FileMarkdownWriterFactory : IMarkdownWriterFactory
             throw new ArgumentException("File name must not be null or whitespace.", nameof(name));
         }
 
-        // Build the target directory: combine the root with the optional subfolder,
-        // normalizing path separators so forward-slash subfolder strings work on Windows
+        // Build the target directory: combine the root with the optional subfolder using the
+        // safe combiner that rejects rooted or traversal segments; forward slashes in the
+        // subfolder are handled natively by Path.Join inside SafePathCombine.
         var targetDirectory = string.IsNullOrWhiteSpace(subFolder)
             ? _outputDirectory
-            : Path.Combine(_outputDirectory, subFolder.Replace('/', Path.DirectorySeparatorChar));
+            : PathHelpers.SafePathCombine(_outputDirectory, subFolder);
 
         // Create the directory tree if it does not already exist so that callers
         // never need to pre-create directories
         Directory.CreateDirectory(targetDirectory);
 
-        // Compose the full file path and open a StreamWriter for the markdown file
-        var filePath = Path.Combine(targetDirectory, name + ".md");
+        // Compose the full file path using the safe combiner, appending the .md extension
+        var filePath = PathHelpers.SafePathCombine(targetDirectory, name + ".md");
         var streamWriter = new StreamWriter(filePath, append: false, System.Text.Encoding.UTF8);
 
         return new FileMarkdownWriter(streamWriter);

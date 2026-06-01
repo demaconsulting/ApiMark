@@ -5,25 +5,30 @@
 
 ## Architecture
 
-ApiMarkCore is a shared-contracts system. It defines the interfaces and output
-conventions that all other systems depend on. There is no system-level executable
-logic — the system exists to give callers a single, stable definition of the
-generation interface and the markdown-writing interfaces.
+ApiMarkCore is a shared-contracts system. It defines the interfaces, output
+conventions, and internal path-safety helpers that all other systems depend on.
+There is no system-level executable logic — the system exists to give callers a
+single, stable definition of the generation interface, the markdown-writing
+interfaces, and the trusted path-combination helper used by file-based
+implementations.
 
 ```mermaid
 flowchart TD
     IApiGenerator
     IMarkdownWriterFactory
     IMarkdownWriter
+    PathHelpers
     FileMarkdownWriterFactory --> |implements| IMarkdownWriterFactory
     FileMarkdownWriter --> |implements| IMarkdownWriter
     IMarkdownWriterFactory --> |creates| IMarkdownWriter
+    FileMarkdownWriterFactory --> |uses| PathHelpers
 ```
 
 ApiMarkDotNet implements IApiGenerator and calls IMarkdownWriterFactory to create
 per-file IMarkdownWriter instances. ApiMarkTool directly consumes IApiGenerator;
 ApiMarkMsbuild spawns ApiMarkTool as a child process and never calls IApiGenerator
-in-process. No system depends on ApiMarkCore beyond these interfaces.
+in-process. PathHelpers remains an internal utility used by ApiMarkCore
+implementations rather than a public dependency surface.
 
 ## External Interfaces
 
@@ -61,6 +66,19 @@ in-process. No system depends on ApiMarkCore beyond these interfaces.
   signatures.
 - *Constraints*: Each method appends content to the current output file in call
   order; callers invoke methods in document order and dispose the writer when done.
+
+### Internal Utilities
+
+**PathHelpers (internal only)**: Internal static helper for safely combining caller-
+supplied relative path segments with a trusted base path.
+
+- *Type*: In-process .NET internal utility.
+- *Role*: Internal-only helper used by file-based implementations to validate path
+  segments before creating directories or files.
+- *Contract*: `string SafePathCombine(string basePath, params string[] relativePaths)`
+  returns the combined path when all segments are valid.
+- *Constraints*: Rejects null, rooted, or `..`-containing segments and rejects any
+  normalized result that escapes the trusted base path.
 
 ## Dependencies
 

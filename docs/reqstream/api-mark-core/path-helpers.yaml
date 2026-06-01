@@ -1,0 +1,43 @@
+---
+# PathHelpers unit requirements
+sections:
+  - title: ApiMarkCore Requirements
+    sections:
+      - title: PathHelpers Requirements
+        requirements:
+          - id: ApiMarkCore-PathHelpers-CombineValidRelativeSegments
+            title: PathHelpers shall combine a trusted base path with one or more caller-supplied relative path segments in order.
+            justification: |
+              ApiMark callers need one reusable helper that can build derived file-system
+              paths without duplicating path-joining logic at every call site.
+            tests:
+              - PathHelpers_SafePathCombine_ValidPaths_CombinesCorrectly
+              - PathHelpers_SafePathCombine_CurrentDirectoryReference_CombinesCorrectly
+              - PathHelpers_SafePathCombine_NestedPaths_CombinesCorrectly
+              - PathHelpers_SafePathCombine_EmptyRelativePath_ReturnsBasePath
+              - PathHelpers_SafePathCombine_MultipleSegments_CombinesCorrectly
+          - id: ApiMarkCore-PathHelpers-RejectTraversalSegments
+            title: PathHelpers shall reject any caller-supplied path segment that contains parent-directory traversal.
+            justification: |
+              Caller-supplied path fragments must never be allowed to escape the intended
+              output root because traversal would create a directory-traversal vulnerability.
+            tests:
+              - PathHelpers_SafePathCombine_PathTraversalWithDoubleDots_ThrowsArgumentException
+              - PathHelpers_SafePathCombine_DoubleDotsInMiddle_ThrowsArgumentException
+              - PathHelpers_SafePathCombine_TraversalInLaterSegment_ThrowsArgumentException
+          - id: ApiMarkCore-PathHelpers-RejectRootedSegments
+            title: PathHelpers shall reject caller-supplied rooted path segments.
+            justification: |
+              Rooted segments can bypass the trusted base path entirely, so the helper must
+              reject them rather than allow the caller to redirect output arbitrarily.
+            tests:
+              - PathHelpers_SafePathCombine_AbsolutePath_ThrowsArgumentException
+              - PathHelpers_SafePathCombine_WindowsAbsolutePath_ThrowsArgumentException
+          - id: ApiMarkCore-PathHelpers-RejectNullArguments
+            title: PathHelpers shall reject null base-path and relative-path arguments.
+            justification: |
+              Null argument rejection gives callers an immediate, deterministic diagnostic
+              instead of allowing a less clear failure later in the path-processing flow.
+            tests:
+              - PathHelpers_SafePathCombine_NullBasePath_ThrowsArgumentNullException
+              - PathHelpers_SafePathCombine_NullRelativePath_ThrowsArgumentNullException

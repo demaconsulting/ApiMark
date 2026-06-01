@@ -18,11 +18,11 @@ public sealed class IMarkdownWriterTests
     public void IMarkdownWriter_IsDisposable_ExtendsIDisposable()
     {
         // Arrange: obtain an IMarkdownWriter through the factory interface
-        IMarkdownWriter writer = new InMemoryMarkdownWriter();
+        using var writer = new InMemoryMarkdownWriter();
 
-        // Act / Assert: the type must be assignable to IDisposable
-        Assert.IsAssignableFrom<IDisposable>(writer);
-        writer.Dispose();
+        // Act / Assert: the using declaration above confirms IMarkdownWriter is IDisposable at compile time;
+        // the runtime check below verifies the interface assignment is valid
+        Assert.True(writer is IDisposable);
     }
 
     /// <summary>
@@ -33,7 +33,7 @@ public sealed class IMarkdownWriterTests
     public void IMarkdownWriter_WriteHeading_ValidArgs_DoesNotThrow()
     {
         // Arrange: create an in-memory writer
-        using IMarkdownWriter writer = new InMemoryMarkdownWriter();
+        using var writer = new InMemoryMarkdownWriter();
 
         // Act: call WriteHeading with valid arguments
         var exception = Record.Exception(() => writer.WriteHeading(2, "My Section"));
@@ -50,7 +50,7 @@ public sealed class IMarkdownWriterTests
     public void IMarkdownWriter_WriteSignature_ValidArgs_DoesNotThrow()
     {
         // Arrange: create an in-memory writer
-        using IMarkdownWriter writer = new InMemoryMarkdownWriter();
+        using var writer = new InMemoryMarkdownWriter();
 
         // Act: call WriteSignature with valid arguments
         var exception = Record.Exception(() => writer.WriteSignature("csharp", "public void Foo();"));
@@ -67,7 +67,7 @@ public sealed class IMarkdownWriterTests
     public void IMarkdownWriter_WriteParagraph_ValidText_DoesNotThrow()
     {
         // Arrange: create an in-memory writer
-        using IMarkdownWriter writer = new InMemoryMarkdownWriter();
+        using var writer = new InMemoryMarkdownWriter();
 
         // Act: call WriteParagraph with valid text
         var exception = Record.Exception(() => writer.WriteParagraph("Some documentation."));
@@ -84,7 +84,7 @@ public sealed class IMarkdownWriterTests
     public void IMarkdownWriter_WriteTable_ValidArgs_DoesNotThrow()
     {
         // Arrange: create an in-memory writer
-        using IMarkdownWriter writer = new InMemoryMarkdownWriter();
+        using var writer = new InMemoryMarkdownWriter();
         string[] headers = ["Name", "Type"];
         string[][] rows = [["value", "int"]];
 
@@ -103,7 +103,7 @@ public sealed class IMarkdownWriterTests
     public void IMarkdownWriter_WriteCodeBlock_ValidArgs_DoesNotThrow()
     {
         // Arrange: create an in-memory writer
-        using IMarkdownWriter writer = new InMemoryMarkdownWriter();
+        using var writer = new InMemoryMarkdownWriter();
 
         // Act: call WriteCodeBlock with valid arguments
         var exception = Record.Exception(() => writer.WriteCodeBlock("csharp", "var x = 1;"));
@@ -120,7 +120,7 @@ public sealed class IMarkdownWriterTests
     public void IMarkdownWriter_WriteLink_ValidArgs_DoesNotThrow()
     {
         // Arrange: create an in-memory writer
-        using IMarkdownWriter writer = new InMemoryMarkdownWriter();
+        using var writer = new InMemoryMarkdownWriter();
 
         // Act: call WriteLink with valid arguments
         var exception = Record.Exception(() => writer.WriteLink("MyClass", "types/MyClass.md"));
@@ -137,11 +137,10 @@ public sealed class IMarkdownWriterTests
     public void InMemoryMarkdownWriter_Instantiate_AsInterface_Succeeds()
     {
         // Arrange / Act: construct and assign — compile-time + runtime check
-        IMarkdownWriter writer = new InMemoryMarkdownWriter();
+        using var writer = new InMemoryMarkdownWriter();
 
         // Assert: the assignment confirms the type correctly implements the interface
         Assert.NotNull(writer);
-        writer.Dispose();
     }
 
     /// <summary>

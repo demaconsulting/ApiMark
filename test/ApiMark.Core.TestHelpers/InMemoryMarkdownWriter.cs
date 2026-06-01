@@ -11,7 +11,9 @@ namespace ApiMark.Core.TestHelpers;
 ///     with its arguments, rather than using a discriminated enum that forces
 ///     callers to inspect auxiliary fields.
 /// </remarks>
+#pragma warning disable S2094 // Intentionally empty abstract record: serves as discriminated-union base for the operation hierarchy
 public abstract record MarkdownOperation;
+#pragma warning restore S2094
 
 /// <summary>
 ///     Records a call to <see cref="IMarkdownWriter.WriteHeading"/>.

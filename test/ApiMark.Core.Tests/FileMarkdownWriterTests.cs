@@ -19,7 +19,9 @@ public sealed class FileMarkdownWriterTests : IDisposable
     public FileMarkdownWriterTests()
     {
         // Unique subfolder prevents collisions between parallel test runs
-        _tempDirectory = Path.Combine(Path.GetTempPath(), "ApiMarkWriterTests_" + Guid.NewGuid().ToString("N"));
+        _tempDirectory = Path.Join(
+            Path.GetTempPath(),
+            "ApiMarkWriterTests_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_tempDirectory);
     }
 
@@ -61,7 +63,7 @@ public sealed class FileMarkdownWriterTests : IDisposable
         }
 
         // Read the file content back for assertion
-        return File.ReadAllText(Path.Combine(_tempDirectory, fileName + ".md"));
+        return File.ReadAllText(Path.Join(_tempDirectory, fileName + ".md"));
     }
 
     /// <summary>
@@ -183,16 +185,17 @@ public sealed class FileMarkdownWriterTests : IDisposable
     {
         // Arrange: create and dispose a writer
         var factory = new FileMarkdownWriterFactory(_tempDirectory);
-        var writer = factory.CreateMarkdown("", "flush-test");
-        writer.WriteParagraph("Content to flush.");
-        writer.Dispose();
+        using (var writer = factory.CreateMarkdown("", "flush-test"))
+        {
+            writer.WriteParagraph("Content to flush.");
+        }
 
         // Act: attempt to open the file for reading — this would fail if the handle
         // were still held by the writer
         var exception = Record.Exception(() =>
         {
             using var fs = File.Open(
-                Path.Combine(_tempDirectory, "flush-test.md"),
+                Path.Join(_tempDirectory, "flush-test.md"),
                 FileMode.Open,
                 FileAccess.Read,
                 FileShare.None);

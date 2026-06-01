@@ -7,6 +7,7 @@ input-files:
   - docs/verification/api-mark-core/i-api-generator.md
   - docs/verification/api-mark-core/i-markdown-writer-factory.md
   - docs/verification/api-mark-core/i-markdown-writer.md
+  - docs/verification/api-mark-core/path-helpers.md
   - docs/verification/api-mark-dot-net.md
   - docs/verification/api-mark-dot-net/dot-net-generator.md
   - docs/verification/api-mark-dot-net/type-name-simplifier.md

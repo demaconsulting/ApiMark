@@ -263,7 +263,8 @@ public sealed class ContextTests
         using var context = Context.Create(args);
 
         // Assert: Includes property must contain the two split paths
-        Assert.Equal(new[] { "path/a", "path/b" }, context.Includes);
+        string[] expectedIncludes = ["path/a", "path/b"];
+        Assert.Equal(expectedIncludes, context.Includes);
     }
 
     /// <summary>
@@ -333,7 +334,7 @@ public sealed class ContextTests
     public void Context_Create_WithLogFile_OpensAndWritesToLog()
     {
         // Arrange: create a temporary file path for the log
-        var tempPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".log");
+        var tempPath = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".log");
 
         try
         {

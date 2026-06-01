@@ -89,6 +89,16 @@ reviews:
       - test/ApiMark.Core.Tests/IMarkdownWriterFactoryTests.cs
       - test/ApiMark.Core.Tests/FileMarkdownWriterFactoryTests.cs
 
+  # ApiMarkCore - PathHelpers
+  - id: ApiMark-Core-PathHelpers
+    title: Review that ApiMark Core PathHelpers Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-core/path-helpers.yaml
+      - docs/design/api-mark-core/path-helpers.md
+      - docs/verification/api-mark-core/path-helpers.md
+      - src/ApiMark.Core/PathHelpers.cs
+      - test/ApiMark.Core.Tests/PathHelpersTests.cs
+
   # ApiMarkDotNet - Specials
   - id: ApiMark-DotNet-Architecture
     title: Review that ApiMark DotNet Architecture Satisfies Requirements

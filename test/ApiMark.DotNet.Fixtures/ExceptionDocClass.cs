@@ -6,5 +6,5 @@ public class ExceptionDocClass
     /// <summary>Opens the connection.</summary>
     /// <param name="host">The host to connect to.</param>
     /// <exception cref="InvalidOperationException">Already connected.</exception>
-    public void Connect(string host) { _ = host; }
+    public static void Connect(string host) { _ = host; }
 }

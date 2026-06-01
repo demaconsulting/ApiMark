@@ -9,6 +9,7 @@ input-files:
   - docs/design/api-mark-core/i-api-generator.md
   - docs/design/api-mark-core/i-markdown-writer-factory.md
   - docs/design/api-mark-core/i-markdown-writer.md
+  - docs/design/api-mark-core/path-helpers.md
   - docs/design/api-mark-dot-net.md
   - docs/design/api-mark-dot-net/dot-net-generator.md
   - docs/design/api-mark-dot-net/type-name-simplifier.md

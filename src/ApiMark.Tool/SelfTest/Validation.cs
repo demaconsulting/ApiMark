@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using ApiMark.Tool.Cli;
 using DemaConsulting.TestResults.IO;
 
@@ -7,8 +8,11 @@ namespace ApiMark.Tool.SelfTest;
 /// <summary>
 ///     Provides self-validation functionality for ApiMark Tool.
 /// </summary>
-internal static class Validation
+internal static partial class Validation
 {
+    /// <summary>Regular expression that matches a semantic version number (e.g. <c>1.2.3</c>).</summary>
+    [GeneratedRegex(@"\b\d+\.\d+\.\d+")]
+    private static partial Regex VersionPattern();
     /// <summary>
     ///     Runs self-validation tests and optionally writes results to a file.
     /// </summary>
@@ -95,7 +99,7 @@ internal static class Validation
         try
         {
             using var tempDir = new TemporaryDirectory();
-            var logFile = Path.Combine(tempDir.DirectoryPath, "version-test.log");
+            var logFile = Path.Join(tempDir.DirectoryPath, "version-test.log");
 
             // Build child command-line arguments — never include --validate to avoid recursion
             var args = new[] { "--silent", "--log", logFile, "--version" };
@@ -113,7 +117,7 @@ internal static class Validation
             {
                 // Read log content and verify the version string is present
                 var logContent = File.ReadAllText(logFile);
-                var versionPattern = new System.Text.RegularExpressions.Regex(@"\b\d+\.\d+\.\d+");
+                var versionPattern = VersionPattern();
                 if (!string.IsNullOrWhiteSpace(logContent) && versionPattern.IsMatch(logContent))
                 {
                     test.Outcome = DemaConsulting.TestResults.TestOutcome.Passed;
@@ -156,7 +160,7 @@ internal static class Validation
         try
         {
             using var tempDir = new TemporaryDirectory();
-            var logFile = Path.Combine(tempDir.DirectoryPath, "help-test.log");
+            var logFile = Path.Join(tempDir.DirectoryPath, "help-test.log");
 
             // Build child command-line arguments — never include --validate to avoid recursion
             var args = new[] { "--silent", "--log", logFile, "--help" };
@@ -304,7 +308,9 @@ internal static class Validation
         /// </summary>
         public TemporaryDirectory()
         {
-            DirectoryPath = Path.Combine(Path.GetTempPath(), $"apimark_validation_{Guid.NewGuid()}");
+            DirectoryPath = Path.Join(
+                Path.GetTempPath(),
+                $"apimark_validation_{Guid.NewGuid()}");
 
             try
             {

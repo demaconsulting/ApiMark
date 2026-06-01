@@ -297,9 +297,8 @@ public class DotNetGeneratorTests
         Assert.Contains(paragraphs, p => p.Contains("sample class"));
 
         // Assert: RemarksDocClass type page exists and remarks member page has remarks text
-        Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/RemarksDocClass/Compute"));
-        var computeWriter = factory.Writers["ApiMark.DotNet.Fixtures/RemarksDocClass/Compute"];
-        var computeParagraphs = computeWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.True(factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/RemarksDocClass/Compute", out var computeWriter));
+        var computeParagraphs = computeWriter!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
         Assert.Contains(computeParagraphs, p => p.Contains("iterative"));
     }
 

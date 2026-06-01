@@ -170,10 +170,10 @@ internal static class Program
     }
 
     /// <summary>
-    ///     Constructs and returns an <see cref="IApiGenerator"/> configured from the parsed context.
+    ///     Constructs and returns a <see cref="DotNetGenerator"/> configured from the parsed context.
     /// </summary>
     /// <param name="context">Fully parsed CLI context.</param>
-    /// <returns>A configured <see cref="IApiGenerator"/> ready for <c>Generate</c> to be called.</returns>
+    /// <returns>A configured <see cref="DotNetGenerator"/> ready for <c>Generate</c> to be called.</returns>
     /// <exception cref="ArgumentException">
     ///     Thrown when <see cref="Context.Visibility"/> is not a recognized
     ///     <see cref="ApiVisibility"/> value.
@@ -182,7 +182,7 @@ internal static class Program
     ///     Thrown when <see cref="Context.Language"/> identifies an unrecognized or
     ///     not-yet-implemented language subcommand.
     /// </exception>
-    private static IApiGenerator CreateGenerator(Context context)
+    private static DotNetGenerator CreateGenerator(Context context)
     {
         // Parse the visibility string case-insensitively; reject unknown values early
         if (!Enum.TryParse<ApiVisibility>(context.Visibility, ignoreCase: true, out var visibility))

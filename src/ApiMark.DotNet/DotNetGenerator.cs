@@ -13,6 +13,12 @@ namespace ApiMark.DotNet;
 /// </remarks>
 public sealed class DotNetGenerator : IApiGenerator
 {
+    /// <summary>Column header label used in all generated Markdown tables for the description column.</summary>
+    private const string DescriptionColumnHeader = "Description";
+
+    /// <summary>The .NET metadata method name used for all instance and static constructors.</summary>
+    private const string ConstructorMethodName = ".ctor";
+
     /// <summary>Configuration controlling which assembly, XML doc, and visibility filter to use.</summary>
     private readonly DotNetGeneratorOptions _options;
 
@@ -64,7 +70,7 @@ public sealed class DotNetGenerator : IApiGenerator
         using var apiWriter = factory.CreateMarkdown("", "api");
         apiWriter.WriteHeading(1, assembly.Name.Name);
 
-        var nsHeaders = new[] { "Namespace", "Description" };
+        var nsHeaders = new[] { "Namespace", DescriptionColumnHeader };
         var nsRows = byNamespace.Select(g =>
         {
             var nsName = g.Key;
@@ -82,7 +88,7 @@ public sealed class DotNetGenerator : IApiGenerator
             using var nsWriter = factory.CreateMarkdown(namespaceName, namespaceName);
             nsWriter.WriteHeading(1, namespaceName);
 
-            var typeHeaders = new[] { "Type", "Description" };
+            var typeHeaders = new[] { "Type", DescriptionColumnHeader };
             var typeRows = nsTypes.Select(t =>
             {
                 var typeMemberId = BuildTypeId(t);
@@ -136,7 +142,7 @@ public sealed class DotNetGenerator : IApiGenerator
 
         // Collect visible members: constructors first, then alphabetically
         var members = GetVisibleMembers(type)
-            .OrderBy(m => m.Name == ".ctor" ? 0 : 1)
+            .OrderBy(m => m.Name == ConstructorMethodName ? 0 : 1)
             .ThenBy(m => m.Name)
             .ToList();
 
@@ -145,7 +151,7 @@ public sealed class DotNetGenerator : IApiGenerator
             return;
         }
 
-        var memberHeaders = new[] { "Member", "Type", "Description" };
+        var memberHeaders = new[] { "Member", "Type", DescriptionColumnHeader };
         var inlineRows = new List<string[]>();
 
         // Emit a link row for complex members (own page) and a plain row for simple ones
@@ -212,7 +218,7 @@ public sealed class DotNetGenerator : IApiGenerator
         if (member is MethodDefinition method && method.HasParameters)
         {
             var paramDocs = xmlDocs.GetParams(memberId);
-            var paramHeaders = new[] { "Parameter", "Type", "Description" };
+            var paramHeaders = new[] { "Parameter", "Type", DescriptionColumnHeader };
             var paramRows = method.Parameters.Select(p =>
             {
                 var desc = paramDocs.FirstOrDefault(pd => pd.Name == p.Name).Description ?? string.Empty;
@@ -232,7 +238,7 @@ public sealed class DotNetGenerator : IApiGenerator
         var exceptions = xmlDocs.GetExceptions(memberId);
         if (exceptions.Count > 0)
         {
-            var exHeaders = new[] { "Exception", "Description" };
+            var exHeaders = new[] { "Exception", DescriptionColumnHeader };
             var exRows = exceptions.Select(e => new[] { e, string.Empty });
             memberWriter.WriteTable(exHeaders, exRows);
         }
@@ -376,12 +382,21 @@ public sealed class DotNetGenerator : IApiGenerator
     private static bool IsMemberPublicOrProtected(IMemberDefinition member) => member switch
     {
         MethodDefinition m => m.IsPublic || m.IsFamily || m.IsFamilyOrAssembly,
-        PropertyDefinition p => (p.GetMethod != null && (p.GetMethod.IsPublic || p.GetMethod.IsFamily)) ||
-                                 (p.SetMethod != null && (p.SetMethod.IsPublic || p.SetMethod.IsFamily)),
+        PropertyDefinition p => IsPropertyPublicOrProtected(p),
         FieldDefinition f => f.IsPublic || f.IsFamily || f.IsFamilyOrAssembly,
         EventDefinition e => (e.AddMethod?.IsPublic ?? false) || (e.AddMethod?.IsFamily ?? false),
         _ => false,
     };
+
+    /// <summary>Returns <c>true</c> when <paramref name="p"/> has a public or protected getter or setter.</summary>
+    /// <param name="p">The property to inspect.</param>
+    /// <returns><c>true</c> when at least one accessor is publicly or protected-family accessible.</returns>
+    private static bool IsPropertyPublicOrProtected(PropertyDefinition p)
+    {
+        var getterVisible = p.GetMethod != null && (p.GetMethod.IsPublic || p.GetMethod.IsFamily);
+        var setterVisible = p.SetMethod != null && (p.SetMethod.IsPublic || p.SetMethod.IsFamily);
+        return getterVisible || setterVisible;
+    }
 
     /// <summary>
     ///     Enumerates all members of <paramref name="type"/> that pass the current visibility,
@@ -393,82 +408,47 @@ public sealed class DotNetGenerator : IApiGenerator
     {
         // Methods: exclude special-name accessors (property getters/setters, event add/remove)
         // but always include constructors
-        foreach (var method in type.Methods)
+        foreach (var method in type.Methods
+            .Where(m => !IsSpecialNameNonConstructor(m) && !IsCompilerGenerated(m) && ShouldIncludeMember(m)))
         {
-            if (method.IsSpecialName && method.Name != ".ctor")
-            {
-                continue;
-            }
-
-            if (IsCompilerGenerated(method))
-            {
-                continue;
-            }
-
-            if (!IsMemberVisible(method))
-            {
-                continue;
-            }
-
-            if (!_options.IncludeObsolete && IsObsolete(method))
-            {
-                continue;
-            }
-
             yield return method;
         }
 
-        foreach (var prop in type.Properties)
+        foreach (var prop in type.Properties.Where(ShouldIncludeMember))
         {
-            if (!IsMemberVisible(prop))
-            {
-                continue;
-            }
-
-            if (!_options.IncludeObsolete && IsObsolete(prop))
-            {
-                continue;
-            }
-
             yield return prop;
         }
 
         // Fields: skip compiler-generated backing fields (names contain angle brackets)
-        foreach (var field in type.Fields)
+        foreach (var field in type.Fields
+            .Where(f => !IsCompilerGeneratedField(f) && ShouldIncludeMember(f)))
         {
-            if (field.Name.Contains('<') || field.Name.Contains('>'))
-            {
-                continue;
-            }
-
-            if (!IsMemberVisible(field))
-            {
-                continue;
-            }
-
-            if (!_options.IncludeObsolete && IsObsolete(field))
-            {
-                continue;
-            }
-
             yield return field;
         }
 
-        foreach (var evt in type.Events)
+        foreach (var evt in type.Events.Where(ShouldIncludeMember))
         {
-            if (!IsMemberVisible(evt))
-            {
-                continue;
-            }
-
-            if (!_options.IncludeObsolete && IsObsolete(evt))
-            {
-                continue;
-            }
-
             yield return evt;
         }
     }
+
+    /// <summary>Returns <c>true</c> when <paramref name="member"/> passes both visibility and obsolete filters.</summary>
+    /// <param name="member">The member to evaluate.</param>
+    /// <returns><c>true</c> when the member is visible and not filtered out by the obsolete setting.</returns>
+    private bool ShouldIncludeMember(IMemberDefinition member) =>
+        IsMemberVisible(member) && (_options.IncludeObsolete || !IsObsolete(member));
+
+    /// <summary>Returns <c>true</c> when <paramref name="method"/> is a special-name accessor that is not a constructor.</summary>
+    /// <param name="method">The method to test.</param>
+    /// <returns><c>true</c> for property getters/setters and event add/remove methods.</returns>
+    private static bool IsSpecialNameNonConstructor(MethodDefinition method) =>
+        method.IsSpecialName && method.Name != ConstructorMethodName;
+
+    /// <summary>Returns <c>true</c> when <paramref name="field"/> is a compiler-generated backing field.</summary>
+    /// <param name="field">The field to test.</param>
+    /// <returns><c>true</c> when the field name contains angle brackets (compiler-generated backing fields).</returns>
+    private static bool IsCompilerGeneratedField(FieldDefinition field) =>
+        field.Name.Contains('<') || field.Name.Contains('>');
 
     /// <summary>Builds the XML doc member identifier for a type (e.g. <c>T:Namespace.TypeName</c>).</summary>
     /// <param name="type">The type definition.</param>
@@ -553,8 +533,8 @@ public sealed class DotNetGenerator : IApiGenerator
     {
         var returnType = TypeNameSimplifier.Simplify(method.ReturnType, contextNamespace);
 
-        // Use the declaring type name for constructors rather than ".ctor"
-        var name = method.Name == ".ctor"
+        // Use the declaring type name for constructors rather than ConstructorMethodName
+        var name = method.Name == ConstructorMethodName
             ? StripArity(method.DeclaringType.Name)
             : method.Name;
 
@@ -562,7 +542,7 @@ public sealed class DotNetGenerator : IApiGenerator
             $"{TypeNameSimplifier.Simplify(p.ParameterType, contextNamespace)} {p.Name}"));
 
         var accessibility = GetAccessibilityKeyword(method);
-        return method.Name == ".ctor"
+        return method.Name == ConstructorMethodName
             ? $"{accessibility} {name}({parameters})"
             : $"{accessibility} {returnType} {name}({parameters})";
     }
@@ -654,7 +634,7 @@ public sealed class DotNetGenerator : IApiGenerator
     {
         return member switch
         {
-            MethodDefinition m when m.Name == ".ctor" => StripArity(m.DeclaringType.Name),
+            MethodDefinition m when m.Name == ConstructorMethodName => StripArity(m.DeclaringType.Name),
             MethodDefinition m => m.Name,
             PropertyDefinition p => p.Name,
             FieldDefinition f => f.Name,
@@ -690,7 +670,7 @@ public sealed class DotNetGenerator : IApiGenerator
     {
         return member switch
         {
-            MethodDefinition m when m.Name == ".ctor" => StripArity(declaringType.Name),
+            MethodDefinition m when m.Name == ConstructorMethodName => StripArity(declaringType.Name),
             MethodDefinition m => m.Name,
             PropertyDefinition p => p.Name,
             FieldDefinition f => f.Name,
