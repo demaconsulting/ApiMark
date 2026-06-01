@@ -8,6 +8,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AssemblyName>ApiMark.DotNet.Fixtures</AssemblyName>
     <RootNamespace>ApiMark.DotNet.Fixtures</RootNamespace>
+    <IsPackable>false</IsPackable>
     <Description>Test fixture assemblies for ApiMark.DotNet integration tests.</Description>
     <Authors>DEMA Consulting</Authors>
     <Company>DEMA Consulting</Company>

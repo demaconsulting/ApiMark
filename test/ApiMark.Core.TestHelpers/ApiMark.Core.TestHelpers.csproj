@@ -6,6 +6,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AssemblyName>ApiMark.Core.TestHelpers</AssemblyName>
     <RootNamespace>ApiMark.Core.TestHelpers</RootNamespace>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\ApiMark.Core\ApiMark.Core.csproj" />

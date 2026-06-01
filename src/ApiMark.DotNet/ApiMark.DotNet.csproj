@@ -7,6 +7,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <AssemblyName>ApiMark.DotNet</AssemblyName>
     <RootNamespace>ApiMark.DotNet</RootNamespace>
+    <IsPackable>false</IsPackable>
     <Description>Generates API documentation from .NET assemblies using Mono.Cecil.</Description>
     <Authors>DEMA Consulting</Authors>
     <Company>DEMA Consulting</Company>
