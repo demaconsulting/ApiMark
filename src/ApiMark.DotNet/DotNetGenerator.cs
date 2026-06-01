@@ -259,14 +259,14 @@ public sealed class DotNetGenerator : IApiGenerator
                     }
 
                     var representative = overloads[0];
-                    var memberId = BuildMemberId(representative);
-                    var memberSummary = xmlDocs.GetSummary(memberId) ?? string.Empty;
-                    var memberTypeName = GetMemberTypeName(representative, namespaceName);
-                    var memberDisplayName = GetMethodGroupDisplayName(representative, overloads.Count);
+                    var representativeMemberId = BuildMemberId(representative);
+                    var representativeSummary = xmlDocs.GetSummary(representativeMemberId) ?? string.Empty;
+                    var representativeTypeName = GetMemberTypeName(representative, namespaceName);
+                    var overloadDisplayName = GetMethodGroupDisplayName(representative, overloads.Count);
 
                     WriteMethodOverloadPage(factory, namespaceName, namespaceFolderPath, type, overloads, xmlDocs);
                     var memberLink = $"{type.Name}/{methodFileName}.md";
-                    inlineRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
+                    inlineRows.Add(new[] { $"[{overloadDisplayName}]({memberLink})", representativeTypeName, representativeSummary });
                     continue;
                 }
             }
