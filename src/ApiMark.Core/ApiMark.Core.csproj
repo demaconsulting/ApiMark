@@ -6,6 +6,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AssemblyName>ApiMark.Core</AssemblyName>
     <RootNamespace>ApiMark.Core</RootNamespace>
+    <IsPackable>false</IsPackable>
     <Description>Shared contracts and file-path helpers for ApiMark generators.</Description>
     <Authors>DEMA Consulting</Authors>
     <Company>DEMA Consulting</Company>
