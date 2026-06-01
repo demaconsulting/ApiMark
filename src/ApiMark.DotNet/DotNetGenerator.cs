@@ -532,19 +532,24 @@ public sealed class DotNetGenerator : IApiGenerator
     private static string BuildMethodSignature(MethodDefinition method, string contextNamespace)
     {
         var returnType = TypeNameSimplifier.Simplify(method.ReturnType, contextNamespace);
+        var isExtensionMethod = IsExtensionMethod(method);
 
         // Use the declaring type name for constructors rather than ConstructorMethodName
         var name = method.Name == ConstructorMethodName
             ? StripArity(method.DeclaringType.Name)
             : method.Name;
 
-        var parameters = string.Join(", ", method.Parameters.Select(p =>
-            $"{TypeNameSimplifier.Simplify(p.ParameterType, contextNamespace)} {p.Name}"));
+        var parameters = string.Join(", ", method.Parameters.Select((p, index) =>
+        {
+            var receiverPrefix = isExtensionMethod && index == 0 ? "this " : string.Empty;
+            return $"{receiverPrefix}{TypeNameSimplifier.Simplify(p.ParameterType, contextNamespace)} {p.Name}";
+        }));
 
         var accessibility = GetAccessibilityKeyword(method);
+        var staticModifier = method.IsStatic && method.Name != ConstructorMethodName ? " static" : string.Empty;
         return method.Name == ConstructorMethodName
             ? $"{accessibility} {name}({parameters})"
-            : $"{accessibility} {returnType} {name}({parameters})";
+            : $"{accessibility}{staticModifier} {returnType} {name}({parameters})";
     }
 
     /// <summary>Builds a human-readable C# property declaration signature.</summary>
@@ -634,8 +639,7 @@ public sealed class DotNetGenerator : IApiGenerator
     {
         return member switch
         {
-            MethodDefinition m when m.Name == ConstructorMethodName => StripArity(m.DeclaringType.Name),
-            MethodDefinition m => m.Name,
+            MethodDefinition m => BuildMethodDisplayName(m),
             PropertyDefinition p => p.Name,
             FieldDefinition f => f.Name,
             EventDefinition e => e.Name,
@@ -670,14 +674,98 @@ public sealed class DotNetGenerator : IApiGenerator
     {
         return member switch
         {
-            MethodDefinition m when m.Name == ConstructorMethodName => StripArity(declaringType.Name),
-            MethodDefinition m => m.Name,
+            MethodDefinition m => BuildMethodFileName(m, declaringType),
             PropertyDefinition p => p.Name,
             FieldDefinition f => f.Name,
             EventDefinition e => e.Name,
             _ => member.Name,
         };
     }
+
+    private static string BuildMethodDisplayName(MethodDefinition method)
+    {
+        var baseName = method.Name == ConstructorMethodName
+            ? StripArity(method.DeclaringType.Name)
+            : method.Name;
+
+        if (!method.HasParameters)
+        {
+            return baseName;
+        }
+
+        var parameters = string.Join(", ", method.Parameters.Select(p =>
+            TypeNameSimplifier.Simplify(p.ParameterType, method.DeclaringType.Namespace)));
+        return $"{baseName}({parameters})";
+    }
+
+    private static string BuildMethodFileName(MethodDefinition method, TypeDefinition declaringType)
+    {
+        var baseName = method.Name == ConstructorMethodName
+            ? StripArity(declaringType.Name)
+            : method.Name;
+
+        if (!method.HasParameters || !HasOverloads(method))
+        {
+            return baseName;
+        }
+
+        var suffix = string.Join(
+            "-",
+            method.Parameters.Select(p => SanitizeFileNamePart(p.ParameterType.FullName)));
+        return $"{baseName}-{suffix}";
+    }
+
+    private static bool HasOverloads(MethodDefinition method)
+    {
+        var count = 0;
+        foreach (var candidate in method.DeclaringType.Methods)
+        {
+            if (candidate.Name == method.Name && ++count > 1)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string SanitizeFileNamePart(string value)
+    {
+        // Replace type modifiers with readable tokens before character-by-character sanitization
+        // to avoid collisions between e.g. System.Int32, System.Int32[], System.Int32&, System.Int32*
+        value = value
+            .Replace("[]", "Array")
+            .Replace("&", "Ref")
+            .Replace("*", "Ptr");
+
+        var invalidCharacters = Path.GetInvalidFileNameChars();
+        var buffer = new char[value.Length];
+
+        for (var index = 0; index < value.Length; index++)
+        {
+            var character = value[index];
+            if (char.IsLetterOrDigit(character) || character == '-')
+            {
+                buffer[index] = character;
+                continue;
+            }
+
+            if (invalidCharacters.Contains(character) ||
+                character is '.' or ',' or '<' or '>' or '(' or ')' or '{' or '}' or '/' or '\\')
+            {
+                buffer[index] = '-';
+                continue;
+            }
+
+            buffer[index] = character;
+        }
+
+        return new string(buffer).Trim('-');
+    }
+
+    private static bool IsExtensionMethod(MethodDefinition method) =>
+        method.IsStatic && method.CustomAttributes.Any(attribute =>
+            attribute.AttributeType.FullName == "System.Runtime.CompilerServices.ExtensionAttribute");
 
     /// <summary>
     ///     Returns <c>true</c> when <paramref name="provider"/> carries a
