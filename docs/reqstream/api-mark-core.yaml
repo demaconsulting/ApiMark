@@ -50,10 +50,9 @@ sections:
         children:
           - ApiMarkCore-PathHelpers-CombineValidRelativeSegments
           - ApiMarkCore-PathHelpers-RejectTraversalSegments
-          - ApiMarkCore-PathHelpers-RejectRootedSegments
           - ApiMarkCore-PathHelpers-RejectNullArguments
         tests:
           - PathHelpers_SafePathCombine_ValidPaths_CombinesCorrectly
           - PathHelpers_SafePathCombine_PathTraversalWithDoubleDots_ThrowsArgumentException
-          - PathHelpers_SafePathCombine_AbsolutePath_ThrowsArgumentException
+          - PathHelpers_SafePathCombine_AbsoluteSegment_WithinBase_CombinesCorrectly
           - PathHelpers_SafePathCombine_NullBasePath_ThrowsArgumentNullException

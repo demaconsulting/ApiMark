@@ -6,18 +6,23 @@ sections:
       - title: PathHelpers Requirements
         requirements:
           - id: ApiMarkCore-PathHelpers-CombineValidRelativeSegments
-            title: PathHelpers shall combine a trusted base path with one or more caller-supplied relative path segments in order.
+            title: PathHelpers shall combine a trusted base path with one or more caller-supplied path segments in order, provided the result resolves within the base.
             justification: |
               ApiMark callers need one reusable helper that can build derived file-system
-              paths without duplicating path-joining logic at every call site.
+              paths without duplicating path-joining logic at every call site. Segments
+              that contain ".." or start with a separator are accepted as long as the
+              final combined path does not escape the base directory.
             tests:
               - PathHelpers_SafePathCombine_ValidPaths_CombinesCorrectly
               - PathHelpers_SafePathCombine_CurrentDirectoryReference_CombinesCorrectly
               - PathHelpers_SafePathCombine_NestedPaths_CombinesCorrectly
               - PathHelpers_SafePathCombine_EmptyRelativePath_ReturnsBasePath
               - PathHelpers_SafePathCombine_MultipleSegments_CombinesCorrectly
+              - PathHelpers_SafePathCombine_BacktrackWithinBase_CombinesCorrectly
+              - PathHelpers_SafePathCombine_FilenameWithDoubleDots_CombinesCorrectly
+              - PathHelpers_SafePathCombine_AbsoluteSegment_WithinBase_CombinesCorrectly
           - id: ApiMarkCore-PathHelpers-RejectTraversalSegments
-            title: PathHelpers shall reject any caller-supplied path segment that contains parent-directory traversal.
+            title: PathHelpers shall reject any caller-supplied path combination that resolves outside the base directory.
             justification: |
               Caller-supplied path fragments must never be allowed to escape the intended
               output root because traversal would create a directory-traversal vulnerability.
@@ -25,14 +30,6 @@ sections:
               - PathHelpers_SafePathCombine_PathTraversalWithDoubleDots_ThrowsArgumentException
               - PathHelpers_SafePathCombine_DoubleDotsInMiddle_ThrowsArgumentException
               - PathHelpers_SafePathCombine_TraversalInLaterSegment_ThrowsArgumentException
-          - id: ApiMarkCore-PathHelpers-RejectRootedSegments
-            title: PathHelpers shall reject caller-supplied rooted path segments.
-            justification: |
-              Rooted segments can bypass the trusted base path entirely, so the helper must
-              reject them rather than allow the caller to redirect output arbitrarily.
-            tests:
-              - PathHelpers_SafePathCombine_AbsolutePath_ThrowsArgumentException
-              - PathHelpers_SafePathCombine_WindowsAbsolutePath_ThrowsArgumentException
           - id: ApiMarkCore-PathHelpers-RejectNullArguments
             title: PathHelpers shall reject null base-path and relative-path arguments.
             justification: |
