@@ -715,11 +715,29 @@ public sealed class DotNetGenerator : IApiGenerator
         return $"{baseName}-{suffix}";
     }
 
-    private static bool HasOverloads(MethodDefinition method) =>
-        method.DeclaringType.Methods.Count(candidate => candidate.Name == method.Name) > 1;
+    private static bool HasOverloads(MethodDefinition method)
+    {
+        var count = 0;
+        foreach (var candidate in method.DeclaringType.Methods)
+        {
+            if (candidate.Name == method.Name && ++count > 1)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private static string SanitizeFileNamePart(string value)
     {
+        // Replace type modifiers with readable tokens before character-by-character sanitization
+        // to avoid collisions between e.g. System.Int32, System.Int32[], System.Int32&, System.Int32*
+        value = value
+            .Replace("[]", "Array")
+            .Replace("&", "Ref")
+            .Replace("*", "Ptr");
+
         var invalidCharacters = Path.GetInvalidFileNameChars();
         var buffer = new char[value.Length];
 
@@ -733,7 +751,7 @@ public sealed class DotNetGenerator : IApiGenerator
             }
 
             if (invalidCharacters.Contains(character) ||
-                character is '.' or ',' or '<' or '>' or '(' or ')' or '[' or ']' or '{' or '}' or '/' or '\\' or '&' or '*')
+                character is '.' or ',' or '<' or '>' or '(' or ')' or '{' or '}' or '/' or '\\')
             {
                 buffer[index] = '-';
                 continue;

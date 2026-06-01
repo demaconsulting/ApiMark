@@ -487,4 +487,34 @@ public class DotNetGeneratorTests
             factory.Writers.Keys.Count(k =>
                 k.StartsWith("ApiMark.DotNet.Fixtures/SampleStatusExtensions/IsPassed", StringComparison.Ordinal)));
     }
+
+    /// <summary>Validates that overloads differing only in <c>int</c> vs <c>int[]</c> produce separate, distinct Markdown files.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_IntVsIntArray_CreateDistinctMemberPages()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: both overloads generate pages
+        Assert.Equal(
+            2,
+            factory.Writers.Keys.Count(k =>
+                k.StartsWith("ApiMark.DotNet.Fixtures/IntVsIntArrayClass/Process", StringComparison.Ordinal)));
+
+        // Assert: int and int[] overloads have distinct page keys
+        var intPage = factory.Writers.Keys.FirstOrDefault(k =>
+            k.StartsWith("ApiMark.DotNet.Fixtures/IntVsIntArrayClass/Process", StringComparison.Ordinal) &&
+            k.Contains("Int32Array", StringComparison.Ordinal));
+        var scalarPage = factory.Writers.Keys.FirstOrDefault(k =>
+            k.StartsWith("ApiMark.DotNet.Fixtures/IntVsIntArrayClass/Process", StringComparison.Ordinal) &&
+            !k.Contains("Int32Array", StringComparison.Ordinal));
+
+        Assert.NotNull(intPage);    // int[] overload gets an "Array" token in its file name
+        Assert.NotNull(scalarPage); // int overload does not contain "Array"
+        Assert.NotEqual(intPage, scalarPage);
+    }
 }
