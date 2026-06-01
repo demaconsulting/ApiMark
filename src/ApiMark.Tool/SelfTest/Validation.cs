@@ -13,6 +13,7 @@ internal static partial class Validation
     /// <summary>Regular expression that matches a semantic version number (e.g. <c>1.2.3</c>).</summary>
     [GeneratedRegex(@"\b\d+\.\d+\.\d+")]
     private static partial Regex VersionPattern();
+
     /// <summary>
     ///     Runs self-validation tests and optionally writes results to a file.
     /// </summary>

@@ -182,7 +182,7 @@ internal static class Program
     ///     Thrown when <see cref="Context.Language"/> identifies an unrecognized or
     ///     not-yet-implemented language subcommand.
     /// </exception>
-    private static DotNetGenerator CreateGenerator(Context context)
+    private static IApiGenerator CreateGenerator(Context context)
     {
         // Parse the visibility string case-insensitively; reject unknown values early
         if (!Enum.TryParse<ApiVisibility>(context.Visibility, ignoreCase: true, out var visibility))

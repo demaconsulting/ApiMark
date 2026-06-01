@@ -21,7 +21,9 @@ internal static class PathHelpers
     ///     combined result is normalized with <see cref="Path.GetFullPath(string)"/> and checked
     ///     against the normalized base using <see cref="Path.GetRelativePath"/>. If the result
     ///     resolves outside the base directory the method throws; otherwise the joined
-    ///     (un-normalized) path is returned.
+    ///     (un-normalized) path is returned. The escape check matches only an exact <c>..</c>
+    ///     segment or one followed by a directory separator, so names beginning with two dots
+    ///     (e.g. <c>..config</c>) are not misidentified as traversal.
     ///     Individual segments may contain <c>..</c> or be rooted provided the combined result
     ///     does not escape the base — for example segments <c>["baa", ".."]</c> on base
     ///     <c>C:\foo</c> resolve back to <c>C:\foo</c> and are accepted.
@@ -63,7 +65,10 @@ internal static class PathHelpers
         var fullCombined = Path.GetFullPath(combined);
         var relative = Path.GetRelativePath(fullBase, fullCombined);
 
-        if (relative.StartsWith("..") || Path.IsPathRooted(relative))
+        if (relative == ".." ||
+            relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
+            relative.StartsWith("../", StringComparison.Ordinal) ||
+            Path.IsPathRooted(relative))
         {
             throw new ArgumentException("Path escapes base directory.", nameof(relativePaths));
         }
