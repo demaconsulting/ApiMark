@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using ApiMark.Core;
 using CppAst;
+using Microsoft.Extensions.FileSystemGlobbing;
+using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 
 namespace ApiMark.Cpp;
 
@@ -38,12 +40,29 @@ public sealed class CppGenerator : IApiGenerator
     /// </remarks>
     /// <param name="options">
     ///     The generator configuration options. Must not be null.
+    ///     <see cref="CppGeneratorOptions.LibraryName"/> must be non-empty and
     ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> must contain at least one entry.
     /// </param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="options"/>.<see cref="CppGeneratorOptions.LibraryName"/> is null or whitespace.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="options"/>.<see cref="CppGeneratorOptions.PublicIncludeRoots"/> is null or empty.
+    /// </exception>
     public CppGenerator(CppGeneratorOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
+        if (string.IsNullOrWhiteSpace(options.LibraryName))
+        {
+            throw new ArgumentException("LibraryName must not be null or empty.", nameof(options));
+        }
+
+        if (options.PublicIncludeRoots == null || options.PublicIncludeRoots.Count == 0)
+        {
+            throw new ArgumentException("PublicIncludeRoots must contain at least one entry.", nameof(options));
+        }
+
         _options = options;
     }
 
@@ -129,12 +148,21 @@ public sealed class CppGenerator : IApiGenerator
     // =========================================================================
 
     /// <summary>
-    ///     Enumerates candidate header files under each configured public include root.
+    ///     Enumerates candidate header files under each configured public include root,
+    ///     applying <see cref="CppGeneratorOptions.IncludePatterns"/> and
+    ///     <see cref="CppGeneratorOptions.ExcludePatterns"/> when present.
     /// </summary>
     /// <returns>
     ///     A list of absolute header file paths with recognized C++ header extensions
-    ///     (<c>.h</c>, <c>.hpp</c>, <c>.hxx</c>, <c>.h++</c>).
+    ///     (<c>.h</c>, <c>.hpp</c>, <c>.hxx</c>, <c>.h++</c>) that satisfy the configured
+    ///     include/exclude glob patterns.
     /// </returns>
+    /// <remarks>
+    ///     When <see cref="CppGeneratorOptions.IncludePatterns"/> is empty all recognized
+    ///     headers pass the include step. When <see cref="CppGeneratorOptions.ExcludePatterns"/>
+    ///     is empty no files are removed. Patterns are evaluated relative to each root directory
+    ///     using <see cref="Matcher"/> from <c>Microsoft.Extensions.FileSystemGlobbing</c>.
+    /// </remarks>
     /// <exception cref="DirectoryNotFoundException">
     ///     Thrown when a configured public include root does not exist on disk.
     /// </exception>
@@ -157,9 +185,53 @@ public sealed class CppGenerator : IApiGenerator
             }
 
             // Enumerate all files recursively and retain only recognized header extensions
-            var files = Directory.GetFiles(root, "*", SearchOption.AllDirectories)
-                .Where(f => headerExtensions.Contains(Path.GetExtension(f)));
-            headers.AddRange(files);
+            var allFiles = Directory.GetFiles(root, "*", SearchOption.AllDirectories)
+                .Where(f => headerExtensions.Contains(Path.GetExtension(f)))
+                .ToList();
+
+            // Apply include/exclude glob patterns when at least one is configured; when
+            // neither is set, all discovered headers are forwarded to CppAst without filtering
+            if (_options.IncludePatterns.Count > 0 || _options.ExcludePatterns.Count > 0)
+            {
+                // Build a Matcher whose patterns are relative to the root directory
+                var matcher = new Matcher();
+
+                if (_options.IncludePatterns.Count > 0)
+                {
+                    // Caller-supplied include patterns define the set of accepted headers
+                    foreach (var pattern in _options.IncludePatterns)
+                    {
+                        matcher.AddInclude(pattern);
+                    }
+                }
+                else
+                {
+                    // No include patterns: accept every file so that ExcludePatterns alone
+                    // can narrow the set without requiring an explicit catch-all
+                    matcher.AddInclude("**/*");
+                }
+
+                foreach (var pattern in _options.ExcludePatterns)
+                {
+                    matcher.AddExclude(pattern);
+                }
+
+                // Execute the glob matcher against the root; result.Files contains matched
+                // relative paths which are then converted back to absolute for CppAst
+                var result = matcher.Execute(new DirectoryInfoWrapper(new DirectoryInfo(root)));
+                var matchedAbsolute = new HashSet<string>(
+                    result.Files.Select(f => Path.GetFullPath(Path.Combine(root, f.Path))),
+                    StringComparer.OrdinalIgnoreCase);
+
+                // Intersect the extension-filtered list with the glob-matched set so that
+                // files with non-header extensions are never forwarded even if a glob matches them
+                headers.AddRange(allFiles.Where(f => matchedAbsolute.Contains(Path.GetFullPath(f))));
+            }
+            else
+            {
+                // No patterns configured: include all discovered header files under this root
+                headers.AddRange(allFiles);
+            }
         }
 
         return headers;
@@ -208,8 +280,8 @@ public sealed class CppGenerator : IApiGenerator
         }
 
         // Set the C++ language standard; placed before additional arguments so it can
-        // be overridden by an explicit --std flag in AdditionalCompilerArguments
-        options.AdditionalArguments.Add($"--std={_options.CppStandard}");
+        // be overridden by an explicit -std flag in AdditionalCompilerArguments
+        options.AdditionalArguments.Add($"-std={_options.CppStandard}");
 
         // Append escape-hatch arguments last so they can override any earlier option
         foreach (var arg in _options.AdditionalCompilerArguments)

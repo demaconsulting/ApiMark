@@ -440,7 +440,8 @@ internal sealed class Context : IDisposable
                     return index + 1;
 
                 case "--defines":
-                    Defines = GetRequiredStringArgument(arg, args, index, "a comma-separated defines argument").Split(',');
+                    Defines = GetRequiredStringArgument(arg, args, index, "a comma-separated defines argument")
+                        .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
                     return index + 1;
 
                 case "--cpp-standard":

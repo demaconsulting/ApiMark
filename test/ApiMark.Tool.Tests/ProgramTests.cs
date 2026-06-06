@@ -148,19 +148,34 @@ public class ProgramTests
 
     /// <summary>
     ///     Validates that invoking the <c>cpp</c> subcommand without the required
-    ///     <c>--includes</c> option exits with a non-zero code and a clear diagnostic.
+    ///     <c>--includes</c> option exits with a non-zero code and a clear diagnostic
+    ///     that names the missing option.
     /// </summary>
     [Fact]
     public void Program_Main_WithCppSubcommand_MissingIncludes_ReturnsNonZeroExitCode()
     {
         // Arrange: provide --output to pass the output validation, but omit --includes
         var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
 
-        // Act
-        var exitCode = Program.Main(["cpp", "--output", outputDir]);
+        try
+        {
+            Console.SetError(errorWriter);
 
-        // Assert: --includes is required for cpp, so the exit code must be non-zero
-        Assert.NotEqual(0, exitCode);
+            // Act
+            var exitCode = Program.Main(["cpp", "--output", outputDir]);
+
+            // Assert: --includes is required for cpp, so the exit code must be non-zero
+            // and the diagnostic message must name the missing option
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--includes", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            // Restore the original error stream regardless of outcome
+            Console.SetError(originalError);
+        }
     }
 
     /// <summary>

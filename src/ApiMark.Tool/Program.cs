@@ -157,8 +157,9 @@ internal static class Program
             return;
         }
 
-        // Validate cpp-specific required options before constructing the generator
-        if (context.Language == "cpp" && context.Includes.Length == 0)
+        // Validate cpp-specific required options before constructing the generator.
+        // Whitespace-only entries in the Includes array are treated as absent for this check.
+        if (context.Language == "cpp" && !context.Includes.Any(s => !string.IsNullOrWhiteSpace(s)))
         {
             context.WriteError("Error: --includes is required for the cpp subcommand.");
             PrintHelp(context);
@@ -204,8 +205,19 @@ internal static class Program
         }
 
         // Resolve the cpp library name: the explicit --library-name flag takes precedence,
-        // falling back to the output directory name or a safe default when neither is set
-        var defaultLibraryName = context.Output != null ? Path.GetFileName(context.Output) : "Library";
+        // falling back to the output directory name or a safe default when neither is set.
+        // Trailing path separators are trimmed first because Path.GetFileName returns an
+        // empty string when the path ends with a separator (e.g. "docs/api/").
+        var outputTrimmed = context.Output?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var defaultLibraryName = !string.IsNullOrEmpty(outputTrimmed) ? Path.GetFileName(outputTrimmed) : "Library";
+
+        // Guard against root-only output paths where Path.GetFileName returns empty —
+        // for example when the output path resolves to a drive root after separator trimming
+        if (string.IsNullOrEmpty(defaultLibraryName))
+        {
+            defaultLibraryName = "Library";
+        }
+
         var cppLibraryName = !string.IsNullOrEmpty(context.LibraryName) ? context.LibraryName : defaultLibraryName;
 
         return context.Language switch

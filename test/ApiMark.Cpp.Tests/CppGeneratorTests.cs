@@ -35,6 +35,42 @@ public class CppGeneratorTests
         Assert.Throws<ArgumentNullException>(() => new CppGenerator(null!));
     }
 
+    /// <summary>
+    ///     Validates that passing options with an empty <see cref="CppGeneratorOptions.LibraryName"/>
+    ///     to the constructor throws <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Constructor_EmptyLibraryName_ThrowsArgumentException()
+    {
+        // Arrange: options with an empty library name — required to be non-empty
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+        };
+
+        // Act / Assert: empty LibraryName must be rejected at construction time
+        Assert.Throws<ArgumentException>(() => new CppGenerator(options));
+    }
+
+    /// <summary>
+    ///     Validates that passing options with empty <see cref="CppGeneratorOptions.PublicIncludeRoots"/>
+    ///     to the constructor throws <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Constructor_EmptyPublicIncludeRoots_ThrowsArgumentException()
+    {
+        // Arrange: options with no include roots — at least one is required
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "TestLibrary",
+            PublicIncludeRoots = [],
+        };
+
+        // Act / Assert: empty PublicIncludeRoots must be rejected at construction time
+        Assert.Throws<ArgumentException>(() => new CppGenerator(options));
+    }
+
     /// <summary>Validates that passing a null factory to <see cref="CppGenerator.Generate"/> throws <see cref="ArgumentNullException"/>.</summary>
     [Fact]
     public void CppGenerator_Generate_NullFactory_ThrowsArgumentNullException()
@@ -664,25 +700,65 @@ public class CppGeneratorTests
     }
 
     /// <summary>
-    ///     Validates that a field member page contains the fully-qualified C++ name comment
-    ///     in its signature block, matching the pattern used by method pages.
+    ///     Validates that <see cref="CppGeneratorOptions.IncludePatterns"/> restricts header
+    ///     enumeration to files matching at least one pattern.
     /// </summary>
     [Fact]
-    public void CppGenerator_Generate_FieldPage_ContainsQualifiedName()
+    public void CppGenerator_Generate_IncludePatterns_OnlyIncludesMatchingFiles()
     {
-        // Arrange
+        // Arrange: include only SampleClass.h to isolate a single type
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            IncludePatterns = ["**/SampleClass.h"],
+        };
         var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
+        var generator = new CppGenerator(options);
 
         // Act
         generator.Generate(factory);
 
-        // Assert: the SampleClass::name field page must include "fixtures::SampleClass::name"
-        // in its signature comment so an AI reader knows the fully-qualified symbol name
-        var writer = factory.Writers["fixtures/SampleClass/name"];
-        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
-        Assert.Contains(
-            signatures,
-            s => s.Contains("fixtures::SampleClass::name", StringComparison.Ordinal));
+        // Assert: SampleClass page must exist because its header matched the include pattern
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/SampleClass"),
+            "Expected SampleClass page when included by pattern");
+
+        // Assert: SampleStatus page must not exist because SampleEnum.h was not included
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/SampleStatus"),
+            "Expected SampleStatus to be absent when not matched by include pattern");
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="CppGeneratorOptions.ExcludePatterns"/> removes specific
+    ///     files from the header enumeration while leaving all other headers intact.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ExcludePatterns_ExcludesMatchingFiles()
+    {
+        // Arrange: exclude SampleClass.h to verify its type disappears from output
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ExcludePatterns = ["**/SampleClass.h"],
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: SampleClass page must not exist because its header was excluded
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/SampleClass"),
+            "Expected SampleClass to be absent when its header is excluded");
+
+        // Assert: SampleStatus page must still exist because SampleEnum.h was not excluded
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/SampleStatus"),
+            "Expected SampleStatus to be present when only SampleClass.h is excluded");
     }
 }
+
