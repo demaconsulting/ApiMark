@@ -114,6 +114,35 @@ public sealed class ApiMarkTask : Task
     /// </remarks>
     public string? ApiMarkIncludePaths { get; set; }
 
+    /// <summary>Gets or sets the library name for the C++ documentation root heading.</summary>
+    /// <remarks>
+    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkLibraryName)</c>; the
+    ///     <c>.targets</c> file defaults this to <c>$(MSBuildProjectName)</c>.
+    /// </remarks>
+    public string? ApiMarkLibraryName { get; set; }
+
+    /// <summary>Gets or sets an optional description for the C++ library.</summary>
+    /// <remarks>
+    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkLibraryDescription)</c>.
+    ///     Optional — omitted when empty.
+    /// </remarks>
+    public string? ApiMarkLibraryDescription { get; set; }
+
+    /// <summary>Gets or sets semicolon-separated preprocessor definitions for the Clang parser.</summary>
+    /// <remarks>
+    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkDefines)</c>.
+    ///     Semicolons are converted to commas for the <c>--defines</c> tool argument.
+    /// </remarks>
+    public string? ApiMarkDefines { get; set; }
+
+    /// <summary>Gets or sets the C++ language standard passed to Clang.</summary>
+    /// <remarks>
+    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkCppStandard)</c>.
+    ///     Accepted values: <c>c++14</c>, <c>c++17</c>, <c>c++20</c>, <c>c++23</c>.
+    ///     Optional — omitted when empty; the tool defaults to <c>c++17</c>.
+    /// </remarks>
+    public string? ApiMarkCppStandard { get; set; }
+
     /// <summary>
     ///     Gets or sets the full path to <c>ApiMark.Tool.dll</c> bundled inside the NuGet package.
     /// </summary>
@@ -179,6 +208,31 @@ public sealed class ApiMarkTask : Task
             // because the tool's --includes argument is parsed as a comma-separated list
             var commaIncludes = ApiMarkIncludePaths?.Replace(';', ',') ?? string.Empty;
             sb.Append($"cpp --includes \"{commaIncludes}\"");
+
+            // Library name (defaults to project name via .targets)
+            if (!string.IsNullOrEmpty(ApiMarkLibraryName))
+            {
+                sb.Append($" --library-name \"{ApiMarkLibraryName}\"");
+            }
+
+            // Optional library description
+            if (!string.IsNullOrEmpty(ApiMarkLibraryDescription))
+            {
+                sb.Append($" --library-description \"{ApiMarkLibraryDescription}\"");
+            }
+
+            // Preprocessor defines — semicolons converted to commas
+            if (!string.IsNullOrEmpty(ApiMarkDefines))
+            {
+                var commaDefines = ApiMarkDefines!.Replace(';', ',');
+                sb.Append($" --defines \"{commaDefines}\"");
+            }
+
+            // C++ standard
+            if (!string.IsNullOrEmpty(ApiMarkCppStandard))
+            {
+                sb.Append($" --cpp-standard {ApiMarkCppStandard}");
+            }
         }
 
         // Optional: output directory
@@ -226,6 +280,15 @@ public sealed class ApiMarkTask : Task
         if (language == DotNetLanguage && string.IsNullOrEmpty(ApiMarkXmlDocPath))
         {
             Log.LogMessage(MessageImportance.Normal, "Skipping ApiMark: ApiMarkXmlDocPath not set.");
+            return true;
+        }
+
+        // For C++ projects, skip gracefully when no include paths are configured
+        if (language == "cpp" && string.IsNullOrEmpty(ApiMarkIncludePaths))
+        {
+            Log.LogMessage(MessageImportance.Normal,
+                "Skipping ApiMark: ApiMarkIncludePaths not set. " +
+                "Set $(ApiMarkIncludePaths) in your .vcxproj to enable C++ documentation generation.");
             return true;
         }
 

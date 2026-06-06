@@ -84,6 +84,30 @@ internal sealed class Context : IDisposable
     public bool IncludeObsolete { get; private init; }
 
     /// <summary>
+    ///     Gets the library name used as the top-level heading in C++ documentation.
+    ///     Optional — when <see langword="null"/>, the tool defaults to the output directory name.
+    /// </summary>
+    public string? LibraryName { get; private init; }
+
+    /// <summary>
+    ///     Gets an optional description for the C++ library, emitted as an introductory
+    ///     paragraph in <c>api.md</c>. Optional — omitted when <see langword="null"/>.
+    /// </summary>
+    public string? LibraryDescription { get; private init; }
+
+    /// <summary>
+    ///     Gets the preprocessor symbol definitions passed to Clang for C++ documentation.
+    ///     Each entry is in the form <c>"NAME"</c> or <c>"NAME=value"</c>.
+    /// </summary>
+    public string[] Defines { get; private init; } = [];
+
+    /// <summary>
+    ///     Gets the C++ language standard passed to Clang (e.g. <c>"c++17"</c>, <c>"c++20"</c>).
+    ///     Optional — when <see langword="null"/>, the tool defaults to <c>c++17</c>.
+    /// </summary>
+    public string? CppStandard { get; private init; }
+
+    /// <summary>
     ///     Gets the proposed exit code for the application (0 for success, 1 for errors).
     /// </summary>
     public int ExitCode => _hasErrors ? 1 : 0;
@@ -125,6 +149,10 @@ internal sealed class Context : IDisposable
             Output = parser.Output,
             Visibility = parser.Visibility,
             IncludeObsolete = parser.IncludeObsolete,
+            LibraryName = parser.LibraryName,
+            LibraryDescription = parser.LibraryDescription,
+            Defines = parser.Defines,
+            CppStandard = parser.CppStandard,
         };
 
         // Open log file if specified
@@ -291,6 +319,29 @@ internal sealed class Context : IDisposable
         public bool IncludeObsolete { get; private set; }
 
         /// <summary>
+        ///     Gets the library name for the C++ documentation root heading.
+        ///     Optional — when <see langword="null"/>, the tool derives it from the output directory.
+        /// </summary>
+        public string? LibraryName { get; private set; }
+
+        /// <summary>
+        ///     Gets an optional description for the C++ library introduction.
+        ///     Optional — omitted when <see langword="null"/>.
+        /// </summary>
+        public string? LibraryDescription { get; private set; }
+
+        /// <summary>
+        ///     Gets the preprocessor definitions parsed from the <c>--defines</c> comma-separated list.
+        /// </summary>
+        public string[] Defines { get; private set; } = [];
+
+        /// <summary>
+        ///     Gets the C++ language standard passed to Clang.
+        ///     Optional — when <see langword="null"/>, the tool defaults to <c>c++17</c>.
+        /// </summary>
+        public string? CppStandard { get; private set; }
+
+        /// <summary>
         ///     Parses command-line arguments using a single-pass strategy.
         /// </summary>
         /// <param name="args">Command-line arguments.</param>
@@ -379,6 +430,22 @@ internal sealed class Context : IDisposable
                 case "--include-obsolete":
                     IncludeObsolete = true;
                     return index;
+
+                case "--library-name":
+                    LibraryName = GetRequiredStringArgument(arg, args, index, "a library name argument");
+                    return index + 1;
+
+                case "--library-description":
+                    LibraryDescription = GetRequiredStringArgument(arg, args, index, "a description argument");
+                    return index + 1;
+
+                case "--defines":
+                    Defines = GetRequiredStringArgument(arg, args, index, "a comma-separated defines argument").Split(',');
+                    return index + 1;
+
+                case "--cpp-standard":
+                    CppStandard = GetRequiredStringArgument(arg, args, index, "a C++ standard argument");
+                    return index + 1;
 
                 default:
                     // First positional non-flag token is the language subcommand

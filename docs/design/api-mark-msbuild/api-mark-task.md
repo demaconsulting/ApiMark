@@ -59,6 +59,25 @@ include paths. MSBuild uses semicolons as its standard list separator; the task
 converts semicolons to commas when forwarding this value to the `--includes`
 argument, which the tool parses as a comma-separated list.
 
+**ApiMarkTask.ApiMarkLibraryName**: `string` — MSBuild property
+`$(ApiMarkLibraryName)`; for the `cpp` language, the library name used as the
+top-level heading in `api.md`. The `.targets` file defaults this to
+`$(MSBuildProjectName)` when not explicitly set.
+
+**ApiMarkTask.ApiMarkLibraryDescription**: `string` — MSBuild property
+`$(ApiMarkLibraryDescription)`; for the `cpp` language, an optional description
+emitted as an introductory paragraph in `api.md`. Omitted when empty or not set.
+
+**ApiMarkTask.ApiMarkDefines**: `string` — MSBuild property
+`$(ApiMarkDefines)`; for the `cpp` language, a semicolon-separated list of
+preprocessor symbol definitions passed to the Clang parser. Semicolons are
+converted to commas when forwarding to the `--defines` argument.
+
+**ApiMarkTask.ApiMarkCppStandard**: `string` — MSBuild property
+`$(ApiMarkCppStandard)`; for the `cpp` language, the C++ language standard
+passed to Clang (e.g. `c++17`, `c++20`). The `.targets` file defaults this to
+`c++17` when not explicitly set.
+
 **ApiMarkTask.ToolDllPath**: `string` — set by the `.targets` file to the path of
 the bundled `ApiMark.Tool.dll` inside the NuGet package `tools/net8.0/` directory.
 Not intended to be overridden by project authors.
@@ -81,12 +100,17 @@ argument list, spawns the tool process, and pipes its output to the MSBuild log.
 
 Execution steps: check `DisableApiMark` — if true, return true immediately; resolve
 language from `ApiMarkLanguage` or project extension inference; if language is
-`dotnet` and `ApiMarkXmlDocPath` is not set, return true (skip generation); resolve
-the `dotnet` executable path (check `DOTNET_HOST_PATH` environment variable first,
-then search `PATH`); build the argument list from MSBuild properties according to
-language-specific mapping (for `cpp`, semicolons in `ApiMarkIncludePaths` are
-converted to commas because the tool's `--includes` argument accepts a
-comma-separated list); start the child process and pipe stdout lines as MSBuild
+`dotnet` and `ApiMarkXmlDocPath` is not set, return true (skip generation); if
+language is `cpp` and `ApiMarkIncludePaths` is not set, return true (skip
+generation with an informational log message); resolve the `dotnet` executable
+path (check `DOTNET_HOST_PATH` environment variable first, then search `PATH`);
+build the argument list from MSBuild properties according to language-specific
+mapping (for `cpp`, semicolons in `ApiMarkIncludePaths` are converted to commas
+because the tool's `--includes` argument accepts a comma-separated list; if
+`ApiMarkLibraryName` is set, append `--library-name`; if `ApiMarkLibraryDescription`
+is set, append `--library-description`; if `ApiMarkDefines` is set, convert
+semicolons to commas and append `--defines`; if `ApiMarkCppStandard` is set,
+append `--cpp-standard`); start the child process and pipe stdout lines as MSBuild
 messages and stderr lines as MSBuild errors; wait for exit; return true if exit code
 is zero, otherwise log an error with the exit code and return false.
 
@@ -96,8 +120,9 @@ A non-zero exit code from the child process is logged as an MSBuild error and ca
 Execute to return false, failing the build. If the `dotnet` executable cannot be
 found, the task logs a clear error identifying the problem and returns false. If
 `ToolDllPath` does not exist, the task logs an error and returns false before
-attempting to spawn the process. When `DisableApiMark` is true or `ApiMarkXmlDocPath`
-is not set (dotnet language), the task returns true silently with no side effects.
+attempting to spawn the process. When `DisableApiMark` is true, `ApiMarkXmlDocPath`
+is not set (dotnet language), or `ApiMarkIncludePaths` is not set (cpp language),
+the task returns true silently with no side effects.
 
 ### Dependencies
 

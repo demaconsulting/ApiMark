@@ -1,0 +1,19 @@
+---
+# ApiMarkCpp system-level requirements
+sections:
+  - title: ApiMarkCpp Requirements
+    requirements:
+      - id: ApiMarkCpp-CppGenerator-GenerateDocumentationFromCppHeaders
+        title: ApiMarkCpp shall generate API documentation from C++ header files and their Doxygen doc comments.
+        justification: |
+          ApiMark needs to document C++ libraries from public header files without requiring
+          a full build, using the headers for API structure and Doxygen doc comments for the
+          developer-authored descriptions that belong in the markdown output.
+        children:
+          - ApiMarkCpp-CppGenerator-AcceptIncludeRootsAndParseOptions
+          - ApiMarkCpp-CppGenerator-ParseHeadersViaCppAstNet
+          - ApiMarkCpp-CppGenerator-FilterDeclarationsByOwnership
+          - ApiMarkCpp-CppGenerator-EmitDetailPageForEveryMember
+          - ApiMarkCpp-CppGenerator-ProduceConsistentOutputFileStructure
+        tests:
+          - CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint

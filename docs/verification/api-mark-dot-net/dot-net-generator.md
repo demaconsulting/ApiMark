@@ -24,8 +24,9 @@ network dependency, or privileged configuration is needed.
   selected.
 - Type-name simplification renders primitives, generics, nullable types, and common collections in
   the expected C# form.
-- Every visible member receives its own dedicated detail page and is linked from the type page,
-  making navigation fully deterministic.
+- Every visible member receives its own dedicated detail page unless case-insensitive file-name
+  collisions require combining members onto one page, and the resulting page is linked from the
+  type page, making navigation fully deterministic.
 - Generated Markdown content matches expected file names, headings, and signatures.
 - Output files follow the naming convention: `api.md` entrypoint, `{Namespace}.md`
   namespace summaries, `{Namespace}/{TypeName}.md` type pages, and
@@ -78,3 +79,20 @@ to know member content or shape. This scenario is tested by
 expected headings, signatures, and file names for a representative assembly so downstream tools can
 consume stable Markdown. This scenario is tested by
 `DotNetGenerator_OutputFiles_FollowNamingConvention`.
+
+**api.md lists all namespaces with type count**: Verifies that the api.md entrypoint lists every
+namespace — root and child — in a single table with a Types column showing the direct type count
+for each namespace, giving AI agents a complete navigation map in one read. This scenario is tested
+by `DotNetGenerator_Generate_ApiMd_ListsAllNamespacesWithTypeCount`.
+
+**Case-collision class creates a combined page**: Verifies that members whose names differ only by
+case are merged into a single combined detail page on case-insensitive targets. This scenario is
+tested by `DotNetGenerator_Generate_CaseCollisionClass_CreatesCombinedPage`.
+
+**Case-collision class does not create a separate cased page**: Verifies that the generator does
+not emit a second detail page for the same member name with different casing. This scenario is
+tested by `DotNetGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPage`.
+
+**Case-collision class combined page contains both members**: Verifies that the combined detail
+page includes documentation for both case-colliding members. This scenario is tested by
+`DotNetGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers`.

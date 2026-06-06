@@ -25,13 +25,19 @@ words:
   - GHDL
   - isystem
   - libclang
+  - libclangsharp
+  - libext
+  - misattributed
   - msbuild
   - MSBuild
   - msvc
   - mylib
   - MYLIB
+  - NDEBUG
   - netstandard
   - Pandoc
+  - parameterless
+  - pasteable
   - postconditions
   - reqstream
   - reviewmark

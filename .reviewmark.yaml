@@ -150,6 +150,43 @@ reviews:
       - src/ApiMark.DotNet/TypeNameSimplifier.cs
       - test/ApiMark.DotNet.Tests/TypeNameSimplifierTests.cs
 
+  # ApiMarkCpp - Specials
+  - id: ApiMark-Cpp-Architecture
+    title: Review that ApiMark Cpp Architecture Satisfies Requirements
+    paths:
+      - docs/reqstream/api-mark-cpp.yaml
+      - docs/design/introduction.md
+      - docs/design/api-mark-cpp.md
+      - docs/verification/introduction.md
+      - docs/verification/api-mark-cpp.md
+  - id: ApiMark-Cpp-AllRequirements
+    title: Review that All ApiMark Cpp Requirements are Complete
+    paths:
+      - docs/reqstream/api-mark-cpp.yaml
+      - docs/reqstream/api-mark-cpp/**/*.yaml
+  - id: ApiMark-Cpp-Design
+    title: Review that ApiMark Cpp Design is Consistent and Complete
+    paths: [docs/design/api-mark-cpp.md, docs/design/api-mark-cpp/**/*.md]
+  - id: ApiMark-Cpp-Verification
+    title: Review that ApiMark Cpp Verification is Consistent and Complete
+    paths:
+      - docs/verification/api-mark-cpp.md
+      - docs/verification/api-mark-cpp/**/*.md
+
+  # ApiMarkCpp - Generator
+  - id: ApiMark-Cpp-Generator
+    title: Review that ApiMark Cpp Generator Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-cpp/cpp-generator.yaml
+      - docs/design/api-mark-cpp/cpp-generator.md
+      - docs/verification/api-mark-cpp/cpp-generator.md
+      - src/ApiMark.Cpp/ApiVisibility.cs
+      - src/ApiMark.Cpp/CppGenerator.cs
+      - src/ApiMark.Cpp/CppGeneratorOptions.cs
+      - test/ApiMark.Cpp.Fixtures/**/*.h
+      - test/ApiMark.Cpp.Tests/CppGeneratorTests.cs
+      - test/ApiMark.Cpp.Tests/FixturePaths.cs
+
   # ApiMarkMSBuild - Specials
   - id: ApiMark-MSBuild-Architecture
     title: Review that ApiMark MSBuild Architecture Satisfies Requirements
@@ -258,3 +295,9 @@ reviews:
       - docs/reqstream/ots/mono-cecil.yaml
       - docs/design/ots/mono-cecil.md
       - docs/verification/ots/mono-cecil.md
+  - id: OTS-CppAstNet
+    title: Review that CppAst.Net Provides Required Functionality
+    paths:
+      - docs/reqstream/ots/cpp-ast-net.yaml
+      - docs/design/ots/cpp-ast-net.md
+      - docs/verification/ots/cpp-ast-net.md

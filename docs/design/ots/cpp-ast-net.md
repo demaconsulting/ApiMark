@@ -32,8 +32,9 @@ is required on the host.
   `CppClass.Constructors`, and `CppClass.Destructors` enumerate the members of
   each class or struct.
 - **Function signatures** — `CppFunction.Parameters`, `CppFunction.ReturnType`,
-  and `CppFunction.IsVariadic` provide the information needed to render accurate
-  C++ function signatures.
+  and `CppFunction.Flags` (checked via `fn.Flags.HasFlag(CppFunctionFlags.Variadic)`)
+  provide the information needed to render accurate C++ function signatures, including
+  variadic `...` parameters.
 - **Access specifiers** — `ICppMember.Visibility` (`CppVisibility.Public`,
   `Protected`, `Private`) supports the Visibility filter in CppGeneratorOptions.
 - **Clang options** — `CppParserOptions.IncludeFolders`, `SystemIncludeFolders`,

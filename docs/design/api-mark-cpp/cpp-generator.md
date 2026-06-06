@@ -20,6 +20,9 @@ pages, and per-member detail pages for every visible member.
 **CppGeneratorOptions**: Configuration value object passed to the CppGenerator
 constructor. All properties must be set before the constructor is called.
 
+**CppGeneratorOptions.Description**: `string` — optional brief description of the
+library, emitted as an introductory paragraph in `api.md`. Omitted when empty.
+
 **CppGeneratorOptions.LibraryName**: `string` — name of the library, used as
 the top-level heading in `api.md`.
 
@@ -63,7 +66,8 @@ documented.
 additional include directories for third-party headers included by public
 headers but not part of the documented API (e.g. a vendored library's include
 directory). Passed to the Clang parser as `-I` flags. Declarations from these
-paths are never documented.
+paths are never documented. Note: this option is currently not wired through the
+CLI; it is available for direct API use only (v1 scope).
 
 **CppGeneratorOptions.Defines**: `IReadOnlyList<string>` — preprocessor symbol
 definitions passed to the Clang parser as `-D` flags, in the form `"NAME"` or
@@ -79,7 +83,9 @@ specified.
 raw Clang compiler arguments appended after all structured options. Provides an
 escape-hatch for toolchain-specific flags, forced includes, platform macros, or
 other Clang options not covered by the structured fields (e.g.
-`"--target=x86_64-pc-windows-msvc"`, `"-fms-extensions"`).
+`"--target=x86_64-pc-windows-msvc"`, `"-fms-extensions"`). Note: this option is
+currently not wired through the CLI; it is available for direct API use only
+(v1 scope).
 
 **CppGeneratorOptions.Visibility**: `ApiVisibility` — controls which class
 members are included in the output. Values: `Public` (public members only),
@@ -114,8 +120,10 @@ filter, and writes the full Markdown output tree.
   successfully on its own under the configured options.
 - *Postconditions*: The factory has produced a complete Markdown tree. Output
   file naming follows these conventions:
-  - `factory.CreateMarkdown("", "api")` — library entrypoint listing namespaces
-    with one-line descriptions.
+  - `factory.CreateMarkdown("", "api")` — library entrypoint listing all
+    namespaces with a declaration count column (classes + enums + free
+    functions per namespace) and one-line descriptions, giving AI agents a
+    complete navigation map and scope signal in one read.
   - `factory.CreateMarkdown(qualifiedNamespace, qualifiedNamespace)` —
     namespace summary listing owned types and free functions, grouped by source
     header. `qualifiedNamespace` is the C++ qualified name with `::` replaced
@@ -136,9 +144,13 @@ configured paths, defines, standard, and additional arguments; call CppAst.Net
 to parse each candidate header as an independent translation unit; walk the
 resulting AST and apply IsOwnedDeclaration to each declaration; apply
 Visibility and IncludeDeprecated filters; write the library entrypoint; for
-each namespace write the namespace summary; for each owned type write a
-dedicated detail page for every visible member; dispose or release CppAst.Net
-resources.
+each namespace write the namespace summary; for each owned type: collect all
+visible constructors, methods, and fields; build a case-insensitive map keyed
+by the lowercase of each member's base name (see `GetMemberBaseName`); for
+each key with a single member emit an individual detail page via
+`WriteMemberPage`; for each key with multiple members (case-insensitive
+collision) emit a single combined page via `WriteCombinedMemberPage`; emit
+grouped sub-tables with links; dispose or release CppAst.Net resources.
 
 **IsOwnedDeclaration** (internal): Determines whether a declaration belongs to
 the documented public API.
@@ -161,6 +173,34 @@ the documented public API.
   5. Test the relative path against IncludePatterns (must match at least one)
      and ExcludePatterns (must not match any). Return owned=true only when both
      conditions hold.
+
+**CppGenerator.WriteCombinedMemberPage** (private): Writes a single combined
+Markdown page for a group of members whose base names collide on case-insensitive
+filesystems.
+
+- *Parameters*: `IMarkdownWriterFactory factory`, `string nsKey`, `string nsDisplayName`,
+  `CppClass cls`, `string lowerKey` — the shared lowercase base name used as the page
+  file name and H3 heading, `IReadOnlyList<CppElement> members` — the ordered collision
+  group (at least two elements; elements are `CppFunction` or `CppField`).
+- *Returns*: `void`
+- *Algorithm*: Creates `{nsKey}/{cls.Name}/{lowerKey}.md` via the factory; writes an H3
+  heading using `lowerKey`; for each `CppFunction` writes an H4 heading of the form
+  `{fn.Name} (Constructor)` or `{fn.Name} (Method)` and delegates to
+  `WriteFunctionContent`; for each `CppField` writes an H4 heading of the form
+  `{field.Name} (Field)` and delegates to `WriteFieldContent`.
+
+**CppGenerator.GetMemberBaseName** (private): Returns the base name used to derive the
+output file name for a class member, applying the convention that constructors are
+identified by the declaring class name.
+
+- *Parameters*: `CppElement member` — the member whose base name to compute;
+  `string className` — the name of the declaring class, used for constructors.
+- *Returns*: `string` — the class name when `member` is a constructor `CppFunction`;
+  the member's own `Name` for non-constructor `CppFunction` and `CppField`; the class
+  name as a fallback for any other element type.
+- *Algorithm*: Pattern-matches on the concrete type and `IsConstructor` flag: constructor
+  `CppFunction` → `className`; non-constructor `CppFunction` → `fn.Name`; `CppField` →
+  `field.Name`; any other type → `className`.
 
 ### Error Handling
 

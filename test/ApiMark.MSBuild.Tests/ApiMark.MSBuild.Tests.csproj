@@ -8,6 +8,12 @@
     <IsPackable>false</IsPackable>
     <AssemblyName>ApiMark.MSBuild.Tests</AssemblyName>
     <RootNamespace>ApiMark.MSBuild.Tests</RootNamespace>
+    <!-- Include the platform-specific libclang native DLL in test output.
+         NETCoreSdkRuntimeIdentifier is set automatically by the SDK and resolves to
+         the current host RID (e.g., win-x64), ensuring the CppAst native dependency
+         is restored and copied alongside the managed assemblies so that child-process
+         invocations of ApiMark.Tool in cpp mode can locate libclang at runtime. -->
+    <RuntimeIdentifier>$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
   </PropertyGroup>
 
   <ItemGroup>
@@ -32,15 +38,13 @@
   <!--
     ApiMark.Tool is an OutputType=Exe project. A ProjectReference copies its DLL and managed
     dependencies to the test output but does not copy the .runtimeconfig.json or .deps.json
-    files that 'dotnet <dll>' requires. Copy them explicitly after the build.
+    files that 'dotnet <dll>' requires. The tool is published with the current platform RID so
+    that the generated deps.json includes runtimeTargets entries for native assets
+    (libclang.dll, libClangSharp.dll). Without a RID-specific deps.json the .NET P/Invoke
+    loader cannot locate libclang.dll when ApiMark.Tool.dll is invoked as a child process
+    in cpp documentation mode.
   -->
   <Target Name="CopyApiMarkToolRuntimeFiles" AfterTargets="Build">
-    <ItemGroup>
-      <_ApiMarkToolRuntime Include="..\..\src\ApiMark.Tool\bin\$(Configuration)\net8.0\ApiMark.Tool.runtimeconfig.json" />
-      <_ApiMarkToolRuntime Include="..\..\src\ApiMark.Tool\bin\$(Configuration)\net8.0\ApiMark.Tool.deps.json" />
-    </ItemGroup>
-    <Copy SourceFiles="@(_ApiMarkToolRuntime)"
-          DestinationFolder="$(OutDir)"
-          SkipUnchangedFiles="true" />
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\..\src\ApiMark.Tool\ApiMark.Tool.csproj&quot; --configuration $(Configuration) --framework net8.0 --runtime $(NETCoreSdkRuntimeIdentifier) --no-self-contained --output &quot;$(OutDir)&quot;" />
   </Target>
 </Project>

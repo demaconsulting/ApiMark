@@ -251,4 +251,151 @@ public class ApiMarkTaskTests
             }
         }
     }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> appends the <c>--library-name</c>
+    ///     flag with the configured value when <see cref="ApiMarkTask.ApiMarkLibraryName"/> is set.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_LibraryName_ForwardedToTool()
+    {
+        // Arrange: configure a library name alongside the required cpp include paths
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include",
+            ApiMarkLibraryName = "MyAwesomeLib",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: the --library-name flag and the configured value must appear
+        Assert.Contains("--library-name", args);
+        Assert.Contains("MyAwesomeLib", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> converts semicolons to commas
+    ///     in <see cref="ApiMarkTask.ApiMarkDefines"/> when forwarding the <c>--defines</c> flag.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_Defines_SemicolonsConvertedToCommas()
+    {
+        // Arrange: configure semicolon-separated defines for a cpp invocation
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include",
+            ApiMarkDefines = "MYLIB_API=;NDEBUG",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: the --defines flag must appear and semicolons must be converted to commas
+        Assert.Contains("--defines", args);
+        Assert.Contains("MYLIB_API=,NDEBUG", args);
+        Assert.DoesNotContain("MYLIB_API=;NDEBUG", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> appends the <c>--cpp-standard</c>
+    ///     flag with the configured value when <see cref="ApiMarkTask.ApiMarkCppStandard"/> is set.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_CppStandard_ForwardedToTool()
+    {
+        // Arrange: configure an explicit C++ standard for a cpp invocation
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include",
+            ApiMarkCppStandard = "c++20",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: the --cpp-standard flag and the configured standard value must appear
+        Assert.Contains("--cpp-standard", args);
+        Assert.Contains("c++20", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.Execute"/> returns <c>true</c> with no errors when
+    ///     <see cref="ApiMarkTask.ApiMarkIncludePaths"/> is empty for a <c>.vcxproj</c> project,
+    ///     confirming that C++ generation is skipped gracefully rather than failing the build.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExecution()
+    {
+        // Arrange: vcxproj project with no include paths and a non-existent tool DLL to confirm
+        // the tool is never invoked
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new ApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "path/does/not/exist.dll",
+            ApiMarkIncludePaths = string.Empty,
+        };
+
+        // Act: execute the task — should skip gracefully without touching the tool DLL path
+        var result = task.Execute();
+
+        // Assert: must return true with no errors logged
+        Assert.True(result);
+        buildEngine.DidNotReceive().LogErrorEvent(Arg.Any<BuildErrorEventArgs>());
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.Execute"/> with a real C++ fixture header directory
+    ///     spawns <c>ApiMark.Tool</c> in <c>cpp</c> mode and produces the expected <c>api.md</c>
+    ///     output file.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Execute_WithCppProject_GeneratesDocumentation()
+    {
+        // Arrange: locate the tool DLL in the test output and the fixture headers via source path
+        var testDir = Path.GetDirectoryName(typeof(ApiMarkTaskTests).Assembly.Location)!;
+        var toolDllPath = Path.Join(testDir, "ApiMark.Tool.dll");
+        var fixtureIncludeDir = FixturePaths.GetFixtureIncludeDir();
+        var outputDir = Path.Join(Path.GetTempPath(), Guid.NewGuid().ToString());
+
+        try
+        {
+            var buildEngine = Substitute.For<IBuildEngine>();
+            var task = new ApiMarkTask
+            {
+                BuildEngine = buildEngine,
+                ToolDllPath = toolDllPath,
+                ProjectExtension = ".vcxproj",
+                ApiMarkIncludePaths = fixtureIncludeDir,
+                ApiMarkLibraryName = "Fixtures",
+                ApiMarkCppStandard = "c++17",
+                ApiMarkOutputDir = outputDir,
+            };
+
+            // Act: execute the task — this spawns the real ApiMark.Tool child process in cpp mode
+            var result = task.Execute();
+
+            // Assert: task returns true and api.md is written to the output directory
+            Assert.True(result);
+            Assert.True(
+                File.Exists(Path.Join(outputDir, "api.md")),
+                "Expected api.md to be created in the output directory.");
+        }
+        finally
+        {
+            // Clean up the temporary output directory regardless of outcome
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
 }

@@ -49,9 +49,24 @@ sections:
               All members always receive their own dedicated file so that navigation is
               fully deterministic. An AI or tool can always resolve
               {Namespace}/{TypeName}/{MemberName}.md without inspecting member content
-              or shape.
+              or shape. Exception: members whose sanitized names collide on a
+              case-insensitive filesystem are combined onto a single shared page (see
+              ApiMarkDotNet-DotNetGenerator-EmitCombinedMemberPageForCaseInsensitiveCollisions).
             tests:
               - DotNetGenerator_AllMembers_GetSeparateFiles
+          - id: ApiMarkDotNet-DotNetGenerator-EmitCombinedMemberPageForCaseInsensitiveCollisions
+            title: DotNetGenerator shall emit a combined member page for case-insensitive filename collisions.
+            justification: |
+              On case-insensitive filesystems (Windows, macOS), two members whose sanitized
+              names differ only in case (e.g. a field 'name' and a property 'Name') would
+              produce colliding filenames. To avoid data loss and maintain predictable link
+              targets, such members are combined onto a single page named after the
+              lower-invariant of the shared key, with each member distinguished by an H4
+              heading showing its exact name and kind label.
+            tests:
+              - DotNetGenerator_Generate_CaseCollisionClass_CreatesCombinedPage
+              - DotNetGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPage
+              - DotNetGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers
           - id: ApiMarkDotNet-DotNetGenerator-ProduceConsistentOutputFileStructure
             title: DotNetGenerator shall produce output files following the established naming convention.
             justification: |
@@ -60,3 +75,13 @@ sections:
               a separate path-resolution helper.
             tests:
               - DotNetGenerator_OutputFiles_FollowNamingConvention
+          - id: ApiMarkDotNet-DotNetGenerator-ApiMdListsAllNamespacesWithTypeCount
+            title: DotNetGenerator shall list all namespaces in api.md with a direct type count column.
+            justification: |
+              Listing every namespace (root and child) in api.md gives AI agents a complete
+              navigation map in a single read, avoiding an extra round-trip through parent
+              namespace pages to discover children. The type count column provides scope
+              signal so an AI can calibrate how deeply to explore each namespace without
+              opening it first.
+            tests:
+              - DotNetGenerator_Generate_ApiMd_ListsAllNamespacesWithTypeCount

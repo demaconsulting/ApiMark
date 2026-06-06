@@ -571,9 +571,9 @@ public class DotNetGeneratorTests
         Assert.Contains(tables.Last().Rows, row => row[1].Contains("{MemberName}.md", StringComparison.Ordinal));
     }
 
-    /// <summary>Validates that <c>api.md</c> lists only root namespaces, not child namespaces.</summary>
+    /// <summary>Validates that <c>api.md</c> lists all namespaces (root and child) with a type count column.</summary>
     [Fact]
-    public void DotNetGenerator_Generate_ApiMd_ListsOnlyRootNamespaces()
+    public void DotNetGenerator_Generate_ApiMd_ListsAllNamespacesWithTypeCount()
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
@@ -582,15 +582,15 @@ public class DotNetGeneratorTests
         // Act
         generator.Generate(factory);
 
-        // Assert: api.md namespace table contains the root namespace; after FIX 6 the namespace
-        // table is first in api.md (convention appendix moved to the end)
+        // Assert: namespace table is first in api.md and contains both root and child namespaces
         var apiWriter = factory.Writers["api"];
         var tables = apiWriter.Operations.OfType<TableOperation>().ToList();
-        var nsTable = tables.First(); // first table is the namespace listing
+        var nsTable = tables.First();
         Assert.Contains(nsTable.Rows, row => row[0].Contains("ApiMark.DotNet.Fixtures"));
+        Assert.Contains(nsTable.Rows, row => row[0].Contains("ApiMark.DotNet.Fixtures.Inner"));
 
-        // Assert: the child namespace does NOT appear in api.md's namespace table
-        Assert.DoesNotContain(nsTable.Rows, row => row[0].Contains("ApiMark.DotNet.Fixtures.Inner"));
+        // Assert: each row has three columns — Namespace, Types, Description
+        Assert.All(nsTable.Rows, row => Assert.Equal(3, row.Length));
     }
 
     /// <summary>Validates that the root namespace page lists its immediate child namespace.</summary>
@@ -1068,5 +1068,74 @@ public class DotNetGeneratorTests
         Assert.Contains(
             paragraphs,
             p => p.Contains("Contains types for testing", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that two members whose names differ only in case are combined onto a
+    ///     single page named after the lowercase key.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_CaseCollisionClass_CreatesCombinedPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: the combined page is written at the lowercase key path
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/CaseCollisionClass/name"),
+            "Expected a combined page at the lowercase key 'name' for the colliding members");
+    }
+
+    /// <summary>
+    ///     Validates that the generator does not create a separate page for the upper-case
+    ///     member when a case-insensitive collision exists.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: no page should be created using the exact-case name "Name" when a collision
+        // exists — the combined lowercase page replaces all individual pages for the group
+        Assert.False(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/CaseCollisionClass/Name"),
+            "Expected no separate page for 'Name' when a case-insensitive collision exists");
+    }
+
+    /// <summary>
+    ///     Validates that the combined collision page contains H4 headings for both the
+    ///     field <c>name</c> and the property <c>Name</c>.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: combined page exists
+        Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/CaseCollisionClass/name"));
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/CaseCollisionClass/name"];
+
+        // Assert: both members appear as distinct H4 headings on the combined page
+        var level4Headings = writer.Operations
+            .OfType<HeadingOperation>()
+            .Where(h => h.Level == 4)
+            .Select(h => h.Text)
+            .ToList();
+        Assert.Contains(level4Headings, h => h.StartsWith("name", StringComparison.Ordinal));
+        Assert.Contains(level4Headings, h => h.StartsWith("Name", StringComparison.Ordinal));
     }
 }

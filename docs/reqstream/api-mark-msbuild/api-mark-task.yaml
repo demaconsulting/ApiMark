@@ -31,6 +31,7 @@ sections:
               builds run under .NET Framework MSBuild inside Visual Studio.
             tests:
               - ApiMarkTask_Cpp_SpawnsToolWithCorrectIncludePathArguments
+              - ApiMarkTask_Execute_WithCppProject_GeneratesDocumentation
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardOutputDirectoryProperty
             title: ApiMarkTask shall forward the ApiMarkOutputDir property to the tool as the --output argument.
             justification: |
@@ -60,3 +61,38 @@ sections:
               documentation without modifying the NuGet package reference or the build pipeline.
             tests:
               - ApiMarkTask_IncludeObsolete_True_ForwardsIncludeObsoleteFlag
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardCppLibraryName
+            title: ApiMarkTask shall forward the ApiMarkLibraryName property to the tool as the --library-name argument for C++ builds.
+            justification: |
+              C++ projects need to set a human-readable library name that appears as the top-level
+              heading in the generated api.md, independent of the project file name.
+            tests:
+              - ApiMarkTask_Cpp_LibraryName_ForwardedToTool
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardCppDefines
+            title: >-
+              ApiMarkTask shall forward the ApiMarkDefines property to the tool as the --defines
+              argument for C++ builds, converting semicolons to commas.
+            justification: |
+              C++ projects rely on preprocessor defines (e.g. export macros) for correct parsing.
+              MSBuild uses semicolons as its list separator; the tool expects commas, so the
+              conversion must happen in the task before spawning the child process.
+            tests:
+              - ApiMarkTask_Cpp_Defines_SemicolonsConvertedToCommas
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardCppStandard
+            title: ApiMarkTask shall forward the ApiMarkCppStandard property to the tool as the --cpp-standard argument for C++ builds.
+            justification: |
+              Different C++ projects target different language standards; the standard must be
+              forwarded so the Clang parser interprets the headers under the same standard as
+              the actual build.
+            tests:
+              - ApiMarkTask_Cpp_CppStandard_ForwardedToTool
+          - id: ApiMarkMsbuild-ApiMarkTask-SkipWhenCppIncludePathsNotSet
+            title: >-
+              ApiMarkTask shall return success immediately without spawning the tool when the
+              language is cpp and ApiMarkIncludePaths is not set.
+            justification: |
+              C++ projects in a solution may not all be documentation targets. When
+              ApiMarkIncludePaths is absent the task must skip gracefully rather than fail the
+              build, parallel to the dotnet behavior when ApiMarkXmlDocPath is absent.
+            tests:
+              - ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExecution

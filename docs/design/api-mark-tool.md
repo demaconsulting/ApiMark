@@ -36,11 +36,14 @@ users or CI pipelines.
 - *Contract*: `apimark [options] [language [language-options]]`. Standard options:
   `-v, --version`, `-?, -h, --help`, `--silent`, `--validate`,
   `--results <file>` (alias: `--result <file>`), `--depth <#>`, `--log <file>`.
-  Supported subcommands: `dotnet`, `cpp` (planned).
+  Supported subcommands: `dotnet`, `cpp`.
   Options for `dotnet`: `--assembly <path>`, `--xml-doc <path>`, `--output <dir>`,
-  `--visibility <value>`, `--include-obsolete`. Options for `cpp` (planned):
-  `--includes <paths>`, `--output <dir>`, `--visibility <value>`,
-  `--include-obsolete`. Standard flags are valid anywhere in the argument list,
+  `--visibility <value>`, `--include-obsolete`.
+  Options for `cpp`: `--includes <paths>`, `--library-name <name>`,
+  `--library-description <text>`, `--defines <defs>`,
+  `--cpp-standard <std>`, `--output <dir>`, `--visibility <value>`,
+  `--include-obsolete`.
+  Standard flags are valid anywhere in the argument list,
   before or after the language subcommand (single-pass parser).
 - *Constraints*: Exits non-zero on error; writes a descriptive message to stderr;
   writes Markdown files to the directory specified by `--output`.
@@ -78,8 +81,7 @@ N/A — not a safety-classified software item.
 3. Program validates that all required options for the requested language are
    present; exits non-zero with a usage message if any are missing.
 4. Program constructs the appropriate `IApiGenerator` implementation based on the
-   language subcommand (`DotNetGenerator` for `dotnet`; `CppGenerator` for `cpp`
-   when implemented).
+   language subcommand (`DotNetGenerator` for `dotnet`; `CppGenerator` for `cpp`).
 5. Program creates a `FileMarkdownWriterFactory` for the output directory and calls
    `IApiGenerator.Generate(factory)`.
 6. On success, Program exits 0. On error, exceptions are caught, written to stderr,

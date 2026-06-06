@@ -38,6 +38,7 @@
     <InternalsVisibleTo Include="ApiMark.Tool.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\ApiMark.Cpp\ApiMark.Cpp.csproj" />
     <ProjectReference Include="..\ApiMark.DotNet\ApiMark.DotNet.csproj" />
   </ItemGroup>
   <ItemGroup>

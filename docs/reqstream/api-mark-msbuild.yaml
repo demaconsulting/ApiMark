@@ -17,6 +17,10 @@ sections:
           - ApiMarkMsbuild-ApiMarkTask-ForwardVisibilityProperty
           - ApiMarkMsbuild-ApiMarkTask-ForwardIncludeObsoleteFlag
           - ApiMarkMsbuild-ApiMarkTask-SupportDisableProperty
+          - ApiMarkMsbuild-ApiMarkTask-ForwardCppLibraryName
+          - ApiMarkMsbuild-ApiMarkTask-ForwardCppDefines
+          - ApiMarkMsbuild-ApiMarkTask-ForwardCppStandard
+          - ApiMarkMsbuild-ApiMarkTask-SkipWhenCppIncludePathsNotSet
         tests:
           - ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoDocumentsOnBuild
       - id: ApiMarkMsbuild-IncludeDocsInNuGetPackage

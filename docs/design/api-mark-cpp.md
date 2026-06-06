@@ -51,6 +51,19 @@ via libclang.
   resolvable via the configured SystemIncludePaths; see CppAst.Net Integration
   Design for details.
 
+**MSBuild (consumed via ApiMarkTask)**: The `.targets` file sets the following
+MSBuild properties used to configure generation for C++ projects:
+
+- `$(ApiMarkLibraryName)` — library name used as the top-level heading in
+  `api.md`; defaults to `$(MSBuildProjectName)` via the `.targets` file.
+- `$(ApiMarkLibraryDescription)` — optional description emitted as an
+  introductory paragraph in `api.md`; omitted when empty or not set.
+- `$(ApiMarkDefines)` — semicolon-separated list of preprocessor symbol
+  definitions passed to the Clang parser; semicolons are converted to commas
+  when forwarding to the `--defines` argument.
+- `$(ApiMarkCppStandard)` — C++ language standard passed to Clang (e.g.
+  `c++17`, `c++20`); defaults to `c++17` via the `.targets` file.
+
 ## Dependencies
 
 - **CppAst.Net**: used to parse C++ header files via libclang without requiring
@@ -90,9 +103,9 @@ N/A — not a safety-classified software item.
 8. For each namespace containing owned declarations, CppGenerator calls
    `factory.CreateMarkdown(qualifiedNamespace, qualifiedNamespace)` and writes
    a namespace summary listing types and free functions grouped by header.
-9. For each owned type, CppGenerator applies the complexity rule (same as
-   DotNetGenerator) to decide inline-vs-own-file for each member, writes the
-   type page with the #include path, and links to complex member files.
+9. For each owned type, CppGenerator writes the type page with the #include
+   path, then emits a dedicated detail page for every visible member. All
+   members always receive their own page, making navigation fully deterministic.
 
 ## Design Constraints
 

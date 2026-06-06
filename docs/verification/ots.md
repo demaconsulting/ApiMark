@@ -23,3 +23,22 @@ Whenever the Mono.Cecil package version changes, the repository re-runs all DotN
 verification scenarios against the same fixture assemblies used for baseline qualification. Any
 change in discovered members, rendered signatures, or generated file layout is treated as a
 regression candidate and must be reviewed before the upgrade is accepted.
+
+## CppAst.Net
+
+ApiMark verifies CppAst.Net by testing the exact externally supplied behavior that ApiMark.Cpp
+depends on. CppAst.Net is exercised through integration tests in `test/ApiMark.Cpp.Tests/` that
+parse fixture C++ headers, enumerate metadata, and feed that metadata into Markdown generation.
+Local evidence is preferred because ApiMark depends on a specific subset of CppAst.Net features —
+header parsing, declaration provenance, type and member enumeration, Doxygen doc comment access,
+and parse option forwarding — that must remain stable across package upgrades.
+
+Qualification evidence consists of passing automated integration tests and focused scenario coverage
+for the metadata features consumed: header parsing without a build step, per-declaration source file
+paths, class and enum enumeration, function signatures including variadic parameters, doc comment
+trees, access specifiers, and Clang parse option forwarding.
+
+Whenever the CppAst.Net package version changes, the repository re-runs all CppGenerator integration
+tests against the same fixture headers used for baseline qualification. Any change in discovered
+types, rendered signatures, doc comment availability, or generated file layout is treated as a
+regression candidate and must be reviewed before the upgrade is accepted.
