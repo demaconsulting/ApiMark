@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using ApiMark.Core;
 using CppAst;
 
@@ -215,7 +217,56 @@ public sealed class CppGenerator : IApiGenerator
             options.AdditionalArguments.Add(arg);
         }
 
+        // On macOS, libclang cannot locate standard library headers without an explicit
+        // -isysroot pointing at the active Xcode/CommandLineTools SDK. Auto-detect it via
+        // xcrun unless the caller has already provided one in AdditionalCompilerArguments.
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) &&
+            !_options.AdditionalCompilerArguments.Any(a => a.StartsWith("-isysroot", StringComparison.Ordinal)))
+        {
+            var sdkPath = GetMacOsSdkPath();
+            if (!string.IsNullOrEmpty(sdkPath))
+            {
+                options.AdditionalArguments.Add("-isysroot");
+                options.AdditionalArguments.Add(sdkPath);
+            }
+        }
+
         return options;
+    }
+
+    /// <summary>
+    ///     Returns the macOS SDK path by invoking <c>xcrun --sdk macosx --show-sdk-path</c>.
+    /// </summary>
+    /// <returns>
+    ///     The trimmed SDK path string, or <see langword="null"/> when <c>xcrun</c> is not
+    ///     available or exits with a non-zero code.
+    /// </returns>
+    private static string? GetMacOsSdkPath()
+    {
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = "xcrun",
+                ArgumentList = { "--sdk", "macosx", "--show-sdk-path" },
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+
+            if (process == null)
+            {
+                return null;
+            }
+
+            var output = process.StandardOutput.ReadToEnd().Trim();
+            process.WaitForExit();
+            return process.ExitCode == 0 && !string.IsNullOrEmpty(output) ? output : null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     // =========================================================================
