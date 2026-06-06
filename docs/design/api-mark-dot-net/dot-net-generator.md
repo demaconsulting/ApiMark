@@ -8,9 +8,10 @@
 DotNetGenerator implements IApiGenerator for C#/.NET assemblies. It reads a
 compiled .dll assembly via Mono.Cecil and pairs its type and member metadata with
 documentation from the associated XML documentation file. It applies visibility
-filtering, uses TypeNameSimplifier to produce idiomatic C# type names, applies the
-complexity rule to decide whether each member warrants its own output file, and
-writes the complete gradual-disclosure Markdown tree through IMarkdownWriterFactory.
+filtering, uses TypeNameSimplifier to produce idiomatic C# type names, and writes
+the complete gradual-disclosure Markdown tree through IMarkdownWriterFactory. Every
+visible member always receives its own dedicated detail page, making all navigation
+paths fully deterministic.
 
 ### Data Model
 
@@ -55,28 +56,18 @@ writes the full Markdown output tree.
   - `factory.CreateMarkdown("", "api")` — assembly entrypoint listing namespaces.
   - `factory.CreateMarkdown(namespaceName, namespaceName)` — namespace summary
     listing visible types.
-  - `factory.CreateMarkdown(namespaceName, typeSimpleName)` — type page with inline
-    table for simple members; links to complex member files.
+  - `factory.CreateMarkdown(namespaceName, typeSimpleName)` — type page with
+    grouped sub-tables (Constructors / Properties / Methods / Fields / Events),
+    all members linked to their dedicated pages.
   - `factory.CreateMarkdown($"{namespaceName}/{typeSimpleName}", memberName)` —
-    dedicated file for a complex member.
+    dedicated file for every visible member.
 
 Execution steps: call `AssemblyDefinition.ReadAssembly(AssemblyPath)` to open the
 assembly via Mono.Cecil; parse XmlDocPath and index entries by member identifier
 string; filter types by Visibility and IncludeObsolete; write the assembly
 entrypoint via `CreateMarkdown("", "api")`; for each visible namespace write the
-namespace file; for each visible type apply the complexity rule to decide
-inline-vs-own-file for each member and write accordingly; dispose the
-AssemblyDefinition.
-
-**IsComplex** (internal): Applies the complexity rule to determine whether a member
-warrants its own output file.
-
-- *Parameters*: member metadata and the corresponding XML documentation entry.
-- *Returns*: `bool` — true if the member has parameters, exceptions, multi-line
-  remarks, examples, or asymmetric get/set.
-- *Postconditions*: Returns false for simple read-only properties and members with
-  no parameters with a single-line summary; such members are inlined as table rows in the
-  parent type page.
+namespace file; for each visible type write a dedicated page per member and emit
+grouped sub-tables with links; dispose the AssemblyDefinition.
 
 ### Error Handling
 

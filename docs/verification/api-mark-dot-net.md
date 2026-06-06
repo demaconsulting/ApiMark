@@ -6,7 +6,7 @@ ApiMark.DotNet is verified with integration-style tests in `test/ApiMark.DotNet.
 exercise the full .NET generation pipeline using real compiled assemblies, XML documentation files,
 and Markdown output directories. Mono.Cecil and XML documentation parsing are used as-is so
 verification proves the interaction between assembly metadata discovery, type-name simplification,
-complexity-rule evaluation, and file emission. Only incidental infrastructure — such as disposable
+and file emission. Only incidental infrastructure — such as disposable
 output locations — is test-controlled; no internal production component is mocked or stubbed.
 
 ## Test Environment
@@ -20,7 +20,7 @@ service, network dependency, or machine-specific configuration is required.
 - All ApiMark.DotNet tests pass with zero failures.
 - The generator discovers namespaces, types, and members from representative fixture assemblies.
 - Type names and member signatures are simplified into the expected C#-friendly display form.
-- Complexity-rule decisions and output files match the documented generation rules.
+- Every visible member receives its own dedicated detail page and is linked from the type page.
 - Visibility filtering excludes members outside the selected audience.
 - Obsolete member filtering correctly excludes or includes deprecated APIs based on the IncludeObsolete option.
 
@@ -32,10 +32,10 @@ skipping discoverable items, confirming that the full generation path from metad
 file is wired correctly. This scenario is tested by
 `ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown`.
 
-**Complex members become dedicated detail pages**: Verifies that constructors, methods, and indexers
-meeting the complexity rule are emitted as separate files rather than only table rows, preserving
-full detail where required. This scenario is tested by
-`DotNetGenerator_ComplexityRule_ComplexMembers_GetSeparateFiles`.
+**All members receive dedicated detail pages**: Verifies that every visible member —
+regardless of parameters or documentation content — is emitted as a separate file and linked
+from its parent type page, making navigation fully deterministic. This scenario is tested by
+`DotNetGenerator_AllMembers_GetSeparateFiles`.
 
 **Visibility filters constrain the published API surface**: Verifies that the system honors the
 selected visibility mode so generated output matches the intended audience and excludes hidden

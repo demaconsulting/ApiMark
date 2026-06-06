@@ -77,7 +77,10 @@ public sealed class FileMarkdownWriterFactory : IMarkdownWriterFactory
 
         // Compose the full file path using the safe combiner, appending the .md extension
         var filePath = PathHelpers.SafePathCombine(targetDirectory, name + ".md");
-        var streamWriter = new StreamWriter(filePath, append: false, System.Text.Encoding.UTF8);
+
+        // Use UTF-8 without a BOM so generated files are clean for downstream tools
+        // and VCS diffs that do not tolerate the byte-order mark
+        var streamWriter = new StreamWriter(filePath, append: false, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
         return new FileMarkdownWriter(streamWriter);
     }

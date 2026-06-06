@@ -43,13 +43,15 @@ sections:
               only the actively supported API surface, so obsolete items must be controllable.
             tests:
               - DotNetGenerator_IncludeObsolete_Toggle_ControlsObsoleteOutput
-          - id: ApiMarkDotNet-DotNetGenerator-ApplyComplexityRule
-            title: DotNetGenerator shall apply the complexity rule to determine which members receive their own detail files.
+          - id: ApiMarkDotNet-DotNetGenerator-EmitDetailPageForEveryMember
+            title: DotNetGenerator shall emit a dedicated detail page for every visible member.
             justification: |
-              Large member descriptions overwhelm type summary pages, so complex members
-              must be promoted to their own files while simple members remain inline.
+              All members always receive their own dedicated file so that navigation is
+              fully deterministic. An AI or tool can always resolve
+              {Namespace}/{TypeName}/{MemberName}.md without inspecting member content
+              or shape.
             tests:
-              - DotNetGenerator_ComplexityRule_ComplexMembers_GetSeparateFiles
+              - DotNetGenerator_AllMembers_GetSeparateFiles
           - id: ApiMarkDotNet-DotNetGenerator-ProduceConsistentOutputFileStructure
             title: DotNetGenerator shall produce output files following the established naming convention.
             justification: |

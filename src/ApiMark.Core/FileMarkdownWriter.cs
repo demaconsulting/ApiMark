@@ -104,17 +104,19 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
         // Guard against use-after-dispose
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // Emit the header row with pipe delimiters
-        _writer.WriteLine("| " + string.Join(" | ", headers) + " |");
+        // Emit the header row with pipe delimiters; escape any literal pipe characters
+        // in cell values so they do not break the table structure in Markdown renderers
+        _writer.WriteLine("| " + string.Join(" | ", headers.Select(h => h.Replace("|", @"\|", StringComparison.Ordinal))) + " |");
 
         // Emit the mandatory separator row that signals this is a table, not a
-        // paragraph; one dash cell per column is sufficient for valid GFM syntax
+        // paragraph; one dash cell per column is sufficient for valid GFM syntax.
+        // Separator cells are fixed strings and never require pipe escaping.
         _writer.WriteLine("| " + string.Join(" | ", headers.Select(_ => "---")) + " |");
 
-        // Emit each data row with the same pipe-delimited structure
+        // Emit each data row, escaping pipe characters in every cell value
         foreach (var row in rows)
         {
-            _writer.WriteLine("| " + string.Join(" | ", row) + " |");
+            _writer.WriteLine("| " + string.Join(" | ", row.Select(cell => cell.Replace("|", @"\|", StringComparison.Ordinal))) + " |");
         }
 
         // Close the table block with a trailing blank line

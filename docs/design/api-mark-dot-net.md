@@ -10,8 +10,8 @@ and its associated XML documentation file, then produces the Markdown output
 defined by the Core interfaces. The system contains two units:
 
 - **DotNetGenerator** — reads the assembly via Mono.Cecil, processes XML doc
-  comments, applies visibility filtering, type-name simplification, and the
-  complexity rule, then writes Markdown through IMarkdownWriterFactory.
+  comments, applies visibility filtering, type-name simplification, and writes
+  Markdown through IMarkdownWriterFactory.
 - **TypeNameSimplifier** — applies a deterministic set of simplification rules to
   Mono.Cecil type references to produce idiomatic C# type names in output.
 
@@ -71,10 +71,10 @@ N/A — not a safety-classified software item.
    assembly-level entrypoint file listing all namespaces.
 5. For each namespace, DotNetGenerator calls `factory.CreateMarkdown(namespaceName,
    namespaceName)` and writes a namespace summary listing all visible types.
-6. For each visible type, DotNetGenerator applies the complexity rule: members with
-   parameters, exception docs, multi-line remarks, examples, or asymmetric get/set
-   get their own file via `factory.CreateMarkdown(namespaceName, typeName)`; all
-   others are inlined as table rows on the type page.
+6. For each visible type, DotNetGenerator writes every member to its own dedicated
+   file via `factory.CreateMarkdown(namespaceName, typeName)` and links all members
+   from the type page. Every member always gets a dedicated page, making navigation
+   fully deterministic.
 7. TypeNameSimplifier is called for each type reference encountered during output
    generation, producing simplified C# type names relative to the current namespace.
 

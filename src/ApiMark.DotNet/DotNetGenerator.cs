@@ -16,6 +16,9 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <summary>Column header label used in all generated Markdown tables for the description column.</summary>
     private const string DescriptionColumnHeader = "Description";
 
+    /// <summary>Placeholder emitted in description cells and paragraphs when no XML doc summary is available.</summary>
+    private const string NoDescriptionPlaceholder = "*No description provided.*";
+
     /// <summary>The .NET metadata method name used for all instance and static constructors.</summary>
     private const string ConstructorMethodName = ".ctor";
 
@@ -40,9 +43,12 @@ public sealed class DotNetGenerator : IApiGenerator
     ///     and one detail page per complex member. The <see cref="AssemblyDefinition"/> is
     ///     disposed before this method returns.
     ///     <para>
-    ///         The entrypoint <c>api.md</c> lists only root namespaces and includes a file naming
-    ///         and path convention section. Each namespace page lists only its immediate child
-    ///         namespaces and types, enabling gradual disclosure for AI consumers.
+    ///         The entrypoint <c>api.md</c> lists only root namespaces followed by a file naming
+    ///         and path convention appendix. Each namespace page lists only its immediate child
+    ///         namespaces and types, enabling gradual disclosure for AI consumers. Namespace-level
+    ///         documentation is sourced from the <c>NamespaceDoc</c> convention: an
+    ///         <c>internal static class NamespaceDoc</c> in a namespace carries the namespace
+    ///         summary and is excluded from type listings.
     ///     </para>
     /// </remarks>
     /// <param name="factory">The markdown writer factory used to create output files.</param>
@@ -58,9 +64,21 @@ public sealed class DotNetGenerator : IApiGenerator
         var xmlDocs = new XmlDocReader(_options.XmlDocPath);
         var assembly = AssemblyDefinition.ReadAssembly(_options.AssemblyPath);
 
-        // Collect all types that pass the visibility, obsolete, and compiler-generated filters
+        // Build namespace descriptions from the NamespaceDoc convention before filtering
+        // visible types so that NamespaceDoc types are available for summary extraction
+        // even though they are excluded from the public type listing
+        var namespaceDescriptions = assembly.MainModule.Types
+            .Where(t => t.Name == "NamespaceDoc")
+            .ToDictionary(
+                t => t.Namespace,
+                t => xmlDocs.GetSummary(BuildTypeId(t)),
+                StringComparer.Ordinal);
+
+        // Collect all types that pass the visibility, obsolete, and compiler-generated filters.
+        // Exclude NamespaceDoc types — they are documentation carriers, not user-facing types.
         var visibleTypes = assembly.MainModule.Types
             .Where(t => !IsCompilerGenerated(t))
+            .Where(t => t.Name != "NamespaceDoc")
             .Where(t => IsTypeVisible(t))
             .Where(t => _options.IncludeObsolete || !IsObsolete(t))
             .ToList();
@@ -81,20 +99,39 @@ public sealed class DotNetGenerator : IApiGenerator
             .OrderBy(n => n)
             .ToList();
 
-        // Write the top-level assembly index page with naming convention and root namespaces only
+        // Write the top-level assembly index page with the assembly name as title
         using var apiWriter = factory.CreateMarkdown("", "api");
-        apiWriter.WriteHeading(1, assembly.Name.Name);
 
-        // File naming and path convention section — enables direct short-circuiting by AI consumers
+        // FIX 7: suffix the assembly name with "API Reference" for clarity
+        apiWriter.WriteHeading(1, assembly.Name.Name + " API Reference");
+
+        // Emit the assembly description when the AssemblyDescriptionAttribute is present
+        var assemblyDescription = assembly.CustomAttributes
+            .FirstOrDefault(a => a.AttributeType.FullName == "System.Reflection.AssemblyDescriptionAttribute")
+            ?.ConstructorArguments.FirstOrDefault().Value as string;
+        if (!string.IsNullOrWhiteSpace(assemblyDescription))
+        {
+            apiWriter.WriteParagraph(assemblyDescription);
+        }
+
+        // Root namespace table — only top-level entries; child namespaces are listed on their
+        // parent's namespace page to keep api.md compact for AI consumers
+        var nsHeaders = new[] { "Namespace", DescriptionColumnHeader };
+        var nsRows = rootNamespaces.Select(nsName =>
+        {
+            var link = $"{nsName}.md";
+            var description = namespaceDescriptions.TryGetValue(nsName, out var desc) && !string.IsNullOrEmpty(desc)
+                ? desc
+                : NoDescriptionPlaceholder;
+            return new[] { $"[{nsName}]({link})", description };
+        });
+        apiWriter.WriteTable(nsHeaders, nsRows);
+
+        // File naming and path convention appendix — placed at the end of api.md so that
+        // the namespace table is immediately accessible without scrolling past prose
         apiWriter.WriteHeading(2, "File Naming and Path Convention");
         apiWriter.WriteParagraph(
-            "Paths are derived deterministically from fully-qualified symbol names. " +
-            "The root namespace uses its full dotted name as a single path segment. " +
-            "Child namespaces append their short name under the root folder. " +
-            "Types appear inside their namespace folder. " +
-            "Complex members (those with parameters, exceptions, multi-line remarks, or examples) " +
-            "appear in a sub-folder named after their declaring type. " +
-            "Methods use a single file per method name, with overloads documented together.");
+            "Documentation paths are derived deterministically from fully-qualified symbol names.");
         var conventionHeaders = new[] { "Symbol kind", "Path pattern" };
         var conventionRows = new[]
         {
@@ -105,19 +142,17 @@ public sealed class DotNetGenerator : IApiGenerator
         };
         apiWriter.WriteTable(conventionHeaders, conventionRows);
 
-        // Root namespace table — only top-level entries
-        var nsHeaders = new[] { "Namespace", DescriptionColumnHeader };
-        var nsRows = rootNamespaces.Select(nsName =>
-        {
-            var link = $"{nsName}.md";
-            return new[] { $"[{nsName}]({link})", string.Empty };
-        });
-        apiWriter.WriteTable(nsHeaders, nsRows);
-
         // Write one namespace page per namespace, ordered so parents precede children
         foreach (var namespaceName in allNamespaces)
         {
-            WriteNamespacePage(factory, namespaceName, allNamespaces, byNamespace, rootNamespaces, xmlDocs);
+            WriteNamespacePage(
+                factory,
+                namespaceName,
+                allNamespaces,
+                byNamespace,
+                rootNamespaces,
+                xmlDocs,
+                namespaceDescriptions);
         }
     }
 
@@ -131,19 +166,31 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <param name="byNamespace">Types grouped by namespace name.</param>
     /// <param name="rootNamespaces">Namespaces that have no parent in this assembly.</param>
     /// <param name="xmlDocs">XML documentation index for summary lookups.</param>
+    /// <param name="namespaceDescriptions">
+    ///     Namespace-level summaries sourced from the <c>NamespaceDoc</c> convention,
+    ///     keyed by fully-qualified namespace name.
+    /// </param>
     private void WriteNamespacePage(
         IMarkdownWriterFactory factory,
         string namespaceName,
         List<string> allNamespaces,
         Dictionary<string, List<TypeDefinition>> byNamespace,
         List<string> rootNamespaces,
-        XmlDocReader xmlDocs)
+        XmlDocReader xmlDocs,
+        IReadOnlyDictionary<string, string?> namespaceDescriptions)
     {
         var folderPath = GetNamespaceFolderPath(namespaceName, rootNamespaces);
         SplitPath(folderPath, out var subFolder, out var shortName);
 
         using var nsWriter = factory.CreateMarkdown(subFolder, shortName);
         nsWriter.WriteHeading(1, namespaceName);
+
+        // Emit the namespace summary when one was supplied via the NamespaceDoc convention
+        if (namespaceDescriptions.TryGetValue(namespaceName, out var nsSummary) &&
+            !string.IsNullOrEmpty(nsSummary))
+        {
+            nsWriter.WriteParagraph(nsSummary);
+        }
 
         // List immediate child namespaces (gradual disclosure — one level at a time)
         var children = GetImmediateChildNamespaces(namespaceName, allNamespaces)
@@ -158,7 +205,10 @@ public sealed class DotNetGenerator : IApiGenerator
                 var childFolderPath = GetNamespaceFolderPath(child, rootNamespaces);
                 SplitPath(childFolderPath, out _, out var childShortName);
                 var link = $"{shortName}/{childShortName}.md";
-                return new[] { $"[{child}]({link})", string.Empty };
+                var childDesc = namespaceDescriptions.TryGetValue(child, out var desc) && !string.IsNullOrEmpty(desc)
+                    ? desc
+                    : NoDescriptionPlaceholder;
+                return new[] { $"[{child}]({link})", childDesc };
             });
             nsWriter.WriteTable(childNsHeaders, childNsRows);
         }
@@ -173,7 +223,7 @@ public sealed class DotNetGenerator : IApiGenerator
         var typeRows = nsTypes.Select(t =>
         {
             var typeMemberId = BuildTypeId(t);
-            var summary = xmlDocs.GetSummary(typeMemberId) ?? string.Empty;
+            var summary = xmlDocs.GetSummary(typeMemberId) ?? NoDescriptionPlaceholder;
             var link = $"{shortName}/{t.Name}.md";
             return new[] { $"[{t.Name}]({link})", summary };
         });
@@ -213,11 +263,9 @@ public sealed class DotNetGenerator : IApiGenerator
 
         var typeMemberId = BuildTypeId(type);
 
+        // Always emit a summary paragraph — use the placeholder when no doc is present
         var typeSummary = xmlDocs.GetSummary(typeMemberId);
-        if (!string.IsNullOrEmpty(typeSummary))
-        {
-            typeWriter.WriteParagraph(typeSummary);
-        }
+        typeWriter.WriteParagraph(!string.IsNullOrEmpty(typeSummary) ? typeSummary : NoDescriptionPlaceholder);
 
         var typeRemarks = xmlDocs.GetRemarks(typeMemberId);
         if (!string.IsNullOrEmpty(typeRemarks))
@@ -236,29 +284,39 @@ public sealed class DotNetGenerator : IApiGenerator
             return;
         }
 
-        var memberHeaders = new[] { "Member", "Type", DescriptionColumnHeader };
-        var inlineRows = new List<string[]>();
+        // Build overload groups so methods sharing the same file name are emitted together
         var methodGroups = members
             .OfType<MethodDefinition>()
             .GroupBy(m => BuildMethodFileName(m, type))
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
         var documentedMethodGroups = new HashSet<string>(StringComparer.Ordinal);
 
-        // Emit a link row for complex members (own page) and a plain row for simple ones
+        // Accumulate rows into per-kind buckets for the grouped sub-table output
+        var constructorRows = new List<string[]>();
+        var propertyRows = new List<string[]>();
+        var methodRows = new List<string[]>();
+        var fieldRows = new List<string[]>();
+        var eventRows = new List<string[]>();
+
+        // Every member always gets its own detail page and a linked row — navigation is fully
+        // deterministic: {TypeName}/{MemberName}.md always exists for every visible member.
         foreach (var member in members)
         {
             if (member is MethodDefinition method)
             {
                 var methodFileName = BuildMethodFileName(method, type);
                 var overloads = methodGroups[methodFileName];
+                var isConstructor = method.Name == ConstructorMethodName;
+
                 if (overloads.Count > 1)
                 {
+                    // Only the first visit to a method group emits the overload page and row
                     if (!documentedMethodGroups.Add(methodFileName))
                     {
                         continue;
                     }
 
-                    // Ensure deterministic ordering for representative selection and page rendering.
+                    // Ensure deterministic ordering for representative selection and page rendering
                     var orderedOverloads = overloads
                         .OrderBy(m => m.GenericParameters.Count)
                         .ThenBy(m => m.Parameters.Count)
@@ -267,38 +325,105 @@ public sealed class DotNetGenerator : IApiGenerator
 
                     var representative = orderedOverloads[0];
                     var representativeMemberId = BuildMemberId(representative);
-                    var representativeSummary = xmlDocs.GetSummary(representativeMemberId) ?? string.Empty;
+                    var representativeSummary = xmlDocs.GetSummary(representativeMemberId) ?? NoDescriptionPlaceholder;
                     var representativeTypeName = GetMemberTypeName(representative, namespaceName);
                     var overloadDisplayName = GetMethodGroupDisplayName(representative, orderedOverloads.Count);
 
                     WriteMethodOverloadPage(factory, namespaceName, namespaceFolderPath, type, orderedOverloads, xmlDocs);
                     var memberLink = $"{type.Name}/{methodFileName}.md";
-                    inlineRows.Add(new[] { $"[{overloadDisplayName}]({memberLink})", representativeTypeName, representativeSummary });
+
+                    if (isConstructor)
+                    {
+                        constructorRows.Add(new[] { $"[{overloadDisplayName}]({memberLink})", representativeSummary });
+                    }
+                    else
+                    {
+                        methodRows.Add(new[] { $"[{overloadDisplayName}]({memberLink})", representativeTypeName, representativeSummary });
+                    }
+
                     continue;
                 }
-            }
 
-            var memberId = BuildMemberId(member);
-            var memberSummary = xmlDocs.GetSummary(memberId) ?? string.Empty;
-            var memberTypeName = GetMemberTypeName(member, namespaceName);
-            var memberDisplayName = GetMemberDisplayName(member);
-            var sanitizedName = GetSanitizedMemberFileName(member, type);
+                // Single method: always emit a dedicated page and a linked row
+                var memberId = BuildMemberId(member);
+                var memberSummary = xmlDocs.GetSummary(memberId) ?? NoDescriptionPlaceholder;
+                var memberTypeName = GetMemberTypeName(member, namespaceName);
+                var memberDisplayName = GetMemberDisplayName(member);
+                var sanitizedName = GetSanitizedMemberFileName(member, type);
 
-            if (IsComplex(member, xmlDocs))
-            {
                 WriteMemberPage(factory, namespaceName, namespaceFolderPath, type, member, xmlDocs, memberId);
-                var memberLink = $"{type.Name}/{sanitizedName}.md";
-                inlineRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
+                var memberPageLink = $"{type.Name}/{sanitizedName}.md";
+
+                if (isConstructor)
+                {
+                    constructorRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberSummary });
+                }
+                else
+                {
+                    methodRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                }
             }
             else
             {
-                inlineRows.Add(new[] { memberDisplayName, memberTypeName, memberSummary });
+                // Properties, fields, and events: always emit a dedicated page and a linked row
+                var memberId = BuildMemberId(member);
+                var memberSummary = xmlDocs.GetSummary(memberId) ?? NoDescriptionPlaceholder;
+                var memberTypeName = GetMemberTypeName(member, namespaceName);
+                var memberDisplayName = GetMemberDisplayName(member);
+                var sanitizedName = GetSanitizedMemberFileName(member, type);
+
+                WriteMemberPage(factory, namespaceName, namespaceFolderPath, type, member, xmlDocs, memberId);
+                var memberPageLink = $"{type.Name}/{sanitizedName}.md";
+
+                switch (member)
+                {
+                    case PropertyDefinition:
+                        propertyRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                        break;
+                    case FieldDefinition:
+                        fieldRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                        break;
+                    case EventDefinition:
+                        eventRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                        break;
+                }
             }
         }
 
-        if (inlineRows.Count > 0)
+        // Emit grouped sub-tables in the canonical order: Constructors, Properties, Methods, Fields, Events.
+        // Each section is only emitted when at least one member of that kind is present.
+        if (constructorRows.Count > 0)
         {
-            typeWriter.WriteTable(memberHeaders, inlineRows);
+            typeWriter.WriteHeading(3, "Constructors");
+
+            // Constructors omit the Type/Returns column — they have no meaningful return type
+            typeWriter.WriteTable(new[] { "Member", DescriptionColumnHeader }, constructorRows);
+        }
+
+        if (propertyRows.Count > 0)
+        {
+            typeWriter.WriteHeading(3, "Properties");
+            typeWriter.WriteTable(new[] { "Member", "Type", DescriptionColumnHeader }, propertyRows);
+        }
+
+        if (methodRows.Count > 0)
+        {
+            typeWriter.WriteHeading(3, "Methods");
+
+            // Use "Returns" instead of "Type" for the method type column — more accurate for return values
+            typeWriter.WriteTable(new[] { "Member", "Returns", DescriptionColumnHeader }, methodRows);
+        }
+
+        if (fieldRows.Count > 0)
+        {
+            typeWriter.WriteHeading(3, "Fields");
+            typeWriter.WriteTable(new[] { "Member", "Type", DescriptionColumnHeader }, fieldRows);
+        }
+
+        if (eventRows.Count > 0)
+        {
+            typeWriter.WriteHeading(3, "Events");
+            typeWriter.WriteTable(new[] { "Member", "Type", DescriptionColumnHeader }, eventRows);
         }
     }
 
@@ -340,11 +465,9 @@ public sealed class DotNetGenerator : IApiGenerator
         var signature = BuildMemberSignature(member, namespaceName);
         memberWriter.WriteSignature("csharp", signature);
 
+        // Always emit a summary paragraph — use the placeholder when no doc is present
         var summary = xmlDocs.GetSummary(memberId);
-        if (!string.IsNullOrEmpty(summary))
-        {
-            memberWriter.WriteParagraph(summary);
-        }
+        memberWriter.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : NoDescriptionPlaceholder);
 
         var returns = xmlDocs.GetReturns(memberId);
         if (!string.IsNullOrEmpty(returns))
@@ -404,11 +527,9 @@ public sealed class DotNetGenerator : IApiGenerator
         var signature = BuildMethodSignature(method, namespaceName);
         memberWriter.WriteSignature("csharp", signature);
 
+        // Always emit a summary paragraph — use the placeholder when no doc is present
         var summary = xmlDocs.GetSummary(memberId);
-        if (!string.IsNullOrEmpty(summary))
-        {
-            memberWriter.WriteParagraph(summary);
-        }
+        memberWriter.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : NoDescriptionPlaceholder);
 
         if (method.HasParameters)
         {
@@ -522,74 +643,6 @@ public sealed class DotNetGenerator : IApiGenerator
     }
 
     /// <summary>
-    ///     Determines whether <paramref name="member"/> warrants its own page based on
-    ///     the complexity rules: parameters, exception docs, multi-line remarks, examples,
-    ///     or asymmetric get/set accessors.
-    /// </summary>
-    /// <param name="member">The member to evaluate.</param>
-    /// <param name="xmlDocs">XML documentation index used for doc-driven complexity checks.</param>
-    /// <returns><c>true</c> when the member should get a dedicated page.</returns>
-    private static bool IsComplex(IMemberDefinition member, XmlDocReader xmlDocs)
-    {
-        var memberId = BuildMemberId(member);
-
-        if (member is MethodDefinition method && method.HasParameters)
-        {
-            return true;
-        }
-
-        if (xmlDocs.GetExceptions(memberId).Count > 0)
-        {
-            return true;
-        }
-
-        if (xmlDocs.IsMultiLineRemarks(memberId))
-        {
-            return true;
-        }
-
-        if (xmlDocs.GetExample(memberId) != null)
-        {
-            return true;
-        }
-
-        if (member is PropertyDefinition prop && HasAsymmetricAccessors(prop))
-        {
-            return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    ///     Returns <c>true</c> when <paramref name="prop"/> has both a getter and a setter
-    ///     but they expose different access levels (e.g. <c>public get; internal set;</c>).
-    /// </summary>
-    /// <param name="prop">The property to inspect.</param>
-    /// <returns><c>true</c> when getter and setter have different access levels.</returns>
-    private static bool HasAsymmetricAccessors(PropertyDefinition prop)
-    {
-        if (prop.GetMethod == null || prop.SetMethod == null)
-        {
-            return false;
-        }
-
-        return GetAccessLevel(prop.GetMethod) != GetAccessLevel(prop.SetMethod);
-    }
-
-    /// <summary>Returns a numeric access level for a method, where higher values are more permissive.</summary>
-    /// <param name="method">The method to evaluate.</param>
-    /// <returns>An integer from 0 (private) to 4 (public).</returns>
-    private static int GetAccessLevel(MethodDefinition method) => method switch
-    {
-        { IsPublic: true } => 4,
-        { IsFamilyOrAssembly: true } => 3,
-        { IsFamily: true } => 2,
-        { IsAssembly: true } => 1,
-        _ => 0,
-    };
-
-    /// <summary>
     ///     Returns <c>true</c> when <paramref name="type"/> satisfies the visibility
     ///     setting in <see cref="_options"/>.
     /// </summary>
@@ -684,9 +737,11 @@ public sealed class DotNetGenerator : IApiGenerator
             yield return prop;
         }
 
-        // Fields: skip compiler-generated backing fields (names contain angle brackets)
+        // Fields: skip compiler-generated backing fields (names contain angle brackets) and
+        // the compiler-generated enum backing field named "value__" that does not appear
+        // in source and has no meaningful documentation
         foreach (var field in type.Fields
-            .Where(f => !IsCompilerGeneratedField(f) && ShouldIncludeMember(f)))
+            .Where(f => f.Name != "value__" && !IsCompilerGeneratedField(f) && ShouldIncludeMember(f)))
         {
             yield return field;
         }
@@ -933,6 +988,8 @@ public sealed class DotNetGenerator : IApiGenerator
     {
         return member switch
         {
+            // Constructors have no meaningful return type — the "type" column is omitted for them
+            MethodDefinition m when m.Name == ConstructorMethodName => string.Empty,
             MethodDefinition m => TypeNameSimplifier.Simplify(m.ReturnType, contextNamespace),
             PropertyDefinition p => TypeNameSimplifier.Simplify(p.PropertyType, contextNamespace),
             FieldDefinition f => TypeNameSimplifier.Simplify(f.FieldType, contextNamespace),
@@ -963,12 +1020,6 @@ public sealed class DotNetGenerator : IApiGenerator
     private static string BuildMethodDisplayName(MethodDefinition method)
     {
         var baseName = GetMethodGroupName(method);
-
-        if (!method.HasParameters)
-        {
-            return baseName;
-        }
-
         var parameters = string.Join(", ", method.Parameters.Select(p =>
             TypeNameSimplifier.Simplify(p.ParameterType, method.DeclaringType.Namespace)));
         return $"{baseName}({parameters})";

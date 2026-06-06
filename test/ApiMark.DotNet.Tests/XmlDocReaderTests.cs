@@ -131,57 +131,6 @@ public class XmlDocReaderTests
         }
     }
 
-    /// <summary>Validates that <see cref="XmlDocReader.IsMultiLineRemarks"/> returns true when remarks span multiple lines.</summary>
-    [Fact]
-    public void XmlDocReader_IsMultiLineRemarks_MultipleLines_ReturnsTrue()
-    {
-        // Arrange
-        var path = WriteXmlDoc("""
-            <member name="M:Foo.Bar.Multi">
-              <remarks>
-                Line one.
-                Line two.
-              </remarks>
-            </member>
-            """);
-        try
-        {
-            // Act
-            var reader = new XmlDocReader(path);
-
-            // Assert
-            Assert.True(reader.IsMultiLineRemarks("M:Foo.Bar.Multi"));
-        }
-        finally
-        {
-            File.Delete(path);
-        }
-    }
-
-    /// <summary>Validates that <see cref="XmlDocReader.IsMultiLineRemarks"/> returns false for single-line remarks.</summary>
-    [Fact]
-    public void XmlDocReader_IsMultiLineRemarks_SingleLine_ReturnsFalse()
-    {
-        // Arrange
-        var path = WriteXmlDoc("""
-            <member name="M:Foo.Bar.Single">
-              <remarks>Single line.</remarks>
-            </member>
-            """);
-        try
-        {
-            // Act
-            var reader = new XmlDocReader(path);
-
-            // Assert
-            Assert.False(reader.IsMultiLineRemarks("M:Foo.Bar.Single"));
-        }
-        finally
-        {
-            File.Delete(path);
-        }
-    }
-
     /// <summary>Validates that <see cref="XmlDocReader.GetExceptions"/> returns all documented exception cref values.</summary>
     [Fact]
     public void XmlDocReader_GetExceptions_MemberWithExceptions_ReturnsCrefValues()

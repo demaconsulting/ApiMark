@@ -6,7 +6,7 @@
 assemblies and XML documentation fixtures. Mono.Cecil is used as-is because assembly metadata
 interpretation is central to the unit's responsibility. Tests constrain inputs so each assertion
 isolates one behavior at a time: type discovery, visibility filtering, type-name simplification,
-complexity-rule classification, and Markdown file output. An `InMemoryMarkdownWriterFactory` test
+and Markdown file output. An `InMemoryMarkdownWriterFactory` test
 double (from `ApiMark.Core.TestHelpers`) is supplied to capture emitted content without writing to
 the file system.
 
@@ -24,12 +24,12 @@ network dependency, or privileged configuration is needed.
   selected.
 - Type-name simplification renders primitives, generics, nullable types, and common collections in
   the expected C# form.
-- Complexity-rule evaluation consistently distinguishes simple table-row members from members that
-  require a dedicated detail page.
+- Every visible member receives its own dedicated detail page and is linked from the type page,
+  making navigation fully deterministic.
 - Generated Markdown content matches expected file names, headings, and signatures.
-- Output files follow the naming convention: `api.md` entrypoint, `{Namespace}/{Namespace}.md`
+- Output files follow the naming convention: `api.md` entrypoint, `{Namespace}.md`
   namespace summaries, `{Namespace}/{TypeName}.md` type pages, and
-  `{Namespace}/{TypeName}/{MemberName}.md` complex member pages.
+  `{Namespace}/{TypeName}/{MemberName}.md` member detail pages.
 - Obsolete member filtering correctly excludes or includes types and members based on the
   IncludeObsolete option.
 
@@ -68,10 +68,11 @@ nullable forms, generic arguments, and common collection types are simplified in
 C#-friendly display text. This scenario is tested by
 `ApiMarkDotNet_TypeNames_CommonSignatures_RenderReadably`.
 
-**Complexity rules identify members that need detail pages**: Verifies that parameters, exceptions,
-examples, and extended remarks trigger dedicated member files while simple members remain inline.
-This scenario is tested by
-`DotNetGenerator_ComplexityRule_ComplexMembers_GetSeparateFiles`.
+**All members receive dedicated detail pages**: Verifies that every visible member —
+regardless of parameters or documentation content — is emitted as a separate file and linked
+from its parent type page, making all navigation paths deterministic without requiring callers
+to know member content or shape. This scenario is tested by
+`DotNetGenerator_AllMembers_GetSeparateFiles`.
 
 **Markdown generation writes expected files and content**: Verifies that generator output includes
 expected headings, signatures, and file names for a representative assembly so downstream tools can

@@ -6,7 +6,7 @@ Mono.Cecil is verified in ApiMark through integration tests in `test/ApiMark.Dot
 exercise the assembly-reading and metadata APIs used by `ApiMark.DotNet`. The verification focus is
 the subset of capabilities needed by the product: opening managed assemblies without loading them
 for execution, enumerating namespaces, types, and members, reading signatures and accessibility, and
-exposing metadata needed for name simplification and complexity-rule decisions. Evidence is collected
+exposing metadata needed for name simplification and member detail page generation. Evidence is collected
 from automated tests that compare generated documentation behavior against representative sample
 assemblies.
 
@@ -29,7 +29,7 @@ and related member metadata can be read so ApiMark can apply inclusion and prese
 correctly. This scenario is tested by
 `DotNetGenerator_IncludeObsolete_Toggle_ControlsObsoleteOutput`.
 
-**Member metadata supports complexity-rule decisions**: Verifies that parameters, exceptions, and
-member shape information exposed through Mono.Cecil are sufficient to distinguish simple members
-from members that require dedicated detail pages. This scenario is tested by
-`DotNetGenerator_ComplexityRule_ComplexMembers_GetSeparateFiles`.
+**Member metadata is sufficient for dedicated detail page generation**: Verifies that parameters,
+exceptions, and member shape information exposed through Mono.Cecil are sufficient for DotNetGenerator
+to produce a dedicated detail page for every visible member. This scenario is tested by
+`DotNetGenerator_AllMembers_GetSeparateFiles`.

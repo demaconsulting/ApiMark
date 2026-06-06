@@ -30,8 +30,13 @@ public sealed class XmlDocReader
     }
 
     /// <summary>Returns the trimmed summary text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
+    /// <remarks>
+    ///     Summary text is always normalized to a single line because summaries are by convention
+    ///     brief one-liner descriptions. Multi-paragraph content belongs in <c>&lt;remarks&gt;</c>.
+    ///     Use <see cref="GetRemarks"/> to retrieve multi-line content.
+    /// </remarks>
     /// <param name="memberId">The XML doc member identifier (e.g. <c>T:MyNamespace.MyClass</c>).</param>
-    /// <returns>Trimmed summary text, or <c>null</c>.</returns>
+    /// <returns>Single-line trimmed summary text, or <c>null</c>.</returns>
     public string? GetSummary(string memberId)
     {
         if (!_members.TryGetValue(memberId, out var member))
@@ -39,7 +44,8 @@ public sealed class XmlDocReader
             return null;
         }
 
-        return GetDocumentationText(member.Element("summary"));
+        // Use single-line normalization — summaries must fit on one line by convention
+        return GetSingleLineDocumentationText(member.Element("summary"));
     }
 
     /// <summary>Returns the trimmed remarks text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
@@ -53,26 +59,6 @@ public sealed class XmlDocReader
         }
 
         return GetDocumentationText(member.Element("remarks"));
-    }
-
-    /// <summary>Returns <c>true</c> if the remarks for <paramref name="memberId"/> span more than one non-empty line.</summary>
-    /// <param name="memberId">The XML doc member identifier.</param>
-    /// <returns><c>true</c> if remarks has more than one non-empty line.</returns>
-    public bool IsMultiLineRemarks(string memberId)
-    {
-        var remarks = GetRemarks(memberId);
-        if (remarks == null)
-        {
-            return false;
-        }
-
-        // Count non-empty lines after trimming each; single-line remarks do not
-        // warrant a dedicated member page under the complexity rule
-        var lines = remarks.Split('\n')
-            .Select(l => l.Trim())
-            .Where(l => l.Length > 0)
-            .ToList();
-        return lines.Count > 1;
     }
 
     /// <summary>Returns all <c>cref</c> attribute values from <c>&lt;exception&gt;</c> elements for <paramref name="memberId"/>.</summary>
@@ -168,6 +154,25 @@ public sealed class XmlDocReader
         var builder = new StringBuilder();
         AppendNodeText(builder, element.Nodes());
         var text = NormalizeDocumentationText(builder.ToString());
+        return text.Length == 0 ? null : text;
+    }
+
+    /// <summary>
+    ///     Builds documentation text from <paramref name="element"/> and normalizes it to a
+    ///     single line by collapsing all non-empty trimmed lines into one space-separated string.
+    /// </summary>
+    /// <param name="element">The XML element whose text content to extract, or <c>null</c>.</param>
+    /// <returns>Single-line trimmed text, or <c>null</c> when the element is absent or empty.</returns>
+    private static string? GetSingleLineDocumentationText(XElement? element)
+    {
+        if (element == null)
+        {
+            return null;
+        }
+
+        var builder = new StringBuilder();
+        AppendNodeText(builder, element.Nodes());
+        var text = NormalizeSingleLine(builder.ToString());
         return text.Length == 0 ? null : text;
     }
 
@@ -321,6 +326,24 @@ public sealed class XmlDocReader
                     .Select(CollapseWhitespace)
                     .Select(line => line.Trim()))
             .Trim();
+    }
+
+    /// <summary>
+    ///     Joins all non-empty trimmed lines from <paramref name="text"/> into a single
+    ///     space-separated string, collapsing all internal whitespace within each line.
+    /// </summary>
+    /// <param name="text">Raw text that may contain multiple lines and leading/trailing whitespace.</param>
+    /// <returns>A single-line string with redundant whitespace removed.</returns>
+    private static string NormalizeSingleLine(string text)
+    {
+        return string.Join(
+            " ",
+            text.Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Replace('\r', '\n')
+                .Split('\n')
+                .Select(CollapseWhitespace)
+                .Select(line => line.Trim())
+                .Where(line => line.Length > 0));
     }
 
     private static string CollapseWhitespace(string text)
