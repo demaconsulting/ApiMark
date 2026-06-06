@@ -13,7 +13,7 @@ canonical `#include` path for each owned type from its source file relative to
 its matching include root, and writes the complete gradual-disclosure Markdown
 tree through IMarkdownWriterFactory. The output structure mirrors
 DotNetGenerator: a library-level entrypoint, per-namespace summaries, per-type
-pages, and per-member detail pages for complex members.
+pages, and per-member detail pages for every visible member.
 
 ### Data Model
 
@@ -123,11 +123,10 @@ filter, and writes the full Markdown output tree.
   - `factory.CreateMarkdown(qualifiedNamespace, typeName)` — type page with
     the canonical `#include <path>` at the top, followed by the class
     declaration, inheritance information, template parameters (for primary
-    templates), and member table or links to complex member pages.
+    templates), and grouped sub-tables with links to all member detail pages.
   - `factory.CreateMarkdown($"{qualifiedNamespace}/{typeName}", memberName)` —
-    dedicated page for a complex member (same complexity rule as
-    DotNetGenerator: members with parameters, exception docs, multi-line
-    remarks, or asymmetric behavior warrant their own file).
+    dedicated page for every visible member. All members always receive their
+    own page, making navigation fully deterministic.
   - Global-namespace declarations are collected under the reserved namespace
     name `"global"`.
 
@@ -137,8 +136,9 @@ configured paths, defines, standard, and additional arguments; call CppAst.Net
 to parse each candidate header as an independent translation unit; walk the
 resulting AST and apply IsOwnedDeclaration to each declaration; apply
 Visibility and IncludeDeprecated filters; write the library entrypoint; for
-each namespace write the namespace summary; for each owned type write the type
-page applying the complexity rule; dispose or release CppAst.Net resources.
+each namespace write the namespace summary; for each owned type write a
+dedicated detail page for every visible member; dispose or release CppAst.Net
+resources.
 
 **IsOwnedDeclaration** (internal): Determines whether a declaration belongs to
 the documented public API.

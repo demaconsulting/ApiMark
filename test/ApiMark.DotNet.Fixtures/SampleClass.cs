@@ -27,6 +27,10 @@ public class SampleClass
         Title = string.Empty;
     }
 
+#pragma warning disable CS1591 // Missing XML comment — intentional fixture for testing the no-description placeholder (test 14)
+    public void Refresh() { }
+#pragma warning restore CS1591
+
     /// <summary>Raises the <see cref="NameChanged"/> event.</summary>
     protected virtual void OnNameChanged() => NameChanged?.Invoke(this, EventArgs.Empty);
 }

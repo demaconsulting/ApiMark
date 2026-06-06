@@ -340,9 +340,9 @@ public class DotNetGeneratorTests
         Assert.True(withObsolete.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ObsoleteClass"));
     }
 
-    /// <summary>Validates that complex members (parameters, exceptions, multi-line remarks) each receive separate Markdown files.</summary>
+    /// <summary>Validates that all members — regardless of parameters or docs — each receive separate Markdown files.</summary>
     [Fact]
-    public void DotNetGenerator_ComplexityRule_ComplexMembers_GetSeparateFiles()
+    public void DotNetGenerator_AllMembers_GetSeparateFiles()
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
@@ -563,11 +563,12 @@ public class DotNetGeneratorTests
         var headings = apiWriter.Operations.OfType<HeadingOperation>().Select(h => h.Text).ToList();
         Assert.Contains(headings, h => h.Contains("File Naming") || h.Contains("Convention"));
 
-        // Assert: a convention table is present in api.md
+        // Assert: a convention table is present in api.md; after FIX 6 the convention table is last
+        // (namespace table comes first so consumers reach the namespace listing without scrolling)
         var tables = apiWriter.Operations.OfType<TableOperation>().ToList();
-        Assert.True(tables.Count >= 2, "Expected at least a convention table and a namespace table in api.md");
-        Assert.DoesNotContain(tables[0].Rows, row => row[1].Contains("ParamTypes", StringComparison.Ordinal));
-        Assert.Contains(tables[0].Rows, row => row[1].Contains("{MemberName}.md", StringComparison.Ordinal));
+        Assert.True(tables.Count >= 2, "Expected at least a namespace table and a convention table in api.md");
+        Assert.DoesNotContain(tables.Last().Rows, row => row[1].Contains("ParamTypes", StringComparison.Ordinal));
+        Assert.Contains(tables.Last().Rows, row => row[1].Contains("{MemberName}.md", StringComparison.Ordinal));
     }
 
     /// <summary>Validates that <c>api.md</c> lists only root namespaces, not child namespaces.</summary>
@@ -581,10 +582,11 @@ public class DotNetGeneratorTests
         // Act
         generator.Generate(factory);
 
-        // Assert: api.md namespace table contains the root namespace
+        // Assert: api.md namespace table contains the root namespace; after FIX 6 the namespace
+        // table is first in api.md (convention appendix moved to the end)
         var apiWriter = factory.Writers["api"];
         var tables = apiWriter.Operations.OfType<TableOperation>().ToList();
-        var nsTable = tables.Last(); // last table is the namespace listing
+        var nsTable = tables.First(); // first table is the namespace listing
         Assert.Contains(nsTable.Rows, row => row[0].Contains("ApiMark.DotNet.Fixtures"));
 
         // Assert: the child namespace does NOT appear in api.md's namespace table
@@ -701,9 +703,11 @@ public class DotNetGeneratorTests
         // Act
         generator.Generate(factory);
 
-        // Assert
+        // Assert: after FIX 11, methods appear under a "Methods" sub-table with "Returns" header;
+        // SampleStatusExtensions is a static class with only methods so there is exactly one table
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleStatusExtensions"];
-        var memberTable = writer.Operations.OfType<TableOperation>().Single();
+        var tables = writer.Operations.OfType<TableOperation>().ToList();
+        var memberTable = tables.Single(t => t.Headers.Contains("Returns"));
         var isPassedRows = memberTable.Rows.Where(row => row[0].Contains("IsPassed", StringComparison.Ordinal)).ToList();
 
         Assert.Single(isPassedRows);
@@ -729,5 +733,340 @@ public class DotNetGeneratorTests
         Assert.False(
             factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures.Inner/ApiMark.DotNet.Fixtures.Inner"),
             "Child namespace page must NOT be at the old flat path");
+    }
+
+    /// <summary>Validates that a parameterless method is displayed with <c>()</c> in the Methods sub-table.</summary>
+    [Fact]
+    public void DotNetGenerator_MethodsTable_ParameterlessMethod_DisplaysMemberWithParentheses()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: find the Methods section on the SampleClass type page
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
+        var operations = writer.Operations.ToList();
+        var methodsIndex = operations.FindIndex(op => op is HeadingOperation h && h.Text == "Methods");
+        Assert.True(methodsIndex >= 0, "Expected 'Methods' heading on SampleClass page");
+        var methodsTable = operations.Skip(methodsIndex + 1).OfType<TableOperation>().First();
+
+        // Reset() is parameterless — the Member cell must still show the "()" suffix (as a link now all members get pages)
+        Assert.Contains(methodsTable.Rows, row => row[0].Contains("Reset()"));
+    }
+
+    /// <summary>Validates that the compiler-generated parameterless constructor is displayed with <c>()</c> in the Constructors sub-table.</summary>
+    [Fact]
+    public void DotNetGenerator_ConstructorsTable_ParameterlessConstructor_DisplaysMemberWithParentheses()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: find the Constructors section on the SampleClass type page
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
+        var operations = writer.Operations.ToList();
+        var ctorIndex = operations.FindIndex(op => op is HeadingOperation h && h.Text == "Constructors");
+        Assert.True(ctorIndex >= 0, "Expected 'Constructors' heading on SampleClass page");
+        var ctorTable = operations.Skip(ctorIndex + 1).OfType<TableOperation>().First();
+
+        // Compiler-generated SampleClass() must appear with the "()" suffix (as a link now all members get pages)
+        Assert.Contains(ctorTable.Rows, row => row[0].Contains("SampleClass()"));
+    }
+
+    /// <summary>Validates that a method with parameters shows parameter types — indicated by a <c>(</c> character — in the Methods sub-table Member cell.</summary>
+    [Fact]
+    public void DotNetGenerator_MethodsTable_MethodWithParameters_IncludesParameterTypesInMemberCell()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: find the Methods section on the SampleClass type page
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
+        var operations = writer.Operations.ToList();
+        var methodsIndex = operations.FindIndex(op => op is HeadingOperation h && h.Text == "Methods");
+        Assert.True(methodsIndex >= 0, "Expected 'Methods' heading on SampleClass page");
+        var methodsTable = operations.Skip(methodsIndex + 1).OfType<TableOperation>().First();
+
+        // GetGreeting(string name) must show a "(" in the Member cell, confirming parameter types are emitted
+        Assert.Contains(
+            methodsTable.Rows,
+            row => row[0].Contains("GetGreeting", StringComparison.Ordinal) &&
+                   row[0].Contains("(", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that the SampleClass type page has a Constructors sub-section whose table headers are <c>Member</c> and <c>Description</c> (no Returns column).</summary>
+    [Fact]
+    public void DotNetGenerator_TypePage_SampleClass_HasConstructorsSectionWithCorrectHeaders()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: Constructors heading is present
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
+        var operations = writer.Operations.ToList();
+        var ctorIndex = operations.FindIndex(op => op is HeadingOperation h && h.Text == "Constructors");
+        Assert.True(ctorIndex >= 0, "Expected 'Constructors' heading on SampleClass page");
+
+        // Assert: the table immediately following uses Member + Description (constructors have no Returns column)
+        var ctorTable = operations.Skip(ctorIndex + 1).OfType<TableOperation>().First();
+        Assert.Equal(new[] { "Member", "Description" }, ctorTable.Headers);
+    }
+
+    /// <summary>Validates that the SampleClass type page has a Properties sub-section whose table headers are <c>Member</c>, <c>Type</c>, and <c>Description</c>.</summary>
+    [Fact]
+    public void DotNetGenerator_TypePage_SampleClass_HasPropertiesSectionWithCorrectHeaders()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: Properties heading is present
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
+        var operations = writer.Operations.ToList();
+        var propIndex = operations.FindIndex(op => op is HeadingOperation h && h.Text == "Properties");
+        Assert.True(propIndex >= 0, "Expected 'Properties' heading on SampleClass page");
+
+        // Assert: the table immediately following uses Member + Type + Description
+        var propTable = operations.Skip(propIndex + 1).OfType<TableOperation>().First();
+        Assert.Equal(new[] { "Member", "Type", "Description" }, propTable.Headers);
+    }
+
+    /// <summary>Validates that the SampleClass type page has a Methods sub-section whose table uses <c>Returns</c> (not <c>Type</c>) as the second header.</summary>
+    [Fact]
+    public void DotNetGenerator_TypePage_SampleClass_HasMethodsSectionWithReturnsHeader()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: Methods heading is present
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
+        var operations = writer.Operations.ToList();
+        var methodsIndex = operations.FindIndex(op => op is HeadingOperation h && h.Text == "Methods");
+        Assert.True(methodsIndex >= 0, "Expected 'Methods' heading on SampleClass page");
+
+        // Assert: the table immediately following uses Member + Returns + Description ("Returns" not "Type")
+        var methodsTable = operations.Skip(methodsIndex + 1).OfType<TableOperation>().First();
+        Assert.Equal(new[] { "Member", "Returns", "Description" }, methodsTable.Headers);
+    }
+
+    /// <summary>Validates that no cell in the Constructors sub-table equals <c>"void"</c>.</summary>
+    [Fact]
+    public void DotNetGenerator_ConstructorsTable_SampleClass_ContainsNoVoidCells()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: find the Constructors table on the SampleClass type page
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
+        var operations = writer.Operations.ToList();
+        var ctorIndex = operations.FindIndex(op => op is HeadingOperation h && h.Text == "Constructors");
+        Assert.True(ctorIndex >= 0, "Expected 'Constructors' heading on SampleClass page");
+        var ctorTable = operations.Skip(ctorIndex + 1).OfType<TableOperation>().First();
+
+        // Constructors have no return type — "void" must never appear in any cell
+        Assert.DoesNotContain(ctorTable.Rows, row => row.Any(cell => cell == "void"));
+    }
+
+    /// <summary>Validates that the compiler-generated <c>value__</c> enum backing field is absent from the SampleStatus enum type page.</summary>
+    [Fact]
+    public void DotNetGenerator_EnumPage_ValueUnderscoreBackingField_IsAbsent()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: no table on the SampleStatus page lists "value__" as a member
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleStatus"];
+        var tables = writer.Operations.OfType<TableOperation>().ToList();
+        Assert.DoesNotContain(tables, t => t.Rows.Any(row => row[0] == "value__"));
+    }
+
+    /// <summary>Validates that a type whose XML <c>&lt;summary&gt;</c> spans multiple lines is stored as a single-line description in the namespace type table.</summary>
+    [Fact]
+    public void DotNetGenerator_NamespacePage_MultiLineSummary_CollapsesToSingleLine()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: find the type table on the ApiMark.DotNet.Fixtures namespace page
+        var nsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
+        var typeTable = nsWriter.Operations
+            .OfType<TableOperation>()
+            .First(t => t.Headers[0] == "Type");
+
+        // MultiLineSummaryClass has a multi-line XML summary — it must appear as a single line (no \n)
+        var row = typeTable.Rows.FirstOrDefault(r => r[0].Contains("MultiLineSummaryClass", StringComparison.Ordinal));
+        Assert.NotNull(row);
+        Assert.DoesNotContain("\n", row[1], StringComparison.Ordinal);
+    }
+
+    /// <summary>Validates that a pipe character in an XML summary is faithfully captured in the namespace type table description cell.</summary>
+    [Fact]
+    public void DotNetGenerator_NamespacePage_PipeInSummary_PreservedInTableCell()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: find PipeSummaryClass in the namespace type table
+        var nsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
+        var typeTable = nsWriter.Operations
+            .OfType<TableOperation>()
+            .First(t => t.Headers[0] == "Type");
+        var row = typeTable.Rows.FirstOrDefault(r => r[0].Contains("PipeSummaryClass", StringComparison.Ordinal));
+        Assert.NotNull(row);
+
+        // The in-memory writer stores raw cell values; FileMarkdownWriter handles pipe-escaping for the file.
+        // This test verifies the pipe character from the XML summary is preserved in the captured description.
+        Assert.Contains("|", row[1], StringComparison.Ordinal);
+    }
+
+    /// <summary>Validates that <c>api.md</c> has an H1 heading whose text ends with <c>API Reference</c>.</summary>
+    [Fact]
+    public void DotNetGenerator_ApiMd_H1Heading_EndsWithApiReference()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: api.md contains exactly one H1 heading that ends with "API Reference"
+        var apiWriter = factory.Writers["api"];
+        var h1 = apiWriter.Operations.OfType<HeadingOperation>().FirstOrDefault(h => h.Level == 1);
+        Assert.NotNull(h1);
+        Assert.EndsWith("API Reference", h1.Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>Validates that the fixture assembly description is emitted as a paragraph in <c>api.md</c>.</summary>
+    [Fact]
+    public void DotNetGenerator_ApiMd_AssemblyDescription_EmittedAsParagraph()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: api.md contains a paragraph matching the <Description> set in the fixture .csproj
+        var apiWriter = factory.Writers["api"];
+        var paragraphs = apiWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Contains("Test fixture assemblies", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Validates that the file naming and path convention table is the last table in <c>api.md</c>.</summary>
+    [Fact]
+    public void DotNetGenerator_ApiMd_ConventionTable_IsLastTable()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: api.md has at least a namespace table and the convention appendix table
+        var apiWriter = factory.Writers["api"];
+        var tables = apiWriter.Operations.OfType<TableOperation>().ToList();
+        Assert.True(tables.Count >= 2, "Expected at least a namespace table and a convention table in api.md");
+
+        // The last table must be the path-convention appendix, identifiable by {Namespace}.md rows
+        var lastTable = tables.Last();
+        Assert.Contains(
+            lastTable.Rows,
+            row => row[1].Contains("{Namespace}.md", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that a member with no XML doc comment shows <c>*No description provided.*</c> in its parent table.</summary>
+    [Fact]
+    public void DotNetGenerator_TypePage_UndocumentedMember_ShowsNoDescriptionPlaceholder()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: find the Methods table on the SampleClass type page
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
+        var operations = writer.Operations.ToList();
+        var methodsIndex = operations.FindIndex(op => op is HeadingOperation h && h.Text == "Methods");
+        Assert.True(methodsIndex >= 0, "Expected 'Methods' heading on SampleClass page");
+        var methodsTable = operations.Skip(methodsIndex + 1).OfType<TableOperation>().First();
+
+        // Refresh() has no XML doc comment — the Description cell must use the standard no-description placeholder.
+        // All members now get their own pages, so the Member cell is a Markdown link containing "Refresh()".
+        var refreshRow = methodsTable.Rows.FirstOrDefault(row => row[0].Contains("Refresh()"));
+        Assert.NotNull(refreshRow);
+        Assert.Equal("*No description provided.*", refreshRow[2]);
+    }
+
+    /// <summary>Validates that an <c>internal static class NamespaceDoc</c> is excluded from the namespace type table and its summary is emitted as a paragraph.</summary>
+    [Fact]
+    public void DotNetGenerator_NamespacePage_NamespaceDocClass_ExcludedFromTypeListing()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: the namespace type table must not contain NamespaceDoc as a listed type
+        var nsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
+        var operations = nsWriter.Operations.ToList();
+        var typeTable = operations.OfType<TableOperation>().FirstOrDefault(t => t.Headers[0] == "Type");
+        if (typeTable != null)
+        {
+            Assert.DoesNotContain(
+                typeTable.Rows,
+                row => row[0].Contains("NamespaceDoc", StringComparison.Ordinal));
+        }
+
+        // Assert: the NamespaceDoc <summary> must appear as a paragraph on the namespace page
+        var paragraphs = operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Contains("Contains types for testing", StringComparison.Ordinal));
     }
 }

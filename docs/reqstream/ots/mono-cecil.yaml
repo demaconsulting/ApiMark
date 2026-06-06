@@ -26,8 +26,7 @@ sections:
             title: Mono.Cecil shall expose the name, parameter types, return type, and generic parameters of every method, property, field, and event defined on a type.
             justification: |
               Member-level detail is needed to generate accurate API signatures in the
-              markdown output and to apply the complexity rule that determines when
-              per-member files are produced.
+              markdown output and to produce dedicated detail pages for every visible member.
             tests:
               - ApiMarkDotNet_TypeNames_CommonSignatures_RenderReadably
               - TypeNameSimplifier_GenericArguments_AreSimplifiedRecursively

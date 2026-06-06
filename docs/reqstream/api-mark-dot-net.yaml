@@ -15,7 +15,7 @@ sections:
           - ApiMarkDotNet-DotNetGenerator-ReadXmlDocumentationComments
           - ApiMarkDotNet-DotNetGenerator-FilterByVisibility
           - ApiMarkDotNet-DotNetGenerator-IncludeObsoleteApisWhenRequested
-          - ApiMarkDotNet-DotNetGenerator-ApplyComplexityRule
+          - ApiMarkDotNet-DotNetGenerator-EmitDetailPageForEveryMember
           - ApiMarkDotNet-DotNetGenerator-ProduceConsistentOutputFileStructure
         tests:
           - ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown
