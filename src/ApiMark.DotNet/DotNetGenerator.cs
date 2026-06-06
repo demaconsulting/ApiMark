@@ -40,7 +40,7 @@ public sealed class DotNetGenerator : IApiGenerator
     ///     Opens the assembly via Mono.Cecil, builds an <see cref="XmlDocReader"/> index from
     ///     the XML documentation file, then writes the complete Markdown tree: one assembly
     ///     entrypoint page, one namespace summary per namespace, one type page per visible type,
-    ///     and one detail page per complex member. The <see cref="AssemblyDefinition"/> is
+    ///     and one detail page per visible member. The <see cref="AssemblyDefinition"/> is
     ///     disposed before this method returns.
     ///     <para>
     ///         The entrypoint <c>api.md</c> lists only root namespaces followed by a file naming
@@ -67,18 +67,24 @@ public sealed class DotNetGenerator : IApiGenerator
         // Build namespace descriptions from the NamespaceDoc convention before filtering
         // visible types so that NamespaceDoc types are available for summary extraction
         // even though they are excluded from the public type listing
-        var namespaceDescriptions = assembly.MainModule.Types
-            .Where(t => t.Name == "NamespaceDoc")
+        var namespaceDocTypes = assembly.MainModule.Types
+            .Where(IsNamespaceDocCarrier)
+            .ToList();
+        var namespaceDocTypeSet = namespaceDocTypes.ToHashSet();
+
+        var namespaceDescriptions = namespaceDocTypes
+            .GroupBy(t => t.Namespace, StringComparer.Ordinal)
             .ToDictionary(
-                t => t.Namespace,
-                t => xmlDocs.GetSummary(BuildTypeId(t)),
+                g => g.Key,
+                g => g.Select(t => xmlDocs.GetSummary(BuildTypeId(t)))
+                    .FirstOrDefault(summary => !string.IsNullOrEmpty(summary)),
                 StringComparer.Ordinal);
 
         // Collect all types that pass the visibility, obsolete, and compiler-generated filters.
         // Exclude NamespaceDoc types — they are documentation carriers, not user-facing types.
         var visibleTypes = assembly.MainModule.Types
             .Where(t => !IsCompilerGenerated(t))
-            .Where(t => t.Name != "NamespaceDoc")
+            .Where(t => !namespaceDocTypeSet.Contains(t))
             .Where(t => IsTypeVisible(t))
             .Where(t => _options.IncludeObsolete || !IsObsolete(t))
             .ToList();
@@ -1065,6 +1071,9 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <returns><c>true</c> when the type is compiler-generated.</returns>
     private static bool IsCompilerGenerated(TypeDefinition type) =>
         type.Name.Contains('<') || type.Name.Contains('>') || IsCompilerGenerated((ICustomAttributeProvider)type);
+
+    private static bool IsNamespaceDocCarrier(TypeDefinition type) =>
+        type.Name == "NamespaceDoc" && type.IsClass && type.IsAbstract && type.IsSealed && type.IsNotPublic;
 
     /// <summary>
     ///     Returns <c>true</c> when <paramref name="provider"/> carries an

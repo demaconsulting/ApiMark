@@ -1038,7 +1038,6 @@ public class DotNetGeneratorTests
         // All members now get their own pages, so the Member cell is a Markdown link containing "Refresh()".
         var refreshRow = methodsTable.Rows.FirstOrDefault(row => row[0].Contains("Refresh()"));
         Assert.NotNull(refreshRow);
-        Assert.NotNull(refreshRow);
         Assert.Equal("*No description provided.*", refreshRow[2]);
     }
 
