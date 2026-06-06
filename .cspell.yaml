@@ -23,6 +23,7 @@ words:
   - fileassert
   - frontmatter
   - GHDL
+  - isysroot
   - isystem
   - libclang
   - libclangsharp
@@ -49,6 +50,7 @@ words:
   - versionmark
   - VHDL
   - Weasyprint
+  - xcrun
   - xunit
   - Xunit
   - yamlfix
