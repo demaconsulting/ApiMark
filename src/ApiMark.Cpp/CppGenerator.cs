@@ -234,7 +234,14 @@ public sealed class CppGenerator : IApiGenerator
             }
         }
 
-        return headers;
+        // De-duplicate and sort to produce a stable, deterministic header list.
+        // Overlapping PublicIncludeRoots can otherwise produce duplicate entries that
+        // cause declarations to appear multiple times in the generated output.
+        return headers
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(h => h, StringComparer.Ordinal)
+            .ToList();
     }
 
     // =========================================================================
@@ -317,6 +324,22 @@ public sealed class CppGenerator : IApiGenerator
             foreach (var dir in GetMacOsSystemIncludeDirs())
             {
                 options.SystemIncludeFolders.Add(dir);
+            }
+        }
+
+        // On Linux, the Clang resource directory is not automatically on the include path when
+        // using the NuGet-bundled libclang. Add it so that compiler builtins such as stddef.h,
+        // stdarg.h, and float.h are resolved correctly.
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            var resourceDir = RunCommand("clang", "-print-resource-dir");
+            if (!string.IsNullOrEmpty(resourceDir))
+            {
+                var includeDir = Path.Combine(resourceDir, "include");
+                if (Directory.Exists(includeDir))
+                {
+                    options.SystemIncludeFolders.Add(includeDir);
+                }
             }
         }
 
@@ -1888,9 +1911,13 @@ public sealed class CppGenerator : IApiGenerator
             switch (member)
             {
                 case CppFunction fn:
-                    // Constructors and methods both use WriteFunctionContent but need distinct labels
+                    // Constructors and methods both use WriteFunctionContent but need distinct labels.
+                    // Include parameter types in the heading so overloaded functions are distinguishable.
                     var fnKind = fn.IsConstructor ? "Constructor" : "Method";
-                    writer.WriteHeading(4, $"{fn.Name} ({fnKind})");
+                    var fnParamTypes = string.Join(
+                        ", ",
+                        fn.Parameters.Select(p => SimplifyTypeName(p.Type.GetDisplayName())));
+                    writer.WriteHeading(4, $"{fn.Name}({fnParamTypes}) ({fnKind})");
                     WriteFunctionContent(writer, nsDisplayName, cls.Name, fn);
                     break;
 

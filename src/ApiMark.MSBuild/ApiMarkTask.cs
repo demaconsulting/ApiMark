@@ -284,7 +284,7 @@ public sealed class ApiMarkTask : Task
         }
 
         // For C++ projects, skip gracefully when no include paths are configured
-        if (language == "cpp" && string.IsNullOrEmpty(ApiMarkIncludePaths))
+        if (language == "cpp" && string.IsNullOrWhiteSpace(ApiMarkIncludePaths))
         {
             Log.LogMessage(MessageImportance.Normal,
                 "Skipping ApiMark: ApiMarkIncludePaths not set. " +

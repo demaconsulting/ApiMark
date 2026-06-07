@@ -45,6 +45,6 @@
     in cpp documentation mode.
   -->
   <Target Name="CopyApiMarkToolRuntimeFiles" AfterTargets="Build">
-    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\..\src\ApiMark.Tool\ApiMark.Tool.csproj&quot; --configuration $(Configuration) --framework net8.0 --runtime $(NETCoreSdkRuntimeIdentifier) --no-self-contained --output &quot;$(OutDir)&quot;" />
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)../../src/ApiMark.Tool/ApiMark.Tool.csproj&quot; --configuration $(Configuration) --framework net8.0 --runtime $(NETCoreSdkRuntimeIdentifier) --no-self-contained --output &quot;$(OutDir)&quot;" />
   </Target>
 </Project>
