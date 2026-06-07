@@ -108,9 +108,8 @@ public sealed class ApiMarkTask : Task
     ///     Gets or sets the semicolon-separated list of include directory paths for C++ documentation.
     /// </summary>
     /// <remarks>
-    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkIncludePaths)</c>. The
-    ///     semicolon-separated value is forwarded as-is to the <c>--includes</c> argument of the
-    ///     tool.
+    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkIncludePaths)</c>.
+    ///     Semicolons are converted to commas for the <c>--includes</c> tool argument.
     /// </remarks>
     public string? ApiMarkIncludePaths { get; set; }
 
@@ -142,6 +141,14 @@ public sealed class ApiMarkTask : Task
     ///     Optional — omitted when empty; the tool defaults to <c>c++17</c>.
     /// </remarks>
     public string? ApiMarkCppStandard { get; set; }
+
+    /// <summary>Gets or sets the path to the clang executable for C++ documentation generation.</summary>
+    /// <remarks>
+    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkClangPath)</c>.
+    ///     Optional — when empty, clang is located automatically via PATH, xcrun (macOS), or
+    ///     vswhere (Windows).
+    /// </remarks>
+    public string? ApiMarkClangPath { get; set; }
 
     /// <summary>
     ///     Gets or sets the full path to <c>ApiMark.Tool.dll</c> bundled inside the NuGet package.
@@ -232,6 +239,12 @@ public sealed class ApiMarkTask : Task
             if (!string.IsNullOrEmpty(ApiMarkCppStandard))
             {
                 sb.Append($" --cpp-standard \"{EscapeArg(ApiMarkCppStandard!)}\"");
+            }
+
+            // Optional: explicit clang path
+            if (!string.IsNullOrEmpty(ApiMarkClangPath))
+            {
+                sb.Append($" --clang-path \"{EscapeArg(ApiMarkClangPath!)}\"");
             }
         }
 

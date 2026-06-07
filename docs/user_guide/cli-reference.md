@@ -48,6 +48,7 @@ apimark cpp [options]
 | `--library-description <d>` | Optional description for the library `api.md` introduction |
 | `--defines <values>` | Comma-separated preprocessor definitions (e.g. `MYLIB_API=,NDEBUG`) |
 | `--cpp-standard <std>` | C++ language standard passed to Clang (default: `c++17`) |
+| `--clang-path <path>` | Path to clang executable (default: auto-discovered via PATH / xcrun / vswhere) |
 | `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `Public`) |
 | `--include-obsolete` | Include deprecated members in generated output |
 

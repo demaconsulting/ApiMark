@@ -3,20 +3,20 @@
 ### Verification Approach
 
 `CppGenerator` is integration-tested in `test/ApiMark.Cpp.Tests/` using real C++ fixture headers
-located in `test/ApiMark.Cpp.Fixtures/include/`. CppAst.Net is used as-is because header parsing
-and declaration metadata interpretation are central to the unit's responsibility. Tests are
-organized by behavioral area: error handling, ownership filtering, visibility filtering, deprecated
-filtering, Doxygen doc comment rendering, output file structure, enums, templates, inheritance, free
-functions, constructors, qualified names, and variadic functions. An `InMemoryMarkdownWriterFactory`
-test double (from `ApiMark.Core.TestHelpers`) is supplied to capture emitted content without writing
-to the file system.
+located in `test/ApiMark.Cpp.Fixtures/include/`. System clang is used via `ClangAstParser` as-is
+because header parsing and declaration metadata interpretation are central to the unit's
+responsibility. Tests are organized by behavioral area: error handling, ownership filtering,
+visibility filtering, deprecated filtering, Doxygen doc comment rendering, output file structure,
+enums, templates, inheritance, free functions, constructors, qualified names, and variadic
+functions. An `InMemoryMarkdownWriterFactory` test double (from `ApiMark.Core.TestHelpers`) is
+supplied to capture emitted content without writing to the file system.
 
 ### Test Environment
 
 Tests require the fixture header files in `test/ApiMark.Cpp.Fixtures/include/` (located via
-`[CallerFilePath]` resolution in `FixturePaths`) and the bundled libclang binary from the CppAst.Net
-NuGet package. No C++ compiler installation, external service, network dependency, or privileged
-configuration is required.
+`[CallerFilePath]` resolution in `FixturePaths`) and a system clang installation accessible on
+PATH (or via xcrun on macOS / vswhere on Windows). No external service, network dependency, or
+privileged configuration is required beyond a standard clang installation.
 
 ### Acceptance Criteria
 

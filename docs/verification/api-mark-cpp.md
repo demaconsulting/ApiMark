@@ -27,7 +27,8 @@ configuration beyond a standard clang installation is required.
 - Deprecated filtering correctly excludes or includes declarations marked `[[deprecated]]`
   based on the IncludeDeprecated option.
 - All visible members — including parameterless methods, constructors, and free functions —
-  receive their own dedicated detail pages.
+  receive their own dedicated detail pages, except where case-insensitive filename collisions
+  require combining members onto one shared page.
 - Output files follow the naming convention: `api.md` entrypoint, `{namespace}.md` namespace
   summaries, `{namespace}/{TypeName}.md` type pages, and `{namespace}/{TypeName}/{MemberName}.md`
   member detail pages.

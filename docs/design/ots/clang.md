@@ -36,7 +36,7 @@ users to control the exact compiler version used for parsing.
   `ParamCommandComment`, and `TextComment` sub-nodes within each declaration carry the
   structured Doxygen documentation comment content.
 - **Clang discovery** — the parser locates the clang executable automatically: by searching PATH
-  on all platforms, by calling `xcrun --find clang` on macOS if the PATH search fails, and by
+  on all platforms, by invoking clang through `xcrun` on macOS if the PATH search fails, and by
   querying vswhere for LLVM installations on Windows if both earlier strategies fail. An explicit
   path can be provided via `CppGeneratorOptions.ClangPath` to override discovery.
 

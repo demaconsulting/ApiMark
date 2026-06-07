@@ -40,6 +40,7 @@
       ApiMarkLibraryDescription="$(ApiMarkLibraryDescription)"
       ApiMarkDefines="$(ApiMarkDefines)"
       ApiMarkCppStandard="$(ApiMarkCppStandard)"
+      ApiMarkClangPath="$(ApiMarkClangPath)"
       ToolDllPath="$(_ApiMarkToolDllPath)" />
   </Target>
 

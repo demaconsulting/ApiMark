@@ -108,6 +108,12 @@ internal sealed class Context : IDisposable
     public string? CppStandard { get; private init; }
 
     /// <summary>
+    ///     Gets the path to the clang executable, overriding automatic discovery.
+    ///     Optional — when null, clang is located via PATH, xcrun (macOS), or vswhere (Windows).
+    /// </summary>
+    public string? ClangPath { get; private init; }
+
+    /// <summary>
     ///     Gets the proposed exit code for the application (0 for success, 1 for errors).
     /// </summary>
     public int ExitCode => _hasErrors ? 1 : 0;
@@ -153,6 +159,7 @@ internal sealed class Context : IDisposable
             LibraryDescription = parser.LibraryDescription,
             Defines = parser.Defines,
             CppStandard = parser.CppStandard,
+            ClangPath = parser.ClangPath,
         };
 
         // Open log file if specified
@@ -342,6 +349,13 @@ internal sealed class Context : IDisposable
         public string? CppStandard { get; private set; }
 
         /// <summary>
+        ///     Gets the path to the clang executable, overriding automatic discovery.
+        ///     Optional — when <see langword="null"/>, clang is located via PATH, xcrun (macOS),
+        ///     or vswhere (Windows).
+        /// </summary>
+        public string? ClangPath { get; private set; }
+
+        /// <summary>
         ///     Parses command-line arguments using a single-pass strategy.
         /// </summary>
         /// <param name="args">Command-line arguments.</param>
@@ -447,6 +461,10 @@ internal sealed class Context : IDisposable
 
                 case "--cpp-standard":
                     CppStandard = GetRequiredStringArgument(arg, args, index, "a C++ standard argument");
+                    return index + 1;
+
+                case "--clang-path":
+                    ClangPath = GetRequiredStringArgument(arg, args, index, "a clang executable path argument");
                     return index + 1;
 
                 default:

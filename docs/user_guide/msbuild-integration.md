@@ -38,11 +38,12 @@ the project file extension.
 
 | Property | Default | Description |
 | --- | --- | --- |
-| `ApiMarkIncludePaths` | _(required)_ | Comma-separated list of public include directories |
+| `ApiMarkIncludePaths` | _(required)_ | Semicolon-separated list of public include directories |
 | `ApiMarkLibraryName` | `$(MSBuildProjectName)` | Library name used as the top-level heading in `api.md` |
 | `ApiMarkLibraryDescription` | _(unset)_ | Optional description for the `api.md` introduction paragraph |
 | `ApiMarkDefines` | _(unset)_ | Comma-separated preprocessor definitions (e.g. `MYLIB_API=,NDEBUG`) |
 | `ApiMarkCppStandard` | `c++17` | C++ language standard passed to Clang |
+| `ApiMarkClangPath` | _(auto-discovered)_ | Path to clang executable; overrides PATH / xcrun / vswhere discovery |
 
 ## Configuration Examples
 
@@ -85,6 +86,9 @@ the project file extension.
 
   <!-- Use C++20 -->
   <ApiMarkCppStandard>c++20</ApiMarkCppStandard>
+
+  <!-- Override clang path (optional; normally auto-discovered) -->
+  <!-- <ApiMarkClangPath>C:\Program Files\LLVM\bin\clang.exe</ApiMarkClangPath> -->
 </PropertyGroup>
 ```
 
