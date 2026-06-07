@@ -8,10 +8,6 @@
     <IsPackable>false</IsPackable>
     <AssemblyName>ApiMark.MSBuild.Tests</AssemblyName>
     <RootNamespace>ApiMark.MSBuild.Tests</RootNamespace>
-    <!-- Publish ApiMark.Tool with the current platform RID so that the generated
-         .runtimeconfig.json and .deps.json files are available when the test
-         invokes ApiMark.Tool as a child process. -->
-    <RuntimeIdentifier>$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
   </PropertyGroup>
 
   <ItemGroup>
@@ -40,10 +36,12 @@
   <!--
     ApiMark.Tool is an OutputType=Exe project. A ProjectReference copies its DLL and managed
     dependencies to the test output but does not copy the .runtimeconfig.json or .deps.json
-    files that 'dotnet <dll>' requires. Publish with the current platform RID so those files
-    are present in the output directory when ApiMark.Tool is invoked as a child process.
+    files that 'dotnet <dll>' requires. Copy them explicitly after the build.
   -->
   <Target Name="CopyApiMarkToolRuntimeFiles" AfterTargets="Build">
-    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)../../src/ApiMark.Tool/ApiMark.Tool.csproj&quot; --configuration $(Configuration) --framework net8.0 --runtime $(NETCoreSdkRuntimeIdentifier) --no-self-contained --output &quot;$(OutDir)&quot;" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\src\ApiMark.Tool\bin\$(Configuration)\net8.0\ApiMark.Tool.runtimeconfig.json"
+          DestinationFolder="$(OutDir)" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\src\ApiMark.Tool\bin\$(Configuration)\net8.0\ApiMark.Tool.deps.json"
+          DestinationFolder="$(OutDir)" />
   </Target>
 </Project>

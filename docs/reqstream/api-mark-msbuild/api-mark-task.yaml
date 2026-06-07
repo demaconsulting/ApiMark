@@ -26,12 +26,11 @@ sections:
           - id: ApiMarkMsbuild-ApiMarkTask-SpawnToolForCpp
             title: ApiMarkTask shall spawn ApiMark.Tool with the cpp subcommand and pass include paths for C++ builds.
             justification: |
-              C++ API generation requires CppAst.Net, which only supports net8.0; the
-              out-of-process model is the only viable integration strategy for vcxproj
-              builds run under .NET Framework MSBuild inside Visual Studio.
+              ApiMark.Cpp invokes system clang and targets net8.0+; the out-of-process
+              model is the only viable integration strategy for vcxproj builds run under
+              .NET Framework MSBuild inside Visual Studio.
             tests:
               - ApiMarkTask_Cpp_SpawnsToolWithCorrectIncludePathArguments
-              - ApiMarkTask_Execute_WithCppProject_GeneratesDocumentation
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardOutputDirectoryProperty
             title: ApiMarkTask shall forward the ApiMarkOutputDir property to the tool as the --output argument.
             justification: |

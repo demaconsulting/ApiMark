@@ -91,4 +91,5 @@ behavior. This scenario is tested by `ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExe
 **C++ project generates documentation via spawned tool**: End-to-end integration test that
 exercises the complete C++ documentation generation path against real fixture headers. Verifies
 that the spawned tool produces the expected Markdown output files. This scenario is tested by
-`ApiMarkTask_Execute_WithCppProject_GeneratesDocumentation`.
+`ApiMarkTask_Execute_WithCppProject_GeneratesDocumentation` (not yet implemented — tracked
+as a future test).

@@ -297,12 +297,6 @@ reviews:
       - docs/reqstream/ots/mono-cecil.yaml
       - docs/design/ots/mono-cecil.md
       - docs/verification/ots/mono-cecil.md
-  - id: OTS-CppAstNet
-    title: Review that CppAst.Net Provides Required Functionality
-    paths:
-      - docs/reqstream/ots/cpp-ast-net.yaml
-      - docs/design/ots/cpp-ast-net.md
-      - docs/verification/ots/cpp-ast-net.md
   - id: OTS-Clang
     title: Review that Clang Provides Required Functionality
     paths:
