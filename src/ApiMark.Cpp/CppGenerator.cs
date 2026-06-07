@@ -289,9 +289,18 @@ public sealed class CppGenerator : IApiGenerator
             options.AdditionalArguments.Add(arg);
         }
 
-        // On macOS, libclang cannot locate standard library headers without an explicit
-        // -isysroot pointing at the active Xcode/CommandLineTools SDK. Auto-detect it via
-        // xcrun unless the caller has already provided one in AdditionalCompilerArguments.
+        // CppParserOptions defaults TargetSystem to "windows", producing a target triple of
+        // "x86_64-pc-windows-" on every platform. This causes libclang to search Windows
+        // system headers regardless of the actual OS, so <string> and other C++ stdlib
+        // headers are never found on macOS or Linux. Set the correct triple unless the
+        // caller has already supplied an explicit --target= in AdditionalCompilerArguments.
+        if (!_options.AdditionalCompilerArguments.Any(a => a.StartsWith("--target=", StringComparison.Ordinal)))
+        {
+            ConfigurePlatformTarget(options);
+        }
+
+        // On macOS, also pass -isysroot so libclang finds headers relative to the active
+        // Xcode/CommandLineTools SDK root, unless the caller has already provided one.
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) &&
             !_options.AdditionalCompilerArguments.Any(a => a.StartsWith("-isysroot", StringComparison.Ordinal)))
         {
@@ -304,6 +313,50 @@ public sealed class CppGenerator : IApiGenerator
         }
 
         return options;
+    }
+
+    /// <summary>
+    ///     Sets the <see cref="CppParserOptions"/> target triple to match the current runtime
+    ///     platform and architecture, overriding the CppAst default of <c>x86_64-pc-windows-</c>.
+    /// </summary>
+    /// <remarks>
+    ///     CppAst's <c>CppParserOptions</c> defaults <c>TargetSystem</c> to <c>"windows"</c>
+    ///     regardless of the host OS. Without correction, libclang uses Windows header search
+    ///     paths on all platforms and cannot locate C++ standard library headers on macOS or
+    ///     Linux.
+    /// </remarks>
+    /// <param name="options">The parser options to configure in-place.</param>
+    private static void ConfigurePlatformTarget(CppParserOptions options)
+    {
+        options.TargetCpu = RuntimeInformation.OSArchitecture switch
+        {
+            Architecture.X64 => CppTargetCpu.X86_64,
+            Architecture.Arm64 => CppTargetCpu.ARM64,
+            Architecture.X86 => CppTargetCpu.X86,
+            Architecture.Arm => CppTargetCpu.ARM,
+            _ => CppTargetCpu.X86_64
+        };
+        options.TargetCpuSub = string.Empty;
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            options.TargetVendor = "apple";
+            options.TargetSystem = "macos";
+            options.TargetAbi = string.Empty;
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            options.TargetVendor = "unknown";
+            options.TargetSystem = "linux";
+            options.TargetAbi = "gnu";
+        }
+        else
+        {
+            // Windows — preserve the CppAst default values
+            options.TargetVendor = "pc";
+            options.TargetSystem = "windows";
+            options.TargetAbi = string.Empty;
+        }
     }
 
     /// <summary>
