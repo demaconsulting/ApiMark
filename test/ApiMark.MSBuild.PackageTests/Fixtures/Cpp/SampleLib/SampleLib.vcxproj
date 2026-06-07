@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Minimal C++ static-library fixture used by ApiMark.MSBuild.PackageTests to verify that
+  the DemaConsulting.ApiMark.MSBuild NuGet package generates C++ documentation via a real
+  msbuild.exe invocation. There are no .cpp source files so the compile step succeeds
+  trivially without requiring specific headers beyond what ships with the Windows SDK.
+-->
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>SampleLib</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+
+  <!--
+    Explicit import of NuGet PackageReference generated props: required for non-SDK vcxproj
+    projects because Microsoft.Cpp.props does not auto-include these files. The Condition
+    guard prevents a "project file not found" error on a clean checkout before first restore.
+  -->
+  <Import Project="$(MSBuildProjectExtensionsPath)$(MSBuildProjectFile).nuget.g.props"
+          Condition="Exists('$(MSBuildProjectExtensionsPath)$(MSBuildProjectFile).nuget.g.props')" />
+
+  <PropertyGroup>
+    <!-- Required: the public include root for ApiMark C++ documentation generation -->
+    <ApiMarkIncludePaths>$(MSBuildProjectDirectory)\include</ApiMarkIncludePaths>
+    <ApiMarkLibraryName>SampleLib</ApiMarkLibraryName>
+  </PropertyGroup>
+
+  <!-- No ClCompile items: nothing to compile, build succeeds trivially -->
+
+  <ItemGroup>
+    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.0.0" />
+  </ItemGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+
+  <!--
+    Explicit import of NuGet PackageReference generated targets: required for non-SDK vcxproj
+    projects because Microsoft.Cpp.targets does not auto-include these files. This import brings
+    in the DemaConsulting.ApiMark.MSBuild.targets file (and any other package targets), enabling
+    the AfterTargets="Build" hook that runs documentation generation.
+  -->
+  <Import Project="$(MSBuildProjectExtensionsPath)$(MSBuildProjectFile).nuget.g.targets"
+          Condition="Exists('$(MSBuildProjectExtensionsPath)$(MSBuildProjectFile).nuget.g.targets')" />
+</Project>

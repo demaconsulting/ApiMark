@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 using Xunit;
 
 namespace ApiMark.MSBuild.PackageTests;
@@ -36,7 +37,7 @@ public class PackageIntegrationTests
         var packagesDir = SkipIfPackageAbsent();
         var outputDir = string.Empty;
 
-        RunInIsolation(packagesDir, workDir =>
+        RunInIsolation(packagesDir, "DotNet/SampleLib", "SampleLib.csproj", workDir =>
         {
             outputDir = Path.Join(workDir, "api");
             var result = RunProcess(
@@ -64,7 +65,7 @@ public class PackageIntegrationTests
     {
         var packagesDir = SkipIfPackageAbsent();
 
-        RunInIsolation(packagesDir, workDir =>
+        RunInIsolation(packagesDir, "DotNet/SampleLib", "SampleLib.csproj", workDir =>
         {
             var outputDir = Path.Join(workDir, "api");
             var packOutputDir = Path.Join(workDir, "pkg");
@@ -100,7 +101,7 @@ public class PackageIntegrationTests
     {
         var packagesDir = SkipIfPackageAbsent();
 
-        RunInIsolation(packagesDir, workDir =>
+        RunInIsolation(packagesDir, "DotNet/SampleLib", "SampleLib.csproj", workDir =>
         {
             var outputDir = Path.Join(workDir, "api");
             var packOutputDir = Path.Join(workDir, "pkg");
@@ -151,16 +152,26 @@ public class PackageIntegrationTests
     ///     fixture project files and a local <c>nuget.config</c>, then cleans up on exit.
     /// </summary>
     /// <remarks>
-    ///     The fixture <c>SampleLib.csproj</c> uses a placeholder version of
+    ///     The fixture project file at <paramref name="projectFileName"/> uses a placeholder version of
     ///     <c>0.0.0</c> for the <c>DemaConsulting.ApiMark.MSBuild</c> package reference.
     ///     This method detects the actual version from the <c>.nupkg</c> filename and patches
     ///     the copy in the isolated directory so <c>dotnet restore</c> can resolve it
     ///     regardless of whether the build is a local dev build or a CI versioned build.
     /// </remarks>
-    private static void RunInIsolation(string packagesDir, Action<string> action)
+    /// <param name="packagesDir">Directory containing the pre-built <c>.nupkg</c> files.</param>
+    /// <param name="fixtureSubPath">
+    ///     Sub-path relative to the test binary's <c>Fixtures/</c> directory (e.g.
+    ///     <c>"DotNet/SampleLib"</c> or <c>"Cpp/SampleLib"</c>).
+    /// </param>
+    /// <param name="projectFileName">
+    ///     Name of the project file within the fixture directory (e.g. <c>"SampleLib.csproj"</c> or
+    ///     <c>"SampleLib.vcxproj"</c>). The package version placeholder is patched in this file.
+    /// </param>
+    /// <param name="action">Callback invoked with the path to the prepared work directory.</param>
+    private static void RunInIsolation(string packagesDir, string fixtureSubPath, string projectFileName, Action<string> action)
     {
         var testBinDir = Path.GetDirectoryName(typeof(PackageIntegrationTests).Assembly.Location)!;
-        var fixtureDir = Path.Join(testBinDir, "Fixtures", "SampleLib");
+        var fixtureDir = Path.Join(testBinDir, "Fixtures", fixtureSubPath);
         var workDir = Path.Join(
             Path.GetTempPath(),
             $"apimark-pkg-test-{Guid.NewGuid():N}");
@@ -168,20 +179,26 @@ public class PackageIntegrationTests
 
         try
         {
-            foreach (var file in Directory.GetFiles(fixtureDir))
+            // Copy all files and subdirectories from fixtureDir to workDir so that fixtures
+            // with nested directories (e.g. the Cpp fixture's include/ subdirectory) are
+            // fully available in the isolated environment.
+            foreach (var file in Directory.GetFiles(fixtureDir, "*", SearchOption.AllDirectories))
             {
-                File.Copy(file, Path.Join(workDir, Path.GetFileName(file)));
+                var relativePath = Path.GetRelativePath(fixtureDir, file);
+                var destPath = Path.Join(workDir, relativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
+                File.Copy(file, destPath);
             }
 
             // Detect the actual package version from the .nupkg filename and patch the
-            // fixture .csproj so dotnet restore resolves it in both dev and CI builds.
+            // fixture project file so restore resolves it in both dev and CI builds.
             var nupkgPath = Directory.GetFiles(packagesDir, "DemaConsulting.ApiMark.MSBuild.*.nupkg").First();
             var packageVersion = Path.GetFileNameWithoutExtension(nupkgPath)
                 .Substring("DemaConsulting.ApiMark.MSBuild.".Length);
-            var csprojPath = Path.Join(workDir, "SampleLib.csproj");
+            var projectPath = Path.Join(workDir, projectFileName);
             File.WriteAllText(
-                csprojPath,
-                File.ReadAllText(csprojPath).Replace(
+                projectPath,
+                File.ReadAllText(projectPath).Replace(
                     "Include=\"DemaConsulting.ApiMark.MSBuild\" Version=\"0.0.0\"",
                     $"Include=\"DemaConsulting.ApiMark.MSBuild\" Version=\"{packageVersion}\""));
 
@@ -208,6 +225,123 @@ public class PackageIntegrationTests
                 Directory.Delete(workDir, recursive: true);
             }
         }
+    }
+
+    /// <summary>
+    ///     Validates that a C++ vcxproj referencing the <c>DemaConsulting.ApiMark.MSBuild</c> NuGet
+    ///     package generates <c>api.md</c> automatically when <c>msbuild.exe</c> runs.
+    /// </summary>
+    /// <remarks>
+    ///     This test is skipped on non-Windows platforms and when MSBuild with C++ tools is not
+    ///     installed. It exercises the complete package-consumption path via a real msbuild.exe
+    ///     invocation: NuGet restore, C++ targets import, and out-of-process tool spawn.
+    /// </remarks>
+    [Fact]
+    public void ApiMarkMsbuild_NuGetPackage_CppVcxprojProject_AutoDocumentsOnBuild()
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            Assert.Skip("vcxproj integration tests only run on Windows.");
+        }
+
+        var packagesDir = SkipIfPackageAbsent();
+
+        var msbuildExe = FindMsBuildExe();
+        if (msbuildExe == null)
+        {
+            Assert.Skip("MSBuild with C++ tools (VC.Tools.x86.x64) not found; skipping vcxproj test.");
+        }
+
+        // Arrange / Act / Assert: run restore as a separate msbuild pass so that the
+        // NuGet-generated .g.targets is on disk before the Build evaluation begins.
+        // A single /t:restore;Build invocation evaluates the project once — before restore
+        // creates obj\*.nuget.g.targets — so the Condition="Exists(...)" import fires false
+        // and the ApiMark targets are never loaded. Two separate invocations ensure that the
+        // generated file exists when the project is re-evaluated for the Build pass.
+        RunInIsolation(packagesDir, "Cpp/SampleLib", "SampleLib.vcxproj", workDir =>
+        {
+            // Restore pass: generates obj\SampleLib.vcxproj.nuget.g.targets on disk
+            var restoreResult = RunProcess(
+                msbuildExe,
+                "SampleLib.vcxproj /t:restore",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                restoreResult.ExitCode == 0,
+                $"msbuild restore failed (exit {restoreResult.ExitCode}).\nstdout:\n{restoreResult.Output}\nstderr:\n{restoreResult.Error}");
+
+            var outputDir = Path.Join(workDir, "api");
+
+            // Build pass: re-evaluates the project so Exists(...) picks up the generated
+            // targets file and the AfterTargets="Build" hook runs ApiMark documentation generation
+            var buildResult = RunProcess(
+                msbuildExe,
+                $"SampleLib.vcxproj /t:Build /p:Configuration=Release /p:Platform=x64 /p:ApiMarkOutputDir=\"{outputDir}\"",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                buildResult.ExitCode == 0,
+                $"msbuild build failed (exit {buildResult.ExitCode}).\nstdout:\n{buildResult.Output}\nstderr:\n{buildResult.Error}");
+
+            Assert.True(
+                File.Exists(Path.Join(outputDir, "api.md")),
+                $"api.md was not created in '{outputDir}'.\nBuild output:\n{buildResult.Output}");
+        });
+    }
+
+    /// <summary>
+    ///     Locates <c>msbuild.exe</c> with C++ tools via vswhere, returning null when not found.
+    /// </summary>
+    /// <remarks>
+    ///     Uses vswhere to query for a Visual Studio installation that includes
+    ///     <c>Microsoft.VisualStudio.Component.VC.Tools.x86.x64</c>, then resolves the
+    ///     MSBuild executable path within that installation. Returns the first valid match when
+    ///     vswhere reports multiple results.
+    /// </remarks>
+    /// <returns>
+    ///     Absolute path to <c>MSBuild.exe</c>, or <c>null</c> if vswhere is absent or no
+    ///     matching installation exists.
+    /// </returns>
+    private static string? FindMsBuildExe()
+    {
+        var vsWherePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+            "Microsoft Visual Studio", "Installer", "vswhere.exe");
+
+        if (!File.Exists(vsWherePath))
+        {
+            return null;
+        }
+
+        var psi = new ProcessStartInfo(vsWherePath)
+        {
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        psi.ArgumentList.Add("-latest");
+        psi.ArgumentList.Add("-requires");
+        psi.ArgumentList.Add("Microsoft.VisualStudio.Component.VC.Tools.x86.x64");
+        psi.ArgumentList.Add("-find");
+        psi.ArgumentList.Add(@"MSBuild\**\Bin\MSBuild.exe");
+
+        using var process = Process.Start(psi);
+        if (process == null)
+        {
+            return null;
+        }
+
+        var output = process.StandardOutput.ReadToEnd().Trim();
+        process.WaitForExit();
+
+        // vswhere -find may return multiple matches; take the first valid one
+        var msbuildPath = output.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => l.Trim())
+            .FirstOrDefault(File.Exists);
+
+        return msbuildPath;
     }
 
     /// <summary>

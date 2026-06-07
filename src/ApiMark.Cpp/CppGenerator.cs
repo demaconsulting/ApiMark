@@ -215,7 +215,7 @@ public sealed class CppGenerator : IApiGenerator
                 var matchResult = matcher.Execute(new DirectoryInfoWrapper(new DirectoryInfo(root)));
                 var matchedAbsolute = new HashSet<string>(
                     matchResult.Files.Select(f => Path.GetFullPath(Path.Combine(root, f.Path))),
-                    StringComparer.OrdinalIgnoreCase);
+                    FileSystemPathComparer);
 
                 // Intersect the extension-filtered list with the glob-matched set so that
                 // files with non-header extensions are never forwarded even if a glob matches them
@@ -233,7 +233,7 @@ public sealed class CppGenerator : IApiGenerator
         // cause declarations to appear multiple times in the generated output.
         return headers
             .Select(Path.GetFullPath)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Distinct(FileSystemPathComparer)
             .OrderBy(h => h, StringComparer.Ordinal)
             .ToList();
     }
@@ -358,6 +358,21 @@ public sealed class CppGenerator : IApiGenerator
         RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
             ? StringComparison.Ordinal
             : StringComparison.OrdinalIgnoreCase;
+
+    /// <summary>
+    ///     Returns the <see cref="StringComparer"/> appropriate for file-system path comparisons
+    ///     on the current platform.
+    /// </summary>
+    /// <remarks>
+    ///     Linux file systems are case-sensitive, so <see cref="StringComparer.Ordinal"/> is
+    ///     used there to avoid incorrectly treating paths that differ only in case as duplicates.
+    ///     Windows and macOS default to case-insensitive file systems, so
+    ///     <see cref="StringComparer.OrdinalIgnoreCase"/> is used on those platforms.
+    /// </remarks>
+    private static StringComparer FileSystemPathComparer =>
+        RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
+            ? StringComparer.Ordinal
+            : StringComparer.OrdinalIgnoreCase;
 
     /// <summary>
     ///     Derives the canonical <c>#include</c> path for a declaration from its source file,

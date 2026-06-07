@@ -969,7 +969,7 @@ internal sealed class ClangAstParser
     ///     A populated <see cref="CppFunction"/>, or <see langword="null"/> for destructors
     ///     and implicit members.
     /// </returns>
-    private static CppFunction? ParseMethod(JsonElement node, CppAccessibility accessibility)
+    private CppFunction? ParseMethod(JsonElement node, CppAccessibility accessibility)
     {
         var kind = GetKind(node);
 
@@ -1011,7 +1011,8 @@ internal sealed class ClangAstParser
         var isVariadic = node.TryGetProperty("variadic", out var varNode) && varNode.GetBoolean();
         var isDeprecated = node.TryGetProperty("isDeprecated", out var dep) && dep.GetBoolean();
 
-        // Source location is usually the same file as the class, but record it for completeness
+        // Source location: record the file and line from the node's own loc field
+        var location = GetCurrentSourceLocation(node);
         var parameters = new List<CppParameter>();
         CppDocComment? doc = null;
 
@@ -1045,7 +1046,7 @@ internal sealed class ClangAstParser
             isConstructor,
             isVariadic,
             isDeprecated,
-            null,
+            location,
             doc);
     }
 
