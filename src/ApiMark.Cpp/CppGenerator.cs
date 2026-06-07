@@ -382,17 +382,19 @@ public sealed class CppGenerator : IApiGenerator
     /// </returns>
     private static IEnumerable<string> GetClangSystemIncludeDirs()
     {
-        // On macOS, clang is accessed via xcrun to pick up the active Xcode/CommandLineTools toolchain.
-        var clangExe = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
-            ? RunCommand("xcrun", "--find", "clang")
-            : "clang";
-
-        if (string.IsNullOrEmpty(clangExe))
+        // On macOS use xcrun as the driver so it automatically selects the active SDK and
+        // sysroot — the reported paths are then fully-qualified and correct for that SDK.
+        // On Linux, invoke clang directly.
+        string? verbose;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            yield break;
+            verbose = RunCommandStderr("xcrun", "clang", "-v", "-x", "c++", "-E", "/dev/null");
+        }
+        else
+        {
+            verbose = RunCommandStderr("clang", "-v", "-x", "c++", "-E", "/dev/null");
         }
 
-        var verbose = RunCommandStderr(clangExe, "-v", "-x", "c++", "-E", "/dev/null");
         if (string.IsNullOrEmpty(verbose))
         {
             yield break;
@@ -413,7 +415,10 @@ public sealed class CppGenerator : IApiGenerator
                 break;
             }
 
-            if (inList && !trimmed.Contains("(framework directory)") && Directory.Exists(trimmed))
+            // Trust whatever clang reports — do not filter by Directory.Exists because
+            // on macOS paths may contain ".." segments or be SDK-relative in ways that
+            // confuse filesystem checks, even though libclang resolves them correctly.
+            if (inList && !trimmed.Contains("(framework directory)"))
             {
                 yield return trimmed;
             }
@@ -421,51 +426,11 @@ public sealed class CppGenerator : IApiGenerator
     }
 
     /// <summary>
-    ///     Runs an external command and returns its trimmed standard output, or
-    ///     <see langword="null"/> when the command fails or is not available.
-    /// </summary>
-    /// <param name="fileName">The executable to run.</param>
-    /// <param name="arguments">Arguments to pass to the executable.</param>
-    /// <returns>Trimmed stdout on success, or <see langword="null"/> on any failure.</returns>
-    private static string? RunCommand(string fileName, params string[] arguments)
-    {
-        try
-        {
-            var psi = new ProcessStartInfo
-            {
-                FileName = fileName,
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            foreach (var arg in arguments)
-            {
-                psi.ArgumentList.Add(arg);
-            }
-
-            using var process = Process.Start(psi);
-            if (process == null)
-            {
-                return null;
-            }
-
-            var output = process.StandardOutput.ReadToEnd().Trim();
-            process.WaitForExit();
-            return process.ExitCode == 0 && !string.IsNullOrEmpty(output) ? output : null;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
-
-    /// <summary>
     ///     Runs an external command and returns its trimmed standard error output, or
-    ///     <see langword="null"/> when the command is not available. Unlike
-    ///     <see cref="RunCommand"/>, a non-zero exit code does not suppress the output because
-    ///     some tools (including <c>clang -v</c>) write useful diagnostic output to stderr
-    ///     while still returning a non-zero code when given a null input file.
+    ///     <see langword="null"/> when the command is not available. A non-zero exit code does
+    ///     not suppress the output because some tools (including <c>clang -v</c>) write useful
+    ///     diagnostic output to stderr while still returning a non-zero code when given a null
+    ///     input file.
     /// </summary>
     /// <param name="fileName">The executable to run.</param>
     /// <param name="arguments">Arguments to pass to the executable.</param>
