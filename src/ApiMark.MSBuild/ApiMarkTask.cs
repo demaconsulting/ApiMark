@@ -231,7 +231,7 @@ public sealed class ApiMarkTask : Task
             // C++ standard
             if (!string.IsNullOrEmpty(ApiMarkCppStandard))
             {
-                sb.Append($" --cpp-standard {ApiMarkCppStandard}");
+                sb.Append($" --cpp-standard \"{EscapeArg(ApiMarkCppStandard!)}\"");
             }
         }
 

@@ -702,6 +702,21 @@ public sealed class CppGenerator : IApiGenerator
     // =========================================================================
 
     /// <summary>
+    ///     Gets the <see cref="StringComparison"/> appropriate for file-system path comparisons
+    ///     on the current platform.
+    /// </summary>
+    /// <remarks>
+    ///     Linux file systems are case-sensitive, so <see cref="StringComparison.Ordinal"/> is
+    ///     used there to avoid incorrectly matching paths that differ only in case. Windows and
+    ///     macOS default to case-insensitive file systems, so
+    ///     <see cref="StringComparison.OrdinalIgnoreCase"/> is used on those platforms.
+    /// </remarks>
+    private static StringComparison FileSystemPathComparison =>
+        RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
+            ? StringComparison.Ordinal
+            : StringComparison.OrdinalIgnoreCase;
+
+    /// <summary>
     ///     Determines whether a source file falls under one of the configured
     ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> and therefore belongs to the
     ///     documented public API.
@@ -730,7 +745,7 @@ public sealed class CppGenerator : IApiGenerator
             // Append a directory separator to the root so "lib" does not match "libext"
             var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, '/') +
                                  Path.DirectorySeparatorChar;
-            return normalized.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
+            return normalized.StartsWith(normalizedRoot, FileSystemPathComparison);
         });
     }
 
@@ -757,7 +772,7 @@ public sealed class CppGenerator : IApiGenerator
         var matchingRoot = _options.PublicIncludeRoots
             .Select(root => Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, '/'))
             .Where(root => normalized.StartsWith(
-                root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                root + Path.DirectorySeparatorChar, FileSystemPathComparison))
             .OrderByDescending(root => root.Length, Comparer<int>.Default)
             .FirstOrDefault();
 
