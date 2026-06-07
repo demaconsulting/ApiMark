@@ -306,40 +306,15 @@ public sealed class CppGenerator : IApiGenerator
             ConfigurePlatformTarget(options);
         }
 
-        // On macOS, also pass -isysroot so libclang finds headers relative to the active
-        // Xcode/CommandLineTools SDK root, unless the caller has already provided one.
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) &&
-            !_options.AdditionalCompilerArguments.Any(a => a.StartsWith("-isysroot", StringComparison.Ordinal)))
+        // On non-Windows platforms the NuGet-bundled libclang does not automatically
+        // locate system headers. Ask the host clang for its full include search list
+        // (via `clang -v`) and add every directory in the exact order clang reports,
+        // which guarantees the correct C++ stdlib → resource → C system header ordering.
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            var sdkPath = GetMacOsSdkPath();
-            if (!string.IsNullOrEmpty(sdkPath))
-            {
-                options.AdditionalArguments.Add("-isysroot");
-                options.AdditionalArguments.Add(sdkPath);
-            }
-
-            // Clang requires a specific include search order on macOS: C++ stdlib headers must
-            // come before Clang resource headers, which must come before C system headers.
-            // Add both explicitly so the ordering is guaranteed regardless of what -isysroot infers.
-            foreach (var dir in GetMacOsSystemIncludeDirs())
+            foreach (var dir in GetClangSystemIncludeDirs())
             {
                 options.SystemIncludeFolders.Add(dir);
-            }
-        }
-
-        // On Linux, the Clang resource directory is not automatically on the include path when
-        // using the NuGet-bundled libclang. Add it so that compiler builtins such as stddef.h,
-        // stdarg.h, and float.h are resolved correctly.
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            var resourceDir = RunCommand("clang", "-print-resource-dir");
-            if (!string.IsNullOrEmpty(resourceDir))
-            {
-                var includeDir = Path.Combine(resourceDir, "include");
-                if (Directory.Exists(includeDir))
-                {
-                    options.SystemIncludeFolders.Add(includeDir);
-                }
             }
         }
 
@@ -391,65 +366,56 @@ public sealed class CppGenerator : IApiGenerator
     }
 
     /// <summary>
-    ///     Returns the macOS SDK path by invoking <c>xcrun --sdk macosx --show-sdk-path</c>.
-    /// </summary>
-    /// <returns>
-    ///     The trimmed SDK path string, or <see langword="null"/> when <c>xcrun</c> is not
-    ///     available or exits with a non-zero code.
-    /// </returns>
-    private static string? GetMacOsSdkPath() =>
-        RunCommand("xcrun", "--sdk", "macosx", "--show-sdk-path");
-
-    /// <summary>
-    ///     Returns the macOS system include directories required for correct C++ header parsing,
-    ///     in the order that Clang expects them.
+    ///     Returns the system include directories that the host Clang toolchain uses for C++
+    ///     header parsing, in the exact order Clang itself searches them.
     /// </summary>
     /// <remarks>
-    ///     Clang requires a specific search order for headers on macOS:
-    ///     <list type="number">
-    ///       <item>C++ standard library headers (<c>usr/include/c++/v1</c>)</item>
-    ///       <item>Clang resource headers (<c>clang/{ver}/include</c>) — required for compiler
-    ///         builtins such as <c>stdarg.h</c> and <c>float.h</c></item>
-    ///       <item>C system headers (implicit, from <c>-isysroot</c>)</item>
-    ///     </list>
-    ///     Adding the Clang resource directory without first adding the C++ stdlib directory
-    ///     causes the resource dir's <c>stddef.h</c> to be found before libc++'s version,
-    ///     triggering "tried including stddef.h but didn't find libc++'s header" errors.
+    ///     Runs <c>clang -v -x c++ -E /dev/null</c> and parses the <c>#include &lt;...&gt; search
+    ///     starts here</c> block from stderr. This is the authoritative source of include paths and
+    ///     their ordering — no manual path reconstruction is required. Framework directories reported
+    ///     by Clang are skipped because CppAst handles frameworks separately.
     /// </remarks>
     /// <returns>
     ///     An ordered sequence of absolute directory paths to add as system include folders.
-    ///     Returns an empty sequence when the Clang toolchain cannot be located.
+    ///     Returns an empty sequence when the host Clang toolchain cannot be located or produces
+    ///     no usable output.
     /// </returns>
-    private static IEnumerable<string> GetMacOsSystemIncludeDirs()
+    private static IEnumerable<string> GetClangSystemIncludeDirs()
     {
-        var clangPath = RunCommand("xcrun", "--find", "clang");
-        if (string.IsNullOrEmpty(clangPath))
+        // On macOS, clang is accessed via xcrun to pick up the active Xcode/CommandLineTools toolchain.
+        var clangExe = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+            ? RunCommand("xcrun", "--find", "clang")
+            : "clang";
+
+        if (string.IsNullOrEmpty(clangExe))
         {
             yield break;
         }
 
-        // C++ stdlib headers must come first so that libc++'s <cstddef> and friends
-        // can locate their own <stddef.h> wrapper before the Clang resource one.
-        // clang binary is at {toolchain}/usr/bin/clang; headers are at {toolchain}/usr/include/c++/v1
-        var usrDir = Path.GetDirectoryName(Path.GetDirectoryName(clangPath));
-        if (usrDir != null)
+        var verbose = RunCommandStderr(clangExe, "-v", "-x", "c++", "-E", "/dev/null");
+        if (string.IsNullOrEmpty(verbose))
         {
-            var cxxInclude = Path.Combine(usrDir, "include", "c++", "v1");
-            if (Directory.Exists(cxxInclude))
-            {
-                yield return cxxInclude;
-            }
+            yield break;
         }
 
-        // Clang resource headers come second — required for compiler builtins (stdarg.h, float.h)
-        // that are not in the system SDK. Without this, any header using <stdarg.h> fails.
-        var resourceDir = RunCommand(clangPath, "-print-resource-dir");
-        if (!string.IsNullOrEmpty(resourceDir))
+        var inList = false;
+        foreach (var line in verbose.Split('\n'))
         {
-            var resourceInclude = Path.Combine(resourceDir, "include");
-            if (Directory.Exists(resourceInclude))
+            var trimmed = line.Trim();
+            if (trimmed == "#include <...> search starts here:")
             {
-                yield return resourceInclude;
+                inList = true;
+                continue;
+            }
+
+            if (trimmed == "End of search list.")
+            {
+                break;
+            }
+
+            if (inList && !trimmed.Contains("(framework directory)") && Directory.Exists(trimmed))
+            {
+                yield return trimmed;
             }
         }
     }
@@ -487,6 +453,49 @@ public sealed class CppGenerator : IApiGenerator
             var output = process.StandardOutput.ReadToEnd().Trim();
             process.WaitForExit();
             return process.ExitCode == 0 && !string.IsNullOrEmpty(output) ? output : null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    ///     Runs an external command and returns its trimmed standard error output, or
+    ///     <see langword="null"/> when the command is not available. Unlike
+    ///     <see cref="RunCommand"/>, a non-zero exit code does not suppress the output because
+    ///     some tools (including <c>clang -v</c>) write useful diagnostic output to stderr
+    ///     while still returning a non-zero code when given a null input file.
+    /// </summary>
+    /// <param name="fileName">The executable to run.</param>
+    /// <param name="arguments">Arguments to pass to the executable.</param>
+    /// <returns>Trimmed stderr on success, or <see langword="null"/> on any failure.</returns>
+    private static string? RunCommandStderr(string fileName, params string[] arguments)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = fileName,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            foreach (var arg in arguments)
+            {
+                psi.ArgumentList.Add(arg);
+            }
+
+            using var process = Process.Start(psi);
+            if (process == null)
+            {
+                return null;
+            }
+
+            var output = process.StandardError.ReadToEnd().Trim();
+            process.WaitForExit();
+            return string.IsNullOrEmpty(output) ? null : output;
         }
         catch (Exception)
         {
