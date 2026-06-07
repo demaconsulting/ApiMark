@@ -9,8 +9,8 @@ systems: ApiMark.Core (shared contracts and file-path helpers), ApiMark.DotNet
 (C#/.NET language generator), ApiMark.Cpp (C++ language generator), ApiMark.MSBuild
 (unified MSBuild task that spawns ApiMark.Tool out-of-process), and ApiMark.Tool (the
 .NET executable invoked by ApiMarkTask and directly by users or CI pipelines). Two OTS
-items provide library reflection: Mono.Cecil for the DotNet system and CppAst.Net for
-the Cpp system.
+items provide library reflection: Mono.Cecil for the DotNet system and clang (via
+`clang -ast-dump=json`) for the Cpp system.
 
 ## Purpose
 
@@ -32,7 +32,7 @@ Local items:
 OTS items:
 
 - **Mono.Cecil**: integration and usage design.
-- **CppAst.Net**: integration and usage design.
+- **clang**: integration and usage design (via `clang -ast-dump=json`).
 
 Out of scope: test projects, build pipeline CI configuration, and the internal design
 of OTS items.
@@ -65,7 +65,7 @@ ApiMarkTool (System)
 
 OTS Dependencies:
 ├── Mono.Cecil (OTS)
-└── CppAst.Net (OTS)
+└── clang -ast-dump=json (OTS)
 ```
 
 ## Folder Layout
@@ -125,11 +125,11 @@ OTS items have integration/usage design documentation parallel to system folders
 - Design: `docs/design/ots/mono-cecil.md`
 - Verification: `docs/verification/ots/mono-cecil.md`
 
-And for CppAst.Net:
+And for clang:
 
-- Requirements: `docs/reqstream/ots/cpp-ast-net.yaml`
-- Design: `docs/design/ots/cpp-ast-net.md`
-- Verification: `docs/verification/ots/cpp-ast-net.md`
+- Requirements: `docs/reqstream/ots/clang.yaml`
+- Design: `docs/design/ots/clang.md`
+- Verification: `docs/verification/ots/clang.md`
 
 Review-sets: defined in `.reviewmark.yaml`
 

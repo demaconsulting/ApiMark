@@ -1,5 +1,9 @@
 ## CppAst.Net
 
+> **Archived**: ApiMarkCpp no longer uses CppAst.Net. The C++ backend was rewritten
+> to invoke `clang -ast-dump=json` directly. This document is retained for historical
+> reference. See `docs/design/ots/clang.md` for the current integration design.
+
 CppAst.Net is a .NET library that wraps libclang (LLVM's C parsing API) to
 provide a full C++ abstract syntax tree from header files without requiring a
 compiler installation beyond libclang itself. In ApiMark, it is used exclusively

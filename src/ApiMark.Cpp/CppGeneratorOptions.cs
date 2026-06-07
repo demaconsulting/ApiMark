@@ -2,8 +2,10 @@ namespace ApiMark.Cpp;
 
 /// <summary>Configuration options for <see cref="CppGenerator"/>.</summary>
 /// <remarks>
-///     All properties must be set before passing this object to the <see cref="CppGenerator"/>
-///     constructor. The object is not copied; do not mutate it after construction.
+///     Configures <see cref="CppGenerator"/>, which generates API documentation from C++
+///     headers using clang. All properties must be set before passing this object to the
+///     <see cref="CppGenerator"/> constructor. The object is not copied; do not mutate it
+///     after construction.
 /// </remarks>
 public sealed class CppGeneratorOptions
 {
@@ -89,4 +91,10 @@ public sealed class CppGeneratorOptions
     ///     <c>[[deprecated]]</c> are included in the output. Defaults to <see langword="false"/>.
     /// </summary>
     public bool IncludeDeprecated { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the path to the clang executable. When null or empty, clang is
+    ///     located automatically (PATH, xcrun on macOS, vswhere on Windows).
+    /// </summary>
+    public string? ClangPath { get; set; }
 }

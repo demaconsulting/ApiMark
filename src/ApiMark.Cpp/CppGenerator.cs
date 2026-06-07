@@ -1,16 +1,16 @@
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using ApiMark.Core;
-using CppAst;
+using ApiMark.Cpp.CppAst;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 
 namespace ApiMark.Cpp;
 
-/// <summary>Generates Markdown API documentation from C++ headers using CppAst.Net.</summary>
+/// <summary>Generates Markdown API documentation from C++ headers using clang.</summary>
 /// <remarks>
-///     Implements <see cref="IApiGenerator"/> for C++ libraries. Parses public header files via
-///     CppAst.Net (libclang), applies a file-provenance ownership filter based on
+///     Implements <see cref="IApiGenerator"/> for C++ libraries. Enumerates public header
+///     files, invokes clang with <c>-ast-dump=json</c> to obtain a fully resolved C++ AST,
+///     applies a file-provenance ownership filter based on
 ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/>, and writes a gradual-disclosure
 ///     Markdown tree through <see cref="IMarkdownWriterFactory"/>. The output structure mirrors
 ///     <c>DotNetGenerator</c>: a library entrypoint, per-namespace summaries, per-type pages,
@@ -73,10 +73,9 @@ public sealed class CppGenerator : IApiGenerator
     ///     Execution steps:
     ///     <list type="number">
     ///       <item>Enumerate candidate header files under each <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry.</item>
-    ///       <item>Build CppAst parser options from all configured paths, defines, and compiler flags.</item>
-    ///       <item>Parse all candidate headers via <see cref="CppParser.ParseFiles"/>.</item>
-    ///       <item>Surface any Clang parse errors as an <see cref="InvalidOperationException"/>.</item>
-    ///       <item>Walk the resulting AST, applying the ownership filter to each declaration.</item>
+    ///       <item>Run clang with <c>-ast-dump=json</c> on all candidate headers via <see cref="ClangAstParser"/>.</item>
+    ///       <item>Log any clang diagnostic errors to standard error.</item>
+    ///       <item>Walk the parsed namespaces, applying the ownership and visibility filters.</item>
     ///       <item>Write the library entrypoint, namespace summaries, type pages, and member detail pages.</item>
     ///     </list>
     /// </remarks>
@@ -89,7 +88,7 @@ public sealed class CppGenerator : IApiGenerator
     ///     Thrown when a path in <see cref="CppGeneratorOptions.PublicIncludeRoots"/> does not exist on disk.
     /// </exception>
     /// <exception cref="InvalidOperationException">
-    ///     Thrown when CppAst reports parse errors in the public headers.
+    ///     Thrown when clang cannot be located or exits with an error and produces no JSON output.
     /// </exception>
     public void Generate(IMarkdownWriterFactory factory)
     {
@@ -98,23 +97,18 @@ public sealed class CppGenerator : IApiGenerator
         // Collect candidate header files from all configured public include roots
         var headerFiles = CollectHeaderFiles();
 
-        // Build CppAst parser options from configured paths, defines, and compiler flags
-        var parserOptions = BuildParserOptions();
+        // Run clang -ast-dump=json on all headers and parse the resulting AST
+        var result = ClangAstParser.Parse(headerFiles, _options);
 
-        // Parse all collected headers in a single CppAst invocation; this resolves cross-header
-        // type references and produces a unified, fully-resolved AST
-        var compilation = CppParser.ParseFiles(headerFiles, parserOptions);
+        // Log any clang diagnostic errors so operators can investigate issues in system headers
+        // without halting generation — clang may report warnings while still producing usable output
+        CheckForErrors(result);
 
-        // Surface any parse errors before attempting to walk the AST, so callers receive a
-        // clear failure rather than silently generating incomplete or incorrect documentation
-        CheckForErrors(compilation);
-
-        // Walk the AST and group owned declarations by their qualified namespace key
+        // Walk parsed namespaces and group owned declarations by their qualified namespace key
         var namespaceDecls = new SortedDictionary<string, NamespaceDeclarations>(StringComparer.Ordinal);
-        CollectGlobalDeclarations(compilation, namespaceDecls);
-        foreach (var ns in compilation.Namespaces)
+        foreach (var ns in result.Namespaces)
         {
-            CollectNamespaceDeclarations(ns, namespaceDecls);
+            CollectResultNamespace(ns, namespaceDecls);
         }
 
         // Write the library entrypoint page listing all discovered namespaces
@@ -190,7 +184,7 @@ public sealed class CppGenerator : IApiGenerator
                 .ToList();
 
             // Apply include/exclude glob patterns when at least one is configured; when
-            // neither is set, all discovered headers are forwarded to CppAst without filtering
+            // neither is set, all discovered headers are forwarded to clang without filtering
             if (_options.IncludePatterns.Count > 0 || _options.ExcludePatterns.Count > 0)
             {
                 // Build a Matcher whose patterns are relative to the root directory
@@ -217,10 +211,10 @@ public sealed class CppGenerator : IApiGenerator
                 }
 
                 // Execute the glob matcher against the root; result.Files contains matched
-                // relative paths which are then converted back to absolute for CppAst
-                var result = matcher.Execute(new DirectoryInfoWrapper(new DirectoryInfo(root)));
+                // relative paths which are then converted back to absolute for clang
+                var matchResult = matcher.Execute(new DirectoryInfoWrapper(new DirectoryInfo(root)));
                 var matchedAbsolute = new HashSet<string>(
-                    result.Files.Select(f => Path.GetFullPath(Path.Combine(root, f.Path))),
+                    matchResult.Files.Select(f => Path.GetFullPath(Path.Combine(root, f.Path))),
                     StringComparer.OrdinalIgnoreCase);
 
                 // Intersect the extension-filtered list with the glob-matched set so that
@@ -245,412 +239,84 @@ public sealed class CppGenerator : IApiGenerator
     }
 
     // =========================================================================
-    // Parser option construction
-    // =========================================================================
-
-    /// <summary>
-    ///     Builds a <see cref="CppParserOptions"/> instance from the configured generator options.
-    /// </summary>
-    /// <returns>
-    ///     A fully configured <see cref="CppParserOptions"/> ready for
-    ///     <see cref="CppParser.ParseFiles"/>.
-    /// </returns>
-    private CppParserOptions BuildParserOptions()
-    {
-        var options = new CppParserOptions();
-
-        // Public include roots are added as -I paths so public headers can find each other
-        foreach (var root in _options.PublicIncludeRoots)
-        {
-            options.IncludeFolders.Add(root);
-        }
-
-        // Additional include directories for third-party or internal headers referenced
-        // by public headers but not part of the documented API
-        foreach (var path in _options.AdditionalIncludePaths)
-        {
-            options.IncludeFolders.Add(path);
-        }
-
-        // System include paths for toolchain and SDK headers; declarations found under
-        // these paths are resolved but never documented
-        foreach (var path in _options.SystemIncludePaths)
-        {
-            options.SystemIncludeFolders.Add(path);
-        }
-
-        // Preprocessor defines — export macros must be defined as empty strings so the
-        // parser sees them as no-ops rather than type annotations
-        foreach (var define in _options.Defines)
-        {
-            options.Defines.Add(define);
-        }
-
-        // Set the C++ language standard; placed before additional arguments so it can
-        // be overridden by an explicit -std flag in AdditionalCompilerArguments
-        options.AdditionalArguments.Add($"-std={_options.CppStandard}");
-
-        // Append escape-hatch arguments last so they can override any earlier option
-        foreach (var arg in _options.AdditionalCompilerArguments)
-        {
-            options.AdditionalArguments.Add(arg);
-        }
-
-        // CppParserOptions defaults TargetSystem to "windows", producing a target triple of
-        // "x86_64-pc-windows-" on every platform. This causes libclang to search Windows
-        // system headers regardless of the actual OS, so <string> and other C++ stdlib
-        // headers are never found on macOS or Linux. Set the correct triple unless the
-        // caller has already supplied an explicit --target= in AdditionalCompilerArguments.
-        if (!_options.AdditionalCompilerArguments.Any(a => a.StartsWith("--target=", StringComparison.Ordinal)))
-        {
-            ConfigurePlatformTarget(options);
-        }
-
-        // On non-Windows platforms the NuGet-bundled libclang does not automatically
-        // locate system headers. Ask the host clang for its full include search list
-        // (via `clang -v`) and add every directory in the exact order clang reports,
-        // which guarantees the correct C++ stdlib → resource → C system header ordering.
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            foreach (var dir in GetClangSystemIncludeDirs())
-            {
-                options.SystemIncludeFolders.Add(dir);
-            }
-        }
-
-        return options;
-    }
-
-    /// <summary>
-    ///     Sets the <see cref="CppParserOptions"/> target triple to match the current runtime
-    ///     platform and architecture, overriding the CppAst default of <c>x86_64-pc-windows-</c>.
-    /// </summary>
-    /// <remarks>
-    ///     CppAst's <c>CppParserOptions</c> defaults <c>TargetSystem</c> to <c>"windows"</c>
-    ///     regardless of the host OS. Without correction, libclang uses Windows header search
-    ///     paths on all platforms and cannot locate C++ standard library headers on macOS or
-    ///     Linux.
-    /// </remarks>
-    /// <param name="options">The parser options to configure in-place.</param>
-    private static void ConfigurePlatformTarget(CppParserOptions options)
-    {
-        options.TargetCpu = RuntimeInformation.OSArchitecture switch
-        {
-            Architecture.X64 => CppTargetCpu.X86_64,
-            Architecture.Arm64 => CppTargetCpu.ARM64,
-            Architecture.X86 => CppTargetCpu.X86,
-            Architecture.Arm => CppTargetCpu.ARM,
-            _ => CppTargetCpu.X86_64
-        };
-        options.TargetCpuSub = string.Empty;
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            options.TargetVendor = "apple";
-            options.TargetSystem = "macos";
-            options.TargetAbi = string.Empty;
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            options.TargetVendor = "unknown";
-            options.TargetSystem = "linux";
-            options.TargetAbi = "gnu";
-        }
-        else
-        {
-            // Windows — preserve the CppAst default values
-            options.TargetVendor = "pc";
-            options.TargetSystem = "windows";
-            options.TargetAbi = string.Empty;
-        }
-    }
-
-    /// <summary>
-    ///     Returns the system include directories that the host Clang toolchain uses for C++
-    ///     header parsing, in the exact order Clang itself searches them.
-    /// </summary>
-    /// <remarks>
-    ///     Runs <c>clang -v -x c++ -E /dev/null</c> and parses the <c>#include &lt;...&gt; search
-    ///     starts here</c> block from stderr. This is the authoritative source of include paths and
-    ///     their ordering — no manual path reconstruction is required. Framework directories reported
-    ///     by Clang are skipped because CppAst handles frameworks separately.
-    /// </remarks>
-    /// <returns>
-    ///     An ordered sequence of absolute directory paths to add as system include folders.
-    ///     Returns an empty sequence when the host Clang toolchain cannot be located or produces
-    ///     no usable output.
-    /// </returns>
-    private static IEnumerable<string> GetClangSystemIncludeDirs()
-    {
-        // On macOS use xcrun as the driver so it automatically selects the active SDK and
-        // sysroot — the reported paths are then fully-qualified and correct for that SDK.
-        // On Linux, invoke clang directly.
-        string? verbose;
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            verbose = RunCommandStderr("xcrun", "clang", "-v", "-x", "c++", "-E", "/dev/null");
-        }
-        else
-        {
-            verbose = RunCommandStderr("clang", "-v", "-x", "c++", "-E", "/dev/null");
-        }
-
-        if (string.IsNullOrEmpty(verbose))
-        {
-            yield break;
-        }
-
-        var inList = false;
-        foreach (var line in verbose.Split('\n'))
-        {
-            var trimmed = line.Trim();
-            if (trimmed == "#include <...> search starts here:")
-            {
-                inList = true;
-                continue;
-            }
-
-            if (trimmed == "End of search list.")
-            {
-                break;
-            }
-
-            // Trust whatever clang reports — do not filter by Directory.Exists because
-            // on macOS paths may contain ".." segments or be SDK-relative in ways that
-            // confuse filesystem checks, even though libclang resolves them correctly.
-            if (inList && !trimmed.Contains("(framework directory)"))
-            {
-                yield return trimmed;
-            }
-        }
-    }
-
-    /// <summary>
-    ///     Runs an external command and returns its trimmed standard error output, or
-    ///     <see langword="null"/> when the command is not available. A non-zero exit code does
-    ///     not suppress the output because some tools (including <c>clang -v</c>) write useful
-    ///     diagnostic output to stderr while still returning a non-zero code when given a null
-    ///     input file.
-    /// </summary>
-    /// <param name="fileName">The executable to run.</param>
-    /// <param name="arguments">Arguments to pass to the executable.</param>
-    /// <returns>Trimmed stderr on success, or <see langword="null"/> on any failure.</returns>
-    private static string? RunCommandStderr(string fileName, params string[] arguments)
-    {
-        try
-        {
-            var psi = new ProcessStartInfo
-            {
-                FileName = fileName,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            foreach (var arg in arguments)
-            {
-                psi.ArgumentList.Add(arg);
-            }
-
-            using var process = Process.Start(psi);
-            if (process == null)
-            {
-                return null;
-            }
-
-            var output = process.StandardError.ReadToEnd().Trim();
-            process.WaitForExit();
-            return string.IsNullOrEmpty(output) ? null : output;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
-
-    // =========================================================================
     // Error checking
     // =========================================================================
 
     /// <summary>
-    ///     Inspects the compilation diagnostics and throws when any parse errors are present.
+    ///     Logs any error messages captured from clang's standard error output to
+    ///     <see cref="Console.Error"/> so operators can investigate diagnostic details.
     /// </summary>
     /// <remarks>
-    ///     Parse errors in public headers mean the generated documentation would be incomplete
-    ///     or incorrect, so they are surfaced immediately rather than silently ignored.
+    ///     clang may emit warnings about system or third-party headers that do not prevent
+    ///     documentation from being generated for the public headers; therefore errors are
+    ///     logged rather than thrown.
     /// </remarks>
-    /// <param name="compilation">The CppAst compilation result to inspect.</param>
-    /// <exception cref="InvalidOperationException">
-    ///     Thrown when one or more parse errors are present in the diagnostics.
-    /// </exception>
-    private static void CheckForErrors(CppCompilation compilation)
+    /// <param name="result">The compilation result whose <see cref="CppCompilationResult.Errors"/> to log.</param>
+    private static void CheckForErrors(CppCompilationResult result)
     {
-        if (!compilation.HasErrors)
+        // Surface each error line on stderr so CI logs capture it without stopping generation
+        foreach (var error in result.Errors)
         {
-            return;
+            Console.Error.WriteLine($"[CppGenerator] clang: {error}");
         }
-
-        // Collect all error messages to produce a comprehensive failure report with context
-        var errors = compilation.Diagnostics.Messages
-            .Where(m => m.Type == CppLogMessageType.Error)
-            .Select(m => m.Text)
-            .ToList();
-
-        throw new InvalidOperationException(
-            $"C++ header parsing failed with {errors.Count} error(s):\n{string.Join("\n", errors)}");
     }
 
     // =========================================================================
-    // AST walking and declaration collection
+    // AST result collection
     // =========================================================================
 
     /// <summary>
-    ///     Collects owned classes and free functions declared in the C++ global (unnamed) namespace
-    ///     directly on the compilation object.
+    ///     Maps a parsed <see cref="CppNamespaceDecl"/> into the generator's internal
+    ///     <see cref="NamespaceDeclarations"/> accumulator, applying the configured
+    ///     visibility and deprecated filters.
     /// </summary>
-    /// <param name="compilation">The compilation whose top-level declarations to inspect.</param>
+    /// <param name="ns">The namespace declaration to process.</param>
     /// <param name="result">Dictionary that accumulates declarations grouped by namespace key.</param>
-    private void CollectGlobalDeclarations(
-        CppCompilation compilation,
+    private void CollectResultNamespace(
+        CppNamespaceDecl ns,
         SortedDictionary<string, NamespaceDeclarations> result)
     {
-        // Global-namespace classes — owned when their source file falls under a public include root
-        foreach (var cls in compilation.Classes)
-        {
-            if (!IsOwned(cls.SourceFile))
-            {
-                continue;
-            }
+        // Derive the file-path-compatible key (:: → .) and the display name
+        var qualName = ns.QualifiedName;
+        var nsKey = string.IsNullOrEmpty(qualName)
+            ? GlobalNamespaceKey
+            : qualName.Replace("::", ".", StringComparison.Ordinal);
+        var displayName = string.IsNullOrEmpty(qualName) ? GlobalNamespaceKey : qualName;
 
-            // Skip deprecated classes unless the caller has opted into seeing them
-            if (!_options.IncludeDeprecated && IsDeprecated(cls))
-            {
-                continue;
-            }
-
-            EnsureNamespace(result, GlobalNamespaceKey, GlobalNamespaceKey);
-            result[GlobalNamespaceKey].Classes.Add(cls);
-        }
-
-        // Global-namespace free functions — owned when their source file falls under a root
-        foreach (var fn in compilation.Functions)
-        {
-            if (!IsOwned(fn.SourceFile))
-            {
-                continue;
-            }
-
-            // Skip deprecated free functions unless the caller has opted into seeing them
-            if (!_options.IncludeDeprecated && IsDeprecated(fn))
-            {
-                continue;
-            }
-
-            EnsureNamespace(result, GlobalNamespaceKey, GlobalNamespaceKey);
-            result[GlobalNamespaceKey].FreeFunctions.Add(fn);
-        }
-
-        // Global-namespace enums — owned when their source file falls under a root
-        foreach (var en in compilation.Enums)
-        {
-            if (!IsOwned(en.SourceFile))
-            {
-                continue;
-            }
-
-            // Skip deprecated enums unless the caller has opted into seeing them
-            if (!_options.IncludeDeprecated && IsDeprecated(en))
-            {
-                continue;
-            }
-
-            EnsureNamespace(result, GlobalNamespaceKey, GlobalNamespaceKey);
-            result[GlobalNamespaceKey].Enums.Add(en);
-        }
-    }
-
-    /// <summary>
-    ///     Recursively collects owned classes and free functions from a namespace and all its
-    ///     nested child namespaces.
-    /// </summary>
-    /// <param name="ns">The namespace to inspect.</param>
-    /// <param name="result">Dictionary that accumulates declarations grouped by namespace key.</param>
-    private void CollectNamespaceDeclarations(
-        CppNamespace ns,
-        SortedDictionary<string, NamespaceDeclarations> result)
-    {
-        // Build the fully-qualified C++ namespace name from the parent name and this namespace's
-        // short name, then derive the file-path-compatible key by replacing '::' with '.'
-        var qualifiedName = GetNamespaceName(ns);
-        var nsKey = qualifiedName.Replace("::", ".", StringComparison.Ordinal);
-
-        // Collect owned classes declared directly in this namespace
+        // Collect owned classes, applying the deprecated filter
         foreach (var cls in ns.Classes)
         {
-            if (!IsOwned(cls.SourceFile))
+            if (!_options.IncludeDeprecated && cls.IsDeprecated)
             {
                 continue;
             }
 
-            // Skip deprecated classes unless the caller has opted into seeing them
-            if (!_options.IncludeDeprecated && IsDeprecated(cls))
-            {
-                continue;
-            }
-
-            EnsureNamespace(result, nsKey, qualifiedName);
+            EnsureNamespace(result, nsKey, displayName, ns.Doc);
             result[nsKey].Classes.Add(cls);
         }
 
-        // Collect owned free functions declared directly in this namespace
-        foreach (var fn in ns.Functions)
+        // Collect owned free functions, applying the deprecated filter
+        foreach (var fn in ns.FreeFunctions)
         {
-            if (!IsOwned(fn.SourceFile))
+            if (!_options.IncludeDeprecated && fn.IsDeprecated)
             {
                 continue;
             }
 
-            // Skip deprecated free functions unless the caller has opted into seeing them
-            if (!_options.IncludeDeprecated && IsDeprecated(fn))
-            {
-                continue;
-            }
-
-            EnsureNamespace(result, nsKey, qualifiedName);
+            EnsureNamespace(result, nsKey, displayName, ns.Doc);
             result[nsKey].FreeFunctions.Add(fn);
         }
 
-        // Collect owned enums declared directly in this namespace
+        // Collect owned enums, applying the deprecated filter
         foreach (var en in ns.Enums)
         {
-            if (!IsOwned(en.SourceFile))
+            if (!_options.IncludeDeprecated && en.IsDeprecated)
             {
                 continue;
             }
 
-            // Skip deprecated enums unless the caller has opted into seeing them
-            if (!_options.IncludeDeprecated && IsDeprecated(en))
-            {
-                continue;
-            }
-
-            EnsureNamespace(result, nsKey, qualifiedName);
+            EnsureNamespace(result, nsKey, displayName, ns.Doc);
             result[nsKey].Enums.Add(en);
-        }
-
-        // Recurse into nested namespaces so deeply-nested declarations are captured
-        foreach (var nested in ns.Namespaces)
-        {
-            CollectNamespaceDeclarations(nested, result);
-        }
-
-        // Register this namespace object in the entry so its doc comment is available
-        // for GetNamespaceDescription; deduplication guard handles namespaces that span
-        // multiple translation units, where the same qualified name may be visited more
-        // than once with distinct CppNamespace objects
-        if (result.TryGetValue(nsKey, out var nsEntry) && !nsEntry.Namespaces.Contains(ns))
-        {
-            nsEntry.Namespaces.Add(ns);
         }
     }
 
@@ -661,37 +327,17 @@ public sealed class CppGenerator : IApiGenerator
     /// <param name="result">The dictionary to update in-place.</param>
     /// <param name="key">The file-path-compatible namespace key.</param>
     /// <param name="displayName">The C++ qualified namespace name used as the Markdown page heading.</param>
+    /// <param name="doc">Optional doc comment from the namespace declaration.</param>
     private static void EnsureNamespace(
         SortedDictionary<string, NamespaceDeclarations> result,
         string key,
-        string displayName)
+        string displayName,
+        CppDocComment? doc = null)
     {
         if (!result.ContainsKey(key))
         {
-            result[key] = new NamespaceDeclarations(displayName);
+            result[key] = new NamespaceDeclarations(displayName, doc);
         }
-    }
-
-    /// <summary>
-    ///     Returns the fully-qualified C++ name of a namespace by combining its parent name
-    ///     and short name with the <c>::</c> separator.
-    /// </summary>
-    /// <remarks>
-    ///     <see cref="CppNamespace"/> exposes only its short <c>Name</c> and the
-    ///     <c>FullParentName</c> of its enclosing scope. This helper reassembles the
-    ///     fully-qualified name that is needed for display and dictionary keys.
-    /// </remarks>
-    /// <param name="ns">The namespace whose qualified name to compute.</param>
-    /// <returns>
-    ///     The fully-qualified namespace name (e.g. <c>mylib::rendering</c>).
-    ///     Returns only <see cref="CppNamespace.Name"/> when <c>FullParentName</c> is empty
-    ///     (i.e., the namespace is at global scope).
-    /// </returns>
-    private static string GetNamespaceName(CppNamespace ns)
-    {
-        return string.IsNullOrEmpty(ns.FullParentName)
-            ? ns.Name
-            : $"{ns.FullParentName}::{ns.Name}";
     }
 
     // =========================================================================
@@ -712,39 +358,6 @@ public sealed class CppGenerator : IApiGenerator
         RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
             ? StringComparison.Ordinal
             : StringComparison.OrdinalIgnoreCase;
-
-    /// <summary>
-    ///     Determines whether a source file falls under one of the configured
-    ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> and therefore belongs to the
-    ///     documented public API.
-    /// </summary>
-    /// <param name="sourceFile">
-    ///     The source file path from a CppAst declaration span. May be null or empty for
-    ///     built-in or synthesized declarations — those are never considered owned.
-    /// </param>
-    /// <returns>
-    ///     <see langword="true"/> when the file is under a configured include root;
-    ///     <see langword="false"/> otherwise.
-    /// </returns>
-    private bool IsOwned(string? sourceFile)
-    {
-        if (string.IsNullOrEmpty(sourceFile))
-        {
-            return false;
-        }
-
-        // Normalize the source path before comparing to avoid false mismatches caused by
-        // mixed separators, relative path segments, or symlinks
-        var normalized = Path.GetFullPath(sourceFile);
-
-        return _options.PublicIncludeRoots.Any(root =>
-        {
-            // Append a directory separator to the root so "lib" does not match "libext"
-            var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, '/') +
-                                 Path.DirectorySeparatorChar;
-            return normalized.StartsWith(normalizedRoot, FileSystemPathComparison);
-        });
-    }
 
     /// <summary>
     ///     Derives the canonical <c>#include</c> path for a declaration from its source file,
@@ -812,8 +425,8 @@ public sealed class CppGenerator : IApiGenerator
             return;
         }
 
-        // All-namespaces table — lists every namespace so AI agents get a complete map in one
-        // read; Declarations count reflects only declarations directly in each namespace
+        // All-namespaces table — lists every namespace so AI agents get a complete map in one read.
+        // Declarations count reflects only declarations directly in each namespace
         var headers = new[] { "Namespace", "Declarations", DescriptionColumnHeader };
         var rows = namespaces.Select(kv =>
         {
@@ -863,7 +476,7 @@ public sealed class CppGenerator : IApiGenerator
                 .OrderBy(c => c.Name, StringComparer.Ordinal)
                 .Select(cls =>
                 {
-                    var summary = GetSummary(cls) ?? NoDescriptionPlaceholder;
+                    var summary = GetSummary(cls.Doc) ?? NoDescriptionPlaceholder;
                     return new[] { $"[{cls.Name}]({nsKey}/{cls.Name}.md)", summary };
                 });
             writer.WriteTable(typeHeaders, typeRows);
@@ -878,7 +491,7 @@ public sealed class CppGenerator : IApiGenerator
                 .OrderBy(e => e.Name, StringComparer.Ordinal)
                 .Select(en =>
                 {
-                    var summary = GetSummary(en) ?? NoDescriptionPlaceholder;
+                    var summary = GetSummary(en.Doc) ?? NoDescriptionPlaceholder;
                     return new[] { $"[{en.Name}]({nsKey}/{en.Name}.md)", summary };
                 });
             writer.WriteTable(enumHeaders, enumRows);
@@ -893,8 +506,8 @@ public sealed class CppGenerator : IApiGenerator
                 .OrderBy(f => f.Name, StringComparer.Ordinal)
                 .Select(fn =>
                 {
-                    var summary = GetSummary(fn) ?? NoDescriptionPlaceholder;
-                    var returnType = SimplifyTypeName(fn.ReturnType.GetDisplayName());
+                    var summary = GetSummary(fn.Doc) ?? NoDescriptionPlaceholder;
+                    var returnType = SimplifyTypeName(fn.ReturnTypeName);
                     return new[] { $"[{fn.Name}]({nsKey}/{fn.Name}.md)", returnType, summary };
                 });
             writer.WriteTable(fnHeaders, fnRows);
@@ -937,7 +550,7 @@ public sealed class CppGenerator : IApiGenerator
 
         // Emit the qualified name comment, optional template declaration, and #include directive
         // so readers have everything needed to use the type without browsing the header tree
-        var sourceFile = cls.SourceFile;
+        var sourceFile = cls.Location?.File;
         if (!string.IsNullOrEmpty(sourceFile))
         {
             var includePath = GetIncludePath(sourceFile);
@@ -956,11 +569,11 @@ public sealed class CppGenerator : IApiGenerator
         }
 
         // Emit summary from doc comment, or placeholder when no comment is present
-        var typeSummary = GetSummary(cls);
+        var typeSummary = GetSummary(cls.Doc);
         writer.WriteParagraph(!string.IsNullOrEmpty(typeSummary) ? typeSummary : NoDescriptionPlaceholder);
 
         // Emit extended details when the doc comment contains a @details or @remarks block
-        var typeDetails = GetDetails(cls);
+        var typeDetails = GetDetails(cls.Doc);
         if (!string.IsNullOrEmpty(typeDetails))
         {
             writer.WriteParagraph(typeDetails);
@@ -970,7 +583,7 @@ public sealed class CppGenerator : IApiGenerator
         if (cls.BaseTypes.Count > 0)
         {
             var baseNames = cls.BaseTypes
-                .Select(bt => SimplifyTypeName(bt.Type.GetDisplayName()))
+                .Select(bt => SimplifyTypeName(bt.Name))
                 .Where(n => !string.IsNullOrEmpty(n))
                 .ToList();
             if (baseNames.Count > 0)
@@ -992,14 +605,14 @@ public sealed class CppGenerator : IApiGenerator
         // Build a flat list of all visible members for case-insensitive collision detection.
         // Constructors, methods, and fields are merged so that cross-kind name collisions
         // (e.g. method Name() and field name) are detected as a single group.
-        var allMembers = new List<CppElement>(
-            visibleCtors.Cast<CppElement>()
-                .Concat(visibleMethods)
-                .Concat(visibleFields.Cast<CppElement>()));
+        var allMembers = new List<object>(
+            visibleCtors.Cast<object>()
+                .Concat(visibleMethods.Cast<object>())
+                .Concat(visibleFields.Cast<object>()));
 
         // Case-insensitive map: lowercase member name → list of members sharing that lowercase name.
         // Members sharing a key are combined onto a single page named after the lowercase key.
-        var caseInsensitiveGroups = new Dictionary<string, List<CppElement>>(StringComparer.Ordinal);
+        var caseInsensitiveGroups = new Dictionary<string, List<object>>(StringComparer.Ordinal);
         foreach (var member in allMembers)
         {
             var baseName = GetMemberBaseName(member, cls.Name);
@@ -1032,13 +645,13 @@ public sealed class CppGenerator : IApiGenerator
             // When the lowercase key is unique, the page uses the original member name;
             // when there is a collision, the page uses the lowercase key so it is stable
             var pageFileName = group.Count == 1 ? baseName : lowerKey;
-            var ctorSummary = GetSummary(ctor) ?? NoDescriptionPlaceholder;
+            var ctorSummary = GetSummary(ctor.Doc) ?? NoDescriptionPlaceholder;
 
             // Show simplified parameter types in the link text so readers can
             // distinguish overloaded constructors at a glance
             var paramTypes = string.Join(
                 ", ",
-                ctor.Parameters.Select(p => SimplifyTypeName(p.Type.GetDisplayName())));
+                ctor.Parameters.Select(p => SimplifyTypeName(p.TypeName)));
 
             if (writtenKeys.Add(lowerKey))
             {
@@ -1062,8 +675,8 @@ public sealed class CppGenerator : IApiGenerator
             var lowerKey = baseName.ToLowerInvariant();
             var group = caseInsensitiveGroups[lowerKey];
             var pageFileName = group.Count == 1 ? baseName : lowerKey;
-            var methodSummary = GetSummary(method) ?? NoDescriptionPlaceholder;
-            var returnType = SimplifyTypeName(method.ReturnType.GetDisplayName());
+            var methodSummary = GetSummary(method.Doc) ?? NoDescriptionPlaceholder;
+            var returnType = SimplifyTypeName(method.ReturnTypeName);
 
             if (writtenKeys.Add(lowerKey))
             {
@@ -1081,7 +694,7 @@ public sealed class CppGenerator : IApiGenerator
             // distinguish overloaded methods at a glance
             var methodParamTypes = string.Join(
                 ", ",
-                method.Parameters.Select(p => SimplifyTypeName(p.Type.GetDisplayName())));
+                method.Parameters.Select(p => SimplifyTypeName(p.TypeName)));
             methodRows.Add(new[] { $"[{method.Name}({methodParamTypes})]({cls.Name}/{pageFileName}.md)", returnType, methodSummary });
         }
 
@@ -1092,8 +705,8 @@ public sealed class CppGenerator : IApiGenerator
             var lowerKey = baseName.ToLowerInvariant();
             var group = caseInsensitiveGroups[lowerKey];
             var pageFileName = group.Count == 1 ? baseName : lowerKey;
-            var fieldSummary = GetSummary(field) ?? NoDescriptionPlaceholder;
-            var typeName = SimplifyTypeName(field.Type.GetDisplayName());
+            var fieldSummary = GetSummary(field.Doc) ?? NoDescriptionPlaceholder;
+            var typeName = SimplifyTypeName(field.TypeName);
 
             if (writtenKeys.Add(lowerKey))
             {
@@ -1163,9 +776,9 @@ public sealed class CppGenerator : IApiGenerator
             ? fn.Name
             : $"{nsDisplayName}::{fn.Name}";
         var signature = BuildMethodSignature(fn);
-        if (!string.IsNullOrEmpty(fn.SourceFile))
+        if (fn.Location != null)
         {
-            var includePath = GetIncludePath(fn.SourceFile);
+            var includePath = GetIncludePath(fn.Location.File);
             writer.WriteSignature("cpp", $"// {qualifiedName}\n#include <{includePath}>\n{signature}");
         }
         else
@@ -1174,11 +787,11 @@ public sealed class CppGenerator : IApiGenerator
         }
 
         // Emit summary from doc comment or placeholder when no comment is present
-        var summary = GetSummary(fn);
+        var summary = GetSummary(fn.Doc);
         writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : NoDescriptionPlaceholder);
 
         // Emit extended details when the doc comment contains a @details or @remarks block
-        var details = GetDetails(fn);
+        var details = GetDetails(fn.Doc);
         if (!string.IsNullOrEmpty(details))
         {
             writer.WriteParagraph(details);
@@ -1190,16 +803,16 @@ public sealed class CppGenerator : IApiGenerator
             writer.WriteHeading(4, "Parameters");
             var paramHeaders = new[] { "Parameter", "Type", DescriptionColumnHeader };
             var paramRows = fn.Parameters.Select(p =>
-                new[] { p.Name, SimplifyTypeName(p.Type.GetDisplayName()), GetParamDescription(fn, p.Name) ?? string.Empty });
+                new[] { p.Name, SimplifyTypeName(p.TypeName), GetParamDescription(fn.Doc, p.Name) ?? string.Empty });
             writer.WriteTable(paramHeaders, paramRows);
         }
 
         // Emit return description when the function is not void
-        var returnTypeName = SimplifyTypeName(fn.ReturnType.GetDisplayName());
+        var returnTypeName = SimplifyTypeName(fn.ReturnTypeName);
         if (!string.Equals(returnTypeName, "void", StringComparison.Ordinal))
         {
             writer.WriteHeading(4, "Returns");
-            var returnDescription = GetReturnDescription(fn);
+            var returnDescription = GetReturnDescription(fn.Doc);
             writer.WriteParagraph(!string.IsNullOrEmpty(returnDescription) ? returnDescription : returnTypeName);
         }
     }
@@ -1224,7 +837,7 @@ public sealed class CppGenerator : IApiGenerator
         string nsKey,
         string nsDisplayName,
         CppClass cls,
-        CppElement member,
+        object member,
         string fileName)
     {
         using var memberWriter = factory.CreateMarkdown($"{nsKey}/{cls.Name}", fileName);
@@ -1294,11 +907,11 @@ public sealed class CppGenerator : IApiGenerator
         writer.WriteSignature("cpp", $"// {qualifiedName}\n{signature}");
 
         // Emit summary from doc comment or placeholder
-        var summary = GetSummary(method);
+        var summary = GetSummary(method.Doc);
         writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : NoDescriptionPlaceholder);
 
         // Emit extended details when the doc comment contains a @details or @remarks block
-        var details = GetDetails(method);
+        var details = GetDetails(method.Doc);
         if (!string.IsNullOrEmpty(details))
         {
             writer.WriteParagraph(details);
@@ -1310,7 +923,7 @@ public sealed class CppGenerator : IApiGenerator
             writer.WriteHeading(4, "Parameters");
             var paramHeaders = new[] { "Parameter", "Type", DescriptionColumnHeader };
             var paramRows = method.Parameters.Select(p =>
-                new[] { p.Name, SimplifyTypeName(p.Type.GetDisplayName()), GetParamDescription(method, p.Name) ?? string.Empty });
+                new[] { p.Name, SimplifyTypeName(p.TypeName), GetParamDescription(method.Doc, p.Name) ?? string.Empty });
             writer.WriteTable(paramHeaders, paramRows);
         }
 
@@ -1318,11 +931,11 @@ public sealed class CppGenerator : IApiGenerator
         // constructors have no return type so the return section would be meaningless
         if (!method.IsConstructor)
         {
-            var returnTypeName = SimplifyTypeName(method.ReturnType.GetDisplayName());
+            var returnTypeName = SimplifyTypeName(method.ReturnTypeName);
             if (!string.Equals(returnTypeName, "void", StringComparison.Ordinal))
             {
                 writer.WriteHeading(4, "Returns");
-                var returnDescription = GetReturnDescription(method);
+                var returnDescription = GetReturnDescription(method.Doc);
                 writer.WriteParagraph(!string.IsNullOrEmpty(returnDescription) ? returnDescription : returnTypeName);
             }
         }
@@ -1377,15 +990,15 @@ public sealed class CppGenerator : IApiGenerator
         var qualifiedName = string.IsNullOrEmpty(nsDisplayName)
             ? $"{className}::{field.Name}"
             : $"{nsDisplayName}::{className}::{field.Name}";
-        var signature = $"{SimplifyTypeName(field.Type.GetDisplayName())} {field.Name};";
+        var signature = $"{SimplifyTypeName(field.TypeName)} {field.Name};";
         writer.WriteSignature("cpp", $"// {qualifiedName}\n{signature}");
 
         // Emit summary from doc comment or placeholder
-        var summary = GetSummary(field);
+        var summary = GetSummary(field.Doc);
         writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : NoDescriptionPlaceholder);
 
         // Emit extended details when the doc comment contains a @details or @remarks block
-        var details = GetDetails(field);
+        var details = GetDetails(field.Doc);
         if (!string.IsNullOrEmpty(details))
         {
             writer.WriteParagraph(details);
@@ -1417,9 +1030,9 @@ public sealed class CppGenerator : IApiGenerator
         var qualifiedName = string.IsNullOrEmpty(nsDisplayName)
             ? cppEnum.Name
             : $"{nsDisplayName}::{cppEnum.Name}";
-        if (!string.IsNullOrEmpty(cppEnum.SourceFile))
+        if (cppEnum.Location != null)
         {
-            var includePath = GetIncludePath(cppEnum.SourceFile);
+            var includePath = GetIncludePath(cppEnum.Location.File);
             writer.WriteSignature("cpp", $"// {qualifiedName}\n#include <{includePath}>");
         }
         else
@@ -1428,24 +1041,24 @@ public sealed class CppGenerator : IApiGenerator
         }
 
         // Emit summary from doc comment or placeholder
-        var enumSummary = GetSummary(cppEnum);
+        var enumSummary = GetSummary(cppEnum.Doc);
         writer.WriteParagraph(!string.IsNullOrEmpty(enumSummary) ? enumSummary : NoDescriptionPlaceholder);
 
         // Emit extended details when the doc comment contains a @details or @remarks block
-        var enumDetails = GetDetails(cppEnum);
+        var enumDetails = GetDetails(cppEnum.Doc);
         if (!string.IsNullOrEmpty(enumDetails))
         {
             writer.WriteParagraph(enumDetails);
         }
 
         // Emit a values table so readers can see all valid values and their meanings
-        if (cppEnum.Items.Count > 0)
+        if (cppEnum.Values.Count > 0)
         {
             writer.WriteHeading(3, "Values");
             var headers = new[] { "Value", DescriptionColumnHeader };
-            var rows = cppEnum.Items.Select(item =>
+            var rows = cppEnum.Values.Select(item =>
             {
-                var itemSummary = GetSummary(item) ?? NoDescriptionPlaceholder;
+                var itemSummary = GetSummary(item.Doc) ?? NoDescriptionPlaceholder;
                 return new[] { item.Name, itemSummary };
             });
             writer.WriteTable(headers, rows);
@@ -1464,9 +1077,9 @@ public sealed class CppGenerator : IApiGenerator
     /// <returns>Constructors that pass both the visibility and deprecated filters.</returns>
     private IEnumerable<CppFunction> GetVisibleConstructors(CppClass cls)
     {
-        return cls.Constructors
-            .Where(c => IsVisibleMember(c.Visibility))
-            .Where(c => _options.IncludeDeprecated || !IsDeprecated(c));
+        return cls.Members
+            .Where(c => c.IsConstructor && IsVisibleMember(c.Accessibility))
+            .Where(c => _options.IncludeDeprecated || !c.IsDeprecated);
     }
 
     /// <summary>
@@ -1477,9 +1090,9 @@ public sealed class CppGenerator : IApiGenerator
     /// <returns>Methods that pass both the visibility and deprecated filters.</returns>
     private IEnumerable<CppFunction> GetVisibleMethods(CppClass cls)
     {
-        return cls.Functions
-            .Where(m => IsVisibleMember(m.Visibility))
-            .Where(m => _options.IncludeDeprecated || !IsDeprecated(m));
+        return cls.Members
+            .Where(m => !m.IsConstructor && IsVisibleMember(m.Accessibility))
+            .Where(m => _options.IncludeDeprecated || !m.IsDeprecated);
     }
 
     /// <summary>
@@ -1491,57 +1104,27 @@ public sealed class CppGenerator : IApiGenerator
     private IEnumerable<CppField> GetVisibleFields(CppClass cls)
     {
         return cls.Fields
-            .Where(f => IsVisibleMember(f.Visibility))
-            .Where(f => _options.IncludeDeprecated || !IsDeprecated(f));
+            .Where(f => IsVisibleMember(f.Accessibility))
+            .Where(f => _options.IncludeDeprecated || !f.IsDeprecated);
     }
 
     /// <summary>
-    ///     Determines whether a class member with the given visibility should appear in the
+    ///     Determines whether a class member with the given accessibility should appear in the
     ///     generated output based on <see cref="CppGeneratorOptions.Visibility"/>.
     /// </summary>
-    /// <param name="visibility">The CppAst visibility of the member access specifier.</param>
+    /// <param name="accessibility">The accessibility of the member.</param>
     /// <returns><see langword="true"/> when the member should be included.</returns>
-    private bool IsVisibleMember(CppVisibility visibility)
+    private bool IsVisibleMember(CppAccessibility accessibility)
     {
         return _options.Visibility switch
         {
-            ApiVisibility.Public => visibility == CppVisibility.Public,
-            ApiVisibility.PublicAndProtected => visibility is CppVisibility.Public or CppVisibility.Protected,
+            ApiVisibility.Public => accessibility == CppAccessibility.Public,
+            ApiVisibility.PublicAndProtected => accessibility is CppAccessibility.Public or CppAccessibility.Protected,
             ApiVisibility.All => true,
 
             // Default to public-only for any unrecognized future enum value
-            _ => visibility == CppVisibility.Public,
+            _ => accessibility == CppAccessibility.Public,
         };
-    }
-
-    /// <summary>
-    ///     Determines whether a declaration carries a <c>[[deprecated]]</c> attribute.
-    /// </summary>
-    /// <remarks>
-    ///     CppAst exposes <c>Attributes</c> on concrete declaration types (<see cref="CppFunction"/>,
-    ///     <see cref="CppField"/>, <see cref="CppClass"/>) rather than on the shared base class, so
-    ///     this method uses pattern matching to obtain the attribute list.
-    /// </remarks>
-    /// <param name="element">The CppAst element to inspect.</param>
-    /// <returns>
-    ///     <see langword="true"/> when the element has a <c>deprecated</c> attribute;
-    ///     <see langword="false"/> otherwise.
-    /// </returns>
-    private static bool IsDeprecated(CppElement element)
-    {
-        // Obtain the attribute list from the concrete type; CppDeclaration does not expose it
-        List<CppAttribute>? attributes = element switch
-        {
-            CppFunction fn => fn.Attributes,
-            CppField field => field.Attributes,
-            CppClass cls => cls.Attributes,
-            CppEnum en => en.Attributes,
-            _ => null,
-        };
-
-        // Match [[deprecated]] and compiler-specific deprecated spellings
-        return attributes?.Any(a =>
-            string.Equals(a.Name, "deprecated", StringComparison.OrdinalIgnoreCase)) ?? false;
     }
 
     // =========================================================================
@@ -1549,161 +1132,48 @@ public sealed class CppGenerator : IApiGenerator
     // =========================================================================
 
     /// <summary>
-    ///     Extracts the brief summary text from a CppAst element's Doxygen comment.
+    ///     Returns the brief summary text from a <see cref="CppDocComment"/>.
     /// </summary>
-    /// <remarks>
-    ///     Prefers the <c>@brief</c> block command when present; falls back to the first
-    ///     plain paragraph. Returns a single normalized line — newlines within the brief
-    ///     block are collapsed to spaces. Returns <see langword="null"/> when the element
-    ///     has no doc comment.
-    /// </remarks>
-    /// <param name="element">The element whose comment to extract.</param>
-    /// <returns>The trimmed single-line summary, or <see langword="null"/> when none is present.</returns>
-    private static string? GetSummary(CppElement element)
-    {
-        var comment = (element as ICppDeclaration)?.Comment;
-        if (comment == null)
-        {
-            return null;
-        }
-
-        // Prefer @brief command; fall back to first plain paragraph
-        var briefBlock = comment.Children?
-            .OfType<CppCommentBlockCommand>()
-            .FirstOrDefault(c => string.Equals(c.CommandName, "brief", StringComparison.OrdinalIgnoreCase));
-        if (briefBlock != null)
-        {
-            var text = briefBlock.ChildrenToString().Trim();
-            return string.IsNullOrEmpty(text) ? null : NormalizeSingleLine(text);
-        }
-
-        var para = comment.Children?.OfType<CppCommentParagraph>().FirstOrDefault();
-        if (para != null)
-        {
-            var text = para.ChildrenToString().Trim();
-            return string.IsNullOrEmpty(text) ? null : NormalizeSingleLine(text);
-        }
-
-        return null;
-    }
+    /// <param name="doc">The doc comment to inspect. May be null.</param>
+    /// <returns>The summary string, or <see langword="null"/> when <paramref name="doc"/> is null.</returns>
+    private static string? GetSummary(CppDocComment? doc) => doc?.Summary;
 
     /// <summary>
-    ///     Extracts the extended details text from a CppAst element's <c>@details</c> or
-    ///     <c>@remarks</c> Doxygen command.
+    ///     Returns the extended details text from a <see cref="CppDocComment"/>.
     /// </summary>
-    /// <remarks>
-    ///     Unlike <see cref="GetSummary"/>, the details text is returned as-is (trimmed but
-    ///     not collapsed to a single line) so that intentional multi-line content is preserved.
-    /// </remarks>
-    /// <param name="element">The element whose comment to extract.</param>
-    /// <returns>The trimmed details text, or <see langword="null"/> when none is present.</returns>
-    private static string? GetDetails(CppElement element)
-    {
-        var comment = (element as ICppDeclaration)?.Comment;
-        var detailsBlock = comment?.Children?
-            .OfType<CppCommentBlockCommand>()
-            .FirstOrDefault(c =>
-                string.Equals(c.CommandName, "details", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(c.CommandName, "remarks", StringComparison.OrdinalIgnoreCase));
-        if (detailsBlock == null)
-        {
-            return null;
-        }
-
-        var text = detailsBlock.ChildrenToString().Trim();
-        return string.IsNullOrEmpty(text) ? null : text;
-    }
+    /// <param name="doc">The doc comment to inspect. May be null.</param>
+    /// <returns>The details string, or <see langword="null"/> when absent.</returns>
+    private static string? GetDetails(CppDocComment? doc) => doc?.Details;
 
     /// <summary>
-    ///     Extracts the description for a named parameter from a Doxygen <c>@param</c> command.
+    ///     Looks up the description for a named parameter in a <see cref="CppDocComment"/>.
     /// </summary>
-    /// <param name="element">The function or method whose comment to inspect.</param>
+    /// <param name="doc">The doc comment containing the <c>@param</c> entries. May be null.</param>
     /// <param name="paramName">The exact parameter name to look up.</param>
-    /// <returns>The trimmed single-line description, or <see langword="null"/> when no matching <c>@param</c> exists.</returns>
-    private static string? GetParamDescription(CppElement element, string paramName)
+    /// <returns>The trimmed description, or <see langword="null"/> when no matching entry exists.</returns>
+    private static string? GetParamDescription(CppDocComment? doc, string paramName)
     {
-        var comment = (element as ICppDeclaration)?.Comment;
-        var paramCmd = comment?.Children?
-            .OfType<CppCommentParamCommand>()
-            .FirstOrDefault(c => string.Equals(c.ParamName, paramName, StringComparison.Ordinal));
-        if (paramCmd == null)
-        {
-            return null;
-        }
-
-        var text = paramCmd.ChildrenToString().Trim();
-        return string.IsNullOrEmpty(text) ? null : NormalizeSingleLine(text);
+        return doc?.Params
+            .FirstOrDefault(p => string.Equals(p.Name, paramName, StringComparison.Ordinal))
+            ?.Description;
     }
 
     /// <summary>
-    ///     Extracts the return description from a Doxygen <c>@return</c> or <c>@returns</c> command.
+    ///     Returns the return description from a <see cref="CppDocComment"/>.
     /// </summary>
-    /// <param name="element">The function or method whose comment to inspect.</param>
-    /// <returns>The trimmed single-line return description, or <see langword="null"/> when none is present.</returns>
-    private static string? GetReturnDescription(CppElement element)
-    {
-        var comment = (element as ICppDeclaration)?.Comment;
-        var returnCmd = comment?.Children?
-            .OfType<CppCommentBlockCommand>()
-            .FirstOrDefault(c =>
-                string.Equals(c.CommandName, "return", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(c.CommandName, "returns", StringComparison.OrdinalIgnoreCase));
-        if (returnCmd == null)
-        {
-            return null;
-        }
-
-        var text = returnCmd.ChildrenToString().Trim();
-        return string.IsNullOrEmpty(text) ? null : NormalizeSingleLine(text);
-    }
+    /// <param name="doc">The doc comment to inspect. May be null.</param>
+    /// <returns>The return description, or <see langword="null"/> when absent.</returns>
+    private static string? GetReturnDescription(CppDocComment? doc) => doc?.Returns;
 
     /// <summary>
-    ///     Collapses a multi-line string into a single space-separated line.
+    ///     Derives a one-line description for a namespace from its doc comment, used as the
+    ///     description in <c>api.md</c>.
     /// </summary>
-    /// <param name="text">The text to normalize.</param>
-    /// <returns>A single-line string with internal whitespace runs collapsed to a single space.</returns>
-    private static string NormalizeSingleLine(string text)
-    {
-        return string.Join(
-            " ",
-            text.Split(['\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => s.Trim())
-                .Where(s => !string.IsNullOrEmpty(s)));
-    }
-
-    /// <summary>
-    ///     Simplifies a C++ type display name by replacing verbose internal STL names
-    ///     with their idiomatic user-facing spellings.
-    /// </summary>
-    /// <param name="typeName">The raw display name from <c>CppType.GetDisplayName()</c>.</param>
-    /// <returns>A more readable type name string.</returns>
-    private static string SimplifyTypeName(string typeName)
-    {
-        // std::string is a typedef for std::basic_string<char>; replace the internal name
-        return typeName
-            .Replace("basic_string<char, char_traits<char>, allocator<char>>", "string")
-            .Replace("basic_string<char,char_traits<char>,allocator<char>>", "string")
-            .Replace("basic_string", "string");
-    }
-
-    /// <summary>
-    ///     Derives a one-line description for a namespace from the doc comment placed
-    ///     directly on the <c>namespace</c> keyword, used as the description in <c>api.md</c>.
-    /// </summary>
-    /// <remarks>
-    ///     Iterates all collected <see cref="CppNamespace"/> objects for the namespace key
-    ///     and returns the first non-empty summary found on any of them. Falls back to
-    ///     <see cref="NoDescriptionPlaceholder"/> when none of the namespace objects carry
-    ///     a doc comment.
-    /// </remarks>
     /// <param name="nsDecls">The namespace declarations to inspect.</param>
     /// <returns>A short description, or <see cref="NoDescriptionPlaceholder"/> when none is found.</returns>
     private static string GetNamespaceDescription(NamespaceDeclarations nsDecls)
     {
-        return nsDecls.Namespaces
-                   .Select(GetSummary)
-                   .FirstOrDefault(s => !string.IsNullOrEmpty(s))
-               ?? NoDescriptionPlaceholder;
+        return GetSummary(nsDecls.Doc) ?? NoDescriptionPlaceholder;
     }
 
     // =========================================================================
@@ -1713,12 +1183,12 @@ public sealed class CppGenerator : IApiGenerator
     /// <summary>
     ///     Builds a C++ method or constructor signature string suitable for display in a
     ///     fenced code block, including storage qualifiers, virtual qualifiers, parameter
-    ///     list, const qualifier, and variadic indicator.
+    ///     list, and variadic indicator.
     /// </summary>
     /// <remarks>
-    ///     Constructors and destructors omit the return type. Static and virtual are mutually
-    ///     exclusive prefixes. Pure virtual methods append <c> = 0</c>. Const methods append
-    ///     <c> const</c>. Variadic functions append <c>...</c> to the parameter list.
+    ///     Constructors omit the return type. The <c>static</c> and <c>virtual</c> prefixes
+    ///     are mutually exclusive; <c>static</c> takes priority. Variadic functions append
+    ///     <c>...</c> to the parameter list.
     /// </remarks>
     /// <param name="fn">The method or constructor to produce a signature for.</param>
     /// <returns>
@@ -1729,8 +1199,8 @@ public sealed class CppGenerator : IApiGenerator
     {
         var sb = new System.Text.StringBuilder();
 
-        // Constructors and destructors have no return type or storage qualifier prefix
-        if (!fn.IsConstructor && !fn.IsDestructor)
+        // Constructors have no return type or storage qualifier prefix
+        if (!fn.IsConstructor)
         {
             // static and virtual are mutually exclusive — static takes priority
             if (fn.IsStatic)
@@ -1742,7 +1212,7 @@ public sealed class CppGenerator : IApiGenerator
                 sb.Append("virtual ");
             }
 
-            sb.Append(SimplifyTypeName(fn.ReturnType.GetDisplayName()));
+            sb.Append(SimplifyTypeName(fn.ReturnTypeName));
             sb.Append(' ');
         }
 
@@ -1751,27 +1221,15 @@ public sealed class CppGenerator : IApiGenerator
 
         // Build the parameter list; append "..." for variadic functions
         var paramParts = fn.Parameters
-            .Select(p => $"{SimplifyTypeName(p.Type.GetDisplayName())} {p.Name}")
+            .Select(p => $"{SimplifyTypeName(p.TypeName)} {p.Name}")
             .ToList();
-        if (fn.Flags.HasFlag(CppFunctionFlags.Variadic))
+        if (fn.IsVariadic)
         {
             paramParts.Add("...");
         }
 
         sb.Append(string.Join(", ", paramParts));
         sb.Append(')');
-
-        // Const qualifier appears after the closing parenthesis
-        if (fn.IsConst)
-        {
-            sb.Append(" const");
-        }
-
-        // Pure virtual marker signals to callers that the method must be overridden
-        if (fn.IsPureVirtual)
-        {
-            sb.Append(" = 0");
-        }
 
         return sb.ToString();
     }
@@ -1787,15 +1245,13 @@ public sealed class CppGenerator : IApiGenerator
     /// </returns>
     private static string BuildTemplateParamDisplay(CppClass cls)
     {
-        // NormalClass indicates a non-template type; skip template inspection entirely
-        if (cls.TemplateKind == CppTemplateKind.NormalClass || cls.TemplateParameters.Count == 0)
+        if (cls.TemplateParams.Count == 0)
         {
             return string.Empty;
         }
 
-        // Collect the name of each type parameter; non-type parameters may not cast cleanly
-        var paramNames = cls.TemplateParameters
-            .OfType<CppTemplateParameterType>()
+        // Collect the name of each parameter; skip unnamed parameters
+        var paramNames = cls.TemplateParams
             .Select(tp => tp.Name)
             .Where(n => !string.IsNullOrEmpty(n))
             .ToList();
@@ -1814,14 +1270,12 @@ public sealed class CppGenerator : IApiGenerator
     /// </returns>
     private static string BuildTemplateDeclaration(CppClass cls)
     {
-        // NormalClass indicates a non-template type; no declaration is needed
-        if (cls.TemplateKind == CppTemplateKind.NormalClass || cls.TemplateParameters.Count == 0)
+        if (cls.TemplateParams.Count == 0)
         {
             return string.Empty;
         }
 
-        var paramNames = cls.TemplateParameters
-            .OfType<CppTemplateParameterType>()
+        var paramNames = cls.TemplateParams
             .Select(tp => tp.Name)
             .Where(n => !string.IsNullOrEmpty(n))
             .ToList();
@@ -1831,8 +1285,24 @@ public sealed class CppGenerator : IApiGenerator
             return string.Empty;
         }
 
+        // Each type parameter is prefixed with "typename" to form a valid template declaration
         var typedParams = string.Join(", ", paramNames.Select(n => $"typename {n}"));
         return $"template<{typedParams}>";
+    }
+
+    /// <summary>
+    ///     Simplifies a C++ type display name by replacing verbose internal STL names
+    ///     with their idiomatic user-facing spellings.
+    /// </summary>
+    /// <param name="typeName">The raw display name from the clang AST <c>type.qualType</c>.</param>
+    /// <returns>A more readable type name string.</returns>
+    private static string SimplifyTypeName(string typeName)
+    {
+        // std::string is a typedef for std::basic_string<char>; replace the internal name
+        return typeName
+            .Replace("basic_string<char, char_traits<char>, allocator<char>>", "string")
+            .Replace("basic_string<char,char_traits<char>,allocator<char>>", "string")
+            .Replace("basic_string", "string");
     }
 
     // =========================================================================
@@ -1872,7 +1342,7 @@ public sealed class CppGenerator : IApiGenerator
         string nsDisplayName,
         CppClass cls,
         string lowerKey,
-        IReadOnlyList<CppElement> members)
+        IReadOnlyList<object> members)
     {
         using var writer = factory.CreateMarkdown($"{nsKey}/{cls.Name}", lowerKey);
 
@@ -1890,7 +1360,7 @@ public sealed class CppGenerator : IApiGenerator
                     var fnKind = fn.IsConstructor ? "Constructor" : "Method";
                     var fnParamTypes = string.Join(
                         ", ",
-                        fn.Parameters.Select(p => SimplifyTypeName(p.Type.GetDisplayName())));
+                        fn.Parameters.Select(p => SimplifyTypeName(p.TypeName)));
                     writer.WriteHeading(4, $"{fn.Name}({fnParamTypes}) ({fnKind})");
                     WriteFunctionContent(writer, nsDisplayName, cls.Name, fn);
                     break;
@@ -1916,9 +1386,9 @@ public sealed class CppGenerator : IApiGenerator
     /// <param name="className">The name of the declaring class, used for constructors.</param>
     /// <returns>
     ///     The class name when <paramref name="member"/> is a constructor; otherwise the
-    ///     member's own <c>Name</c> property.
+    ///     member's own name.
     /// </returns>
-    private static string GetMemberBaseName(CppElement member, string className) => member switch
+    private static string GetMemberBaseName(object member, string className) => member switch
     {
         CppFunction fn when fn.IsConstructor => className,
         CppFunction fn => fn.Name,
@@ -1937,19 +1407,27 @@ public sealed class CppGenerator : IApiGenerator
     private sealed class NamespaceDeclarations
     {
         /// <summary>
-        ///     Initializes a new instance with the given display name.
+        ///     Initializes a new instance with the given display name and optional doc comment.
         /// </summary>
         /// <param name="displayName">
         ///     The C++ qualified namespace name (e.g. <c>mylib::rendering</c>),
         ///     used as the Markdown page heading.
         /// </param>
-        public NamespaceDeclarations(string displayName)
+        /// <param name="doc">
+        ///     The doc comment attached to the namespace declaration, or <see langword="null"/>
+        ///     when no namespace-level comment is available.
+        /// </param>
+        public NamespaceDeclarations(string displayName, CppDocComment? doc = null)
         {
             DisplayName = displayName;
+            Doc = doc;
         }
 
         /// <summary>Gets the C++ qualified namespace name used as the Markdown page heading.</summary>
         public string DisplayName { get; }
+
+        /// <summary>Gets the doc comment attached to the namespace declaration, if any.</summary>
+        public CppDocComment? Doc { get; }
 
         /// <summary>Gets the list of owned classes and structs declared in this namespace.</summary>
         public List<CppClass> Classes { get; } = [];
@@ -1959,13 +1437,5 @@ public sealed class CppGenerator : IApiGenerator
 
         /// <summary>Gets the list of owned free functions declared in this namespace.</summary>
         public List<CppFunction> FreeFunctions { get; } = [];
-
-        /// <summary>Gets the list of <see cref="CppNamespace"/> objects that contribute to this namespace entry.</summary>
-        /// <remarks>
-        ///     A C++ namespace may be opened in multiple translation units; each occurrence is
-        ///     a distinct <see cref="CppNamespace"/> instance. This list collects them so that
-        ///     <c>GetNamespaceDescription</c> can search for a doc comment on any of them.
-        /// </remarks>
-        public List<CppNamespace> Namespaces { get; } = [];
     }
 }
