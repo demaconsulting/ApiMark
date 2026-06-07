@@ -100,9 +100,8 @@ public sealed class CppGenerator : IApiGenerator
         // Run clang -ast-dump=json on all headers and parse the resulting AST
         var result = ClangAstParser.Parse(headerFiles, _options);
 
-        // Log any clang diagnostic errors so operators can investigate issues in system headers
-        // without halting generation — clang may report warnings while still producing usable output
-        CheckForErrors(result);
+        // Throw on errors from the user's public headers; log errors from system headers
+        CheckForErrors(result, headerFiles);
 
         // Walk parsed namespaces and group owned declarations by their qualified namespace key
         var namespaceDecls = new SortedDictionary<string, NamespaceDeclarations>(StringComparer.Ordinal);
@@ -243,21 +242,44 @@ public sealed class CppGenerator : IApiGenerator
     // =========================================================================
 
     /// <summary>
-    ///     Logs any error messages captured from clang's standard error output to
-    ///     <see cref="Console.Error"/> so operators can investigate diagnostic details.
+    ///     Throws <see cref="InvalidOperationException"/> when clang reported error-class diagnostics
+    ///     in the user's public headers; logs errors from system or third-party headers to
+    ///     <see cref="Console.Error"/> without halting generation.
     /// </summary>
     /// <remarks>
-    ///     clang may emit warnings about system or third-party headers that do not prevent
-    ///     documentation from being generated for the public headers; therefore errors are
-    ///     logged rather than thrown.
+    ///     clang may report errors from system or third-party headers (e.g., unrecognized compiler
+    ///     builtins) while still producing a valid and complete AST for the public headers being
+    ///     documented. Only errors whose path starts with a known public header file are treated as
+    ///     hard failures to avoid false positives from the compiler's own standard library headers.
     /// </remarks>
-    /// <param name="result">The compilation result whose <see cref="CppCompilationResult.Errors"/> to log.</param>
-    private static void CheckForErrors(CppCompilationResult result)
+    /// <param name="result">The compilation result whose <see cref="CppCompilationResult.Errors"/> to check.</param>
+    /// <param name="headerFiles">The list of public header files passed to clang; used to identify user errors.</param>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when <paramref name="result"/> contains error-class diagnostics from one or more
+    ///     of the user's public header files.
+    /// </exception>
+    private static void CheckForErrors(CppCompilationResult result, IReadOnlyList<string> headerFiles)
     {
-        // Surface each error line on stderr so CI logs capture it without stopping generation
-        foreach (var error in result.Errors)
+        if (result.Errors.Count == 0)
+        {
+            return;
+        }
+
+        var userErrors = result.Errors
+            .Where(e => headerFiles.Any(h => e.Contains(h, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        var systemErrors = result.Errors.Except(userErrors).ToList();
+
+        foreach (var error in systemErrors)
         {
             Console.Error.WriteLine($"[CppGenerator] clang: {error}");
+        }
+
+        if (userErrors.Count > 0)
+        {
+            var message = string.Join(Environment.NewLine, userErrors.Select(e => $"[CppGenerator] clang: {e}"));
+            throw new InvalidOperationException(
+                $"clang reported errors in public headers during AST generation:{Environment.NewLine}{message}");
         }
     }
 

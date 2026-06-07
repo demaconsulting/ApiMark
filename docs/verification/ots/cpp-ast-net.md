@@ -5,14 +5,14 @@
 
 ### Verification Approach
 
-CppAst.Net is verified in ApiMark through integration tests in `test/ApiMark.Cpp.Tests/` that
-exercise the header-parsing and metadata APIs used by `ApiMark.Cpp`. The verification focus is the
-subset of capabilities the product depends on: parsing C++ headers without a compiler build step,
+CppAst.Net was verified in ApiMark through integration tests in `test/ApiMark.Cpp.Tests/` that
+exercised the header-parsing and metadata APIs used by `ApiMark.Cpp`. The verification focus was the
+subset of capabilities the product depended on: parsing C++ headers without a compiler build step,
 exposing per-declaration source file provenance, enumerating types and members with sufficient
 metadata for documentation generation, providing structured Doxygen doc comment trees, and
-accepting parse options for include paths, defines, and language standard. Evidence is collected from
-automated integration tests that compare generated documentation behavior against representative
-fixture headers.
+accepting parse options for include paths, defines, and language standard. Evidence was collected from
+automated integration tests that compared generated documentation behavior against representative
+fixture headers. See `docs/verification/ots/clang.md` for the current clang-based verification approach.
 
 ### Test Scenarios
 
