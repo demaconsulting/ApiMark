@@ -7,7 +7,7 @@
 
 CppGenerator implements IApiGenerator for C++ libraries. It accepts a
 configured set of public include roots and parse-environment options, invokes
-CppAst.Net to obtain a fully resolved C++ AST, applies a file-provenance filter
+`clang -Xclang -ast-dump=json` to obtain a fully resolved C++ AST, applies a file-provenance filter
 to identify declarations that belong to the documented public API, derives the
 canonical `#include` path for each owned type from its source file relative to
 its matching include root, and writes the complete gradual-disclosure Markdown
@@ -79,6 +79,10 @@ sees them as no-ops and does not misinterpret them as type annotations.
 to Clang (e.g. `"c++17"`, `"c++20"`). Defaults to `"c++17"` when not
 specified.
 
+**CppGeneratorOptions.ClangPath**: `string?` — optional path to the clang executable; when null
+or empty, clang is discovered automatically (PATH → xcrun on macOS → vswhere on Windows →
+`C:\Program Files\LLVM\bin\clang.exe`).
+
 **CppGeneratorOptions.AdditionalCompilerArguments**: `IReadOnlyList<string>` —
 raw Clang compiler arguments appended after all structured options. Provides an
 escape-hatch for toolchain-specific flags, forced includes, platform macros, or
@@ -140,9 +144,10 @@ filter, and writes the full Markdown output tree.
 
 Execution steps: enumerate candidate header files under each PublicIncludeRoot
 applying IncludePatterns and ExcludePatterns; build Clang options from all
-configured paths, defines, standard, and additional arguments; call CppAst.Net
-to parse each candidate header as an independent translation unit; walk the
-resulting AST and apply IsOwnedDeclaration to each declaration; apply
+configured paths, defines, standard, and additional arguments; write a temporary
+combined header that `#include`s all candidate headers, invoke
+`clang -Xclang -ast-dump=json -fparse-all-comments -fsyntax-only` on it, parse the resulting
+JSON AST; walk the AST and apply IsOwnedDeclaration to each declaration; apply
 Visibility and IncludeDeprecated filters; write the library entrypoint; for
 each namespace write the namespace summary; for each owned type: collect all
 visible constructors, methods, and fields; build a case-insensitive map keyed
@@ -150,7 +155,7 @@ by the lowercase of each member's base name (see `GetMemberBaseName`); for
 each key with a single member emit an individual detail page via
 `WriteMemberPage`; for each key with multiple members (case-insensitive
 collision) emit a single combined page via `WriteCombinedMemberPage`; emit
-grouped sub-tables with links; dispose or release CppAst.Net resources.
+grouped sub-tables with links; delete the temporary combined header file.
 
 **IsOwnedDeclaration** (internal): Determines whether a declaration belongs to
 the documented public API.
@@ -180,32 +185,32 @@ filesystems.
 
 - *Parameters*: `IMarkdownWriterFactory factory`, `string nsKey`, `string nsDisplayName`,
   `CppClass cls`, `string lowerKey` — the shared lowercase base name used as the page
-  file name and H3 heading, `IReadOnlyList<CppElement> members` — the ordered collision
-  group (at least two elements; elements are `CppFunction` or `CppField`).
+  file name and H3 heading, `IReadOnlyList<member> members` — the ordered collision
+  group (at least two elements; elements are functions or fields).
 - *Returns*: `void`
 - *Algorithm*: Creates `{nsKey}/{cls.Name}/{lowerKey}.md` via the factory; writes an H3
-  heading using `lowerKey`; for each `CppFunction` writes an H4 heading of the form
+  heading using `lowerKey`; for each function member writes an H4 heading of the form
   `{fn.Name} (Constructor)` or `{fn.Name} (Method)` and delegates to
-  `WriteFunctionContent`; for each `CppField` writes an H4 heading of the form
+  `WriteFunctionContent`; for each field member writes an H4 heading of the form
   `{field.Name} (Field)` and delegates to `WriteFieldContent`.
 
 **CppGenerator.GetMemberBaseName** (private): Returns the base name used to derive the
 output file name for a class member, applying the convention that constructors are
 identified by the declaring class name.
 
-- *Parameters*: `CppElement member` — the member whose base name to compute;
+- *Parameters*: `member` — the member whose base name to compute;
   `string className` — the name of the declaring class, used for constructors.
-- *Returns*: `string` — the class name when `member` is a constructor `CppFunction`;
-  the member's own `Name` for non-constructor `CppFunction` and `CppField`; the class
-  name as a fallback for any other element type.
+- *Returns*: `string` — the class name when `member` is a constructor function;
+  the member's own `Name` for non-constructor functions and fields; the class
+  name as a fallback for any other member type.
 - *Algorithm*: Pattern-matches on the concrete type and `IsConstructor` flag: constructor
-  `CppFunction` → `className`; non-constructor `CppFunction` → `fn.Name`; `CppField` →
-  `field.Name`; any other type → `className`.
+  function → `className`; non-constructor function → `fn.Name`; field → `field.Name`;
+  any other type → `className`.
 
 ### Error Handling
 
 CppGenerator throws `DirectoryNotFoundException` when a path in
-PublicIncludeRoots does not exist on disk. Parse errors returned by CppAst.Net
+PublicIncludeRoots does not exist on disk. Parse errors returned by clang
 (unresolvable includes, syntax errors in public headers) are collected and
 surfaced as an exception after parsing completes, listing affected files and
 Clang diagnostic messages — they are not silently ignored. Missing doc comments
@@ -217,8 +222,9 @@ DotNetGenerator behavior.
 - **IApiGenerator** — CppGenerator implements this interface from ApiMarkCore.
 - **IMarkdownWriterFactory** — CppGenerator receives an IMarkdownWriterFactory
   through Generate and calls CreateMarkdown to obtain each IMarkdownWriter.
-- **CppAst.Net** — used to parse C++ headers via libclang without requiring
-  a full C++ build — see CppAst.Net Integration Design.
+- **clang** — the system clang executable (`clang` on PATH, `xcrun clang` on macOS, or
+  vswhere-located clang on Windows) is invoked as a subprocess to parse C++ headers and
+  produce a JSON AST — see Clang Integration Design.
 
 ### Callers
 

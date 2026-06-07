@@ -547,7 +547,7 @@ Usage: apimark <language> [options]
 
 Languages:
   dotnet    .NET assembly + XML doc comments
-  cpp       C++ header files + CppAst.Net parser    (planned)
+  cpp       C++ header files + clang -ast-dump=json parser
   python    Python package AST + docstrings          (planned)
   vhdl      VHDL source + GHDL XML                   (planned)
 

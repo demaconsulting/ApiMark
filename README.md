@@ -18,7 +18,7 @@ type page — consuming only as much context as the task requires.
 - Generates compact Markdown API reference from source code and doc comments
 - Gradual disclosure output: root index → namespace summary → type page → member detail
 - C#/.NET support via Mono.Cecil and XML documentation comments
-- C++ support via CppAst.Net (libclang) and Doxygen-style doc comments
+- C++ support via `clang -ast-dump=json` and Doxygen-style doc comments
 - MSBuild task integration for `.csproj` and `.vcxproj`-based builds
 - `dotnet tool` CLI (`apimark`) covering all supported languages
 - Designed for AI consumption — minimal noise, explicit navigation links between levels
@@ -30,6 +30,20 @@ type page — consuming only as much context as the task requires.
 | Windows x64 | ✅ | ✅ |
 | Linux x64 | ✅ | ✅ |
 | macOS (Apple Silicon) | ✅ | ✅ |
+
+## Prerequisites
+
+### C++ Support
+
+C++ documentation generation requires `clang` to be installed and available:
+
+- **Windows**: Install [LLVM](https://releases.llvm.org/) or the "C++ Clang tools for Windows"
+  component via the Visual Studio Installer. The `ClangPath` MSBuild property or `--clang-path`
+  CLI option can point to a specific installation.
+- **macOS**: Xcode Command Line Tools (`xcode-select --install`) — `clang` is included.
+- **Linux**: Install via the system package manager (e.g. `apt install clang` or `dnf install clang`).
+
+.NET support has no additional prerequisites beyond the .NET SDK.
 
 ## Installation
 

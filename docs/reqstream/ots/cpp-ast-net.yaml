@@ -1,3 +1,5 @@
+# Archived: ApiMark.Cpp no longer uses CppAst.Net. These requirements are retained for
+# historical reference. See docs/reqstream/ots/clang.yaml for current OTS requirements.
 ---
 # CppAst.Net OTS requirements
 sections:

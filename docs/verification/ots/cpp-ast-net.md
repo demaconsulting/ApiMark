@@ -1,3 +1,6 @@
+> **Archived**: ApiMark.Cpp no longer uses CppAst.Net. This document is retained for historical
+> reference. See `docs/verification/ots/clang.md` for the current verification approach.
+
 ## CppAst.Net
 
 ### Verification Approach
