@@ -18,6 +18,15 @@
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>SampleLib</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <!--
+      Tell NuGet to use the PackageReference restore path. This suppresses the legacy
+      Microsoft.NuGet.targets ResolveNuGetPackageAssets task (which runs for all vcxproj
+      files via Microsoft.Cpp.targets) that would otherwise fail with "Sequence contains
+      no elements" when the project.assets.json has no native framework entry.
+      The modern nuget.g.props/nuget.g.targets files are auto-imported by
+      Microsoft.Common.props (MSBuild 15+) and carry the ApiMark .targets import.
+    -->
+    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
   </PropertyGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -30,14 +39,6 @@
   </PropertyGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-
-  <!--
-    Explicit import of NuGet PackageReference generated props: required for non-SDK vcxproj
-    projects because Microsoft.Cpp.props does not auto-include these files. The Condition
-    guard prevents a "project file not found" error on a clean checkout before first restore.
-  -->
-  <Import Project="$(MSBuildProjectExtensionsPath)$(MSBuildProjectFile).nuget.g.props"
-          Condition="Exists('$(MSBuildProjectExtensionsPath)$(MSBuildProjectFile).nuget.g.props')" />
 
   <PropertyGroup>
     <!-- Required: the public include root for ApiMark C++ documentation generation -->
@@ -52,13 +53,4 @@
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-
-  <!--
-    Explicit import of NuGet PackageReference generated targets: required for non-SDK vcxproj
-    projects because Microsoft.Cpp.targets does not auto-include these files. This import brings
-    in the DemaConsulting.ApiMark.MSBuild.targets file (and any other package targets), enabling
-    the AfterTargets="Build" hook that runs documentation generation.
-  -->
-  <Import Project="$(MSBuildProjectExtensionsPath)$(MSBuildProjectFile).nuget.g.targets"
-          Condition="Exists('$(MSBuildProjectExtensionsPath)$(MSBuildProjectFile).nuget.g.targets')" />
 </Project>
