@@ -178,3 +178,13 @@ tested by `CppGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPa
 **Case-collision class combined page contains both members**: Verifies that the combined detail
 page includes documentation for both case-colliding members. This scenario is tested by
 `CppGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers`.
+
+**Final class emits final keyword in signature**: Verifies that when a class is declared `final`,
+its type page signature block contains the `final` keyword in the class declaration line so that
+readers can immediately identify the class as non-subclassable without opening the header file.
+This scenario is tested by `CppGenerator_Generate_FinalClass_EmitsFinalKeywordInSignature`.
+
+**Non-final class does not emit final keyword**: Verifies that a class not declared `final` does
+not have the `final` keyword anywhere in its type page signature block, confirming that the
+annotation is only applied when explicitly declared. This scenario is tested by
+`CppGenerator_Generate_NonFinalClass_DoesNotEmitFinalKeyword`.

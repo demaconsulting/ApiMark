@@ -808,5 +808,57 @@ public class CppGeneratorTests
             factory.Writers.ContainsKey("fixtures/SampleStatus"),
             "Expected SampleStatus to be present when only SampleClass.h is excluded");
     }
-}
 
+    /// <summary>
+    ///     Validates that the type page for a <c>final</c> class contains the <c>final</c>
+    ///     keyword in its signature block so that AI readers immediately know the class
+    ///     cannot be used as a base class.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_FinalClass_EmitsFinalKeywordInSignature()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: the FinalClass type page must exist
+        Assert.True(factory.Writers.ContainsKey("fixtures/FinalClass"), "Expected type page for FinalClass");
+
+        // Assert: the FinalClass type page signature must contain "final" so that
+        // readers know the class cannot be subclassed without opening the header
+        var writer = factory.Writers["fixtures/FinalClass"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains("final", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that the type page for a non-<c>final</c> class does not emit the
+    ///     <c>final</c> keyword in its signature block, confirming that the <c>final</c>
+    ///     annotation is only applied when the class is explicitly declared <c>final</c>.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_NonFinalClass_DoesNotEmitFinalKeyword()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: the SampleClass type page must exist and must not contain "final"
+        // because SampleClass is not declared final
+        Assert.True(factory.Writers.ContainsKey("fixtures/SampleClass"), "Expected type page for SampleClass");
+
+        var writer = factory.Writers["fixtures/SampleClass"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.DoesNotContain(
+            signatures,
+            s => s.Contains("final", StringComparison.Ordinal));
+    }
+}

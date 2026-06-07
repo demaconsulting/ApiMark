@@ -136,6 +136,10 @@ filter, and writes the full Markdown output tree.
     the canonical `#include <path>` at the top, followed by the class
     declaration, inheritance information, template parameters (for primary
     templates), and grouped sub-tables with links to all member detail pages.
+    When the class is marked `final`, a `class ClassName final` declaration
+    line (including base class names when inheritance is present) is appended
+    to the signature block so consumers can see the constraint without opening
+    the header.
   - `factory.CreateMarkdown($"{qualifiedNamespace}/{typeName}", memberName)` —
     dedicated page for every visible member. All members always receive their
     own page, making navigation fully deterministic.

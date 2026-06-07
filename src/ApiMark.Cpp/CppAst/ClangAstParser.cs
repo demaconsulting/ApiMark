@@ -713,6 +713,9 @@ internal sealed class ClangAstParser
 
         // Deprecated if isDeprecated flag is set; DeprecatedAttr in inner also triggers
         var isDeprecated = node.TryGetProperty("isDeprecated", out var dep) && dep.GetBoolean();
+
+        // Final if FinalAttr appears in the inner node array
+        var isFinal = false;
         var location = GetCurrentSourceLocation(node);
 
         if (node.TryGetProperty("inner", out var inner))
@@ -777,6 +780,10 @@ internal sealed class ClangAstParser
                     case "DeprecatedAttr":
                         isDeprecated = true;
                         break;
+
+                    case "FinalAttr":
+                        isFinal = true;
+                        break;
                 }
             }
         }
@@ -788,6 +795,7 @@ internal sealed class ClangAstParser
             members,
             fields,
             isDeprecated,
+            isFinal,
             location,
             doc);
 

@@ -52,6 +52,7 @@ words:
   - stddef
   - sonar
   - sonarmark
+  - subclassable
   - constexpr
   - fparse
   - fsyntax

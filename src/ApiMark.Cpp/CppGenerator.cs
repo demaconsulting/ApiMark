@@ -580,6 +580,14 @@ public sealed class CppGenerator : IApiGenerator
             }
 
             sigParts.Add($"#include <{includePath}>");
+
+            // When the class is marked final, append the class declaration line so readers
+            // can see at a glance that the class cannot be used as a base class
+            if (cls.IsFinal)
+            {
+                sigParts.Add(BuildClassDeclaration(cls));
+            }
+
             writer.WriteSignature("cpp", string.Join("\n", sigParts));
         }
 
@@ -1245,6 +1253,52 @@ public sealed class CppGenerator : IApiGenerator
 
         sb.Append(string.Join(", ", paramParts));
         sb.Append(')');
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    ///     Builds the class declaration line for a <see cref="CppClass"/> for display in the
+    ///     signature block of its type page, appending <c>final</c> when the class is marked
+    ///     final and base class names when inheritance is present.
+    /// </summary>
+    /// <remarks>
+    ///     Called only when <see cref="CppClass.IsFinal"/> is true so that the declaration
+    ///     fragment makes the <c>final</c> constraint immediately visible to readers without
+    ///     them needing to open the header file.
+    /// </remarks>
+    /// <param name="cls">The C++ class to produce a declaration line for.</param>
+    /// <returns>
+    ///     A C++ declaration string such as <c>class FinalClass final</c> or
+    ///     <c>class FinalClass final : public Shape</c>.
+    /// </returns>
+    private static string BuildClassDeclaration(CppClass cls)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append("class ");
+        sb.Append(cls.Name);
+
+        // Append the final specifier so readers can see at a glance that the class
+        // cannot be used as a base class
+        if (cls.IsFinal)
+        {
+            sb.Append(" final");
+        }
+
+        // Append base class names in the declaration when inheritance is present
+        // so the inheritance chain is visible without opening the header
+        if (cls.BaseTypes.Count > 0)
+        {
+            var baseNames = cls.BaseTypes
+                .Select(bt => SimplifyTypeName(bt.Name))
+                .Where(n => !string.IsNullOrEmpty(n))
+                .ToList();
+            if (baseNames.Count > 0)
+            {
+                sb.Append(" : ");
+                sb.Append(string.Join(", ", baseNames.Select(n => $"public {n}")));
+            }
+        }
 
         return sb.ToString();
     }

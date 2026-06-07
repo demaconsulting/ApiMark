@@ -149,6 +149,9 @@ public record CppFunction(
 /// <param name="IsDeprecated">
 ///     <see langword="true"/> when the class carries a <c>[[deprecated]]</c> attribute.
 /// </param>
+/// <param name="IsFinal">
+///     <see langword="true"/> when the class is marked <c>final</c> and cannot be used as a base class.
+/// </param>
 /// <param name="Location">Source location of the class declaration, or <see langword="null"/> when unavailable.</param>
 /// <param name="Doc">Doxygen documentation attached to this class, or <see langword="null"/> when absent.</param>
 public record CppClass(
@@ -158,6 +161,7 @@ public record CppClass(
     IReadOnlyList<CppFunction> Members,
     IReadOnlyList<CppField> Fields,
     bool IsDeprecated,
+    bool IsFinal,
     CppSourceLocation? Location,
     CppDocComment? Doc);
 
