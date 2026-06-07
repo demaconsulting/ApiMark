@@ -310,6 +310,15 @@ public sealed class CppGenerator : IApiGenerator
                 options.AdditionalArguments.Add("-isysroot");
                 options.AdditionalArguments.Add(sdkPath);
             }
+
+            // Compiler-builtin headers (stdarg.h, stddef.h, float.h, etc.) live in the
+            // Clang resource directory, not in the system SDK. The bundled libclang dylib
+            // does not bundle these, so we must point at the system Clang's resource headers.
+            var resourceIncludeDir = GetClangResourceIncludeDir();
+            if (!string.IsNullOrEmpty(resourceIncludeDir))
+            {
+                options.SystemIncludeFolders.Add(resourceIncludeDir);
+            }
         }
 
         return options;
@@ -366,19 +375,68 @@ public sealed class CppGenerator : IApiGenerator
     ///     The trimmed SDK path string, or <see langword="null"/> when <c>xcrun</c> is not
     ///     available or exits with a non-zero code.
     /// </returns>
-    private static string? GetMacOsSdkPath()
+    private static string? GetMacOsSdkPath() =>
+        RunCommand("xcrun", "--sdk", "macosx", "--show-sdk-path");
+
+    /// <summary>
+    ///     Returns the compiler resource include directory for the active Clang toolchain by
+    ///     locating the Clang binary via <c>xcrun --find clang</c> and then invoking it with
+    ///     <c>-print-resource-dir</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Compiler-internal headers such as <c>stdarg.h</c>, <c>stddef.h</c>, and
+    ///     <c>float.h</c> live in the Clang resource directory, not in the system SDK.
+    ///     Without this path, <c>#include &lt;string&gt;</c> and other standard headers that
+    ///     transitively include compiler builtins fail with "file not found".
+    /// </remarks>
+    /// <returns>
+    ///     The absolute path to the <c>include</c> subdirectory of the Clang resource
+    ///     directory (e.g. <c>.../clang/17/include</c>), or <see langword="null"/> when
+    ///     the path cannot be determined or does not exist on disk.
+    /// </returns>
+    private static string? GetClangResourceIncludeDir()
+    {
+        var clangPath = RunCommand("xcrun", "--find", "clang");
+        if (string.IsNullOrEmpty(clangPath))
+        {
+            return null;
+        }
+
+        var resourceDir = RunCommand(clangPath, "-print-resource-dir");
+        if (string.IsNullOrEmpty(resourceDir))
+        {
+            return null;
+        }
+
+        var includeDir = Path.Combine(resourceDir, "include");
+        return Directory.Exists(includeDir) ? includeDir : null;
+    }
+
+    /// <summary>
+    ///     Runs an external command and returns its trimmed standard output, or
+    ///     <see langword="null"/> when the command fails or is not available.
+    /// </summary>
+    /// <param name="fileName">The executable to run.</param>
+    /// <param name="arguments">Arguments to pass to the executable.</param>
+    /// <returns>Trimmed stdout on success, or <see langword="null"/> on any failure.</returns>
+    private static string? RunCommand(string fileName, params string[] arguments)
     {
         try
         {
-            using var process = Process.Start(new ProcessStartInfo
+            var psi = new ProcessStartInfo
             {
-                FileName = "xcrun",
-                ArgumentList = { "--sdk", "macosx", "--show-sdk-path" },
+                FileName = fileName,
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
                 CreateNoWindow = true
-            });
+            };
 
+            foreach (var arg in arguments)
+            {
+                psi.ArgumentList.Add(arg);
+            }
+
+            using var process = Process.Start(psi);
             if (process == null)
             {
                 return null;

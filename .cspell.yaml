@@ -45,6 +45,8 @@ words:
   - sarif
   - sarifmark
   - slnx
+  - stdarg
+  - stddef
   - sonar
   - sonarmark
   - versionmark
