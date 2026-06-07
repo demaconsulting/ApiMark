@@ -11,7 +11,7 @@ sections:
           developer-authored descriptions that belong in the markdown output.
         children:
           - ApiMarkCpp-CppGenerator-AcceptIncludeRootsAndParseOptions
-          - ApiMarkCpp-CppGenerator-ParseHeadersViaCppAstNet
+          - ApiMarkCpp-CppGenerator-ParseHeadersViaClang
           - ApiMarkCpp-CppGenerator-FilterDeclarationsByOwnership
           - ApiMarkCpp-CppGenerator-EmitDetailPageForEveryMember
           - ApiMarkCpp-CppGenerator-ProduceConsistentOutputFileStructure

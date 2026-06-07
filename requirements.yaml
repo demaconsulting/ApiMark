@@ -21,3 +21,4 @@ includes:
   - docs/reqstream/api-mark-cpp.yaml
   - docs/reqstream/api-mark-cpp/cpp-generator.yaml
   - docs/reqstream/ots/cpp-ast-net.yaml
+  - docs/reqstream/ots/clang.yaml

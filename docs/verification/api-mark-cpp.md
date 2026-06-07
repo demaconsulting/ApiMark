@@ -4,7 +4,7 @@
 
 ApiMarkCpp is verified with integration-style tests in `test/ApiMark.Cpp.Tests/` that exercise the
 full C++ generation pipeline using real C++ fixture headers with Doxygen doc comments located in
-`test/ApiMark.Cpp.Fixtures/include/`. CppAst.Net and the Clang parser are used as-is so
+`test/ApiMark.Cpp.Fixtures/include/`. System clang is used as-is so
 verification proves the interaction between header parsing, declaration ownership filtering,
 visibility filtering, Doxygen comment rendering, and file emission. No internal production component
 is mocked or stubbed; fixture header files are located in the source tree via `[CallerFilePath]`
@@ -12,9 +12,10 @@ resolution in `FixturePaths`.
 
 ## Test Environment
 
-Tests require a .NET runtime capable of running the `ApiMark.Cpp` library and fixture header files
-that are available in the source tree. No external service, network dependency, C++ compiler
-installation, or machine-specific configuration beyond the bundled libclang binary is required.
+Tests require a .NET runtime capable of running the `ApiMark.Cpp` library, a system clang
+installation accessible on PATH (or via xcrun on macOS / vswhere on Windows), and fixture header
+files that are available in the source tree. No additional network dependency or machine-specific
+configuration beyond a standard clang installation is required.
 
 ## Acceptance Criteria
 

@@ -183,6 +183,8 @@ reviews:
       - src/ApiMark.Cpp/ApiVisibility.cs
       - src/ApiMark.Cpp/CppGenerator.cs
       - src/ApiMark.Cpp/CppGeneratorOptions.cs
+      - src/ApiMark.Cpp/CppAst/CppAstModel.cs
+      - src/ApiMark.Cpp/CppAst/ClangAstParser.cs
       - test/ApiMark.Cpp.Fixtures/**/*.h
       - test/ApiMark.Cpp.Tests/CppGeneratorTests.cs
       - test/ApiMark.Cpp.Tests/FixturePaths.cs
@@ -301,3 +303,9 @@ reviews:
       - docs/reqstream/ots/cpp-ast-net.yaml
       - docs/design/ots/cpp-ast-net.md
       - docs/verification/ots/cpp-ast-net.md
+  - id: OTS-Clang
+    title: Review that Clang Provides Required Functionality
+    paths:
+      - docs/reqstream/ots/clang.yaml
+      - docs/design/ots/clang.md
+      - docs/verification/ots/clang.md

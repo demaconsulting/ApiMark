@@ -51,10 +51,15 @@ words:
   - stddef
   - sonar
   - sonarmark
+  - constexpr
+  - fparse
+  - fsyntax
   - versionmark
   - VHDL
+  - vswhere
   - Weasyprint
   - xcrun
+  - Xclang
   - xunit
   - Xunit
   - yamlfix

@@ -656,7 +656,7 @@ internal sealed class ClangAstParser
             else if (!parsedDefinition && kind == "CXXRecordDecl" &&
                      child.TryGetProperty("completeDefinition", out var cd) && cd.GetBoolean())
             {
-                // Process only the primary template definition; skip partial specialisations
+                // Process only the primary template definition; skip partial specializations
                 ParseClass(child, nsQualName, templateParams);
                 parsedDefinition = true;
             }
@@ -688,7 +688,7 @@ internal sealed class ClangAstParser
             return;
         }
 
-        // Skip compiler-synthesised records (anonymous structs, etc.)
+        // Skip compiler-synthesized records (anonymous structs, etc.)
         if (node.TryGetProperty("isImplicit", out var impl) && impl.GetBoolean())
         {
             return;
@@ -833,7 +833,7 @@ internal sealed class ClangAstParser
             return;
         }
 
-        // Skip compiler-synthesised functions
+        // Skip compiler-synthesized functions
         if (node.TryGetProperty("isImplicit", out var impl) && impl.GetBoolean())
         {
             return;
@@ -961,7 +961,7 @@ internal sealed class ClangAstParser
     /// </summary>
     /// <remarks>
     ///     Returns <see langword="null"/> for destructors (not documented) and for
-    ///     compiler-synthesised implicit members.
+    ///     compiler-synthesized implicit members.
     /// </remarks>
     /// <param name="node">The method JSON node.</param>
     /// <param name="accessibility">The current access level at the point of declaration.</param>
@@ -979,7 +979,7 @@ internal sealed class ClangAstParser
             return null;
         }
 
-        // Compiler-synthesised copy/move constructors and assignment operators are not documented
+        // Compiler-synthesized copy/move constructors and assignment operators are not documented
         if (node.TryGetProperty("isImplicit", out var impl) && impl.GetBoolean())
         {
             return null;
@@ -1062,7 +1062,7 @@ internal sealed class ClangAstParser
     /// <returns>A populated <see cref="CppField"/>, or <see langword="null"/> for implicit members.</returns>
     private static CppField? ParseField(JsonElement node, CppAccessibility accessibility)
     {
-        // Skip compiler-synthesised fields
+        // Skip compiler-synthesized fields
         if (node.TryGetProperty("isImplicit", out var impl) && impl.GetBoolean())
         {
             return null;
@@ -1155,7 +1155,7 @@ internal sealed class ClangAstParser
     ///     Converts a <c>FullComment</c> JSON node into a <see cref="CppDocComment"/>.
     /// </summary>
     /// <remarks>
-    ///     Recognises <c>@brief</c> (or first plain paragraph) as the summary,
+    ///     Recognizes <c>@brief</c> (or first plain paragraph) as the summary,
     ///     <c>@details</c> / <c>@remarks</c> as extended details, <c>@param</c> as parameter
     ///     docs, and <c>@return</c> / <c>@returns</c> as the return description. Text is
     ///     collected recursively from nested <c>TextComment</c> nodes.

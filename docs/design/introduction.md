@@ -87,8 +87,11 @@ src/
 │   └── XmlDocReader.cs            - parses XML documentation files produced by the C# compiler
 ├── ApiMark.Cpp/
 │   ├── ApiVisibility.cs           - enum controlling which members are included in output
-│   ├── CppGenerator.cs            - C++ IApiGenerator implementation using CppAst.Net/libclang
-│   └── CppGeneratorOptions.cs     - configuration options for the C++ generator
+│   ├── CppGenerator.cs            - C++ IApiGenerator implementation
+│   ├── CppGeneratorOptions.cs     - configuration options for the C++ generator
+│   └── CppAst/
+│       ├── CppAstModel.cs         - C++ AST data model (types, functions, namespaces)
+│       └── ClangAstParser.cs      - invokes clang -ast-dump=json and parses the AST
 ├── ApiMark.MSBuild/
 │   └── ApiMarkTask.cs             - MSBuild task that spawns ApiMark.Tool out-of-process
 └── ApiMark.Tool/

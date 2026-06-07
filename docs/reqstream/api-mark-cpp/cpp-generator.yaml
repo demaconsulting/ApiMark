@@ -16,12 +16,13 @@ sections:
             tests:
               - CppGenerator_Constructor_NullOptions_ThrowsArgumentNullException
               - CppGenerator_Generate_NonexistentIncludeRoot_ThrowsDirectoryNotFoundException
-          - id: ApiMarkCpp-CppGenerator-ParseHeadersViaCppAstNet
-            title: CppGenerator shall parse public header files via CppAst.Net to obtain a fully resolved C++ AST.
+          - id: ApiMarkCpp-CppGenerator-ParseHeadersViaClang
+            title: CppGenerator shall parse public header files via clang -ast-dump=json to obtain a fully resolved C++ AST.
             justification: |
               A fully resolved AST is required so that type references, template arguments, and
               inheritance relationships across headers are available for accurate documentation
-              generation; CppAst.Net provides this via libclang without requiring a build step.
+              generation; invoking clang directly produces a complete, standards-compliant AST
+              without requiring a bundled parser library.
             tests:
               - CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint
           - id: ApiMarkCpp-CppGenerator-FilterDeclarationsByOwnership
