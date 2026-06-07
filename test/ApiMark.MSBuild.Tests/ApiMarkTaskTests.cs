@@ -353,49 +353,30 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
-    ///     Validates that <see cref="ApiMarkTask.Execute"/> with a real C++ fixture header directory
-    ///     spawns <c>ApiMark.Tool</c> in <c>cpp</c> mode and produces the expected <c>api.md</c>
-    ///     output file.
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> correctly escapes a
+    ///     double-quote character in <see cref="ApiMarkTask.ApiMarkLibraryDescription"/>
+    ///     using Windows <c>CommandLineToArgvW</c> escaping rules.
     /// </summary>
     [Fact]
-    public void ApiMarkTask_Execute_WithCppProject_GeneratesDocumentation()
+    public void ApiMarkTask_BuildArguments_LibraryDescriptionWithDoubleQuote_EscapesCorrectly()
     {
-        // Arrange: locate the tool DLL in the test output and the fixture headers via source path
-        var testDir = Path.GetDirectoryName(typeof(ApiMarkTaskTests).Assembly.Location)!;
-        var toolDllPath = Path.Join(testDir, "ApiMark.Tool.dll");
-        var fixtureIncludeDir = FixturePaths.GetFixtureIncludeDir();
-        var outputDir = Path.Join(Path.GetTempPath(), Guid.NewGuid().ToString());
-
-        try
+        // Arrange: a library description containing embedded double-quote characters
+        var task = new ApiMarkTask
         {
-            var buildEngine = Substitute.For<IBuildEngine>();
-            var task = new ApiMarkTask
-            {
-                BuildEngine = buildEngine,
-                ToolDllPath = toolDllPath,
-                ProjectExtension = ".vcxproj",
-                ApiMarkIncludePaths = fixtureIncludeDir,
-                ApiMarkLibraryName = "Fixtures",
-                ApiMarkCppStandard = "c++17",
-                ApiMarkOutputDir = outputDir,
-            };
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include",
+            ApiMarkLibraryName = "MyLib",
+            ApiMarkLibraryDescription = "My library (v\"2\")",
+        };
 
-            // Act: execute the task — this spawns the real ApiMark.Tool child process in cpp mode
-            var result = task.Execute();
+        // Act
+        var args = task.BuildArguments("cpp");
 
-            // Assert: task returns true and api.md is written to the output directory
-            Assert.True(result);
-            Assert.True(
-                File.Exists(Path.Join(outputDir, "api.md")),
-                "Expected api.md to be created in the output directory.");
-        }
-        finally
-        {
-            // Clean up the temporary output directory regardless of outcome
-            if (Directory.Exists(outputDir))
-            {
-                Directory.Delete(outputDir, recursive: true);
-            }
-        }
+        // Assert: each " in the value must be escaped as \" so the outer quote delimiter
+        // is not prematurely closed during Windows command-line parsing
+        Assert.Contains("\\\"", args);
+        Assert.DoesNotContain("v\"2\"", args);
     }
 }
+

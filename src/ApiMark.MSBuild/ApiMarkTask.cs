@@ -200,32 +200,32 @@ public sealed class ApiMarkTask : Task
         if (language == DotNetLanguage)
         {
             // Assembly and XML doc paths are both required for .NET documentation
-            sb.Append($"{DotNetLanguage} --assembly \"{ApiMarkAssemblyPath}\" --xml-doc \"{ApiMarkXmlDocPath}\"");
+            sb.Append($"{DotNetLanguage} --assembly \"{EscapeArg(ApiMarkAssemblyPath ?? string.Empty)}\" --xml-doc \"{EscapeArg(ApiMarkXmlDocPath ?? string.Empty)}\"");
         }
         else
         {
             // Include paths use semicolons as the MSBuild list separator; convert to commas
             // because the tool's --includes argument is parsed as a comma-separated list
             var commaIncludes = ApiMarkIncludePaths?.Replace(';', ',') ?? string.Empty;
-            sb.Append($"cpp --includes \"{commaIncludes}\"");
+            sb.Append($"cpp --includes \"{EscapeArg(commaIncludes)}\"");
 
             // Library name (defaults to project name via .targets)
             if (!string.IsNullOrEmpty(ApiMarkLibraryName))
             {
-                sb.Append($" --library-name \"{ApiMarkLibraryName}\"");
+                sb.Append($" --library-name \"{EscapeArg(ApiMarkLibraryName!)}\"");
             }
 
             // Optional library description
             if (!string.IsNullOrEmpty(ApiMarkLibraryDescription))
             {
-                sb.Append($" --library-description \"{ApiMarkLibraryDescription}\"");
+                sb.Append($" --library-description \"{EscapeArg(ApiMarkLibraryDescription!)}\"");
             }
 
             // Preprocessor defines — semicolons converted to commas
             if (!string.IsNullOrEmpty(ApiMarkDefines))
             {
                 var commaDefines = ApiMarkDefines!.Replace(';', ',');
-                sb.Append($" --defines \"{commaDefines}\"");
+                sb.Append($" --defines \"{EscapeArg(commaDefines)}\"");
             }
 
             // C++ standard
@@ -238,7 +238,7 @@ public sealed class ApiMarkTask : Task
         // Optional: output directory
         if (!string.IsNullOrEmpty(ApiMarkOutputDir))
         {
-            sb.Append($" --output \"{ApiMarkOutputDir}\"");
+            sb.Append($" --output \"{EscapeArg(ApiMarkOutputDir!)}\"");
         }
 
         // Optional: visibility filter
@@ -407,5 +407,44 @@ public sealed class ApiMarkTask : Task
         }
 
         return null;
+    }
+
+    /// <summary>
+    ///     Escapes a string value for safe embedding in a quoted Windows command-line argument,
+    ///     following the <c>CommandLineToArgvW</c> escaping rules.
+    /// </summary>
+    /// <remarks>
+    ///     Backslashes that precede a double quote are doubled, then the double quote is
+    ///     escaped with a backslash. Trailing backslashes are doubled so the closing
+    ///     <c>"</c> delimiter is not escaped.
+    /// </remarks>
+    /// <param name="value">The raw value to escape.</param>
+    /// <returns>The escaped value, safe to embed between <c>"</c> delimiters.</returns>
+    private static string EscapeArg(string value)
+    {
+        var sb = new StringBuilder();
+        var backslashCount = 0;
+        foreach (var c in value)
+        {
+            switch (c)
+            {
+                case '\\':
+                    backslashCount++;
+                    break;
+                case '"':
+                    sb.Append('\\', backslashCount * 2 + 1);
+                    sb.Append('"');
+                    backslashCount = 0;
+                    break;
+                default:
+                    sb.Append('\\', backslashCount);
+                    sb.Append(c);
+                    backslashCount = 0;
+                    break;
+            }
+        }
+
+        sb.Append('\\', backslashCount * 2);
+        return sb.ToString();
     }
 }

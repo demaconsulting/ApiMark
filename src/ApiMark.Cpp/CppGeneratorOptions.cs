@@ -3,8 +3,7 @@ namespace ApiMark.Cpp;
 /// <summary>Configuration options for <see cref="CppGenerator"/>.</summary>
 /// <remarks>
 ///     All properties must be set before passing this object to the <see cref="CppGenerator"/>
-///     constructor. The object is consumed by value at construction time; mutating it after
-///     construction has no effect on an already-constructed generator.
+///     constructor. The object is not copied; do not mutate it after construction.
 /// </remarks>
 public sealed class CppGeneratorOptions
 {

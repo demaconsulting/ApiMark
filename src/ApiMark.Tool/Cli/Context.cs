@@ -416,7 +416,8 @@ internal sealed class Context : IDisposable
                     return index + 1;
 
                 case "--includes":
-                    Includes = GetRequiredStringArgument(arg, args, index, "a comma-separated path list argument").Split(',');
+                    Includes = GetRequiredStringArgument(arg, args, index, "a comma-separated path list argument")
+                        .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
                     return index + 1;
 
                 case "--output":

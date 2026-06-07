@@ -148,7 +148,7 @@ public class CppGeneratorTests
         var nsTable = tables.First();
         Assert.Contains(nsTable.Rows, row => row[0].Contains("fixtures"));
 
-        // Assert: each row has three columns — Namespace, Types, Description
+        // Assert: each row has three columns — Namespace, Declarations, Description
         Assert.All(nsTable.Rows, row => Assert.Equal(3, row.Length));
     }
 
@@ -272,6 +272,54 @@ public class CppGeneratorTests
         Assert.True(
             factory.Writers.ContainsKey("fixtures/SampleClass/GetGreeting"),
             "Expected member page for SampleClass::GetGreeting");
+    }
+
+    /// <summary>
+    ///     Validates that the type page for <c>SampleClass</c> lists the parameter type in
+    ///     the <c>GetGreeting</c> method row link text so readers can distinguish overloads.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_SampleClass_TypePage_MethodRowShowsParameterType()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: the SampleClass type page must include a method row whose link cell
+        // starts with "[GetGreeting(" followed by a non-empty parameter type, confirming
+        // the parentheses are not empty as they were before the fix
+        var writer = factory.Writers["fixtures/SampleClass"];
+        var tables = writer.Operations.OfType<TableOperation>().ToList();
+        var allCells = tables.SelectMany(t => t.Rows).SelectMany(r => r).ToList();
+        Assert.Contains(
+            allCells,
+            c => c.StartsWith("[GetGreeting(", StringComparison.Ordinal)
+                 && !c.StartsWith("[GetGreeting()", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that an individual method member page uses an H3 heading, consistent
+    ///     with the DotNet generator and the combined member page convention.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_MemberPage_UsesH3Heading()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: the GetGreeting member page must open with an H3 heading containing the
+        // class and method name so the heading level matches combined member pages
+        var writer = factory.Writers["fixtures/SampleClass/GetGreeting"];
+        var firstHeading = writer.Operations.OfType<HeadingOperation>().First();
+        Assert.Equal(3, firstHeading.Level);
+        Assert.Contains("GetGreeting", firstHeading.Text, StringComparison.Ordinal);
     }
 
     /// <summary>Validates that parameterless methods and free functions all receive separate pages.</summary>

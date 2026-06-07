@@ -311,13 +311,12 @@ public sealed class CppGenerator : IApiGenerator
                 options.AdditionalArguments.Add(sdkPath);
             }
 
-            // Compiler-builtin headers (stdarg.h, stddef.h, float.h, etc.) live in the
-            // Clang resource directory, not in the system SDK. The bundled libclang dylib
-            // does not bundle these, so we must point at the system Clang's resource headers.
-            var resourceIncludeDir = GetClangResourceIncludeDir();
-            if (!string.IsNullOrEmpty(resourceIncludeDir))
+            // Clang requires a specific include search order on macOS: C++ stdlib headers must
+            // come before Clang resource headers, which must come before C system headers.
+            // Add both explicitly so the ordering is guaranteed regardless of what -isysroot infers.
+            foreach (var dir in GetMacOsSystemIncludeDirs())
             {
-                options.SystemIncludeFolders.Add(resourceIncludeDir);
+                options.SystemIncludeFolders.Add(dir);
             }
         }
 
@@ -379,37 +378,57 @@ public sealed class CppGenerator : IApiGenerator
         RunCommand("xcrun", "--sdk", "macosx", "--show-sdk-path");
 
     /// <summary>
-    ///     Returns the compiler resource include directory for the active Clang toolchain by
-    ///     locating the Clang binary via <c>xcrun --find clang</c> and then invoking it with
-    ///     <c>-print-resource-dir</c>.
+    ///     Returns the macOS system include directories required for correct C++ header parsing,
+    ///     in the order that Clang expects them.
     /// </summary>
     /// <remarks>
-    ///     Compiler-internal headers such as <c>stdarg.h</c>, <c>stddef.h</c>, and
-    ///     <c>float.h</c> live in the Clang resource directory, not in the system SDK.
-    ///     Without this path, <c>#include &lt;string&gt;</c> and other standard headers that
-    ///     transitively include compiler builtins fail with "file not found".
+    ///     Clang requires a specific search order for headers on macOS:
+    ///     <list type="number">
+    ///       <item>C++ standard library headers (<c>usr/include/c++/v1</c>)</item>
+    ///       <item>Clang resource headers (<c>clang/{ver}/include</c>) — required for compiler
+    ///         builtins such as <c>stdarg.h</c> and <c>float.h</c></item>
+    ///       <item>C system headers (implicit, from <c>-isysroot</c>)</item>
+    ///     </list>
+    ///     Adding the Clang resource directory without first adding the C++ stdlib directory
+    ///     causes the resource dir's <c>stddef.h</c> to be found before libc++'s version,
+    ///     triggering "tried including stddef.h but didn't find libc++'s header" errors.
     /// </remarks>
     /// <returns>
-    ///     The absolute path to the <c>include</c> subdirectory of the Clang resource
-    ///     directory (e.g. <c>.../clang/17/include</c>), or <see langword="null"/> when
-    ///     the path cannot be determined or does not exist on disk.
+    ///     An ordered sequence of absolute directory paths to add as system include folders.
+    ///     Returns an empty sequence when the Clang toolchain cannot be located.
     /// </returns>
-    private static string? GetClangResourceIncludeDir()
+    private static IEnumerable<string> GetMacOsSystemIncludeDirs()
     {
         var clangPath = RunCommand("xcrun", "--find", "clang");
         if (string.IsNullOrEmpty(clangPath))
         {
-            return null;
+            yield break;
         }
 
-        var resourceDir = RunCommand(clangPath, "-print-resource-dir");
-        if (string.IsNullOrEmpty(resourceDir))
+        // C++ stdlib headers must come first so that libc++'s <cstddef> and friends
+        // can locate their own <stddef.h> wrapper before the Clang resource one.
+        // clang binary is at {toolchain}/usr/bin/clang; headers are at {toolchain}/usr/include/c++/v1
+        var usrDir = Path.GetDirectoryName(Path.GetDirectoryName(clangPath));
+        if (usrDir != null)
         {
-            return null;
+            var cxxInclude = Path.Combine(usrDir, "include", "c++", "v1");
+            if (Directory.Exists(cxxInclude))
+            {
+                yield return cxxInclude;
+            }
         }
 
-        var includeDir = Path.Combine(resourceDir, "include");
-        return Directory.Exists(includeDir) ? includeDir : null;
+        // Clang resource headers come second — required for compiler builtins (stdarg.h, float.h)
+        // that are not in the system SDK. Without this, any header using <stdarg.h> fails.
+        var resourceDir = RunCommand(clangPath, "-print-resource-dir");
+        if (!string.IsNullOrEmpty(resourceDir))
+        {
+            var resourceInclude = Path.Combine(resourceDir, "include");
+            if (Directory.Exists(resourceInclude))
+            {
+                yield return resourceInclude;
+            }
+        }
     }
 
     /// <summary>
@@ -782,14 +801,14 @@ public sealed class CppGenerator : IApiGenerator
         }
 
         // All-namespaces table — lists every namespace so AI agents get a complete map in one
-        // read; Types count reflects only declarations directly in each namespace
-        var headers = new[] { "Namespace", "Types", DescriptionColumnHeader };
+        // read; Declarations count reflects only declarations directly in each namespace
+        var headers = new[] { "Namespace", "Declarations", DescriptionColumnHeader };
         var rows = namespaces.Select(kv =>
         {
             var nsDecls = kv.Value;
-            var typeCount = nsDecls.Classes.Count + nsDecls.Enums.Count + nsDecls.FreeFunctions.Count;
+            var declarationCount = nsDecls.Classes.Count + nsDecls.Enums.Count + nsDecls.FreeFunctions.Count;
             var description = GetNamespaceDescription(nsDecls);
-            return new[] { $"[{nsDecls.DisplayName}]({kv.Key}.md)", typeCount.ToString(), description };
+            return new[] { $"[{nsDecls.DisplayName}]({kv.Key}.md)", declarationCount.ToString(), description };
         });
         writer.WriteTable(headers, rows);
 
@@ -1046,7 +1065,12 @@ public sealed class CppGenerator : IApiGenerator
                 }
             }
 
-            methodRows.Add(new[] { $"[{method.Name}()]({cls.Name}/{pageFileName}.md)", returnType, methodSummary });
+            // Show simplified parameter types in the link text so readers can
+            // distinguish overloaded methods at a glance
+            var methodParamTypes = string.Join(
+                ", ",
+                method.Parameters.Select(p => SimplifyTypeName(p.Type.GetDisplayName())));
+            methodRows.Add(new[] { $"[{method.Name}({methodParamTypes})]({cls.Name}/{pageFileName}.md)", returnType, methodSummary });
         }
 
         // Process fields — emit field rows after writing each member's detail page
@@ -1223,7 +1247,7 @@ public sealed class CppGenerator : IApiGenerator
         string className,
         CppFunction method)
     {
-        writer.WriteHeading(1, $"{className}.{method.Name}");
+        writer.WriteHeading(3, $"{className}.{method.Name}");
         WriteFunctionContent(writer, nsDisplayName, className, method);
     }
 
@@ -1309,7 +1333,7 @@ public sealed class CppGenerator : IApiGenerator
         string className,
         CppField field)
     {
-        writer.WriteHeading(1, $"{className}.{field.Name}");
+        writer.WriteHeading(3, $"{className}.{field.Name}");
         WriteFieldContent(writer, nsDisplayName, className, field);
     }
 

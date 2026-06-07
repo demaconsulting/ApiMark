@@ -268,6 +268,25 @@ public sealed class ContextTests
     }
 
     /// <summary>
+    ///     Validates that --includes trims whitespace and removes empty entries produced
+    ///     by trailing commas or extra spaces in the comma-separated list.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithIncludesOption_TrimsWhitespaceAndRemovesEmptyEntries()
+    {
+        // Arrange: a comma-separated list with surrounding whitespace and an empty entry
+        var args = new[] { "--includes", " path/a , path/b , , path/c " };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: Includes must contain only the three non-empty trimmed paths,
+        // with no empty strings from the trailing comma or surrounding whitespace
+        string[] expectedIncludes = ["path/a", "path/b", "path/c"];
+        Assert.Equal(expectedIncludes, context.Includes);
+    }
+
+    /// <summary>
     ///     Validates that an empty argument array produces a Context with all default values.
     /// </summary>
     [Fact]
