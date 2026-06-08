@@ -77,6 +77,24 @@ between members of different kinds or differently-cased method names) emit a
 single combined page via `WriteCombinedMemberPage`; emit grouped sub-tables with
 links; dispose the AssemblyDefinition.
 
+**DotNetGenerator.BuildTypeSignature** (private): Builds a human-readable C#
+declaration signature for a type definition, including direct base class and
+interface names when present.
+
+- *Parameters*: `TypeDefinition type` — the type to represent;
+  `string contextNamespace` — the namespace used to simplify base type and
+  interface names.
+- *Returns*: `string` — a declaration of the form `public class Name`,
+  `public interface Name<T>`, or `public class Name : BaseClass, IInterface`
+  when direct inheritance is present.
+- *Algorithm*: Determines the keyword (`class`, `interface`, `enum`, or `struct`)
+  from the type's flags; computes the `sealed` or `static` modifier for classes;
+  strips generic arity from the type name and appends generic parameter names when
+  present; collects the direct base class (skipping `System.Object`,
+  `System.ValueType`, `System.Enum`, and `System.MulticastDelegate`) and all
+  directly declared interfaces using TypeNameSimplifier to produce idiomatic C#
+  names; appends `: BaseClass, IInterface` when the collected list is non-empty.
+
 **DotNetGenerator.WriteCombinedMemberPage** (private): Writes a single combined
 Markdown page for a group of members whose sanitized file names collide on
 case-insensitive filesystems.

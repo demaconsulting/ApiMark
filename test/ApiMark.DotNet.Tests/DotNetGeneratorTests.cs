@@ -1138,4 +1138,59 @@ public class DotNetGeneratorTests
         Assert.Contains(level4Headings, h => h.StartsWith("name", StringComparison.Ordinal));
         Assert.Contains(level4Headings, h => h.StartsWith("Name", StringComparison.Ordinal));
     }
+
+    /// <summary>
+    ///     Validates that a class implementing an interface shows the interface name in its
+    ///     type signature code block so readers can see the inheritance relationship at a
+    ///     glance without opening the source file.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_SampleImplementation_TypeSignatureShowsInterface()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: SampleImplementation type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleImplementation"),
+            "Expected type page for SampleImplementation");
+
+        // Assert: the signature code block must include ": ISampleInterface" so readers
+        // can see the interface contract without navigating to the source file
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleImplementation"];
+        var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
+        Assert.NotNull(signature);
+        Assert.Contains(": ISampleInterface", signature.Code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that an enum type signature does not include a base class colon because
+    ///     <c>System.Enum</c> is a well-known implicit base that adds no information for readers.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_EnumTypeSignature_HasNoBaseClass()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: SampleStatus enum type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleStatus"),
+            "Expected type page for SampleStatus");
+
+        // Assert: the enum signature must not contain a colon — System.Enum must be
+        // suppressed because it is an implicit well-known base that adds no information
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleStatus"];
+        var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
+        Assert.NotNull(signature);
+        Assert.DoesNotContain(":", signature.Code, StringComparison.Ordinal);
+    }
 }

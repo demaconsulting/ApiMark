@@ -986,4 +986,31 @@ public class CppGeneratorTests
             line => line.Contains("[CppGenerator] clang:", StringComparison.Ordinal)
                     && line.Contains(systemError, StringComparison.Ordinal));
     }
+
+    /// <summary>
+    ///     Validates that the type page for <c>Circle</c> contains the base class in its
+    ///     signature block so that AI readers immediately know the inheritance chain without
+    ///     opening the header file.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_InheritanceClass_EmitsBaseClassInSignature()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: the Circle type page must exist
+        Assert.True(factory.Writers.ContainsKey("fixtures/Circle"), "Expected type page for Circle");
+
+        // Assert: the Circle type page signature must contain ": public Shape" so that
+        // readers know the inheritance chain without opening the header
+        var writer = factory.Writers["fixtures/Circle"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains(": public Shape", StringComparison.Ordinal));
+    }
 }

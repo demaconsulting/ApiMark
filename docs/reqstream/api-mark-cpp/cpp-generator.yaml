@@ -135,3 +135,16 @@ sections:
               - CppGenerator_Generate_ClassWithOperators_OperatorsPageContainsOperatorEntry
               - CppGenerator_Generate_ClassWithOperators_TypePageLinksToOperatorsPage
               - CppGenerator_Generate_NamespaceFreeOperator_CreatesNamespaceOperatorsPage
+          - id: ApiMarkCpp-CppGenerator-ShowDirectInheritanceInTypeSignature
+            title: >-
+              CppGenerator shall include direct base class names in the class declaration
+              line of the signature block for classes that have direct base classes or are
+              marked final, so the inheritance chain is visible without opening the header.
+            justification: |
+              The direct base class list tells AI agents the contract a type satisfies and
+              the class it extends without requiring them to navigate to the header file.
+              Combining this with the final specifier in a single declaration line keeps
+              the signature block minimal and immediately scannable.
+            tests:
+              - CppGenerator_Generate_InheritanceClass_EmitsBaseClassInSignature
+              - CppGenerator_Generate_FinalClass_EmitsFinalKeywordInSignature

@@ -269,8 +269,8 @@ public sealed class DotNetGenerator : IApiGenerator
         using var typeWriter = factory.CreateMarkdown(namespaceFolderPath, type.Name);
         typeWriter.WriteHeading(2, type.Name);
 
-        // Emit the C# declaration signature so readers can see the type kind and modifiers
-        var typeSignature = BuildTypeSignature(type);
+        // Emit the C# declaration signature so readers can see the type kind, modifiers, and direct inheritance
+        var typeSignature = BuildTypeSignature(type, namespaceName);
         typeWriter.WriteSignature("csharp", typeSignature);
 
         var typeMemberId = BuildTypeId(type);
@@ -1019,8 +1019,12 @@ public sealed class DotNetGenerator : IApiGenerator
 
     /// <summary>Builds a human-readable C# declaration signature for a type definition.</summary>
     /// <param name="type">The type definition to represent.</param>
-    /// <returns>A string of the form <c>public class Name</c> or <c>public interface Name&lt;T&gt;</c>.</returns>
-    private static string BuildTypeSignature(TypeDefinition type)
+    /// <param name="contextNamespace">Used to simplify base type and interface names in the signature.</param>
+    /// <returns>
+    ///     A string of the form <c>public class Name</c>, <c>public interface Name&lt;T&gt;</c>,
+    ///     or <c>public class Name : BaseClass, IInterface</c> when direct inheritance is present.
+    /// </returns>
+    private static string BuildTypeSignature(TypeDefinition type, string contextNamespace)
     {
         var keyword = type switch
         {
@@ -1048,6 +1052,31 @@ public sealed class DotNetGenerator : IApiGenerator
         {
             var args = string.Join(", ", type.GenericParameters.Select(p => p.Name));
             name = $"{name}<{args}>";
+        }
+
+        // Collect direct base class (excluding well-known root types) and directly declared interfaces
+        // so the signature shows inheritance at a glance without opening the source file
+        var bases = new List<string>();
+        if (type.BaseType != null)
+        {
+            var baseName = type.BaseType.FullName;
+
+            // Skip the standard implicit base types that carry no information for readers
+            if (baseName is not ("System.Object" or "System.ValueType" or "System.Enum" or "System.MulticastDelegate"))
+            {
+                bases.Add(TypeNameSimplifier.Simplify(type.BaseType, contextNamespace));
+            }
+        }
+
+        // Include all directly declared interfaces — transitive inheritance is omitted
+        foreach (var iface in type.Interfaces)
+        {
+            bases.Add(TypeNameSimplifier.Simplify(iface.InterfaceType, contextNamespace));
+        }
+
+        if (bases.Count > 0)
+        {
+            name = $"{name} : {string.Join(", ", bases)}";
         }
 
         return $"public {classModifier}{keyword} {name}";

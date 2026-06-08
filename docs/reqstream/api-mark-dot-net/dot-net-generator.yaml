@@ -85,3 +85,15 @@ sections:
               opening it first.
             tests:
               - DotNetGenerator_Generate_ApiMd_ListsAllNamespacesWithTypeCount
+          - id: ApiMarkDotNet-DotNetGenerator-ShowDirectInheritanceInTypeSignature
+            title: >-
+              DotNetGenerator shall include the direct base class and directly declared
+              interfaces in the type signature, omitting well-known implicit bases such as
+              System.Object, System.ValueType, System.Enum, and System.MulticastDelegate.
+            justification: |
+              The direct inheritance list tells AI agents the contract a type satisfies and
+              the class it extends without requiring them to navigate to the source file.
+              Suppressing well-known implicit bases avoids noise that adds no information.
+            tests:
+              - DotNetGenerator_Generate_SampleImplementation_TypeSignatureShowsInterface
+              - DotNetGenerator_Generate_EnumTypeSignature_HasNoBaseClass

@@ -718,6 +718,28 @@ internal sealed class ClangAstParser
         var isFinal = false;
         var location = GetCurrentSourceLocation(node);
 
+        // Clang 18+ surfaces base class information in a top-level "bases" array on the
+        // CXXRecordDecl node rather than as CXXBaseSpecifier child nodes inside "inner".
+        // Earlier versions emit CXXBaseSpecifier nodes in "inner" (handled below).
+        // Both paths are retained so the parser works across clang versions.
+        var hasTopLevelBases = false;
+        if (node.TryGetProperty("bases", out var bases))
+        {
+            foreach (var baseEntry in bases.EnumerateArray())
+            {
+                if (baseEntry.TryGetProperty("type", out var bt) &&
+                    bt.TryGetProperty("qualType", out var qtEl))
+                {
+                    var baseName = qtEl.GetString();
+                    if (!string.IsNullOrEmpty(baseName))
+                    {
+                        baseTypes.Add(new CppBaseType(baseName));
+                        hasTopLevelBases = true;
+                    }
+                }
+            }
+        }
+
         if (node.TryGetProperty("inner", out var inner))
         {
             foreach (var child in inner.EnumerateArray())
@@ -760,8 +782,12 @@ internal sealed class ClangAstParser
                         }
 
                     case "CXXBaseSpecifier":
-                        // Capture the base-class name from type.qualType
-                        if (child.TryGetProperty("type", out var bt) &&
+                        // Fallback for clang versions older than 18 that emit base specifiers
+                        // as CXXBaseSpecifier child nodes in "inner" rather than in a top-level
+                        // "bases" array. Skipped when base types were already collected from the
+                        // top-level "bases" array to avoid duplicates across clang versions.
+                        if (!hasTopLevelBases &&
+                            child.TryGetProperty("type", out var bt) &&
                             bt.TryGetProperty("qualType", out var qtEl))
                         {
                             var baseName = qtEl.GetString();

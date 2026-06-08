@@ -679,9 +679,10 @@ public sealed class CppGenerator : IApiGenerator
 
             sigParts.Add($"#include <{includePath}>");
 
-            // When the class is marked final, append the class declaration line so readers
-            // can see at a glance that the class cannot be used as a base class
-            if (cls.IsFinal)
+            // Append the class declaration line when the class is marked final or has base types so
+            // readers can see the final constraint and inheritance chain at a glance without
+            // opening the header
+            if (cls.IsFinal || cls.BaseTypes.Count > 0)
             {
                 sigParts.Add(BuildClassDeclaration(cls));
             }
@@ -1520,14 +1521,15 @@ public sealed class CppGenerator : IApiGenerator
     ///     final and base class names when inheritance is present.
     /// </summary>
     /// <remarks>
-    ///     Called only when <see cref="CppClass.IsFinal"/> is true so that the declaration
-    ///     fragment makes the <c>final</c> constraint immediately visible to readers without
-    ///     them needing to open the header file.
+    ///     Used when <see cref="CppClass.IsFinal"/> is true or when the class has direct base
+    ///     types so that the declaration fragment makes the constraint and inheritance chain
+    ///     immediately visible to readers without them needing to open the header file.
     /// </remarks>
     /// <param name="cls">The C++ class to produce a declaration line for.</param>
     /// <returns>
-    ///     A C++ declaration string such as <c>class FinalClass final</c> or
-    ///     <c>class FinalClass final : public Shape</c>.
+    ///     A C++ declaration string such as <c>class FinalClass final</c>,
+    ///     <c>class FinalClass final : public Shape</c>, or
+    ///     <c>class Circle : public Shape</c>.
     /// </returns>
     private static string BuildClassDeclaration(CppClass cls)
     {
