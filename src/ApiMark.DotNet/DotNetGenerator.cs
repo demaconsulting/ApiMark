@@ -510,7 +510,7 @@ public sealed class DotNetGenerator : IApiGenerator
         }
 
         // Emit the External Types section when any non-standard external types were referenced
-        WriteExternalTypesSection(typeWriter, externalTypes);
+        WriteExternalTypesSection(typeWriter, externalTypes, 3);
     }
 
     /// <summary>
@@ -550,7 +550,7 @@ public sealed class DotNetGenerator : IApiGenerator
             // Method pages use the resolver for parameter type cells
             var externalTypes = new SortedSet<ExternalTypeInfo>();
             WriteMethodDocumentation(memberWriter, namespaceName, method, xmlDocs, memberId, resolver, memberCurrentFolder, externalTypes);
-            WriteExternalTypesSection(memberWriter, externalTypes);
+            WriteExternalTypesSection(memberWriter, externalTypes, 4);
             return;
         }
 
@@ -612,7 +612,7 @@ public sealed class DotNetGenerator : IApiGenerator
             WriteMethodDocumentation(memberWriter, namespaceName, overload, xmlDocs, BuildMemberId(overload), resolver, overloadCurrentFolder, externalTypes);
         }
 
-        WriteExternalTypesSection(memberWriter, externalTypes);
+        WriteExternalTypesSection(memberWriter, externalTypes, 4);
     }
 
     /// <summary>
@@ -715,7 +715,7 @@ public sealed class DotNetGenerator : IApiGenerator
             }
         }
 
-        WriteExternalTypesSection(writer, externalTypes);
+        WriteExternalTypesSection(writer, externalTypes, 4);
     }
 
     /// <summary>
@@ -1310,14 +1310,18 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <param name="externalTypes">
     ///     The set of external types accumulated during table row generation. May be empty.
     /// </param>
-    private static void WriteExternalTypesSection(IMarkdownWriter writer, SortedSet<ExternalTypeInfo> externalTypes)
+    /// <param name="headingLevel">
+    ///     Heading depth for the "External Types" section heading. Use 3 for type pages
+    ///     (which open with H2) and 4 for member pages (which open with H3).
+    /// </param>
+    private static void WriteExternalTypesSection(IMarkdownWriter writer, SortedSet<ExternalTypeInfo> externalTypes, int headingLevel = 3)
     {
         if (externalTypes.Count == 0)
         {
             return;
         }
 
-        writer.WriteHeading(2, "External Types");
+        writer.WriteHeading(headingLevel, "External Types");
         writer.WriteTable(
             ["Type", "Namespace"],
             externalTypes.Select(t => new[] { t.SimplifiedName, t.Namespace }));

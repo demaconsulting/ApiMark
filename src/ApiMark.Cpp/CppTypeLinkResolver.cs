@@ -131,10 +131,15 @@ internal sealed class CppTypeLinkResolver
 
         if (pageKey != null)
         {
-            // Intra-library type: emit a relative Markdown link using the stripped (short) name
+            // Intra-library type: replace only the base type token in the original string,
+            // preserving qualifiers (const, *, &, etc.) around the link
             var from = currentFolder.Length > 0 ? currentFolder : ".";
             var relativePath = Path.GetRelativePath(from, pageKey + ".md").Replace('\\', '/');
-            return $"[{stripped}]({relativePath})";
+            var shortName = stripped.Contains("::", StringComparison.Ordinal)
+                ? stripped[(stripped.LastIndexOf("::", StringComparison.Ordinal) + 2)..]
+                : stripped;
+            var linked = $"[{shortName}]({relativePath})";
+            return cppTypeString.Replace(shortName, linked, StringComparison.Ordinal);
         }
 
         // External type with a namespace: track for the External Types section

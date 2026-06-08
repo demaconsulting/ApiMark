@@ -27,8 +27,13 @@ internal sealed record ExternalTypeInfo(string SimplifiedName, string Namespace)
     ///     A negative value when this instance sorts before <paramref name="other"/>,
     ///     zero when equal, or a positive value when it sorts after.
     /// </returns>
-    public int CompareTo(ExternalTypeInfo? other) =>
-        StringComparer.Ordinal.Compare(SimplifiedName, other?.SimplifiedName);
+    public int CompareTo(ExternalTypeInfo? other)
+    {
+        var nameComparison = StringComparer.Ordinal.Compare(SimplifiedName, other?.SimplifiedName);
+        return nameComparison != 0
+            ? nameComparison
+            : StringComparer.Ordinal.Compare(Namespace, other?.Namespace);
+    }
 
     /// <summary>Returns <see langword="true"/> when <paramref name="left"/> sorts before <paramref name="right"/>.</summary>
     public static bool operator <(ExternalTypeInfo left, ExternalTypeInfo right) =>

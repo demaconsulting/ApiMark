@@ -27,8 +27,13 @@ internal sealed record CppExternalTypeInfo(string TypeString, string Namespace)
     ///     A negative value when this instance sorts before <paramref name="other"/>,
     ///     zero when equal, or a positive value when it sorts after.
     /// </returns>
-    public int CompareTo(CppExternalTypeInfo? other) =>
-        StringComparer.Ordinal.Compare(TypeString, other?.TypeString);
+    public int CompareTo(CppExternalTypeInfo? other)
+    {
+        var nameComparison = StringComparer.Ordinal.Compare(TypeString, other?.TypeString);
+        return nameComparison != 0
+            ? nameComparison
+            : StringComparer.Ordinal.Compare(Namespace, other?.Namespace);
+    }
 
     /// <summary>Returns <see langword="true"/> when <paramref name="left"/> sorts before <paramref name="right"/>.</summary>
     public static bool operator <(CppExternalTypeInfo left, CppExternalTypeInfo right) =>
