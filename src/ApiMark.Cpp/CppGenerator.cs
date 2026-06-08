@@ -265,8 +265,13 @@ public sealed class CppGenerator : IApiGenerator
             return;
         }
 
+        // Normalize header paths to forward slashes because clang emits diagnostics with '/'
+        // even on Windows, while Directory.GetFiles returns native '\' paths.
+        var normalizedHeaders = headerFiles
+            .Select(h => Path.GetFullPath(h).Replace('\\', '/'))
+            .ToList();
         var userErrors = result.Errors
-            .Where(e => headerFiles.Any(h => e.Contains(h, StringComparison.OrdinalIgnoreCase)))
+            .Where(e => normalizedHeaders.Any(h => e.Contains(h, StringComparison.OrdinalIgnoreCase)))
             .ToList();
         var systemErrors = result.Errors.Except(userErrors).ToList();
 
@@ -395,6 +400,36 @@ public sealed class CppGenerator : IApiGenerator
         RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
             ? StringComparer.Ordinal
             : StringComparer.OrdinalIgnoreCase;
+
+    /// <summary>
+    ///     Sanitizes a C++ declaration name for use as a file-system file name by replacing any
+    ///     characters that are invalid in file names on Windows or Unix with an underscore.
+    /// </summary>
+    /// <remarks>
+    ///     C++ operator names (e.g. <c>operator*</c>, <c>operator&lt;&lt;</c>) and conversion
+    ///     operators can contain characters such as <c>*</c>, <c>&lt;</c>, <c>&gt;</c>, and
+    ///     <c>:</c> that are forbidden in Windows file names. Replacing them with <c>_</c> produces
+    ///     a stable, platform-safe file name while retaining human readability for non-operator names.
+    /// </remarks>
+    /// <param name="name">The C++ declaration name to sanitize. Must not be null.</param>
+    /// <returns>
+    ///     A copy of <paramref name="name"/> with every character from
+    ///     <see cref="Path.GetInvalidFileNameChars"/> replaced by <c>_</c>.
+    /// </returns>
+    private static string SanitizeFileName(string name)
+    {
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var chars = name.ToCharArray();
+        for (var i = 0; i < chars.Length; i++)
+        {
+            if (Array.IndexOf(invalidChars, chars[i]) >= 0)
+            {
+                chars[i] = '_';
+            }
+        }
+
+        return new string(chars);
+    }
 
     /// <summary>
     ///     Derives the canonical <c>#include</c> path for a declaration from its source file,
@@ -545,7 +580,8 @@ public sealed class CppGenerator : IApiGenerator
                 {
                     var summary = GetSummary(fn.Doc) ?? NoDescriptionPlaceholder;
                     var returnType = SimplifyTypeName(fn.ReturnTypeName);
-                    return new[] { $"[{fn.Name}]({nsKey}/{fn.Name}.md)", returnType, summary };
+                    var safeName = SanitizeFileName(fn.Name);
+                    return new[] { $"[{fn.Name}]({nsKey}/{safeName}.md)", returnType, summary };
                 });
             writer.WriteTable(fnHeaders, fnRows);
         }
@@ -688,8 +724,9 @@ public sealed class CppGenerator : IApiGenerator
             var group = caseInsensitiveGroups[lowerKey];
 
             // When the lowercase key is unique, the page uses the original member name;
-            // when there is a collision, the page uses the lowercase key so it is stable
-            var pageFileName = group.Count == 1 ? baseName : lowerKey;
+            // when there is a collision, the page uses the lowercase key so it is stable.
+            // Sanitize for use as a file name (operator names can contain *, <, >, : etc.)
+            var pageFileName = SanitizeFileName(group.Count == 1 ? baseName : lowerKey);
             var ctorSummary = GetSummary(ctor.Doc) ?? NoDescriptionPlaceholder;
 
             // Show simplified parameter types in the link text so readers can
@@ -702,11 +739,11 @@ public sealed class CppGenerator : IApiGenerator
             {
                 if (group.Count == 1)
                 {
-                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, ctor, baseName);
+                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, ctor, pageFileName);
                 }
                 else
                 {
-                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, lowerKey, group);
+                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, pageFileName, group);
                 }
             }
 
@@ -719,7 +756,7 @@ public sealed class CppGenerator : IApiGenerator
             var baseName = GetMemberBaseName(method, cls.Name);
             var lowerKey = baseName.ToLowerInvariant();
             var group = caseInsensitiveGroups[lowerKey];
-            var pageFileName = group.Count == 1 ? baseName : lowerKey;
+            var pageFileName = SanitizeFileName(group.Count == 1 ? baseName : lowerKey);
             var methodSummary = GetSummary(method.Doc) ?? NoDescriptionPlaceholder;
             var returnType = SimplifyTypeName(method.ReturnTypeName);
 
@@ -727,11 +764,11 @@ public sealed class CppGenerator : IApiGenerator
             {
                 if (group.Count == 1)
                 {
-                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, method, baseName);
+                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, method, pageFileName);
                 }
                 else
                 {
-                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, lowerKey, group);
+                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, pageFileName, group);
                 }
             }
 
@@ -749,7 +786,7 @@ public sealed class CppGenerator : IApiGenerator
             var baseName = GetMemberBaseName(field, cls.Name);
             var lowerKey = baseName.ToLowerInvariant();
             var group = caseInsensitiveGroups[lowerKey];
-            var pageFileName = group.Count == 1 ? baseName : lowerKey;
+            var pageFileName = SanitizeFileName(group.Count == 1 ? baseName : lowerKey);
             var fieldSummary = GetSummary(field.Doc) ?? NoDescriptionPlaceholder;
             var typeName = SimplifyTypeName(field.TypeName);
 
@@ -757,11 +794,11 @@ public sealed class CppGenerator : IApiGenerator
             {
                 if (group.Count == 1)
                 {
-                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, field, baseName);
+                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, field, pageFileName);
                 }
                 else
                 {
-                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, lowerKey, group);
+                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, pageFileName, group);
                 }
             }
 
@@ -811,7 +848,7 @@ public sealed class CppGenerator : IApiGenerator
         string nsDisplayName,
         CppFunction fn)
     {
-        using var writer = factory.CreateMarkdown(nsKey, fn.Name);
+        using var writer = factory.CreateMarkdown(nsKey, SanitizeFileName(fn.Name));
         writer.WriteHeading(1, fn.Name);
 
         // Emit the fully-qualified name as a comment followed by the optional #include
