@@ -147,6 +147,43 @@ public class ProgramTests
     }
 
     /// <summary>
+    ///     Validates that invoking the <c>dotnet</c> subcommand without the required
+    ///     <c>--xml-doc</c> option exits with a non-zero code and a clear diagnostic
+    ///     that names the missing option.
+    /// </summary>
+    [Fact]
+    public void Program_Main_WithDotNetSubcommand_MissingXmlDoc_ReturnsNonZeroExitCode()
+    {
+        // Arrange: provide --assembly and --output but omit --xml-doc
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+
+        try
+        {
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "dotnet",
+                "--assembly", assemblyPath,
+                "--output", outputDir,
+            ]);
+
+            // Assert: --xml-doc is required for dotnet, so the exit code must be non-zero
+            // and the diagnostic message must name the missing option
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--xml-doc", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            // Restore the original error stream regardless of outcome
+            Console.SetError(originalError);
+        }
+    }
+
+    /// <summary>
     ///     Validates that invoking the <c>cpp</c> subcommand without the required
     ///     <c>--includes</c> option exits with a non-zero code and a clear diagnostic
     ///     that names the missing option.
