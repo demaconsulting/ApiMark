@@ -861,4 +861,101 @@ public class CppGeneratorTests
             signatures,
             s => s.Contains("final", StringComparison.Ordinal));
     }
+
+    /// <summary>
+    ///     Validates that a class with operator overloads produces a shared <c>operators.md</c>
+    ///     page at the expected key, rather than individual colliding pages for each operator.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ClassWithOperators_CreatesOperatorsPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: a single shared operators page is written for OperatorClass instead of
+        // individual pages that would collide because operator+, operator-, etc. all
+        // sanitize to the same file name
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/OperatorClass/operators"),
+            "Expected a shared operators page at 'fixtures/OperatorClass/operators'");
+    }
+
+    /// <summary>
+    ///     Validates that the operators page for a class with operator overloads contains
+    ///     an entry for each declared operator, confirming all overloads are documented.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ClassWithOperators_OperatorsPageContainsOperatorEntry()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: the operators page must exist
+        Assert.True(factory.Writers.ContainsKey("fixtures/OperatorClass/operators"));
+        var writer = factory.Writers["fixtures/OperatorClass/operators"];
+
+        // Assert: operator+ must appear as a heading on the operators page so readers
+        // can navigate directly to the addition overload
+        var headings = writer.Operations
+            .OfType<HeadingOperation>()
+            .Select(h => h.Text)
+            .ToList();
+        Assert.Contains(headings, h => h.Contains("operator+", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that the type page for a class with operator overloads contains a link
+    ///     to the shared <c>operators.md</c> page rather than to individual operator pages.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ClassWithOperators_TypePageLinksToOperatorsPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: the OperatorClass type page must exist
+        Assert.True(factory.Writers.ContainsKey("fixtures/OperatorClass"));
+        var writer = factory.Writers["fixtures/OperatorClass"];
+
+        // Assert: at least one table on the type page must contain a cell referencing
+        // operators.md so that readers can navigate from the type page to the operators page
+        var tables = writer.Operations.OfType<TableOperation>().ToList();
+        Assert.Contains(
+            tables,
+            t => t.Rows.Any(row => row.Any(cell => cell.Contains("operators.md", StringComparison.Ordinal))));
+    }
+
+    /// <summary>
+    ///     Validates that namespace-level operator free functions are grouped onto a single
+    ///     <c>operators.md</c> page at the namespace level, rather than producing individual
+    ///     colliding pages for each operator overload.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_NamespaceFreeOperator_CreatesNamespaceOperatorsPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory);
+
+        // Assert: a shared namespace operators page is written under the fixtures namespace
+        // for the free operator<< declared in OperatorClass.h
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/operators"),
+            "Expected a shared namespace operators page at 'fixtures/operators'");
+    }
 }

@@ -29,12 +29,19 @@ privileged configuration is required beyond a standard clang installation.
   is false and includes them when it is true.
 - Doxygen `@brief` comments appear as description paragraphs in generated output; missing doc
   comments produce the standard placeholder text.
-- Every visible member — including parameterless methods, constructors, free functions, and variadic
-  functions — receives its own dedicated detail page unless case-insensitive file-name collisions
-  require combining members onto one page.
+- Every visible non-operator member — including parameterless methods, constructors, free
+  functions, and variadic functions — receives its own dedicated detail page unless
+  case-insensitive file-name collisions require combining members onto one page.
+- Operator overloads declared inside a class are all grouped onto a single
+  `{namespace}/{TypeName}/operators.md` page; the type page links to it via an Operators
+  section rather than listing individual operator pages.
+- Namespace-level operator free functions are all grouped onto a single
+  `{namespace}/operators.md` page; the namespace summary page links to it via an Operators
+  section.
 - Generated file keys follow the naming convention: `api` entrypoint, `{namespace}` namespace
-  summaries, `{namespace}/{TypeName}` type pages, and `{namespace}/{TypeName}/{MemberName}` member
-  pages.
+  summaries, `{namespace}/{TypeName}` type pages, `{namespace}/{TypeName}/{MemberName}` member
+  pages, `{namespace}/{TypeName}/operators` class operator pages, and `{namespace}/operators`
+  namespace operator pages.
 - Type and member pages contain the fully qualified C++ name in their signature blocks.
 - Enum pages list all declared enum values.
 - Template class primary templates receive their own type pages.
@@ -188,3 +195,26 @@ This scenario is tested by `CppGenerator_Generate_FinalClass_EmitsFinalKeywordIn
 not have the `final` keyword anywhere in its type page signature block, confirming that the
 annotation is only applied when explicitly declared. This scenario is tested by
 `CppGenerator_Generate_NonFinalClass_DoesNotEmitFinalKeyword`.
+
+**Class with operator overloads creates operators page**: Verifies that a class declaring
+`operator+` and `operator==` produces a single shared `operators.md` page at
+`{namespace}/{TypeName}/operators` rather than individual colliding pages. This prevents the
+file-name collision that arises because multiple operator names sanitize to the same safe file
+name. This scenario is tested by
+`CppGenerator_Generate_ClassWithOperators_CreatesOperatorsPage`.
+
+**Operators page contains operator entry**: Verifies that the operators page for a class with
+overloads contains a heading for each declared operator, confirming all overloads are documented
+on the combined page. This scenario is tested by
+`CppGenerator_Generate_ClassWithOperators_OperatorsPageContainsOperatorEntry`.
+
+**Type page links to operators page**: Verifies that the type page for a class with operator
+overloads contains a link to `operators.md` in its Operators section, allowing readers to
+navigate from the type overview to the operator detail page. This scenario is tested by
+`CppGenerator_Generate_ClassWithOperators_TypePageLinksToOperatorsPage`.
+
+**Namespace free operator creates namespace operators page**: Verifies that a namespace-level
+operator free function (e.g. `operator<<`) produces a shared `operators.md` page at
+`{namespace}/operators` rather than an individual page that would collide with other namespace
+operators. This scenario is tested by
+`CppGenerator_Generate_NamespaceFreeOperator_CreatesNamespaceOperatorsPage`.

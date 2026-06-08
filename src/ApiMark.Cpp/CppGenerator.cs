@@ -123,9 +123,22 @@ public sealed class CppGenerator : IApiGenerator
                 WriteTypePage(factory, nsKey, nsDecls.DisplayName, cls);
             }
 
-            foreach (var fn in nsDecls.FreeFunctions)
+            // Partition free functions into regular functions and operator overloads;
+            // operator names such as operator+, operator-, and operator<< all sanitize
+            // to the same file name so all operators share a single operators.md page
+            // instead of producing individual colliding files
+            var nsOperatorFunctions = nsDecls.FreeFunctions
+                .Where(fn => fn.Name.StartsWith("operator", StringComparison.Ordinal))
+                .ToList();
+            foreach (var fn in nsDecls.FreeFunctions
+                .Where(fn => !fn.Name.StartsWith("operator", StringComparison.Ordinal)))
             {
                 WriteFreeFunctionPage(factory, nsKey, nsDecls.DisplayName, fn);
+            }
+
+            if (nsOperatorFunctions.Count > 0)
+            {
+                WriteNamespaceOperatorsPage(factory, nsKey, nsDecls.DisplayName, nsOperatorFunctions);
             }
 
             // Write one enum detail page per owned enum declared in this namespace
@@ -521,6 +534,8 @@ public sealed class CppGenerator : IApiGenerator
                 new[] { "Member", "`{Namespace}/{TypeName}/{MemberName}.md`" },
                 new[] { "Free function", "`{Namespace}/{FunctionName}.md`" },
                 new[] { "Enum", "`{Namespace}/{EnumName}.md`" },
+                new[] { "Operators (class)", "`{Namespace}/{TypeName}/operators.md`" },
+                new[] { "Operators (namespace)", "`{Namespace}/operators.md`" },
             });
     }
 
@@ -569,12 +584,22 @@ public sealed class CppGenerator : IApiGenerator
             writer.WriteTable(enumHeaders, enumRows);
         }
 
-        // Free-function table — one row per owned free function, sorted alphabetically
-        if (nsDecls.FreeFunctions.Count > 0)
+        // Partition free functions into regular functions and operator overloads; operator names
+        // such as operator+, operator-, and operator<< all sanitize to the same file name and
+        // must be grouped onto a single operators.md page to avoid file-name collisions
+        var regularFreeFunctions = nsDecls.FreeFunctions
+            .Where(fn => !fn.Name.StartsWith("operator", StringComparison.Ordinal))
+            .ToList();
+        var operatorFreeFunctions = nsDecls.FreeFunctions
+            .Where(fn => fn.Name.StartsWith("operator", StringComparison.Ordinal))
+            .ToList();
+
+        // Regular free-function table — one row per owned free function, sorted alphabetically
+        if (regularFreeFunctions.Count > 0)
         {
             writer.WriteHeading(2, "Functions");
             var fnHeaders = new[] { "Function", "Returns", DescriptionColumnHeader };
-            var fnRows = nsDecls.FreeFunctions
+            var fnRows = regularFreeFunctions
                 .OrderBy(f => f.Name, StringComparer.Ordinal)
                 .Select(fn =>
                 {
@@ -584,6 +609,16 @@ public sealed class CppGenerator : IApiGenerator
                     return new[] { $"[{fn.Name}]({nsKey}/{safeName}.md)", returnType, summary };
                 });
             writer.WriteTable(fnHeaders, fnRows);
+        }
+
+        // Operators section — a single row linking to the shared operators.md page so readers
+        // can navigate to all operator overloads without hitting file-name collision pages
+        if (operatorFreeFunctions.Count > 0)
+        {
+            writer.WriteHeading(2, "Operators");
+            writer.WriteTable(
+                new[] { "Operators", DescriptionColumnHeader },
+                new[] { new[] { $"[operators]({nsKey}/operators.md)", "Operator overloads" } });
         }
     }
 
@@ -683,12 +718,23 @@ public sealed class CppGenerator : IApiGenerator
             return;
         }
 
+        // Partition methods into operator overloads and regular methods; operator overloads are
+        // grouped onto a single operators.md page to prevent file-name collisions — operator+,
+        // operator-, and operator* would all sanitize to the same safe file name
+        var operatorMethods = visibleMethods
+            .Where(m => m.Name.StartsWith("operator", StringComparison.Ordinal))
+            .ToList();
+        var regularMethods = visibleMethods
+            .Where(m => !m.Name.StartsWith("operator", StringComparison.Ordinal))
+            .ToList();
+
         // Build a flat list of all visible members for case-insensitive collision detection.
-        // Constructors, methods, and fields are merged so that cross-kind name collisions
+        // Constructors, regular methods, and fields are merged so that cross-kind name collisions
         // (e.g. method Name() and field name) are detected as a single group.
+        // Operator methods are excluded here because they all share a single operators.md page.
         var allMembers = new List<object>(
             visibleCtors.Cast<object>()
-                .Concat(visibleMethods.Cast<object>())
+                .Concat(regularMethods.Cast<object>())
                 .Concat(visibleFields.Cast<object>()));
 
         // Case-insensitive map: lowercase member name → list of members sharing that lowercase name.
@@ -751,7 +797,7 @@ public sealed class CppGenerator : IApiGenerator
         }
 
         // Process methods — emit method rows after writing each member's detail page
-        foreach (var method in visibleMethods)
+        foreach (var method in regularMethods)
         {
             var baseName = GetMemberBaseName(method, cls.Name);
             var lowerKey = baseName.ToLowerInvariant();
@@ -824,6 +870,126 @@ public sealed class CppGenerator : IApiGenerator
             writer.WriteHeading(3, "Fields");
             writer.WriteTable(new[] { "Member", "Type", DescriptionColumnHeader }, fieldRows);
         }
+
+        // Emit Operators section when the class has operator overloads — all operators share
+        // a single page to prevent file-name collisions between operator+, operator-, etc.
+        if (operatorMethods.Count > 0)
+        {
+            WriteClassOperatorsPage(factory, nsKey, nsDisplayName, cls, operatorMethods);
+            writer.WriteHeading(3, "Operators");
+            writer.WriteTable(
+                new[] { "Operators", DescriptionColumnHeader },
+                new[] { new[] { $"[operators]({cls.Name}/operators.md)", "Operator overloads" } });
+        }
+    }
+
+    /// <summary>
+    ///     Writes the combined operator overloads page for a class, placing all operator
+    ///     methods onto a single <c>operators.md</c> page to prevent file-name collisions.
+    /// </summary>
+    /// <remarks>
+    ///     Operator names such as <c>operator+</c>, <c>operator-</c>, and <c>operator*</c>
+    ///     all sanitize to the same file name when individual pages are used. Grouping them
+    ///     onto a single deterministic page resolves the collision and makes the operators
+    ///     page a stable navigation target for both human readers and AI agents.
+    /// </remarks>
+    /// <param name="factory">Factory for creating the output writer.</param>
+    /// <param name="nsKey">The namespace key used as the parent folder for this type's directory.</param>
+    /// <param name="nsDisplayName">
+    ///     The C++ qualified namespace name forwarded to <see cref="WriteFunctionContent"/>
+    ///     so it can emit fully-qualified signature comments.
+    /// </param>
+    /// <param name="cls">The declaring class whose operator overloads are being documented.</param>
+    /// <param name="operators">
+    ///     The ordered list of operator methods to document. All elements must have names
+    ///     starting with <c>"operator"</c>. Must contain at least one element.
+    /// </param>
+    private void WriteClassOperatorsPage(
+        IMarkdownWriterFactory factory,
+        string nsKey,
+        string nsDisplayName,
+        CppClass cls,
+        IReadOnlyList<CppFunction> operators)
+    {
+        using var writer = factory.CreateMarkdown($"{nsKey}/{cls.Name}", "operators");
+        writer.WriteHeading(1, "operators");
+
+        // Emit the qualified class name comment and #include directive from the first operator
+        // that has source location information — gives readers context without browsing headers
+        var qualifiedClassName = string.IsNullOrEmpty(nsDisplayName)
+            ? cls.Name
+            : $"{nsDisplayName}::{cls.Name}";
+        var firstWithLocation = operators.FirstOrDefault(op => op.Location != null);
+        if (firstWithLocation != null)
+        {
+            var includePath = GetIncludePath(firstWithLocation.Location!.File);
+            writer.WriteSignature("cpp", $"// {qualifiedClassName}\n#include <{includePath}>");
+        }
+
+        writer.WriteParagraph($"Operator overloads for {cls.Name}.");
+
+        // Emit an H2 section for each operator so readers can locate a specific overload quickly
+        foreach (var op in operators)
+        {
+            var paramTypes = string.Join(", ", op.Parameters.Select(p => SimplifyTypeName(p.TypeName)));
+            writer.WriteHeading(2, $"{op.Name}({paramTypes})");
+            WriteFunctionContent(writer, nsDisplayName, cls.Name, op);
+        }
+    }
+
+    /// <summary>
+    ///     Writes the combined operator overloads page for a namespace, placing all
+    ///     namespace-level operator free functions onto a single <c>operators.md</c> page
+    ///     to prevent file-name collisions.
+    /// </summary>
+    /// <remarks>
+    ///     Namespace-level operators such as <c>operator&lt;&lt;</c>, <c>operator+</c>, and
+    ///     <c>operator-</c> all sanitize to the same file name when individual pages are used.
+    ///     Grouping them onto a single deterministic page resolves the collision and makes the
+    ///     operators page a stable navigation target for both human readers and AI agents.
+    /// </remarks>
+    /// <param name="factory">Factory for creating the output writer.</param>
+    /// <param name="nsKey">The file-path-compatible namespace key used as the output folder.</param>
+    /// <param name="nsDisplayName">
+    ///     The C++ qualified namespace name used to build fully-qualified function names
+    ///     shown in signature comments. Pass an empty string for the global namespace.
+    /// </param>
+    /// <param name="operators">
+    ///     The ordered list of namespace-level operator free functions to document. All
+    ///     elements must have names starting with <c>"operator"</c>. Must contain at least
+    ///     one element.
+    /// </param>
+    private void WriteNamespaceOperatorsPage(
+        IMarkdownWriterFactory factory,
+        string nsKey,
+        string nsDisplayName,
+        IReadOnlyList<CppFunction> operators)
+    {
+        using var writer = factory.CreateMarkdown(nsKey, "operators");
+        writer.WriteHeading(1, "operators");
+
+        // Emit the qualified name comment and #include directive from the first operator that
+        // has source location information so readers know which header to include
+        var firstWithLocation = operators.FirstOrDefault(op => op.Location != null);
+        if (firstWithLocation != null)
+        {
+            var qualifiedName = string.IsNullOrEmpty(nsDisplayName)
+                ? firstWithLocation.Name
+                : $"{nsDisplayName}::{firstWithLocation.Name}";
+            var includePath = GetIncludePath(firstWithLocation.Location!.File);
+            writer.WriteSignature("cpp", $"// {qualifiedName}\n#include <{includePath}>");
+        }
+
+        var displayNs = string.IsNullOrEmpty(nsDisplayName) ? GlobalNamespaceKey : nsDisplayName;
+        writer.WriteParagraph($"Operator overloads in the {displayNs} namespace.");
+
+        // Emit an H2 section for each operator so readers can locate a specific overload quickly
+        foreach (var op in operators)
+        {
+            var paramTypes = string.Join(", ", op.Parameters.Select(p => SimplifyTypeName(p.TypeName)));
+            writer.WriteHeading(2, $"{op.Name}({paramTypes})");
+            WriteFreeFunctionContent(writer, nsDisplayName, op);
+        }
     }
 
     /// <summary>
@@ -850,7 +1016,34 @@ public sealed class CppGenerator : IApiGenerator
     {
         using var writer = factory.CreateMarkdown(nsKey, SanitizeFileName(fn.Name));
         writer.WriteHeading(1, fn.Name);
+        WriteFreeFunctionContent(writer, nsDisplayName, fn);
+    }
 
+    /// <summary>
+    ///     Writes the body content for a namespace-level free function page without the
+    ///     heading, including the fully-qualified signature comment, C++ signature, summary,
+    ///     parameter table, and return type. Shared by both individual function pages and
+    ///     the combined namespace operators page.
+    /// </summary>
+    /// <remarks>
+    ///     Separated from <see cref="WriteFreeFunctionPage"/> so that
+    ///     <see cref="WriteNamespaceOperatorsPage"/> can write an operator heading of its
+    ///     own before delegating to this method for the content body, mirroring the pattern
+    ///     of <see cref="WriteFunctionContent"/> being separated from
+    ///     <see cref="WriteFunctionPage"/> for class members.
+    /// </remarks>
+    /// <param name="writer">The Markdown writer to emit content into.</param>
+    /// <param name="nsDisplayName">
+    ///     The C++ qualified namespace name used to build the fully-qualified function name
+    ///     emitted as the first comment line in the signature block. Pass an empty string
+    ///     for global-namespace functions.
+    /// </param>
+    /// <param name="fn">The free function declaration to document.</param>
+    private void WriteFreeFunctionContent(
+        IMarkdownWriter writer,
+        string nsDisplayName,
+        CppFunction fn)
+    {
         // Emit the fully-qualified name as a comment followed by the optional #include
         // directive and C++ signature so that an AI reader has all context needed to
         // use the function without browsing the header tree

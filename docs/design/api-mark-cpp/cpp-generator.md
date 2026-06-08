@@ -127,7 +127,19 @@ filter, and writes the full Markdown output tree.
   - `factory.CreateMarkdown("", "api")` — library entrypoint listing all
     namespaces with a declaration count column (classes + enums + free
     functions per namespace) and one-line descriptions, giving AI agents a
-    complete navigation map and scope signal in one read.
+    complete navigation map and scope signal in one read. The entrypoint also
+    includes a File Naming and Path Convention table with these entries:
+
+    | Symbol kind | Path pattern |
+    | ----------- | ------------ |
+    | Namespace | `{Namespace}.md` |
+    | Type | `{Namespace}/{TypeName}.md` |
+    | Member | `{Namespace}/{TypeName}/{MemberName}.md` |
+    | Free function | `{Namespace}/{FunctionName}.md` |
+    | Enum | `{Namespace}/{EnumName}.md` |
+    | Operators (class) | `{Namespace}/{TypeName}/operators.md` |
+    | Operators (namespace) | `{Namespace}/operators.md` |
+
   - `factory.CreateMarkdown(qualifiedNamespace, qualifiedNamespace)` —
     namespace summary listing owned types and free functions, grouped by source
     header. `qualifiedNamespace` is the C++ qualified name with `::` replaced
@@ -141,8 +153,15 @@ filter, and writes the full Markdown output tree.
     to the signature block so consumers can see the constraint without opening
     the header.
   - `factory.CreateMarkdown($"{qualifiedNamespace}/{typeName}", memberName)` —
-    dedicated page for every visible member. All members always receive their
-    own page, making navigation fully deterministic.
+    dedicated page for every visible non-operator member. All non-operator members
+    always receive their own page, making navigation fully deterministic.
+  - `factory.CreateMarkdown($"{qualifiedNamespace}/{typeName}", "operators")` —
+    single combined page for all operator overloads declared in a class (e.g.
+    `operator+`, `operator==`). Grouping prevents file-name collisions caused by
+    sanitizing multiple operator names to the same safe file name.
+  - `factory.CreateMarkdown(qualifiedNamespace, "operators")` —
+    single combined page for all namespace-level operator free functions (e.g.
+    `operator<<` for a type). Same grouping rationale as the class operators page.
   - Global-namespace declarations are collected under the reserved namespace
     name `"global"`.
 
@@ -154,12 +173,17 @@ combined header that `#include`s all candidate headers, invoke
 JSON AST; walk the AST and apply IsOwnedDeclaration to each declaration; apply
 Visibility and IncludeDeprecated filters; write the library entrypoint; for
 each namespace write the namespace summary; for each owned type: collect all
-visible constructors, methods, and fields; build a case-insensitive map keyed
-by the lowercase of each member's base name (see `GetMemberBaseName`); for
-each key with a single member emit an individual detail page via
-`WriteMemberPage`; for each key with multiple members (case-insensitive
-collision) emit a single combined page via `WriteCombinedMemberPage`; emit
-grouped sub-tables with links; delete the temporary combined header file.
+visible constructors, methods, and fields; partition methods into operator
+overloads (names starting with `"operator"`) and regular methods; build a
+case-insensitive map keyed by the lowercase of each regular member's base name
+(see `GetMemberBaseName`); for each key with a single regular member emit an
+individual detail page via `WriteMemberPage`; for each key with multiple regular
+members (case-insensitive collision) emit a single combined page via
+`WriteCombinedMemberPage`; if operator overloads are present emit a single
+`operators.md` page via `WriteClassOperatorsPage`; emit grouped sub-tables with
+links; for each namespace with operator free functions emit a single
+`operators.md` page via `WriteNamespaceOperatorsPage` instead of individual
+pages; delete the temporary combined header file.
 
 **IsOwnedDeclaration** (internal): Determines whether a declaration belongs to
 the documented public API.
@@ -197,6 +221,32 @@ filesystems.
   `{fn.Name} (Constructor)` or `{fn.Name} (Method)` and delegates to
   `WriteFunctionContent`; for each field member writes an H4 heading of the form
   `{field.Name} (Field)` and delegates to `WriteFieldContent`.
+
+**CppGenerator.WriteClassOperatorsPage** (private): Writes the combined operator
+overloads page for a class at `{nsKey}/{cls.Name}/operators.md`.
+
+- *Parameters*: `IMarkdownWriterFactory factory`, `string nsKey`, `string nsDisplayName`,
+  `CppClass cls`, `IReadOnlyList<CppFunction> operators` — the ordered list of operator
+  methods (names starting with `"operator"`); must contain at least one element.
+- *Returns*: `void`
+- *Algorithm*: Creates `{nsKey}/{cls.Name}/operators.md` via the factory; writes an H1
+  heading `"operators"`; emits the qualified class name comment and `#include` directive
+  from the first operator with a source location; writes an introductory paragraph naming
+  the class; for each operator writes an H2 heading with the operator name and parameter
+  types, then delegates to `WriteFunctionContent` for signature, summary, and parameters.
+
+**CppGenerator.WriteNamespaceOperatorsPage** (private): Writes the combined operator
+overloads page for namespace-level operator free functions at `{nsKey}/operators.md`.
+
+- *Parameters*: `IMarkdownWriterFactory factory`, `string nsKey`, `string nsDisplayName`,
+  `IReadOnlyList<CppFunction> operators` — the ordered list of namespace-level operator
+  free functions (names starting with `"operator"`); must contain at least one element.
+- *Returns*: `void`
+- *Algorithm*: Creates `{nsKey}/operators.md` via the factory; writes an H1 heading
+  `"operators"`; emits the qualified name comment and `#include` directive from the first
+  operator with a source location; writes an introductory paragraph naming the namespace;
+  for each operator writes an H2 heading with the operator name and parameter types, then
+  delegates to `WriteFreeFunctionContent` for signature, summary, and parameters.
 
 **CppGenerator.GetMemberBaseName** (private): Returns the base name used to derive the
 output file name for a class member, applying the convention that constructors are
