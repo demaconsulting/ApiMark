@@ -1018,6 +1018,14 @@ public sealed class DotNetGenerator : IApiGenerator
     }
 
     /// <summary>Builds a human-readable C# declaration signature for a type definition.</summary>
+    /// <remarks>
+    ///     Base types <c>System.Object</c>, <c>System.ValueType</c>, <c>System.Enum</c>, and
+    ///     <c>System.MulticastDelegate</c> are suppressed because they are implicit compiler-assigned
+    ///     roots that carry no information for readers; showing them would add noise to every class,
+    ///     struct, enum, and delegate signature. The <paramref name="contextNamespace"/> is forwarded
+    ///     to <see cref="TypeNameSimplifier"/> so that types declared in the same namespace are
+    ///     rendered without their namespace prefix, keeping signatures concise.
+    /// </remarks>
     /// <param name="type">The type definition to represent.</param>
     /// <param name="contextNamespace">Used to simplify base type and interface names in the signature.</param>
     /// <returns>
@@ -1069,9 +1077,9 @@ public sealed class DotNetGenerator : IApiGenerator
         }
 
         // Include all directly declared interfaces — transitive inheritance is omitted
-        foreach (var iface in type.Interfaces)
+        foreach (var interfaceRef in type.Interfaces)
         {
-            bases.Add(TypeNameSimplifier.Simplify(iface.InterfaceType, contextNamespace));
+            bases.Add(TypeNameSimplifier.Simplify(interfaceRef.InterfaceType, contextNamespace));
         }
 
         if (bases.Count > 0)

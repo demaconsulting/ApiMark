@@ -22,13 +22,15 @@ type page — consuming only as much context as the task requires.
 
 ## Features
 
-- Generates compact Markdown API reference from source code and doc comments
-- Gradual disclosure output: root index → namespace summary → type page → member detail
-- C#/.NET support via Mono.Cecil and XML documentation comments
-- C++ support via `clang -ast-dump=json` and Doxygen-style doc comments
-- MSBuild task integration for `.csproj` and `.vcxproj`-based builds
-- `dotnet tool` CLI (`apimark`) covering all supported languages
-- Designed for AI consumption — minimal noise, explicit navigation links between levels
+- 📄 **Compact Markdown Output** - AI-friendly API reference from source code
+- 🔍 **Gradual Disclosure** - Index → namespace → type → member detail
+- 🔷 **C#/.NET Support** - Mono.Cecil + XML documentation comments
+- ➕ **C++ Support** - `clang -ast-dump=json` + Doxygen-style comments
+- 🔧 **MSBuild Integration** - Auto-documents `.csproj` and `.vcxproj` builds
+- 🖥️ **CLI Tool** - `apimark` dotnet tool covering all languages
+- 🤖 **AI-Optimized** - Minimal noise, explicit navigation links
+- 🌐 **Multi-Platform** - Windows, Linux, and macOS on .NET 8, 9, and 10
+- ✅ **Self-Validation** - Built-in qualification tests for regulated environments
 
 ## Platform Support
 
