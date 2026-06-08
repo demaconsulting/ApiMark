@@ -444,6 +444,29 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
             "Expected type page for Circle at 'fixtures/Circle'");
     }
 
+    /// <summary>
+    ///     Validates that the type page for a class with a base class includes the base class
+    ///     name in the signature block so that the inheritance relationship is visible without
+    ///     opening the header file.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_InheritanceClass_EmitsBaseClassInSignature()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: the Circle type page must exist
+        Assert.True(factory.Writers.ContainsKey("fixtures/Circle"), "Expected type page for Circle");
+
+        // Assert: the Circle type page signature must contain ": public Shape" so readers can
+        // see the inheritance relationship at a glance without opening the header file
+        var writer = factory.Writers["fixtures/Circle"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains(": public Shape", StringComparison.Ordinal));
+    }
+
     /// <summary>Validates that the <c>Circle</c> constructor receives its own member detail page.</summary>
     [Fact]
     public void CppGenerator_Generate_Constructor_CreatesConstructorPage()

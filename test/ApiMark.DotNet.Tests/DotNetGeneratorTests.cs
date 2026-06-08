@@ -1168,6 +1168,35 @@ public class DotNetGeneratorTests
     }
 
     /// <summary>
+    ///     Validates that an enum type signature does not include a base class (such as
+    ///     <c>System.Enum</c>) so that well-known implicit bases are suppressed and the
+    ///     signature remains clean and readable.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_EnumTypeSignature_HasNoBaseClass()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: SampleStatus enum type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleStatus"),
+            "Expected type page for SampleStatus");
+
+        // Assert: the signature must not contain ": System.Enum" or any base class annotation —
+        // well-known implicit enum bases must be suppressed to keep the signature clean
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleStatus"];
+        var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
+        Assert.NotNull(signature);
+        Assert.DoesNotContain("System.Enum", signature.Code, StringComparison.Ordinal);
+        Assert.DoesNotContain(" : ", signature.Code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     Validates that a method returning an intra-assembly type emits a Markdown link in
     ///     the Returns column of the type page's Methods table.
     /// </summary>
