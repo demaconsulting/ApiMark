@@ -38,15 +38,17 @@ sections:
               - CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass
           - id: ApiMarkCpp-CppGenerator-EmitDetailPageForEveryMember
             title: >-
-              CppGenerator shall emit a dedicated detail page for every visible member of every
-              documented class and free function, making navigation fully deterministic.
+              CppGenerator shall emit a dedicated detail page for every visible non-operator member
+              of every documented class and free function, making navigation fully deterministic.
             justification: |
-              All members always receive their own dedicated file so that navigation is fully
-              deterministic. An AI or tool can always resolve
+              All non-operator members always receive their own dedicated file so that navigation
+              is fully deterministic. An AI or tool can always resolve
               {Namespace}/{TypeName}/{MemberName}.md without inspecting member content or shape.
               Exception: members whose base names collide on a case-insensitive filesystem are
               combined onto a single shared page (see
               ApiMarkCpp-CppGenerator-EmitCombinedMemberPageForCaseInsensitiveCollisions).
+              Operator overloads are grouped onto a single operators.md page (see
+              ApiMarkCpp-CppGenerator-GroupOperatorOverloadsOnSinglePage).
             tests:
               - CppGenerator_AllMembers_GetSeparateFiles
               - CppGenerator_Generate_MethodWithParameters_CreatesMemberPage
@@ -117,3 +119,19 @@ sections:
               opening it first.
             tests:
               - CppGenerator_Generate_ApiMd_ListsNamespacesWithTypeCount
+          - id: ApiMarkCpp-CppGenerator-GroupOperatorOverloadsOnSinglePage
+            title: >-
+              CppGenerator shall group all operator overloads for a class onto a single
+              operators.md page, and all namespace-level operator free functions onto a single
+              namespace-level operators.md page.
+            justification: |
+              C++ operator names such as operator+, operator<<, and operator== contain characters
+              that are invalid in Windows file names. Sanitizing them to underscores causes multiple
+              operators to collide on the same file name (e.g. operator+ and operator- both become
+              operator_). Grouping all operators onto a fixed operators.md page eliminates the
+              collision entirely and mirrors the presentation used by cppreference and Doxygen.
+            tests:
+              - CppGenerator_Generate_ClassWithOperators_CreatesOperatorsPage
+              - CppGenerator_Generate_ClassWithOperators_OperatorsPageContainsOperatorEntry
+              - CppGenerator_Generate_ClassWithOperators_TypePageLinksToOperatorsPage
+              - CppGenerator_Generate_NamespaceFreeOperator_CreatesNamespaceOperatorsPage
