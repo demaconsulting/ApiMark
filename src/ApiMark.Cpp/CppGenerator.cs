@@ -114,6 +114,18 @@ public sealed class CppGenerator : IApiGenerator
             CollectResultNamespace(ns, namespaceDecls);
         }
 
+        // Build the intra-library type map for link resolution.
+        // nsKey uses "." separators for file paths; display names use "::" for C++ qualified names.
+        var knownTypes = namespaceDecls.SelectMany(kv =>
+        {
+            var nsDisplay = kv.Key.Replace(".", "::", StringComparison.Ordinal);
+            var nsPath = kv.Key.Replace(".", "/", StringComparison.Ordinal);
+            return kv.Value.Classes.Select(cls => (Key: $"{nsDisplay}::{cls.Name}", Value: $"{nsPath}/{cls.Name}"))
+                .Concat(kv.Value.Enums.Select(enm => (Key: $"{nsDisplay}::{enm.Name}", Value: $"{nsPath}/{enm.Name}")));
+        }).ToDictionary(x => x.Key, x => x.Value, StringComparer.Ordinal);
+
+        var cppResolver = new CppTypeLinkResolver(knownTypes);
+
         // Write the library entrypoint page listing all discovered namespaces
         WriteApiPage(factory, namespaceDecls);
 
@@ -121,10 +133,10 @@ public sealed class CppGenerator : IApiGenerator
         // one detail page per owned free function, and one detail page per owned enum
         foreach (var (nsKey, nsDecls) in namespaceDecls)
         {
-            WriteNamespacePage(factory, nsKey, nsDecls);
+            WriteNamespacePage(factory, nsKey, nsDecls, cppResolver);
             foreach (var cls in nsDecls.Classes)
             {
-                WriteTypePage(factory, nsKey, nsDecls.DisplayName, cls);
+                WriteTypePage(factory, nsKey, nsDecls.DisplayName, cls, cppResolver);
             }
 
             // Partition free functions into regular functions and operator overloads;
@@ -137,12 +149,12 @@ public sealed class CppGenerator : IApiGenerator
             foreach (var fn in nsDecls.FreeFunctions
                 .Where(fn => !fn.Name.StartsWith("operator", StringComparison.Ordinal)))
             {
-                WriteFreeFunctionPage(factory, nsKey, nsDecls.DisplayName, fn);
+                WriteFreeFunctionPage(factory, nsKey, nsDecls.DisplayName, fn, cppResolver);
             }
 
             if (nsOperatorFunctions.Count > 0)
             {
-                WriteNamespaceOperatorsPage(factory, nsKey, nsDecls.DisplayName, nsOperatorFunctions);
+                WriteNamespaceOperatorsPage(factory, nsKey, nsDecls.DisplayName, nsOperatorFunctions, cppResolver);
             }
 
             // Write one enum detail page per owned enum declared in this namespace
@@ -551,13 +563,18 @@ public sealed class CppGenerator : IApiGenerator
     /// <param name="factory">Factory for creating the output writer.</param>
     /// <param name="nsKey">The file-path-compatible namespace key used as the output file name.</param>
     /// <param name="nsDecls">The declarations that belong to this namespace.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify type-column cells.</param>
     private static void WriteNamespacePage(
         IMarkdownWriterFactory factory,
         string nsKey,
-        NamespaceDeclarations nsDecls)
+        NamespaceDeclarations nsDecls,
+        CppTypeLinkResolver cppResolver)
     {
         using var writer = factory.CreateMarkdown("", nsKey);
         writer.WriteHeading(1, $"{nsDecls.DisplayName} Namespace");
+
+        // Accumulate external type references found in type-column cells on this page
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
 
         // Type table — one row per owned class or struct, sorted alphabetically
         if (nsDecls.Classes.Count > 0)
@@ -609,7 +626,10 @@ public sealed class CppGenerator : IApiGenerator
                 .Select(fn =>
                 {
                     var summary = GetSummary(fn.Doc) ?? NoDescriptionPlaceholder;
-                    var returnType = SimplifyTypeName(fn.ReturnTypeName);
+
+                    // Linkify the return type cell; namespace page folder is "" (root)
+                    var returnType = cppResolver.Linkify(
+                        SimplifyTypeName(fn.ReturnTypeName), string.Empty, externalTypes);
                     var safeName = SanitizeFileName(fn.Name);
                     return new[] { $"[{fn.Name}]({nsKey}/{safeName}.md)", returnType, summary };
                 });
@@ -625,6 +645,8 @@ public sealed class CppGenerator : IApiGenerator
                 new[] { "Operators", DescriptionColumnHeader },
                 new[] { new[] { $"[operators]({nsKey}/operators.md)", "Operator overloads" } });
         }
+
+        WriteExternalTypesSection(writer, externalTypes);
     }
 
     /// <summary>
@@ -641,11 +663,13 @@ public sealed class CppGenerator : IApiGenerator
     ///     fully-qualified type name shown in the signature comment.
     /// </param>
     /// <param name="cls">The C++ class or struct to document.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify type-column cells.</param>
     private void WriteTypePage(
         IMarkdownWriterFactory factory,
         string nsKey,
         string nsDisplayName,
-        CppClass cls)
+        CppClass cls,
+        CppTypeLinkResolver cppResolver)
     {
         // Build the template parameter suffix (e.g. "<T>" for template<typename T> class Stack)
         var templateParamDisplay = BuildTemplateParamDisplay(cls);
@@ -767,6 +791,9 @@ public sealed class CppGenerator : IApiGenerator
         var methodRows = new List<string[]>();
         var fieldRows = new List<string[]>();
 
+        // Accumulate external type references found in type-column cells on this page
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
         // Process constructors — emitted first because instantiation is the first thing
         // a consumer needs to understand about a type
         foreach (var ctor in visibleCtors)
@@ -791,11 +818,11 @@ public sealed class CppGenerator : IApiGenerator
             {
                 if (group.Count == 1)
                 {
-                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, ctor, pageFileName);
+                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, ctor, pageFileName, cppResolver);
                 }
                 else
                 {
-                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, pageFileName, group);
+                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, pageFileName, group, cppResolver);
                 }
             }
 
@@ -810,17 +837,19 @@ public sealed class CppGenerator : IApiGenerator
             var group = caseInsensitiveGroups[lowerKey];
             var pageFileName = SanitizeFileName(group.Count == 1 ? baseName : lowerKey);
             var methodSummary = GetSummary(method.Doc) ?? NoDescriptionPlaceholder;
-            var returnType = SimplifyTypeName(method.ReturnTypeName);
+
+            // Linkify the return type cell using the type link resolver
+            var returnType = cppResolver.Linkify(SimplifyTypeName(method.ReturnTypeName), nsKey, externalTypes);
 
             if (writtenKeys.Add(lowerKey))
             {
                 if (group.Count == 1)
                 {
-                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, method, pageFileName);
+                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, method, pageFileName, cppResolver);
                 }
                 else
                 {
-                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, pageFileName, group);
+                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, pageFileName, group, cppResolver);
                 }
             }
 
@@ -840,17 +869,19 @@ public sealed class CppGenerator : IApiGenerator
             var group = caseInsensitiveGroups[lowerKey];
             var pageFileName = SanitizeFileName(group.Count == 1 ? baseName : lowerKey);
             var fieldSummary = GetSummary(field.Doc) ?? NoDescriptionPlaceholder;
-            var typeName = SimplifyTypeName(field.TypeName);
+
+            // Linkify the field type cell using the type link resolver
+            var typeName = cppResolver.Linkify(SimplifyTypeName(field.TypeName), nsKey, externalTypes);
 
             if (writtenKeys.Add(lowerKey))
             {
                 if (group.Count == 1)
                 {
-                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, field, pageFileName);
+                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, field, pageFileName, cppResolver);
                 }
                 else
                 {
-                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, pageFileName, group);
+                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, pageFileName, group, cppResolver);
                 }
             }
 
@@ -881,12 +912,14 @@ public sealed class CppGenerator : IApiGenerator
         // a single page to prevent file-name collisions between operator+, operator-, etc.
         if (operatorMethods.Count > 0)
         {
-            WriteClassOperatorsPage(factory, nsKey, nsDisplayName, cls, operatorMethods);
+            WriteClassOperatorsPage(factory, nsKey, nsDisplayName, cls, operatorMethods, cppResolver);
             writer.WriteHeading(3, "Operators");
             writer.WriteTable(
                 new[] { "Operators", DescriptionColumnHeader },
                 new[] { new[] { $"[operators]({cls.Name}/operators.md)", "Operator overloads" } });
         }
+
+        WriteExternalTypesSection(writer, externalTypes);
     }
 
     /// <summary>
@@ -910,14 +943,17 @@ public sealed class CppGenerator : IApiGenerator
     ///     The ordered list of operator methods to document. All elements must have names
     ///     starting with <c>"operator"</c>. Must contain at least one element.
     /// </param>
+    /// <param name="cppResolver">Type link resolver used to linkify parameter type cells in operator content.</param>
     private void WriteClassOperatorsPage(
         IMarkdownWriterFactory factory,
         string nsKey,
         string nsDisplayName,
         CppClass cls,
-        IReadOnlyList<CppFunction> operators)
+        IReadOnlyList<CppFunction> operators,
+        CppTypeLinkResolver cppResolver)
     {
-        using var writer = factory.CreateMarkdown($"{nsKey}/{cls.Name}", "operators");
+        var opsCurrentFolder = $"{nsKey}/{cls.Name}";
+        using var writer = factory.CreateMarkdown(opsCurrentFolder, "operators");
         writer.WriteHeading(1, "operators");
 
         // Emit the qualified class name comment and #include directive from the first operator
@@ -934,13 +970,17 @@ public sealed class CppGenerator : IApiGenerator
 
         writer.WriteParagraph($"Operator overloads for {cls.Name}.");
 
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
         // Emit an H2 section for each operator so readers can locate a specific overload quickly
         foreach (var op in operators)
         {
             var paramTypes = string.Join(", ", op.Parameters.Select(p => SimplifyTypeName(p.TypeName)));
             writer.WriteHeading(2, $"{op.Name}({paramTypes})");
-            WriteFunctionContent(writer, nsDisplayName, cls.Name, op);
+            WriteFunctionContent(writer, nsDisplayName, cls.Name, op, cppResolver, opsCurrentFolder, externalTypes);
         }
+
+        WriteExternalTypesSection(writer, externalTypes);
     }
 
     /// <summary>
@@ -965,12 +1005,15 @@ public sealed class CppGenerator : IApiGenerator
     ///     elements must have names starting with <c>"operator"</c>. Must contain at least
     ///     one element.
     /// </param>
+    /// <param name="cppResolver">Type link resolver used to linkify parameter type cells in operator content.</param>
     private void WriteNamespaceOperatorsPage(
         IMarkdownWriterFactory factory,
         string nsKey,
         string nsDisplayName,
-        IReadOnlyList<CppFunction> operators)
+        IReadOnlyList<CppFunction> operators,
+        CppTypeLinkResolver cppResolver)
     {
+        var opsCurrentFolder = nsKey;
         using var writer = factory.CreateMarkdown(nsKey, "operators");
         writer.WriteHeading(1, "operators");
 
@@ -989,13 +1032,17 @@ public sealed class CppGenerator : IApiGenerator
         var displayNs = string.IsNullOrEmpty(nsDisplayName) ? GlobalNamespaceKey : nsDisplayName;
         writer.WriteParagraph($"Operator overloads in the {displayNs} namespace.");
 
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
         // Emit an H2 section for each operator so readers can locate a specific overload quickly
         foreach (var op in operators)
         {
             var paramTypes = string.Join(", ", op.Parameters.Select(p => SimplifyTypeName(p.TypeName)));
             writer.WriteHeading(2, $"{op.Name}({paramTypes})");
-            WriteFreeFunctionContent(writer, nsDisplayName, op);
+            WriteFreeFunctionContent(writer, nsDisplayName, op, cppResolver, opsCurrentFolder, externalTypes);
         }
+
+        WriteExternalTypesSection(writer, externalTypes);
     }
 
     /// <summary>
@@ -1014,15 +1061,20 @@ public sealed class CppGenerator : IApiGenerator
     ///     name shown as the first line of the signature comment.
     /// </param>
     /// <param name="fn">The free function declaration to document.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify parameter type cells.</param>
     private void WriteFreeFunctionPage(
         IMarkdownWriterFactory factory,
         string nsKey,
         string nsDisplayName,
-        CppFunction fn)
+        CppFunction fn,
+        CppTypeLinkResolver cppResolver)
     {
+        var fnCurrentFolder = nsKey;
         using var writer = factory.CreateMarkdown(nsKey, SanitizeFileName(fn.Name));
         writer.WriteHeading(1, fn.Name);
-        WriteFreeFunctionContent(writer, nsDisplayName, fn);
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+        WriteFreeFunctionContent(writer, nsDisplayName, fn, cppResolver, fnCurrentFolder, externalTypes);
+        WriteExternalTypesSection(writer, externalTypes);
     }
 
     /// <summary>
@@ -1045,10 +1097,16 @@ public sealed class CppGenerator : IApiGenerator
     ///     for global-namespace functions.
     /// </param>
     /// <param name="fn">The free function declaration to document.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify parameter type cells.</param>
+    /// <param name="currentFolder">Folder path of the containing Markdown file for relative link computation.</param>
+    /// <param name="externalTypes">External type accumulator for the containing page.</param>
     private void WriteFreeFunctionContent(
         IMarkdownWriter writer,
         string nsDisplayName,
-        CppFunction fn)
+        CppFunction fn,
+        CppTypeLinkResolver cppResolver,
+        string currentFolder,
+        ISet<CppExternalTypeInfo> externalTypes)
     {
         // Emit the fully-qualified name as a comment followed by the optional #include
         // directive and C++ signature so that an AI reader has all context needed to
@@ -1083,8 +1141,10 @@ public sealed class CppGenerator : IApiGenerator
         {
             writer.WriteHeading(4, "Parameters");
             var paramHeaders = new[] { "Parameter", "Type", DescriptionColumnHeader };
+
+            // Linkify parameter type cells; resolver tracks external types encountered
             var paramRows = fn.Parameters.Select(p =>
-                new[] { p.Name, SimplifyTypeName(p.TypeName), GetParamDescription(fn.Doc, p.Name) ?? string.Empty });
+                new[] { p.Name, cppResolver.Linkify(SimplifyTypeName(p.TypeName), currentFolder, externalTypes), GetParamDescription(fn.Doc, p.Name) ?? string.Empty });
             writer.WriteTable(paramHeaders, paramRows);
         }
 
@@ -1113,27 +1173,34 @@ public sealed class CppGenerator : IApiGenerator
     ///     or a <see cref="CppField"/>.
     /// </param>
     /// <param name="fileName">The unique file name (without extension) allocated for this member.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify parameter type cells.</param>
     private static void WriteMemberPage(
         IMarkdownWriterFactory factory,
         string nsKey,
         string nsDisplayName,
         CppClass cls,
         object member,
-        string fileName)
+        string fileName,
+        CppTypeLinkResolver cppResolver)
     {
-        using var memberWriter = factory.CreateMarkdown($"{nsKey}/{cls.Name}", fileName);
+        var memberCurrentFolder = $"{nsKey}/{cls.Name}";
+        using var memberWriter = factory.CreateMarkdown(memberCurrentFolder, fileName);
+
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
 
         // Dispatch to the appropriate page writer based on the concrete member type
         switch (member)
         {
             case CppFunction method:
-                WriteFunctionPage(memberWriter, nsDisplayName, cls.Name, method);
+                WriteFunctionPage(memberWriter, nsDisplayName, cls.Name, method, cppResolver, memberCurrentFolder, externalTypes);
                 break;
 
             case CppField field:
                 WriteFieldPage(memberWriter, nsDisplayName, cls.Name, field);
                 break;
         }
+
+        WriteExternalTypesSection(memberWriter, externalTypes);
     }
 
     /// <summary>
@@ -1147,14 +1214,20 @@ public sealed class CppGenerator : IApiGenerator
     /// </param>
     /// <param name="className">The declaring class name, used in the page heading.</param>
     /// <param name="method">The method declaration to document.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify parameter type cells.</param>
+    /// <param name="currentFolder">Folder path of the containing Markdown file for relative link computation.</param>
+    /// <param name="externalTypes">External type accumulator for the containing page.</param>
     private static void WriteFunctionPage(
         IMarkdownWriter writer,
         string nsDisplayName,
         string className,
-        CppFunction method)
+        CppFunction method,
+        CppTypeLinkResolver cppResolver,
+        string currentFolder,
+        ISet<CppExternalTypeInfo> externalTypes)
     {
         writer.WriteHeading(3, $"{className}.{method.Name}");
-        WriteFunctionContent(writer, nsDisplayName, className, method);
+        WriteFunctionContent(writer, nsDisplayName, className, method, cppResolver, currentFolder, externalTypes);
     }
 
     /// <summary>
@@ -1173,11 +1246,17 @@ public sealed class CppGenerator : IApiGenerator
     /// </param>
     /// <param name="className">The declaring class name.</param>
     /// <param name="method">The method declaration to document.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify parameter type cells.</param>
+    /// <param name="currentFolder">Folder path of the containing Markdown file for relative link computation.</param>
+    /// <param name="externalTypes">External type accumulator for the containing page.</param>
     private static void WriteFunctionContent(
         IMarkdownWriter writer,
         string nsDisplayName,
         string className,
-        CppFunction method)
+        CppFunction method,
+        CppTypeLinkResolver cppResolver,
+        string currentFolder,
+        ISet<CppExternalTypeInfo> externalTypes)
     {
         // Emit the fully-qualified name as a comment followed by the C++ signature so that
         // an AI reader has the namespace and class context needed to call the member correctly
@@ -1203,8 +1282,10 @@ public sealed class CppGenerator : IApiGenerator
         {
             writer.WriteHeading(4, "Parameters");
             var paramHeaders = new[] { "Parameter", "Type", DescriptionColumnHeader };
+
+            // Linkify parameter type cells; resolver tracks external types encountered
             var paramRows = method.Parameters.Select(p =>
-                new[] { p.Name, SimplifyTypeName(p.TypeName), GetParamDescription(method.Doc, p.Name) ?? string.Empty });
+                new[] { p.Name, cppResolver.Linkify(SimplifyTypeName(p.TypeName), currentFolder, externalTypes), GetParamDescription(method.Doc, p.Name) ?? string.Empty });
             writer.WriteTable(paramHeaders, paramRows);
         }
 
@@ -1664,19 +1745,25 @@ public sealed class CppGenerator : IApiGenerator
     ///     systems. Elements must be <see cref="CppFunction"/> or <see cref="CppField"/>.
     ///     Must contain at least two elements.
     /// </param>
+    /// <param name="cppResolver">Type link resolver used to linkify parameter type cells.</param>
     private static void WriteCombinedMemberPage(
         IMarkdownWriterFactory factory,
         string nsKey,
         string nsDisplayName,
         CppClass cls,
         string lowerKey,
-        IReadOnlyList<object> members)
+        IReadOnlyList<object> members,
+        CppTypeLinkResolver cppResolver)
     {
-        using var writer = factory.CreateMarkdown($"{nsKey}/{cls.Name}", lowerKey);
+        var combinedCurrentFolder = $"{nsKey}/{cls.Name}";
+        using var writer = factory.CreateMarkdown(combinedCurrentFolder, lowerKey);
 
         // The shared lowercase key serves as the page heading so every member in the group
         // can be found at the same predictable path regardless of filesystem case-sensitivity
         writer.WriteHeading(3, lowerKey);
+
+        // Accumulate external types across all members on this shared page
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
 
         foreach (var member in members)
         {
@@ -1690,7 +1777,7 @@ public sealed class CppGenerator : IApiGenerator
                         ", ",
                         fn.Parameters.Select(p => SimplifyTypeName(p.TypeName)));
                     writer.WriteHeading(4, $"{fn.Name}({fnParamTypes}) ({fnKind})");
-                    WriteFunctionContent(writer, nsDisplayName, cls.Name, fn);
+                    WriteFunctionContent(writer, nsDisplayName, cls.Name, fn, cppResolver, combinedCurrentFolder, externalTypes);
                     break;
 
                 case CppField field:
@@ -1699,6 +1786,8 @@ public sealed class CppGenerator : IApiGenerator
                     break;
             }
         }
+
+        WriteExternalTypesSection(writer, externalTypes);
     }
 
     /// <summary>
@@ -1723,6 +1812,32 @@ public sealed class CppGenerator : IApiGenerator
         CppField field => field.Name,
         _ => className,
     };
+
+    /// <summary>
+    ///     Writes the "External Types" section at the end of a generated Markdown page,
+    ///     listing all non-standard C++ types referenced in table cells on that page.
+    /// </summary>
+    /// <remarks>
+    ///     The section is emitted only when <paramref name="externalTypes"/> is non-empty.
+    ///     Rows are sorted alphabetically by type string because <see cref="SortedSet{T}"/>
+    ///     preserves the order defined by <see cref="CppExternalTypeInfo.CompareTo"/>.
+    /// </remarks>
+    /// <param name="writer">The Markdown writer for the current page.</param>
+    /// <param name="externalTypes">
+    ///     The set of external types accumulated during table row generation. May be empty.
+    /// </param>
+    private static void WriteExternalTypesSection(IMarkdownWriter writer, SortedSet<CppExternalTypeInfo> externalTypes)
+    {
+        if (externalTypes.Count == 0)
+        {
+            return;
+        }
+
+        writer.WriteHeading(2, "External Types");
+        writer.WriteTable(
+            ["Type", "Namespace"],
+            externalTypes.Select(t => new[] { t.TypeString, t.Namespace }));
+    }
 
     // =========================================================================
     // Inner data model

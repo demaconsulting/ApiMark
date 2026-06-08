@@ -261,6 +261,44 @@ identified by the declaring class name.
   function → `className`; non-constructor function → `fn.Name`; field → `field.Name`;
   any other type → `className`.
 
+**CppTypeLinkResolver** (internal): Resolves C++ type strings to Markdown link text
+for use in table cells.
+
+- *Constructor*: Accepts `IReadOnlyDictionary<string, string> knownTypes` — maps
+  fully-qualified C++ type names (e.g. `"fixtures::SampleClass"`) to documentation
+  page keys (e.g. `"fixtures/SampleClass"`). Built in `CppGenerator.Generate` from
+  the `namespaceDecls` dictionary.
+- **Linkify** method: resolves a simplified C++ type string to a Markdown link or plain text.
+  - *Parameters*: `string cppTypeString`, `string currentFolder`, `ISet<CppExternalTypeInfo>
+    externalTypes` accumulator.
+  - *Returns*: a Markdown link `[Name](relative/path.md)` when the stripped base type
+    is in `knownTypes`; the original string unchanged otherwise; non-std external types
+    with a namespace are tracked in `externalTypes`.
+  - *Algorithm*: strip qualifiers (`const`, `volatile`, `*`, `&`, `&&`, trailing-const,
+    and template arguments) to isolate the base type name; reject primitives and `std::`
+    types immediately; look up the base type in `knownTypes` by exact qualified match,
+    then by short-name fallback; compute a relative path and return the link; if not
+    found and the type has a non-std namespace, track as external.
+- **StripQualifiers** (internal static): removes C++ cv and reference qualifiers and
+  template arguments from a type string, returning the bare base type name.
+
+**CppExternalTypeInfo** (internal record): Represents a non-standard external C++
+type reference collected during table cell generation.
+
+- *Properties*: `TypeString` (short type name without namespace), `Namespace`
+  (the C++ namespace using `::` separators).
+- *Ordering*: implements `IComparable<CppExternalTypeInfo>` by `TypeString` so
+  `SortedSet<CppExternalTypeInfo>` produces alphabetically ordered tables.
+
+**CppGenerator.WriteExternalTypesSection** (private static): Emits the
+`## External Types` section at the bottom of a page when at least one external
+type was referenced in table cells.
+
+- *Parameters*: `IMarkdownWriter writer`, `SortedSet<CppExternalTypeInfo>
+  externalTypes`.
+- *Algorithm*: Returns immediately when the set is empty; otherwise writes an
+  H2 heading `"External Types"` and a two-column table (`Type`, `Namespace`).
+
 ### Error Handling
 
 CppGenerator throws `DirectoryNotFoundException` when a path in

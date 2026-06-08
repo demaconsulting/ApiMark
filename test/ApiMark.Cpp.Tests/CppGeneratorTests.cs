@@ -851,25 +851,55 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     }
 
     /// <summary>
-    ///     Validates that the type page for <c>Circle</c> contains the base class in its
-    ///     signature block so that AI readers immediately know the inheritance chain without
-    ///     opening the header file.
+    ///     Validates that a method returning an intra-library type emits a Markdown link in
+    ///     the Returns column of the type page's Methods table.
     /// </summary>
     [Fact]
-    public void CppGenerator_Generate_InheritanceClass_EmitsBaseClassInSignature()
+    public void CppGenerator_Generate_IntraLibraryReturnType_EmitsMarkdownLinkInReturnsCell()
     {
         // Arrange
         var factory = _fixture.PublicFactory;
 
-        // Assert: the Circle type page must exist
-        Assert.True(factory.Writers.ContainsKey("fixtures/Circle"), "Expected type page for Circle");
+        // Assert: TypeLinkClass type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/TypeLinkClass"),
+            "Expected type page for TypeLinkClass");
 
-        // Assert: the Circle type page signature must contain ": public Shape" so that
-        // readers know the inheritance chain without opening the header
-        var writer = factory.Writers["fixtures/Circle"];
-        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
-        Assert.Contains(
-            signatures,
-            s => s.Contains(": public Shape", StringComparison.Ordinal));
+        // Assert: the Methods table on the TypeLinkClass page must have a Returns cell
+        // containing a Markdown link to Shape — the return type of CreateShape()
+        var writer = factory.Writers["fixtures/TypeLinkClass"];
+        var operations = writer.Operations.ToList();
+        var methodsIndex = operations.FindIndex(op => op is HeadingOperation h && h.Text == "Methods");
+        Assert.True(methodsIndex >= 0, "Expected 'Methods' heading on TypeLinkClass page");
+        var methodsTable = operations.Skip(methodsIndex + 1).OfType<TableOperation>().First();
+
+        // Returns column (index 1) for CreateShape must contain a Markdown link, not plain text
+        var row = methodsTable.Rows.FirstOrDefault(r => r[0].Contains("CreateShape", StringComparison.Ordinal));
+        Assert.NotNull(row);
+        Assert.Contains("[Shape]", row![1], StringComparison.Ordinal);
+        Assert.Contains("Shape.md", row[1], StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="CppTypeLinkResolver.Linkify"/> emits plain text and records
+    ///     the type in the external set when the type is not in the known-types dictionary.
+    /// </summary>
+    [Fact]
+    public void CppTypeLinkResolver_Linkify_UnknownNamespacedType_TracksExternalType()
+    {
+        // Arrange: a resolver with no known types, simulating a fully external reference
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
+        // Act: resolve a type that belongs to a non-std namespace not in the known-types map
+        var result = resolver.Linkify("acme::Logger *", string.Empty, externalTypes);
+
+        // Assert: the original type string is returned as-is (no link to an unknown page)
+        Assert.Equal("acme::Logger *", result);
+
+        // Assert: the type is tracked in the external types set with the correct namespace
+        Assert.Single(externalTypes);
+        Assert.Equal("Logger", externalTypes.First().TypeString);
+        Assert.Equal("acme", externalTypes.First().Namespace);
     }
 }

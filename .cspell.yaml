@@ -24,12 +24,16 @@ words:
   - fileassert
   - frontmatter
   - GHDL
+  - hrefs
   - isysroot
   - isystem
   - libc
   - libclang
   - libclangsharp
   - libext
+  - Linkification
+  - Linkify
+  - linkify
   - misattributed
   - msbuild
   - MSBuild

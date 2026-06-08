@@ -138,6 +138,41 @@ a short human-readable kind string used in combined page H4 headings.
   `MethodDefinition` with name `.ctor` → `"Constructor"`; `MethodDefinition` →
   `"Method"`; all other types → `"Member"`.
 
+**TypeLinkResolver** (internal): Resolves Mono.Cecil `TypeReference` instances
+to Markdown link text for use in table cells.
+
+- *Constructor*: Accepts `IReadOnlyList<string> rootNamespaces` — forwarded to
+  `DotNetGenerator.GetNamespaceFolderPath` when computing target page paths.
+- **Linkify** method: resolves a `TypeReference` to a Markdown link string.
+  - *Parameters*: `TypeReference typeRef`, `string currentFolder` (path of the
+    containing file), `string contextNamespace`, `ISet<ExternalTypeInfo>
+    externalTypes` accumulator, optional `bool isNullableAnnotated`.
+  - *Returns*: a Markdown link when the type is intra-assembly; the original
+    simplified name otherwise; external non-System types are tracked in
+    `externalTypes`.
+  - *Rules*: `Nullable<T>` → `T?` via recursion; array types → `elementText[]`;
+    generic instance types linkify the container when intra-assembly; primitives
+    and `System.*` types render as plain text; non-System external types are
+    added to the accumulator.
+  - Intra-assembly detection: `TypeReference.Scope is ModuleDefinition`.
+
+**ExternalTypeInfo** (internal record): Represents a non-standard external type
+reference collected during table cell generation.
+
+- *Properties*: `SimplifiedName` (display form, may include escaped generic
+  angle brackets), `Namespace` (the type's .NET namespace).
+- *Ordering*: implements `IComparable<ExternalTypeInfo>` by `SimplifiedName` so
+  `SortedSet<ExternalTypeInfo>` produces alphabetically ordered tables.
+
+**DotNetGenerator.WriteExternalTypesSection** (private static): Emits the
+`## External Types` section at the bottom of a page when at least one external
+type was referenced in table cells.
+
+- *Parameters*: `IMarkdownWriter writer`, `SortedSet<ExternalTypeInfo>
+  externalTypes`.
+- *Algorithm*: Returns immediately when the set is empty; otherwise writes an
+  H2 heading `"External Types"` and a two-column table (`Type`, `Namespace`).
+
 ### Error Handling
 
 DotNetGenerator throws `FileNotFoundException` explicitly when XmlDocPath does not

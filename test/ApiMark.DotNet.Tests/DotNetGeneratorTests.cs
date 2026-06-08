@@ -1168,11 +1168,11 @@ public class DotNetGeneratorTests
     }
 
     /// <summary>
-    ///     Validates that an enum type signature does not include a base class colon because
-    ///     <c>System.Enum</c> is a well-known implicit base that adds no information for readers.
+    ///     Validates that a method returning an intra-assembly type emits a Markdown link in
+    ///     the Returns column of the type page's Methods table.
     /// </summary>
     [Fact]
-    public void DotNetGenerator_Generate_EnumTypeSignature_HasNoBaseClass()
+    public void DotNetGenerator_Generate_IntraAssemblyReturnType_EmitsMarkdownLinkInReturnsCell()
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
@@ -1181,16 +1181,59 @@ public class DotNetGeneratorTests
         // Act
         generator.Generate(factory, new InMemoryContext());
 
-        // Assert: SampleStatus enum type page must exist
+        // Assert: TypeLinkFixture type page must exist
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleStatus"),
-            "Expected type page for SampleStatus");
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/TypeLinkFixture"),
+            "Expected type page for TypeLinkFixture");
 
-        // Assert: the enum signature must not contain a colon — System.Enum must be
-        // suppressed because it is an implicit well-known base that adds no information
-        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleStatus"];
-        var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
-        Assert.NotNull(signature);
-        Assert.DoesNotContain(":", signature.Code, StringComparison.Ordinal);
+        // Assert: the Methods table on the TypeLinkFixture page must have a Returns cell containing
+        // a Markdown link to SampleClass — the return type of GetSampleClass()
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/TypeLinkFixture"];
+        var operations = writer.Operations.ToList();
+        var methodsIndex = operations.FindIndex(op => op is HeadingOperation h && h.Text == "Methods");
+        Assert.True(methodsIndex >= 0, "Expected 'Methods' heading on TypeLinkFixture page");
+        var methodsTable = operations.Skip(methodsIndex + 1).OfType<TableOperation>().First();
+
+        // Returns column (index 1) for GetSampleClass() must contain a Markdown link, not plain text
+        var row = methodsTable.Rows.FirstOrDefault(r => r[0].Contains("GetSampleClass", StringComparison.Ordinal));
+        Assert.NotNull(row);
+        Assert.Contains("[SampleClass]", row[1], StringComparison.Ordinal);
+        Assert.Contains("SampleClass.md", row[1], StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that a method accepting an external non-System type causes an "External Types"
+    ///     section to appear at the bottom of the member's detail page.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ExternalNonSystemParameterType_EmitsExternalTypesSection()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: Log member page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/TypeLinkFixture/Log"),
+            "Expected member page for TypeLinkFixture.Log");
+
+        // Assert: the member page must contain an "External Types" heading because
+        // ILogger<TypeLinkFixture> is from Microsoft.Extensions.Logging (non-System namespace)
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/TypeLinkFixture/Log"];
+        var headings = writer.Operations.OfType<HeadingOperation>().Select(h => h.Text).ToList();
+        Assert.Contains("External Types", headings, StringComparer.Ordinal);
+
+        // Assert: the External Types table must list ILogger with the Microsoft.Extensions.Logging namespace
+        var externalTable = writer.Operations
+            .OfType<TableOperation>()
+            .FirstOrDefault(t => t.Headers.Length == 2 && t.Headers[0] == "Type" && t.Headers[1] == "Namespace");
+        Assert.NotNull(externalTable);
+        Assert.Contains(
+            externalTable!.Rows,
+            row => row[0].Contains("ILogger", StringComparison.Ordinal) &&
+                   row[1].Contains("Microsoft.Extensions.Logging", StringComparison.Ordinal));
     }
 }

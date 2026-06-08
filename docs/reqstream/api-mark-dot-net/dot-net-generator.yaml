@@ -97,3 +97,22 @@ sections:
             tests:
               - DotNetGenerator_Generate_SampleImplementation_TypeSignatureShowsInterface
               - DotNetGenerator_Generate_EnumTypeSignature_HasNoBaseClass
+          - id: ApiMarkDotNet-DotNetGenerator-EmitIntraDocLinksInTableCells
+            title: DotNetGenerator shall emit Markdown links in type and parameter type table cells when the referenced type is documented in the same assembly.
+            justification: |
+              AI agents and human readers navigating API documentation benefit from
+              clickable links that jump directly to the referenced type page rather
+              than requiring a separate search. Links are only emitted in table cells,
+              not inside fenced code blocks, because Markdown links do not render
+              inside fences.
+            tests:
+              - DotNetGenerator_Generate_IntraAssemblyReturnType_EmitsMarkdownLinkInReturnsCell
+          - id: ApiMarkDotNet-DotNetGenerator-EmitExternalTypesSection
+            title: DotNetGenerator shall emit an "External Types" section at the bottom of each generated page that references at least one non-System external type.
+            justification: |
+              Readers using an external library type documented on a page need to know
+              which package or namespace to import. Collecting all external type
+              references per page and listing them alphabetically provides this context
+              without cluttering individual type cells with fully-qualified names.
+            tests:
+              - DotNetGenerator_Generate_ExternalNonSystemParameterType_EmitsExternalTypesSection

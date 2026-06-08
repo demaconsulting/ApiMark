@@ -124,7 +124,7 @@ public static class TypeNameSimplifier
     /// <summary>Removes the generic arity suffix (e.g. <c>`1</c>) from a type name.</summary>
     /// <param name="name">The raw type name that may contain a backtick arity suffix.</param>
     /// <returns>The name without the arity suffix.</returns>
-    private static string StripArity(string name)
+    internal static string StripArity(string name)
     {
         var tick = name.IndexOf('`');
         return tick >= 0 ? name.Substring(0, tick) : name;

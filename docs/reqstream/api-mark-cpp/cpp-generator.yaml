@@ -148,3 +148,22 @@ sections:
             tests:
               - CppGenerator_Generate_InheritanceClass_EmitsBaseClassInSignature
               - CppGenerator_Generate_FinalClass_EmitsFinalKeywordInSignature
+          - id: ApiMarkCpp-CppGenerator-EmitIntraDocLinksInTableCells
+            title: CppGenerator shall emit Markdown links in type and parameter type table cells when the referenced type is documented in the same library.
+            justification: |
+              AI agents and human readers navigating API documentation benefit from
+              clickable links that jump directly to the referenced type page rather
+              than requiring a separate search. Links are only emitted in table cells,
+              not inside fenced code blocks, because Markdown links do not render
+              inside fences.
+            tests:
+              - CppGenerator_Generate_IntraLibraryReturnType_EmitsMarkdownLinkInReturnsCell
+          - id: ApiMarkCpp-CppGenerator-EmitExternalTypesSection
+            title: CppGenerator shall emit an "External Types" section at the bottom of each generated page that references at least one non-std external type.
+            justification: |
+              Readers using an external library type documented on a page need to know
+              which namespace or header to include. Collecting all external type
+              references per page and listing them alphabetically provides this context
+              without cluttering individual type cells with fully-qualified names.
+            tests:
+              - CppTypeLinkResolver_Linkify_UnknownNamespacedType_TracksExternalType
