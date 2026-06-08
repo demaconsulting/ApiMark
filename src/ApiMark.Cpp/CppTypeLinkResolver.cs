@@ -119,9 +119,11 @@ internal sealed class CppTypeLinkResolver
             return cppTypeString;
         }
 
-        // std:: types are always rendered as plain text and never tracked as external
-        if (stripped.StartsWith("std::", StringComparison.Ordinal) ||
-            cppTypeString.Contains("std::"))
+        // std:: types are always rendered as plain text and never tracked as external;
+        // only the stripped base name is checked so that intra-library types whose
+        // signatures contain std:: template arguments (e.g. Foo<std::string>) are
+        // still linkified correctly
+        if (stripped.StartsWith("std::", StringComparison.Ordinal))
         {
             return cppTypeString;
         }
