@@ -34,9 +34,9 @@ type page — consuming only as much context as the task requires.
 
 | Platform | .NET | C++ |
 | --- | --- | --- |
-| Windows x64 | ✅ | ✅ |
-| Linux x64 | ✅ | ✅ |
-| macOS (Apple Silicon) | ✅ | ✅ |
+| Windows | ✅ | ✅ |
+| Linux | ✅ | ✅ |
+| macOS | ✅ | ✅ |
 
 ## Prerequisites
 
