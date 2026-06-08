@@ -276,7 +276,7 @@ public sealed class CppGenerator : IApiGenerator
     ///     Thrown when <paramref name="result"/> contains error-class diagnostics from one or more
     ///     of the user's public header files.
     /// </exception>
-    private static void CheckForErrors(CppCompilationResult result, IReadOnlyList<string> headerFiles, IContext context)
+    internal static void CheckForErrors(CppCompilationResult result, IReadOnlyList<string> headerFiles, IContext context)
     {
         if (result.Errors.Count == 0)
         {

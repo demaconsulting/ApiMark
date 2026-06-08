@@ -15,6 +15,18 @@ sections:
           - ApiMarkCore-IApiGenerator-ProduceEntrypointFile
         tests:
           - ApiMarkCore_GeneratorContract_SupportedLanguage_CanBeInvoked
+      - id: ApiMarkCore-IContext-ProvideOutputChannel
+        title: ApiMarkCore shall provide a minimal output channel interface that language generators can use to emit informational and error messages without depending on Console.
+        justification: |
+          ApiMark generators need to emit diagnostic output without depending on
+          Console directly, so the channel can be captured, suppressed, or
+          redirected by the caller. This enables testability and flexible output
+          routing across CLI, MSBuild, and test hosts.
+        children:
+          - ApiMarkCore-IContext-DefineWriteLineMethod
+          - ApiMarkCore-IContext-DefineWriteErrorMethod
+        tests:
+          - ApiMarkCore_ContextContract_WrittenMessages_AreAccessibleForAssertion
       - id: ApiMarkCore-IMarkdownWriterFactory-ProvideMarkdownWriterFactoryInterface
         title: ApiMarkCore shall provide a factory interface for creating per-file Markdown writers so that language generators are decoupled from the file-system.
         justification: |

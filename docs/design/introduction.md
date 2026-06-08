@@ -42,6 +42,7 @@ of OTS items.
 ```text
 ApiMarkCore (System)
 ├── IApiGenerator (Unit)
+├── IContext (Unit)
 ├── IMarkdownWriterFactory (Unit)
 ├── IMarkdownWriter (Unit)
 └── PathHelpers (Unit)
@@ -74,6 +75,7 @@ OTS Dependencies:
 src/
 ├── ApiMark.Core/
 │   ├── IApiGenerator.cs                - interface every language generator must implement
+│   ├── IContext.cs                     - minimal output channel that generators use to emit messages
 │   ├── IMarkdownWriterFactory.cs       - factory interface for creating per-file markdown writers
 │   ├── IMarkdownWriter.cs              - per-file markdown writing interface (IDisposable)
 │   ├── PathHelpers.cs                  - shared path-safety helper for combining validated relative paths
@@ -102,7 +104,10 @@ src/
     └── Program.cs                     - dotnet CLI entry point dispatching to IApiGenerator
 
 test/
-├── ApiMark.Core.TestHelpers/      - in-memory IMarkdownWriterFactory/IMarkdownWriter test doubles
+├── ApiMark.Core.TestHelpers/
+│   ├── InMemoryMarkdownWriterFactory.cs  - in-memory IMarkdownWriterFactory test double
+│   ├── InMemoryMarkdownWriter.cs         - in-memory IMarkdownWriter test double
+│   └── InMemoryContext.cs                - in-memory IContext test double
 ├── ApiMark.Core.Tests/            - unit tests for Core contracts
 ├── ApiMark.DotNet.Fixtures/       - multi-target fixture assembly for DotNet integration tests
 ├── ApiMark.DotNet.Tests/          - unit tests for DotNetGenerator and TypeNameSimplifier

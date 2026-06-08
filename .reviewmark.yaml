@@ -65,6 +65,17 @@ reviews:
       - src/ApiMark.Core/IApiGenerator.cs
       - test/ApiMark.Core.Tests/IApiGeneratorTests.cs
 
+  # ApiMarkCore - IContext
+  - id: ApiMark-Core-IContext
+    title: Review that ApiMark Core IContext Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-core/i-context.yaml
+      - docs/design/api-mark-core/i-context.md
+      - docs/verification/api-mark-core/i-context.md
+      - src/ApiMark.Core/IContext.cs
+      - test/ApiMark.Core.TestHelpers/InMemoryContext.cs
+      - test/ApiMark.Core.Tests/IContextTests.cs
+
   # ApiMarkCore - MarkdownWriter
   - id: ApiMark-Core-MarkdownWriter
     title: Review that ApiMark Core IMarkdownWriter Implementation is Correct

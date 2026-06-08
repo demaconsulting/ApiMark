@@ -3,6 +3,7 @@
 includes:
   - docs/reqstream/api-mark-core.yaml
   - docs/reqstream/api-mark-core/i-api-generator.yaml
+  - docs/reqstream/api-mark-core/i-context.yaml
   - docs/reqstream/api-mark-core/i-markdown-writer-factory.yaml
   - docs/reqstream/api-mark-core/i-markdown-writer.yaml
   - docs/reqstream/api-mark-core/path-helpers.yaml

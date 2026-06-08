@@ -1,5 +1,6 @@
 using ApiMark.Core.TestHelpers;
 using ApiMark.Cpp;
+using ApiMark.Cpp.CppAst;
 using Xunit;
 
 namespace ApiMark.Cpp.Tests;
@@ -957,5 +958,32 @@ public class CppGeneratorTests
         Assert.True(
             factory.Writers.ContainsKey("fixtures/operators"),
             "Expected a shared namespace operators page at 'fixtures/operators'");
+    }
+
+    /// <summary>
+    ///     Validates that a clang diagnostic whose source path does not belong to any
+    ///     public header file is routed to <see cref="InMemoryContext.Lines"/> rather
+    ///     than causing an <see cref="InvalidOperationException"/>.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_CheckForErrors_SystemHeaderDiagnostic_RoutesToContextLines()
+    {
+        // Arrange: a compilation result that contains one error from a path that does
+        // not match any public header — simulating a clang diagnostic from a system
+        // or third-party header included transitively by the public headers
+        const string systemError = "/usr/include/stdio.h:42:5: error: unknown builtin";
+        var result = new CppCompilationResult([], [systemError]);
+        var context = new InMemoryContext();
+
+        // Act: invoke CheckForErrors with an empty public-header list so no error
+        // is classified as a user error; the method must not throw
+        CppGenerator.CheckForErrors(result, [], context);
+
+        // Assert: the system-header diagnostic is forwarded to context.Lines with
+        // the "[CppGenerator] clang:" prefix so callers can identify its origin
+        Assert.Contains(
+            context.Lines,
+            line => line.Contains("[CppGenerator] clang:", StringComparison.Ordinal)
+                    && line.Contains(systemError, StringComparison.Ordinal));
     }
 }
