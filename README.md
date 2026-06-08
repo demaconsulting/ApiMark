@@ -1,9 +1,16 @@
 # ApiMark
 
-[![Build](https://github.com/DemaConsulting/ApiMark/actions/workflows/build_on_push.yaml/badge.svg)](https://github.com/DemaConsulting/ApiMark/actions/workflows/build_on_push.yaml)
-
 <!-- IMPORTANT: All links in this file must be absolute URLs.
      This file is distributed in packages and relative links will not resolve. -->
+
+[![GitHub forks](https://img.shields.io/github/forks/demaconsulting/ApiMark?style=plastic)](https://github.com/demaconsulting/ApiMark/network/members)
+[![GitHub stars](https://img.shields.io/github/stars/demaconsulting/ApiMark?style=plastic)](https://github.com/demaconsulting/ApiMark/stargazers)
+[![GitHub contributors](https://img.shields.io/github/contributors/demaconsulting/ApiMark?style=plastic)](https://github.com/demaconsulting/ApiMark/graphs/contributors)
+[![License](https://img.shields.io/github/license/demaconsulting/ApiMark?style=plastic)](https://github.com/demaconsulting/ApiMark/blob/main/LICENSE)
+[![Build](https://img.shields.io/github/actions/workflow/status/demaconsulting/ApiMark/build_on_push.yaml)](https://github.com/demaconsulting/ApiMark/actions/workflows/build_on_push.yaml)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=demaconsulting_ApiMark&metric=alert_status)](https://sonarcloud.io/dashboard?id=demaconsulting_ApiMark)
+[![Security](https://sonarcloud.io/api/project_badges/measure?project=demaconsulting_ApiMark&metric=security_rating)](https://sonarcloud.io/dashboard?id=demaconsulting_ApiMark)
+[![NuGet](https://img.shields.io/nuget/v/DemaConsulting.ApiMark.MSBuild?style=plastic)](https://www.nuget.org/packages/DemaConsulting.ApiMark.MSBuild)
 
 ## Overview
 
