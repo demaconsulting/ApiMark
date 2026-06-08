@@ -7,6 +7,7 @@
     <IsPackable>false</IsPackable>
     <AssemblyName>ApiMark.DotNet.Tests</AssemblyName>
     <RootNamespace>ApiMark.DotNet.Tests</RootNamespace>
+    <TestTfmsInParallel>false</TestTfmsInParallel>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4">
