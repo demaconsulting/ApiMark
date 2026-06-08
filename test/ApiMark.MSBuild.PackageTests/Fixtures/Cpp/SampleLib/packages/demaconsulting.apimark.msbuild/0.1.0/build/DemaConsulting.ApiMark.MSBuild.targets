@@ -1,0 +1,48 @@
+<Project>
+  <UsingTask TaskName="ApiMark.MSBuild.ApiMarkTask"
+             AssemblyFile="$(MSBuildThisFileDirectory)..\tasks\netstandard2.0\ApiMark.MSBuild.dll" />
+
+  <PropertyGroup>
+    <ApiMarkOutputDir Condition="'$(ApiMarkOutputDir)' == ''">$(MSBuildProjectDirectory)\api</ApiMarkOutputDir>
+    <ApiMarkVisibility Condition="'$(ApiMarkVisibility)' == ''">Public</ApiMarkVisibility>
+    <ApiMarkAssemblyPath Condition="'$(ApiMarkAssemblyPath)' == ''">$(TargetPath)</ApiMarkAssemblyPath>
+    <ApiMarkXmlDocPath Condition="'$(ApiMarkXmlDocPath)' == ''">$(DocumentationFile)</ApiMarkXmlDocPath>
+    <_ApiMarkToolDllPath>$(MSBuildThisFileDirectory)..\tools\net8.0\ApiMark.Tool.dll</_ApiMarkToolDllPath>
+
+    <!-- Set to 'true' to include the generated api/ documentation folder in the NuGet package -->
+    <ApiMarkPackDocs Condition="'$(ApiMarkPackDocs)' == ''">false</ApiMarkPackDocs>
+
+    <!--
+      Hook into the NuGet pack pipeline so _ApiMarkIncludeDocsInPackage runs during
+      _WalkEachTargetPerFramework — after Build (docs are on disk) but before
+      _GetPackageFiles collects pack items. Works for both normal pack and dotnet pack
+      - -no-build (docs included if they exist on disk from a prior build).
+    -->
+    <TargetsForTfmSpecificContentInPackage Condition="'$(ApiMarkPackDocs)' == 'true'">$(TargetsForTfmSpecificContentInPackage);_ApiMarkIncludeDocsInPackage</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <Target Name="GenerateApiMarkDocumentation"
+          AfterTargets="Build"
+          Condition="'$(DisableApiMark)' != 'true'">
+    <ApiMarkTask
+      DisableApiMark="$(DisableApiMark)"
+      ApiMarkLanguage="$(ApiMarkLanguage)"
+      ProjectExtension="$(MSBuildProjectExtension)"
+      ApiMarkOutputDir="$(ApiMarkOutputDir)"
+      ApiMarkVisibility="$(ApiMarkVisibility)"
+      ApiMarkIncludeObsolete="$(ApiMarkIncludeObsolete)"
+      ApiMarkAssemblyPath="$(ApiMarkAssemblyPath)"
+      ApiMarkXmlDocPath="$(ApiMarkXmlDocPath)"
+      ApiMarkIncludePaths="$(ApiMarkIncludePaths)"
+      ToolDllPath="$(_ApiMarkToolDllPath)" />
+  </Target>
+
+  <!-- Adds the generated api/ folder to the NuGet package when ApiMarkPackDocs=true -->
+  <Target Name="_ApiMarkIncludeDocsInPackage"
+          Condition="Exists('$(ApiMarkOutputDir)')">
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="$(ApiMarkOutputDir)\**\*"
+                              PackagePath="api/%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+  </Target>
+</Project>

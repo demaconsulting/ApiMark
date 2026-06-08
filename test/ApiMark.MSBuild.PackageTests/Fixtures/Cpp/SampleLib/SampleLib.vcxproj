@@ -19,14 +19,17 @@
     <RootNamespace>SampleLib</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <!--
-      Tell NuGet to use the PackageReference restore path. This suppresses the legacy
-      Microsoft.NuGet.targets ResolveNuGetPackageAssets task (which runs for all vcxproj
-      files via Microsoft.Cpp.targets) that would otherwise fail with "Sequence contains
-      no elements" when the project.assets.json has no native framework entry.
-      The modern nuget.g.props/nuget.g.targets files are auto-imported by
-      Microsoft.Common.props (MSBuild 15+) and carry the ApiMark .targets import.
+      Skip the legacy Microsoft.NuGet.targets import (brought in by Microsoft.Common.Targets
+      via Microsoft.NuGet.ImportAfter.targets). That file runs ResolveNuGetPackageAssets which
+      fails for PackageReference vcxproj projects with "Sequence contains no elements" because
+      the project.assets.json has no managed-framework entry.
+
+      The modern PackageReference path (nuget.g.props / nuget.g.targets) is auto-imported
+      separately by Microsoft.Common.props / Microsoft.Common.Targets via
+      $(MSBuildProjectExtensionsPath)$(MSBuildProjectFile).*.props/targets — this is completely
+      unaffected by SkipImportNuGetBuildTargets and carries the ApiMark .targets import.
     -->
-    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+    <SkipImportNuGetBuildTargets>true</SkipImportNuGetBuildTargets>
   </PropertyGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

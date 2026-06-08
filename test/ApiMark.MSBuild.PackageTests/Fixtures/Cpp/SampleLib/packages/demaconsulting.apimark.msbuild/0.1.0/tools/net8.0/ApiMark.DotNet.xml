@@ -1,0 +1,391 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ApiMark.DotNet</name>
+    </assembly>
+    <members>
+        <member name="T:ApiMark.DotNet.ApiVisibility">
+            <summary>Specifies which members are included in the generated API documentation.</summary>
+        </member>
+        <member name="F:ApiMark.DotNet.ApiVisibility.Public">
+            <summary>Include only public members.</summary>
+        </member>
+        <member name="F:ApiMark.DotNet.ApiVisibility.PublicAndProtected">
+            <summary>Include public and protected members.</summary>
+        </member>
+        <member name="F:ApiMark.DotNet.ApiVisibility.All">
+            <summary>Include all members regardless of access modifier.</summary>
+        </member>
+        <member name="T:ApiMark.DotNet.DotNetGenerator">
+            <summary>Generates Markdown API documentation from a .NET assembly using Mono.Cecil.</summary>
+            <remarks>
+                Implements <see cref="T:ApiMark.Core.IApiGenerator"/> for C#/.NET assemblies. Reads assembly metadata
+                via Mono.Cecil without loading the target assembly into the current process, which ensures
+                reliable operation against arbitrary build outputs and dependency graphs. Pairs the metadata
+                with developer-authored content from the XML documentation file to produce a gradual-disclosure
+                Markdown tree. Not thread-safe; construct and use one instance per generation run.
+            </remarks>
+        </member>
+        <member name="F:ApiMark.DotNet.DotNetGenerator.DescriptionColumnHeader">
+            <summary>Column header label used in all generated Markdown tables for the description column.</summary>
+        </member>
+        <member name="F:ApiMark.DotNet.DotNetGenerator.ConstructorMethodName">
+            <summary>The .NET metadata method name used for all instance and static constructors.</summary>
+        </member>
+        <member name="F:ApiMark.DotNet.DotNetGenerator._options">
+            <summary>Configuration controlling which assembly, XML doc, and visibility filter to use.</summary>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.#ctor(ApiMark.DotNet.DotNetGeneratorOptions)">
+            <summary>Initializes a new instance of <see cref="T:ApiMark.DotNet.DotNetGenerator"/> with the specified options.</summary>
+            <remarks>
+                No file system access occurs at construction time; all I/O is deferred to <see cref="M:ApiMark.DotNet.DotNetGenerator.Generate(ApiMark.Core.IMarkdownWriterFactory)"/>.
+            </remarks>
+            <param name="options">The generator configuration options.</param>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.Generate(ApiMark.Core.IMarkdownWriterFactory)">
+            <summary>Generates API documentation into the provided writer factory.</summary>
+            <remarks>
+                Opens the assembly via Mono.Cecil, builds an <see cref="T:ApiMark.DotNet.XmlDocReader"/> index from
+                the XML documentation file, then writes the complete Markdown tree: one assembly
+                entrypoint page, one namespace summary per namespace, one type page per visible type,
+                and one detail page per complex member. The <see cref="T:Mono.Cecil.AssemblyDefinition"/> is
+                disposed before this method returns.
+            </remarks>
+            <param name="factory">The markdown writer factory used to create output files.</param>
+            <exception cref="T:System.IO.FileNotFoundException">Thrown when the XML documentation file does not exist.</exception>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.WriteTypePage(ApiMark.Core.IMarkdownWriterFactory,System.String,Mono.Cecil.TypeDefinition,ApiMark.DotNet.XmlDocReader)">
+            <summary>
+                Writes the Markdown page for a single type, including a members table and
+                links to complex member pages.
+            </summary>
+            <param name="factory">Factory for creating output writers.</param>
+            <param name="namespaceName">The namespace that owns <paramref name="type"/>.</param>
+            <param name="type">The type whose page is being written.</param>
+            <param name="xmlDocs">XML documentation index for summary and remarks lookups.</param>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.WriteMemberPage(ApiMark.Core.IMarkdownWriterFactory,System.String,Mono.Cecil.TypeDefinition,Mono.Cecil.IMemberDefinition,ApiMark.DotNet.XmlDocReader,System.String)">
+            <summary>
+                Writes the detailed Markdown page for a single complex member, including
+                signature, parameters, returns, exceptions, remarks, and examples.
+            </summary>
+            <param name="factory">Factory for creating output writers.</param>
+            <param name="namespaceName">The namespace that owns the declaring type.</param>
+            <param name="type">The type that declares <paramref name="member"/>.</param>
+            <param name="member">The member whose page is being written.</param>
+            <param name="xmlDocs">XML documentation index.</param>
+            <param name="memberId">Pre-computed XML doc member identifier for <paramref name="member"/>.</param>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.IsComplex(Mono.Cecil.IMemberDefinition,ApiMark.DotNet.XmlDocReader)">
+            <summary>
+                Determines whether <paramref name="member"/> warrants its own page based on
+                the complexity rules: parameters, exception docs, multi-line remarks, examples,
+                or asymmetric get/set accessors.
+            </summary>
+            <param name="member">The member to evaluate.</param>
+            <param name="xmlDocs">XML documentation index used for doc-driven complexity checks.</param>
+            <returns><c>true</c> when the member should get a dedicated page.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.HasAsymmetricAccessors(Mono.Cecil.PropertyDefinition)">
+            <summary>
+                Returns <c>true</c> when <paramref name="prop"/> has both a getter and a setter
+                but they expose different access levels (e.g. <c>public get; internal set;</c>).
+            </summary>
+            <param name="prop">The property to inspect.</param>
+            <returns><c>true</c> when getter and setter have different access levels.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.GetAccessLevel(Mono.Cecil.MethodDefinition)">
+            <summary>Returns a numeric access level for a method, where higher values are more permissive.</summary>
+            <param name="method">The method to evaluate.</param>
+            <returns>An integer from 0 (private) to 4 (public).</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.IsTypeVisible(Mono.Cecil.TypeDefinition)">
+            <summary>
+                Returns <c>true</c> when <paramref name="type"/> satisfies the visibility
+                setting in <see cref="F:ApiMark.DotNet.DotNetGenerator._options"/>.
+            </summary>
+            <param name="type">The type definition to test.</param>
+            <returns><c>true</c> when the type is visible under the current visibility setting.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.IsMemberVisible(Mono.Cecil.IMemberDefinition)">
+            <summary>
+                Returns <c>true</c> when <paramref name="member"/> satisfies the visibility
+                setting in <see cref="F:ApiMark.DotNet.DotNetGenerator._options"/>.
+            </summary>
+            <param name="member">The member to test.</param>
+            <returns><c>true</c> when the member is visible under the current visibility setting.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.IsMemberPublic(Mono.Cecil.IMemberDefinition)">
+            <summary>Returns <c>true</c> when <paramref name="member"/> is publicly accessible.</summary>
+            <param name="member">The member to test.</param>
+            <returns><c>true</c> when the member is public.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.IsMemberPublicOrProtected(Mono.Cecil.IMemberDefinition)">
+            <summary>Returns <c>true</c> when <paramref name="member"/> is public or protected.</summary>
+            <param name="member">The member to test.</param>
+            <returns><c>true</c> when the member is public or protected.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.IsPropertyPublicOrProtected(Mono.Cecil.PropertyDefinition)">
+            <summary>Returns <c>true</c> when <paramref name="p"/> has a public or protected getter or setter.</summary>
+            <param name="p">The property to inspect.</param>
+            <returns><c>true</c> when at least one accessor is publicly or protected-family accessible.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.GetVisibleMembers(Mono.Cecil.TypeDefinition)">
+            <summary>
+                Enumerates all members of <paramref name="type"/> that pass the current visibility,
+                obsolete, and compiler-generated filters.
+            </summary>
+            <param name="type">The type whose members to inspect.</param>
+            <returns>An enumerable of visible member definitions.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.ShouldIncludeMember(Mono.Cecil.IMemberDefinition)">
+            <summary>Returns <c>true</c> when <paramref name="member"/> passes both visibility and obsolete filters.</summary>
+            <param name="member">The member to evaluate.</param>
+            <returns><c>true</c> when the member is visible and not filtered out by the obsolete setting.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.IsSpecialNameNonConstructor(Mono.Cecil.MethodDefinition)">
+            <summary>Returns <c>true</c> when <paramref name="method"/> is a special-name accessor that is not a constructor.</summary>
+            <param name="method">The method to test.</param>
+            <returns><c>true</c> for property getters/setters and event add/remove methods.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.IsCompilerGeneratedField(Mono.Cecil.FieldDefinition)">
+            <summary>Returns <c>true</c> when <paramref name="field"/> is a compiler-generated backing field.</summary>
+            <param name="field">The field to test.</param>
+            <returns><c>true</c> when the field name contains angle brackets (compiler-generated backing fields).</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.BuildTypeId(Mono.Cecil.TypeDefinition)">
+            <summary>Builds the XML doc member identifier for a type (e.g. <c>T:Namespace.TypeName</c>).</summary>
+            <param name="type">The type definition.</param>
+            <returns>The XML doc member identifier string.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.BuildMemberId(Mono.Cecil.IMemberDefinition)">
+            <summary>Builds the XML doc member identifier for an arbitrary member.</summary>
+            <param name="member">The member definition.</param>
+            <returns>The XML doc member identifier string.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.BuildMethodId(Mono.Cecil.MethodDefinition)">
+            <summary>Builds the XML doc member identifier for a method, including parameter type list when present.</summary>
+            <param name="method">The method definition.</param>
+            <returns>The XML doc member identifier string.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.BuildTypeSignature(Mono.Cecil.TypeDefinition)">
+            <summary>Builds a human-readable C# declaration signature for a type definition.</summary>
+            <param name="type">The type definition to represent.</param>
+            <returns>A string of the form <c>public class Name</c> or <c>public interface Name&lt;T&gt;</c>.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.BuildMemberSignature(Mono.Cecil.IMemberDefinition,System.String)">
+            <summary>Dispatches to the appropriate signature builder based on the runtime member type.</summary>
+            <param name="member">The member to represent.</param>
+            <param name="contextNamespace">Used to simplify type names in the signature.</param>
+            <returns>A human-readable C# declaration signature string.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.BuildMethodSignature(Mono.Cecil.MethodDefinition,System.String)">
+            <summary>Builds a human-readable C# method declaration signature.</summary>
+            <param name="method">The method definition.</param>
+            <param name="contextNamespace">Used to simplify type names in parameters and return type.</param>
+            <returns>The method signature string.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.BuildPropertySignature(Mono.Cecil.PropertyDefinition,System.String)">
+            <summary>Builds a human-readable C# property declaration signature.</summary>
+            <param name="prop">The property definition.</param>
+            <param name="contextNamespace">Used to simplify the property type name.</param>
+            <returns>The property signature string.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.BuildPropertyAccessors(Mono.Cecil.PropertyDefinition)">
+            <summary>Builds the accessor portion of a property signature (e.g. <c>get; internal set;</c>).</summary>
+            <param name="prop">The property definition.</param>
+            <returns>The accessor string to embed in the property signature.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.BuildFieldSignature(Mono.Cecil.FieldDefinition,System.String)">
+            <summary>Builds a human-readable C# field declaration signature.</summary>
+            <param name="field">The field definition.</param>
+            <param name="contextNamespace">Used to simplify the field type name.</param>
+            <returns>The field signature string.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.BuildEventSignature(Mono.Cecil.EventDefinition,System.String)">
+            <summary>Builds a human-readable C# event declaration signature.</summary>
+            <param name="evt">The event definition.</param>
+            <param name="contextNamespace">Used to simplify the event type name.</param>
+            <returns>The event signature string.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.GetAccessibilityKeyword(Mono.Cecil.MethodDefinition)">
+            <summary>Returns the C# accessibility keyword for a method (e.g. <c>"public"</c> or <c>"protected"</c>).</summary>
+            <param name="method">The method whose accessibility to report.</param>
+            <returns>The lowercase C# accessibility keyword string.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.GetMemberDisplayName(Mono.Cecil.IMemberDefinition)">
+            <summary>Returns the display name for a member as it should appear in documentation tables.</summary>
+            <param name="member">The member whose display name to compute.</param>
+            <returns>The display name string (constructor uses the declaring type's simple name).</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.GetMemberTypeName(Mono.Cecil.IMemberDefinition,System.String)">
+            <summary>Returns the simplified C# type name for a member as it should appear in a type column.</summary>
+            <param name="member">The member whose type name to compute.</param>
+            <param name="contextNamespace">Used to simplify the type name.</param>
+            <returns>The simplified type name string.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.GetSanitizedMemberFileName(Mono.Cecil.IMemberDefinition,Mono.Cecil.TypeDefinition)">
+            <summary>
+                Returns the file-system-safe name used to form the member page path.
+                Constructors use the declaring type name; all others use the member name directly.
+            </summary>
+            <param name="member">The member whose file name to compute.</param>
+            <param name="declaringType">The type that declares <paramref name="member"/>.</param>
+            <returns>A string suitable for use as a file name (without extension).</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.IsCompilerGenerated(Mono.Cecil.ICustomAttributeProvider)">
+            <summary>
+                Returns <c>true</c> when <paramref name="provider"/> carries a
+                <c>CompilerGeneratedAttribute</c>, indicating it was synthesized by the compiler.
+            </summary>
+            <param name="provider">The metadata element to inspect.</param>
+            <returns><c>true</c> when the element is compiler-generated.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.IsCompilerGenerated(Mono.Cecil.TypeDefinition)">
+            <summary>
+                Returns <c>true</c> when <paramref name="type"/> is a compiler-generated
+                type (name contains angle brackets, or carries CompilerGeneratedAttribute).
+            </summary>
+            <param name="type">The type definition to inspect.</param>
+            <returns><c>true</c> when the type is compiler-generated.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.IsObsolete(Mono.Cecil.ICustomAttributeProvider)">
+            <summary>
+                Returns <c>true</c> when <paramref name="provider"/> carries an
+                <c>ObsoleteAttribute</c>.
+            </summary>
+            <param name="provider">The metadata element to inspect.</param>
+            <returns><c>true</c> when the element is marked obsolete.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.DotNetGenerator.StripArity(System.String)">
+            <summary>Removes the generic arity suffix (e.g. <c>`1</c>) from a type name.</summary>
+            <param name="name">The raw type name that may contain a backtick arity suffix.</param>
+            <returns>The name without the arity suffix.</returns>
+        </member>
+        <member name="T:ApiMark.DotNet.DotNetGeneratorOptions">
+            <summary>Configuration options for <see cref="T:ApiMark.DotNet.DotNetGenerator"/>.</summary>
+        </member>
+        <member name="P:ApiMark.DotNet.DotNetGeneratorOptions.AssemblyPath">
+            <summary>Gets or sets the path to the .NET assembly to document.</summary>
+        </member>
+        <member name="P:ApiMark.DotNet.DotNetGeneratorOptions.XmlDocPath">
+            <summary>
+                Gets or sets the path to the XML documentation file produced alongside the assembly.
+                <see cref="T:ApiMark.DotNet.DotNetGenerator"/> throws <see cref="T:System.IO.FileNotFoundException"/> if this file does not exist.
+            </summary>
+        </member>
+        <member name="P:ApiMark.DotNet.DotNetGeneratorOptions.Visibility">
+            <summary>Gets or sets which members are visible in the generated output. Defaults to <see cref="F:ApiMark.DotNet.ApiVisibility.Public"/>.</summary>
+        </member>
+        <member name="P:ApiMark.DotNet.DotNetGeneratorOptions.IncludeObsolete">
+            <summary>Gets or sets a value indicating whether obsolete members are included. Defaults to <c>false</c>.</summary>
+        </member>
+        <member name="T:ApiMark.DotNet.TypeNameSimplifier">
+            <summary>Stateless helper that converts Mono.Cecil <see cref="T:Mono.Cecil.TypeReference"/> instances to readable C# type names.</summary>
+        </member>
+        <member name="F:ApiMark.DotNet.TypeNameSimplifier.Primitives">
+            <summary>C# primitive aliases keyed by full CLR name.</summary>
+        </member>
+        <member name="F:ApiMark.DotNet.TypeNameSimplifier.WellKnownNamespaces">
+            <summary>Namespaces whose prefix is stripped when displaying generic or plain types.</summary>
+        </member>
+        <member name="M:ApiMark.DotNet.TypeNameSimplifier.Simplify(Mono.Cecil.TypeReference,System.String,System.Boolean)">
+            <summary>
+                Converts <paramref name="typeRef"/> to a human-readable C# type name, stripping well-known
+                namespaces and the <paramref name="contextNamespace"/> prefix where applicable.
+            </summary>
+            <remarks>
+                Exists to make generated Markdown signatures readable to C# developers — raw Mono.Cecil type
+                names include CLR full names and generic arity suffixes that are unfamiliar in documentation.
+                Seven simplification rules are applied in a fixed priority order: (1) C# primitive aliases,
+                (2) array bracket notation, (3) Nullable&lt;T&gt; → T?, (4) well-known namespace stripping,
+                (5) context namespace prefix stripping, (6) recursive generic argument simplification, and
+                (7) nullable reference annotation suffix. Stateless and thread-safe; no shared mutable state
+                is modified during the call.
+            </remarks>
+            <param name="typeRef">The Mono.Cecil type reference to simplify.</param>
+            <param name="contextNamespace">The namespace of the type that owns this reference, used for prefix stripping.</param>
+            <param name="isNullableAnnotated">
+                When <see langword="true"/>, the member carrying this type reference has a
+                <c>NullableAttribute(2)</c> annotation (i.e. the C# 8+ nullable reference type <c>?</c>
+                suffix). This information cannot be derived from <paramref name="typeRef"/> alone because
+                Mono.Cecil stores nullable annotations on the containing member, not on the type reference
+                itself. Callers that inspect member custom attributes should pass <see langword="true"/>
+                when byte value 2 is found.
+            </param>
+            <returns>A simplified, human-readable C# type name.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.TypeNameSimplifier.SimplifyCore(Mono.Cecil.TypeReference,System.String)">
+            <summary>Applies Rules 1–6 to produce a simplified type name without nullable-reference annotation.</summary>
+            <param name="typeRef">The Mono.Cecil type reference to simplify.</param>
+            <param name="contextNamespace">The namespace of the enclosing type, used for prefix stripping.</param>
+            <returns>A simplified C# type name without a trailing nullable-reference <c>?</c>.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.TypeNameSimplifier.BuildGenericName(Mono.Cecil.GenericInstanceType,System.String)">
+            <summary>Builds the simplified type name for a generic type instance.</summary>
+            <param name="git">The generic instance type to represent.</param>
+            <param name="contextNamespace">The namespace of the enclosing type, used for prefix stripping.</param>
+            <returns>A string of the form <c>Name&lt;Arg1, Arg2&gt;</c>.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.TypeNameSimplifier.StripArity(System.String)">
+            <summary>Removes the generic arity suffix (e.g. <c>`1</c>) from a type name.</summary>
+            <param name="name">The raw type name that may contain a backtick arity suffix.</param>
+            <returns>The name without the arity suffix.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.TypeNameSimplifier.ApplyContextStrip(Mono.Cecil.TypeReference,System.String)">
+            <summary>
+                Returns the shortest unambiguous name for <paramref name="typeRef"/> relative to
+                <paramref name="contextNamespace"/>, stripping that namespace's prefix if present.
+            </summary>
+            <param name="typeRef">The type reference to shorten.</param>
+            <param name="contextNamespace">The namespace of the enclosing type.</param>
+            <returns>The shortest name that is unambiguous in the given context.</returns>
+        </member>
+        <member name="T:ApiMark.DotNet.XmlDocReader">
+            <summary>Reads and indexes a .NET XML documentation file for fast member-level lookups.</summary>
+        </member>
+        <member name="F:ApiMark.DotNet.XmlDocReader._members">
+            <summary>Index of documentation members keyed by their XML doc identifier.</summary>
+        </member>
+        <member name="M:ApiMark.DotNet.XmlDocReader.#ctor(System.String)">
+            <summary>Initializes a new instance of <see cref="T:ApiMark.DotNet.XmlDocReader"/> from the given path.</summary>
+            <param name="xmlDocPath">Path to the XML documentation file.</param>
+            <exception cref="T:System.IO.FileNotFoundException">Thrown when <paramref name="xmlDocPath"/> does not exist.</exception>
+        </member>
+        <member name="M:ApiMark.DotNet.XmlDocReader.GetSummary(System.String)">
+            <summary>Returns the trimmed summary text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
+            <param name="memberId">The XML doc member identifier (e.g. <c>T:MyNamespace.MyClass</c>).</param>
+            <returns>Trimmed summary text, or <c>null</c>.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.XmlDocReader.GetRemarks(System.String)">
+            <summary>Returns the trimmed remarks text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
+            <param name="memberId">The XML doc member identifier.</param>
+            <returns>Trimmed remarks text, or <c>null</c>.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.XmlDocReader.IsMultiLineRemarks(System.String)">
+            <summary>Returns <c>true</c> if the remarks for <paramref name="memberId"/> span more than one non-empty line.</summary>
+            <param name="memberId">The XML doc member identifier.</param>
+            <returns><c>true</c> if remarks has more than one non-empty line.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.XmlDocReader.GetExceptions(System.String)">
+            <summary>Returns all <c>cref</c> attribute values from <c>&lt;exception&gt;</c> elements for <paramref name="memberId"/>.</summary>
+            <param name="memberId">The XML doc member identifier.</param>
+            <returns>A read-only list of exception cref strings.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.XmlDocReader.GetParams(System.String)">
+            <summary>Returns parameter names and descriptions for <paramref name="memberId"/>.</summary>
+            <param name="memberId">The XML doc member identifier.</param>
+            <returns>A read-only list of (Name, Description) tuples.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.XmlDocReader.GetReturns(System.String)">
+            <summary>Returns the trimmed returns text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
+            <param name="memberId">The XML doc member identifier.</param>
+            <returns>Trimmed returns text, or <c>null</c>.</returns>
+        </member>
+        <member name="M:ApiMark.DotNet.XmlDocReader.GetExample(System.String)">
+            <summary>Returns the trimmed example text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
+            <param name="memberId">The XML doc member identifier.</param>
+            <returns>Trimmed example text, or <c>null</c>.</returns>
+        </member>
+    </members>
+</doc>

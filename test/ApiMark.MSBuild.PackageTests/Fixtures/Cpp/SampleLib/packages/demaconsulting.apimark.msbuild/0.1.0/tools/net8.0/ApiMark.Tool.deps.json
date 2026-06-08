@@ -1,0 +1,99 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "ApiMark.Tool/0.0.0": {
+        "dependencies": {
+          "ApiMark.DotNet": "1.0.0",
+          "DemaConsulting.TestResults": "1.7.0"
+        },
+        "runtime": {
+          "ApiMark.Tool.dll": {}
+        }
+      },
+      "DemaConsulting.TestResults/1.7.0": {
+        "runtime": {
+          "lib/net8.0/DemaConsulting.TestResults.dll": {
+            "assemblyVersion": "1.7.0.0",
+            "fileVersion": "1.7.0.0"
+          }
+        }
+      },
+      "Mono.Cecil/0.11.6": {
+        "runtime": {
+          "lib/netstandard2.0/Mono.Cecil.Mdb.dll": {
+            "assemblyVersion": "0.11.6.0",
+            "fileVersion": "0.11.6.0"
+          },
+          "lib/netstandard2.0/Mono.Cecil.Pdb.dll": {
+            "assemblyVersion": "0.11.6.0",
+            "fileVersion": "0.11.6.0"
+          },
+          "lib/netstandard2.0/Mono.Cecil.Rocks.dll": {
+            "assemblyVersion": "0.11.6.0",
+            "fileVersion": "0.11.6.0"
+          },
+          "lib/netstandard2.0/Mono.Cecil.dll": {
+            "assemblyVersion": "0.11.6.0",
+            "fileVersion": "0.11.6.0"
+          }
+        }
+      },
+      "ApiMark.Core/1.0.0": {
+        "runtime": {
+          "ApiMark.Core.dll": {
+            "assemblyVersion": "0.1.0.0",
+            "fileVersion": "0.1.0.0"
+          }
+        }
+      },
+      "ApiMark.DotNet/1.0.0": {
+        "dependencies": {
+          "ApiMark.Core": "1.0.0",
+          "Mono.Cecil": "0.11.6"
+        },
+        "runtime": {
+          "ApiMark.DotNet.dll": {
+            "assemblyVersion": "0.1.0.0",
+            "fileVersion": "0.1.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "ApiMark.Tool/0.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "DemaConsulting.TestResults/1.7.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-F0PhYyEY4H6hQh1LXxKlF2qnA5+giKDU8+ZVAEmKqknFmilfqi1b2AlT4hJzD3QKS2cGP53fCBrm6P5oYq5Yfg==",
+      "path": "demaconsulting.testresults/1.7.0",
+      "hashPath": "demaconsulting.testresults.1.7.0.nupkg.sha512"
+    },
+    "Mono.Cecil/0.11.6": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-f33RkDtZO8VlGXCtmQIviOtxgnUdym9xx/b1p9h91CRGOsJFxCFOFK1FDbVt1OCf1aWwYejUFa2MOQyFWTFjbA==",
+      "path": "mono.cecil/0.11.6",
+      "hashPath": "mono.cecil.0.11.6.nupkg.sha512"
+    },
+    "ApiMark.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "ApiMark.DotNet/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
