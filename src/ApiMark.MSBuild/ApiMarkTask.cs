@@ -1,7 +1,6 @@
 namespace ApiMark.MSBuild;
 
 using System.Diagnostics;
-using System.Text;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 
@@ -108,11 +107,47 @@ public sealed class ApiMarkTask : Task
     ///     Gets or sets the semicolon-separated list of include directory paths for C++ documentation.
     /// </summary>
     /// <remarks>
-    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkIncludePaths)</c>. The
-    ///     semicolon-separated value is forwarded as-is to the <c>--includes</c> argument of the
-    ///     tool.
+    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkIncludePaths)</c>.
+    ///     Semicolons are converted to commas for the <c>--includes</c> tool argument.
     /// </remarks>
     public string? ApiMarkIncludePaths { get; set; }
+
+    /// <summary>Gets or sets the library name for the C++ documentation root heading.</summary>
+    /// <remarks>
+    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkLibraryName)</c>; the
+    ///     <c>.targets</c> file defaults this to <c>$(MSBuildProjectName)</c>.
+    /// </remarks>
+    public string? ApiMarkLibraryName { get; set; }
+
+    /// <summary>Gets or sets an optional description for the C++ library.</summary>
+    /// <remarks>
+    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkLibraryDescription)</c>.
+    ///     Optional — omitted when empty.
+    /// </remarks>
+    public string? ApiMarkLibraryDescription { get; set; }
+
+    /// <summary>Gets or sets semicolon-separated preprocessor definitions for the Clang parser.</summary>
+    /// <remarks>
+    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkDefines)</c>.
+    ///     Semicolons are converted to commas for the <c>--defines</c> tool argument.
+    /// </remarks>
+    public string? ApiMarkDefines { get; set; }
+
+    /// <summary>Gets or sets the C++ language standard passed to Clang.</summary>
+    /// <remarks>
+    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkCppStandard)</c>.
+    ///     Accepted values: <c>c++14</c>, <c>c++17</c>, <c>c++20</c>, <c>c++23</c>.
+    ///     Optional — omitted when empty; the tool defaults to <c>c++17</c>.
+    /// </remarks>
+    public string? ApiMarkCppStandard { get; set; }
+
+    /// <summary>Gets or sets the path to the clang executable for C++ documentation generation.</summary>
+    /// <remarks>
+    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkClangPath)</c>.
+    ///     Optional — when empty, clang is located automatically via PATH, xcrun (macOS), or
+    ///     vswhere (Windows).
+    /// </remarks>
+    public string? ApiMarkClangPath { get; set; }
 
     /// <summary>
     ///     Gets or sets the full path to <c>ApiMark.Tool.dll</c> bundled inside the NuGet package.
@@ -152,54 +187,99 @@ public sealed class ApiMarkTask : Task
     }
 
     /// <summary>
-    ///     Builds the command-line argument string for <c>ApiMark.Tool.dll</c> based on the
-    ///     resolved language and the current property values.
+    ///     Builds the argument list for <c>ApiMark.Tool.dll</c> based on the resolved language
+    ///     and the current property values.
     /// </summary>
     /// <param name="language">
     ///     The resolved language; either <c>"dotnet"</c> or <c>"cpp"</c>. Must not be null or empty.
     /// </param>
     /// <returns>
-    ///     A string of the form <c>&lt;language&gt; [flags]</c> suitable for appending after the
-    ///     tool DLL path in the <c>dotnet</c> argument list. Paths that may contain spaces are
-    ///     enclosed in double quotes.
+    ///     An ordered list of individual arguments to pass to <c>dotnet ApiMark.Tool.dll</c>,
+    ///     starting with the language subcommand. Each element is an unquoted value; callers
+    ///     must add them via <c>ProcessStartInfo.ArgumentList</c> so that the runtime applies
+    ///     correct OS-level quoting.
     /// </returns>
-    internal string BuildArguments(string language)
+    internal IReadOnlyList<string> BuildArguments(string language)
     {
-        var sb = new StringBuilder();
+        var args = new List<string>();
 
         // Emit the language-specific required arguments first
         if (language == DotNetLanguage)
         {
             // Assembly and XML doc paths are both required for .NET documentation
-            sb.Append($"{DotNetLanguage} --assembly \"{ApiMarkAssemblyPath}\" --xml-doc \"{ApiMarkXmlDocPath}\"");
+            args.Add(DotNetLanguage);
+            args.Add("--assembly");
+            args.Add(ApiMarkAssemblyPath ?? string.Empty);
+            args.Add("--xml-doc");
+            args.Add(ApiMarkXmlDocPath ?? string.Empty);
         }
         else
         {
             // Include paths use semicolons as the MSBuild list separator; convert to commas
             // because the tool's --includes argument is parsed as a comma-separated list
             var commaIncludes = ApiMarkIncludePaths?.Replace(';', ',') ?? string.Empty;
-            sb.Append($"cpp --includes \"{commaIncludes}\"");
+            args.Add("cpp");
+            args.Add("--includes");
+            args.Add(commaIncludes);
+
+            // Library name (defaults to project name via .targets)
+            if (!string.IsNullOrEmpty(ApiMarkLibraryName))
+            {
+                args.Add("--library-name");
+                args.Add(ApiMarkLibraryName!);
+            }
+
+            // Optional library description
+            if (!string.IsNullOrEmpty(ApiMarkLibraryDescription))
+            {
+                args.Add("--library-description");
+                args.Add(ApiMarkLibraryDescription!);
+            }
+
+            // Preprocessor defines — semicolons converted to commas
+            if (!string.IsNullOrEmpty(ApiMarkDefines))
+            {
+                var commaDefines = ApiMarkDefines!.Replace(';', ',');
+                args.Add("--defines");
+                args.Add(commaDefines);
+            }
+
+            // C++ standard
+            if (!string.IsNullOrEmpty(ApiMarkCppStandard))
+            {
+                args.Add("--cpp-standard");
+                args.Add(ApiMarkCppStandard!);
+            }
+
+            // Optional: explicit clang path
+            if (!string.IsNullOrEmpty(ApiMarkClangPath))
+            {
+                args.Add("--clang-path");
+                args.Add(ApiMarkClangPath!);
+            }
         }
 
         // Optional: output directory
         if (!string.IsNullOrEmpty(ApiMarkOutputDir))
         {
-            sb.Append($" --output \"{ApiMarkOutputDir}\"");
+            args.Add("--output");
+            args.Add(ApiMarkOutputDir!);
         }
 
         // Optional: visibility filter
         if (!string.IsNullOrEmpty(ApiMarkVisibility))
         {
-            sb.Append($" --visibility {ApiMarkVisibility}");
+            args.Add("--visibility");
+            args.Add(ApiMarkVisibility!);
         }
 
         // Optional: include obsolete members
         if (ApiMarkIncludeObsolete)
         {
-            sb.Append(" --include-obsolete");
+            args.Add("--include-obsolete");
         }
 
-        return sb.ToString();
+        return args;
     }
 
     /// <summary>
@@ -229,6 +309,15 @@ public sealed class ApiMarkTask : Task
             return true;
         }
 
+        // For C++ projects, skip gracefully when no include paths are configured
+        if (language == "cpp" && string.IsNullOrWhiteSpace(ApiMarkIncludePaths))
+        {
+            Log.LogMessage(MessageImportance.Normal,
+                "Skipping ApiMark: ApiMarkIncludePaths not set. " +
+                "Set $(ApiMarkIncludePaths) in your .vcxproj to enable C++ documentation generation.");
+            return true;
+        }
+
         // Verify the bundled tool DLL exists before attempting to spawn it
         if (!File.Exists(ToolDllPath))
         {
@@ -247,19 +336,23 @@ public sealed class ApiMarkTask : Task
             return false;
         }
 
-        // Build the full argument list: <ToolDllPath> <language> [options]
-        var toolArgs = BuildArguments(language);
-        var arguments = $"\"{ToolDllPath}\" {toolArgs}";
-
-        // Configure the child process with redirected I/O so all output feeds the MSBuild log
+        // Configure the child process with redirected I/O so all output feeds the MSBuild log.
+        // ArgumentList is used instead of Arguments so that the runtime applies correct
+        // OS-level quoting regardless of whether the host is Windows, macOS, or Linux.
         var psi = new ProcessStartInfo
         {
             FileName = dotnetExe,
-            Arguments = arguments,
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+
+        // First argument is the tool DLL path, followed by the language-specific arguments
+        psi.ArgumentList.Add(ToolDllPath!);
+        foreach (var arg in BuildArguments(language))
+        {
+            psi.ArgumentList.Add(arg);
+        }
 
         // Start the tool process; a null return indicates the OS refused to launch it
         using var process = Process.Start(psi);
@@ -345,4 +438,6 @@ public sealed class ApiMarkTask : Task
 
         return null;
     }
+
+
 }

@@ -30,6 +30,12 @@ service, network dependency, or elevated permission is required.
 - `DisableApiMark` suppresses tool invocation and returns true with no side effects.
 - A non-zero exit code from the spawned tool causes `Execute` to return false and log a
   MSBuild error.
+- For C++ builds, `ApiMarkLibraryName` is forwarded as `--library-name` when set.
+- For C++ builds, `ApiMarkDefines` semicolons are converted to commas and forwarded as
+  `--defines`.
+- For C++ builds, `ApiMarkCppStandard` is forwarded as `--cpp-standard` when set.
+- When `ApiMarkIncludePaths` is not set for a C++ project, the task returns true immediately
+  with no side effects.
 
 ### Test Scenarios
 
@@ -62,3 +68,28 @@ is passed to the tool as the `--visibility` argument. This scenario is tested by
 **DisableApiMark skips tool invocation**: Verifies that when `DisableApiMark` is true, the
 task returns true immediately without spawning any process or producing any output. This
 scenario is tested by `ApiMarkTask_DisableApiMark_True_SkipsToolInvocation`.
+
+**C++ library name is forwarded as --library-name**: Verifies that the `ApiMarkLibraryName`
+property is passed to the spawned tool as the `--library-name` argument for C++ builds.
+This scenario is tested by `ApiMarkTask_Cpp_LibraryName_ForwardedToTool`.
+
+**C++ defines semicolons are converted to commas**: Verifies that semicolons in the
+`ApiMarkDefines` property are converted to commas before being forwarded as the `--defines`
+argument for C++ builds, because MSBuild uses semicolons as its list separator but the tool
+expects commas. This scenario is tested by
+`ApiMarkTask_Cpp_Defines_SemicolonsConvertedToCommas`.
+
+**C++ standard is forwarded as --cpp-standard**: Verifies that the `ApiMarkCppStandard`
+property is passed to the spawned tool as the `--cpp-standard` argument for C++ builds.
+This scenario is tested by `ApiMarkTask_Cpp_CppStandard_ForwardedToTool`.
+
+**Empty include paths skips execution for C++ project**: Verifies that when
+`ApiMarkIncludePaths` is not set for a C++ project, the task returns true immediately without
+spawning any process, providing graceful skip behavior parallel to the dotnet XmlDocPath
+behavior. This scenario is tested by `ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExecution`.
+
+**C++ project generates documentation via spawned tool**: End-to-end integration test that
+exercises the complete C++ documentation generation path against real fixture headers. Verifies
+that the spawned tool produces the expected Markdown output files. This scenario is tested by
+`ApiMarkTask_Execute_WithCppProject_GeneratesDocumentation` (not yet implemented — tracked
+as a future test).

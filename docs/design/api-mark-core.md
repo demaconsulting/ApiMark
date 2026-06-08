@@ -15,6 +15,7 @@ implementations.
 ```mermaid
 flowchart TD
     IApiGenerator
+    IContext
     IMarkdownWriterFactory
     IMarkdownWriter
     PathHelpers
@@ -38,11 +39,21 @@ implementations rather than a public dependency surface.
 - *Role*: Provider — ApiMarkCore publishes this interface; ApiMarkDotNet implements
   it; ApiMarkTool consumes it directly. ApiMarkMsbuild spawns ApiMarkTool as a child
   process and does not call this interface in-process.
-- *Contract*: `void Generate(IMarkdownWriterFactory factory)` — writes the complete
+- *Contract*: `void Generate(IMarkdownWriterFactory factory, IContext context)` — writes the complete
   Markdown tree for a configured software component using the supplied factory. The
   output MUST include a file named `api.md` as the fixed entrypoint.
 - *Constraints*: The implementing class creates output directories as needed;
   callers supply a valid, configured factory.
+
+**IContext (provided)**: Minimal output channel for informational and error messages.
+
+- *Type*: In-process .NET public API.
+- *Role*: Provider — ApiMarkCore publishes this interface; ApiMarkTool's `Cli.Context`
+  implements it; language generators consume it via the `Generate` method parameter.
+- *Contract*: `void WriteLine(string message)` — writes an informational message;
+  `void WriteError(string message)` — writes an error or warning message.
+- *Constraints*: Both methods accept non-null message strings; the implementing
+  class owns all routing decisions (console, log file, in-memory capture, etc.).
 
 **IMarkdownWriterFactory (provided)**: Factory interface for creating per-file Markdown writers.
 

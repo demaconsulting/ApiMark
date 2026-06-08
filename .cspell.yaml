@@ -16,6 +16,7 @@ words:
   - buildmark
   - Cecil
   - csproj
+  - cstddef
   - declspec
   - Dema
   - dllexport
@@ -23,26 +24,45 @@ words:
   - fileassert
   - frontmatter
   - GHDL
+  - isysroot
   - isystem
+  - libc
   - libclang
+  - libclangsharp
+  - libext
+  - misattributed
   - msbuild
   - MSBuild
   - msvc
   - mylib
   - MYLIB
+  - NDEBUG
   - netstandard
   - Pandoc
+  - parameterless
+  - pasteable
   - postconditions
   - reqstream
   - reviewmark
+  - runtimeconfig
   - sarif
   - sarifmark
   - slnx
+  - stdarg
+  - stddef
   - sonar
   - sonarmark
+  - subclassable
+  - constexpr
+  - cppreference
+  - fparse
+  - fsyntax
   - versionmark
   - VHDL
+  - vswhere
   - Weasyprint
+  - xcrun
+  - Xclang
   - xunit
   - Xunit
   - yamlfix
@@ -57,4 +77,5 @@ ignorePaths:
   - '**/bin/**'
   - '**/obj/**'
   - '**/generated/**'
+  - '**/packages/**'
   - package-lock.json

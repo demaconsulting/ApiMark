@@ -1,0 +1,62 @@
+---
+# Clang OTS requirements
+sections:
+  - title: OTS Software Requirements
+    sections:
+      - title: Clang Requirements
+        requirements:
+          - id: Clang-Executable-Discoverable
+            title: >-
+              Clang shall be discoverable on the host system via PATH search, xcrun on macOS, or
+              vswhere on Windows without requiring an explicit path configuration.
+            justification: |
+              ApiMark must run in standard CI environments where clang is installed but its path is
+              not known in advance. Automatic discovery via PATH, xcrun, and vswhere covers the
+              common installation layouts on all supported platforms without forcing users to
+              configure an explicit path.
+            tests:
+              - CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint
+          - id: Clang-AstDump-ProducesParseableJson
+            title: >-
+              Clang shall produce a parseable JSON AST when invoked with -Xclang -ast-dump=json
+              -fsyntax-only so that ClangAstParser can extract declaration metadata.
+            justification: |
+              The JSON AST is the primary data source for CppGenerator. ClangAstParser must be able
+              to deserialize the JSON output and navigate its node structure to extract declarations,
+              types, members, and source-file provenance.
+            tests:
+              - CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint
+              - CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass
+          - id: Clang-AstDump-ExposesDeclarationProvenance
+            title: >-
+              Clang shall include the source file path of every declaration in the JSON AST so
+              ClangAstParser can determine which declarations belong to the documented public API.
+            justification: |
+              The ownership filter in CppGenerator is the primary mechanism for excluding system and
+              third-party declarations from the documented surface. Without per-declaration source
+              file information this filter cannot be implemented correctly.
+            tests:
+              - CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass
+          - id: Clang-AstDump-ExposesDocComments
+            title: >-
+              Clang shall include structured Doxygen documentation comment nodes in the JSON AST
+              when invoked with -fparse-all-comments.
+            justification: |
+              Doxygen @brief, @param, and @return comments are the primary source of
+              developer-authored descriptions in C++ code. Clang must expose these so ClangAstParser
+              can render them as human-readable paragraphs in the markdown output.
+            tests:
+              - CppGenerator_Generate_TypeWithDocComment_WritesSummaryToParagraph
+          - id: Clang-AstDump-ExposesTypesAndMembers
+            title: >-
+              Clang shall expose classes, enums, functions, and their members with enough metadata
+              (name, type, parameters, access specifier, template parameters) for ClangAstParser to
+              produce accurate API documentation.
+            justification: |
+              Complete type and member metadata is required so that generated type pages, member
+              detail pages, and function signatures accurately reflect the documented API surface.
+              Incomplete metadata would produce incorrect or missing documentation.
+            tests:
+              - CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass
+              - CppGenerator_Generate_ValidHeaders_CreatesEnumPage
+              - CppGenerator_Generate_TemplateClass_CreatesTypePage

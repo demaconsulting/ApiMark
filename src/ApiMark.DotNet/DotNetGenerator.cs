@@ -52,8 +52,12 @@ public sealed class DotNetGenerator : IApiGenerator
     ///     </para>
     /// </remarks>
     /// <param name="factory">The markdown writer factory used to create output files.</param>
+    /// <param name="context">
+    ///     Output channel for informational and error messages. Must not be null. Reserved for
+    ///     future use — DotNetGenerator does not currently emit messages through this channel.
+    /// </param>
     /// <exception cref="FileNotFoundException">Thrown when the XML documentation file does not exist.</exception>
-    public void Generate(IMarkdownWriterFactory factory)
+    public void Generate(IMarkdownWriterFactory factory, IContext context)
     {
         // Fail early if the XML doc is absent rather than producing empty output
         if (!File.Exists(_options.XmlDocPath))
@@ -120,16 +124,18 @@ public sealed class DotNetGenerator : IApiGenerator
             apiWriter.WriteParagraph(assemblyDescription);
         }
 
-        // Root namespace table — only top-level entries; child namespaces are listed on their
-        // parent's namespace page to keep api.md compact for AI consumers
-        var nsHeaders = new[] { "Namespace", DescriptionColumnHeader };
-        var nsRows = rootNamespaces.Select(nsName =>
+        // All-namespaces table — lists every namespace so AI agents get a complete map in one
+        // read; counts reflect only the types declared directly in each namespace (not children)
+        var nsHeaders = new[] { "Namespace", "Types", DescriptionColumnHeader };
+        var nsRows = allNamespaces.Select(nsName =>
         {
-            var link = $"{nsName}.md";
+            var folderPath = GetNamespaceFolderPath(nsName, rootNamespaces);
+            var link = $"{folderPath}.md";
+            var typeCount = byNamespace.TryGetValue(nsName, out var nsTypes) ? nsTypes.Count : 0;
             var description = namespaceDescriptions.TryGetValue(nsName, out var desc) && !string.IsNullOrEmpty(desc)
                 ? desc
                 : NoDescriptionPlaceholder;
-            return new[] { $"[{nsName}]({link})", description };
+            return new[] { $"[{nsName}]({link})", typeCount.ToString(), description };
         });
         apiWriter.WriteTable(nsHeaders, nsRows);
 
@@ -290,12 +296,25 @@ public sealed class DotNetGenerator : IApiGenerator
             return;
         }
 
-        // Build overload groups so methods sharing the same file name are emitted together
-        var methodGroups = members
-            .OfType<MethodDefinition>()
-            .GroupBy(m => BuildMethodFileName(m, type))
-            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
-        var documentedMethodGroups = new HashSet<string>(StringComparer.Ordinal);
+        // Build a case-insensitive map of all members by their sanitized file name to detect
+        // collisions between members whose names differ only in case (e.g. field "name" and
+        // property "Name"). Members sharing a lowercase key are combined onto a single page.
+        var caseInsensitiveGroups = new Dictionary<string, List<IMemberDefinition>>(StringComparer.Ordinal);
+        foreach (var member in members)
+        {
+            var lowerKey = GetSanitizedMemberFileName(member, type).ToLowerInvariant();
+            if (!caseInsensitiveGroups.TryGetValue(lowerKey, out var list))
+            {
+                list = [];
+                caseInsensitiveGroups[lowerKey] = list;
+            }
+
+            list.Add(member);
+        }
+
+        // Track which lowercase keys have had their member page written so collision groups
+        // are documented exactly once while their table rows are still emitted individually
+        var writtenLowerKeys = new HashSet<string>(StringComparer.Ordinal);
 
         // Accumulate rows into per-kind buckets for the grouped sub-table output
         var constructorRows = new List<string[]>();
@@ -304,93 +323,133 @@ public sealed class DotNetGenerator : IApiGenerator
         var fieldRows = new List<string[]>();
         var eventRows = new List<string[]>();
 
-        // Every member always gets its own detail page and a linked row — navigation is fully
-        // deterministic: {TypeName}/{MemberName}.md always exists for every visible member.
+        // Emit one page per unique lowercase key and one table row per visible member.
+        // Members whose sanitized file names collide case-insensitively share a combined page
+        // named after the lowercase key; all their table rows link to that shared page.
         foreach (var member in members)
         {
-            if (member is MethodDefinition method)
+            var lowerKey = GetSanitizedMemberFileName(member, type).ToLowerInvariant();
+            var group = caseInsensitiveGroups[lowerKey];
+
+            if (group.Count == 1)
             {
-                var methodFileName = BuildMethodFileName(method, type);
-                var overloads = methodGroups[methodFileName];
-                var isConstructor = method.Name == ConstructorMethodName;
-
-                if (overloads.Count > 1)
-                {
-                    // Only the first visit to a method group emits the overload page and row
-                    if (!documentedMethodGroups.Add(methodFileName))
-                    {
-                        continue;
-                    }
-
-                    // Ensure deterministic ordering for representative selection and page rendering
-                    var orderedOverloads = overloads
-                        .OrderBy(m => m.GenericParameters.Count)
-                        .ThenBy(m => m.Parameters.Count)
-                        .ThenBy(m => string.Join(",", m.Parameters.Select(p => p.ParameterType.FullName)), StringComparer.Ordinal)
-                        .ToList();
-
-                    var representative = orderedOverloads[0];
-                    var representativeMemberId = BuildMemberId(representative);
-                    var representativeSummary = xmlDocs.GetSummary(representativeMemberId) ?? NoDescriptionPlaceholder;
-                    var representativeTypeName = GetMemberTypeName(representative, namespaceName);
-                    var overloadDisplayName = GetMethodGroupDisplayName(representative, orderedOverloads.Count);
-
-                    WriteMethodOverloadPage(factory, namespaceName, namespaceFolderPath, type, orderedOverloads, xmlDocs);
-                    var memberLink = $"{type.Name}/{methodFileName}.md";
-
-                    if (isConstructor)
-                    {
-                        constructorRows.Add(new[] { $"[{overloadDisplayName}]({memberLink})", representativeSummary });
-                    }
-                    else
-                    {
-                        methodRows.Add(new[] { $"[{overloadDisplayName}]({memberLink})", representativeTypeName, representativeSummary });
-                    }
-
-                    continue;
-                }
-
-                // Single method: always emit a dedicated page and a linked row
+                // No collision: write an individual page using the member's own display name
                 var memberId = BuildMemberId(member);
                 var memberSummary = xmlDocs.GetSummary(memberId) ?? NoDescriptionPlaceholder;
                 var memberTypeName = GetMemberTypeName(member, namespaceName);
                 var memberDisplayName = GetMemberDisplayName(member);
                 var sanitizedName = GetSanitizedMemberFileName(member, type);
-
-                WriteMemberPage(factory, namespaceName, namespaceFolderPath, type, member, xmlDocs, memberId);
                 var memberPageLink = $"{type.Name}/{sanitizedName}.md";
 
-                if (isConstructor)
+                if (member is MethodDefinition singleMethod)
                 {
-                    constructorRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberSummary });
+                    WriteMemberPage(factory, namespaceName, namespaceFolderPath, type, singleMethod, xmlDocs, memberId);
+                    var isConstructor = singleMethod.Name == ConstructorMethodName;
+                    if (isConstructor)
+                    {
+                        constructorRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberSummary });
+                    }
+                    else
+                    {
+                        methodRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                    }
                 }
                 else
                 {
-                    methodRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                    WriteMemberPage(factory, namespaceName, namespaceFolderPath, type, member, xmlDocs, memberId);
+                    switch (member)
+                    {
+                        case PropertyDefinition:
+                            propertyRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                            break;
+                        case FieldDefinition:
+                            fieldRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                            break;
+                        case EventDefinition:
+                            eventRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                            break;
+                    }
+                }
+            }
+            else if (IsPureMethodOverloadGroup(group, type))
+            {
+                // Pure method overloads (all MethodDefinition with the same exact file name):
+                // emit a single shared overload page and one representative table row.
+                // Skip all but the first occurrence so only one row is added per overload group.
+                if (!writtenLowerKeys.Add(lowerKey))
+                {
+                    continue;
+                }
+
+                var methods = group.Cast<MethodDefinition>().ToList();
+
+                // Ensure deterministic ordering for representative selection and page rendering
+                var orderedOverloads = methods
+                    .OrderBy(m => m.GenericParameters.Count)
+                    .ThenBy(m => m.Parameters.Count)
+                    .ThenBy(m => string.Join(",", m.Parameters.Select(p => p.ParameterType.FullName)), StringComparer.Ordinal)
+                    .ToList();
+
+                var representative = orderedOverloads[0];
+                var representativeMemberId = BuildMemberId(representative);
+                var representativeSummary = xmlDocs.GetSummary(representativeMemberId) ?? NoDescriptionPlaceholder;
+                var representativeTypeName = GetMemberTypeName(representative, namespaceName);
+                var overloadDisplayName = GetMethodGroupDisplayName(representative, orderedOverloads.Count);
+                var overloadFileName = GetSanitizedMemberFileName(representative, type);
+                var memberLink = $"{type.Name}/{overloadFileName}.md";
+                var isConstructorGroup = representative.Name == ConstructorMethodName;
+
+                WriteMethodOverloadPage(factory, namespaceName, namespaceFolderPath, type, orderedOverloads, xmlDocs);
+
+                if (isConstructorGroup)
+                {
+                    constructorRows.Add(new[] { $"[{overloadDisplayName}]({memberLink})", representativeSummary });
+                }
+                else
+                {
+                    methodRows.Add(new[] { $"[{overloadDisplayName}]({memberLink})", representativeTypeName, representativeSummary });
                 }
             }
             else
             {
-                // Properties, fields, and events: always emit a dedicated page and a linked row
+                // Case-insensitive collision: mixed kinds or different-case method names.
+                // Write a single combined page named after the lowercase key on first encounter.
+                var memberLink = $"{type.Name}/{lowerKey}.md";
+
+                if (writtenLowerKeys.Add(lowerKey))
+                {
+                    WriteCombinedMemberPage(factory, namespaceName, namespaceFolderPath, type, lowerKey, group, xmlDocs);
+                }
+
+                // Every member in the collision group still contributes its own row to the
+                // appropriate sub-table, all linking to the shared combined page
                 var memberId = BuildMemberId(member);
                 var memberSummary = xmlDocs.GetSummary(memberId) ?? NoDescriptionPlaceholder;
                 var memberTypeName = GetMemberTypeName(member, namespaceName);
                 var memberDisplayName = GetMemberDisplayName(member);
-                var sanitizedName = GetSanitizedMemberFileName(member, type);
-
-                WriteMemberPage(factory, namespaceName, namespaceFolderPath, type, member, xmlDocs, memberId);
-                var memberPageLink = $"{type.Name}/{sanitizedName}.md";
 
                 switch (member)
                 {
+                    case MethodDefinition m:
+                        var isConstructor = m.Name == ConstructorMethodName;
+                        if (isConstructor)
+                        {
+                            constructorRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberSummary });
+                        }
+                        else
+                        {
+                            methodRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
+                        }
+
+                        break;
                     case PropertyDefinition:
-                        propertyRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                        propertyRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
                         break;
                     case FieldDefinition:
-                        fieldRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                        fieldRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
                         break;
                     case EventDefinition:
-                        eventRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                        eventRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
                         break;
                 }
             }
@@ -522,6 +581,152 @@ public sealed class DotNetGenerator : IApiGenerator
             WriteMethodDocumentation(memberWriter, namespaceName, overload, xmlDocs, BuildMemberId(overload));
         }
     }
+
+    /// <summary>
+    ///     Writes a combined Markdown page for a group of members whose names collide on
+    ///     case-insensitive file systems, placing all members on a single page named after
+    ///     the shared lowercase key.
+    /// </summary>
+    /// <remarks>
+    ///     This handles the case where a field <c>name</c> and a property <c>Name</c> would
+    ///     map to the same file name on case-insensitive file systems.
+    ///     All colliding members are documented together under H4 sub-headings that show
+    ///     both the exact display name and the member kind (e.g., <c>name (Field)</c>).
+    /// </remarks>
+    /// <param name="factory">Factory for creating the output writer.</param>
+    /// <param name="namespaceName">
+    ///     The namespace that owns the declaring type; used to simplify type names in signatures.
+    /// </param>
+    /// <param name="namespaceFolderPath">
+    ///     The file-system folder path for the namespace (e.g. <c>ApiMark.DotNet.Fixtures/Inner</c>).
+    ///     Used to construct the member file's subfolder path.
+    /// </param>
+    /// <param name="type">The type that declares all members in <paramref name="members"/>.</param>
+    /// <param name="lowerKey">
+    ///     The shared lowercase file name key. Used as both the page file name and the H3
+    ///     page heading so the combined page has a stable, predictable address.
+    /// </param>
+    /// <param name="members">
+    ///     The ordered list of members whose sanitized file names collide on case-insensitive
+    ///     file systems. Must contain at least two elements.
+    /// </param>
+    /// <param name="xmlDocs">XML documentation index for summary and detail lookups.</param>
+    private static void WriteCombinedMemberPage(
+        IMarkdownWriterFactory factory,
+        string namespaceName,
+        string namespaceFolderPath,
+        TypeDefinition type,
+        string lowerKey,
+        IReadOnlyList<IMemberDefinition> members,
+        XmlDocReader xmlDocs)
+    {
+        using var writer = factory.CreateMarkdown($"{namespaceFolderPath}/{type.Name}", lowerKey);
+
+        // The shared lowercase key serves as the page heading so every member in the group
+        // can be found at the same predictable path regardless of filesystem case-sensitivity
+        writer.WriteHeading(3, lowerKey);
+
+        foreach (var member in members)
+        {
+            var displayName = GetMemberDisplayName(member);
+            var kindLabel = GetMemberKindLabel(member);
+            writer.WriteHeading(4, $"{displayName} ({kindLabel})");
+
+            var memberId = BuildMemberId(member);
+            if (member is MethodDefinition method)
+            {
+                // Reuse the method documentation writer so formatting is consistent
+                // with single-method pages and overload pages
+                WriteMethodDocumentation(writer, namespaceName, method, xmlDocs, memberId);
+            }
+            else
+            {
+                // Non-method: emit signature, summary, and optional documentation sections
+                var signature = BuildMemberSignature(member, namespaceName);
+                writer.WriteSignature("csharp", signature);
+
+                var summary = xmlDocs.GetSummary(memberId);
+                writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : NoDescriptionPlaceholder);
+
+                var returns = xmlDocs.GetReturns(memberId);
+                if (!string.IsNullOrEmpty(returns))
+                {
+                    writer.WriteParagraph($"**Returns:** {returns}");
+                }
+
+                var exceptions = xmlDocs.GetExceptionDetails(memberId);
+                if (exceptions.Count > 0)
+                {
+                    var exHeaders = new[] { "Exception", DescriptionColumnHeader };
+                    var exRows = exceptions.Select(e => new[] { e.Type, e.Description ?? string.Empty });
+                    writer.WriteTable(exHeaders, exRows);
+                }
+
+                var remarks = xmlDocs.GetRemarks(memberId);
+                if (!string.IsNullOrEmpty(remarks))
+                {
+                    writer.WriteParagraph(remarks);
+                }
+
+                var example = xmlDocs.GetExample(memberId);
+                if (!string.IsNullOrEmpty(example))
+                {
+                    writer.WriteCodeBlock("csharp", example);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Returns <see langword="true"/> when all members in <paramref name="group"/> are
+    ///     <see cref="MethodDefinition"/> instances that share the same exact (case-sensitive)
+    ///     sanitized file name, indicating they form a pure method overload group rather than a
+    ///     case-insensitive collision between members of different kinds or different names.
+    /// </summary>
+    /// <param name="group">
+    ///     The candidate group of members that share the same lowercase key.
+    ///     Must not be null or empty.
+    /// </param>
+    /// <param name="type">
+    ///     The declaring type, required by <see cref="GetSanitizedMemberFileName"/>.
+    /// </param>
+    /// <returns>
+    ///     <see langword="true"/> when every member is a <see cref="MethodDefinition"/> and all
+    ///     have the same exact file name; <see langword="false"/> otherwise.
+    /// </returns>
+    private static bool IsPureMethodOverloadGroup(
+        IReadOnlyList<IMemberDefinition> group,
+        TypeDefinition type)
+    {
+        // All members must be methods — mixed kinds are never pure overload groups
+        if (!group.All(m => m is MethodDefinition))
+        {
+            return false;
+        }
+
+        // All methods must share the same exact (case-sensitive) file name; if they differ
+        // only in case they form a collision rather than a classical overload group
+        var firstFileName = GetSanitizedMemberFileName(group[0], type);
+        return group.All(m =>
+            string.Equals(GetSanitizedMemberFileName(m, type), firstFileName, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Returns the human-readable kind label for a member as it should appear in the
+    ///     parenthetical qualifier on a combined member page heading
+    ///     (e.g., <c>"Field"</c> or <c>"Property"</c>).
+    /// </summary>
+    /// <param name="member">The member whose kind label to determine.</param>
+    /// <returns>A short English noun naming the member kind.</returns>
+    private static string GetMemberKindLabel(IMemberDefinition member) => member switch
+    {
+        FieldDefinition => "Field",
+        PropertyDefinition => "Property",
+        EventDefinition => "Event",
+        MethodDefinition m when m.Name == ConstructorMethodName => "Constructor",
+        MethodDefinition => "Method",
+        _ => "Member",
+    };
 
     private static void WriteMethodDocumentation(
         IMarkdownWriter memberWriter,

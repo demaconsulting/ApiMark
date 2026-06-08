@@ -53,7 +53,9 @@ writes the full Markdown output tree.
   must not be null.
 - *Postconditions*: The factory has produced a complete Markdown tree for the
   configured assembly. Output file naming follows these conventions:
-  - `factory.CreateMarkdown("", "api")` — assembly entrypoint listing namespaces.
+  - `factory.CreateMarkdown("", "api")` — assembly entrypoint listing all
+      namespaces (root and child) with a direct type count column and one-line
+      descriptions, giving AI agents a complete navigation map in one read.
   - `factory.CreateMarkdown(namespaceName, namespaceName)` — namespace summary
     listing visible types.
   - `factory.CreateMarkdown(namespaceName, typeSimpleName)` — type page with
@@ -66,8 +68,57 @@ Execution steps: call `AssemblyDefinition.ReadAssembly(AssemblyPath)` to open th
 assembly via Mono.Cecil; parse XmlDocPath and index entries by member identifier
 string; filter types by Visibility and IncludeObsolete; write the assembly
 entrypoint via `CreateMarkdown("", "api")`; for each visible namespace write the
-namespace file; for each visible type write a dedicated page per member and emit
-grouped sub-tables with links; dispose the AssemblyDefinition.
+namespace file; for each visible type: group all visible members by the lowercase
+of their sanitized file name; for each group with a single member emit an
+individual detail page; for groups where all members are methods sharing the same
+exact (case-sensitive) file name emit a shared method overload page via
+`WriteMethodOverloadPage`; for all remaining groups (case-insensitive collisions
+between members of different kinds or differently-cased method names) emit a
+single combined page via `WriteCombinedMemberPage`; emit grouped sub-tables with
+links; dispose the AssemblyDefinition.
+
+**DotNetGenerator.WriteCombinedMemberPage** (private): Writes a single combined
+Markdown page for a group of members whose sanitized file names collide on
+case-insensitive filesystems.
+
+- *Parameters*: `IMarkdownWriterFactory factory`, `string namespaceName`,
+  `string namespaceFolderPath`, `TypeDefinition type`, `string lowerKey` — the
+  shared lowercase file name key used as the page file name and H3 heading,
+  `IReadOnlyList<IMemberDefinition> members` — the ordered collision group (at
+  least two elements), `XmlDocReader xmlDocs` — documentation index.
+- *Returns*: `void`
+- *Algorithm*: Creates `{namespaceFolderPath}/{type.Name}/{lowerKey}.md` via the
+  factory; writes an H3 heading using `lowerKey`; for each member writes an H4
+  heading of the form `{displayName} ({kindLabel})`; for `MethodDefinition`
+  members delegates to `WriteMethodDocumentation`; for all other member kinds
+  writes the signature, summary, returns, exceptions, remarks, and example
+  sections directly.
+
+**DotNetGenerator.IsPureMethodOverloadGroup** (private): Returns true when all
+members in a group are methods sharing the same exact case-sensitive sanitized
+file name, indicating a classical method overload group rather than a
+case-insensitive collision.
+
+- *Parameters*: `IReadOnlyList<IMemberDefinition> group` — candidate group sharing
+  a lowercase key; `TypeDefinition type` — declaring type required by
+  `GetSanitizedMemberFileName`.
+- *Returns*: `bool` — true when every element is a `MethodDefinition` and all
+  share the same exact (ordinal) file name; false otherwise.
+- *Algorithm*: Returns false immediately if any element is not a
+  `MethodDefinition`; computes the sanitized file name for the first element and
+  checks that all remaining elements produce the same value under ordinal
+  comparison.
+
+**DotNetGenerator.GetMemberKindLabel** (private): Maps an `IMemberDefinition` to
+a short human-readable kind string used in combined page H4 headings.
+
+- *Parameters*: `IMemberDefinition member` — the member to classify.
+- *Returns*: `string` — one of `"Field"`, `"Property"`, `"Event"`,
+  `"Constructor"`, `"Method"`, or `"Member"` (fallback for unknown kinds).
+- *Algorithm*: Pattern-matches on the concrete type: `FieldDefinition` → `"Field"`;
+  `PropertyDefinition` → `"Property"`; `EventDefinition` → `"Event"`;
+  `MethodDefinition` with name `.ctor` → `"Constructor"`; `MethodDefinition` →
+  `"Method"`; all other types → `"Member"`.
 
 ### Error Handling
 

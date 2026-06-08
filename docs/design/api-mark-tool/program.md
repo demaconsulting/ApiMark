@@ -59,7 +59,7 @@ the generator, and calls `Generate`.
 - _Parameters_: `Context context`.
 - Validates `Language`, `Output`, and (for `dotnet`) `Assembly`; calls
   `context.WriteError` and `PrintHelp` if any are missing.
-- Calls `CreateGenerator(context)` and `generator.Generate(factory)` inside a
+- Calls `CreateGenerator(context)` and `generator.Generate(factory, context)` inside a
   broad try-catch; all exceptions are routed to `context.WriteError`.
 
 **Program.CreateGenerator** (private static): Constructs and returns an

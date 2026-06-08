@@ -23,3 +23,23 @@ Whenever the Mono.Cecil package version changes, the repository re-runs all DotN
 verification scenarios against the same fixture assemblies used for baseline qualification. Any
 change in discovered members, rendered signatures, or generated file layout is treated as a
 regression candidate and must be reviewed before the upgrade is accepted.
+
+## clang
+
+ApiMark verifies the clang integration by testing the exact externally supplied behavior that
+ApiMark.Cpp depends on. The clang executable is exercised through integration tests in
+`test/ApiMark.Cpp.Tests/` that invoke `clang -Xclang -ast-dump=json` on fixture C++ headers,
+parse the resulting JSON AST, and feed the structured data into Markdown generation. Local
+evidence is preferred because ApiMark depends on a specific subset of clang output: the JSON AST
+structure for namespaces, classes, enums, functions, fields, and Doxygen doc comment nodes.
+
+Qualification evidence consists of passing automated integration tests and focused scenario coverage
+for the metadata features consumed: header parsing via clang, per-declaration source file location
+from the JSON `loc.file` field, class and enum enumeration, function signatures including variadic
+parameters, doc comment trees (`FullComment`, `ParagraphComment`, `ParamCommandComment`,
+`BlockCommandComment`), access specifiers, and clang option forwarding.
+
+Whenever the minimum supported clang version changes, the repository re-runs all CppGenerator
+integration tests against the same fixture headers used for baseline qualification. Any change in
+discovered types, rendered signatures, doc comment availability, or generated file layout is treated
+as a regression candidate and must be reviewed before the version change is accepted.

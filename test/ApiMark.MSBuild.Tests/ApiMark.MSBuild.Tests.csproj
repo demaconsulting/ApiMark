@@ -12,6 +12,10 @@
 
   <ItemGroup>
     <!-- Microsoft.Build.Framework and Utilities.Core provide IBuildEngine, BuildErrorEventArgs, and Task base class -->
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.Build.Framework" Version="17.8.43" />
     <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.8.43" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
@@ -35,12 +39,9 @@
     files that 'dotnet <dll>' requires. Copy them explicitly after the build.
   -->
   <Target Name="CopyApiMarkToolRuntimeFiles" AfterTargets="Build">
-    <ItemGroup>
-      <_ApiMarkToolRuntime Include="..\..\src\ApiMark.Tool\bin\$(Configuration)\net8.0\ApiMark.Tool.runtimeconfig.json" />
-      <_ApiMarkToolRuntime Include="..\..\src\ApiMark.Tool\bin\$(Configuration)\net8.0\ApiMark.Tool.deps.json" />
-    </ItemGroup>
-    <Copy SourceFiles="@(_ApiMarkToolRuntime)"
-          DestinationFolder="$(OutDir)"
-          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\src\ApiMark.Tool\bin\$(Configuration)\net8.0\ApiMark.Tool.runtimeconfig.json"
+          DestinationFolder="$(OutDir)" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\src\ApiMark.Tool\bin\$(Configuration)\net8.0\ApiMark.Tool.deps.json"
+          DestinationFolder="$(OutDir)" />
   </Target>
 </Project>

@@ -69,7 +69,8 @@ returns a non-zero exit code because no language subcommand was specified, confi
 enforces the required subcommand positional argument. This scenario is tested by
 `Program_Main_WithNoArguments_ReturnsNonZeroExitCode`.
 
-**cpp subcommand returns non-zero exit code**: Verifies that invoking the `cpp` subcommand returns
-a non-zero exit code because C++ language support is not yet implemented, confirming the tool reports
-unimplemented subcommands as errors. This scenario is tested by
-`Program_Main_WithCppSubcommand_ReturnsNonZeroExitCode`.
+**cpp subcommand with missing --includes returns non-zero exit code**: Verifies that invoking the
+`cpp` subcommand without the required `--includes` option returns a non-zero exit code and a
+descriptive error message, confirming that required option validation is enforced for the cpp
+language. This scenario is tested by
+`Program_Main_WithCppSubcommand_MissingIncludes_ReturnsNonZeroExitCode`.

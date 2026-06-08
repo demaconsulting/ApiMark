@@ -147,20 +147,72 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Validates that invoking the <c>cpp</c> subcommand exits with a non-zero
-    ///     code because the cpp language is not yet implemented.
+    ///     Validates that invoking the <c>dotnet</c> subcommand without the required
+    ///     <c>--xml-doc</c> option exits with a non-zero code and a clear diagnostic
+    ///     that names the missing option.
     /// </summary>
     [Fact]
-    public void Program_Main_WithCppSubcommand_ReturnsNonZeroExitCode()
+    public void Program_Main_WithDotNetSubcommand_MissingXmlDoc_ReturnsNonZeroExitCode()
     {
-        // Arrange: provide --output to pass the output validation before the language check
+        // Arrange: provide --assembly and --output but omit --xml-doc
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
         var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
 
-        // Act
-        var exitCode = Program.Main(["cpp", "--output", outputDir]);
+        try
+        {
+            Console.SetError(errorWriter);
 
-        // Assert: cpp is not yet implemented so the exit code must be non-zero
-        Assert.NotEqual(0, exitCode);
+            // Act
+            var exitCode = Program.Main([
+                "dotnet",
+                "--assembly", assemblyPath,
+                "--output", outputDir,
+            ]);
+
+            // Assert: --xml-doc is required for dotnet, so the exit code must be non-zero
+            // and the diagnostic message must name the missing option
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--xml-doc", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            // Restore the original error stream regardless of outcome
+            Console.SetError(originalError);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that invoking the <c>cpp</c> subcommand without the required
+    ///     <c>--includes</c> option exits with a non-zero code and a clear diagnostic
+    ///     that names the missing option.
+    /// </summary>
+    [Fact]
+    public void Program_Main_WithCppSubcommand_MissingIncludes_ReturnsNonZeroExitCode()
+    {
+        // Arrange: provide --output to pass the output validation, but omit --includes
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+
+        try
+        {
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main(["cpp", "--output", outputDir]);
+
+            // Assert: --includes is required for cpp, so the exit code must be non-zero
+            // and the diagnostic message must name the missing option
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--includes", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            // Restore the original error stream regardless of outcome
+            Console.SetError(originalError);
+        }
     }
 
     /// <summary>

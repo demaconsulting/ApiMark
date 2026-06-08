@@ -34,16 +34,43 @@ apimark dotnet [options]
 | `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `Public`) |
 | `--include-obsolete` | Include obsolete members in generated output |
 
+### `cpp` — Generate API Documentation from C++ Headers
+
+```text
+apimark cpp [options]
+```
+
+| Option | Description |
+| --- | --- |
+| `--includes <paths>` | Comma-separated list of public include directories (required) |
+| `--output <dir>` | Output directory for Markdown files (required) |
+| `--library-name <name>` | Library name used as the top-level heading (default: output directory name) |
+| `--library-description <d>` | Optional description for the library `api.md` introduction |
+| `--defines <values>` | Comma-separated preprocessor definitions (e.g. `MYLIB_API=,NDEBUG`) |
+| `--cpp-standard <std>` | C++ language standard passed to Clang (default: `c++17`) |
+| `--clang-path <path>` | Path to clang executable (default: auto-discovered via PATH / xcrun / vswhere) |
+| `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `Public`) |
+| `--include-obsolete` | Include deprecated members in generated output |
+
+## Platform Support
+
+| Platform | `dotnet` | `cpp` |
+| --- | --- | --- |
+| Windows x64 | ✅ | ✅ |
+| Linux x64 | ✅ | ✅ |
+| macOS (Apple Silicon) | ✅ | ✅ |
+
 ## Output Structure
 
-ApiMark uses a three-tier gradual disclosure layout:
+ApiMark uses a four-tier gradual disclosure layout:
 
 | File | Description |
 | --- | --- |
-| `api.md` | Root index — lists all namespaces with one-line summaries |
-| `{namespace}/{namespace}.md` | Namespace summary — lists all types with one-line summaries |
-| `{namespace}/{type}.md` | Full type page — members, signatures, and doc comment details |
+| `api.md` | Root index — lists all namespaces with type counts and one-line summaries |
+| `{namespace}.md` | Namespace summary — lists all types, enums, and functions with one-line summaries |
+| `{namespace}/{type}.md` | Type page — members grouped by kind with signatures and doc comment details |
+| `{namespace}/{type}/{member}.md` | Member detail page — full signature, parameters, return value, remarks |
 
 An AI agent can read the root index first, drill into the relevant namespace
-summary, and then load a specific type page — consuming only as much context
-as the task requires.
+summary, and then load a specific type or member page — consuming only as much
+context as the task requires.

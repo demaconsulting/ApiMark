@@ -251,4 +251,131 @@ public class ApiMarkTaskTests
             }
         }
     }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> appends the <c>--library-name</c>
+    ///     flag with the configured value when <see cref="ApiMarkTask.ApiMarkLibraryName"/> is set.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_LibraryName_ForwardedToTool()
+    {
+        // Arrange: configure a library name alongside the required cpp include paths
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include",
+            ApiMarkLibraryName = "MyAwesomeLib",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: the --library-name flag and the configured value must appear
+        Assert.Contains("--library-name", args);
+        Assert.Contains("MyAwesomeLib", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> converts semicolons to commas
+    ///     in <see cref="ApiMarkTask.ApiMarkDefines"/> when forwarding the <c>--defines</c> flag.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_Defines_SemicolonsConvertedToCommas()
+    {
+        // Arrange: configure semicolon-separated defines for a cpp invocation
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include",
+            ApiMarkDefines = "MYLIB_API=;NDEBUG",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: the --defines flag must appear and semicolons must be converted to commas
+        Assert.Contains("--defines", args);
+        Assert.Contains("MYLIB_API=,NDEBUG", args);
+        Assert.DoesNotContain("MYLIB_API=;NDEBUG", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> appends the <c>--cpp-standard</c>
+    ///     flag with the configured value when <see cref="ApiMarkTask.ApiMarkCppStandard"/> is set.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_CppStandard_ForwardedToTool()
+    {
+        // Arrange: configure an explicit C++ standard for a cpp invocation
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include",
+            ApiMarkCppStandard = "c++20",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: the --cpp-standard flag and the configured standard value must appear
+        Assert.Contains("--cpp-standard", args);
+        Assert.Contains("c++20", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.Execute"/> returns <c>true</c> with no errors when
+    ///     <see cref="ApiMarkTask.ApiMarkIncludePaths"/> is empty for a <c>.vcxproj</c> project,
+    ///     confirming that C++ generation is skipped gracefully rather than failing the build.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExecution()
+    {
+        // Arrange: vcxproj project with no include paths and a non-existent tool DLL to confirm
+        // the tool is never invoked
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new ApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "path/does/not/exist.dll",
+            ApiMarkIncludePaths = string.Empty,
+        };
+
+        // Act: execute the task — should skip gracefully without touching the tool DLL path
+        var result = task.Execute();
+
+        // Assert: must return true with no errors logged
+        Assert.True(result);
+        buildEngine.DidNotReceive().LogErrorEvent(Arg.Any<BuildErrorEventArgs>());
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> passes a
+    ///     <see cref="ApiMarkTask.ApiMarkLibraryDescription"/> containing double-quote characters
+    ///     as a verbatim list element, without applying any backslash escaping.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_BuildArguments_LibraryDescriptionWithDoubleQuote_PassedVerbatim()
+    {
+        // Arrange: a library description containing embedded double-quote characters
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include",
+            ApiMarkLibraryName = "MyLib",
+            ApiMarkLibraryDescription = "My library (v\"2\")",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: the description is present verbatim — ArgumentList handles OS-level quoting,
+        // so the caller must not apply any backslash escaping
+        Assert.Contains("My library (v\"2\")", args);
+    }
 }
+

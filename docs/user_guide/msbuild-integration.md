@@ -1,26 +1,59 @@
 # MSBuild Integration
 
 The `DemaConsulting.ApiMark.MSBuild` NuGet package adds an MSBuild task that
-runs automatically after every `dotnet build`, generating API reference
-documentation in Markdown alongside the compiled output.
+runs automatically after every build, generating API reference documentation
+in Markdown alongside the compiled output. It supports both `.csproj` (C#)
+and `.vcxproj` (C++) projects — the language is detected automatically from
+the project file extension.
+
+## Platform Support
+
+| Platform | C# | C++ |
+| --- | --- | --- |
+| Windows x64 | ✅ | ✅ |
+| Linux x64 | ✅ | ✅ |
+| macOS (Apple Silicon) | ✅ | ✅ |
 
 ## MSBuild Properties
+
+### Common Properties
 
 | Property | Default | Description |
 | --- | --- | --- |
 | `ApiMarkOutputDir` | `$(MSBuildProjectDirectory)\api` | Output directory for generated Markdown |
 | `ApiMarkVisibility` | `Public` | Visibility filter: `Public`, `PublicAndProtected`, `All` |
-| `ApiMarkAssemblyPath` | `$(TargetPath)` | Path to the compiled assembly |
-| `ApiMarkXmlDocPath` | `$(DocumentationFile)` | Path to the XML documentation file |
-| `ApiMarkIncludeObsolete` | `false` | Include `[Obsolete]` members |
-| `ApiMarkPackDocs` | `false` | Include the `api/` folder in the NuGet package |
+| `ApiMarkIncludeObsolete` | `false` | Include `[Obsolete]` / deprecated members |
+| `ApiMarkPackDocs` | `false` | Include the `api/` folder in the NuGet package (C# only) |
 | `DisableApiMark` | _(unset)_ | Set to `true` to disable generation entirely |
 | `ApiMarkLanguage` | _(inferred)_ | Override language: `dotnet` or `cpp` |
 
-## Configuration Example
+### C#-Specific Properties
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `ApiMarkAssemblyPath` | `$(TargetPath)` | Path to the compiled assembly |
+| `ApiMarkXmlDocPath` | `$(DocumentationFile)` | Path to the XML documentation file |
+
+### C++-Specific Properties
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `ApiMarkIncludePaths` | _(required)_ | Semicolon-separated list of public include directories |
+| `ApiMarkLibraryName` | `$(MSBuildProjectName)` | Library name used as the top-level heading in `api.md` |
+| `ApiMarkLibraryDescription` | _(unset)_ | Optional description for the `api.md` introduction paragraph |
+| `ApiMarkDefines` | _(unset)_ | Comma-separated preprocessor definitions (e.g. `MYLIB_API=,NDEBUG`) |
+| `ApiMarkCppStandard` | `c++17` | C++ language standard passed to Clang |
+| `ApiMarkClangPath` | _(auto-discovered)_ | Path to clang executable; overrides PATH / xcrun / vswhere discovery |
+
+## Configuration Examples
+
+### C# Project
 
 ```xml
 <PropertyGroup>
+  <!-- Required: enable XML documentation so ApiMark can read doc comments -->
+  <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
   <!-- Change the output directory -->
   <ApiMarkOutputDir>$(MSBuildProjectDirectory)\docs\api</ApiMarkOutputDir>
 
@@ -32,6 +65,30 @@ documentation in Markdown alongside the compiled output.
 
   <!-- Disable generation entirely (e.g., for test projects) -->
   <DisableApiMark>true</DisableApiMark>
+</PropertyGroup>
+```
+
+### C++ Project
+
+```xml
+<PropertyGroup>
+  <!-- Required: the public include root(s) to document -->
+  <ApiMarkIncludePaths>$(MSBuildProjectDirectory)\include</ApiMarkIncludePaths>
+
+  <!-- Change the output directory -->
+  <ApiMarkOutputDir>$(MSBuildProjectDirectory)\docs\api</ApiMarkOutputDir>
+
+  <!-- Set the library name used in api.md heading -->
+  <ApiMarkLibraryName>MyLibrary</ApiMarkLibraryName>
+
+  <!-- Add a one-line description to api.md -->
+  <ApiMarkLibraryDescription>A fast, portable geometry library.</ApiMarkLibraryDescription>
+
+  <!-- Use C++20 -->
+  <ApiMarkCppStandard>c++20</ApiMarkCppStandard>
+
+  <!-- Override clang path (optional; normally auto-discovered) -->
+  <!-- <ApiMarkClangPath>C:\Program Files\LLVM\bin\clang.exe</ApiMarkClangPath> -->
 </PropertyGroup>
 ```
 

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Minimal C++ static-library fixture used by ApiMark.MSBuild.PackageTests to verify that
+  the DemaConsulting.ApiMark.MSBuild NuGet package generates C++ documentation via a real
+  msbuild.exe invocation. There are no .cpp source files so the compile step succeeds
+  trivially without requiring specific headers beyond what ships with the Windows SDK.
+-->
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>SampleLib</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <!--
+      Skip the legacy Microsoft.NuGet.targets import (brought in by Microsoft.Common.Targets
+      via Microsoft.NuGet.ImportAfter.targets). That file runs ResolveNuGetPackageAssets which
+      fails for PackageReference vcxproj projects with "Sequence contains no elements" because
+      the project.assets.json has no managed-framework entry.
+
+      The modern PackageReference path (nuget.g.props / nuget.g.targets) is auto-imported
+      separately by Microsoft.Common.props / Microsoft.Common.Targets via
+      $(MSBuildProjectExtensionsPath)$(MSBuildProjectFile).*.props/targets — this is completely
+      unaffected by SkipImportNuGetBuildTargets and carries the ApiMark .targets import.
+    -->
+    <SkipImportNuGetBuildTargets>true</SkipImportNuGetBuildTargets>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+
+  <PropertyGroup>
+    <!-- Required: the public include root for ApiMark C++ documentation generation -->
+    <ApiMarkIncludePaths>$(MSBuildProjectDirectory)\include</ApiMarkIncludePaths>
+    <ApiMarkLibraryName>SampleLib</ApiMarkLibraryName>
+  </PropertyGroup>
+
+  <!-- No ClCompile items: nothing to compile, build succeeds trivially -->
+
+  <ItemGroup>
+    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.0.0" />
+  </ItemGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

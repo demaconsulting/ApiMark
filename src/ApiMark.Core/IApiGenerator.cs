@@ -19,10 +19,16 @@ public interface IApiGenerator
     ///     The generator MUST call factory.CreateMarkdown("", "api") to produce the
     ///     fixed top-level entrypoint file "api.md".
     /// </param>
+    /// <param name="context">
+    ///     Output channel used to emit informational and error messages during generation.
+    ///     Must not be null. Implementations use <see cref="IContext.WriteLine"/> for
+    ///     informational output and <see cref="IContext.WriteError"/> for error or
+    ///     warning messages.
+    /// </param>
     /// <remarks>
     ///     The output MUST include a file named "api.md" at the root (created via
     ///     factory.CreateMarkdown("", "api")) as the fixed entrypoint. Additional
     ///     files are language-module-specific.
     /// </remarks>
-    void Generate(IMarkdownWriterFactory factory);
+    void Generate(IMarkdownWriterFactory factory, IContext context);
 }

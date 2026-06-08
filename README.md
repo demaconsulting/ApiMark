@@ -15,12 +15,35 @@ type page — consuming only as much context as the task requires.
 
 ## Features
 
-- Generates compact Markdown API reference from XML doc comments and source code
-- Gradual disclosure output: root index → namespace summary → full type page
+- Generates compact Markdown API reference from source code and doc comments
+- Gradual disclosure output: root index → namespace summary → type page → member detail
 - C#/.NET support via Mono.Cecil and XML documentation comments
-- MSBuild task integration for `.csproj`-based builds
+- C++ support via `clang -ast-dump=json` and Doxygen-style doc comments
+- MSBuild task integration for `.csproj` and `.vcxproj`-based builds
 - `dotnet tool` CLI (`apimark`) covering all supported languages
 - Designed for AI consumption — minimal noise, explicit navigation links between levels
+
+## Platform Support
+
+| Platform | .NET | C++ |
+| --- | --- | --- |
+| Windows x64 | ✅ | ✅ |
+| Linux x64 | ✅ | ✅ |
+| macOS (Apple Silicon) | ✅ | ✅ |
+
+## Prerequisites
+
+### C++ Support
+
+C++ documentation generation requires `clang` to be installed and available:
+
+- **Windows**: Install [LLVM](https://releases.llvm.org/) or the "C++ Clang tools for Windows"
+  component via the Visual Studio Installer. The `ClangPath` MSBuild property or `--clang-path`
+  CLI option can point to a specific installation.
+- **macOS**: Xcode Command Line Tools (`xcode-select --install`) — `clang` is included.
+- **Linux**: Install via the system package manager (e.g. `apt install clang` or `dnf install clang`).
+
+.NET support has no additional prerequisites beyond the .NET SDK.
 
 ## Installation
 
@@ -32,7 +55,7 @@ dotnet tool install --global DemaConsulting.ApiMark.Tool
 
 ### MSBuild Integration
 
-Add the NuGet package to your `.csproj`:
+**C# projects** — add the NuGet package to your `.csproj`:
 
 ```xml
 <ItemGroup>
@@ -48,7 +71,23 @@ Enable XML documentation generation so ApiMark can read doc comments:
 </PropertyGroup>
 ```
 
-ApiMark generates documentation automatically after every `dotnet build`.
+**C++ projects** — add the NuGet package to your `.vcxproj`:
+
+```xml
+<ItemGroup>
+  <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="x.y.z" />
+</ItemGroup>
+```
+
+Set the public include root so ApiMark knows which headers to document:
+
+```xml
+<PropertyGroup>
+  <ApiMarkIncludePaths>$(MSBuildProjectDirectory)\include</ApiMarkIncludePaths>
+</PropertyGroup>
+```
+
+ApiMark generates documentation automatically after every build.
 
 ## Usage
 
@@ -57,13 +96,16 @@ ApiMark generates documentation automatically after every `dotnet build`.
 ```bash
 # Generate API documentation from a .NET assembly
 apimark dotnet --assembly MyProject.dll --xml-doc MyProject.xml --output docs/api
+
+# Generate API documentation from C++ public headers
+apimark cpp --includes include/ --output docs/api
 ```
 
-Run `apimark --help` for all options. Run `apimark dotnet --help` for .NET-specific options.
+Run `apimark --help` for all options. Run `apimark dotnet --help` or `apimark cpp --help` for language-specific options.
 
 ### MSBuild Usage
 
-Documentation is generated automatically after `dotnet build`. Output goes to
+Documentation is generated automatically after every build. Output goes to
 `$(MSBuildProjectDirectory)\api` by default. Configure with MSBuild properties:
 
 ```xml
@@ -74,13 +116,15 @@ Documentation is generated automatically after `dotnet build`. Output goes to
   <!-- Include protected members as well as public ones -->
   <ApiMarkVisibility>PublicAndProtected</ApiMarkVisibility>
 
-  <!-- Include the generated api/ folder in the NuGet package -->
+  <!-- Include the generated api/ folder in the NuGet package (C# only) -->
   <ApiMarkPackDocs>true</ApiMarkPackDocs>
 
   <!-- Disable generation entirely (e.g., for test projects) -->
   <DisableApiMark>true</DisableApiMark>
 </PropertyGroup>
 ```
+
+See the [User Guide](https://github.com/DemaConsulting/ApiMark/releases) for the full list of properties including C++-specific options.
 
 ## Building
 

@@ -65,6 +65,17 @@ reviews:
       - src/ApiMark.Core/IApiGenerator.cs
       - test/ApiMark.Core.Tests/IApiGeneratorTests.cs
 
+  # ApiMarkCore - IContext
+  - id: ApiMark-Core-IContext
+    title: Review that ApiMark Core IContext Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-core/i-context.yaml
+      - docs/design/api-mark-core/i-context.md
+      - docs/verification/api-mark-core/i-context.md
+      - src/ApiMark.Core/IContext.cs
+      - test/ApiMark.Core.TestHelpers/InMemoryContext.cs
+      - test/ApiMark.Core.Tests/IContextTests.cs
+
   # ApiMarkCore - MarkdownWriter
   - id: ApiMark-Core-MarkdownWriter
     title: Review that ApiMark Core IMarkdownWriter Implementation is Correct
@@ -149,6 +160,45 @@ reviews:
       - docs/verification/api-mark-dot-net/type-name-simplifier.md
       - src/ApiMark.DotNet/TypeNameSimplifier.cs
       - test/ApiMark.DotNet.Tests/TypeNameSimplifierTests.cs
+
+  # ApiMarkCpp - Specials
+  - id: ApiMark-Cpp-Architecture
+    title: Review that ApiMark Cpp Architecture Satisfies Requirements
+    paths:
+      - docs/reqstream/api-mark-cpp.yaml
+      - docs/design/introduction.md
+      - docs/design/api-mark-cpp.md
+      - docs/verification/introduction.md
+      - docs/verification/api-mark-cpp.md
+  - id: ApiMark-Cpp-AllRequirements
+    title: Review that All ApiMark Cpp Requirements are Complete
+    paths:
+      - docs/reqstream/api-mark-cpp.yaml
+      - docs/reqstream/api-mark-cpp/**/*.yaml
+  - id: ApiMark-Cpp-Design
+    title: Review that ApiMark Cpp Design is Consistent and Complete
+    paths: [docs/design/api-mark-cpp.md, docs/design/api-mark-cpp/**/*.md]
+  - id: ApiMark-Cpp-Verification
+    title: Review that ApiMark Cpp Verification is Consistent and Complete
+    paths:
+      - docs/verification/api-mark-cpp.md
+      - docs/verification/api-mark-cpp/**/*.md
+
+  # ApiMarkCpp - Generator
+  - id: ApiMark-Cpp-Generator
+    title: Review that ApiMark Cpp Generator Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-cpp/cpp-generator.yaml
+      - docs/design/api-mark-cpp/cpp-generator.md
+      - docs/verification/api-mark-cpp/cpp-generator.md
+      - src/ApiMark.Cpp/ApiVisibility.cs
+      - src/ApiMark.Cpp/CppGenerator.cs
+      - src/ApiMark.Cpp/CppGeneratorOptions.cs
+      - src/ApiMark.Cpp/CppAst/CppAstModel.cs
+      - src/ApiMark.Cpp/CppAst/ClangAstParser.cs
+      - test/ApiMark.Cpp.Fixtures/**/*.h
+      - test/ApiMark.Cpp.Tests/CppGeneratorTests.cs
+      - test/ApiMark.Cpp.Tests/FixturePaths.cs
 
   # ApiMarkMSBuild - Specials
   - id: ApiMark-MSBuild-Architecture
@@ -258,3 +308,9 @@ reviews:
       - docs/reqstream/ots/mono-cecil.yaml
       - docs/design/ots/mono-cecil.md
       - docs/verification/ots/mono-cecil.md
+  - id: OTS-Clang
+    title: Review that Clang Provides Required Functionality
+    paths:
+      - docs/reqstream/ots/clang.yaml
+      - docs/design/ots/clang.md
+      - docs/verification/ots/clang.md

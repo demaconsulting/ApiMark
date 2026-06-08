@@ -23,10 +23,11 @@ and are not exposed through this interface.
 configured software component.
 
 - *Parameters*: `IMarkdownWriterFactory factory` — the factory used to create
-  per-file markdown writers for each output file.
+  per-file markdown writers for each output file; `IContext context` — the output
+  channel used to emit informational and error messages during generation.
 - *Returns*: `void`
 - *Preconditions*: The implementing class must have been constructed with valid
-  options; `factory` must be a non-null, configured factory instance.
+  options; `factory` and `context` must be non-null, configured instances.
 - *Postconditions*: The output contains a complete Markdown tree. A file named
   `api.md` MUST be created via `factory.CreateMarkdown("", "api")` as the fixed
   top-level entrypoint. The output directory is created by the factory if it does

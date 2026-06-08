@@ -1,8 +1,11 @@
 using System.Reflection;
 using ApiMark.Core;
+using ApiMark.Cpp;
 using ApiMark.DotNet;
 using ApiMark.Tool.Cli;
 using ApiMark.Tool.SelfTest;
+using CppApiVisibility = ApiMark.Cpp.ApiVisibility;
+using DotNetApiVisibility = ApiMark.DotNet.ApiVisibility;
 
 namespace ApiMark.Tool;
 
@@ -154,12 +157,28 @@ internal static class Program
             return;
         }
 
+        if (context.Language == "dotnet" && string.IsNullOrEmpty(context.XmlDoc))
+        {
+            context.WriteError("Error: --xml-doc is required for the dotnet subcommand.");
+            PrintHelp(context);
+            return;
+        }
+
+        // Validate cpp-specific required options before constructing the generator.
+        // Whitespace-only entries in the Includes array are treated as absent for this check.
+        if (context.Language == "cpp" && !context.Includes.Any(s => !string.IsNullOrWhiteSpace(s)))
+        {
+            context.WriteError("Error: --includes is required for the cpp subcommand.");
+            PrintHelp(context);
+            return;
+        }
+
         try
         {
             // Construct the generator and invoke it with a file-system writer factory
             var generator = CreateGenerator(context);
             var factory = new FileMarkdownWriterFactory(context.Output!);
-            generator.Generate(factory);
+            generator.Generate(factory, context);
         }
         // Catch all generator construction and execution errors so failures produce
         // clean non-zero exits without an unhandled-exception stack trace
@@ -170,13 +189,13 @@ internal static class Program
     }
 
     /// <summary>
-    ///     Constructs and returns a <see cref="DotNetGenerator"/> configured from the parsed context.
+    ///     Constructs and returns an <see cref="IApiGenerator"/> configured from the parsed context.
     /// </summary>
     /// <param name="context">Fully parsed CLI context.</param>
-    /// <returns>A configured <see cref="DotNetGenerator"/> ready for <c>Generate</c> to be called.</returns>
+    /// <returns>A configured generator ready for <c>Generate</c> to be called.</returns>
     /// <exception cref="ArgumentException">
     ///     Thrown when <see cref="Context.Visibility"/> is not a recognized
-    ///     <see cref="ApiVisibility"/> value.
+    ///     <see cref="DotNetApiVisibility"/> value.
     /// </exception>
     /// <exception cref="NotSupportedException">
     ///     Thrown when <see cref="Context.Language"/> identifies an unrecognized or
@@ -185,12 +204,28 @@ internal static class Program
     private static IApiGenerator CreateGenerator(Context context)
     {
         // Parse the visibility string case-insensitively; reject unknown values early
-        if (!Enum.TryParse<ApiVisibility>(context.Visibility, ignoreCase: true, out var visibility))
+        if (!Enum.TryParse<DotNetApiVisibility>(context.Visibility, ignoreCase: true, out var visibility))
         {
             throw new ArgumentException(
                 $"Invalid visibility value '{context.Visibility}'. " +
-                $"Valid values are: {string.Join(", ", Enum.GetNames<ApiVisibility>())}.");
+                $"Valid values are: {string.Join(", ", Enum.GetNames<DotNetApiVisibility>())}.");
         }
+
+        // Resolve the cpp library name: the explicit --library-name flag takes precedence,
+        // falling back to the output directory name or a safe default when neither is set.
+        // Trailing path separators are trimmed first because Path.GetFileName returns an
+        // empty string when the path ends with a separator (e.g. "docs/api/").
+        var outputTrimmed = context.Output?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var defaultLibraryName = !string.IsNullOrEmpty(outputTrimmed) ? Path.GetFileName(outputTrimmed) : "Library";
+
+        // Guard against root-only output paths where Path.GetFileName returns empty —
+        // for example when the output path resolves to a drive root after separator trimming
+        if (string.IsNullOrEmpty(defaultLibraryName))
+        {
+            defaultLibraryName = "Library";
+        }
+
+        var cppLibraryName = !string.IsNullOrEmpty(context.LibraryName) ? context.LibraryName : defaultLibraryName;
 
         return context.Language switch
         {
@@ -203,8 +238,20 @@ internal static class Program
                 IncludeObsolete = context.IncludeObsolete,
             }),
 
-            // cpp subcommand is planned but not yet implemented
-            "cpp" => throw new NotSupportedException("cpp language support is not yet implemented."),
+            // Construct a CppGenerator from the cpp-specific options; cast visibility via its
+            // integer ordinal because ApiMark.Cpp.ApiVisibility mirrors ApiMark.DotNet.ApiVisibility
+            // with identical values and the projects must not depend on each other
+            "cpp" => new CppGenerator(new CppGeneratorOptions
+            {
+                LibraryName = cppLibraryName,
+                Description = context.LibraryDescription ?? string.Empty,
+                PublicIncludeRoots = context.Includes,
+                Defines = context.Defines,
+                CppStandard = context.CppStandard ?? "c++17",
+                Visibility = (CppApiVisibility)(int)visibility,
+                IncludeDeprecated = context.IncludeObsolete,
+                ClangPath = context.ClangPath,
+            }),
 
             // Any other token is an unrecognized subcommand
             _ => throw new NotSupportedException(
@@ -242,14 +289,25 @@ internal static class Program
         context.WriteLine("");
         context.WriteLine("Languages:");
         context.WriteLine("  dotnet    Generate API documentation from a .NET assembly");
-        context.WriteLine("  cpp       Generate API documentation from C++ headers (not yet implemented)");
+        context.WriteLine("  cpp       Generate API documentation from C++ headers");
         context.WriteLine("");
         context.WriteLine("dotnet options:");
         context.WriteLine("  --assembly <path>          Path to the .NET assembly (required)");
-        context.WriteLine("  --xml-doc <path>           Path to the XML documentation file");
+        context.WriteLine("  --xml-doc <path>           Path to the XML documentation file (required)");
         context.WriteLine("  --output <dir>             Output directory for Markdown files (required)");
         context.WriteLine("  --visibility <value>       Visibility filter: Public, PublicAndProtected, All (default: Public)");
         context.WriteLine("  --include-obsolete         Include obsolete members in generated output");
+        context.WriteLine("");
+        context.WriteLine("cpp options:");
+        context.WriteLine("  --includes <paths>         Comma-separated list of public include directories (required)");
+        context.WriteLine("  --output <dir>             Output directory for Markdown files (required)");
+        context.WriteLine("  --library-name <name>      Library name used as the top-level heading (default: output directory name)");
+        context.WriteLine("  --library-description <d>  Optional description for the library api.md introduction");
+        context.WriteLine("  --defines <values>         Comma-separated preprocessor definitions (e.g. MYLIB_API=,NDEBUG)");
+        context.WriteLine("  --cpp-standard <std>       C++ language standard passed to Clang (default: c++17)");
+        context.WriteLine("  --clang-path <path>        Path to clang executable (default: auto-discovered via PATH / xcrun / vswhere)");
+        context.WriteLine("  --visibility <value>       Visibility filter: Public, PublicAndProtected, All (default: Public)");
+        context.WriteLine("  --include-obsolete         Include deprecated members in generated output");
     }
 }
 

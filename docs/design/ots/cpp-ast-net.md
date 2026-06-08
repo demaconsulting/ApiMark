@@ -1,5 +1,9 @@
 ## CppAst.Net
 
+> **Archived**: ApiMarkCpp no longer uses CppAst.Net. The C++ backend was rewritten
+> to invoke `clang -ast-dump=json` directly. This document is retained for historical
+> reference. See `docs/design/ots/clang.md` for the current integration design.
+
 CppAst.Net is a .NET library that wraps libclang (LLVM's C parsing API) to
 provide a full C++ abstract syntax tree from header files without requiring a
 compiler installation beyond libclang itself. In ApiMark, it is used exclusively
@@ -32,8 +36,9 @@ is required on the host.
   `CppClass.Constructors`, and `CppClass.Destructors` enumerate the members of
   each class or struct.
 - **Function signatures** — `CppFunction.Parameters`, `CppFunction.ReturnType`,
-  and `CppFunction.IsVariadic` provide the information needed to render accurate
-  C++ function signatures.
+  and `CppFunction.Flags` (checked via `fn.Flags.HasFlag(CppFunctionFlags.Variadic)`)
+  provide the information needed to render accurate C++ function signatures, including
+  variadic `...` parameters.
 - **Access specifiers** — `ICppMember.Visibility` (`CppVisibility.Public`,
   `Protected`, `Private`) supports the Visibility filter in CppGeneratorOptions.
 - **Clang options** — `CppParserOptions.IncludeFolders`, `SystemIncludeFolders`,
