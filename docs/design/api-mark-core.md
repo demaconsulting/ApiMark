@@ -38,7 +38,7 @@ implementations rather than a public dependency surface.
 - *Role*: Provider — ApiMarkCore publishes this interface; ApiMarkDotNet implements
   it; ApiMarkTool consumes it directly. ApiMarkMsbuild spawns ApiMarkTool as a child
   process and does not call this interface in-process.
-- *Contract*: `void Generate(IMarkdownWriterFactory factory)` — writes the complete
+- *Contract*: `void Generate(IMarkdownWriterFactory factory, IContext context)` — writes the complete
   Markdown tree for a configured software component using the supplied factory. The
   output MUST include a file named `api.md` as the fixed entrypoint.
 - *Constraints*: The implementing class creates output directories as needed;

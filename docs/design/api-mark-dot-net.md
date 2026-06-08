@@ -34,7 +34,7 @@ ApiMarkCore.
 - *Role*: Provider — ApiMarkMsbuild and ApiMarkTool construct DotNetGenerator
   and call Generate through the IApiGenerator interface.
 - *Contract*: `DotNetGenerator(DotNetGeneratorOptions options)` constructs a
-  configured generator; `Generate(IMarkdownWriterFactory factory)` writes the
+  configured generator; `Generate(IMarkdownWriterFactory factory, IContext context)` writes the
   full Markdown tree for the configured assembly using the supplied factory.
 - *Constraints*: DotNetGeneratorOptions must be fully populated before calling
   Generate; AssemblyPath and XmlDocPath must reference files that exist on disk.

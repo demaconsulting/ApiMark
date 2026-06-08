@@ -54,7 +54,7 @@ implementations from ApiMarkCore and dispatches to them.
 - *Type*: In-process .NET public API.
 - *Role*: Consumer — Program constructs the appropriate `IApiGenerator`
   implementation for the requested language and calls `Generate`.
-- *Contract*: `IApiGenerator.Generate(IMarkdownWriterFactory factory)`.
+- *Contract*: `IApiGenerator.Generate(IMarkdownWriterFactory factory, IContext context)`.
 - *Constraints*: The generator must be fully configured from CLI options before
   `Generate` is called.
 
@@ -83,7 +83,7 @@ N/A — not a safety-classified software item.
 4. Program constructs the appropriate `IApiGenerator` implementation based on the
    language subcommand (`DotNetGenerator` for `dotnet`; `CppGenerator` for `cpp`).
 5. Program creates a `FileMarkdownWriterFactory` for the output directory and calls
-   `IApiGenerator.Generate(factory)`.
+   `IApiGenerator.Generate(factory, context)`.
 6. On success, Program exits 0. On error, exceptions are caught, written to stderr,
    and Program exits non-zero.
 

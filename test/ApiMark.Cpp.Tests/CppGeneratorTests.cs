@@ -79,7 +79,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act / Assert: null factory must be rejected before any I/O is attempted
-        Assert.Throws<ArgumentNullException>(() => generator.Generate(null!));
+        Assert.Throws<ArgumentNullException>(() => generator.Generate(null!, new InMemoryContext()));
     }
 
     /// <summary>Validates that a nonexistent public include root throws <see cref="DirectoryNotFoundException"/>.</summary>
@@ -96,7 +96,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(options);
 
         // Act / Assert: a missing root must fail early rather than silently producing empty output
-        Assert.Throws<DirectoryNotFoundException>(() => generator.Generate(factory));
+        Assert.Throws<DirectoryNotFoundException>(() => generator.Generate(factory, new InMemoryContext()));
     }
 
     /// <summary>Validates that generating from valid headers creates the <c>api</c> entrypoint page.</summary>
@@ -108,7 +108,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert
         Assert.True(factory.Writers.ContainsKey("api"), "Expected api.md to be created");
@@ -123,7 +123,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the fixtures namespace maps to key "fixtures" at the root level
         Assert.True(
@@ -140,7 +140,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: namespace table is first in api.md and contains the fixtures namespace
         var apiWriter = factory.Writers["api"];
@@ -161,7 +161,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: type page key is "{namespace}/{typeName}"
         Assert.True(
@@ -178,7 +178,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions(includeDeprecated: false));
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert
         Assert.False(
@@ -195,7 +195,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions(includeDeprecated: true));
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert
         Assert.True(
@@ -212,7 +212,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions(ApiVisibility.Public));
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the type page itself must exist (the class is public)
         Assert.True(factory.Writers.ContainsKey("fixtures/ProtectedMembersClass"));
@@ -232,7 +232,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions(ApiVisibility.PublicAndProtected));
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: ProtectedMethod has a parameter, so it gets its own page
         Assert.True(
@@ -249,7 +249,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions(ApiVisibility.All));
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: PrivateMethod has a parameter so it gets its own page under All visibility
         Assert.True(
@@ -266,7 +266,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: GetGreeting has a parameter so it gets its own page
         Assert.True(
@@ -286,7 +286,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the SampleClass type page must include a method row whose link cell
         // starts with "[GetGreeting(" followed by a non-empty parameter type, confirming
@@ -312,7 +312,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the GetGreeting member page must open with an H3 heading containing the
         // class and method name so the heading level matches combined member pages
@@ -331,7 +331,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: parameterless method in SampleClass gets own page
         Assert.True(
@@ -358,7 +358,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: root entrypoint is "api"
         Assert.True(factory.Writers.ContainsKey("api"));
@@ -382,7 +382,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the SampleClass page must contain the key summary words from the @brief tag
         var writer = factory.Writers["fixtures/SampleClass"];
@@ -399,7 +399,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the GetGreeting page must contain the key summary word from the @brief tag
         var writer = factory.Writers["fixtures/SampleClass/GetGreeting"];
@@ -416,7 +416,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: Refresh() has no Doxygen comment — the generator must emit the placeholder
         var writer = factory.Writers["fixtures/SampleClass/Refresh"];
@@ -433,7 +433,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: free functions in the fixtures namespace get pages at "{namespace}/{functionName}"
         Assert.True(
@@ -450,7 +450,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: enum page key follows the same "{namespace}/{typeName}" pattern as classes
         Assert.True(
@@ -467,7 +467,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the enum values table must contain every declared SampleStatus value
         var writer = factory.Writers["fixtures/SampleStatus"];
@@ -487,7 +487,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: Stack is a template class and must receive its own documentation page
         Assert.True(
@@ -504,7 +504,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: Circle inherits from Shape and must receive its own documentation page
         Assert.True(
@@ -521,7 +521,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: Circle has an explicit constructor that must receive its own page
         Assert.True(
@@ -538,7 +538,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the SampleClass type page must include "fixtures::SampleClass" in its signature
         // comment so an AI reader knows the exact qualified name to use in code
@@ -558,7 +558,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the GetGreeting member page must include the fully-qualified name so that
         // an AI reader can call "fixtures::SampleClass::GetGreeting" without guessing the namespace
@@ -578,7 +578,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: Format is a variadic free function and must receive its own documentation page
         Assert.True(
@@ -598,7 +598,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the combined page is written at the lowercase key path
         Assert.True(
@@ -618,7 +618,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: no page should be created using the exact-case name "Name" when a collision
         // exists — the combined lowercase page replaces all individual pages for the group
@@ -639,7 +639,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: combined page exists
         Assert.True(factory.Writers.ContainsKey("fixtures/CaseCollisionClass/name"));
@@ -667,7 +667,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the Compute member page must contain a paragraph with the @details text
         var writer = factory.Writers["fixtures/RemarksClass/Compute"];
@@ -690,7 +690,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the namespace table in api.md must list the placeholder for the fixtures namespace,
         // confirming the description is taken from the namespace object (none present) and not
@@ -713,7 +713,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the SampleStatus enum page must contain an #include directive in its signature
         // block so readers can copy-paste the include path without consulting the header tree
@@ -736,7 +736,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the Add free-function page must contain an #include directive in its signature
         // block so readers can include the correct header without browsing the source tree
@@ -765,7 +765,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(options);
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: SampleClass page must exist because its header matched the include pattern
         Assert.True(
@@ -796,7 +796,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(options);
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: SampleClass page must not exist because its header was excluded
         Assert.False(
@@ -822,7 +822,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the FinalClass type page must exist
         Assert.True(factory.Writers.ContainsKey("fixtures/FinalClass"), "Expected type page for FinalClass");
@@ -849,7 +849,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the SampleClass type page must exist and must not contain "final"
         // because SampleClass is not declared final
@@ -874,7 +874,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: a single shared operators page is written for OperatorClass instead of
         // individual pages that would collide because operator+, operator-, etc. all
@@ -896,7 +896,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the operators page must exist
         Assert.True(factory.Writers.ContainsKey("fixtures/OperatorClass/operators"));
@@ -923,7 +923,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the OperatorClass type page must exist
         Assert.True(factory.Writers.ContainsKey("fixtures/OperatorClass"));
@@ -950,7 +950,7 @@ public class CppGeneratorTests
         var generator = new CppGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: a shared namespace operators page is written under the fixtures namespace
         // for the free operator<< declared in OperatorClass.h

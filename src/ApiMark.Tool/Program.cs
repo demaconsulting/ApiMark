@@ -157,6 +157,13 @@ internal static class Program
             return;
         }
 
+        if (context.Language == "dotnet" && string.IsNullOrEmpty(context.XmlDoc))
+        {
+            context.WriteError("Error: --xml-doc is required for the dotnet subcommand.");
+            PrintHelp(context);
+            return;
+        }
+
         // Validate cpp-specific required options before constructing the generator.
         // Whitespace-only entries in the Includes array are treated as absent for this check.
         if (context.Language == "cpp" && !context.Includes.Any(s => !string.IsNullOrWhiteSpace(s)))
@@ -171,7 +178,7 @@ internal static class Program
             // Construct the generator and invoke it with a file-system writer factory
             var generator = CreateGenerator(context);
             var factory = new FileMarkdownWriterFactory(context.Output!);
-            generator.Generate(factory);
+            generator.Generate(factory, context);
         }
         // Catch all generator construction and execution errors so failures produce
         // clean non-zero exits without an unhandled-exception stack trace
@@ -286,7 +293,7 @@ internal static class Program
         context.WriteLine("");
         context.WriteLine("dotnet options:");
         context.WriteLine("  --assembly <path>          Path to the .NET assembly (required)");
-        context.WriteLine("  --xml-doc <path>           Path to the XML documentation file");
+        context.WriteLine("  --xml-doc <path>           Path to the XML documentation file (required)");
         context.WriteLine("  --output <dir>             Output directory for Markdown files (required)");
         context.WriteLine("  --visibility <value>       Visibility filter: Public, PublicAndProtected, All (default: Public)");
         context.WriteLine("  --include-obsolete         Include obsolete members in generated output");

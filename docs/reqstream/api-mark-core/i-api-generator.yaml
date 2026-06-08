@@ -6,11 +6,13 @@ sections:
       - title: IApiGenerator Requirements
         requirements:
           - id: ApiMarkCore-IApiGenerator-DefineGenerateMethod
-            title: IApiGenerator shall define a Generate method that accepts an IMarkdownWriterFactory parameter.
+            title: IApiGenerator shall define a Generate method that accepts an IMarkdownWriterFactory parameter and an IContext parameter.
             justification: |
               The caller needs one consistent invocation point for every language
               generator so documentation can be written to any output destination
               (file-system or in-memory) without language-specific orchestration logic.
+              IContext decouples generators from Console so output can be captured,
+              suppressed, or redirected by the caller.
             tests:
               - IApiGenerator_Generate_WithMinimalStub_ExecutesSuccessfully
           - id: ApiMarkCore-IApiGenerator-ProduceEntrypointFile

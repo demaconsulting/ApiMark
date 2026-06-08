@@ -36,7 +36,7 @@ ApiMarkCore.
 - *Role*: Provider — ApiMarkTool constructs CppGenerator and calls Generate
   through the IApiGenerator interface.
 - *Contract*: `CppGenerator(CppGeneratorOptions options)` constructs a
-  configured generator; `Generate(IMarkdownWriterFactory factory)` writes the
+  configured generator; `Generate(IMarkdownWriterFactory factory, IContext context)` writes the
   full Markdown tree using the supplied factory.
 - *Constraints*: CppGeneratorOptions must be fully populated before calling
   Generate; all paths in PublicIncludeRoots must exist on disk.

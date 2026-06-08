@@ -74,7 +74,7 @@ public sealed class CppGenerator : IApiGenerator
     ///     <list type="number">
     ///       <item>Enumerate candidate header files under each <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry.</item>
     ///       <item>Run clang with <c>-ast-dump=json</c> on all candidate headers via <see cref="ClangAstParser"/>.</item>
-    ///       <item>Log any clang diagnostic errors to standard error.</item>
+    ///       <item>Log any clang diagnostic errors from system headers via the context output channel.</item>
     ///       <item>Walk the parsed namespaces, applying the ownership and visibility filters.</item>
     ///       <item>Write the library entrypoint, namespace summaries, type pages, and member detail pages.</item>
     ///     </list>
@@ -83,6 +83,10 @@ public sealed class CppGenerator : IApiGenerator
     ///     Factory for creating per-file Markdown writers. Must not be null. The generator produces
     ///     the fixed entrypoint via <c>factory.CreateMarkdown("", "api")</c>.
     /// </param>
+    /// <param name="context">
+    ///     Output channel for informational messages. Must not be null. System-header diagnostic
+    ///     messages from clang are emitted here via <see cref="IContext.WriteLine"/>.
+    /// </param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="factory"/> is null.</exception>
     /// <exception cref="DirectoryNotFoundException">
     ///     Thrown when a path in <see cref="CppGeneratorOptions.PublicIncludeRoots"/> does not exist on disk.
@@ -90,7 +94,7 @@ public sealed class CppGenerator : IApiGenerator
     /// <exception cref="InvalidOperationException">
     ///     Thrown when clang cannot be located or exits with an error and produces no JSON output.
     /// </exception>
-    public void Generate(IMarkdownWriterFactory factory)
+    public void Generate(IMarkdownWriterFactory factory, IContext context)
     {
         ArgumentNullException.ThrowIfNull(factory);
 
@@ -101,7 +105,7 @@ public sealed class CppGenerator : IApiGenerator
         var result = ClangAstParser.Parse(headerFiles, _options);
 
         // Throw on errors from the user's public headers; log errors from system headers
-        CheckForErrors(result, headerFiles);
+        CheckForErrors(result, headerFiles, context);
 
         // Walk parsed namespaces and group owned declarations by their qualified namespace key
         var namespaceDecls = new SortedDictionary<string, NamespaceDeclarations>(StringComparer.Ordinal);
@@ -256,8 +260,8 @@ public sealed class CppGenerator : IApiGenerator
 
     /// <summary>
     ///     Throws <see cref="InvalidOperationException"/> when clang reported error-class diagnostics
-    ///     in the user's public headers; logs errors from system or third-party headers to
-    ///     <see cref="Console.Error"/> without halting generation.
+    ///     in the user's public headers; logs errors from system or third-party headers via
+    ///     <paramref name="context"/> without halting generation.
     /// </summary>
     /// <remarks>
     ///     clang may report errors from system or third-party headers (e.g., unrecognized compiler
@@ -267,11 +271,12 @@ public sealed class CppGenerator : IApiGenerator
     /// </remarks>
     /// <param name="result">The compilation result whose <see cref="CppCompilationResult.Errors"/> to check.</param>
     /// <param name="headerFiles">The list of public header files passed to clang; used to identify user errors.</param>
+    /// <param name="context">Output channel for informational system-header diagnostic messages.</param>
     /// <exception cref="InvalidOperationException">
     ///     Thrown when <paramref name="result"/> contains error-class diagnostics from one or more
     ///     of the user's public header files.
     /// </exception>
-    private static void CheckForErrors(CppCompilationResult result, IReadOnlyList<string> headerFiles)
+    private static void CheckForErrors(CppCompilationResult result, IReadOnlyList<string> headerFiles, IContext context)
     {
         if (result.Errors.Count == 0)
         {
@@ -290,7 +295,7 @@ public sealed class CppGenerator : IApiGenerator
 
         foreach (var error in systemErrors)
         {
-            Console.Error.WriteLine($"[CppGenerator] clang: {error}");
+            context.WriteLine($"[CppGenerator] clang: {error}");
         }
 
         if (userErrors.Count > 0)

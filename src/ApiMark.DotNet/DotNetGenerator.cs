@@ -52,8 +52,12 @@ public sealed class DotNetGenerator : IApiGenerator
     ///     </para>
     /// </remarks>
     /// <param name="factory">The markdown writer factory used to create output files.</param>
+    /// <param name="context">
+    ///     Output channel for informational and error messages. Must not be null. Reserved for
+    ///     future use — DotNetGenerator does not currently emit messages through this channel.
+    /// </param>
     /// <exception cref="FileNotFoundException">Thrown when the XML documentation file does not exist.</exception>
-    public void Generate(IMarkdownWriterFactory factory)
+    public void Generate(IMarkdownWriterFactory factory, IContext context)
     {
         // Fail early if the XML doc is absent rather than producing empty output
         if (!File.Exists(_options.XmlDocPath))

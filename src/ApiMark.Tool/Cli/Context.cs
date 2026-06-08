@@ -1,9 +1,11 @@
+using ApiMark.Core;
+
 namespace ApiMark.Tool.Cli;
 
 /// <summary>
 ///     Context class that handles command-line arguments and program output.
 /// </summary>
-internal sealed class Context : IDisposable
+internal sealed class Context : IContext, IDisposable
 {
     /// <summary>
     ///     Log file stream writer (if logging is enabled).

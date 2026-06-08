@@ -24,7 +24,7 @@ public sealed class IApiGeneratorTests
         IApiGenerator generator = new MinimalStubGenerator();
 
         // Act: call Generate through the interface — verifies the method signature is callable
-        var exception = Record.Exception(() => generator.Generate(factory));
+        var exception = Record.Exception(() => generator.Generate(factory, new InMemoryContext()));
 
         // Assert: no exception means the interface is correctly callable via the contract
         Assert.Null(exception);
@@ -43,7 +43,7 @@ public sealed class IApiGeneratorTests
         var generator = new ConfigurableStubGenerator(expectedConfig);
 
         // Act: generate — the stub will record whether its config was accessible
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the stored config matches what was passed at construction
         Assert.Equal(expectedConfig, generator.ConfigUsedDuringGenerate);
@@ -62,7 +62,7 @@ public sealed class IApiGeneratorTests
         IApiGenerator generator = new ApiMdProducingStubGenerator();
 
         // Act: generate the documentation tree
-        generator.Generate(factory);
+        generator.Generate(factory, new InMemoryContext());
 
         // Assert: the required api.md entrypoint must have been created
         Assert.True(factory.HasWriter("", "api"), "Generator must call factory.CreateMarkdown(\"\", \"api\") to produce api.md.");
@@ -80,7 +80,7 @@ public sealed class IApiGeneratorTests
         IApiGenerator generator = new ApiMdProducingStubGenerator();
 
         // Act: invoke through the interface — this validates the full dispatch path
-        var exception = Record.Exception(() => generator.Generate(factory));
+        var exception = Record.Exception(() => generator.Generate(factory, new InMemoryContext()));
 
         // Assert: no exception means the interface contract is invocable end-to-end
         Assert.Null(exception);
@@ -97,7 +97,8 @@ public sealed class IApiGeneratorTests
         ///     the method signature matches the interface contract.
         /// </summary>
         /// <param name="factory">Not used.</param>
-        public void Generate(IMarkdownWriterFactory factory)
+        /// <param name="context">Not used.</param>
+        public void Generate(IMarkdownWriterFactory factory, IContext context)
         {
             // Intentional no-op: the test only verifies this method can be called
         }
@@ -131,7 +132,8 @@ public sealed class IApiGeneratorTests
         ///     Records that the construction-time configuration is accessible during generate.
         /// </summary>
         /// <param name="factory">Not used.</param>
-        public void Generate(IMarkdownWriterFactory factory)
+        /// <param name="context">Not used.</param>
+        public void Generate(IMarkdownWriterFactory factory, IContext context)
         {
             // Expose the construction-time config so the test can verify it was preserved
             ConfigUsedDuringGenerate = _config;
@@ -148,7 +150,8 @@ public sealed class IApiGeneratorTests
         ///     top-level entrypoint and immediately disposes the writer.
         /// </summary>
         /// <param name="factory">Factory used to create the api.md writer.</param>
-        public void Generate(IMarkdownWriterFactory factory)
+        /// <param name="context">Not used.</param>
+        public void Generate(IMarkdownWriterFactory factory, IContext context)
         {
             // Create the mandatory root entrypoint; dispose immediately after creation
             // since this stub does not write any content
