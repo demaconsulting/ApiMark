@@ -7,6 +7,9 @@ obj/
 artifacts/
 test/packages/
 
+# NuGet package caches under test fixtures
+**/Fixtures/**/packages/
+
 # Test results
 **/TestResults/
 
