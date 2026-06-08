@@ -118,6 +118,12 @@ internal sealed class TypeLinkResolver
             return string.Empty;
         }
 
+        // Generic type parameters (e.g. T, TKey) are not real types — render as plain text
+        if (typeRef is GenericParameter genericParam)
+        {
+            return genericParam.Name;
+        }
+
         // Handle Nullable<T> → T? by recursing on the inner type with the nullable flag set
         if (typeRef is GenericInstanceType gitNullable &&
             typeRef.FullName.StartsWith("System.Nullable`1<", StringComparison.Ordinal))
