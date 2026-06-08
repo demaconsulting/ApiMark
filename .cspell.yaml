@@ -54,6 +54,7 @@ words:
   - sonarmark
   - subclassable
   - constexpr
+  - cppreference
   - fparse
   - fsyntax
   - versionmark
@@ -76,4 +77,5 @@ ignorePaths:
   - '**/bin/**'
   - '**/obj/**'
   - '**/generated/**'
+  - '**/packages/**'
   - package-lock.json

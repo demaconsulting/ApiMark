@@ -353,12 +353,12 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
-    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> correctly escapes a
-    ///     double-quote character in <see cref="ApiMarkTask.ApiMarkLibraryDescription"/>
-    ///     using Windows <c>CommandLineToArgvW</c> escaping rules.
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> passes a
+    ///     <see cref="ApiMarkTask.ApiMarkLibraryDescription"/> containing double-quote characters
+    ///     as a verbatim list element, without applying any backslash escaping.
     /// </summary>
     [Fact]
-    public void ApiMarkTask_BuildArguments_LibraryDescriptionWithDoubleQuote_EscapesCorrectly()
+    public void ApiMarkTask_BuildArguments_LibraryDescriptionWithDoubleQuote_PassedVerbatim()
     {
         // Arrange: a library description containing embedded double-quote characters
         var task = new ApiMarkTask
@@ -373,10 +373,9 @@ public class ApiMarkTaskTests
         // Act
         var args = task.BuildArguments("cpp");
 
-        // Assert: each " in the value must be escaped as \" so the outer quote delimiter
-        // is not prematurely closed during Windows command-line parsing
-        Assert.Contains("\\\"", args);
-        Assert.DoesNotContain("v\"2\"", args);
+        // Assert: the description is present verbatim — ArgumentList handles OS-level quoting,
+        // so the caller must not apply any backslash escaping
+        Assert.Contains("My library (v\"2\")", args);
     }
 }
 

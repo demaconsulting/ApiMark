@@ -1,7 +1,6 @@
 namespace ApiMark.MSBuild;
 
 using System.Diagnostics;
-using System.Text;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 
@@ -188,85 +187,99 @@ public sealed class ApiMarkTask : Task
     }
 
     /// <summary>
-    ///     Builds the command-line argument string for <c>ApiMark.Tool.dll</c> based on the
-    ///     resolved language and the current property values.
+    ///     Builds the argument list for <c>ApiMark.Tool.dll</c> based on the resolved language
+    ///     and the current property values.
     /// </summary>
     /// <param name="language">
     ///     The resolved language; either <c>"dotnet"</c> or <c>"cpp"</c>. Must not be null or empty.
     /// </param>
     /// <returns>
-    ///     A string of the form <c>&lt;language&gt; [flags]</c> suitable for appending after the
-    ///     tool DLL path in the <c>dotnet</c> argument list. Paths that may contain spaces are
-    ///     enclosed in double quotes.
+    ///     An ordered list of individual arguments to pass to <c>dotnet ApiMark.Tool.dll</c>,
+    ///     starting with the language subcommand. Each element is an unquoted value; callers
+    ///     must add them via <c>ProcessStartInfo.ArgumentList</c> so that the runtime applies
+    ///     correct OS-level quoting.
     /// </returns>
-    internal string BuildArguments(string language)
+    internal IReadOnlyList<string> BuildArguments(string language)
     {
-        var sb = new StringBuilder();
+        var args = new List<string>();
 
         // Emit the language-specific required arguments first
         if (language == DotNetLanguage)
         {
             // Assembly and XML doc paths are both required for .NET documentation
-            sb.Append($"{DotNetLanguage} --assembly \"{EscapeArg(ApiMarkAssemblyPath ?? string.Empty)}\" --xml-doc \"{EscapeArg(ApiMarkXmlDocPath ?? string.Empty)}\"");
+            args.Add(DotNetLanguage);
+            args.Add("--assembly");
+            args.Add(ApiMarkAssemblyPath ?? string.Empty);
+            args.Add("--xml-doc");
+            args.Add(ApiMarkXmlDocPath ?? string.Empty);
         }
         else
         {
             // Include paths use semicolons as the MSBuild list separator; convert to commas
             // because the tool's --includes argument is parsed as a comma-separated list
             var commaIncludes = ApiMarkIncludePaths?.Replace(';', ',') ?? string.Empty;
-            sb.Append($"cpp --includes \"{EscapeArg(commaIncludes)}\"");
+            args.Add("cpp");
+            args.Add("--includes");
+            args.Add(commaIncludes);
 
             // Library name (defaults to project name via .targets)
             if (!string.IsNullOrEmpty(ApiMarkLibraryName))
             {
-                sb.Append($" --library-name \"{EscapeArg(ApiMarkLibraryName!)}\"");
+                args.Add("--library-name");
+                args.Add(ApiMarkLibraryName!);
             }
 
             // Optional library description
             if (!string.IsNullOrEmpty(ApiMarkLibraryDescription))
             {
-                sb.Append($" --library-description \"{EscapeArg(ApiMarkLibraryDescription!)}\"");
+                args.Add("--library-description");
+                args.Add(ApiMarkLibraryDescription!);
             }
 
             // Preprocessor defines — semicolons converted to commas
             if (!string.IsNullOrEmpty(ApiMarkDefines))
             {
                 var commaDefines = ApiMarkDefines!.Replace(';', ',');
-                sb.Append($" --defines \"{EscapeArg(commaDefines)}\"");
+                args.Add("--defines");
+                args.Add(commaDefines);
             }
 
             // C++ standard
             if (!string.IsNullOrEmpty(ApiMarkCppStandard))
             {
-                sb.Append($" --cpp-standard \"{EscapeArg(ApiMarkCppStandard!)}\"");
+                args.Add("--cpp-standard");
+                args.Add(ApiMarkCppStandard!);
             }
 
             // Optional: explicit clang path
             if (!string.IsNullOrEmpty(ApiMarkClangPath))
             {
-                sb.Append($" --clang-path \"{EscapeArg(ApiMarkClangPath!)}\"");
+                args.Add("--clang-path");
+                args.Add(ApiMarkClangPath!);
             }
         }
 
         // Optional: output directory
         if (!string.IsNullOrEmpty(ApiMarkOutputDir))
         {
-            sb.Append($" --output \"{EscapeArg(ApiMarkOutputDir!)}\"");
+            args.Add("--output");
+            args.Add(ApiMarkOutputDir!);
         }
 
         // Optional: visibility filter
         if (!string.IsNullOrEmpty(ApiMarkVisibility))
         {
-            sb.Append($" --visibility {ApiMarkVisibility}");
+            args.Add("--visibility");
+            args.Add(ApiMarkVisibility!);
         }
 
         // Optional: include obsolete members
         if (ApiMarkIncludeObsolete)
         {
-            sb.Append(" --include-obsolete");
+            args.Add("--include-obsolete");
         }
 
-        return sb.ToString();
+        return args;
     }
 
     /// <summary>
@@ -323,19 +336,23 @@ public sealed class ApiMarkTask : Task
             return false;
         }
 
-        // Build the full argument list: <ToolDllPath> <language> [options]
-        var toolArgs = BuildArguments(language);
-        var arguments = $"\"{ToolDllPath}\" {toolArgs}";
-
-        // Configure the child process with redirected I/O so all output feeds the MSBuild log
+        // Configure the child process with redirected I/O so all output feeds the MSBuild log.
+        // ArgumentList is used instead of Arguments so that the runtime applies correct
+        // OS-level quoting regardless of whether the host is Windows, macOS, or Linux.
         var psi = new ProcessStartInfo
         {
             FileName = dotnetExe,
-            Arguments = arguments,
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+
+        // First argument is the tool DLL path, followed by the language-specific arguments
+        psi.ArgumentList.Add(ToolDllPath!);
+        foreach (var arg in BuildArguments(language))
+        {
+            psi.ArgumentList.Add(arg);
+        }
 
         // Start the tool process; a null return indicates the OS refused to launch it
         using var process = Process.Start(psi);
@@ -422,42 +439,5 @@ public sealed class ApiMarkTask : Task
         return null;
     }
 
-    /// <summary>
-    ///     Escapes a string value for safe embedding in a quoted Windows command-line argument,
-    ///     following the <c>CommandLineToArgvW</c> escaping rules.
-    /// </summary>
-    /// <remarks>
-    ///     Backslashes that precede a double quote are doubled, then the double quote is
-    ///     escaped with a backslash. Trailing backslashes are doubled so the closing
-    ///     <c>"</c> delimiter is not escaped.
-    /// </remarks>
-    /// <param name="value">The raw value to escape.</param>
-    /// <returns>The escaped value, safe to embed between <c>"</c> delimiters.</returns>
-    private static string EscapeArg(string value)
-    {
-        var sb = new StringBuilder();
-        var backslashCount = 0;
-        foreach (var c in value)
-        {
-            switch (c)
-            {
-                case '\\':
-                    backslashCount++;
-                    break;
-                case '"':
-                    sb.Append('\\', backslashCount * 2 + 1);
-                    sb.Append('"');
-                    backslashCount = 0;
-                    break;
-                default:
-                    sb.Append('\\', backslashCount);
-                    sb.Append(c);
-                    backslashCount = 0;
-                    break;
-            }
-        }
 
-        sb.Append('\\', backslashCount * 2);
-        return sb.ToString();
-    }
 }
