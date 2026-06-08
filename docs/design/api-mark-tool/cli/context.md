@@ -27,7 +27,10 @@ argument array.
 | `Language` | `string?` | `null` | First positional non-flag token |
 | `Assembly` | `string?` | `null` | Path from `--assembly` |
 | `XmlDoc` | `string?` | `null` | Path from `--xml-doc` |
-| `Includes` | `string[]` | `[]` | Comma-split values from `--includes` |
+| `Includes` | `string[]` | `[]` | Plain path entries from `--includes` (no wildcards, no `!`) |
+| `SearchPaths` | `string[]` | `[]` | Comma-split values from `--search-paths` |
+| `IncludePatterns` | `string[]` | `[]` | Glob patterns from `--include-patterns` or wildcard entries in `--includes` |
+| `ExcludePatterns` | `string[]` | `[]` | Exclusion patterns from `--exclude-patterns` or `!`-prefixed entries in `--includes` |
 | `Output` | `string?` | `null` | Directory from `--output` |
 | `Visibility` | `string` | `"Public"` | Value from `--visibility` |
 | `IncludeObsolete` | `bool` | `false` | `--include-obsolete` flag |
@@ -52,7 +55,11 @@ construction path.
 - *Returns*: A new fully populated `Context` instance.
 - *Algorithm*: Creates an `ArgumentParser`, calls `ParseArguments`, copies
   all parsed values to a new `Context` via property initializers, and
-  optionally opens the log file.
+  optionally opens the log file. When processing `--includes`, the private
+  static `ClassifyIncludeEntries` helper is used to split entries into three
+  buckets: plain root paths (to `Includes`), wildcard entries (to
+  `IncludePatterns`), and `!`-prefixed exclusions (stripped and placed in
+  `ExcludePatterns`).
 - *Preconditions*: `args` must be non-null.
 - *Postconditions*: All properties reflect the parsed argument values;
   log file is open if `--log` was specified.

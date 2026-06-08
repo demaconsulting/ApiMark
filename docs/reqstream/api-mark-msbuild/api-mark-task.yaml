@@ -95,3 +95,25 @@ sections:
               build, parallel to the dotnet behavior when ApiMarkXmlDocPath is absent.
             tests:
               - ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExecution
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardCppSearchPaths
+            title: >-
+              ApiMarkTask shall forward the ApiMarkSearchPaths property to the tool as the --search-paths
+              argument for C++ builds, converting semicolons to commas.
+            justification: |
+              C++ projects need compiler-only include paths for SDK or third-party headers that are
+              referenced by public headers but should not appear in the generated documentation.
+            tests:
+              - ApiMarkTask_Cpp_SearchPaths_ForwardedToTool
+              - ApiMarkTask_Cpp_SearchPaths_Empty_NotIncludedInArgs
+          - id: ApiMarkMsbuild-ApiMarkTask-ClassifyIncludePathsIntoThreeBuckets
+            title: >-
+              ApiMarkTask shall classify ApiMarkIncludePaths entries into --includes (plain paths),
+              --include-patterns (glob wildcards), and --exclude-patterns ('!'-prefixed entries).
+            justification: |
+              MSBuild property lists use semicolons as separators and may mix plain directory roots
+              with glob patterns and exclusion entries. The task must classify and route each entry
+              to the correct tool argument so that the generator receives the right configuration.
+            tests:
+              - ApiMarkTask_Cpp_IncludePaths_GlobEntries_ForwardedAsIncludePatterns
+              - ApiMarkTask_Cpp_IncludePaths_ExcludeEntries_ForwardedAsExcludePatterns
+              - ApiMarkTask_Cpp_IncludePaths_Mixed_SplitIntoThreeBuckets

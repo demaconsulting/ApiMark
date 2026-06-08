@@ -149,6 +149,16 @@ public sealed class ApiMarkTask : Task
     /// </remarks>
     public string? ApiMarkClangPath { get; set; }
 
+    /// <summary>Gets or sets the semicolon-separated list of compiler-only search paths for C++.</summary>
+    /// <remarks>
+    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkSearchPaths)</c>.
+    ///     These paths are passed to Clang as <c>-I</c> flags for <c>#include</c> resolution only;
+    ///     declarations from these paths are never documented.
+    ///     Semicolons are converted to commas for the <c>--search-paths</c> tool argument.
+    ///     Optional — omitted when empty or not set.
+    /// </remarks>
+    public string? ApiMarkSearchPaths { get; set; }
+
     /// <summary>
     ///     Gets or sets the full path to <c>ApiMark.Tool.dll</c> bundled inside the NuGet package.
     /// </summary>
@@ -215,12 +225,59 @@ public sealed class ApiMarkTask : Task
         }
         else
         {
-            // Include paths use semicolons as the MSBuild list separator; convert to commas
-            // because the tool's --includes argument is parsed as a comma-separated list
-            var commaIncludes = ApiMarkIncludePaths?.Replace(';', ',') ?? string.Empty;
+            // Parse ApiMarkIncludePaths into three buckets: plain roots, glob patterns, exclusions.
+            // MSBuild uses semicolons as its list separator; each entry is trimmed before classification.
+            var roots = new List<string>();
+            var includePatterns = new List<string>();
+            var excludePatterns = new List<string>();
+
+            if (!string.IsNullOrEmpty(ApiMarkIncludePaths))
+            {
+                foreach (var rawEntry in ApiMarkIncludePaths!.Split(';'))
+                {
+                    // Manually trim each entry — StringSplitOptions.TrimEntries is not
+                    // available in netstandard2.0 which this assembly targets
+                    var entry = rawEntry.Trim();
+                    if (string.IsNullOrEmpty(entry))
+                    {
+                        continue;
+                    }
+
+                    if (entry.StartsWith("!"))
+                    {
+                        // Strip the '!' prefix and treat the remainder as an exclusion glob
+                        excludePatterns.Add(entry.Substring(1));
+                    }
+                    else if (entry.Contains("*") || entry.Contains("?"))
+                    {
+                        // Glob wildcards mark the entry as an include-filter pattern
+                        includePatterns.Add(entry);
+                    }
+                    else
+                    {
+                        // Plain paths are public include root directories
+                        roots.Add(entry);
+                    }
+                }
+            }
+
             args.Add("cpp");
             args.Add("--includes");
-            args.Add(commaIncludes);
+            args.Add(string.Join(",", roots));
+
+            // Forward include-filter patterns only when present — absent means all headers are included
+            if (includePatterns.Count > 0)
+            {
+                args.Add("--include-patterns");
+                args.Add(string.Join(",", includePatterns));
+            }
+
+            // Forward exclusion patterns only when present
+            if (excludePatterns.Count > 0)
+            {
+                args.Add("--exclude-patterns");
+                args.Add(string.Join(",", excludePatterns));
+            }
 
             // Library name (defaults to project name via .targets)
             if (!string.IsNullOrEmpty(ApiMarkLibraryName))
@@ -256,6 +313,14 @@ public sealed class ApiMarkTask : Task
             {
                 args.Add("--clang-path");
                 args.Add(ApiMarkClangPath!);
+            }
+
+            // Compiler-only search paths — semicolons converted to commas
+            if (!string.IsNullOrEmpty(ApiMarkSearchPaths))
+            {
+                var commaSearchPaths = ApiMarkSearchPaths!.Replace(';', ',');
+                args.Add("--search-paths");
+                args.Add(commaSearchPaths);
             }
         }
 

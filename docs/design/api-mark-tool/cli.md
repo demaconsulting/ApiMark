@@ -25,7 +25,8 @@ can be tested independently.
   file cannot be opened.
 - `Context` (IDisposable) — exposes parsed flags and options as typed
   properties (`Version`, `Help`, `Silent`, `Validate`, `Language`,
-  `Assembly`, `XmlDoc`, `Includes`, `Output`, `Visibility`, `IncludeObsolete`,
+  `Assembly`, `XmlDoc`, `Includes`, `SearchPaths`, `IncludePatterns`,
+  `ExcludePatterns`, `Output`, `Visibility`, `IncludeObsolete`,
   `ResultsFile`, `HeadingDepth`, `ExitCode`) and provides `WriteLine` and
   `WriteError` for all program output routing.
 
@@ -43,7 +44,8 @@ flags (`-v`, `--version`, `--help`, `--silent`, `--validate`, `--log`,
 `--results`, `--depth`) are recognized anywhere in the argument list. The
 first positional non-flag token (a token that does not start with `-`) is
 captured as the language subcommand. Language-specific options (`--assembly`,
-`--xml-doc`, `--includes`, `--output`, `--visibility`, `--include-obsolete`)
+`--xml-doc`, `--includes`, `--search-paths`, `--include-patterns`,
+`--exclude-patterns`, `--output`, `--visibility`, `--include-obsolete`)
 may appear anywhere in the argument list after the language token is
 recognized.
 

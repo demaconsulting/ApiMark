@@ -246,11 +246,14 @@ internal static class Program
                 LibraryName = cppLibraryName,
                 Description = context.LibraryDescription ?? string.Empty,
                 PublicIncludeRoots = context.Includes,
+                IncludePatterns = context.IncludePatterns,
+                ExcludePatterns = context.ExcludePatterns,
                 Defines = context.Defines,
                 CppStandard = context.CppStandard ?? "c++17",
                 Visibility = (CppApiVisibility)(int)visibility,
                 IncludeDeprecated = context.IncludeObsolete,
                 ClangPath = context.ClangPath,
+                AdditionalIncludePaths = context.SearchPaths,
             }),
 
             // Any other token is an unrecognized subcommand
@@ -306,6 +309,9 @@ internal static class Program
         context.WriteLine("  --defines <values>         Comma-separated preprocessor definitions (e.g. MYLIB_API=,NDEBUG)");
         context.WriteLine("  --cpp-standard <std>       C++ language standard passed to Clang (default: c++17)");
         context.WriteLine("  --clang-path <path>        Path to clang executable (default: auto-discovered via PATH / xcrun / vswhere)");
+        context.WriteLine("  --search-paths <paths>     Comma-separated compiler-only -I paths (not documented)");
+        context.WriteLine("  --include-patterns <p>     Comma-separated glob patterns selecting headers to document");
+        context.WriteLine("  --exclude-patterns <p>     Comma-separated glob patterns for headers to exclude");
         context.WriteLine("  --visibility <value>       Visibility filter: Public, PublicAndProtected, All (default: Public)");
         context.WriteLine("  --include-obsolete         Include deprecated members in generated output");
     }

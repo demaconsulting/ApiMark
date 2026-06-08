@@ -64,8 +64,30 @@ internal sealed class Context : IContext, IDisposable
 
     /// <summary>
     ///     Gets the include directory paths for the C++ language subcommand.
+    ///     Contains only plain path entries from <c>--includes</c> (no wildcards, no <c>!</c>).
     /// </summary>
     public string[] Includes { get; private init; } = [];
+
+    /// <summary>
+    ///     Gets the compiler-only search path directories for the C++ language subcommand.
+    ///     Passed to Clang as <c>-I</c> paths; declarations from these paths are never documented.
+    /// </summary>
+    public string[] SearchPaths { get; private init; } = [];
+
+    /// <summary>
+    ///     Gets the glob patterns selecting which header files contribute to the documented API,
+    ///     relative to each <see cref="Includes"/> root.
+    ///     Populated from <c>--include-patterns</c> or from wildcard entries inline in <c>--includes</c>.
+    ///     When empty, all headers under the roots are included.
+    /// </summary>
+    public string[] IncludePatterns { get; private init; } = [];
+
+    /// <summary>
+    ///     Gets the glob patterns for header files to exclude from the documented API,
+    ///     relative to each <see cref="Includes"/> root. Evaluated after <see cref="IncludePatterns"/>.
+    ///     Populated from <c>--exclude-patterns</c> or from <c>!</c>-prefixed entries inline in <c>--includes</c>.
+    /// </summary>
+    public string[] ExcludePatterns { get; private init; } = [];
 
     /// <summary>
     ///     Gets the output directory for generated Markdown files.
@@ -154,6 +176,9 @@ internal sealed class Context : IContext, IDisposable
             Assembly = parser.Assembly,
             XmlDoc = parser.XmlDoc,
             Includes = parser.Includes,
+            SearchPaths = parser.SearchPaths,
+            IncludePatterns = parser.IncludePatterns,
+            ExcludePatterns = parser.ExcludePatterns,
             Output = parser.Output,
             Visibility = parser.Visibility,
             IncludeObsolete = parser.IncludeObsolete,
@@ -309,8 +334,29 @@ internal sealed class Context : IContext, IDisposable
 
         /// <summary>
         ///     Gets the include directory paths for C++.
+        ///     Contains only plain path entries (no wildcards, no <c>!</c>).
         /// </summary>
         public string[] Includes { get; private set; } = [];
+
+        /// <summary>
+        ///     Gets the compiler-only search paths parsed from the <c>--search-paths</c> comma-separated list.
+        ///     Passed to Clang as <c>-I</c> paths for <c>#include</c> resolution; declarations from these
+        ///     paths are never documented.
+        /// </summary>
+        public string[] SearchPaths { get; private set; } = [];
+
+        /// <summary>
+        ///     Gets the include glob patterns parsed from <c>--include-patterns</c> or from
+        ///     glob entries inline in <c>--includes</c>. Passed to <c>CppGeneratorOptions.IncludePatterns</c>.
+        /// </summary>
+        public string[] IncludePatterns { get; private set; } = [];
+
+        /// <summary>
+        ///     Gets the exclude glob patterns parsed from <c>--exclude-patterns</c> or from
+        ///     <c>!</c>-prefixed entries inline in <c>--includes</c>. Passed to
+        ///     <c>CppGeneratorOptions.ExcludePatterns</c>.
+        /// </summary>
+        public string[] ExcludePatterns { get; private set; } = [];
 
         /// <summary>
         ///     Gets the output directory.
@@ -432,7 +478,28 @@ internal sealed class Context : IContext, IDisposable
                     return index + 1;
 
                 case "--includes":
-                    Includes = GetRequiredStringArgument(arg, args, index, "a comma-separated path list argument")
+                    {
+                        // Classify each entry into: plain root paths, include-filter globs, or exclusion patterns
+                        var raw = GetRequiredStringArgument(arg, args, index, "a comma-separated path list argument");
+                        ClassifyIncludeEntries(raw, out var roots, out var includePatterns, out var excludePatterns);
+                        Includes = roots;
+                        IncludePatterns = includePatterns;
+                        ExcludePatterns = excludePatterns;
+                        return index + 1;
+                    }
+
+                case "--search-paths":
+                    SearchPaths = GetRequiredStringArgument(arg, args, index, "a comma-separated path list argument")
+                        .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                    return index + 1;
+
+                case "--include-patterns":
+                    IncludePatterns = GetRequiredStringArgument(arg, args, index, "a comma-separated glob pattern argument")
+                        .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                    return index + 1;
+
+                case "--exclude-patterns":
+                    ExcludePatterns = GetRequiredStringArgument(arg, args, index, "a comma-separated glob pattern argument")
                         .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
                     return index + 1;
 
@@ -479,6 +546,47 @@ internal sealed class Context : IContext, IDisposable
 
                     throw new ArgumentException($"Unsupported argument '{arg}'", nameof(args));
             }
+        }
+
+        /// <summary>
+        ///     Classifies a comma-separated include list into three buckets.
+        /// </summary>
+        /// <param name="value">Raw comma-separated string from <c>--includes</c>.</param>
+        /// <param name="roots">Receives plain directory paths (no wildcards, no <c>!</c>).</param>
+        /// <param name="includePatterns">Receives glob patterns (containing <c>*</c> or <c>?</c>).</param>
+        /// <param name="excludePatterns">Receives <c>!</c>-stripped exclusion patterns.</param>
+        private static void ClassifyIncludeEntries(
+            string value,
+            out string[] roots,
+            out string[] includePatterns,
+            out string[] excludePatterns)
+        {
+            var rootList = new List<string>();
+            var includeList = new List<string>();
+            var excludeList = new List<string>();
+
+            foreach (var entry in value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (entry.StartsWith('!'))
+                {
+                    // Strip the '!' prefix and add the remainder to the exclusion list
+                    excludeList.Add(entry[1..]);
+                }
+                else if (entry.Contains('*') || entry.Contains('?'))
+                {
+                    // Entries with glob wildcards select which headers to document
+                    includeList.Add(entry);
+                }
+                else
+                {
+                    // Plain paths are public include root directories
+                    rootList.Add(entry);
+                }
+            }
+
+            roots = [.. rootList];
+            includePatterns = [.. includeList];
+            excludePatterns = [.. excludeList];
         }
 
         /// <summary>

@@ -313,6 +313,9 @@ public sealed class ContextTests
             () => Assert.False(context.IncludeObsolete),
             () => Assert.Equal(1, context.HeadingDepth),
             () => Assert.Empty(context.Includes),
+            () => Assert.Empty(context.SearchPaths),
+            () => Assert.Empty(context.IncludePatterns),
+            () => Assert.Empty(context.ExcludePatterns),
             () => Assert.Equal(0, context.ExitCode));
     }
 
@@ -396,5 +399,132 @@ public sealed class ContextTests
             () => Assert.True(context.Help),
             () => Assert.True(context.Silent),
             () => Assert.True(context.Validate));
+    }
+
+    /// <summary>
+    ///     Validates that --search-paths sets the SearchPaths property to the comma-split array.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithSearchPathsOption_SetsSearchPaths()
+    {
+        // Arrange: supply a comma-separated list of search paths
+        var args = new[] { "--search-paths", "/sdk/include,/third-party/include" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: SearchPaths must contain the two split entries
+        string[] expected = ["/sdk/include", "/third-party/include"];
+        Assert.Equal(expected, context.SearchPaths);
+    }
+
+    /// <summary>
+    ///     Validates that --include-patterns sets the IncludePatterns property.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithIncludePatternsOption_SetsIncludePatterns()
+    {
+        // Arrange: supply a comma-separated glob pattern list
+        var args = new[] { "--include-patterns", "*.h,**/*.hpp" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: IncludePatterns must contain the two split patterns
+        string[] expected = ["*.h", "**/*.hpp"];
+        Assert.Equal(expected, context.IncludePatterns);
+    }
+
+    /// <summary>
+    ///     Validates that --exclude-patterns sets the ExcludePatterns property.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithExcludePatternsOption_SetsExcludePatterns()
+    {
+        // Arrange: supply a comma-separated exclusion glob list
+        var args = new[] { "--exclude-patterns", "test/**,*_internal.h" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: ExcludePatterns must contain the two split patterns
+        string[] expected = ["test/**", "*_internal.h"];
+        Assert.Equal(expected, context.ExcludePatterns);
+    }
+
+    /// <summary>
+    ///     Validates that a wildcard entry inline in --includes is classified as an IncludePattern,
+    ///     not added to Includes.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithIncludesContainingGlobEntry_ClassifiesAsIncludePattern()
+    {
+        // Arrange: --includes value with a plain root and a glob wildcard
+        var args = new[] { "--includes", "/usr/include,*.h" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: plain path goes to Includes; the glob goes to IncludePatterns
+        Assert.Equal(["/usr/include"], context.Includes);
+        Assert.Equal(["*.h"], context.IncludePatterns);
+        Assert.Empty(context.ExcludePatterns);
+    }
+
+    /// <summary>
+    ///     Validates that a '!'-prefixed entry inline in --includes is classified as an
+    ///     ExcludePattern (with '!' stripped) and not added to Includes.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithIncludesContainingExcludeEntry_ClassifiesAsExcludePattern()
+    {
+        // Arrange: --includes value with a plain root and an exclusion pattern
+        var args = new[] { "--includes", "/usr/include,!test/**" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: plain path goes to Includes; '!' entry with prefix stripped goes to ExcludePatterns
+        Assert.Equal(["/usr/include"], context.Includes);
+        Assert.Empty(context.IncludePatterns);
+        Assert.Equal(["test/**"], context.ExcludePatterns);
+    }
+
+    /// <summary>
+    ///     Validates that a mixed --includes value is correctly classified into all three buckets.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithIncludesMixed_ClassifiesIntoThreeBuckets()
+    {
+        // Arrange: --includes with one plain root, one glob, and one exclusion
+        var args = new[] { "--includes", "/usr/include,*.h,!test/**" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: each entry must land in its correct bucket
+        Assert.Equal(["/usr/include"], context.Includes);
+        Assert.Equal(["*.h"], context.IncludePatterns);
+        Assert.Equal(["test/**"], context.ExcludePatterns);
+    }
+
+    /// <summary>
+    ///     Validates that Context.Create with no arguments leaves SearchPaths, IncludePatterns,
+    ///     and ExcludePatterns as empty arrays.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithNoArguments_HasEmptySearchPathsAndPatterns()
+    {
+        // Arrange: empty argument array
+        var args = Array.Empty<string>();
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: new properties must default to empty arrays
+        Assert.Multiple(
+            () => Assert.Empty(context.SearchPaths),
+            () => Assert.Empty(context.IncludePatterns),
+            () => Assert.Empty(context.ExcludePatterns));
     }
 }

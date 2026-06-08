@@ -343,4 +343,100 @@ public class ProgramTests
             Console.SetOut(originalOut);
         }
     }
+
+    /// <summary>
+    ///     Validates that the <c>--search-paths</c> flag is recognized and does not cause an
+    ///     argument-parsing exception; when <c>--includes</c> is absent the tool still fails
+    ///     with the expected includes-required diagnostic.
+    /// </summary>
+    [Fact]
+    public void Program_Main_CppWithSearchPathsFlag_FlagIsAccepted()
+    {
+        // Arrange: provide --search-paths but omit --includes so parsing completes but validation fails
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+
+        try
+        {
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main(["cpp", "--search-paths", "/sdk", "--output", outputDir]);
+
+            // Assert: fails due to missing --includes, confirming --search-paths was accepted by the parser
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--includes", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a glob-only <c>--includes</c> value is classified as an include pattern
+    ///     rather than a root directory, so validation still fails with the includes-required diagnostic.
+    /// </summary>
+    [Fact]
+    public void Program_Main_CppWithGlobOnlyIncludes_FailsMissingRootValidation()
+    {
+        // Arrange: --includes contains only a glob wildcard entry (no plain root directory)
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+
+        try
+        {
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main(["cpp", "--includes", "*.h", "--output", outputDir]);
+
+            // Assert: because *.h is classified as an include pattern (not a root), validation
+            // fails with the same --includes-required diagnostic as if --includes were absent
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--includes", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <c>--include-patterns</c> and <c>--exclude-patterns</c> flags are
+    ///     recognized by the parser and do not cause an argument exception.
+    /// </summary>
+    [Fact]
+    public void Program_Main_CppWithIncludeAndExcludePatternFlags_FlagsAreAccepted()
+    {
+        // Arrange: provide pattern flags but omit --includes so the tool fails on validation,
+        // confirming the new flags were accepted without throwing an ArgumentException
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+
+        try
+        {
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "cpp",
+                "--include-patterns", "*.h",
+                "--exclude-patterns", "test/**",
+                "--output", outputDir,
+            ]);
+
+            // Assert: fails due to missing --includes (not due to unknown flag),
+            // confirming both pattern flags were accepted by the parser
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--includes", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+    }
 }

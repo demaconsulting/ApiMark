@@ -49,8 +49,33 @@ apimark cpp [options]
 | `--defines <values>` | Comma-separated preprocessor definitions (e.g. `MYLIB_API=,NDEBUG`) |
 | `--cpp-standard <std>` | C++ language standard passed to Clang (default: `c++17`) |
 | `--clang-path <path>` | Path to clang executable (default: auto-discovered via PATH / xcrun / vswhere) |
+| `--search-paths <paths>` | Comma-separated compiler-only `-I` paths; used for `#include` resolution only, not documented |
+| `--include-patterns <patterns>` | Comma-separated glob patterns (relative to each root) selecting which headers to document; when absent all headers are included |
+| `--exclude-patterns <patterns>` | Comma-separated glob patterns (relative to each root) for headers to exclude; evaluated after `--include-patterns` |
 | `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `Public`) |
 | `--include-obsolete` | Include deprecated members in generated output |
+
+#### Inline Wildcard and Exclusion Syntax in `--includes`
+
+The `--includes` list accepts three kinds of entries mixed freely:
+
+| Entry form | Effect |
+| --- | --- |
+| `path/to/dir` | Added as a public include root directory |
+| `*.h` or `**/*.hpp` | Added as an include-filter pattern (same as `--include-patterns`) |
+| `!test/**` | Added as an exclusion pattern with `!` stripped (same as `--exclude-patterns`) |
+
+Example:
+
+```text
+--includes /usr/local/include,*.h,!detail/**
+```
+
+is equivalent to:
+
+```text
+--includes /usr/local/include --include-patterns *.h --exclude-patterns detail/**
+```
 
 ## Platform Support
 

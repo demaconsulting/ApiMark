@@ -29,7 +29,7 @@ sections:
                 tests:
                   - Context_Create_WithLanguageSubcommand_SetsLanguage
               - id: ApiMarkTool-Cli-Context-ParseLanguageOptions
-                title: Context shall parse the language-specific options --assembly, --xml-doc, --output, --visibility, --include-obsolete, and --includes.
+                title: Context shall parse the language-specific options --assembly, --xml-doc, --output, --visibility, --include-obsolete, --includes, --search-paths, --include-patterns, and --exclude-patterns.
                 justification: |
                   Language-specific options must be available to callers as typed properties so
                   that generators can be configured without re-parsing the command line.
@@ -40,6 +40,32 @@ sections:
                   - Context_Create_WithVisibilityOption_SetsVisibility
                   - Context_Create_WithIncludeObsoleteFlag_SetsIncludeObsoleteTrue
                   - Context_Create_WithIncludesOption_SetsIncludes
+                  - Context_Create_WithSearchPathsOption_SetsSearchPaths
+                  - Context_Create_WithIncludePatternsOption_SetsIncludePatterns
+                  - Context_Create_WithExcludePatternsOption_SetsExcludePatterns
+                  - Context_Create_WithIncludesContainingGlobEntry_ClassifiesAsIncludePattern
+                  - Context_Create_WithIncludesContainingExcludeEntry_ClassifiesAsExcludePattern
+                  - Context_Create_WithIncludesMixed_ClassifiesIntoThreeBuckets
+              - id: ApiMarkTool-Cli-Context-ParseCppSearchPaths
+                title: Context shall parse --search-paths and set SearchPaths to the comma-split array.
+                justification: |
+                  C++ projects need to specify compiler-only -I paths for #include resolution
+                  without those paths contributing to the documented API surface.
+                tests:
+                  - Context_Create_WithSearchPathsOption_SetsSearchPaths
+              - id: ApiMarkTool-Cli-Context-ParseIncludeExcludePatterns
+                title: Context shall parse --include-patterns and --exclude-patterns and classify inline wildcards and '!'-prefixed entries in --includes into the correct buckets.
+                justification: |
+                  Projects need fine-grained control over which headers contribute to the documented
+                  API surface. Inline classification in --includes provides a concise syntax while
+                  explicit --include-patterns and --exclude-patterns flags allow MSBuild to pass
+                  pre-classified values directly.
+                tests:
+                  - Context_Create_WithIncludePatternsOption_SetsIncludePatterns
+                  - Context_Create_WithExcludePatternsOption_SetsExcludePatterns
+                  - Context_Create_WithIncludesContainingGlobEntry_ClassifiesAsIncludePattern
+                  - Context_Create_WithIncludesContainingExcludeEntry_ClassifiesAsExcludePattern
+                  - Context_Create_WithIncludesMixed_ClassifiesIntoThreeBuckets
               - id: ApiMarkTool-Cli-Context-ParseDepthOption
                 title: Context shall parse the --depth option and set HeadingDepth to the specified integer value in the range 1–6, defaulting to 1 when the option is absent.
                 justification: |

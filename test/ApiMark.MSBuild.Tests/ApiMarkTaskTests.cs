@@ -377,5 +377,144 @@ public class ApiMarkTaskTests
         // so the caller must not apply any backslash escaping
         Assert.Contains("My library (v\"2\")", args);
     }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> appends the <c>--search-paths</c>
+    ///     flag with semicolons converted to commas when <see cref="ApiMarkTask.ApiMarkSearchPaths"/>
+    ///     is set.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_SearchPaths_ForwardedToTool()
+    {
+        // Arrange: configure semicolon-separated search paths for a cpp invocation
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include",
+            ApiMarkSearchPaths = "/sdk/include;/third-party/include",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: the --search-paths flag must appear and semicolons must be converted to commas
+        Assert.Contains("--search-paths", args);
+        Assert.Contains("/sdk/include,/third-party/include", args);
+        Assert.DoesNotContain("/sdk/include;/third-party/include", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> does not include the
+    ///     <c>--search-paths</c> flag when <see cref="ApiMarkTask.ApiMarkSearchPaths"/> is empty.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_SearchPaths_Empty_NotIncludedInArgs()
+    {
+        // Arrange: no search paths configured
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include",
+            ApiMarkSearchPaths = string.Empty,
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: --search-paths must be absent when the property is empty
+        Assert.DoesNotContain("--search-paths", args);
+    }
+
+    /// <summary>
+    ///     Validates that glob entries in <see cref="ApiMarkTask.ApiMarkIncludePaths"/> are forwarded
+    ///     as <c>--include-patterns</c> and not included in <c>--includes</c>.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_IncludePaths_GlobEntries_ForwardedAsIncludePatterns()
+    {
+        // Arrange: a mix of a plain root and a glob pattern, semicolon-separated
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include;*.h",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: the glob is forwarded via --include-patterns, not embedded in --includes
+        Assert.Contains("--include-patterns", args);
+        Assert.Contains("*.h", args);
+
+        // The --includes value must contain only the plain root
+        var includesIndex = args.ToList().IndexOf("--includes");
+        Assert.True(includesIndex >= 0, "--includes must be present");
+        Assert.Equal("/include", args[includesIndex + 1]);
+    }
+
+    /// <summary>
+    ///     Validates that <c>!</c>-prefixed entries in <see cref="ApiMarkTask.ApiMarkIncludePaths"/>
+    ///     are forwarded as <c>--exclude-patterns</c> (with the <c>!</c> stripped) and not included
+    ///     in <c>--includes</c>.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_IncludePaths_ExcludeEntries_ForwardedAsExcludePatterns()
+    {
+        // Arrange: a plain root and an exclusion pattern
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include;!test/**",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: the exclusion is forwarded via --exclude-patterns with '!' stripped
+        Assert.Contains("--exclude-patterns", args);
+        Assert.Contains("test/**", args);
+        Assert.DoesNotContain("!test/**", args);
+    }
+
+    /// <summary>
+    ///     Validates that a mixed <see cref="ApiMarkTask.ApiMarkIncludePaths"/> value is correctly
+    ///     split into <c>--includes</c> (plain roots), <c>--include-patterns</c> (globs), and
+    ///     <c>--exclude-patterns</c> (exclusions).
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_IncludePaths_Mixed_SplitIntoThreeBuckets()
+    {
+        // Arrange: plain root, glob pattern, and exclusion in a single semicolon-separated list
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include;*.h;!test/**",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: each entry must appear via its correct flag
+        Assert.Contains("--include-patterns", args);
+        Assert.Contains("--exclude-patterns", args);
+
+        var argList = args.ToList();
+        var includesIndex = argList.IndexOf("--includes");
+        Assert.True(includesIndex >= 0, "--includes must be present");
+        Assert.Equal("/include", argList[includesIndex + 1]);
+
+        var includePatternIndex = argList.IndexOf("--include-patterns");
+        Assert.True(includePatternIndex >= 0, "--include-patterns must be present");
+        Assert.Equal("*.h", argList[includePatternIndex + 1]);
+
+        var excludePatternIndex = argList.IndexOf("--exclude-patterns");
+        Assert.True(excludePatternIndex >= 0, "--exclude-patterns must be present");
+        Assert.Equal("test/**", argList[excludePatternIndex + 1]);
+    }
 }
 

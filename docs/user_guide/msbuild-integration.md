@@ -38,12 +38,13 @@ the project file extension.
 
 | Property | Default | Description |
 | --- | --- | --- |
-| `ApiMarkIncludePaths` | _(required)_ | Semicolon-separated list of public include directories |
+| `ApiMarkIncludePaths` | _(required)_ | Semicolon-separated list of public include directories. Entries with `*` or `?` are forwarded as `--include-patterns`; entries starting with `!` are forwarded as `--exclude-patterns` (with `!` stripped). |
 | `ApiMarkLibraryName` | `$(MSBuildProjectName)` | Library name used as the top-level heading in `api.md` |
 | `ApiMarkLibraryDescription` | _(unset)_ | Optional description for the `api.md` introduction paragraph |
 | `ApiMarkDefines` | _(unset)_ | Comma-separated preprocessor definitions (e.g. `MYLIB_API=,NDEBUG`) |
 | `ApiMarkCppStandard` | `c++17` | C++ language standard passed to Clang |
 | `ApiMarkClangPath` | _(auto-discovered)_ | Path to clang executable; overrides PATH / xcrun / vswhere discovery |
+| `ApiMarkSearchPaths` | _(unset)_ | Semicolon-separated compiler-only `-I` paths for `#include` resolution; declarations are never documented |
 
 ## Configuration Examples
 
@@ -89,6 +90,12 @@ the project file extension.
 
   <!-- Override clang path (optional; normally auto-discovered) -->
   <!-- <ApiMarkClangPath>C:\Program Files\LLVM\bin\clang.exe</ApiMarkClangPath> -->
+
+  <!-- Compiler-only search paths (e.g. SDK headers not part of the documented API) -->
+  <!-- <ApiMarkSearchPaths>$(SdkIncludePath)</ApiMarkSearchPaths> -->
+
+  <!-- Glob and exclusion syntax is supported in ApiMarkIncludePaths: -->
+  <!-- <ApiMarkIncludePaths>$(MSBuildProjectDirectory)\include;*.h;!detail/**</ApiMarkIncludePaths> -->
 </PropertyGroup>
 ```
 
