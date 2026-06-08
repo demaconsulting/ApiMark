@@ -245,8 +245,12 @@ public sealed class ApiMarkTask : Task
 
                     if (entry.StartsWith("!"))
                     {
-                        // Strip the '!' prefix and treat the remainder as an exclusion glob
-                        excludePatterns.Add(entry.Substring(1));
+                        // Strip the '!' prefix, trim whitespace, and skip bare '!' entries
+                        var pattern = entry.Substring(1).Trim();
+                        if (pattern.Length > 0)
+                        {
+                            excludePatterns.Add(pattern);
+                        }
                     }
                     else if (entry.Contains("*") || entry.Contains("?"))
                     {

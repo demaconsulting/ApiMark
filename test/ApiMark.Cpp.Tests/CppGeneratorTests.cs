@@ -277,20 +277,20 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     }
 
     /// <summary>
-    ///     Validates that an individual method member page uses an H3 heading, consistent
-    ///     with the DotNet generator and the combined member page convention.
+    ///     Validates that an individual method member page uses an H1 heading, consistent
+    ///     with the page-as-standalone-document convention.
     /// </summary>
     [Fact]
-    public void CppGenerator_Generate_MemberPage_UsesH3Heading()
+    public void CppGenerator_Generate_MemberPage_UsesH1Heading()
     {
         // Arrange
         var factory = _fixture.PublicFactory;
 
-        // Assert: the GetGreeting member page must open with an H3 heading containing the
-        // class and method name so the heading level matches combined member pages
+        // Assert: the GetGreeting member page must open with an H1 heading containing the
+        // class and method name so every generated page starts at H1
         var writer = factory.Writers["fixtures/SampleClass/GetGreeting"];
         var firstHeading = writer.Operations.OfType<HeadingOperation>().First();
-        Assert.Equal(3, firstHeading.Level);
+        Assert.Equal(1, firstHeading.Level);
         Assert.Contains("GetGreeting", firstHeading.Text, StringComparison.Ordinal);
     }
 
@@ -536,7 +536,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     }
 
     /// <summary>
-    ///     Validates that the combined collision page contains H4 headings for both the
+    ///     Validates that the combined collision page contains H2 headings for both the
     ///     method <c>Name()</c> and the field <c>name</c>.
     /// </summary>
     [Fact]
@@ -549,14 +549,14 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         Assert.True(factory.Writers.ContainsKey("fixtures/CaseCollisionClass/name"));
         var writer = factory.Writers["fixtures/CaseCollisionClass/name"];
 
-        // Assert: both members appear as distinct H4 headings on the combined page
-        var level4Headings = writer.Operations
+        // Assert: both members appear as distinct H2 headings on the combined page
+        var level2Headings = writer.Operations
             .OfType<HeadingOperation>()
-            .Where(h => h.Level == 4)
+            .Where(h => h.Level == 2)
             .Select(h => h.Text)
             .ToList();
-        Assert.Contains(level4Headings, h => h.StartsWith("Name", StringComparison.Ordinal));
-        Assert.Contains(level4Headings, h => h.StartsWith("name", StringComparison.Ordinal));
+        Assert.Contains(level2Headings, h => h.StartsWith("Name", StringComparison.Ordinal));
+        Assert.Contains(level2Headings, h => h.StartsWith("name", StringComparison.Ordinal));
     }
 
     /// <summary>

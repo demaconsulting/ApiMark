@@ -273,7 +273,7 @@ public sealed class DotNetGenerator : IApiGenerator
         TypeLinkResolver resolver)
     {
         using var typeWriter = factory.CreateMarkdown(namespaceFolderPath, type.Name);
-        typeWriter.WriteHeading(2, type.Name);
+        typeWriter.WriteHeading(1, type.Name);
 
         // Emit the C# declaration signature so readers can see the type kind, modifiers, and direct inheritance
         var typeSignature = BuildTypeSignature(type, namespaceName);
@@ -477,7 +477,7 @@ public sealed class DotNetGenerator : IApiGenerator
         // Each section is only emitted when at least one member of that kind is present.
         if (constructorRows.Count > 0)
         {
-            typeWriter.WriteHeading(3, "Constructors");
+            typeWriter.WriteHeading(2, "Constructors");
 
             // Constructors omit the Type/Returns column — they have no meaningful return type
             typeWriter.WriteTable(new[] { "Member", DescriptionColumnHeader }, constructorRows);
@@ -485,13 +485,13 @@ public sealed class DotNetGenerator : IApiGenerator
 
         if (propertyRows.Count > 0)
         {
-            typeWriter.WriteHeading(3, "Properties");
+            typeWriter.WriteHeading(2, "Properties");
             typeWriter.WriteTable(new[] { "Member", "Type", DescriptionColumnHeader }, propertyRows);
         }
 
         if (methodRows.Count > 0)
         {
-            typeWriter.WriteHeading(3, "Methods");
+            typeWriter.WriteHeading(2, "Methods");
 
             // Use "Returns" instead of "Type" for the method type column — more accurate for return values
             typeWriter.WriteTable(new[] { "Member", "Returns", DescriptionColumnHeader }, methodRows);
@@ -499,18 +499,18 @@ public sealed class DotNetGenerator : IApiGenerator
 
         if (fieldRows.Count > 0)
         {
-            typeWriter.WriteHeading(3, "Fields");
+            typeWriter.WriteHeading(2, "Fields");
             typeWriter.WriteTable(new[] { "Member", "Type", DescriptionColumnHeader }, fieldRows);
         }
 
         if (eventRows.Count > 0)
         {
-            typeWriter.WriteHeading(3, "Events");
+            typeWriter.WriteHeading(2, "Events");
             typeWriter.WriteTable(new[] { "Member", "Type", DescriptionColumnHeader }, eventRows);
         }
 
         // Emit the External Types section when any non-standard external types were referenced
-        WriteExternalTypesSection(typeWriter, externalTypes, 3);
+        WriteExternalTypesSection(typeWriter, externalTypes);
     }
 
     /// <summary>
@@ -543,14 +543,14 @@ public sealed class DotNetGenerator : IApiGenerator
         using var memberWriter = factory.CreateMarkdown(memberCurrentFolder, sanitizedName);
 
         var displayName = GetMemberDisplayName(member);
-        memberWriter.WriteHeading(3, displayName);
+        memberWriter.WriteHeading(1, displayName);
 
         if (member is MethodDefinition method)
         {
             // Method pages use the resolver for parameter type cells
             var externalTypes = new SortedSet<ExternalTypeInfo>();
             WriteMethodDocumentation(memberWriter, namespaceName, method, xmlDocs, memberId, resolver, memberCurrentFolder, externalTypes);
-            WriteExternalTypesSection(memberWriter, externalTypes, 4);
+            WriteExternalTypesSection(memberWriter, externalTypes);
             return;
         }
 
@@ -602,17 +602,17 @@ public sealed class DotNetGenerator : IApiGenerator
         var overloadCurrentFolder = $"{namespaceFolderPath}/{type.Name}";
         using var memberWriter = factory.CreateMarkdown(overloadCurrentFolder, sanitizedName);
 
-        memberWriter.WriteHeading(3, GetMethodGroupName(overloads[0]));
+        memberWriter.WriteHeading(1, GetMethodGroupName(overloads[0]));
 
         // Accumulate external types across all overloads on this shared page
         var externalTypes = new SortedSet<ExternalTypeInfo>();
         foreach (var overload in overloads)
         {
-            memberWriter.WriteHeading(4, BuildMethodDisplayName(overload));
+            memberWriter.WriteHeading(2, BuildMethodDisplayName(overload));
             WriteMethodDocumentation(memberWriter, namespaceName, overload, xmlDocs, BuildMemberId(overload), resolver, overloadCurrentFolder, externalTypes);
         }
 
-        WriteExternalTypesSection(memberWriter, externalTypes, 4);
+        WriteExternalTypesSection(memberWriter, externalTypes);
     }
 
     /// <summary>
@@ -623,7 +623,7 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <remarks>
     ///     This handles the case where a field <c>name</c> and a property <c>Name</c> would
     ///     map to the same file name on case-insensitive file systems.
-    ///     All colliding members are documented together under H4 sub-headings that show
+    ///     All colliding members are documented together under H2 sub-headings that show
     ///     both the exact display name and the member kind (e.g., <c>name (Field)</c>).
     /// </remarks>
     /// <param name="factory">Factory for creating the output writer.</param>
@@ -636,7 +636,7 @@ public sealed class DotNetGenerator : IApiGenerator
     /// </param>
     /// <param name="type">The type that declares all members in <paramref name="members"/>.</param>
     /// <param name="lowerKey">
-    ///     The shared lowercase file name key. Used as both the page file name and the H3
+    ///     The shared lowercase file name key. Used as both the page file name and the H1
     ///     page heading so the combined page has a stable, predictable address.
     /// </param>
     /// <param name="members">
@@ -660,7 +660,7 @@ public sealed class DotNetGenerator : IApiGenerator
 
         // The shared lowercase key serves as the page heading so every member in the group
         // can be found at the same predictable path regardless of filesystem case-sensitivity
-        writer.WriteHeading(3, lowerKey);
+        writer.WriteHeading(1, lowerKey);
 
         // Accumulate external types across all members on this shared page
         var externalTypes = new SortedSet<ExternalTypeInfo>();
@@ -669,7 +669,7 @@ public sealed class DotNetGenerator : IApiGenerator
         {
             var displayName = GetMemberDisplayName(member);
             var kindLabel = GetMemberKindLabel(member);
-            writer.WriteHeading(4, $"{displayName} ({kindLabel})");
+            writer.WriteHeading(2, $"{displayName} ({kindLabel})");
 
             var memberId = BuildMemberId(member);
             if (member is MethodDefinition method)
@@ -715,7 +715,7 @@ public sealed class DotNetGenerator : IApiGenerator
             }
         }
 
-        WriteExternalTypesSection(writer, externalTypes, 4);
+        WriteExternalTypesSection(writer, externalTypes);
     }
 
     /// <summary>
@@ -1310,18 +1310,14 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <param name="externalTypes">
     ///     The set of external types accumulated during table row generation. May be empty.
     /// </param>
-    /// <param name="headingLevel">
-    ///     Heading depth for the "External Types" section heading. Use 3 for type pages
-    ///     (which open with H2) and 4 for member pages (which open with H3).
-    /// </param>
-    private static void WriteExternalTypesSection(IMarkdownWriter writer, SortedSet<ExternalTypeInfo> externalTypes, int headingLevel = 3)
+    private static void WriteExternalTypesSection(IMarkdownWriter writer, SortedSet<ExternalTypeInfo> externalTypes)
     {
         if (externalTypes.Count == 0)
         {
             return;
         }
 
-        writer.WriteHeading(headingLevel, "External Types");
+        writer.WriteHeading(2, "External Types");
         writer.WriteTable(
             ["Type", "Namespace"],
             externalTypes.Select(t => new[] { t.SimplifiedName, t.Namespace }));

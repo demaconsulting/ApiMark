@@ -1112,7 +1112,7 @@ public class DotNetGeneratorTests
     }
 
     /// <summary>
-    ///     Validates that the combined collision page contains H4 headings for both the
+    ///     Validates that the combined collision page contains H2 headings for both the
     ///     field <c>name</c> and the property <c>Name</c>.
     /// </summary>
     [Fact]
@@ -1129,14 +1129,14 @@ public class DotNetGeneratorTests
         Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/CaseCollisionClass/name"));
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/CaseCollisionClass/name"];
 
-        // Assert: both members appear as distinct H4 headings on the combined page
-        var level4Headings = writer.Operations
+        // Assert: both members appear as distinct H2 headings on the combined page
+        var level2Headings = writer.Operations
             .OfType<HeadingOperation>()
-            .Where(h => h.Level == 4)
+            .Where(h => h.Level == 2)
             .Select(h => h.Text)
             .ToList();
-        Assert.Contains(level4Headings, h => h.StartsWith("name", StringComparison.Ordinal));
-        Assert.Contains(level4Headings, h => h.StartsWith("Name", StringComparison.Ordinal));
+        Assert.Contains(level2Headings, h => h.StartsWith("name", StringComparison.Ordinal));
+        Assert.Contains(level2Headings, h => h.StartsWith("Name", StringComparison.Ordinal));
     }
 
     /// <summary>

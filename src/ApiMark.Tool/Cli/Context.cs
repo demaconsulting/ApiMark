@@ -569,8 +569,12 @@ internal sealed class Context : IContext, IDisposable
             {
                 if (entry.StartsWith('!'))
                 {
-                    // Strip the '!' prefix and add the remainder to the exclusion list
-                    excludeList.Add(entry[1..]);
+                    // Strip the '!' prefix, trim whitespace, and skip bare '!' entries
+                    var pattern = entry[1..].Trim();
+                    if (pattern.Length > 0)
+                    {
+                        excludeList.Add(pattern);
+                    }
                 }
                 else if (entry.Contains('*') || entry.Contains('?'))
                 {

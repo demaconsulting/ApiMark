@@ -892,19 +892,19 @@ public sealed class CppGenerator : IApiGenerator
         // Each section is only emitted when at least one member of that kind is present.
         if (ctorRows.Count > 0)
         {
-            writer.WriteHeading(3, "Constructors");
+            writer.WriteHeading(2, "Constructors");
             writer.WriteTable(new[] { "Constructor", DescriptionColumnHeader }, ctorRows);
         }
 
         if (methodRows.Count > 0)
         {
-            writer.WriteHeading(3, "Methods");
+            writer.WriteHeading(2, "Methods");
             writer.WriteTable(new[] { "Member", "Returns", DescriptionColumnHeader }, methodRows);
         }
 
         if (fieldRows.Count > 0)
         {
-            writer.WriteHeading(3, "Fields");
+            writer.WriteHeading(2, "Fields");
             writer.WriteTable(new[] { "Member", "Type", DescriptionColumnHeader }, fieldRows);
         }
 
@@ -913,7 +913,7 @@ public sealed class CppGenerator : IApiGenerator
         if (operatorMethods.Count > 0)
         {
             WriteClassOperatorsPage(factory, nsKey, nsDisplayName, cls, operatorMethods, cppResolver);
-            writer.WriteHeading(3, "Operators");
+            writer.WriteHeading(2, "Operators");
             writer.WriteTable(
                 new[] { "Operators", DescriptionColumnHeader },
                 new[] { new[] { $"[operators]({cls.Name}/operators.md)", "Operator overloads" } });
@@ -977,7 +977,7 @@ public sealed class CppGenerator : IApiGenerator
         {
             var paramTypes = string.Join(", ", op.Parameters.Select(p => SimplifyTypeName(p.TypeName)));
             writer.WriteHeading(2, $"{op.Name}({paramTypes})");
-            WriteFunctionContent(writer, nsDisplayName, cls.Name, op, cppResolver, opsCurrentFolder, externalTypes);
+            WriteFunctionContent(writer, nsDisplayName, cls.Name, op, cppResolver, opsCurrentFolder, externalTypes, parametersHeadingLevel: 3);
         }
 
         WriteExternalTypesSection(writer, externalTypes);
@@ -1039,7 +1039,7 @@ public sealed class CppGenerator : IApiGenerator
         {
             var paramTypes = string.Join(", ", op.Parameters.Select(p => SimplifyTypeName(p.TypeName)));
             writer.WriteHeading(2, $"{op.Name}({paramTypes})");
-            WriteFreeFunctionContent(writer, nsDisplayName, op, cppResolver, opsCurrentFolder, externalTypes);
+            WriteFreeFunctionContent(writer, nsDisplayName, op, cppResolver, opsCurrentFolder, externalTypes, parametersHeadingLevel: 3);
         }
 
         WriteExternalTypesSection(writer, externalTypes);
@@ -1100,13 +1100,19 @@ public sealed class CppGenerator : IApiGenerator
     /// <param name="cppResolver">Type link resolver used to linkify parameter type cells.</param>
     /// <param name="currentFolder">Folder path of the containing Markdown file for relative link computation.</param>
     /// <param name="externalTypes">External type accumulator for the containing page.</param>
+    /// <param name="parametersHeadingLevel">
+    ///     Heading level for the "Parameters" and "Returns" sub-sections. Use 2 for standalone
+    ///     function pages (which open at H1) and 3 for combined/operator pages (where the
+    ///     function entry is already at H2).
+    /// </param>
     private void WriteFreeFunctionContent(
         IMarkdownWriter writer,
         string nsDisplayName,
         CppFunction fn,
         CppTypeLinkResolver cppResolver,
         string currentFolder,
-        ISet<CppExternalTypeInfo> externalTypes)
+        ISet<CppExternalTypeInfo> externalTypes,
+        int parametersHeadingLevel = 2)
     {
         // Emit the fully-qualified name as a comment followed by the optional #include
         // directive and C++ signature so that an AI reader has all context needed to
@@ -1139,7 +1145,7 @@ public sealed class CppGenerator : IApiGenerator
         // Emit parameter table when the function has at least one parameter
         if (fn.Parameters.Count > 0)
         {
-            writer.WriteHeading(4, "Parameters");
+            writer.WriteHeading(parametersHeadingLevel, "Parameters");
             var paramHeaders = new[] { "Parameter", "Type", DescriptionColumnHeader };
 
             // Linkify parameter type cells; resolver tracks external types encountered
@@ -1152,7 +1158,7 @@ public sealed class CppGenerator : IApiGenerator
         var returnTypeName = SimplifyTypeName(fn.ReturnTypeName);
         if (!string.Equals(returnTypeName, "void", StringComparison.Ordinal))
         {
-            writer.WriteHeading(4, "Returns");
+            writer.WriteHeading(parametersHeadingLevel, "Returns");
             var returnDescription = GetReturnDescription(fn.Doc);
             writer.WriteParagraph(!string.IsNullOrEmpty(returnDescription) ? returnDescription : returnTypeName);
         }
@@ -1226,7 +1232,7 @@ public sealed class CppGenerator : IApiGenerator
         string currentFolder,
         ISet<CppExternalTypeInfo> externalTypes)
     {
-        writer.WriteHeading(3, $"{className}.{method.Name}");
+        writer.WriteHeading(1, $"{className}.{method.Name}");
         WriteFunctionContent(writer, nsDisplayName, className, method, cppResolver, currentFolder, externalTypes);
     }
 
@@ -1237,7 +1243,7 @@ public sealed class CppGenerator : IApiGenerator
     /// </summary>
     /// <remarks>
     ///     Separated from <see cref="WriteFunctionPage"/> so that combined pages can write an
-    ///     H4 heading of their own before delegating to this method for the content body.
+    ///     H2 heading of their own before delegating to this method for the content body.
     /// </remarks>
     /// <param name="writer">The Markdown writer to emit content into.</param>
     /// <param name="nsDisplayName">
@@ -1249,6 +1255,11 @@ public sealed class CppGenerator : IApiGenerator
     /// <param name="cppResolver">Type link resolver used to linkify parameter type cells.</param>
     /// <param name="currentFolder">Folder path of the containing Markdown file for relative link computation.</param>
     /// <param name="externalTypes">External type accumulator for the containing page.</param>
+    /// <param name="parametersHeadingLevel">
+    ///     Heading level for the "Parameters" and "Returns" sub-sections. Use 2 for standalone
+    ///     member pages (which open at H1) and 3 for combined/operator pages (where the
+    ///     member entry is already at H2).
+    /// </param>
     private static void WriteFunctionContent(
         IMarkdownWriter writer,
         string nsDisplayName,
@@ -1256,7 +1267,8 @@ public sealed class CppGenerator : IApiGenerator
         CppFunction method,
         CppTypeLinkResolver cppResolver,
         string currentFolder,
-        ISet<CppExternalTypeInfo> externalTypes)
+        ISet<CppExternalTypeInfo> externalTypes,
+        int parametersHeadingLevel = 2)
     {
         // Emit the fully-qualified name as a comment followed by the C++ signature so that
         // an AI reader has the namespace and class context needed to call the member correctly
@@ -1280,7 +1292,7 @@ public sealed class CppGenerator : IApiGenerator
         // Emit parameter table when the method has at least one parameter
         if (method.Parameters.Count > 0)
         {
-            writer.WriteHeading(4, "Parameters");
+            writer.WriteHeading(parametersHeadingLevel, "Parameters");
             var paramHeaders = new[] { "Parameter", "Type", DescriptionColumnHeader };
 
             // Linkify parameter type cells; resolver tracks external types encountered
@@ -1296,7 +1308,7 @@ public sealed class CppGenerator : IApiGenerator
             var returnTypeName = SimplifyTypeName(method.ReturnTypeName);
             if (!string.Equals(returnTypeName, "void", StringComparison.Ordinal))
             {
-                writer.WriteHeading(4, "Returns");
+                writer.WriteHeading(parametersHeadingLevel, "Returns");
                 var returnDescription = GetReturnDescription(method.Doc);
                 writer.WriteParagraph(!string.IsNullOrEmpty(returnDescription) ? returnDescription : returnTypeName);
             }
@@ -1320,7 +1332,7 @@ public sealed class CppGenerator : IApiGenerator
         string className,
         CppField field)
     {
-        writer.WriteHeading(3, $"{className}.{field.Name}");
+        writer.WriteHeading(1, $"{className}.{field.Name}");
         WriteFieldContent(writer, nsDisplayName, className, field);
     }
 
@@ -1332,7 +1344,7 @@ public sealed class CppGenerator : IApiGenerator
     /// </summary>
     /// <remarks>
     ///     Separated from <see cref="WriteFieldPage"/> so that combined pages can write an
-    ///     H4 heading of their own before delegating to this method for the content body.
+    ///     H2 heading of their own before delegating to this method for the content body.
     /// </remarks>
     /// <param name="writer">The Markdown writer to emit content into.</param>
     /// <param name="nsDisplayName">
@@ -1416,7 +1428,7 @@ public sealed class CppGenerator : IApiGenerator
         // Emit a values table so readers can see all valid values and their meanings
         if (cppEnum.Values.Count > 0)
         {
-            writer.WriteHeading(3, "Values");
+            writer.WriteHeading(2, "Values");
             var headers = new[] { "Value", DescriptionColumnHeader };
             var rows = cppEnum.Values.Select(item =>
             {
@@ -1726,7 +1738,7 @@ public sealed class CppGenerator : IApiGenerator
     /// <remarks>
     ///     This handles the case where a method <c>Name()</c> and a field <c>name</c> would
     ///     map to the same file name on case-insensitive file systems.
-    ///     All colliding members are documented together under H4 sub-headings that show
+    ///     All colliding members are documented together under H2 sub-headings that show
     ///     both the exact display name and the member kind (e.g., <c>Name (Method)</c>).
     /// </remarks>
     /// <param name="factory">Factory for creating the output writer.</param>
@@ -1737,7 +1749,7 @@ public sealed class CppGenerator : IApiGenerator
     /// </param>
     /// <param name="cls">The declaring class.</param>
     /// <param name="lowerKey">
-    ///     The shared lowercase file name key. Used as both the page file name and the H3
+    ///     The shared lowercase file name key. Used as both the page file name and the H1
     ///     page heading so the combined page has a stable, predictable address.
     /// </param>
     /// <param name="members">
@@ -1760,7 +1772,7 @@ public sealed class CppGenerator : IApiGenerator
 
         // The shared lowercase key serves as the page heading so every member in the group
         // can be found at the same predictable path regardless of filesystem case-sensitivity
-        writer.WriteHeading(3, lowerKey);
+        writer.WriteHeading(1, lowerKey);
 
         // Accumulate external types across all members on this shared page
         var externalTypes = new SortedSet<CppExternalTypeInfo>();
@@ -1776,12 +1788,12 @@ public sealed class CppGenerator : IApiGenerator
                     var fnParamTypes = string.Join(
                         ", ",
                         fn.Parameters.Select(p => SimplifyTypeName(p.TypeName)));
-                    writer.WriteHeading(4, $"{fn.Name}({fnParamTypes}) ({fnKind})");
-                    WriteFunctionContent(writer, nsDisplayName, cls.Name, fn, cppResolver, combinedCurrentFolder, externalTypes);
+                    writer.WriteHeading(2, $"{fn.Name}({fnParamTypes}) ({fnKind})");
+                    WriteFunctionContent(writer, nsDisplayName, cls.Name, fn, cppResolver, combinedCurrentFolder, externalTypes, parametersHeadingLevel: 3);
                     break;
 
                 case CppField field:
-                    writer.WriteHeading(4, $"{field.Name} (Field)");
+                    writer.WriteHeading(2, $"{field.Name} (Field)");
                     WriteFieldContent(writer, nsDisplayName, cls.Name, field);
                     break;
             }
