@@ -272,10 +272,9 @@ public sealed class ContextTests
     ///     Validates that repeated <c>--includes</c> flags accumulate all paths in order.
     /// </summary>
     [Fact]
-    public void Context_Create_WithIncludesOption_TrimsWhitespaceAndRemovesEmptyEntries()
+    public void Context_Create_WithRepeatedIncludesFlags_AccumulatesAllPathsInOrder()
     {
         // Arrange: three separate --includes flags, each with a plain path
-        // (test name is retained for history; behavior changed from comma-splitting to repeatable flags)
         var args = new[] { "--includes", "path/a", "--includes", "path/b", "--includes", "path/c" };
 
         // Act

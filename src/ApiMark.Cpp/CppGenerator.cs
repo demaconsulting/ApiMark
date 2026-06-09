@@ -214,8 +214,33 @@ public sealed class CppGenerator : IApiGenerator
 
         // Patterns are evaluated preferentially against the current working directory.
         // When the include root is not under CWD (e.g. an absolute path), the pattern
-        // falls back to root-relative matching. See MatchesGlob for details.
+        // falls back to root-relative matching. Matchers are precompiled once here and
+        // reused for every file rather than being recreated per (file × pattern) pair.
         var cwdAbsolute = Path.GetFullPath(Directory.GetCurrentDirectory());
+
+        // Precompile one Matcher per pattern (outside both loops) to avoid constructing
+        // short-lived Matcher objects on every file/pattern evaluation pair.
+        // Each entry is (isExclusion, compiledMatcher); empty exclusion globs are dropped.
+        var compiledPatterns = new List<(bool IsExclusion, Matcher Matcher)>();
+        foreach (var pattern in _options.ApiHeaderPatterns)
+        {
+            if (pattern.StartsWith("!", StringComparison.Ordinal))
+            {
+                var exclusionGlob = pattern.Substring(1).Trim();
+                if (exclusionGlob.Length > 0)
+                {
+                    var m = new Matcher();
+                    m.AddInclude(exclusionGlob);
+                    compiledPatterns.Add((true, m));
+                }
+            }
+            else
+            {
+                var m = new Matcher();
+                m.AddInclude(pattern);
+                compiledPatterns.Add((false, m));
+            }
+        }
 
         var headers = new List<string>();
         foreach (var root in _options.PublicIncludeRoots)
@@ -236,7 +261,7 @@ public sealed class CppGenerator : IApiGenerator
                 .Select(Path.GetFullPath)
                 .ToList();
 
-            if (_options.ApiHeaderPatterns.Count == 0)
+            if (compiledPatterns.Count == 0)
             {
                 // No patterns configured: include all recognized header files under this root.
                 // This is the default behavior that documents every header reachable from
@@ -245,36 +270,32 @@ public sealed class CppGenerator : IApiGenerator
             }
             else
             {
-                // Apply gitignore-style evaluation for each header file.
-                // Patterns are CWD-relative so "src/include/**" targets exactly one root tree
-                // regardless of how many --includes roots are configured; pure filename
-                // patterns like "**/foo.h" work correctly against both CWD and root-relative
-                // paths (see MatchesGlob for the fallback strategy).
+                // Apply gitignore-style evaluation for each header file using precompiled
+                // matchers. Patterns are CWD-relative when the file is under CWD; otherwise
+                // the path is computed relative to the include root (covers absolute roots and
+                // test environments where the include root is not under CWD).
                 foreach (var absoluteFile in allFiles)
                 {
+                    var relFromCwd = Path.GetRelativePath(cwdAbsolute, absoluteFile).Replace('\\', '/');
+
+                    // Use CWD-relative path when the file is inside the CWD, otherwise fall
+                    // back to root-relative. Check for the specific parent-segment tokens
+                    // ("../" prefix or exactly "..") and rooted paths (different drive on Windows)
+                    // to avoid misclassifying filenames that legitimately start with two dots.
+                    var relPath = IsOutsideCwd(relFromCwd)
+                        ? Path.GetRelativePath(rootAbsolute, absoluteFile).Replace('\\', '/')
+                        : relFromCwd;
+
                     // Start with the file excluded — it must explicitly match an include pattern
                     var included = false;
 
-                    foreach (var pattern in _options.ApiHeaderPatterns)
+                    foreach (var (isExclusion, matcher) in compiledPatterns)
                     {
-                        if (pattern.StartsWith("!", StringComparison.Ordinal))
+                        if (matcher.Match(relPath).HasMatches)
                         {
-                            // Exclusion pattern: strip the '!' prefix and check whether the
-                            // file matches — if it does, mark it excluded (included = false)
-                            var exclusionGlob = pattern.Substring(1).Trim();
-                            if (exclusionGlob.Length > 0 && MatchesGlob(exclusionGlob, cwdAbsolute, rootAbsolute, absoluteFile))
-                            {
-                                included = false;
-                            }
-                        }
-                        else
-                        {
-                            // Inclusion pattern: a match sets included=true, and a later exclusion
-                            // pattern can still override this to produce gitignore semantics
-                            if (MatchesGlob(pattern, cwdAbsolute, rootAbsolute, absoluteFile))
-                            {
-                                included = true;
-                            }
+                            // Inclusion pattern sets included=true; exclusion sets it false.
+                            // Last match wins (gitignore semantics).
+                            included = !isExclusion;
                         }
                     }
 
@@ -297,69 +318,25 @@ public sealed class CppGenerator : IApiGenerator
     }
 
     /// <summary>
-    ///     Tests whether a single header file matches a glob pattern.
+    ///     Returns <see langword="true"/> when the path returned by
+    ///     <see cref="Path.GetRelativePath"/> indicates the file lies outside the base directory.
     /// </summary>
     /// <remarks>
-    ///     <para>
-    ///         Patterns are evaluated as relative paths in order to support gitignore-style
-    ///         semantics. A single-pattern <see cref="Matcher"/> is created per call so that
-    ///         each pattern in the ordered <see cref="CppGeneratorOptions.ApiHeaderPatterns"/>
-    ///         list is evaluated independently.
-    ///     </para>
-    ///     <para>
-    ///         The matching strategy is:
-    ///         <list type="number">
-    ///             <item>
-    ///                 <description>
-    ///                     If <paramref name="absoluteFile"/> is under <paramref name="cwdAbsolute"/>,
-    ///                     match the pattern against the CWD-relative path. This is the normal
-    ///                     production path and lets users write patterns like <c>src/include/**</c>
-    ///                     to target a specific root tree.
-    ///                 </description>
-    ///             </item>
-    ///             <item>
-    ///                 <description>
-    ///                     Otherwise fall back to matching against the path relative to
-    ///                     <paramref name="rootAbsolute"/>. This covers absolute include roots
-    ///                     (e.g. <c>/usr/local/include</c>) and test environments where the
-    ///                     include root is not under the CWD. Pure filename patterns such as
-    ///                     <c>**/foo.h</c> work correctly in both strategies.
-    ///                 </description>
-    ///             </item>
-    ///         </list>
-    ///     </para>
+    ///     <see cref="Path.GetRelativePath"/> returns <c>".."</c> or a <c>"../"</c>-prefixed
+    ///     path when the file is above the base, and returns the original absolute path unchanged
+    ///     when the base and the file are on different drives (Windows). Both cases mean the file
+    ///     is outside the base directory. Checking for the exact two-dot segment avoids
+    ///     misclassifying filenames that legitimately start with two dots (e.g. <c>..hidden.h</c>).
     /// </remarks>
-    /// <param name="glob">
-    ///     A glob pattern relative to <paramref name="cwdAbsolute"/> (or
-    ///     <paramref name="rootAbsolute"/> as fallback), e.g.
-    ///     <c>"src/include/**/*.h"</c> or <c>"**/foo.hpp"</c>.
-    ///     Must not be null or empty.
-    /// </param>
-    /// <param name="cwdAbsolute">Absolute path of the current working directory.</param>
-    /// <param name="rootAbsolute">Absolute path of the include root for this file.</param>
-    /// <param name="absoluteFile">Absolute path of the header file to test.</param>
+    /// <param name="relativeFromBase">The forward-slash-normalized relative path to test.</param>
     /// <returns>
-    ///     <see langword="true"/> when <paramref name="absoluteFile"/> matches
-    ///     <paramref name="glob"/>.
+    ///     <see langword="true"/> when <paramref name="relativeFromBase"/> indicates the file is
+    ///     outside the base directory.
     /// </returns>
-    private static bool MatchesGlob(string glob, string cwdAbsolute, string rootAbsolute, string absoluteFile)
-    {
-        var matcher = new Matcher();
-        matcher.AddInclude(glob);
-
-        // Prefer CWD-relative matching so that explicit path patterns like "src/include/**"
-        // unambiguously target one root tree when multiple roots are configured
-        var relFromCwd = Path.GetRelativePath(cwdAbsolute, absoluteFile).Replace('\\', '/');
-        if (!relFromCwd.StartsWith("..", StringComparison.Ordinal))
-        {
-            return matcher.Match(relFromCwd).HasMatches;
-        }
-
-        // File is outside CWD (absolute root path or test environment): fall back to the
-        // path relative to the include root so that "**/foo.h" still matches correctly
-        var relFromRoot = Path.GetRelativePath(rootAbsolute, absoluteFile).Replace('\\', '/');
-        return matcher.Match(relFromRoot).HasMatches;
-    }
+    private static bool IsOutsideCwd(string relativeFromBase) =>
+        relativeFromBase == ".."
+        || relativeFromBase.StartsWith("../", StringComparison.Ordinal)
+        || Path.IsPathRooted(relativeFromBase);
 
     // =========================================================================
     // Error checking

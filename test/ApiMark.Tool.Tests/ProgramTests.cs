@@ -346,19 +346,32 @@ public class ProgramTests
 
     /// <summary>
     ///     Validates that the removed <c>--search-paths</c> flag is no longer recognized and
-    ///     causes an <see cref="ArgumentException"/> to be thrown at parse time.
+    ///     produces an "Unsupported argument" diagnostic on stderr.
     /// </summary>
     [Fact]
     public void Program_Main_CppWithSearchPathsFlag_ThrowsArgumentException()
     {
         // Arrange: provide --search-paths which was removed in the redesign
         var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
 
-        // Act / Assert: --search-paths must no longer be recognized and must cause a non-zero exit
-        var exitCode = Program.Main(["cpp", "--search-paths", "/sdk", "--output", outputDir]);
+        try
+        {
+            Console.SetError(errorWriter);
 
-        // The unknown flag causes an ArgumentException that is caught and results in exit code 1
-        Assert.NotEqual(0, exitCode);
+            // Act
+            var exitCode = Program.Main(["cpp", "--search-paths", "/sdk", "--output", outputDir]);
+
+            // Assert: must fail with the unsupported-argument diagnostic so the test
+            // confirms the specific flag was rejected rather than some other failure
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--search-paths", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
     }
 
     /// <summary>
@@ -394,21 +407,35 @@ public class ProgramTests
 
     /// <summary>
     ///     Validates that the removed <c>--include-patterns</c> flag is no longer recognized
-    ///     and causes a non-zero exit code.
+    ///     and produces an "Unsupported argument" diagnostic on stderr.
     /// </summary>
     [Fact]
     public void Program_Main_CppWithIncludePatternsFlag_ThrowsArgumentException()
     {
         // Arrange: provide --include-patterns which was removed in the redesign
         var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
 
-        // Act: the unknown flag causes an ArgumentException resulting in exit code 1
-        var exitCode = Program.Main([
-            "cpp",
-            "--include-patterns", "*.h",
-            "--output", outputDir,
-        ]);
+        try
+        {
+            Console.SetError(errorWriter);
 
-        Assert.NotEqual(0, exitCode);
+            // Act
+            var exitCode = Program.Main([
+                "cpp",
+                "--include-patterns", "*.h",
+                "--output", outputDir,
+            ]);
+
+            // Assert: must fail with the unsupported-argument diagnostic so the test
+            // confirms the specific flag was rejected rather than some other failure
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--include-patterns", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
     }
 }
