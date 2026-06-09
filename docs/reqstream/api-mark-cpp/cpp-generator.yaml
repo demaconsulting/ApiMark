@@ -7,39 +7,50 @@ sections:
         requirements:
           - id: ApiMarkCpp-CppGenerator-AcceptIncludeRootsAndParseOptions
             title: >-
-              CppGenerator shall accept a configured set of public include roots and parse-environment
-              options specifying the directories, defines, and C++ standard to use when parsing headers.
+              CppGenerator shall accept a configured set of public include roots and
+              parse-environment
+              options specifying the directories, defines, and C++ standard to use
+              when parsing headers.
             justification: |
               The generator cannot produce correct C++ documentation unless it knows where the public
               headers reside (to determine ownership) and how to configure the Clang parser (to
-              resolve all #include directives encountered during parsing).
+              resolve all  # include directives encountered during parsing).
             tests:
               - CppGenerator_Constructor_NullOptions_ThrowsArgumentNullException
               - CppGenerator_Generate_NonexistentIncludeRoot_ThrowsDirectoryNotFoundException
           - id: ApiMarkCpp-CppGenerator-ParseHeadersViaClang
-            title: CppGenerator shall parse public header files via clang -ast-dump=json to obtain a fully resolved C++ AST.
+            title: CppGenerator shall parse public header files via clang -ast-dump=json
+              to obtain a fully resolved C++ AST.
             justification: |
               A fully resolved AST is required so that type references, template arguments, and
               inheritance relationships across headers are available for accurate documentation
               generation; invoking clang directly produces a complete, standards-compliant AST
               without requiring a bundled parser library.
-            tests:
-              - CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint
+            tests: [CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint]
           - id: ApiMarkCpp-CppGenerator-FilterDeclarationsByOwnership
             title: >-
-              CppGenerator shall apply a file-provenance filter that documents only declarations whose
-              source file falls under a configured public include root.
+              CppGenerator shall apply a file-provenance filter that documents only
+              declarations whose
+              source file both falls under a configured public include root and was
+              selected by the
+              api-headers patterns.
             justification: |
               C++ headers frequently include system and third-party headers whose declarations must
               not appear in the generated API reference. The ownership filter restricts output to
               the library's own public declarations, preventing documentation noise from unrelated
-              code.
+              code. When api-headers patterns are configured, the filter additionally restricts output
+              to declarations whose source file was explicitly selected by those patterns — this ensures
+              that transitively-included dependency headers whose paths fall under a PublicIncludeRoot
+              are still excluded when they were not selected by --api-headers.
             tests:
               - CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass
+              - CppGenerator_Generate_ApiHeaderPatterns_TransitiveInclude_ExcludesNonSelectedSymbols
           - id: ApiMarkCpp-CppGenerator-EmitDetailPageForEveryMember
             title: >-
-              CppGenerator shall emit a dedicated detail page for every visible non-operator member
-              of every documented class and free function, making navigation fully deterministic.
+              CppGenerator shall emit a dedicated detail page for every visible non-operator
+              member
+              of every documented class and free function, making navigation fully
+              deterministic.
             justification: |
               All non-operator members always receive their own dedicated file so that navigation
               is fully deterministic. An AI or tool can always resolve
@@ -53,7 +64,8 @@ sections:
               - CppGenerator_AllMembers_GetSeparateFiles
               - CppGenerator_Generate_MethodWithParameters_CreatesMemberPage
           - id: ApiMarkCpp-CppGenerator-EmitCombinedMemberPageForCaseInsensitiveCollisions
-            title: CppGenerator shall emit a combined member page for case-insensitive filename collisions.
+            title: CppGenerator shall emit a combined member page for case-insensitive
+              filename collisions.
             justification: |
               On case-insensitive filesystems (Windows, macOS), two members whose names
               differ only in case would produce colliding filenames. Such members are
@@ -78,7 +90,8 @@ sections:
               - CppGenerator_Generate_AllVisibility_IncludesPrivateMethod
           - id: ApiMarkCpp-CppGenerator-IncludeDeprecatedApisWhenRequested
             title: >-
-              CppGenerator shall exclude deprecated declarations by default and include them only
+              CppGenerator shall exclude deprecated declarations by default and include
+              them only
               when IncludeDeprecated is true.
             justification: |
               Teams sometimes need the complete historical reference output and sometimes need only
@@ -89,7 +102,8 @@ sections:
               - CppGenerator_Generate_IncludeDeprecatedTrue_IncludesDeprecatedClass
           - id: ApiMarkCpp-CppGenerator-RenderDoxygenDocComments
             title: >-
-              CppGenerator shall extract and render Doxygen @brief, @param, and @return comments
+              CppGenerator shall extract and render Doxygen @brief, @param, and @return
+              comments
               from parsed declarations.
             justification: |
               Developer-authored Doxygen comments contain the descriptions, parameter explanations,
@@ -101,7 +115,8 @@ sections:
               - CppGenerator_Generate_MethodWithDocComment_WritesSummaryToParagraph
               - CppGenerator_Generate_MissingDocComment_WritesPlaceholder
           - id: ApiMarkCpp-CppGenerator-ProduceConsistentOutputFileStructure
-            title: CppGenerator shall produce output files following a consistent naming convention.
+            title: CppGenerator shall produce output files following a consistent
+              naming convention.
             justification: |
               Consistent file and folder naming allows navigation between the entrypoint,
               namespace summaries, type pages, and member detail pages without relying on a
@@ -111,18 +126,19 @@ sections:
               - CppGenerator_Generate_ValidHeaders_CreatesNamespacePage
               - CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass
           - id: ApiMarkCpp-CppGenerator-ApiMdListsAllNamespacesWithTypeCount
-            title: CppGenerator shall list all namespaces in api.md with a declaration count column.
+            title: CppGenerator shall list all namespaces in api.md with a declaration
+              count column.
             justification: |
               Listing every namespace in api.md gives AI agents a complete navigation map in
               a single read. The declaration count (classes + enums + free functions) provides
               scope signal so an AI can calibrate how deeply to explore each namespace without
               opening it first.
-            tests:
-              - CppGenerator_Generate_ApiMd_ListsNamespacesWithTypeCount
+            tests: [CppGenerator_Generate_ApiMd_ListsNamespacesWithTypeCount]
           - id: ApiMarkCpp-CppGenerator-GroupOperatorOverloadsOnSinglePage
             title: >-
               CppGenerator shall group all operator overloads for a class onto a single
-              operators.md page, and all namespace-level operator free functions onto a single
+              operators.md page, and all namespace-level operator free functions onto
+              a single
               namespace-level operators.md page.
             justification: |
               C++ operator names such as operator+, operator<<, and operator== contain characters
@@ -138,8 +154,10 @@ sections:
           - id: ApiMarkCpp-CppGenerator-ShowDirectInheritanceInTypeSignature
             title: >-
               CppGenerator shall include direct base class names in the class declaration
-              line of the signature block for classes that have direct base classes or are
-              marked final, so the inheritance chain is visible without opening the header.
+              line of the signature block for classes that have direct base classes
+              or are
+              marked final, so the inheritance chain is visible without opening the
+              header.
             justification: |
               The direct base class list tells AI agents the contract a type satisfies and
               the class it extends without requiring them to navigate to the header file.
@@ -149,7 +167,8 @@ sections:
               - CppGenerator_Generate_InheritanceClass_EmitsBaseClassInSignature
               - CppGenerator_Generate_FinalClass_EmitsFinalKeywordInSignature
           - id: ApiMarkCpp-CppGenerator-EmitIntraDocLinksInTableCells
-            title: CppGenerator shall emit Markdown links in type and parameter type table cells when the referenced type is documented in the same library.
+            title: CppGenerator shall emit Markdown links in type and parameter type
+              table cells when the referenced type is documented in the same library.
             justification: |
               AI agents and human readers navigating API documentation benefit from
               clickable links that jump directly to the referenced type page rather
@@ -160,8 +179,10 @@ sections:
               - CppGenerator_Generate_IntraLibraryReturnType_EmitsMarkdownLinkInReturnsCell
           - id: ApiMarkCpp-CppGenerator-ApplyGitignoreStylePatternSelectionToHeaders
             title: >-
-              CppGenerator shall apply gitignore-style last-match-wins pattern selection to
-              determine which headers under the include roots contribute to the documented API
+              CppGenerator shall apply gitignore-style last-match-wins pattern selection
+              to
+              determine which headers under the include roots contribute to the documented
+              API
               surface when ApiHeaderPatterns is set.
             justification: |
               Projects need fine-grained control over which headers appear in the generated
@@ -176,7 +197,9 @@ sections:
               - CppGenerator_Generate_ApiHeaderPatterns_ReInclude_GitignoreSemantics_IncludesReIncludedHeader
               - CppGenerator_Generate_ApiHeaderPatterns_ExcludeWithoutReInclude_ExcludesHeader
           - id: ApiMarkCpp-CppGenerator-EmitExternalTypesSection
-            title: CppGenerator shall emit an "External Types" section at the bottom of each generated page that references at least one non-std external type.
+            title: CppGenerator shall emit an "External Types" section at the bottom
+              of each generated page that references at least one non-std external
+              type.
             justification: |
               Readers using an external library type documented on a page need to know
               which namespace or header to include. Collecting all external type
@@ -186,8 +209,10 @@ sections:
               - CppTypeLinkResolver_Linkify_UnknownNamespacedType_TracksExternalType
           - id: ApiMarkCpp-CppGenerator-ShowDeletedFunctionsWithDeletedNotation
             title: >-
-              CppGenerator shall document explicitly deleted functions and operators with a
-              = delete suffix in their signatures so that callers know the operation is
+              CppGenerator shall document explicitly deleted functions and operators
+              with a
+              = delete suffix in their signatures so that callers know the operation
+              is
               intentionally prohibited.
             justification: |
               Explicitly deleted special members (copy constructors, assignment operators, etc.)
@@ -199,8 +224,10 @@ sections:
               - CppGenerator_Generate_DeletedCopyAssignmentOperator_EmitsDeleteSuffix
           - id: ApiMarkCpp-CppGenerator-DocumentTypeAliases
             title: >-
-              CppGenerator shall document using type aliases declared in documented namespaces
-              as first-class entries — each alias receives its own page showing the using
+              CppGenerator shall document using type aliases declared in documented
+              namespaces
+              as first-class entries — each alias receives its own page showing
+              the using
               declaration, the underlying type, and the Doxygen summary comment.
             justification: |
               A using alias is a named type in the public API, not an implementation detail.

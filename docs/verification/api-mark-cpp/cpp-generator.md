@@ -22,7 +22,9 @@ privileged configuration is required beyond a standard clang installation.
 
 - All `CppGenerator` tests pass with zero failures.
 - The ownership filter produces type pages only for declarations physically defined under a
-  configured PublicIncludeRoot.
+  configured PublicIncludeRoot and whose source file was selected by the api-headers patterns
+  (when patterns are configured); transitively-included dependency headers that are under a
+  PublicIncludeRoot but not selected by --api-headers are excluded.
 - Visibility filtering correctly excludes non-public members under Public mode, includes protected
   members under PublicAndProtected mode, and includes private members under All mode.
 - Deprecated filtering correctly excludes declarations marked `[[deprecated]]` when IncludeDeprecated
@@ -218,3 +220,10 @@ operator free function (e.g. `operator<<`) produces a shared `operators.md` page
 `{namespace}/operators` rather than an individual page that would collide with other namespace
 operators. This scenario is tested by
 `CppGenerator_Generate_NamespaceFreeOperator_CreatesNamespaceOperatorsPage`.
+
+**Transitive-include symbols from non-selected headers are excluded**: Verifies that when a
+selected header transitively includes another header that is under a PublicIncludeRoot but was not
+selected by `--api-headers`, symbols defined in the non-selected header are excluded from the
+generated output. This confirms that ownership requires both root-membership and header selection,
+preventing dependency types from appearing in the docs. This scenario is tested by
+`CppGenerator_Generate_ApiHeaderPatterns_TransitiveInclude_ExcludesNonSelectedSymbols`.
