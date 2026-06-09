@@ -1265,9 +1265,11 @@ public sealed class CppGenerator : IApiGenerator
         var returnTypeName = SimplifyTypeName(fn.ReturnTypeName);
         if (!string.Equals(returnTypeName, "void", StringComparison.Ordinal))
         {
+            // Always linkify/track the return type even when a doc description is present
+            var linkedReturnType = cppResolver.Linkify(returnTypeName, currentFolder, externalTypes);
             writer.WriteHeading(parametersHeadingLevel, "Returns");
             var returnDescription = GetReturnDescription(fn.Doc);
-            writer.WriteParagraph(!string.IsNullOrEmpty(returnDescription) ? returnDescription : returnTypeName);
+            writer.WriteParagraph(!string.IsNullOrEmpty(returnDescription) ? returnDescription : linkedReturnType);
         }
     }
 
@@ -1415,9 +1417,11 @@ public sealed class CppGenerator : IApiGenerator
             var returnTypeName = SimplifyTypeName(method.ReturnTypeName);
             if (!string.Equals(returnTypeName, "void", StringComparison.Ordinal))
             {
+                // Always linkify/track the return type even when a doc description is present
+                var linkedReturnType = cppResolver.Linkify(returnTypeName, currentFolder, externalTypes);
                 writer.WriteHeading(parametersHeadingLevel, "Returns");
                 var returnDescription = GetReturnDescription(method.Doc);
-                writer.WriteParagraph(!string.IsNullOrEmpty(returnDescription) ? returnDescription : returnTypeName);
+                writer.WriteParagraph(!string.IsNullOrEmpty(returnDescription) ? returnDescription : linkedReturnType);
             }
         }
     }
