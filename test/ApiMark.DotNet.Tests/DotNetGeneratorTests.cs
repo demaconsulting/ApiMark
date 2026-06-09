@@ -1369,4 +1369,45 @@ public class DotNetGeneratorTests
         Assert.Contains("TInput", signature.Code, StringComparison.Ordinal);
         Assert.Contains("TInput input", signature.Code, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    ///     Validates that a method returning <c>string[]?</c> (a nullable array reference)
+    ///     renders the return type as <c>string[]?</c> — not <c>string[]</c> — in both the
+    ///     type page's Methods table and the member's detail page signature.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_NullableArrayReturnType_RendersWithQuestionMark()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: ArrayAndNullableClass type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ArrayAndNullableClass"),
+            "Expected type page for ArrayAndNullableClass");
+
+        // Assert: the Methods table on the type page shows string[]? in the Returns column
+        var typePage = factory.Writers["ApiMark.DotNet.Fixtures/ArrayAndNullableClass"];
+        var methodsTable = typePage.Operations
+            .OfType<TableOperation>()
+            .FirstOrDefault(t => t.Headers.Contains("Returns", StringComparer.Ordinal));
+        Assert.NotNull(methodsTable);
+        var nullableRow = methodsTable.Rows.FirstOrDefault(
+            r => r[0].Contains("GetNullableNames", StringComparison.Ordinal));
+        Assert.NotNull(nullableRow);
+        Assert.Contains("string[]?", nullableRow[1], StringComparison.Ordinal);
+
+        // Assert: the member detail page signature also shows string[]?
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ArrayAndNullableClass/GetNullableNames"),
+            "Expected detail page for GetNullableNames");
+        var detailPage = factory.Writers["ApiMark.DotNet.Fixtures/ArrayAndNullableClass/GetNullableNames"];
+        var signature = detailPage.Operations.OfType<SignatureOperation>().FirstOrDefault();
+        Assert.NotNull(signature);
+        Assert.Contains("string[]?", signature.Code, StringComparison.Ordinal);
+    }
 }

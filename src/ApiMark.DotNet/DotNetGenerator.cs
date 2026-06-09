@@ -357,7 +357,7 @@ public sealed class DotNetGenerator : IApiGenerator
                 var memberSummary = xmlDocs.GetSummary(memberId) ?? NoDescriptionPlaceholder;
                 var memberTypeRef = GetMemberTypeRef(member);
                 var memberTypeName = memberTypeRef != null
-                    ? resolver.Linkify(memberTypeRef, namespaceFolderPath, namespaceName, externalTypes)
+                    ? resolver.Linkify(memberTypeRef, namespaceFolderPath, namespaceName, externalTypes, IsMemberTypeNullableAnnotated(member))
                     : string.Empty;
                 var memberDisplayName = GetMemberDisplayName(member);
                 var sanitizedName = GetSanitizedMemberFileName(member, type);
@@ -417,7 +417,7 @@ public sealed class DotNetGenerator : IApiGenerator
                 var representativeSummary = xmlDocs.GetSummary(representativeMemberId) ?? NoDescriptionPlaceholder;
                 var representativeTypeRef = GetMemberTypeRef(representative);
                 var representativeTypeName = representativeTypeRef != null
-                    ? resolver.Linkify(representativeTypeRef, namespaceFolderPath, namespaceName, externalTypes)
+                    ? resolver.Linkify(representativeTypeRef, namespaceFolderPath, namespaceName, externalTypes, IsMemberTypeNullableAnnotated(representative))
                     : string.Empty;
                 var overloadDisplayName = GetMethodGroupDisplayName(representative, orderedOverloads.Count);
                 var overloadFileName = GetSanitizedMemberFileName(representative, type);
@@ -452,7 +452,7 @@ public sealed class DotNetGenerator : IApiGenerator
                 var memberSummary = xmlDocs.GetSummary(memberId) ?? NoDescriptionPlaceholder;
                 var memberTypeRef = GetMemberTypeRef(member);
                 var memberTypeName = memberTypeRef != null
-                    ? resolver.Linkify(memberTypeRef, namespaceFolderPath, namespaceName, externalTypes)
+                    ? resolver.Linkify(memberTypeRef, namespaceFolderPath, namespaceName, externalTypes, IsMemberTypeNullableAnnotated(member))
                     : string.Empty;
                 var memberDisplayName = GetMemberDisplayName(member);
 
@@ -1232,7 +1232,10 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <returns>The method signature string.</returns>
     private static string BuildMethodSignature(MethodDefinition method, string contextNamespace)
     {
-        var returnType = TypeNameSimplifier.Simplify(method.ReturnType, contextNamespace);
+        var returnType = TypeNameSimplifier.Simplify(
+            method.ReturnType,
+            contextNamespace,
+            HasNullableAnnotation(method.MethodReturnType.CustomAttributes));
         var isExtensionMethod = IsExtensionMethod(method);
 
         // Use the declaring type name for constructors rather than ConstructorMethodName
@@ -1243,7 +1246,11 @@ public sealed class DotNetGenerator : IApiGenerator
         var parameters = string.Join(", ", method.Parameters.Select((p, index) =>
         {
             var receiverPrefix = isExtensionMethod && index == 0 ? "this " : string.Empty;
-            return $"{receiverPrefix}{TypeNameSimplifier.Simplify(p.ParameterType, contextNamespace)} {p.Name}";
+            var paramType = TypeNameSimplifier.Simplify(
+                p.ParameterType,
+                contextNamespace,
+                HasNullableAnnotation(p.CustomAttributes));
+            return $"{receiverPrefix}{paramType} {p.Name}";
         }));
 
         var accessibility = GetAccessibilityKeyword(method);
@@ -1259,7 +1266,10 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <returns>The property signature string.</returns>
     private static string BuildPropertySignature(PropertyDefinition prop, string contextNamespace)
     {
-        var typeName = TypeNameSimplifier.Simplify(prop.PropertyType, contextNamespace);
+        var typeName = TypeNameSimplifier.Simplify(
+            prop.PropertyType,
+            contextNamespace,
+            HasNullableAnnotation(prop.CustomAttributes));
         var accessibility = GetAccessibilityKeyword(prop.GetMethod ?? prop.SetMethod!);
         var accessors = BuildPropertyAccessors(prop);
         return $"{accessibility} {typeName} {prop.Name} {{ {accessors} }}";
@@ -1294,7 +1304,10 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <returns>The field signature string.</returns>
     private static string BuildFieldSignature(FieldDefinition field, string contextNamespace)
     {
-        var typeName = TypeNameSimplifier.Simplify(field.FieldType, contextNamespace);
+        var typeName = TypeNameSimplifier.Simplify(
+            field.FieldType,
+            contextNamespace,
+            HasNullableAnnotation(field.CustomAttributes));
 
         // Determine modifier(s) from compile-time flags; literals imply IsStatic so they
         // must be tested before the IsStatic arm to avoid showing "static const"
@@ -1317,7 +1330,10 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <returns>The event signature string.</returns>
     private static string BuildEventSignature(EventDefinition evt, string contextNamespace)
     {
-        var typeName = TypeNameSimplifier.Simplify(evt.EventType, contextNamespace);
+        var typeName = TypeNameSimplifier.Simplify(
+            evt.EventType,
+            contextNamespace,
+            HasNullableAnnotation(evt.CustomAttributes));
         return $"public event {typeName} {evt.Name}";
     }
 
@@ -1370,6 +1386,64 @@ public sealed class DotNetGenerator : IApiGenerator
         EventDefinition e => e.EventType,
         _ => null,
     };
+
+    /// <summary>
+    ///     Returns <see langword="true"/> when the member's primary type (return type, property
+    ///     type, field type, or event type) carries a <c>NullableAttribute(2)</c> annotation on
+    ///     its outermost position, indicating a C# 8+ nullable reference type.
+    /// </summary>
+    /// <remarks>
+    ///     Mono.Cecil stores nullable-reference annotations on the containing member (method return
+    ///     parameter, property, field, or event) rather than on the <see cref="TypeReference"/>
+    ///     itself. This method reads the correct <see cref="ICustomAttributeProvider"/> for each
+    ///     member kind and delegates to <see cref="HasNullableAnnotation"/>.
+    /// </remarks>
+    private static bool IsMemberTypeNullableAnnotated(IMemberDefinition member) => member switch
+    {
+        MethodDefinition m when m.Name != ConstructorMethodName
+            => HasNullableAnnotation(m.MethodReturnType.CustomAttributes),
+        PropertyDefinition p => HasNullableAnnotation(p.CustomAttributes),
+        FieldDefinition f => HasNullableAnnotation(f.CustomAttributes),
+        EventDefinition e => HasNullableAnnotation(e.CustomAttributes),
+        _ => false,
+    };
+
+    /// <summary>
+    ///     Returns <see langword="true"/> when <paramref name="attrs"/> contains a
+    ///     <c>System.Runtime.CompilerServices.NullableAttribute</c> whose first (or only)
+    ///     byte argument is <c>2</c>, which is the compiler-emitted encoding for a nullable
+    ///     reference type annotation (<c>?</c>).
+    /// </summary>
+    /// <remarks>
+    ///     The attribute has two constructor forms: <c>NullableAttribute(byte)</c> for simple
+    ///     types and <c>NullableAttribute(byte[])</c> for composite types (arrays, generics).
+    ///     In the composite form, byte index 0 represents the outermost type's nullability.
+    /// </remarks>
+    private static bool HasNullableAnnotation(IEnumerable<CustomAttribute> attrs)
+    {
+        var nullableAttr = attrs.FirstOrDefault(
+            a => a.AttributeType.FullName == "System.Runtime.CompilerServices.NullableAttribute");
+        if (nullableAttr == null || nullableAttr.ConstructorArguments.Count == 0)
+        {
+            return false;
+        }
+
+        var arg = nullableAttr.ConstructorArguments[0];
+
+        // Single-byte form: NullableAttribute(byte)
+        if (arg.Value is byte b)
+        {
+            return b == 2;
+        }
+
+        // Byte-array form: NullableAttribute(byte[]) — index 0 is the outermost type
+        if (arg.Value is CustomAttributeArgument[] arr && arr.Length > 0 && arr[0].Value is byte first)
+        {
+            return first == 2;
+        }
+
+        return false;
+    }
 
     /// <summary>
     ///     Writes the "External Types" section at the end of a generated Markdown page,

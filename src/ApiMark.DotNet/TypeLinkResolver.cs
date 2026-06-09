@@ -132,11 +132,11 @@ internal sealed class TypeLinkResolver
             return Linkify(inner, currentFolder, contextNamespace, externalTypes, true);
         }
 
-        // Handle array types by resolving the element type and appending "[]"
+        // Handle array types by resolving the element type and appending "[]" (plus "?" when nullable)
         if (typeRef is ArrayType arrayType)
         {
             var elementText = Linkify(arrayType.ElementType, currentFolder, contextNamespace, externalTypes);
-            return elementText + "[]";
+            return isNullableAnnotated ? elementText + "[]?" : elementText + "[]";
         }
 
         // Handle generic instance types: linkify the container when intra-assembly, else track external

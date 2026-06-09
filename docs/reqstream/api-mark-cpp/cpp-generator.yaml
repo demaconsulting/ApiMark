@@ -195,8 +195,8 @@ sections:
               would imply the operation is available; showing them with = delete makes the
               prohibition visible without requiring readers to examine the header.
             tests:
-              - CppGenerator_Generate_DeletedConstructor_SignatureContainsDeleteSuffix
-              - CppGenerator_Generate_DeletedOperator_SignatureContainsDeleteSuffix
+              - CppGenerator_Generate_DeletedCopyConstructor_EmitsDeleteSuffix
+              - CppGenerator_Generate_DeletedCopyAssignmentOperator_EmitsDeleteSuffix
           - id: ApiMarkCpp-CppGenerator-DocumentTypeAliases
             title: >-
               CppGenerator shall document using type aliases declared in documented namespaces

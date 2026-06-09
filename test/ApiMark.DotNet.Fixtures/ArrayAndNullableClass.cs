@@ -18,4 +18,8 @@ public static class ArrayAndNullableClass
     /// <summary>Gets a value asynchronously.</summary>
     /// <returns>A task that resolves to a boolean value.</returns>
     public static Task<bool> GetAsync() => Task.FromResult(false);
+
+    /// <summary>Gets an optional array of names; the array reference itself may be null.</summary>
+    /// <returns>An array of name strings, or null when unavailable.</returns>
+    public static string[]? GetNullableNames() => null;
 }
