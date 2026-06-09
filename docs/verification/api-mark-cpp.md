@@ -20,7 +20,7 @@ configuration beyond a standard clang installation is required.
 ## Acceptance Criteria
 
 - All ApiMarkCpp tests pass with zero failures.
-- The generator discovers namespaces, types, free functions, and enums from the fixture headers.
+- The generator discovers namespaces, types, free functions, enums, and type aliases from the fixture headers.
 - Doxygen `@brief` comments appear as description paragraphs in generated output.
 - Visibility filtering (Public, PublicAndProtected, All) correctly includes and excludes class
   members based on their C++ access specifier.
@@ -29,9 +29,13 @@ configuration beyond a standard clang installation is required.
 - All visible members — including parameterless methods, constructors, and free functions —
   receive their own dedicated detail pages, except where case-insensitive filename collisions
   require combining members onto one shared page.
+- Explicitly deleted functions and operators are documented with a `= delete` suffix in their
+  signatures.
+- `using` type aliases receive their own pages at `{namespace}/{aliasName}.md` and are listed
+  in the namespace summary under a "Type Aliases" section.
 - Output files follow the naming convention: `api.md` entrypoint, `{namespace}.md` namespace
-  summaries, `{namespace}/{TypeName}.md` type pages, and `{namespace}/{TypeName}/{MemberName}.md`
-  member detail pages.
+  summaries, `{namespace}/{TypeName}.md` type pages, `{namespace}/{AliasName}.md` type alias
+  pages, and `{namespace}/{TypeName}/{MemberName}.md` member detail pages.
 
 ## Test Scenarios
 
@@ -156,3 +160,28 @@ than an unrelated null-reference failure during I/O. This scenario is tested by
 `DirectoryNotFoundException` when a configured PublicIncludeRoot path does not exist on disk,
 providing a clear diagnostic rather than silently producing empty output. This scenario is tested
 by `CppGenerator_Generate_NonexistentIncludeRoot_ThrowsDirectoryNotFoundException`.
+
+**Deleted constructor signature contains = delete suffix**: Verifies that a constructor declared
+with `= delete` is documented with a `= delete` suffix in its signature block so that readers
+can see the intentional prohibition without opening the header file. This scenario is tested by
+`CppGenerator_Generate_DeletedConstructor_SignatureContainsDeleteSuffix`.
+
+**Deleted operator signature contains = delete suffix**: Verifies that an operator declared with
+`= delete` is documented with a `= delete` suffix in its signature so that the prohibition is
+visible on the combined operators page. This scenario is tested by
+`CppGenerator_Generate_DeletedOperator_SignatureContainsDeleteSuffix`.
+
+**Type aliases receive their own pages**: Verifies that `using` type alias declarations in
+documented namespaces produce individual pages at `{namespace}/{aliasName}`, following the same
+convention as class and enum pages. This scenario is tested by
+`CppGenerator_Generate_TypeAlias_CreatesAliasPages`.
+
+**Type alias page contains declaration and summary**: Verifies that the type alias page contains
+the `using {name} = {underlying}` declaration in a fenced code block and the Doxygen `@brief`
+summary as a description paragraph. This scenario is tested by
+`CppGenerator_Generate_TypeAliasPage_ContainsDeclarationAndSummary`.
+
+**Namespace page lists type aliases**: Verifies that the namespace summary page includes a
+"Type Aliases" section that lists every owned alias so readers can discover them without opening
+individual alias pages. This scenario is tested by
+`CppGenerator_Generate_NamespacePage_ListsTypeAliases`.

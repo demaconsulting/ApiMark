@@ -49,7 +49,7 @@ apimark cpp [options]
 | `--library-description <d>` | Optional description for the library `api.md` introduction |
 | `--defines <values>` | Comma-separated preprocessor definitions (e.g. `MYLIB_API=,NDEBUG`) |
 | `--cpp-standard <std>` | C++ language standard passed to Clang (default: `c++17`) |
-| `--clang-path <path>` | Path to clang executable (default: auto-discovered via PATH / xcrun / vswhere) |
+| `--clang-path <path>` | Path to clang executable (default: auto-discovered via `APIMARK_CLANG_PATH`, PATH / xcrun / vswhere) |
 | `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `Public`) |
 | `--include-obsolete` | Include deprecated members in generated output |
 
@@ -90,6 +90,17 @@ This is equivalent to the gitignore rule sequence:
 | `!include/detail/**` | Exclude all headers under `include/detail/` |
 | `include/detail/public_api.h` | Re-include `include/detail/public_api.h` specifically |
 
+#### Clang executable discovery
+
+ApiMark locates the clang executable using the following priority order:
+
+1. `--clang-path <path>` — explicit path, used as-is (must exist on disk).
+2. `APIMARK_CLANG_PATH` environment variable — set this in CI or shell profiles
+   to configure clang project-wide without repeating the path on every invocation.
+3. `clang` on the system `PATH`.
+4. `xcrun clang` — macOS only, selects the active Xcode SDK automatically.
+5. vswhere-located LLVM clang / `C:\Program Files\LLVM\bin\clang.exe` — Windows only.
+
 ## Platform Support
 
 | Platform | `dotnet` | `cpp` |
@@ -105,8 +116,9 @@ ApiMark uses a four-tier gradual disclosure layout:
 | File | Description |
 | --- | --- |
 | `api.md` | Root index — lists all namespaces with type counts and one-line summaries |
-| `{namespace}.md` | Namespace summary — lists all types, enums, and functions with one-line summaries |
+| `{namespace}.md` | Namespace summary — lists all types, enums, type aliases, and functions with one-line summaries |
 | `{namespace}/{type}.md` | Type page — members grouped by kind with signatures and doc comment details |
+| `{namespace}/{alias}.md` | Type alias page — `using` declaration, underlying type, and doc comment |
 | `{namespace}/{type}/{member}.md` | Member detail page — full signature, parameters, return value, remarks |
 
 An AI agent can read the root index first, drill into the relevant namespace

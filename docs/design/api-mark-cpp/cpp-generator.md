@@ -73,9 +73,10 @@ sees them as no-ops and does not misinterpret them as type annotations.
 to Clang (e.g. `"c++17"`, `"c++20"`). Defaults to `"c++17"` when not
 specified.
 
-**CppGeneratorOptions.ClangPath**: `string?` — optional path to the clang executable; when null
-or empty, clang is discovered automatically (PATH → xcrun on macOS → vswhere on Windows →
-`C:\Program Files\LLVM\bin\clang.exe`).
+**CppGeneratorOptions.ClangPath**: `string?` — optional explicit path to the clang executable.
+When non-empty, this path is used directly (and must exist on disk); no discovery is performed.
+When null or empty, the discovery order is: `APIMARK_CLANG_PATH` environment variable →
+`clang` on PATH → `xcrun clang` on macOS → vswhere LLVM / `C:\Program Files\LLVM\bin\clang.exe` on Windows.
 
 **CppGeneratorOptions.AdditionalCompilerArguments**: `IReadOnlyList<string>` —
 raw Clang compiler arguments appended after all structured options. Provides an
@@ -128,6 +129,7 @@ filter, and writes the full Markdown output tree.
     | ----------- | ------------ |
     | Namespace | `{Namespace}.md` |
     | Type | `{Namespace}/{TypeName}.md` |
+    | Type alias | `{Namespace}/{AliasName}.md` |
     | Member | `{Namespace}/{TypeName}/{MemberName}.md` |
     | Free function | `{Namespace}/{FunctionName}.md` |
     | Enum | `{Namespace}/{EnumName}.md` |
@@ -177,7 +179,8 @@ members (case-insensitive collision) emit a single combined page via
 `operators.md` page via `WriteClassOperatorsPage`; emit grouped sub-tables with
 links; for each namespace with operator free functions emit a single
 `operators.md` page via `WriteNamespaceOperatorsPage` instead of individual
-pages; delete the temporary combined header file.
+pages; for each owned type alias emit a type alias page via `WriteTypeAliasPage`;
+delete the temporary combined header file.
 
 **IsOwnedDeclaration** (internal): Determines whether a declaration belongs to
 the documented public API.
@@ -295,6 +298,26 @@ type was referenced in table cells.
 - *Algorithm*: Returns immediately when the set is empty; otherwise writes an
   H2 heading `"External Types"` and a two-column table (`Type`, `Namespace`).
 
+**CppGenerator.WriteTypeAliasPage** (private): Writes a documentation page for a
+`using` type alias declaration.
+
+- *Parameters*: `IMarkdownWriterFactory factory`, `string nsKey`, `string nsDisplayName`,
+  `CppTypeAlias alias`.
+- *Returns*: `void`
+- *Algorithm*: Creates `{nsKey}/{alias.Name}.md` via the factory; writes an H1 heading
+  using `alias.Name`; emits the fully-qualified name comment
+  (`// {nsDisplayName}::{alias.Name}`), the optional `#include` directive from the source
+  location, and the `using {alias.Name} = {alias.UnderlyingTypeName}` declaration in a
+  fenced `cpp` code block; emits the doc comment summary paragraph or the no-description
+  placeholder; emits the extended details paragraph when a `@details` or `@remarks` block
+  is present.
+
+**CppFunction.IsDeleted** (data model property): `bool` — when `true`, the function
+was declared with `= delete` in the source. `ClangAstParser` reads this from the
+`"explicitlyDeleted"` field of `FunctionDecl` and `CXXMethodDecl` nodes in the clang JSON
+AST. `BuildMethodSignature` appends the `= delete` suffix to the rendered signature when
+this flag is set, making the intentional prohibition visible in the generated documentation.
+
 ### Error Handling
 
 CppGenerator throws `DirectoryNotFoundException` when a path in
@@ -310,7 +333,8 @@ DotNetGenerator behavior.
 - **IApiGenerator** — CppGenerator implements this interface from ApiMarkCore.
 - **IMarkdownWriterFactory** — CppGenerator receives an IMarkdownWriterFactory
   through Generate and calls CreateMarkdown to obtain each IMarkdownWriter.
-- **clang** — the system clang executable (`clang` on PATH, `xcrun clang` on macOS, or
+- **clang** — the system clang executable (resolved via `CppGeneratorOptions.ClangPath`,
+  `APIMARK_CLANG_PATH` environment variable, `clang` on PATH, `xcrun clang` on macOS, or
   vswhere-located clang on Windows) is invoked as a subprocess to parse C++ headers and
   produce a JSON AST — see Clang Integration Design.
 

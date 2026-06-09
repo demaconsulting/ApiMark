@@ -153,6 +153,9 @@ internal sealed class ClangAstParser
     // Clang discovery
     // =========================================================================
 
+    /// <summary>The name of the environment variable that overrides automatic clang discovery.</summary>
+    internal const string ClangPathEnvVar = "APIMARK_CLANG_PATH";
+
     /// <summary>
     ///     Resolves the clang executable path and any command prefix needed to invoke it.
     /// </summary>
@@ -160,6 +163,7 @@ internal sealed class ClangAstParser
     ///     Discovery order:
     ///     <list type="number">
     ///       <item>Explicit <paramref name="clangPath"/> from options (must exist on disk).</item>
+    ///       <item><c>APIMARK_CLANG_PATH</c> environment variable (must exist on disk).</item>
     ///       <item><c>clang</c> on the system PATH.</item>
     ///       <item>On macOS: <c>xcrun</c> with <c>"clang"</c> as the first argument.</item>
     ///       <item>On Windows: vswhere-located LLVM clang, then
@@ -192,19 +196,33 @@ internal sealed class ClangAstParser
             return (clangPath, []);
         }
 
-        // Option 2: clang on the system PATH (all platforms)
+        // Option 2: APIMARK_CLANG_PATH environment variable
+        var envPath = Environment.GetEnvironmentVariable(ClangPathEnvVar);
+        if (!string.IsNullOrEmpty(envPath))
+        {
+            if (!File.Exists(envPath))
+            {
+                throw new InvalidOperationException(
+                    $"Clang executable not found at the path specified by the " +
+                    $"{ClangPathEnvVar} environment variable: '{envPath}'.");
+            }
+
+            return (envPath, []);
+        }
+
+        // Option 3: clang on the system PATH (all platforms)
         if (TryFindOnPath("clang", out var clangOnPath))
         {
             return (clangOnPath, []);
         }
 
-        // Option 3: macOS — use xcrun so the active Xcode SDK is selected automatically
+        // Option 4: macOS — use xcrun so the active Xcode SDK is selected automatically
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
             return ("xcrun", ["clang"]);
         }
 
-        // Option 4: Windows — query vswhere, then fall back to the default LLVM install location
+        // Option 5: Windows — query vswhere, then fall back to the default LLVM install location
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             var vsClang = FindVsClang();
@@ -223,6 +241,7 @@ internal sealed class ClangAstParser
 
         throw new InvalidOperationException(
             "Clang executable not found. Install LLVM clang and ensure 'clang' is on PATH, " +
+            $"set the {ClangPathEnvVar} environment variable, " +
             "or set CppGeneratorOptions.ClangPath to the absolute path of the clang executable.");
     }
 

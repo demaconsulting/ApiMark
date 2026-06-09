@@ -35,18 +35,24 @@ users to control the exact compiler version used for parsing.
 - **Doc comment nodes** — `FullComment`, `ParagraphComment`, `BlockCommandComment`,
   `ParamCommandComment`, and `TextComment` sub-nodes within each declaration carry the
   structured Doxygen documentation comment content.
-- **Clang discovery** — the parser locates the clang executable automatically: by searching PATH
-  on all platforms, by invoking clang through `xcrun` on macOS if the PATH search fails, and by
-  querying vswhere for LLVM installations on Windows if both earlier strategies fail. An explicit
-  path can be provided via `CppGeneratorOptions.ClangPath` to override discovery.
+- **Clang discovery** — the parser locates the clang executable using this priority order:
+  (1) `CppGeneratorOptions.ClangPath` when explicitly set;
+  (2) the `APIMARK_CLANG_PATH` environment variable when set (allows project-wide or CI-wide
+  configuration without repeating the path on every invocation);
+  (3) `clang` on the system PATH;
+  (4) `xcrun clang` on macOS if the PATH search fails;
+  (5) vswhere-located LLVM clang on Windows, then `C:\Program Files\LLVM\bin\clang.exe`.
+  When a path is supplied by option (1) or (2) and the file does not exist on disk, an
+  `InvalidOperationException` is thrown immediately with a clear diagnostic message.
 
 ### Integration Pattern
 
 Clang is consumed by `ClangAstParser` in `src/ApiMark.Cpp/CppAst/ClangAstParser.cs`. The
 integration follows these steps:
 
-1. `ClangAstParser.Parse` discovers the clang executable using the strategy described under
-   _Features Used_ above, or uses `CppGeneratorOptions.ClangPath` if set.
+1. `ClangAstParser.Parse` discovers the clang executable using the priority order described
+   under _Features Used_ above: explicit `CppGeneratorOptions.ClangPath` → `APIMARK_CLANG_PATH`
+   environment variable → `clang` on PATH → `xcrun` on macOS → vswhere / default LLVM path on Windows.
 2. The parser builds a combined `#include` header file that includes every file in the configured
    public include roots (after applying IncludePatterns and ExcludePatterns).
 3. The parser constructs a clang command line: `-Xclang -ast-dump=json -fparse-all-comments

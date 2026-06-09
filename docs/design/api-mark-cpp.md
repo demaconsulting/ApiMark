@@ -49,8 +49,10 @@ ApiMarkCore.
   compiler flags, then parses the JSON output into structured C++ AST records.
 - *Contract*: `clang -Xclang -ast-dump=json -fparse-all-comments -fsyntax-only
   -x c++ -std={standard} -I {roots} -isystem {sysroots} -D {defines} {headers}`.
-  The clang executable is located automatically (PATH, xcrun on macOS, vswhere on
-  Windows) or from `CppGeneratorOptions.ClangPath`.
+  The clang executable is located using this priority order:
+  (1) `CppGeneratorOptions.ClangPath` when set;
+  (2) the `APIMARK_CLANG_PATH` environment variable when set;
+  (3) `clang` on PATH; (4) `xcrun clang` on macOS; (5) vswhere / default LLVM path on Windows.
 - *Constraints*: clang must be installed and accessible; a clear
   `InvalidOperationException` is thrown when clang cannot be found.
 

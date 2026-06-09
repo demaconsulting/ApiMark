@@ -184,3 +184,30 @@ sections:
               without cluttering individual type cells with fully-qualified names.
             tests:
               - CppTypeLinkResolver_Linkify_UnknownNamespacedType_TracksExternalType
+          - id: ApiMarkCpp-CppGenerator-ShowDeletedFunctionsWithDeletedNotation
+            title: >-
+              CppGenerator shall document explicitly deleted functions and operators with a
+              = delete suffix in their signatures so that callers know the operation is
+              intentionally prohibited.
+            justification: |
+              Explicitly deleted special members (copy constructors, assignment operators, etc.)
+              communicate an intentional design decision to users of the API. Suppressing them
+              would imply the operation is available; showing them with = delete makes the
+              prohibition visible without requiring readers to examine the header.
+            tests:
+              - CppGenerator_Generate_DeletedConstructor_SignatureContainsDeleteSuffix
+              - CppGenerator_Generate_DeletedOperator_SignatureContainsDeleteSuffix
+          - id: ApiMarkCpp-CppGenerator-DocumentTypeAliases
+            title: >-
+              CppGenerator shall document using type aliases declared in documented namespaces
+              as first-class entries — each alias receives its own page showing the using
+              declaration, the underlying type, and the Doxygen summary comment.
+            justification: |
+              A using alias is a named type in the public API, not an implementation detail.
+              Documenting it with its own page allows AI agents and human readers to navigate
+              to it by name and understand both the alias and its underlying type without
+              inspecting header files.
+            tests:
+              - CppGenerator_Generate_TypeAlias_CreatesAliasPages
+              - CppGenerator_Generate_TypeAliasPage_ContainsDeclarationAndSummary
+              - CppGenerator_Generate_NamespacePage_ListsTypeAliases
