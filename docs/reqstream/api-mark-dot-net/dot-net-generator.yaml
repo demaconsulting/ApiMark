@@ -141,3 +141,18 @@ sections:
               - DotNetGenerator_Generate_TypeWithOperators_OperatorsPageUsesSymbolHeadings
               - DotNetGenerator_Generate_TypeWithConversionOperators_OperatorsPageContainsSummaries
               - DotNetGenerator_Generate_TypeWithConversionOperators_OperatorsPageUsesConversionSyntax
+              - DotNetGenerator_Generate_ConversionOperatorReturningNestedType_OperatorsPageContainsSummary
+          - id: ApiMarkDotNet-DotNetGenerator-DocumentNestedTypes
+            title: >-
+              DotNetGenerator shall document public nested types within their containing type's page and
+              generate a dedicated page for each nested type under the containing type's folder.
+            justification: |
+              C# types commonly nest supporting types (builders, enumerators, result types, configuration
+              records) within their declaring type as part of the public API. Omitting nested types from
+              the generated documentation silently drops documented API surface that consumers depend on.
+              Each nested type receives a dedicated page at {NamespacePath}/{OuterTypeName}/{NestedTypeName}.md
+              so the documentation hierarchy mirrors the C# type hierarchy.
+            tests:
+              - DotNetGenerator_Generate_NestedClass_CreatesNestedClassPage
+              - DotNetGenerator_Generate_NestedClass_ListedOnOuterClassPage
+              - DotNetGenerator_Generate_NestedClass_PageContainsSummary

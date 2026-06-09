@@ -1626,4 +1626,109 @@ public class DotNetGeneratorTests
         Assert.DoesNotContain(h2Headings, h => h.Contains("op_Implicit"));
         Assert.DoesNotContain(h2Headings, h => h.Contains("op_Explicit"));
     }
+
+    /// <summary>
+    ///     Validates that a public nested class inside an outer type receives a dedicated page
+    ///     at <c>{NamespacePath}/{OuterTypeName}/{NestedTypeName}</c> in the writer factory.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_NestedClass_CreatesNestedClassPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: the nested type page must exist at the hierarchical key
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OuterClass/Inner"),
+            "Expected a dedicated page for OuterClass.Inner at ApiMark.DotNet.Fixtures/OuterClass/Inner");
+    }
+
+    /// <summary>
+    ///     Validates that the outer type page includes a "Nested Types" H2 section with a
+    ///     table row for each visible nested type so readers can navigate to them.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_NestedClass_ListedOnOuterClassPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: outer type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OuterClass"),
+            "Expected a type page for OuterClass");
+
+        var outerWriter = factory.Writers["ApiMark.DotNet.Fixtures/OuterClass"];
+        var operations = outerWriter.Operations.ToList();
+
+        // Assert: a "Nested Types" heading must be present
+        var nestedIndex = operations.FindIndex(op => op is HeadingOperation h && h.Level == 2 && h.Text == "Nested Types");
+        Assert.True(nestedIndex >= 0, "Expected 'Nested Types' H2 heading on OuterClass page");
+
+        // Assert: the table immediately following must contain a row for Inner
+        var nestedTable = operations.Skip(nestedIndex + 1).OfType<TableOperation>().First();
+        Assert.Contains(nestedTable.Rows, row => row[0].Contains("Inner", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that the dedicated page for a public nested class contains the XML
+    ///     summary authored on that nested type.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_NestedClass_PageContainsSummary()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: the nested type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OuterClass/Inner"),
+            "Expected a dedicated page for OuterClass.Inner");
+
+        // Assert: the XML summary text must appear as a paragraph on the page
+        var nestedWriter = factory.Writers["ApiMark.DotNet.Fixtures/OuterClass/Inner"];
+        var paragraphs = nestedWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("A public nested class inside OuterClass", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a conversion operator whose return type is a nested type resolves its
+    ///     XML documentation correctly, confirming that the <c>~ReturnType</c> suffix in the XML
+    ///     doc member ID uses <c>.</c> as the separator (matching the XML doc format) rather than
+    ///     the <c>/</c> separator used by Cecil's <c>FullName</c>.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ConversionOperatorReturningNestedType_OperatorsPageContainsSummary()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: the operators page for OperatorsStruct must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsStruct/operators"),
+            "Expected operators page for OperatorsStruct");
+
+        // Assert: the XML summary for the implicit operator returning Wrapped must appear —
+        // without the Replace('/', '.') fix, the XML doc lookup would fail and the summary
+        // would be replaced by the no-description placeholder instead
+        var opsWriter = factory.Writers["ApiMark.DotNet.Fixtures/OperatorsStruct/operators"];
+        var paragraphs = opsWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Wraps this instance as a Wrapped value", StringComparison.Ordinal));
+    }
 }

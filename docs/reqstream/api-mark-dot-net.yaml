@@ -18,6 +18,7 @@ sections:
           - ApiMarkDotNet-DotNetGenerator-EmitDetailPageForEveryMember
           - ApiMarkDotNet-DotNetGenerator-ProduceConsistentOutputFileStructure
           - ApiMarkDotNet-DotNetGenerator-DocumentOperatorOverloads
+          - ApiMarkDotNet-DotNetGenerator-DocumentNestedTypes
         tests:
           - ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown
       - id: ApiMarkDotNet-TypeNameSimplifier-ProduceReadableTypeNames

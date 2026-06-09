@@ -150,6 +150,7 @@ public sealed class DotNetGenerator : IApiGenerator
             new[] { "Root namespace", "`{Namespace}.md`" },
             new[] { "Child namespace", "`{ParentPath}/{ChildName}.md`" },
             new[] { "Type", "`{NamespacePath}/{TypeName}.md`" },
+            new[] { "Nested type", "`{NamespacePath}/{TypeName}/{NestedTypeName}.md`" },
             new[] { "Member", "`{NamespacePath}/{TypeName}/{MemberName}.md`" },
             new[] { "Operators", "`{NamespacePath}/{TypeName}/operators.md`" },
         };
@@ -543,6 +544,33 @@ public sealed class DotNetGenerator : IApiGenerator
             typeWriter.WriteTable(
                 new[] { "Member", DescriptionColumnHeader },
                 new[] { new[] { $"[operators]({FlattenArity(type.Name)}/operators.md)", "Operator overloads" } });
+        }
+
+        // Emit Nested Types section when the type has visible nested types — each nested type
+        // receives a dedicated page under the containing type's folder so the documentation
+        // hierarchy mirrors the C# type hierarchy
+        var visibleNestedTypes = GetVisibleNestedTypes(type).ToList();
+        if (visibleNestedTypes.Count > 0)
+        {
+            typeWriter.WriteHeading(2, "Nested Types");
+            var nestedTypeHeaders = new[] { "Type", DescriptionColumnHeader };
+            var nestedTypeRows = visibleNestedTypes.Select(nested =>
+            {
+                var nestedTypeId = BuildTypeId(nested);
+                var nestedSummary = xmlDocs.GetSummary(nestedTypeId) ?? NoDescriptionPlaceholder;
+                var nestedDisplayName = StripArity(nested.Name);
+                var nestedLink = $"{FlattenArity(type.Name)}/{FlattenArity(nested.Name)}.md";
+                return new[] { $"[{nestedDisplayName}]({nestedLink})", nestedSummary };
+            });
+            typeWriter.WriteTable(nestedTypeHeaders, nestedTypeRows);
+
+            // Recursively write a dedicated page for each visible nested type under the
+            // containing type's folder, mirroring the C# type nesting hierarchy
+            var nestedFolderPath = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
+            foreach (var nested in visibleNestedTypes)
+            {
+                WriteTypePage(factory, namespaceName, nestedFolderPath, nested, xmlDocs, resolver);
+            }
         }
 
         // Emit the External Types section when any non-standard external types were referenced
@@ -1005,6 +1033,34 @@ public sealed class DotNetGenerator : IApiGenerator
     }
 
     /// <summary>
+    ///     Returns the nested types of <paramref name="type"/> that satisfy the visibility
+    ///     setting in <see cref="_options"/>, ordered by name.
+    /// </summary>
+    /// <remarks>
+    ///     Nested-type visibility is tested with the <c>IsNested*</c> flags rather than the
+    ///     top-level <c>IsPublic</c> flag because Cecil assigns separate flags to each
+    ///     nested-access level. Ordering by name ensures deterministic output regardless of
+    ///     metadata table order.
+    /// </remarks>
+    /// <param name="type">The declaring type whose nested types are to be filtered.</param>
+    /// <returns>
+    ///     An ordered enumerable of nested <see cref="TypeDefinition"/> instances that pass
+    ///     the current visibility filter.
+    /// </returns>
+    private IEnumerable<TypeDefinition> GetVisibleNestedTypes(TypeDefinition type)
+    {
+        return type.NestedTypes
+            .Where(t => _options.Visibility switch
+            {
+                ApiVisibility.Public => t.IsNestedPublic,
+                ApiVisibility.PublicAndProtected => t.IsNestedPublic || t.IsNestedFamily || t.IsNestedFamilyOrAssembly,
+                ApiVisibility.All => true,
+                _ => t.IsNestedPublic,
+            })
+            .OrderBy(t => t.Name, StringComparer.Ordinal);
+    }
+
+    /// <summary>
     ///     Returns <c>true</c> when <paramref name="member"/> satisfies the visibility
     ///     setting in <see cref="_options"/>.
     /// </summary>
@@ -1156,7 +1212,9 @@ public sealed class DotNetGenerator : IApiGenerator
         // with the same source type but different target types
         if (method.Name is "op_Implicit" or "op_Explicit")
         {
-            return $"M:{typeName}.{methodName}({paramList})~{method.ReturnType.FullName}";
+            // Normalize nested-type separators: Cecil uses '/' in FullName (e.g. OuterClass/Inner)
+            // but XML doc IDs always use '.' (e.g. OuterClass.Inner)
+            return $"M:{typeName}.{methodName}({paramList})~{method.ReturnType.FullName.Replace('/', '.')}";
         }
 
         return $"M:{typeName}.{methodName}({paramList})";

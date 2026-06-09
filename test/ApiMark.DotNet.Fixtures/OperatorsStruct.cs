@@ -36,4 +36,12 @@ public readonly struct OperatorsStruct
     /// <param name="value">The instance to convert.</param>
     /// <returns>The scalar value truncated to an integer.</returns>
     public static explicit operator int(OperatorsStruct value) => (int)value.Value;
+
+    /// <summary>Represents a wrapped scalar value.</summary>
+    public readonly struct Wrapped { }
+
+    /// <summary>Wraps this instance as a Wrapped value.</summary>
+    /// <param name="value">The value to wrap.</param>
+    /// <returns>A wrapped representation of the value.</returns>
+    public static implicit operator Wrapped(OperatorsStruct value) => new Wrapped();
 }

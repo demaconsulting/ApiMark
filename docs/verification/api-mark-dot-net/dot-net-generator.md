@@ -113,6 +113,24 @@ using the `~ReturnType` suffix in the XML doc member ID, and that their headings
 `DotNetGenerator_Generate_TypeWithConversionOperators_OperatorsPageContainsSummaries` and
 `DotNetGenerator_Generate_TypeWithConversionOperators_OperatorsPageUsesConversionSyntax`.
 
+**Nested type page is generated under the outer type folder**: Verifies that a public nested
+class declared inside an outer class receives a dedicated page at
+`{NamespacePath}/{OuterTypeName}/{NestedTypeName}.md` and that its XML summary appears on that
+page. This scenario is tested by
+`DotNetGenerator_Generate_NestedClass_CreatesNestedClassPage` and
+`DotNetGenerator_Generate_NestedClass_PageContainsSummary`.
+
+**Outer type page lists nested types in a Nested Types section**: Verifies that the outer
+type's own page includes a "Nested Types" H2 section with a table row linking to each visible
+nested type. This scenario is tested by
+`DotNetGenerator_Generate_NestedClass_ListedOnOuterClassPage`.
+
+**Conversion operator returning a nested type resolves XML documentation**: Verifies that when
+a conversion operator's return type is a nested type, the `~ReturnType` suffix in the XML doc
+member ID uses `.` as the separator (matching the XML doc format) rather than the `/` separator
+used by Cecil's `FullName`. This scenario is tested by
+`DotNetGenerator_Generate_ConversionOperatorReturningNestedType_OperatorsPageContainsSummary`.
+
 **Case-collision class creates a combined page**: Verifies that members whose names differ only by
 case are merged into a single combined detail page on case-insensitive targets. This scenario is
 tested by `DotNetGenerator_Generate_CaseCollisionClass_CreatesCombinedPage`.
