@@ -1105,8 +1105,8 @@ public sealed class DotNetGenerator : IApiGenerator
         var invoke = type.Methods.FirstOrDefault(m => m.Name == "Invoke");
         if (invoke == null)
         {
-            // Malformed delegate — fall back to a bare declaration without parameters
-            return $"public delegate {StripArity(type.Name)}()";
+            // Malformed delegate — fall back to a void declaration without parameters
+            return $"public delegate void {StripArity(type.Name)}()";
         }
 
         var returnType = TypeNameSimplifier.Simplify(invoke.ReturnType, contextNamespace);

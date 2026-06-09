@@ -349,7 +349,7 @@ public class ProgramTests
     ///     produces an "Unsupported argument" diagnostic on stderr.
     /// </summary>
     [Fact]
-    public void Program_Main_CppWithSearchPathsFlag_ThrowsArgumentException()
+    public void Program_Main_CppWithSearchPathsFlag_ReturnsNonZeroExitCode()
     {
         // Arrange: provide --search-paths which was removed in the redesign
         var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
@@ -410,7 +410,7 @@ public class ProgramTests
     ///     and produces an "Unsupported argument" diagnostic on stderr.
     /// </summary>
     [Fact]
-    public void Program_Main_CppWithIncludePatternsFlag_ThrowsArgumentException()
+    public void Program_Main_CppWithIncludePatternsFlag_ReturnsNonZeroExitCode()
     {
         // Arrange: provide --include-patterns which was removed in the redesign
         var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());

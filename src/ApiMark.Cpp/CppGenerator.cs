@@ -118,7 +118,7 @@ public sealed class CppGenerator : IApiGenerator
         var knownTypes = namespaceDecls.SelectMany(kv =>
         {
             var nsDisplay = kv.Key.Replace(".", "::", StringComparison.Ordinal);
-            var nsPath = kv.Key.Replace(".", "/", StringComparison.Ordinal);
+            var nsPath = kv.Key; // preserve dot-separated key to match CreateMarkdown page keys
             return kv.Value.Classes.Select(cls => (Key: $"{nsDisplay}::{cls.Name}", Value: $"{nsPath}/{cls.Name}"))
                 .Concat(kv.Value.Enums.Select(enm => (Key: $"{nsDisplay}::{enm.Name}", Value: $"{nsPath}/{enm.Name}")))
                 .Concat(kv.Value.TypeAliases.Select(a => (Key: $"{nsDisplay}::{a.Name}", Value: $"{nsPath}/{a.Name}")));
@@ -624,7 +624,7 @@ public sealed class CppGenerator : IApiGenerator
         var rows = namespaces.Select(kv =>
         {
             var nsDecls = kv.Value;
-            var declarationCount = nsDecls.Classes.Count + nsDecls.Enums.Count + nsDecls.FreeFunctions.Count;
+            var declarationCount = nsDecls.Classes.Count + nsDecls.Enums.Count + nsDecls.TypeAliases.Count + nsDecls.FreeFunctions.Count;
             var description = GetNamespaceDescription(nsDecls);
             return new[] { $"[{nsDecls.DisplayName}]({kv.Key}.md)", declarationCount.ToString(), description };
         });
