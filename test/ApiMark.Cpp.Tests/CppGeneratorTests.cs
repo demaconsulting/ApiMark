@@ -1134,4 +1134,43 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         Assert.Contains(allCells, c => c.Contains("item_id_t", StringComparison.Ordinal));
         Assert.Contains(allCells, c => c.Contains("label_t", StringComparison.Ordinal));
     }
+
+    /// <summary>
+    ///     Validates that a free function with a default parameter value includes the default
+    ///     in its signature block (e.g. <c>uint32_t seed = 0</c>).
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_DefaultParameter_SignatureContainsDefault()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: crc32 page must show the default value in its signature
+        Assert.True(factory.Writers.ContainsKey("fixtures/crc32"));
+        var writer = factory.Writers["fixtures/crc32"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains("seed = 0", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a Doxygen <c>@note</c> tag is rendered as a blockquote paragraph
+    ///     (prefixed with <c>&gt; **Note:**</c>) on the function's detail page.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_NoteTag_RenderedAsBlockquote()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: crc32 page must contain a blockquote paragraph with the @note text
+        Assert.True(factory.Writers.ContainsKey("fixtures/crc32"));
+        var writer = factory.Writers["fixtures/crc32"];
+        var paragraphs = writer.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.StartsWith("> **Note:**", StringComparison.Ordinal) &&
+                 p.Contains("seed", StringComparison.Ordinal));
+    }
 }

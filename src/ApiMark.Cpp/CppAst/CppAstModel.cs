@@ -42,11 +42,13 @@ public record CppParamDoc(string Name, string Description);
 /// </param>
 /// <param name="Params">One entry for each <c>@param</c> tag found on the declaration.</param>
 /// <param name="Returns">Return description from a <c>@return</c> or <c>@returns</c> tag.</param>
+/// <param name="Note">Contextual note from a <c>@note</c> tag, or <see langword="null"/> when absent.</param>
 public record CppDocComment(
     string? Summary,
     string? Details,
     IReadOnlyList<CppParamDoc> Params,
-    string? Returns);
+    string? Returns,
+    string? Note = null);
 
 /// <summary>Names a base type in a C++ class inheritance list.</summary>
 /// <param name="Name">
@@ -75,7 +77,11 @@ public record CppEnumValue(string Name, CppDocComment? Doc);
 ///     The parameter type as clang reports it in <c>type.qualType</c>,
 ///     e.g. <c>"const std::string &amp;"</c>.
 /// </param>
-public record CppParameter(string Name, string TypeName);
+/// <param name="DefaultValue">
+///     The default argument value as a display string (e.g. <c>"0"</c>, <c>"nullptr"</c>),
+///     or <see langword="null"/> when no default is declared.
+/// </param>
+public record CppParameter(string Name, string TypeName, string? DefaultValue = null);
 
 /// <summary>Represents a field (data member) of a C++ class or struct.</summary>
 /// <param name="Name">The field name.</param>

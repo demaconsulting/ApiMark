@@ -1221,7 +1221,7 @@ internal sealed class ClangAstParser
     ///     Parses a <c>ParmVarDecl</c> node into a <see cref="CppParameter"/>.
     /// </summary>
     /// <param name="node">The <c>ParmVarDecl</c> JSON node.</param>
-    /// <returns>A <see cref="CppParameter"/> with the parameter name and type.</returns>
+    /// <returns>A <see cref="CppParameter"/> with the parameter name, type, and optional default value.</returns>
     private static CppParameter ParseParameter(JsonElement node)
     {
         var name = GetName(node) ?? string.Empty;
@@ -1230,7 +1230,68 @@ internal sealed class ClangAstParser
             ? qt.GetString() ?? string.Empty
             : string.Empty;
 
-        return new CppParameter(name, typeName);
+        // When "init" is present the parameter has a default argument; extract a display string
+        // from the first child expression node
+        string? defaultValue = null;
+        if (node.TryGetProperty("init", out _) &&
+            node.TryGetProperty("inner", out var innerEl) &&
+            innerEl.GetArrayLength() > 0)
+        {
+            defaultValue = ExtractDefaultValue(innerEl[0]);
+        }
+
+        return new CppParameter(name, typeName, defaultValue);
+    }
+
+    /// <summary>
+    ///     Recursively extracts a display string for a default-argument expression node.
+    ///     Handles integer, floating-point, boolean, string, and nullptr literals, as well
+    ///     as implicit cast wrappers that the clang AST inserts around some literals.
+    ///     Returns <see langword="null"/> when the expression is too complex to represent
+    ///     as a simple display string.
+    /// </summary>
+    /// <param name="node">The root expression node from the <c>inner</c> array of a <c>ParmVarDecl</c>.</param>
+    /// <returns>A display string for the default value, or <see langword="null"/>.</returns>
+    private static string? ExtractDefaultValue(JsonElement node)
+    {
+        var kind = node.TryGetProperty("kind", out var k) ? k.GetString() : null;
+
+        return kind switch
+        {
+            // Numeric and boolean literals carry their value directly
+            "IntegerLiteral" or "FloatingLiteral" or "CXXBoolLiteralExpr" =>
+                node.TryGetProperty("value", out var v) ? v.GetString() : null,
+
+            // String literals carry their value (already includes surrounding quotes)
+            "StringLiteral" =>
+                node.TryGetProperty("value", out var sv) ? sv.GetString() : null,
+
+            // nullptr literal
+            "CXXNullPtrLiteralExpr" => "nullptr",
+
+            // Named constant or enum value — use the referenced declaration name
+            "DeclRefExpr" =>
+                node.TryGetProperty("referencedDecl", out var rd) &&
+                rd.TryGetProperty("name", out var rn) ? rn.GetString() : null,
+
+            // Implicit casts and other wrapper expressions — recurse into first child
+            "ImplicitCastExpr" or "CStyleCastExpr" or "CXXStaticCastExpr"
+                or "CXXFunctionalCastExpr" or "MaterializeTemporaryExpr"
+                or "ExprWithCleanups" or "CXXBindTemporaryExpr" =>
+                node.TryGetProperty("inner", out var inner) && inner.GetArrayLength() > 0
+                    ? ExtractDefaultValue(inner[0])
+                    : null,
+
+            // Unary operator (e.g. -1) — reconstruct from operator token and child
+            "UnaryOperator" =>
+                node.TryGetProperty("opcode", out var op) &&
+                node.TryGetProperty("inner", out var uInner) && uInner.GetArrayLength() > 0
+                    ? $"{op.GetString()}{ExtractDefaultValue(uInner[0])}"
+                    : null,
+
+            // All other expressions are too complex to display simply
+            _ => null,
+        };
     }
 
     // =========================================================================
@@ -1285,6 +1346,7 @@ internal sealed class ClangAstParser
         string? summary = null;
         string? details = null;
         string? returns = null;
+        string? note = null;
         var paramDocs = new List<CppParamDoc>();
 
         foreach (var child in inner.EnumerateArray())
@@ -1334,6 +1396,11 @@ internal sealed class ClangAstParser
                     {
                         returns = NormalizeSingleLine(cmdText);
                     }
+                    else if (string.Equals(cmdName, "note", StringComparison.OrdinalIgnoreCase) &&
+                             !string.IsNullOrEmpty(cmdText))
+                    {
+                        note = NormalizeSingleLine(cmdText);
+                    }
 
                     break;
 
@@ -1351,12 +1418,12 @@ internal sealed class ClangAstParser
         }
 
         // Return null when the comment block carried no extractable documentation
-        if (summary == null && details == null && returns == null && paramDocs.Count == 0)
+        if (summary == null && details == null && returns == null && note == null && paramDocs.Count == 0)
         {
             return null;
         }
 
-        return new CppDocComment(summary, details, paramDocs, returns);
+        return new CppDocComment(summary, details, paramDocs, returns, note);
     }
 
     /// <summary>

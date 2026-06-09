@@ -832,6 +832,13 @@ public sealed class CppGenerator : IApiGenerator
             writer.WriteParagraph(typeDetails);
         }
 
+        // Emit @note as a blockquote when present
+        var typeNote = GetNote(cls.Doc);
+        if (!string.IsNullOrEmpty(typeNote))
+        {
+            writer.WriteParagraph($"> **Note:** {typeNote}");
+        }
+
         // Emit base type names so readers know the inheritance chain without reading the header
         if (cls.BaseTypes.Count > 0)
         {
@@ -1249,6 +1256,13 @@ public sealed class CppGenerator : IApiGenerator
             writer.WriteParagraph(details);
         }
 
+        // Emit @note as a blockquote when present
+        var note = GetNote(fn.Doc);
+        if (!string.IsNullOrEmpty(note))
+        {
+            writer.WriteParagraph($"> **Note:** {note}");
+        }
+
         // Emit parameter table when the function has at least one parameter
         if (fn.Parameters.Count > 0)
         {
@@ -1398,6 +1412,13 @@ public sealed class CppGenerator : IApiGenerator
             writer.WriteParagraph(details);
         }
 
+        // Emit @note as a blockquote when present
+        var note = GetNote(method.Doc);
+        if (!string.IsNullOrEmpty(note))
+        {
+            writer.WriteParagraph($"> **Note:** {note}");
+        }
+
         // Emit parameter table when the method has at least one parameter
         if (method.Parameters.Count > 0)
         {
@@ -1488,6 +1509,13 @@ public sealed class CppGenerator : IApiGenerator
         {
             writer.WriteParagraph(details);
         }
+
+        // Emit @note as a blockquote when present
+        var note = GetNote(field.Doc);
+        if (!string.IsNullOrEmpty(note))
+        {
+            writer.WriteParagraph($"> **Note:** {note}");
+        }
     }
 
     /// <summary>
@@ -1534,6 +1562,13 @@ public sealed class CppGenerator : IApiGenerator
         if (!string.IsNullOrEmpty(enumDetails))
         {
             writer.WriteParagraph(enumDetails);
+        }
+
+        // Emit @note as a blockquote when present
+        var enumNote = GetNote(cppEnum.Doc);
+        if (!string.IsNullOrEmpty(enumNote))
+        {
+            writer.WriteParagraph($"> **Note:** {enumNote}");
         }
 
         // Emit a values table so readers can see all valid values and their meanings
@@ -1593,6 +1628,13 @@ public sealed class CppGenerator : IApiGenerator
         if (!string.IsNullOrEmpty(details))
         {
             writer.WriteParagraph(details);
+        }
+
+        // Emit @note as a blockquote when present
+        var aliasNote = GetNote(alias.Doc);
+        if (!string.IsNullOrEmpty(aliasNote))
+        {
+            writer.WriteParagraph($"> **Note:** {aliasNote}");
         }
     }
 
@@ -1677,6 +1719,14 @@ public sealed class CppGenerator : IApiGenerator
     private static string? GetDetails(CppDocComment? doc) => doc?.Details;
 
     /// <summary>
+    ///     Extracts the <c>@note</c> text from a <see cref="CppDocComment"/>, or returns
+    ///     <see langword="null"/> when no note is present.
+    /// </summary>
+    /// <param name="doc">The doc comment to inspect. May be null.</param>
+    /// <returns>The note string, or <see langword="null"/> when absent.</returns>
+    private static string? GetNote(CppDocComment? doc) => doc?.Note;
+
+    /// <summary>
     ///     Looks up the description for a named parameter in a <see cref="CppDocComment"/>.
     /// </summary>
     /// <param name="doc">The doc comment containing the <c>@param</c> entries. May be null.</param>
@@ -1752,7 +1802,9 @@ public sealed class CppGenerator : IApiGenerator
 
         // Build the parameter list; append "..." for variadic functions
         var paramParts = fn.Parameters
-            .Select(p => $"{SimplifyTypeName(p.TypeName)} {p.Name}")
+            .Select(p => p.DefaultValue != null
+                ? $"{SimplifyTypeName(p.TypeName)} {p.Name} = {p.DefaultValue}"
+                : $"{SimplifyTypeName(p.TypeName)} {p.Name}")
             .ToList();
         if (fn.IsVariadic)
         {
