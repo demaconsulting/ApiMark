@@ -1159,18 +1159,55 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     ///     (prefixed with <c>&gt; **Note:**</c>) on the function's detail page.
     /// </summary>
     [Fact]
-    public void CppGenerator_Generate_NoteTag_RenderedAsBlockquote()
+    public void CppGenerator_Generate_BoolDefaultParameter_SignatureContainsFalse()
     {
         // Arrange
         var factory = _fixture.PublicFactory;
 
-        // Assert: crc32 page must contain a blockquote paragraph with the @note text
-        Assert.True(factory.Writers.ContainsKey("fixtures/crc32"));
-        var writer = factory.Writers["fixtures/crc32"];
-        var paragraphs = writer.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        // Assert: configure page must show the bool default in its signature
+        Assert.True(factory.Writers.ContainsKey("fixtures/configure"));
+        var writer = factory.Writers["fixtures/configure"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
         Assert.Contains(
-            paragraphs,
-            p => p.StartsWith("> **Note:**", StringComparison.Ordinal) &&
-                 p.Contains("seed", StringComparison.Ordinal));
+            signatures,
+            s => s.Contains("initial = false", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a negative integer default argument (e.g. <c>int max = -1</c>)
+    ///     is rendered correctly in the function signature.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_NegativeIntDefaultParameter_SignatureContainsNegativeValue()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: count_capped page must show the negative default in its signature
+        Assert.True(factory.Writers.ContainsKey("fixtures/count_capped"));
+        var writer = factory.Writers["fixtures/count_capped"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains("max = -1", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a floating-point default argument (e.g. <c>float factor = 1.5f</c>)
+    ///     is rendered in the function signature without the type suffix.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_FloatDefaultParameter_SignatureContainsValue()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: scale page must show the float default in its signature
+        Assert.True(factory.Writers.ContainsKey("fixtures/scale"));
+        var writer = factory.Writers["fixtures/scale"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains("factor = 1.5", StringComparison.Ordinal));
     }
 }

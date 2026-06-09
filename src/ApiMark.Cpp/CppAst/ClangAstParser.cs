@@ -1258,9 +1258,20 @@ internal sealed class ClangAstParser
 
         return kind switch
         {
-            // Numeric and boolean literals carry their value directly
-            "IntegerLiteral" or "FloatingLiteral" or "CXXBoolLiteralExpr" =>
+            // Numeric literals carry their value as a JSON string
+            "IntegerLiteral" or "FloatingLiteral" =>
                 node.TryGetProperty("value", out var v) ? v.GetString() : null,
+
+            // Boolean literals carry their value as a JSON boolean, not a string
+            "CXXBoolLiteralExpr" =>
+                node.TryGetProperty("value", out var bv)
+                    ? bv.ValueKind switch
+                    {
+                        JsonValueKind.True => "true",
+                        JsonValueKind.False => "false",
+                        _ => bv.GetString(), // fallback for unexpected encoding
+                    }
+                    : null,
 
             // String literals carry their value (already includes surrounding quotes)
             "StringLiteral" =>
