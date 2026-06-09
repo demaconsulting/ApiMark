@@ -120,6 +120,8 @@ ApiMark uses a four-tier gradual disclosure layout:
 | `{namespace}/{type}.md` | Type page — members grouped by kind with signatures and doc comment details |
 | `{namespace}/{alias}.md` | Type alias page — `using` declaration, underlying type, and doc comment |
 | `{namespace}/{type}/{member}.md` | Member detail page — full signature, parameters, return value, remarks |
+| `{namespace}/{type}/{nested-type}.md` | Nested type page — same structure as a top-level type page |
+| `{namespace}/{type}/{alias}.md` | Class-scoped type alias page — alias declared inside a class body |
 
 An AI agent can read the root index first, drill into the relevant namespace
 summary, and then load a specific type or member page — consuming only as much
