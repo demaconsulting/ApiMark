@@ -54,7 +54,7 @@ integration follows these steps:
    under _Features Used_ above: explicit `CppGeneratorOptions.ClangPath` → `APIMARK_CLANG_PATH`
    environment variable → `clang` on PATH → `xcrun` on macOS → vswhere / default LLVM path on Windows.
 2. The parser builds a combined `#include` header file that includes every file in the configured
-   public include roots (after applying IncludePatterns and ExcludePatterns).
+   public include roots (after applying `ApiHeaderPatterns` gitignore-style filters).
 3. The parser constructs a clang command line: `-Xclang -ast-dump=json -fparse-all-comments
    -fsyntax-only` followed by include path flags (`-I`, `-isystem`), preprocessor defines (`-D`),
    and the combined header file.

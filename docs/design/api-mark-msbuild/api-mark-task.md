@@ -88,8 +88,9 @@ passed to Clang (e.g. `c++17`, `c++20`). The `.targets` file defaults this to
 
 **ApiMarkTask.ApiMarkClangPath**: `string` — MSBuild property
 `$(ApiMarkClangPath)`; for the `cpp` language, the path to the clang
-executable. Optional — when empty, clang is located automatically via PATH,
-xcrun (macOS), or vswhere (Windows).
+executable. Optional — when empty, clang is located using the priority order:
+`APIMARK_CLANG_PATH` environment variable → `clang` on PATH → `xcrun` (macOS)
+→ vswhere / default LLVM path (Windows).
 
 **ApiMarkTask.ToolDllPath**: `string` — set by the `.targets` file to the path of
 the bundled `ApiMark.Tool.dll` inside the NuGet package `tools/net8.0/` directory.

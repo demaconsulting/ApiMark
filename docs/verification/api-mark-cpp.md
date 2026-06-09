@@ -161,15 +161,15 @@ than an unrelated null-reference failure during I/O. This scenario is tested by
 providing a clear diagnostic rather than silently producing empty output. This scenario is tested
 by `CppGenerator_Generate_NonexistentIncludeRoot_ThrowsDirectoryNotFoundException`.
 
-**Deleted constructor signature contains = delete suffix**: Verifies that a constructor declared
-with `= delete` is documented with a `= delete` suffix in its signature block so that readers
-can see the intentional prohibition without opening the header file. This scenario is tested by
-`CppGenerator_Generate_DeletedConstructor_SignatureContainsDeleteSuffix`.
+**Deleted copy constructor signature contains = delete suffix**: Verifies that a copy constructor
+declared with `= delete` is documented with a `= delete` suffix in its signature block so that
+readers can see the intentional prohibition without opening the header file. This scenario is
+tested by `CppGenerator_Generate_DeletedCopyConstructor_EmitsDeleteSuffix`.
 
-**Deleted operator signature contains = delete suffix**: Verifies that an operator declared with
-`= delete` is documented with a `= delete` suffix in its signature so that the prohibition is
-visible on the combined operators page. This scenario is tested by
-`CppGenerator_Generate_DeletedOperator_SignatureContainsDeleteSuffix`.
+**Deleted copy-assignment operator signature contains = delete suffix**: Verifies that a
+copy-assignment operator declared with `= delete` is documented with a `= delete` suffix in its
+signature so that the prohibition is visible on the combined operators page. This scenario is
+tested by `CppGenerator_Generate_DeletedCopyAssignmentOperator_EmitsDeleteSuffix`.
 
 **Type aliases receive their own pages**: Verifies that `using` type alias declarations in
 documented namespaces produce individual pages at `{namespace}/{aliasName}`, following the same
