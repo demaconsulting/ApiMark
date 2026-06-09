@@ -42,40 +42,45 @@ apimark cpp [options]
 
 | Option | Description |
 | --- | --- |
-| `--includes <paths>` | Comma-separated list of public include directories (required) |
+| `--includes <path>` | Include directory for clang `-I` (repeatable, required) |
+| `--api-headers <pattern>` | Glob pattern for documented headers; supports `!` exclusions (repeatable, ordered) |
 | `--output <dir>` | Output directory for Markdown files (required) |
 | `--library-name <name>` | Library name used as the top-level heading (default: output directory name) |
 | `--library-description <d>` | Optional description for the library `api.md` introduction |
 | `--defines <values>` | Comma-separated preprocessor definitions (e.g. `MYLIB_API=,NDEBUG`) |
 | `--cpp-standard <std>` | C++ language standard passed to Clang (default: `c++17`) |
 | `--clang-path <path>` | Path to clang executable (default: auto-discovered via PATH / xcrun / vswhere) |
-| `--search-paths <paths>` | Comma-separated compiler-only `-I` paths; used for `#include` resolution only, not documented |
-| `--include-patterns <patterns>` | Comma-separated glob patterns (relative to each root) selecting which headers to document; when absent all headers are included |
-| `--exclude-patterns <patterns>` | Comma-separated glob patterns (relative to each root) for headers to exclude; evaluated after `--include-patterns` |
 | `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `Public`) |
 | `--include-obsolete` | Include deprecated members in generated output |
 
-#### Inline Wildcard and Exclusion Syntax in `--includes`
+#### `--includes` and `--api-headers`
 
-The `--includes` list accepts three kinds of entries mixed freely:
+`--includes <path>` is repeatable — provide it once per include directory. All directories
+are passed to Clang as `-I` paths and serve as the base for the default `--api-headers` glob.
 
-| Entry form | Effect |
+`--api-headers <pattern>` controls which headers appear in the generated documentation.
+It is repeatable and ordered — patterns are evaluated in order with gitignore-style
+last-match-wins semantics. Entries starting with `!` are exclusion antipatterns.
+
+When `--api-headers` is not specified, all headers under the `--includes` directories
+with recognized C++ header extensions (`.h`, `.hpp`, `.hxx`, `.h++`) are documented.
+
+Example — document all headers except a `detail/` subtree, then re-include one header:
+
+```text
+--includes /usr/local/include \
+--api-headers "**/*" \
+--api-headers "!**/detail/**" \
+--api-headers "**/detail/public_api.h"
+```
+
+This is equivalent to the gitignore rule sequence:
+
+| Pattern | Effect |
 | --- | --- |
-| `path/to/dir` | Added as a public include root directory |
-| `*.h` or `**/*.hpp` | Added as an include-filter pattern (same as `--include-patterns`) |
-| `!test/**` | Added as an exclusion pattern with `!` stripped (same as `--exclude-patterns`) |
-
-Example:
-
-```text
---includes /usr/local/include,*.h,!detail/**
-```
-
-is equivalent to:
-
-```text
---includes /usr/local/include --include-patterns *.h --exclude-patterns detail/**
-```
+| `**/*` | Include all headers |
+| `!**/detail/**` | Exclude all headers under `detail/` |
+| `**/detail/public_api.h` | Re-include `detail/public_api.h` specifically |
 
 ## Platform Support
 

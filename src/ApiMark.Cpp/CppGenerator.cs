@@ -2,7 +2,6 @@ using System.Runtime.InteropServices;
 using ApiMark.Core;
 using ApiMark.Cpp.CppAst;
 using Microsoft.Extensions.FileSystemGlobbing;
-using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 
 namespace ApiMark.Cpp;
 
@@ -171,30 +170,52 @@ public sealed class CppGenerator : IApiGenerator
 
     /// <summary>
     ///     Enumerates candidate header files under each configured public include root,
-    ///     applying <see cref="CppGeneratorOptions.IncludePatterns"/> and
-    ///     <see cref="CppGeneratorOptions.ExcludePatterns"/> when present.
+    ///     applying <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> with gitignore-style
+    ///     semantics to determine which headers appear in the generated documentation.
     /// </summary>
     /// <returns>
     ///     A list of absolute header file paths with recognized C++ header extensions
-    ///     (<c>.h</c>, <c>.hpp</c>, <c>.hxx</c>, <c>.h++</c>) that satisfy the configured
-    ///     include/exclude glob patterns.
+    ///     (<c>.h</c>, <c>.hpp</c>, <c>.hxx</c>, <c>.h++</c>) that are selected for
+    ///     documentation by the configured pattern list.
     /// </returns>
     /// <remarks>
-    ///     When <see cref="CppGeneratorOptions.IncludePatterns"/> is empty all recognized
-    ///     headers pass the include step. When <see cref="CppGeneratorOptions.ExcludePatterns"/>
-    ///     is empty no files are removed. Patterns are evaluated relative to each root directory
-    ///     using <see cref="Matcher"/> from <c>Microsoft.Extensions.FileSystemGlobbing</c>.
+    ///     <para>
+    ///         When <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> is empty the default
+    ///         patterns <c>["**/*.h", "**/*.hpp", "**/*.hxx", "**/*.h++"]</c> are used,
+    ///         preserving the behavior of unconfigured runs.
+    ///     </para>
+    ///     <para>
+    ///         Gitignore-style evaluation: for each candidate file, start with
+    ///         <c>included = false</c> and walk the pattern list in order. If a pattern
+    ///         starts with <c>!</c>, strip the prefix and if the file matches set
+    ///         <c>included = false</c>; otherwise if the file matches set
+    ///         <c>included = true</c>. The final value of <c>included</c> determines
+    ///         whether the header is forwarded to clang. This allows include/exclude/re-include
+    ///         sequences that are not possible with separate include and exclude lists.
+    ///     </para>
+    ///     <para>
+    ///         A single-pattern <see cref="Matcher"/> is created per pattern check; patterns
+    ///         are evaluated relative to each root directory using
+    ///         <see cref="Matcher"/> from <c>Microsoft.Extensions.FileSystemGlobbing</c>.
+    ///     </para>
     /// </remarks>
     /// <exception cref="DirectoryNotFoundException">
     ///     Thrown when a configured public include root does not exist on disk.
     /// </exception>
     private List<string> CollectHeaderFiles()
     {
-        // Recognized C++ header file extensions
+        // Recognized C++ header file extensions — files with other extensions are never
+        // forwarded to clang even when a pattern technically matches them
         var headerExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             ".h", ".hpp", ".hxx", ".h++",
         };
+
+        // Use the caller-supplied patterns or the default extension-based catch-all when none
+        // are configured — the default produces the same set as the old extension-filter-only path
+        var effectivePatterns = _options.ApiHeaderPatterns.Count > 0
+            ? _options.ApiHeaderPatterns
+            : (IList<string>)new List<string> { "**/*.h", "**/*.hpp", "**/*.hxx", "**/*.h++" };
 
         var headers = new List<string>();
         foreach (var root in _options.PublicIncludeRoots)
@@ -206,53 +227,48 @@ public sealed class CppGenerator : IApiGenerator
                     $"Public include root not found: '{root}'");
             }
 
-            // Enumerate all files recursively and retain only recognized header extensions
+            var rootAbsolute = Path.GetFullPath(root);
+
+            // Enumerate all files recursively and retain only recognized header extensions;
+            // non-header files are pre-filtered to prevent them from reaching clang
             var allFiles = Directory.GetFiles(root, "*", SearchOption.AllDirectories)
                 .Where(f => headerExtensions.Contains(Path.GetExtension(f)))
+                .Select(Path.GetFullPath)
                 .ToList();
 
-            // Apply include/exclude glob patterns when at least one is configured; when
-            // neither is set, all discovered headers are forwarded to clang without filtering
-            if (_options.IncludePatterns.Count > 0 || _options.ExcludePatterns.Count > 0)
+            // Apply gitignore-style evaluation for each header file
+            foreach (var absoluteFile in allFiles)
             {
-                // Build a Matcher whose patterns are relative to the root directory
-                var matcher = new Matcher();
+                // Start with the file excluded — it must explicitly match an include pattern
+                var included = false;
 
-                if (_options.IncludePatterns.Count > 0)
+                foreach (var pattern in effectivePatterns)
                 {
-                    // Caller-supplied include patterns define the set of accepted headers
-                    foreach (var pattern in _options.IncludePatterns)
+                    if (pattern.StartsWith("!", StringComparison.Ordinal))
                     {
-                        matcher.AddInclude(pattern);
+                        // Exclusion antipattern: strip the '!' prefix and check whether the
+                        // file matches — if it does, mark it excluded (included = false)
+                        var exclusionGlob = pattern.Substring(1).Trim();
+                        if (exclusionGlob.Length > 0 && MatchesGlob(exclusionGlob, rootAbsolute, absoluteFile))
+                        {
+                            included = false;
+                        }
+                    }
+                    else
+                    {
+                        // Inclusion pattern: a match sets included=true, and a later exclusion
+                        // antipattern can still override this to produce gitignore semantics
+                        if (MatchesGlob(pattern, rootAbsolute, absoluteFile))
+                        {
+                            included = true;
+                        }
                     }
                 }
-                else
+
+                if (included)
                 {
-                    // No include patterns: accept every file so that ExcludePatterns alone
-                    // can narrow the set without requiring an explicit catch-all
-                    matcher.AddInclude("**/*");
+                    headers.Add(absoluteFile);
                 }
-
-                foreach (var pattern in _options.ExcludePatterns)
-                {
-                    matcher.AddExclude(pattern);
-                }
-
-                // Execute the glob matcher against the root; result.Files contains matched
-                // relative paths which are then converted back to absolute for clang
-                var matchResult = matcher.Execute(new DirectoryInfoWrapper(new DirectoryInfo(root)));
-                var matchedAbsolute = new HashSet<string>(
-                    matchResult.Files.Select(f => Path.GetFullPath(Path.Combine(root, f.Path))),
-                    FileSystemPathComparer);
-
-                // Intersect the extension-filtered list with the glob-matched set so that
-                // files with non-header extensions are never forwarded even if a glob matches them
-                headers.AddRange(allFiles.Where(f => matchedAbsolute.Contains(Path.GetFullPath(f))));
-            }
-            else
-            {
-                // No patterns configured: include all discovered header files under this root
-                headers.AddRange(allFiles);
             }
         }
 
@@ -264,6 +280,40 @@ public sealed class CppGenerator : IApiGenerator
             .Distinct(FileSystemPathComparer)
             .OrderBy(h => h, StringComparer.Ordinal)
             .ToList();
+    }
+
+    /// <summary>
+    ///     Tests whether a single header file matches a glob pattern, evaluated relative to
+    ///     the specified include root directory.
+    /// </summary>
+    /// <remarks>
+    ///     Creates a single-pattern <see cref="Matcher"/> per call so that each pattern
+    ///     in the ordered <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> list is
+    ///     evaluated independently, which is required to correctly implement gitignore-style
+    ///     last-match-wins semantics.
+    /// </remarks>
+    /// <param name="glob">
+    ///     A glob pattern relative to <paramref name="rootAbsolute"/>, e.g. <c>"**/*.h"</c>
+    ///     or <c>"**/detail/**"</c>. Must not be null or empty.
+    /// </param>
+    /// <param name="rootAbsolute">
+    ///     Absolute path of the include root directory that serves as the pattern base.
+    /// </param>
+    /// <param name="absoluteFile">
+    ///     Absolute path of the header file to test against the pattern.
+    /// </param>
+    /// <returns>
+    ///     <see langword="true"/> when <paramref name="absoluteFile"/> matches
+    ///     <paramref name="glob"/> relative to <paramref name="rootAbsolute"/>.
+    /// </returns>
+    private static bool MatchesGlob(string glob, string rootAbsolute, string absoluteFile)
+    {
+        // A single-pattern matcher is created per call so each pattern in the ordered
+        // ApiHeaderPatterns list is tested in isolation — this is what enables the
+        // last-match-wins (gitignore) semantics in the caller
+        var matcher = new Matcher();
+        matcher.AddInclude(glob);
+        return matcher.Match(rootAbsolute, absoluteFile).HasMatches;
     }
 
     // =========================================================================

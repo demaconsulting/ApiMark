@@ -55,12 +55,17 @@ the `.targets` file when not explicitly set. If not set and the language is
 
 **ApiMarkTask.ApiMarkIncludePaths**: `string` — MSBuild property
 `$(ApiMarkIncludePaths)`; for the `cpp` language, a semicolon-separated list of
-include paths. Each entry is classified before forwarding: entries containing
-`*` or `?` wildcards are forwarded via `--include-patterns`; entries starting
-with `!` are stripped and forwarded via `--exclude-patterns`; plain directory
-entries are forwarded via `--includes`.
+include directory paths. Each entry is forwarded as an individual `--includes`
+flag; all paths are passed to Clang as `-I` flags and serve as the base for the
+default header glob when `ApiMarkApiHeaders` is not set.
 
-**ApiMarkTask.ApiMarkLibraryName**: `string` — MSBuild property
+**ApiMarkTask.ApiMarkApiHeaders**: `string` — MSBuild property
+`$(ApiMarkApiHeaders)`; for the `cpp` language, a semicolon-separated,
+order-preserved list of glob and antipattern strings forwarded as individual
+`--api-headers` flags. Entries with a `!` prefix are exclusion antipatterns;
+gitignore-style last-match-wins semantics apply. Optional — when empty or not
+set, all headers with recognized C++ extensions under `ApiMarkIncludePaths` are
+documented.
 `$(ApiMarkLibraryName)`; for the `cpp` language, the library name used as the
 top-level heading in `api.md`. The `.targets` file defaults this to
 `$(MSBuildProjectName)` when not explicitly set.
@@ -84,12 +89,8 @@ passed to Clang (e.g. `c++17`, `c++20`). The `.targets` file defaults this to
 executable. Optional — when empty, clang is located automatically via PATH,
 xcrun (macOS), or vswhere (Windows).
 
-**ApiMarkTask.ApiMarkSearchPaths**: `string` — MSBuild property
-`$(ApiMarkSearchPaths)`; for the `cpp` language, a semicolon-separated list
-of compiler-only search paths passed to Clang as `-I` flags for `#include`
-resolution. Declarations from these paths are never documented. Semicolons are
-converted to commas when forwarding to the `--search-paths` argument. Optional
-— omitted when empty or not set.
+**ApiMarkTask.ApiMarkSearchPaths**: `string` — removed in this version. Use
+`ApiMarkIncludePaths` to pass all include directories to Clang.
 
 **ApiMarkTask.ToolDllPath**: `string` — set by the `.targets` file to the path of
 the bundled `ApiMark.Tool.dll` inside the NuGet package `tools/net8.0/` directory.
@@ -118,15 +119,13 @@ language is `cpp` and `ApiMarkIncludePaths` is not set, return true (skip
 generation with an informational log message); resolve the `dotnet` executable
 path (check `DOTNET_HOST_PATH` environment variable first, then search `PATH`);
 build the argument list from MSBuild properties according to language-specific
-mapping (for `cpp`, classify each `ApiMarkIncludePaths` entry: wildcard entries
-with `*` or `?` are forwarded via `--include-patterns`; `!`-prefixed entries are
-stripped and forwarded via `--exclude-patterns`; plain directory entries are
-forwarded via `--includes`; if `ApiMarkLibraryName` is set, append
-`--library-name`; if `ApiMarkLibraryDescription` is set, append
+mapping (for `cpp`, split `ApiMarkIncludePaths` on `;` and emit one `--includes`
+flag per entry; split `ApiMarkApiHeaders` on `;` and emit one `--api-headers`
+flag per entry, order-preserved including `!` antipatterns; if `ApiMarkLibraryName`
+is set, append `--library-name`; if `ApiMarkLibraryDescription` is set, append
 `--library-description`; if `ApiMarkDefines` is set, convert semicolons to commas
 and append `--defines`; if `ApiMarkCppStandard` is set, append `--cpp-standard`;
-if `ApiMarkClangPath` is set, append `--clang-path`; if `ApiMarkSearchPaths` is
-set, convert semicolons to commas and append `--search-paths`); start the child
+if `ApiMarkClangPath` is set, append `--clang-path`); start the child
 process and pipe stdout lines as MSBuild messages and stderr lines as MSBuild
 errors; wait for exit; return true if exit code is zero, otherwise log an error
 with the exit code and return false.

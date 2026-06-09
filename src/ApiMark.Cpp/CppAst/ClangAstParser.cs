@@ -342,7 +342,7 @@ internal sealed class ClangAstParser
     ///       <item>Any <paramref name="prefix"/> arguments (e.g. <c>"clang"</c> for xcrun).</item>
     ///       <item>Core AST-dump flags and input-type flags.</item>
     ///       <item>C++ standard flag.</item>
-    ///       <item><c>-I</c> flags for public include roots and additional include paths.</item>
+    ///       <item><c>-I</c> flags for public include roots.</item>
     ///       <item><c>-isystem</c> flags for system include paths.</item>
     ///       <item><c>-D</c> flags for preprocessor defines.</item>
     ///       <item>Additional compiler arguments (escape-hatch).</item>
@@ -366,17 +366,12 @@ internal sealed class ClangAstParser
         // C++ language standard
         args.Add($"-std={options.CppStandard}");
 
-        // Public include roots and additional include paths as -I flags
+        // All public include roots are passed as -I flags so headers can find each other
+        // — all compiler include directories live in PublicIncludeRoots after the redesign
         foreach (var root in options.PublicIncludeRoots)
         {
             args.Add("-I");
             args.Add(root);
-        }
-
-        foreach (var path in options.AdditionalIncludePaths)
-        {
-            args.Add("-I");
-            args.Add(path);
         }
 
         // System include paths — declarations found here are resolved but never documented

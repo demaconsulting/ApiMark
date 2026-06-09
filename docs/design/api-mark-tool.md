@@ -39,8 +39,9 @@ users or CI pipelines.
   Supported subcommands: `dotnet`, `cpp`.
   Options for `dotnet`: `--assembly <path>`, `--xml-doc <path>`, `--output <dir>`,
   `--visibility <value>`, `--include-obsolete`.
-  Options for `cpp`: `--includes <paths>`, `--library-name <name>`,
-  `--library-description <text>`, `--defines <defs>`,
+  Options for `cpp`: `--includes <path>` (repeatable), `--api-headers <pattern>`
+  (repeatable, ordered, supports `!` exclusion antipatterns),
+  `--library-name <name>`, `--library-description <text>`, `--defines <defs>`,
   `--cpp-standard <std>`, `--output <dir>`, `--visibility <value>`,
   `--include-obsolete`.
   Standard flags are valid anywhere in the argument list,

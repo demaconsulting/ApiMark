@@ -27,8 +27,8 @@ library, emitted as an introductory paragraph in `api.md`. Omitted when empty.
 the top-level heading in `api.md`.
 
 **CppGeneratorOptions.PublicIncludeRoots**: `IReadOnlyList<string>` — one or
-more directories that define the public include root(s) of the library. This
-property serves a dual purpose:
+more directories that define the compiler include roots. This property serves
+two purposes:
 
 1. *Parse environment*: each root is passed to the Clang parser as an `-I`
    include directory so that `#include <mylib/types.h>` resolves correctly
@@ -44,16 +44,17 @@ property serves a dual purpose:
 When multiple roots are configured and a file matches more than one, the
 longest matching root path (most specific) wins.
 
-**CppGeneratorOptions.IncludePatterns**: `IReadOnlyList<string>` — glob
-patterns relative to each PublicIncludeRoot selecting which header files
-contribute to the documented public API. Defaults to `["**/*"]` when empty,
-which selects all files under all roots.
+**CppGeneratorOptions.ApiHeaderPatterns**: `IList<string>` — ordered list of
+glob and antipattern strings that determine which header files contribute to the
+documented public API. Gitignore-style semantics apply: patterns are evaluated
+in order; the last matching pattern wins. Entries without a `!` prefix are
+include patterns; entries with a `!` prefix are exclusion antipatterns (the `!`
+is stripped before glob matching). When empty, the default patterns
+`["**/*.h", "**/*.hpp", "**/*.hxx", "**/*.h++"]` are applied, which selects all
+headers with recognized C++ extensions under all roots.
 
-**CppGeneratorOptions.ExcludePatterns**: `IReadOnlyList<string>` — glob
-patterns relative to each PublicIncludeRoot for files to exclude from the
-documented API. Common values: `"detail/**"`, `"*_impl.h"`, `"internal/**"`.
-ExcludePatterns are evaluated after IncludePatterns; a file matching both is
-excluded.
+Example — all headers except `detail/`, with one re-included:
+`["**/*", "!**/detail/**", "**/detail/public_api.h"]`
 
 **CppGeneratorOptions.SystemIncludePaths**: `IReadOnlyList<string>` — toolchain
 and SDK include directories passed to the Clang parser as system include paths
@@ -61,13 +62,6 @@ and SDK include directories passed to the Clang parser as system include paths
 (`<vector>`, `<windows.h>`, etc.) resolve during parsing. These directories
 are used for type resolution only; declarations found within them are never
 documented.
-
-**CppGeneratorOptions.AdditionalIncludePaths**: `IReadOnlyList<string>` —
-additional include directories for third-party headers included by public
-headers but not part of the documented API (e.g. a vendored library's include
-directory). Passed to the Clang parser as `-I` flags. Declarations from these
-paths are never documented. Note: this option is currently not wired through the
-CLI; it is available for direct API use only (v1 scope).
 
 **CppGeneratorOptions.Defines**: `IReadOnlyList<string>` — preprocessor symbol
 definitions passed to the Clang parser as `-D` flags, in the form `"NAME"` or
@@ -166,9 +160,9 @@ filter, and writes the full Markdown output tree.
     name `"global"`.
 
 Execution steps: enumerate candidate header files under each PublicIncludeRoot
-applying IncludePatterns and ExcludePatterns; build Clang options from all
-configured paths, defines, standard, and additional arguments; write a temporary
-combined header that `#include`s all candidate headers, invoke
+applying ApiHeaderPatterns with gitignore-style last-match-wins semantics; build
+Clang options from all configured paths, defines, standard, and additional arguments;
+write a temporary combined header that `#include`s all candidate headers, invoke
 `clang -Xclang -ast-dump=json -fparse-all-comments -fsyntax-only` on it, parse the resulting
 JSON AST; walk the AST and apply IsOwnedDeclaration to each declaration; apply
 Visibility and IncludeDeprecated filters; write the library entrypoint; for
@@ -190,9 +184,8 @@ the documented public API.
 
 - *Parameters*: declaration source file (absolute, normalized path).
 - *Returns*: `(bool owned, string includeRoot, string relativePath)` — owned
-  is true when the file falls under a PublicIncludeRoot and matches
-  IncludePatterns without matching ExcludePatterns; includeRoot and
-  relativePath are set when owned is true.
+  is true when the file falls under a PublicIncludeRoot and is selected by
+  ApiHeaderPatterns; includeRoot and relativePath are set when owned is true.
 - *Algorithm*:
   1. Normalize the declaration source file path: resolve to absolute path,
      normalize directory separators to the OS separator, resolve `..` and
@@ -203,9 +196,9 @@ the documented public API.
      overlap).
   4. Compute relative path: strip the root prefix and normalize separators to
      forward slashes.
-  5. Test the relative path against IncludePatterns (must match at least one)
-     and ExcludePatterns (must not match any). Return owned=true only when both
-     conditions hold.
+  5. Test the relative path against ApiHeaderPatterns using gitignore-style
+     last-match-wins evaluation. Return owned=true only when the final
+     evaluated state is included.
 
 **CppGenerator.WriteCombinedMemberPage** (private): Writes a single combined
 Markdown page for a group of members whose base names collide on case-insensitive

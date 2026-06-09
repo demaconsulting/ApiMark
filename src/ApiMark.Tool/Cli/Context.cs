@@ -64,30 +64,18 @@ internal sealed class Context : IContext, IDisposable
 
     /// <summary>
     ///     Gets the include directory paths for the C++ language subcommand.
-    ///     Contains only plain path entries from <c>--includes</c> (no wildcards, no <c>!</c>).
+    ///     Contains plain directory paths collected from repeated <c>--includes</c> invocations;
+    ///     all entries are passed to Clang as <c>-I</c> paths.
     /// </summary>
     public string[] Includes { get; private init; } = [];
 
     /// <summary>
-    ///     Gets the compiler-only search path directories for the C++ language subcommand.
-    ///     Passed to Clang as <c>-I</c> paths; declarations from these paths are never documented.
+    ///     Gets the ordered list of glob and antipattern strings for the C++ language subcommand.
+    ///     Collected from repeated <c>--api-headers</c> invocations; entries with a <c>!</c>
+    ///     prefix are exclusion antipatterns. Order is significant — gitignore semantics apply
+    ///     (last matching pattern wins).
     /// </summary>
-    public string[] SearchPaths { get; private init; } = [];
-
-    /// <summary>
-    ///     Gets the glob patterns selecting which header files contribute to the documented API,
-    ///     relative to each <see cref="Includes"/> root.
-    ///     Populated from <c>--include-patterns</c> or from wildcard entries inline in <c>--includes</c>.
-    ///     When empty, all headers under the roots are included.
-    /// </summary>
-    public string[] IncludePatterns { get; private init; } = [];
-
-    /// <summary>
-    ///     Gets the glob patterns for header files to exclude from the documented API,
-    ///     relative to each <see cref="Includes"/> root. Evaluated after <see cref="IncludePatterns"/>.
-    ///     Populated from <c>--exclude-patterns</c> or from <c>!</c>-prefixed entries inline in <c>--includes</c>.
-    /// </summary>
-    public string[] ExcludePatterns { get; private init; } = [];
+    public string[] ApiHeaders { get; private init; } = [];
 
     /// <summary>
     ///     Gets the output directory for generated Markdown files.
@@ -175,10 +163,8 @@ internal sealed class Context : IContext, IDisposable
             Language = parser.Language,
             Assembly = parser.Assembly,
             XmlDoc = parser.XmlDoc,
-            Includes = parser.Includes,
-            SearchPaths = parser.SearchPaths,
-            IncludePatterns = parser.IncludePatterns,
-            ExcludePatterns = parser.ExcludePatterns,
+            Includes = [.. parser.Includes],
+            ApiHeaders = [.. parser.ApiHeaders],
             Output = parser.Output,
             Visibility = parser.Visibility,
             IncludeObsolete = parser.IncludeObsolete,
@@ -333,30 +319,19 @@ internal sealed class Context : IContext, IDisposable
         public string? XmlDoc { get; private set; }
 
         /// <summary>
-        ///     Gets the include directory paths for C++.
-        ///     Contains only plain path entries (no wildcards, no <c>!</c>).
+        ///     Gets the include directory paths for the C++ language subcommand.
+        ///     Accumulated by repeated <c>--includes</c> invocations; each invocation appends
+        ///     one plain directory path.
         /// </summary>
-        public string[] Includes { get; private set; } = [];
+        public List<string> Includes { get; } = new List<string>();
 
         /// <summary>
-        ///     Gets the compiler-only search paths parsed from the <c>--search-paths</c> comma-separated list.
-        ///     Passed to Clang as <c>-I</c> paths for <c>#include</c> resolution; declarations from these
-        ///     paths are never documented.
+        ///     Gets the ordered list of glob and antipattern strings for the C++ language subcommand.
+        ///     Accumulated by repeated <c>--api-headers</c> invocations; each invocation appends
+        ///     one pattern (with or without a leading <c>!</c>). Order is preserved for
+        ///     gitignore-style last-match-wins evaluation.
         /// </summary>
-        public string[] SearchPaths { get; private set; } = [];
-
-        /// <summary>
-        ///     Gets the include glob patterns parsed from <c>--include-patterns</c> or from
-        ///     glob entries inline in <c>--includes</c>. Passed to <c>CppGeneratorOptions.IncludePatterns</c>.
-        /// </summary>
-        public string[] IncludePatterns { get; private set; } = [];
-
-        /// <summary>
-        ///     Gets the exclude glob patterns parsed from <c>--exclude-patterns</c> or from
-        ///     <c>!</c>-prefixed entries inline in <c>--includes</c>. Passed to
-        ///     <c>CppGeneratorOptions.ExcludePatterns</c>.
-        /// </summary>
-        public string[] ExcludePatterns { get; private set; } = [];
+        public List<string> ApiHeaders { get; } = new List<string>();
 
         /// <summary>
         ///     Gets the output directory.
@@ -479,29 +454,21 @@ internal sealed class Context : IContext, IDisposable
 
                 case "--includes":
                     {
-                        // Classify each entry into: plain root paths, include-filter globs, or exclusion patterns
-                        var raw = GetRequiredStringArgument(arg, args, index, "a comma-separated path list argument");
-                        ClassifyIncludeEntries(raw, out var roots, out var includePatterns, out var excludePatterns);
-                        Includes = roots;
-                        IncludePatterns = includePatterns;
-                        ExcludePatterns = excludePatterns;
+                        // Append each --includes invocation as one plain directory path
+                        // — repeated --includes flags accumulate the full list
+                        var path = GetRequiredStringArgument(arg, args, index, "a directory path argument");
+                        Includes.Add(path);
                         return index + 1;
                     }
 
-                case "--search-paths":
-                    SearchPaths = GetRequiredStringArgument(arg, args, index, "a comma-separated path list argument")
-                        .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-                    return index + 1;
-
-                case "--include-patterns":
-                    IncludePatterns = GetRequiredStringArgument(arg, args, index, "a comma-separated glob pattern argument")
-                        .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-                    return index + 1;
-
-                case "--exclude-patterns":
-                    ExcludePatterns = GetRequiredStringArgument(arg, args, index, "a comma-separated glob pattern argument")
-                        .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-                    return index + 1;
+                case "--api-headers":
+                    {
+                        // Append each --api-headers invocation as one pattern string
+                        // — may start with '!' for exclusion; order is preserved for gitignore evaluation
+                        var pattern = GetRequiredStringArgument(arg, args, index, "a glob pattern argument");
+                        ApiHeaders.Add(pattern);
+                        return index + 1;
+                    }
 
                 case "--output":
                     Output = GetRequiredStringArgument(arg, args, index, "a directory path argument");
@@ -546,51 +513,6 @@ internal sealed class Context : IContext, IDisposable
 
                     throw new ArgumentException($"Unsupported argument '{arg}'", nameof(args));
             }
-        }
-
-        /// <summary>
-        ///     Classifies a comma-separated include list into three buckets.
-        /// </summary>
-        /// <param name="value">Raw comma-separated string from <c>--includes</c>.</param>
-        /// <param name="roots">Receives plain directory paths (no wildcards, no <c>!</c>).</param>
-        /// <param name="includePatterns">Receives glob patterns (containing <c>*</c> or <c>?</c>).</param>
-        /// <param name="excludePatterns">Receives <c>!</c>-stripped exclusion patterns.</param>
-        private static void ClassifyIncludeEntries(
-            string value,
-            out string[] roots,
-            out string[] includePatterns,
-            out string[] excludePatterns)
-        {
-            var rootList = new List<string>();
-            var includeList = new List<string>();
-            var excludeList = new List<string>();
-
-            foreach (var entry in value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
-            {
-                if (entry.StartsWith('!'))
-                {
-                    // Strip the '!' prefix, trim whitespace, and skip bare '!' entries
-                    var pattern = entry[1..].Trim();
-                    if (pattern.Length > 0)
-                    {
-                        excludeList.Add(pattern);
-                    }
-                }
-                else if (entry.Contains('*') || entry.Contains('?'))
-                {
-                    // Entries with glob wildcards select which headers to document
-                    includeList.Add(entry);
-                }
-                else
-                {
-                    // Plain paths are public include root directories
-                    rootList.Add(entry);
-                }
-            }
-
-            roots = [.. rootList];
-            includePatterns = [.. includeList];
-            excludePatterns = [.. excludeList];
         }
 
         /// <summary>

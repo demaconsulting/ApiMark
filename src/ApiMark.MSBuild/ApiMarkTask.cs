@@ -108,7 +108,9 @@ public sealed class ApiMarkTask : Task
     /// </summary>
     /// <remarks>
     ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkIncludePaths)</c>.
-    ///     Semicolons are converted to commas for the <c>--includes</c> tool argument.
+    ///     Each semicolon-delimited entry is forwarded as an individual <c>--includes</c> flag;
+    ///     all entries are passed to Clang as <c>-I</c> paths and serve as the base directories
+    ///     for the default header glob when <see cref="ApiMarkApiHeaders"/> is not set.
     /// </remarks>
     public string? ApiMarkIncludePaths { get; set; }
 
@@ -149,15 +151,17 @@ public sealed class ApiMarkTask : Task
     /// </remarks>
     public string? ApiMarkClangPath { get; set; }
 
-    /// <summary>Gets or sets the semicolon-separated list of compiler-only search paths for C++.</summary>
+    /// <summary>Gets or sets the semicolon-separated, order-preserved list of glob and antipattern strings for C++ header selection.</summary>
     /// <remarks>
-    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkSearchPaths)</c>.
-    ///     These paths are passed to Clang as <c>-I</c> flags for <c>#include</c> resolution only;
-    ///     declarations from these paths are never documented.
-    ///     Semicolons are converted to commas for the <c>--search-paths</c> tool argument.
-    ///     Optional — omitted when empty or not set.
+    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkApiHeaders)</c>.
+    ///     Entries are forwarded as individual <c>--api-headers</c> flags in the order they appear.
+    ///     Entries with a <c>!</c> prefix are exclusion antipatterns; entries without are include
+    ///     patterns. Gitignore semantics apply: the last matching pattern wins, enabling
+    ///     include/exclude/re-include sequences.
+    ///     Optional — when empty, all headers under <c>$(ApiMarkIncludePaths)</c> with recognized
+    ///     C++ header extensions are documented.
     /// </remarks>
-    public string? ApiMarkSearchPaths { get; set; }
+    public string? ApiMarkApiHeaders { get; set; }
 
     /// <summary>
     ///     Gets or sets the full path to <c>ApiMark.Tool.dll</c> bundled inside the NuGet package.
@@ -225,12 +229,10 @@ public sealed class ApiMarkTask : Task
         }
         else
         {
-            // Parse ApiMarkIncludePaths into three buckets: plain roots, glob patterns, exclusions.
-            // MSBuild uses semicolons as its list separator; each entry is trimmed before classification.
-            var roots = new List<string>();
-            var includePatterns = new List<string>();
-            var excludePatterns = new List<string>();
+            args.Add("cpp");
 
+            // Emit one --includes flag per path entry — each semicolon-delimited entry becomes
+            // a separate repeatable --includes argument so paths with spaces are unambiguous
             if (!string.IsNullOrEmpty(ApiMarkIncludePaths))
             {
                 foreach (var rawEntry in ApiMarkIncludePaths!.Split(';'))
@@ -243,44 +245,27 @@ public sealed class ApiMarkTask : Task
                         continue;
                     }
 
-                    if (entry.StartsWith("!"))
-                    {
-                        // Strip the '!' prefix, trim whitespace, and skip bare '!' entries
-                        var pattern = entry.Substring(1).Trim();
-                        if (pattern.Length > 0)
-                        {
-                            excludePatterns.Add(pattern);
-                        }
-                    }
-                    else if (entry.Contains("*") || entry.Contains("?"))
-                    {
-                        // Glob wildcards mark the entry as an include-filter pattern
-                        includePatterns.Add(entry);
-                    }
-                    else
-                    {
-                        // Plain paths are public include root directories
-                        roots.Add(entry);
-                    }
+                    args.Add("--includes");
+                    args.Add(entry);
                 }
             }
 
-            args.Add("cpp");
-            args.Add("--includes");
-            args.Add(string.Join(",", roots));
-
-            // Forward include-filter patterns only when present — absent means all headers are included
-            if (includePatterns.Count > 0)
+            // Emit one --api-headers flag per pattern entry, order-preserved including ! antipatterns
+            if (!string.IsNullOrEmpty(ApiMarkApiHeaders))
             {
-                args.Add("--include-patterns");
-                args.Add(string.Join(",", includePatterns));
-            }
+                foreach (var rawEntry in ApiMarkApiHeaders!.Split(';'))
+                {
+                    // Manually trim each entry — StringSplitOptions.TrimEntries is not
+                    // available in netstandard2.0 which this assembly targets
+                    var entry = rawEntry.Trim();
+                    if (string.IsNullOrEmpty(entry))
+                    {
+                        continue;
+                    }
 
-            // Forward exclusion patterns only when present
-            if (excludePatterns.Count > 0)
-            {
-                args.Add("--exclude-patterns");
-                args.Add(string.Join(",", excludePatterns));
+                    args.Add("--api-headers");
+                    args.Add(entry);
+                }
             }
 
             // Library name (defaults to project name via .targets)
@@ -317,14 +302,6 @@ public sealed class ApiMarkTask : Task
             {
                 args.Add("--clang-path");
                 args.Add(ApiMarkClangPath!);
-            }
-
-            // Compiler-only search paths — semicolons converted to commas
-            if (!string.IsNullOrEmpty(ApiMarkSearchPaths))
-            {
-                var commaSearchPaths = ApiMarkSearchPaths!.Replace(';', ',');
-                args.Add("--search-paths");
-                args.Add(commaSearchPaths);
             }
         }
 

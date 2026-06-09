@@ -246,14 +246,12 @@ internal static class Program
                 LibraryName = cppLibraryName,
                 Description = context.LibraryDescription ?? string.Empty,
                 PublicIncludeRoots = context.Includes,
-                IncludePatterns = context.IncludePatterns,
-                ExcludePatterns = context.ExcludePatterns,
+                ApiHeaderPatterns = context.ApiHeaders,
                 Defines = context.Defines,
                 CppStandard = context.CppStandard ?? "c++17",
                 Visibility = (CppApiVisibility)(int)visibility,
                 IncludeDeprecated = context.IncludeObsolete,
                 ClangPath = context.ClangPath,
-                AdditionalIncludePaths = context.SearchPaths,
             }),
 
             // Any other token is an unrecognized subcommand
@@ -302,16 +300,14 @@ internal static class Program
         context.WriteLine("  --include-obsolete         Include obsolete members in generated output");
         context.WriteLine("");
         context.WriteLine("cpp options:");
-        context.WriteLine("  --includes <paths>         Comma-separated list of public include directories (required)");
+        context.WriteLine("  --includes <path>          Include directory for clang -I (repeatable, required)");
+        context.WriteLine("  --api-headers <pattern>    Glob pattern for documented headers, supports ! exclusions (repeatable, ordered)");
         context.WriteLine("  --output <dir>             Output directory for Markdown files (required)");
         context.WriteLine("  --library-name <name>      Library name used as the top-level heading (default: output directory name)");
         context.WriteLine("  --library-description <d>  Optional description for the library api.md introduction");
         context.WriteLine("  --defines <values>         Comma-separated preprocessor definitions (e.g. MYLIB_API=,NDEBUG)");
         context.WriteLine("  --cpp-standard <std>       C++ language standard passed to Clang (default: c++17)");
         context.WriteLine("  --clang-path <path>        Path to clang executable (default: auto-discovered via PATH / xcrun / vswhere)");
-        context.WriteLine("  --search-paths <paths>     (for #include resolution only; not included in generated output)");
-        context.WriteLine("  --include-patterns <p>     Comma-separated glob patterns selecting headers to document");
-        context.WriteLine("  --exclude-patterns <p>     Comma-separated glob patterns for headers to exclude");
         context.WriteLine("  --visibility <value>       Visibility filter: Public, PublicAndProtected, All (default: Public)");
         context.WriteLine("  --include-obsolete         Include deprecated members in generated output");
     }
