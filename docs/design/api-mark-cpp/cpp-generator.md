@@ -27,8 +27,8 @@ library, emitted as an introductory paragraph in `api.md`. Omitted when empty.
 the top-level heading in `api.md`.
 
 **CppGeneratorOptions.PublicIncludeRoots**: `IReadOnlyList<string>` — one or
-more directories that define the public include root(s) of the library. This
-property serves a dual purpose:
+more directories that define the compiler include roots. This property serves
+two purposes:
 
 1. *Parse environment*: each root is passed to the Clang parser as an `-I`
    include directory so that `#include <mylib/types.h>` resolves correctly
@@ -38,22 +38,23 @@ property serves a dual purpose:
    normalizing separators to forward slashes. For example, if the root is
    `C:\project\include` and the declaration source is
    `C:\project\include\mylib\renderer.h`, the canonical include path is
-   `mylib/renderer.h`, yielding `#include <mylib/renderer.h>` in the type
+   `mylib/renderer.h`, yielding `#include "mylib/renderer.h"` in the type
    page output.
 
 When multiple roots are configured and a file matches more than one, the
 longest matching root path (most specific) wins.
 
-**CppGeneratorOptions.IncludePatterns**: `IReadOnlyList<string>` — glob
-patterns relative to each PublicIncludeRoot selecting which header files
-contribute to the documented public API. Defaults to `["**/*"]` when empty,
-which selects all files under all roots.
+**CppGeneratorOptions.ApiHeaderPatterns**: `IList<string>` — ordered list of
+glob and exclusion pattern strings that determine which header files contribute to the
+documented public API. Gitignore-style semantics apply: patterns are evaluated
+in order; the last matching pattern wins. Entries without a `!` prefix are
+include patterns; entries with a `!` prefix are exclusion patterns (the `!`
+is stripped before glob matching). When empty, all headers with recognized C++
+extensions (`.h`, `.hpp`, `.hxx`, `.h++`) under all configured roots are
+documented automatically without any pattern filtering.
 
-**CppGeneratorOptions.ExcludePatterns**: `IReadOnlyList<string>` — glob
-patterns relative to each PublicIncludeRoot for files to exclude from the
-documented API. Common values: `"detail/**"`, `"*_impl.h"`, `"internal/**"`.
-ExcludePatterns are evaluated after IncludePatterns; a file matching both is
-excluded.
+Example — all headers except `detail/`, with one re-included:
+`["include/**", "!include/detail/**", "include/detail/public_api.h"]`
 
 **CppGeneratorOptions.SystemIncludePaths**: `IReadOnlyList<string>` — toolchain
 and SDK include directories passed to the Clang parser as system include paths
@@ -61,13 +62,6 @@ and SDK include directories passed to the Clang parser as system include paths
 (`<vector>`, `<windows.h>`, etc.) resolve during parsing. These directories
 are used for type resolution only; declarations found within them are never
 documented.
-
-**CppGeneratorOptions.AdditionalIncludePaths**: `IReadOnlyList<string>` —
-additional include directories for third-party headers included by public
-headers but not part of the documented API (e.g. a vendored library's include
-directory). Passed to the Clang parser as `-I` flags. Declarations from these
-paths are never documented. Note: this option is currently not wired through the
-CLI; it is available for direct API use only (v1 scope).
 
 **CppGeneratorOptions.Defines**: `IReadOnlyList<string>` — preprocessor symbol
 definitions passed to the Clang parser as `-D` flags, in the form `"NAME"` or
@@ -79,9 +73,10 @@ sees them as no-ops and does not misinterpret them as type annotations.
 to Clang (e.g. `"c++17"`, `"c++20"`). Defaults to `"c++17"` when not
 specified.
 
-**CppGeneratorOptions.ClangPath**: `string?` — optional path to the clang executable; when null
-or empty, clang is discovered automatically (PATH → xcrun on macOS → vswhere on Windows →
-`C:\Program Files\LLVM\bin\clang.exe`).
+**CppGeneratorOptions.ClangPath**: `string?` — optional explicit path to the clang executable.
+When non-empty, this path is used directly (and must exist on disk); no discovery is performed.
+When null or empty, the discovery order is: `APIMARK_CLANG_PATH` environment variable →
+`clang` on PATH → `xcrun clang` on macOS → vswhere LLVM / `C:\Program Files\LLVM\bin\clang.exe` on Windows.
 
 **CppGeneratorOptions.AdditionalCompilerArguments**: `IReadOnlyList<string>` —
 raw Clang compiler arguments appended after all structured options. Provides an
@@ -134,6 +129,7 @@ filter, and writes the full Markdown output tree.
     | ----------- | ------------ |
     | Namespace | `{Namespace}.md` |
     | Type | `{Namespace}/{TypeName}.md` |
+    | Type alias | `{Namespace}/{AliasName}.md` |
     | Member | `{Namespace}/{TypeName}/{MemberName}.md` |
     | Free function | `{Namespace}/{FunctionName}.md` |
     | Enum | `{Namespace}/{EnumName}.md` |
@@ -148,10 +144,10 @@ filter, and writes the full Markdown output tree.
     the canonical `#include <path>` at the top, followed by the class
     declaration, inheritance information, template parameters (for primary
     templates), and grouped sub-tables with links to all member detail pages.
-    When the class is marked `final`, a `class ClassName final` declaration
-    line (including base class names when inheritance is present) is appended
-    to the signature block so consumers can see the constraint without opening
-    the header.
+    When the class is marked `final` or has direct base classes, a class
+    declaration line (e.g. `class FinalClass final`, `class Circle : public Shape`)
+    is appended to the signature block so consumers can see the constraint and
+    inheritance chain without opening the header.
   - `factory.CreateMarkdown($"{qualifiedNamespace}/{typeName}", memberName)` —
     dedicated page for every visible non-operator member. All non-operator members
     always receive their own page, making navigation fully deterministic.
@@ -166,9 +162,9 @@ filter, and writes the full Markdown output tree.
     name `"global"`.
 
 Execution steps: enumerate candidate header files under each PublicIncludeRoot
-applying IncludePatterns and ExcludePatterns; build Clang options from all
-configured paths, defines, standard, and additional arguments; write a temporary
-combined header that `#include`s all candidate headers, invoke
+applying ApiHeaderPatterns with gitignore-style last-match-wins semantics; build
+Clang options from all configured paths, defines, standard, and additional arguments;
+write a temporary combined header that `#include`s all candidate headers, invoke
 `clang -Xclang -ast-dump=json -fparse-all-comments -fsyntax-only` on it, parse the resulting
 JSON AST; walk the AST and apply IsOwnedDeclaration to each declaration; apply
 Visibility and IncludeDeprecated filters; write the library entrypoint; for
@@ -183,16 +179,16 @@ members (case-insensitive collision) emit a single combined page via
 `operators.md` page via `WriteClassOperatorsPage`; emit grouped sub-tables with
 links; for each namespace with operator free functions emit a single
 `operators.md` page via `WriteNamespaceOperatorsPage` instead of individual
-pages; delete the temporary combined header file.
+pages; for each owned type alias emit a type alias page via `WriteTypeAliasPage`;
+delete the temporary combined header file.
 
 **IsOwnedDeclaration** (internal): Determines whether a declaration belongs to
 the documented public API.
 
 - *Parameters*: declaration source file (absolute, normalized path).
 - *Returns*: `(bool owned, string includeRoot, string relativePath)` — owned
-  is true when the file falls under a PublicIncludeRoot and matches
-  IncludePatterns without matching ExcludePatterns; includeRoot and
-  relativePath are set when owned is true.
+  is true when the file falls under a PublicIncludeRoot and is selected by
+  ApiHeaderPatterns; includeRoot and relativePath are set when owned is true.
 - *Algorithm*:
   1. Normalize the declaration source file path: resolve to absolute path,
      normalize directory separators to the OS separator, resolve `..` and
@@ -203,9 +199,12 @@ the documented public API.
      overlap).
   4. Compute relative path: strip the root prefix and normalize separators to
      forward slashes.
-  5. Test the relative path against IncludePatterns (must match at least one)
-     and ExcludePatterns (must not match any). Return owned=true only when both
-     conditions hold.
+  5. When ApiHeaderPatterns is non-empty, test whether the file is selected using
+     gitignore-style last-match-wins evaluation. Patterns are first evaluated
+     CWD-relative (when the file falls within the current working directory); when
+     the root is outside the CWD the file path relative to the root is used instead.
+     Return owned=true only when the final evaluated state is included. When
+     ApiHeaderPatterns is empty, all files under the matched root are owned.
 
 **CppGenerator.WriteCombinedMemberPage** (private): Writes a single combined
 Markdown page for a group of members whose base names collide on case-insensitive
@@ -261,6 +260,64 @@ identified by the declaring class name.
   function → `className`; non-constructor function → `fn.Name`; field → `field.Name`;
   any other type → `className`.
 
+**CppTypeLinkResolver** (internal): Resolves C++ type strings to Markdown link text
+for use in table cells.
+
+- *Constructor*: Accepts `IReadOnlyDictionary<string, string> knownTypes` — maps
+  fully-qualified C++ type names (e.g. `"fixtures::SampleClass"`) to documentation
+  page keys (e.g. `"fixtures/SampleClass"`). Built in `CppGenerator.Generate` from
+  the `namespaceDecls` dictionary.
+- **Linkify** method: resolves a simplified C++ type string to a Markdown link or plain text.
+  - *Parameters*: `string cppTypeString`, `string currentFolder`, `ISet<CppExternalTypeInfo>
+    externalTypes` accumulator.
+  - *Returns*: a Markdown link `[Name](relative/path.md)` when the stripped base type
+    is in `knownTypes`; the original string unchanged otherwise; non-std external types
+    with a namespace are tracked in `externalTypes`.
+  - *Algorithm*: strip qualifiers (`const`, `volatile`, `*`, `&`, `&&`, trailing-const,
+    and template arguments) to isolate the base type name; reject primitives and `std::`
+    types immediately; look up the base type in `knownTypes` by exact qualified match,
+    then by short-name fallback; compute a relative path and return the link; if not
+    found and the type has a non-std namespace, track as external.
+- **StripQualifiers** (internal static): removes C++ cv and reference qualifiers and
+  template arguments from a type string, returning the bare base type name.
+
+**CppExternalTypeInfo** (internal record): Represents a non-standard external C++
+type reference collected during table cell generation.
+
+- *Properties*: `TypeString` (short type name without namespace), `Namespace`
+  (the C++ namespace using `::` separators).
+- *Ordering*: implements `IComparable<CppExternalTypeInfo>` by `TypeString` so
+  `SortedSet<CppExternalTypeInfo>` produces alphabetically ordered tables.
+
+**CppGenerator.WriteExternalTypesSection** (private static): Emits the
+`## External Types` section at the bottom of a page when at least one external
+type was referenced in table cells.
+
+- *Parameters*: `IMarkdownWriter writer`, `SortedSet<CppExternalTypeInfo>
+  externalTypes`.
+- *Algorithm*: Returns immediately when the set is empty; otherwise writes an
+  H2 heading `"External Types"` and a two-column table (`Type`, `Namespace`).
+
+**CppGenerator.WriteTypeAliasPage** (private): Writes a documentation page for a
+`using` type alias declaration.
+
+- *Parameters*: `IMarkdownWriterFactory factory`, `string nsKey`, `string nsDisplayName`,
+  `CppTypeAlias alias`.
+- *Returns*: `void`
+- *Algorithm*: Creates `{nsKey}/{alias.Name}.md` via the factory; writes an H1 heading
+  using `alias.Name`; emits the fully-qualified name comment
+  (`// {nsDisplayName}::{alias.Name}`), the optional `#include` directive from the source
+  location, and the `using {alias.Name} = {alias.UnderlyingTypeName}` declaration in a
+  fenced `cpp` code block; emits the doc comment summary paragraph or the no-description
+  placeholder; emits the extended details paragraph when a `@details` or `@remarks` block
+  is present.
+
+**CppFunction.IsDeleted** (data model property): `bool` — when `true`, the function
+was declared with `= delete` in the source. `ClangAstParser` reads this from the
+`"explicitlyDeleted"` field of `FunctionDecl` and `CXXMethodDecl` nodes in the clang JSON
+AST. `BuildMethodSignature` appends the `= delete` suffix to the rendered signature when
+this flag is set, making the intentional prohibition visible in the generated documentation.
+
 ### Error Handling
 
 CppGenerator throws `DirectoryNotFoundException` when a path in
@@ -276,7 +333,8 @@ DotNetGenerator behavior.
 - **IApiGenerator** — CppGenerator implements this interface from ApiMarkCore.
 - **IMarkdownWriterFactory** — CppGenerator receives an IMarkdownWriterFactory
   through Generate and calls CreateMarkdown to obtain each IMarkdownWriter.
-- **clang** — the system clang executable (`clang` on PATH, `xcrun clang` on macOS, or
+- **clang** — the system clang executable (resolved via `CppGeneratorOptions.ClangPath`,
+  `APIMARK_CLANG_PATH` environment variable, `clang` on PATH, `xcrun clang` on macOS, or
   vswhere-located clang on Windows) is invoked as a subprocess to parse C++ headers and
   produce a JSON AST — see Clang Integration Design.
 

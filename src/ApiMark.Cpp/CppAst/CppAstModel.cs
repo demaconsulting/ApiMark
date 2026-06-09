@@ -42,11 +42,13 @@ public record CppParamDoc(string Name, string Description);
 /// </param>
 /// <param name="Params">One entry for each <c>@param</c> tag found on the declaration.</param>
 /// <param name="Returns">Return description from a <c>@return</c> or <c>@returns</c> tag.</param>
+/// <param name="Note">Contextual note from a <c>@note</c> tag, or <see langword="null"/> when absent.</param>
 public record CppDocComment(
     string? Summary,
     string? Details,
     IReadOnlyList<CppParamDoc> Params,
-    string? Returns);
+    string? Returns,
+    string? Note = null);
 
 /// <summary>Names a base type in a C++ class inheritance list.</summary>
 /// <param name="Name">
@@ -75,7 +77,11 @@ public record CppEnumValue(string Name, CppDocComment? Doc);
 ///     The parameter type as clang reports it in <c>type.qualType</c>,
 ///     e.g. <c>"const std::string &amp;"</c>.
 /// </param>
-public record CppParameter(string Name, string TypeName);
+/// <param name="DefaultValue">
+///     The default argument value as a display string (e.g. <c>"0"</c>, <c>"nullptr"</c>),
+///     or <see langword="null"/> when no default is declared.
+/// </param>
+public record CppParameter(string Name, string TypeName, string? DefaultValue = null);
 
 /// <summary>Represents a field (data member) of a C++ class or struct.</summary>
 /// <param name="Name">The field name.</param>
@@ -120,6 +126,9 @@ public record CppField(
 /// <param name="IsDeprecated">
 ///     <see langword="true"/> when the function carries a <c>[[deprecated]]</c> attribute.
 /// </param>
+/// <param name="IsDeleted">
+///     <see langword="true"/> when the function is declared <c>= delete</c>, explicitly forbidding its use.
+/// </param>
 /// <param name="Location">Source location of the declaration, or <see langword="null"/> when unavailable.</param>
 /// <param name="Doc">Doxygen documentation attached to this function, or <see langword="null"/> when absent.</param>
 public record CppFunction(
@@ -132,6 +141,7 @@ public record CppFunction(
     bool IsConstructor,
     bool IsVariadic,
     bool IsDeprecated,
+    bool IsDeleted,
     CppSourceLocation? Location,
     CppDocComment? Doc);
 
@@ -140,12 +150,23 @@ public record CppFunction(
 ///     Template classes carry their type parameters in <see cref="TemplateParams"/>; non-template
 ///     classes have an empty list. <see cref="Members"/> contains all constructors and methods;
 ///     callers use <see cref="CppFunction.IsConstructor"/> to distinguish them.
+///     <see cref="NestedClasses"/> holds any public nested class or struct declarations found
+///     inside the class body. <see cref="TypeAliases"/> holds any public <c>using</c> type alias
+///     declarations scoped to this class.
 /// </remarks>
 /// <param name="Name">The unqualified class name.</param>
 /// <param name="BaseTypes">Direct base classes, in declaration order.</param>
 /// <param name="TemplateParams">Template type parameters; empty for non-template classes.</param>
 /// <param name="Members">All constructors and methods declared in the class body, in declaration order.</param>
 /// <param name="Fields">All data member fields declared in the class body, in declaration order.</param>
+/// <param name="NestedClasses">
+///     Public nested class and struct declarations found inside the class body, in declaration order.
+///     Empty when no nested classes are present.
+/// </param>
+/// <param name="TypeAliases">
+///     Public <c>using</c> type alias declarations scoped to this class, in declaration order.
+///     Empty when no class-scoped aliases are present.
+/// </param>
 /// <param name="IsDeprecated">
 ///     <see langword="true"/> when the class carries a <c>[[deprecated]]</c> attribute.
 /// </param>
@@ -160,6 +181,8 @@ public record CppClass(
     IReadOnlyList<CppTemplateParam> TemplateParams,
     IReadOnlyList<CppFunction> Members,
     IReadOnlyList<CppField> Fields,
+    IReadOnlyList<CppClass> NestedClasses,
+    IReadOnlyList<CppTypeAlias> TypeAliases,
     bool IsDeprecated,
     bool IsFinal,
     CppSourceLocation? Location,
@@ -180,6 +203,24 @@ public record CppEnum(
     CppSourceLocation? Location,
     CppDocComment? Doc);
 
+/// <summary>Represents a <c>using</c> type alias declaration in a C++ namespace.</summary>
+/// <param name="Name">The alias name (e.g. <c>fatal_error_code_t</c>).</param>
+/// <param name="UnderlyingTypeName">
+///     The underlying type string as reported by clang (e.g. <c>int32_t</c> or
+///     <c>void (*)(fatal_error_code_t, const void *)</c>).
+/// </param>
+/// <param name="IsDeprecated">
+///     <see langword="true"/> when the alias carries a <c>[[deprecated]]</c> attribute.
+/// </param>
+/// <param name="Location">Source location of the alias declaration, or <see langword="null"/> when unavailable.</param>
+/// <param name="Doc">Doxygen documentation attached to this alias, or <see langword="null"/> when absent.</param>
+public record CppTypeAlias(
+    string Name,
+    string UnderlyingTypeName,
+    bool IsDeprecated,
+    CppSourceLocation? Location,
+    CppDocComment? Doc);
+
 /// <summary>
 ///     Groups all owned declarations contributed by a single C++ namespace (or the global namespace).
 /// </summary>
@@ -195,12 +236,14 @@ public record CppEnum(
 /// <param name="Classes">All owned class and struct declarations contributed to this namespace.</param>
 /// <param name="FreeFunctions">All owned free function declarations contributed to this namespace.</param>
 /// <param name="Enums">All owned enum declarations contributed to this namespace.</param>
+/// <param name="TypeAliases">All owned <c>using</c> type alias declarations contributed to this namespace.</param>
 /// <param name="Doc">Doxygen documentation attached to the namespace, or <see langword="null"/> when absent.</param>
 public record CppNamespaceDecl(
     string QualifiedName,
     IReadOnlyList<CppClass> Classes,
     IReadOnlyList<CppFunction> FreeFunctions,
     IReadOnlyList<CppEnum> Enums,
+    IReadOnlyList<CppTypeAlias> TypeAliases,
     CppDocComment? Doc);
 
 /// <summary>Encapsulates the complete parsed result returned by <see cref="ClangAstParser"/>.</summary>

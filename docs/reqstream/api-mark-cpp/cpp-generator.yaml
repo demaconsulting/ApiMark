@@ -135,3 +135,79 @@ sections:
               - CppGenerator_Generate_ClassWithOperators_OperatorsPageContainsOperatorEntry
               - CppGenerator_Generate_ClassWithOperators_TypePageLinksToOperatorsPage
               - CppGenerator_Generate_NamespaceFreeOperator_CreatesNamespaceOperatorsPage
+          - id: ApiMarkCpp-CppGenerator-ShowDirectInheritanceInTypeSignature
+            title: >-
+              CppGenerator shall include direct base class names in the class declaration
+              line of the signature block for classes that have direct base classes or are
+              marked final, so the inheritance chain is visible without opening the header.
+            justification: |
+              The direct base class list tells AI agents the contract a type satisfies and
+              the class it extends without requiring them to navigate to the header file.
+              Combining this with the final specifier in a single declaration line keeps
+              the signature block minimal and immediately scannable.
+            tests:
+              - CppGenerator_Generate_InheritanceClass_EmitsBaseClassInSignature
+              - CppGenerator_Generate_FinalClass_EmitsFinalKeywordInSignature
+          - id: ApiMarkCpp-CppGenerator-EmitIntraDocLinksInTableCells
+            title: CppGenerator shall emit Markdown links in type and parameter type table cells when the referenced type is documented in the same library.
+            justification: |
+              AI agents and human readers navigating API documentation benefit from
+              clickable links that jump directly to the referenced type page rather
+              than requiring a separate search. Links are only emitted in table cells,
+              not inside fenced code blocks, because Markdown links do not render
+              inside fences.
+            tests:
+              - CppGenerator_Generate_IntraLibraryReturnType_EmitsMarkdownLinkInReturnsCell
+          - id: ApiMarkCpp-CppGenerator-ApplyGitignoreStylePatternSelectionToHeaders
+            title: >-
+              CppGenerator shall apply gitignore-style last-match-wins pattern selection to
+              determine which headers under the include roots contribute to the documented API
+              surface when ApiHeaderPatterns is set.
+            justification: |
+              Projects need fine-grained control over which headers appear in the generated
+              reference without changing the include roots. Gitignore-style semantics allow
+              build authors to start with a broad include pattern and then selectively exclude
+              or re-include specific subtrees using '!'-prefixed exclusion patterns, matching the
+              familiar gitignore convention.
+            tests:
+              - CppGenerator_Generate_NoApiHeaderPatterns_DocumentsAllHeaders
+              - CppGenerator_Generate_ApiHeaderPatterns_IncludePattern_OnlyMatchingFilesDocumented
+              - CppGenerator_Generate_ApiHeaderPatterns_ExcludePattern_ExcludesMatchingFiles
+              - CppGenerator_Generate_ApiHeaderPatterns_ReInclude_GitignoreSemantics_IncludesReIncludedHeader
+              - CppGenerator_Generate_ApiHeaderPatterns_ExcludeWithoutReInclude_ExcludesHeader
+          - id: ApiMarkCpp-CppGenerator-EmitExternalTypesSection
+            title: CppGenerator shall emit an "External Types" section at the bottom of each generated page that references at least one non-std external type.
+            justification: |
+              Readers using an external library type documented on a page need to know
+              which namespace or header to include. Collecting all external type
+              references per page and listing them alphabetically provides this context
+              without cluttering individual type cells with fully-qualified names.
+            tests:
+              - CppTypeLinkResolver_Linkify_UnknownNamespacedType_TracksExternalType
+          - id: ApiMarkCpp-CppGenerator-ShowDeletedFunctionsWithDeletedNotation
+            title: >-
+              CppGenerator shall document explicitly deleted functions and operators with a
+              = delete suffix in their signatures so that callers know the operation is
+              intentionally prohibited.
+            justification: |
+              Explicitly deleted special members (copy constructors, assignment operators, etc.)
+              communicate an intentional design decision to users of the API. Suppressing them
+              would imply the operation is available; showing them with = delete makes the
+              prohibition visible without requiring readers to examine the header.
+            tests:
+              - CppGenerator_Generate_DeletedCopyConstructor_EmitsDeleteSuffix
+              - CppGenerator_Generate_DeletedCopyAssignmentOperator_EmitsDeleteSuffix
+          - id: ApiMarkCpp-CppGenerator-DocumentTypeAliases
+            title: >-
+              CppGenerator shall document using type aliases declared in documented namespaces
+              as first-class entries — each alias receives its own page showing the using
+              declaration, the underlying type, and the Doxygen summary comment.
+            justification: |
+              A using alias is a named type in the public API, not an implementation detail.
+              Documenting it with its own page allows AI agents and human readers to navigate
+              to it by name and understand both the alias and its underlying type without
+              inspecting header files.
+            tests:
+              - CppGenerator_Generate_TypeAlias_CreatesAliasPages
+              - CppGenerator_Generate_TypeAliasPage_ContainsDeclarationAndSummary
+              - CppGenerator_Generate_NamespacePage_ListsTypeAliases

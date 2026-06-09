@@ -2,7 +2,6 @@ using System.Runtime.InteropServices;
 using ApiMark.Core;
 using ApiMark.Cpp.CppAst;
 using Microsoft.Extensions.FileSystemGlobbing;
-using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 
 namespace ApiMark.Cpp;
 
@@ -114,6 +113,32 @@ public sealed class CppGenerator : IApiGenerator
             CollectResultNamespace(ns, namespaceDecls);
         }
 
+        // Build the intra-library type map for link resolution.
+        // nsKey uses "." separators for file paths; display names use "::" for C++ qualified names.
+        // FlattenClass recursively registers a class, its scoped type aliases, and any nested
+        // classes so that fully-qualified names like "fixtures::Outer::Inner" resolve correctly.
+        static IEnumerable<(string Key, string Value)> FlattenClass(string nsDisplay, string nsPath, CppClass cls)
+        {
+            var clsDisplay = $"{nsDisplay}::{cls.Name}";
+            var clsPath = $"{nsPath}/{cls.Name}";
+            return new[] { (Key: clsDisplay, Value: clsPath) }
+                .Concat(cls.TypeAliases.Select(alias =>
+                    (Key: $"{clsDisplay}::{alias.Name}", Value: $"{clsPath}/{alias.Name}")))
+                .Concat(cls.NestedClasses.SelectMany(nested =>
+                    FlattenClass(clsDisplay, clsPath, nested)));
+        }
+
+        var knownTypes = namespaceDecls.SelectMany(kv =>
+        {
+            var nsDisplay = kv.Key.Replace(".", "::", StringComparison.Ordinal);
+            var nsPath = kv.Key; // preserve dot-separated key to match CreateMarkdown page keys
+            return kv.Value.Classes.SelectMany(cls => FlattenClass(nsDisplay, nsPath, cls))
+                .Concat(kv.Value.Enums.Select(enm => (Key: $"{nsDisplay}::{enm.Name}", Value: $"{nsPath}/{enm.Name}")))
+                .Concat(kv.Value.TypeAliases.Select(a => (Key: $"{nsDisplay}::{a.Name}", Value: $"{nsPath}/{a.Name}")));
+        }).ToDictionary(x => x.Key, x => x.Value, StringComparer.Ordinal);
+
+        var cppResolver = new CppTypeLinkResolver(knownTypes);
+
         // Write the library entrypoint page listing all discovered namespaces
         WriteApiPage(factory, namespaceDecls);
 
@@ -121,10 +146,11 @@ public sealed class CppGenerator : IApiGenerator
         // one detail page per owned free function, and one detail page per owned enum
         foreach (var (nsKey, nsDecls) in namespaceDecls)
         {
-            WriteNamespacePage(factory, nsKey, nsDecls);
+            WriteNamespacePage(factory, nsKey, nsDecls, cppResolver);
             foreach (var cls in nsDecls.Classes)
             {
-                WriteTypePage(factory, nsKey, nsDecls.DisplayName, cls);
+                WriteTypePage(factory, nsKey, nsDecls.DisplayName, cls, cppResolver);
+                WriteNestedTypePages(factory, nsKey, nsDecls.DisplayName, cls, cppResolver);
             }
 
             // Partition free functions into regular functions and operator overloads;
@@ -137,18 +163,24 @@ public sealed class CppGenerator : IApiGenerator
             foreach (var fn in nsDecls.FreeFunctions
                 .Where(fn => !fn.Name.StartsWith("operator", StringComparison.Ordinal)))
             {
-                WriteFreeFunctionPage(factory, nsKey, nsDecls.DisplayName, fn);
+                WriteFreeFunctionPage(factory, nsKey, nsDecls.DisplayName, fn, cppResolver);
             }
 
             if (nsOperatorFunctions.Count > 0)
             {
-                WriteNamespaceOperatorsPage(factory, nsKey, nsDecls.DisplayName, nsOperatorFunctions);
+                WriteNamespaceOperatorsPage(factory, nsKey, nsDecls.DisplayName, nsOperatorFunctions, cppResolver);
             }
 
             // Write one enum detail page per owned enum declared in this namespace
             foreach (var en in nsDecls.Enums)
             {
                 WriteEnumPage(factory, nsKey, nsDecls.DisplayName, en);
+            }
+
+            // Write one type alias page per owned using-alias declared in this namespace
+            foreach (var alias in nsDecls.TypeAliases)
+            {
+                WriteTypeAliasPage(factory, nsKey, nsDecls.DisplayName, alias, cppResolver);
             }
         }
     }
@@ -159,30 +191,77 @@ public sealed class CppGenerator : IApiGenerator
 
     /// <summary>
     ///     Enumerates candidate header files under each configured public include root,
-    ///     applying <see cref="CppGeneratorOptions.IncludePatterns"/> and
-    ///     <see cref="CppGeneratorOptions.ExcludePatterns"/> when present.
+    ///     applying <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> with gitignore-style
+    ///     semantics to determine which headers appear in the generated documentation.
     /// </summary>
     /// <returns>
     ///     A list of absolute header file paths with recognized C++ header extensions
-    ///     (<c>.h</c>, <c>.hpp</c>, <c>.hxx</c>, <c>.h++</c>) that satisfy the configured
-    ///     include/exclude glob patterns.
+    ///     (<c>.h</c>, <c>.hpp</c>, <c>.hxx</c>, <c>.h++</c>) that are selected for
+    ///     documentation by the configured pattern list.
     /// </returns>
     /// <remarks>
-    ///     When <see cref="CppGeneratorOptions.IncludePatterns"/> is empty all recognized
-    ///     headers pass the include step. When <see cref="CppGeneratorOptions.ExcludePatterns"/>
-    ///     is empty no files are removed. Patterns are evaluated relative to each root directory
-    ///     using <see cref="Matcher"/> from <c>Microsoft.Extensions.FileSystemGlobbing</c>.
+    ///     <para>
+    ///         When <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> is empty the default
+    ///         patterns <c>["**/*.h", "**/*.hpp", "**/*.hxx", "**/*.h++"]</c> are used,
+    ///         preserving the behavior of runs with no configured patterns.
+    ///     </para>
+    ///     <para>
+    ///         Gitignore-style evaluation: for each candidate file, start with
+    ///         <c>included = false</c> and walk the pattern list in order. If a pattern
+    ///         starts with <c>!</c>, strip the prefix and if the file matches set
+    ///         <c>included = false</c>; otherwise if the file matches set
+    ///         <c>included = true</c>. The final value of <c>included</c> determines
+    ///         whether the header is forwarded to clang. This allows include/exclude/re-include
+    ///         sequences that are not possible with separate include and exclude lists.
+    ///     </para>
+    ///     <para>
+    ///         All patterns (both caller-supplied and the per-root defaults) are evaluated
+    ///         relative to the current working directory so that paths like
+    ///         <c>"src/include/**"</c> are unambiguous across multiple <c>--includes</c>
+    ///         roots. A single-pattern <see cref="Matcher"/> is created per pattern check.
+    ///     </para>
     /// </remarks>
     /// <exception cref="DirectoryNotFoundException">
     ///     Thrown when a configured public include root does not exist on disk.
     /// </exception>
     private List<string> CollectHeaderFiles()
     {
-        // Recognized C++ header file extensions
+        // Recognized C++ header file extensions — files with other extensions are never
+        // forwarded to clang even when a pattern technically matches them
         var headerExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             ".h", ".hpp", ".hxx", ".h++",
         };
+
+        // Patterns are evaluated preferentially against the current working directory.
+        // When the include root is not under CWD (e.g. an absolute path), the pattern
+        // falls back to root-relative matching. Matchers are precompiled once here and
+        // reused for every file rather than being recreated per (file × pattern) pair.
+        var cwdAbsolute = Path.GetFullPath(Directory.GetCurrentDirectory());
+
+        // Precompile one Matcher per pattern (outside both loops) to avoid constructing
+        // short-lived Matcher objects on every file/pattern evaluation pair.
+        // Each entry is (isExclusion, compiledMatcher); empty exclusion globs are dropped.
+        var compiledPatterns = new List<(bool IsExclusion, Matcher Matcher)>();
+        foreach (var pattern in _options.ApiHeaderPatterns)
+        {
+            if (pattern.StartsWith("!", StringComparison.Ordinal))
+            {
+                var exclusionGlob = pattern.Substring(1).Trim();
+                if (exclusionGlob.Length > 0)
+                {
+                    var m = new Matcher();
+                    m.AddInclude(exclusionGlob);
+                    compiledPatterns.Add((true, m));
+                }
+            }
+            else
+            {
+                var m = new Matcher();
+                m.AddInclude(pattern);
+                compiledPatterns.Add((false, m));
+            }
+        }
 
         var headers = new List<string>();
         foreach (var root in _options.PublicIncludeRoots)
@@ -194,53 +273,58 @@ public sealed class CppGenerator : IApiGenerator
                     $"Public include root not found: '{root}'");
             }
 
-            // Enumerate all files recursively and retain only recognized header extensions
+            var rootAbsolute = Path.GetFullPath(root);
+
+            // Enumerate all files recursively and retain only recognized header extensions;
+            // non-header files are pre-filtered to prevent them from reaching clang
             var allFiles = Directory.GetFiles(root, "*", SearchOption.AllDirectories)
                 .Where(f => headerExtensions.Contains(Path.GetExtension(f)))
+                .Select(Path.GetFullPath)
                 .ToList();
 
-            // Apply include/exclude glob patterns when at least one is configured; when
-            // neither is set, all discovered headers are forwarded to clang without filtering
-            if (_options.IncludePatterns.Count > 0 || _options.ExcludePatterns.Count > 0)
+            if (compiledPatterns.Count == 0)
             {
-                // Build a Matcher whose patterns are relative to the root directory
-                var matcher = new Matcher();
-
-                if (_options.IncludePatterns.Count > 0)
-                {
-                    // Caller-supplied include patterns define the set of accepted headers
-                    foreach (var pattern in _options.IncludePatterns)
-                    {
-                        matcher.AddInclude(pattern);
-                    }
-                }
-                else
-                {
-                    // No include patterns: accept every file so that ExcludePatterns alone
-                    // can narrow the set without requiring an explicit catch-all
-                    matcher.AddInclude("**/*");
-                }
-
-                foreach (var pattern in _options.ExcludePatterns)
-                {
-                    matcher.AddExclude(pattern);
-                }
-
-                // Execute the glob matcher against the root; result.Files contains matched
-                // relative paths which are then converted back to absolute for clang
-                var matchResult = matcher.Execute(new DirectoryInfoWrapper(new DirectoryInfo(root)));
-                var matchedAbsolute = new HashSet<string>(
-                    matchResult.Files.Select(f => Path.GetFullPath(Path.Combine(root, f.Path))),
-                    FileSystemPathComparer);
-
-                // Intersect the extension-filtered list with the glob-matched set so that
-                // files with non-header extensions are never forwarded even if a glob matches them
-                headers.AddRange(allFiles.Where(f => matchedAbsolute.Contains(Path.GetFullPath(f))));
+                // No patterns configured: include all recognized header files under this root.
+                // This is the default behavior that documents every header reachable from
+                // the include roots, equivalent to specifying --api-headers **/*.h etc.
+                headers.AddRange(allFiles);
             }
             else
             {
-                // No patterns configured: include all discovered header files under this root
-                headers.AddRange(allFiles);
+                // Apply gitignore-style evaluation for each header file using precompiled
+                // matchers. Patterns are CWD-relative when the file is under CWD; otherwise
+                // the path is computed relative to the include root (covers absolute roots and
+                // test environments where the include root is not under CWD).
+                foreach (var absoluteFile in allFiles)
+                {
+                    var relFromCwd = Path.GetRelativePath(cwdAbsolute, absoluteFile).Replace('\\', '/');
+
+                    // Use CWD-relative path when the file is inside the CWD, otherwise fall
+                    // back to root-relative. Check for the specific parent-segment tokens
+                    // ("../" prefix or exactly "..") and rooted paths (different drive on Windows)
+                    // to avoid misclassifying filenames that legitimately start with two dots.
+                    var relPath = IsOutsideCwd(relFromCwd)
+                        ? Path.GetRelativePath(rootAbsolute, absoluteFile).Replace('\\', '/')
+                        : relFromCwd;
+
+                    // Start with the file excluded — it must explicitly match an include pattern
+                    var included = false;
+
+                    foreach (var (isExclusion, matcher) in compiledPatterns)
+                    {
+                        if (matcher.Match(relPath).HasMatches)
+                        {
+                            // Inclusion pattern sets included=true; exclusion sets it false.
+                            // Last match wins (gitignore semantics).
+                            included = !isExclusion;
+                        }
+                    }
+
+                    if (included)
+                    {
+                        headers.Add(absoluteFile);
+                    }
+                }
             }
         }
 
@@ -253,6 +337,27 @@ public sealed class CppGenerator : IApiGenerator
             .OrderBy(h => h, StringComparer.Ordinal)
             .ToList();
     }
+
+    /// <summary>
+    ///     Returns <see langword="true"/> when the path returned by
+    ///     <see cref="Path.GetRelativePath"/> indicates the file lies outside the base directory.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="Path.GetRelativePath"/> returns <c>".."</c> or a <c>"../"</c>-prefixed
+    ///     path when the file is above the base, and returns the original absolute path unchanged
+    ///     when the base and the file are on different drives (Windows). Both cases mean the file
+    ///     is outside the base directory. Checking for the exact two-dot segment avoids
+    ///     misclassifying filenames that legitimately start with two dots (e.g. <c>..hidden.h</c>).
+    /// </remarks>
+    /// <param name="relativeFromBase">The forward-slash-normalized relative path to test.</param>
+    /// <returns>
+    ///     <see langword="true"/> when <paramref name="relativeFromBase"/> indicates the file is
+    ///     outside the base directory.
+    /// </returns>
+    private static bool IsOutsideCwd(string relativeFromBase) =>
+        relativeFromBase == ".."
+        || relativeFromBase.StartsWith("../", StringComparison.Ordinal)
+        || Path.IsPathRooted(relativeFromBase);
 
     // =========================================================================
     // Error checking
@@ -362,6 +467,18 @@ public sealed class CppGenerator : IApiGenerator
 
             EnsureNamespace(result, nsKey, displayName, ns.Doc);
             result[nsKey].Enums.Add(en);
+        }
+
+        // Collect owned type aliases, applying the deprecated filter
+        foreach (var alias in ns.TypeAliases)
+        {
+            if (!_options.IncludeDeprecated && alias.IsDeprecated)
+            {
+                continue;
+            }
+
+            EnsureNamespace(result, nsKey, displayName, ns.Doc);
+            result[nsKey].TypeAliases.Add(alias);
         }
     }
 
@@ -521,7 +638,7 @@ public sealed class CppGenerator : IApiGenerator
         var rows = namespaces.Select(kv =>
         {
             var nsDecls = kv.Value;
-            var declarationCount = nsDecls.Classes.Count + nsDecls.Enums.Count + nsDecls.FreeFunctions.Count;
+            var declarationCount = nsDecls.Classes.Count + nsDecls.Enums.Count + nsDecls.TypeAliases.Count + nsDecls.FreeFunctions.Count;
             var description = GetNamespaceDescription(nsDecls);
             return new[] { $"[{nsDecls.DisplayName}]({kv.Key}.md)", declarationCount.ToString(), description };
         });
@@ -551,13 +668,18 @@ public sealed class CppGenerator : IApiGenerator
     /// <param name="factory">Factory for creating the output writer.</param>
     /// <param name="nsKey">The file-path-compatible namespace key used as the output file name.</param>
     /// <param name="nsDecls">The declarations that belong to this namespace.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify type-column cells.</param>
     private static void WriteNamespacePage(
         IMarkdownWriterFactory factory,
         string nsKey,
-        NamespaceDeclarations nsDecls)
+        NamespaceDeclarations nsDecls,
+        CppTypeLinkResolver cppResolver)
     {
         using var writer = factory.CreateMarkdown("", nsKey);
         writer.WriteHeading(1, $"{nsDecls.DisplayName} Namespace");
+
+        // Accumulate external type references found in type-column cells on this page
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
 
         // Type table — one row per owned class or struct, sorted alphabetically
         if (nsDecls.Classes.Count > 0)
@@ -589,6 +711,22 @@ public sealed class CppGenerator : IApiGenerator
             writer.WriteTable(enumHeaders, enumRows);
         }
 
+        // Type alias table — one row per owned using-alias, sorted alphabetically
+        if (nsDecls.TypeAliases.Count > 0)
+        {
+            writer.WriteHeading(2, "Type Aliases");
+            var aliasHeaders = new[] { "Alias", "Underlying Type", DescriptionColumnHeader };
+            var aliasRows = nsDecls.TypeAliases
+                .OrderBy(a => a.Name, StringComparer.Ordinal)
+                .Select(alias =>
+                {
+                    var summary = GetSummary(alias.Doc) ?? NoDescriptionPlaceholder;
+                    var underlying = cppResolver.Linkify(SimplifyTypeName(alias.UnderlyingTypeName), nsKey, externalTypes);
+                    return new[] { $"[{alias.Name}]({nsKey}/{alias.Name}.md)", underlying, summary };
+                });
+            writer.WriteTable(aliasHeaders, aliasRows);
+        }
+
         // Partition free functions into regular functions and operator overloads; operator names
         // such as operator+, operator-, and operator<< all sanitize to the same file name and
         // must be grouped onto a single operators.md page to avoid file-name collisions
@@ -609,7 +747,10 @@ public sealed class CppGenerator : IApiGenerator
                 .Select(fn =>
                 {
                     var summary = GetSummary(fn.Doc) ?? NoDescriptionPlaceholder;
-                    var returnType = SimplifyTypeName(fn.ReturnTypeName);
+
+                    // Linkify the return type cell; namespace page folder is "" (root)
+                    var returnType = cppResolver.Linkify(
+                        SimplifyTypeName(fn.ReturnTypeName), string.Empty, externalTypes);
                     var safeName = SanitizeFileName(fn.Name);
                     return new[] { $"[{fn.Name}]({nsKey}/{safeName}.md)", returnType, summary };
                 });
@@ -625,6 +766,8 @@ public sealed class CppGenerator : IApiGenerator
                 new[] { "Operators", DescriptionColumnHeader },
                 new[] { new[] { $"[operators]({nsKey}/operators.md)", "Operator overloads" } });
         }
+
+        WriteExternalTypesSection(writer, externalTypes);
     }
 
     /// <summary>
@@ -641,11 +784,13 @@ public sealed class CppGenerator : IApiGenerator
     ///     fully-qualified type name shown in the signature comment.
     /// </param>
     /// <param name="cls">The C++ class or struct to document.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify type-column cells.</param>
     private void WriteTypePage(
         IMarkdownWriterFactory factory,
         string nsKey,
         string nsDisplayName,
-        CppClass cls)
+        CppClass cls,
+        CppTypeLinkResolver cppResolver)
     {
         // Build the template parameter suffix (e.g. "<T>" for template<typename T> class Stack)
         var templateParamDisplay = BuildTemplateParamDisplay(cls);
@@ -677,11 +822,12 @@ public sealed class CppGenerator : IApiGenerator
                 sigParts.Add(templateDecl);
             }
 
-            sigParts.Add($"#include <{includePath}>");
+            sigParts.Add($"#include \"{includePath}\"");
 
-            // When the class is marked final, append the class declaration line so readers
-            // can see at a glance that the class cannot be used as a base class
-            if (cls.IsFinal)
+            // Append the class declaration line when the class is marked final or has base types so
+            // readers can see the final constraint and inheritance chain at a glance without
+            // opening the header
+            if (cls.IsFinal || cls.BaseTypes.Count > 0)
             {
                 sigParts.Add(BuildClassDeclaration(cls));
             }
@@ -698,6 +844,13 @@ public sealed class CppGenerator : IApiGenerator
         if (!string.IsNullOrEmpty(typeDetails))
         {
             writer.WriteParagraph(typeDetails);
+        }
+
+        // Emit @note as a blockquote when present
+        var typeNote = GetNote(cls.Doc);
+        if (!string.IsNullOrEmpty(typeNote))
+        {
+            writer.WriteParagraph($"> **Note:** {typeNote}");
         }
 
         // Emit base type names so readers know the inheritance chain without reading the header
@@ -718,7 +871,15 @@ public sealed class CppGenerator : IApiGenerator
         var visibleMethods = GetVisibleMethods(cls).OrderBy(m => m.Name, StringComparer.Ordinal).ToList();
         var visibleFields = GetVisibleFields(cls).OrderBy(f => f.Name, StringComparer.Ordinal).ToList();
 
-        if (visibleCtors.Count == 0 && visibleMethods.Count == 0 && visibleFields.Count == 0)
+        // Accumulate external type references found in type-column cells on this page.
+        // Declared before the early return so the nested-class and type-alias sections
+        // that follow the member tables can also add entries.
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
+        // Early exit when the class has no members, no nested classes, and no type aliases —
+        // emitting an empty page with only the signature and summary is still valid output
+        if (visibleCtors.Count == 0 && visibleMethods.Count == 0 && visibleFields.Count == 0
+            && cls.NestedClasses.Count == 0 && cls.TypeAliases.Count == 0)
         {
             return;
         }
@@ -790,11 +951,11 @@ public sealed class CppGenerator : IApiGenerator
             {
                 if (group.Count == 1)
                 {
-                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, ctor, pageFileName);
+                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, ctor, pageFileName, cppResolver);
                 }
                 else
                 {
-                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, pageFileName, group);
+                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, pageFileName, group, cppResolver);
                 }
             }
 
@@ -809,17 +970,19 @@ public sealed class CppGenerator : IApiGenerator
             var group = caseInsensitiveGroups[lowerKey];
             var pageFileName = SanitizeFileName(group.Count == 1 ? baseName : lowerKey);
             var methodSummary = GetSummary(method.Doc) ?? NoDescriptionPlaceholder;
-            var returnType = SimplifyTypeName(method.ReturnTypeName);
+
+            // Linkify the return type cell using the type link resolver
+            var returnType = cppResolver.Linkify(SimplifyTypeName(method.ReturnTypeName), nsKey, externalTypes);
 
             if (writtenKeys.Add(lowerKey))
             {
                 if (group.Count == 1)
                 {
-                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, method, pageFileName);
+                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, method, pageFileName, cppResolver);
                 }
                 else
                 {
-                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, pageFileName, group);
+                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, pageFileName, group, cppResolver);
                 }
             }
 
@@ -839,17 +1002,19 @@ public sealed class CppGenerator : IApiGenerator
             var group = caseInsensitiveGroups[lowerKey];
             var pageFileName = SanitizeFileName(group.Count == 1 ? baseName : lowerKey);
             var fieldSummary = GetSummary(field.Doc) ?? NoDescriptionPlaceholder;
-            var typeName = SimplifyTypeName(field.TypeName);
+
+            // Linkify the field type cell using the type link resolver
+            var typeName = cppResolver.Linkify(SimplifyTypeName(field.TypeName), nsKey, externalTypes);
 
             if (writtenKeys.Add(lowerKey))
             {
                 if (group.Count == 1)
                 {
-                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, field, pageFileName);
+                    WriteMemberPage(factory, nsKey, nsDisplayName, cls, field, pageFileName, cppResolver);
                 }
                 else
                 {
-                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, pageFileName, group);
+                    WriteCombinedMemberPage(factory, nsKey, nsDisplayName, cls, pageFileName, group, cppResolver);
                 }
             }
 
@@ -860,19 +1025,19 @@ public sealed class CppGenerator : IApiGenerator
         // Each section is only emitted when at least one member of that kind is present.
         if (ctorRows.Count > 0)
         {
-            writer.WriteHeading(3, "Constructors");
+            writer.WriteHeading(2, "Constructors");
             writer.WriteTable(new[] { "Constructor", DescriptionColumnHeader }, ctorRows);
         }
 
         if (methodRows.Count > 0)
         {
-            writer.WriteHeading(3, "Methods");
+            writer.WriteHeading(2, "Methods");
             writer.WriteTable(new[] { "Member", "Returns", DescriptionColumnHeader }, methodRows);
         }
 
         if (fieldRows.Count > 0)
         {
-            writer.WriteHeading(3, "Fields");
+            writer.WriteHeading(2, "Fields");
             writer.WriteTable(new[] { "Member", "Type", DescriptionColumnHeader }, fieldRows);
         }
 
@@ -880,11 +1045,89 @@ public sealed class CppGenerator : IApiGenerator
         // a single page to prevent file-name collisions between operator+, operator-, etc.
         if (operatorMethods.Count > 0)
         {
-            WriteClassOperatorsPage(factory, nsKey, nsDisplayName, cls, operatorMethods);
-            writer.WriteHeading(3, "Operators");
+            WriteClassOperatorsPage(factory, nsKey, nsDisplayName, cls, operatorMethods, cppResolver);
+            writer.WriteHeading(2, "Operators");
             writer.WriteTable(
                 new[] { "Operators", DescriptionColumnHeader },
                 new[] { new[] { $"[operators]({cls.Name}/operators.md)", "Operator overloads" } });
+        }
+
+        // Emit Nested Classes table so readers can discover inner types without browsing the header
+        if (cls.NestedClasses.Count > 0)
+        {
+            writer.WriteHeading(2, "Nested Classes");
+            var nestedHeaders = new[] { "Type", DescriptionColumnHeader };
+            var nestedRows = cls.NestedClasses
+                .OrderBy(n => n.Name, StringComparer.Ordinal)
+                .Select(nested =>
+                {
+                    var summary = GetSummary(nested.Doc) ?? NoDescriptionPlaceholder;
+                    return new[] { $"[{nested.Name}]({cls.Name}/{nested.Name}.md)", summary };
+                });
+            writer.WriteTable(nestedHeaders, nestedRows);
+        }
+
+        // Emit Type Aliases table for public class-scoped using-aliases
+        if (cls.TypeAliases.Count > 0)
+        {
+            writer.WriteHeading(2, "Type Aliases");
+            var aliasHeaders = new[] { "Alias", "Underlying Type", DescriptionColumnHeader };
+            var aliasRows = cls.TypeAliases
+                .OrderBy(a => a.Name, StringComparer.Ordinal)
+                .Select(alias =>
+                {
+                    var summary = GetSummary(alias.Doc) ?? NoDescriptionPlaceholder;
+                    var underlying = cppResolver.Linkify(SimplifyTypeName(alias.UnderlyingTypeName), nsKey, externalTypes);
+                    return new[] { $"[{alias.Name}]({cls.Name}/{alias.Name}.md)", underlying, summary };
+                });
+            writer.WriteTable(aliasHeaders, aliasRows);
+        }
+
+        WriteExternalTypesSection(writer, externalTypes);
+    }
+
+    /// <summary>
+    ///     Recursively writes type alias pages and nested class pages for a class,
+    ///     following the same folder conventions as the parent class pages.
+    /// </summary>
+    /// <remarks>
+    ///     Class-scoped type alias pages are placed at <c>{parentKey}/{cls.Name}/{alias.Name}</c>.
+    ///     Nested class type pages are placed at <c>{parentKey}/{cls.Name}/{nested.Name}</c>.
+    ///     Recursion continues so that arbitrarily deep nesting is supported.
+    /// </remarks>
+    /// <param name="factory">Factory for creating output writers.</param>
+    /// <param name="parentKey">
+    ///     The file-path-compatible key of the parent scope (namespace key for top-level classes,
+    ///     or the parent class folder for deeper nesting).
+    /// </param>
+    /// <param name="parentDisplayName">
+    ///     The C++ qualified name of the parent scope used to build fully-qualified names
+    ///     shown in signature comments.
+    /// </param>
+    /// <param name="cls">The class whose nested artifacts to write.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify type-column cells.</param>
+    private void WriteNestedTypePages(
+        IMarkdownWriterFactory factory,
+        string parentKey,
+        string parentDisplayName,
+        CppClass cls,
+        CppTypeLinkResolver cppResolver)
+    {
+        // The class folder and display name form the base for all children of this class
+        var clsKey = $"{parentKey}/{cls.Name}";
+        var clsDisplayName = $"{parentDisplayName}::{cls.Name}";
+
+        // Write one type alias page per public class-scoped using-alias
+        foreach (var alias in cls.TypeAliases)
+        {
+            WriteTypeAliasPage(factory, clsKey, clsDisplayName, alias, cppResolver);
+        }
+
+        // Write one type page per public nested class and recurse into its own children
+        foreach (var nested in cls.NestedClasses)
+        {
+            WriteTypePage(factory, clsKey, clsDisplayName, nested, cppResolver);
+            WriteNestedTypePages(factory, clsKey, clsDisplayName, nested, cppResolver);
         }
     }
 
@@ -909,14 +1152,17 @@ public sealed class CppGenerator : IApiGenerator
     ///     The ordered list of operator methods to document. All elements must have names
     ///     starting with <c>"operator"</c>. Must contain at least one element.
     /// </param>
+    /// <param name="cppResolver">Type link resolver used to linkify parameter type cells in operator content.</param>
     private void WriteClassOperatorsPage(
         IMarkdownWriterFactory factory,
         string nsKey,
         string nsDisplayName,
         CppClass cls,
-        IReadOnlyList<CppFunction> operators)
+        IReadOnlyList<CppFunction> operators,
+        CppTypeLinkResolver cppResolver)
     {
-        using var writer = factory.CreateMarkdown($"{nsKey}/{cls.Name}", "operators");
+        var opsCurrentFolder = $"{nsKey}/{cls.Name}";
+        using var writer = factory.CreateMarkdown(opsCurrentFolder, "operators");
         writer.WriteHeading(1, "operators");
 
         // Emit the qualified class name comment and #include directive from the first operator
@@ -928,18 +1174,22 @@ public sealed class CppGenerator : IApiGenerator
         if (firstWithLocation != null)
         {
             var includePath = GetIncludePath(firstWithLocation.Location!.File);
-            writer.WriteSignature("cpp", $"// {qualifiedClassName}\n#include <{includePath}>");
+            writer.WriteSignature("cpp", $"// {qualifiedClassName}\n#include \"{includePath}\"");
         }
 
         writer.WriteParagraph($"Operator overloads for {cls.Name}.");
+
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
 
         // Emit an H2 section for each operator so readers can locate a specific overload quickly
         foreach (var op in operators)
         {
             var paramTypes = string.Join(", ", op.Parameters.Select(p => SimplifyTypeName(p.TypeName)));
             writer.WriteHeading(2, $"{op.Name}({paramTypes})");
-            WriteFunctionContent(writer, nsDisplayName, cls.Name, op);
+            WriteFunctionContent(writer, nsDisplayName, cls.Name, op, cppResolver, opsCurrentFolder, externalTypes, parametersHeadingLevel: 3);
         }
+
+        WriteExternalTypesSection(writer, externalTypes);
     }
 
     /// <summary>
@@ -964,12 +1214,15 @@ public sealed class CppGenerator : IApiGenerator
     ///     elements must have names starting with <c>"operator"</c>. Must contain at least
     ///     one element.
     /// </param>
+    /// <param name="cppResolver">Type link resolver used to linkify parameter type cells in operator content.</param>
     private void WriteNamespaceOperatorsPage(
         IMarkdownWriterFactory factory,
         string nsKey,
         string nsDisplayName,
-        IReadOnlyList<CppFunction> operators)
+        IReadOnlyList<CppFunction> operators,
+        CppTypeLinkResolver cppResolver)
     {
+        var opsCurrentFolder = nsKey;
         using var writer = factory.CreateMarkdown(nsKey, "operators");
         writer.WriteHeading(1, "operators");
 
@@ -982,19 +1235,23 @@ public sealed class CppGenerator : IApiGenerator
                 ? firstWithLocation.Name
                 : $"{nsDisplayName}::{firstWithLocation.Name}";
             var includePath = GetIncludePath(firstWithLocation.Location!.File);
-            writer.WriteSignature("cpp", $"// {qualifiedName}\n#include <{includePath}>");
+            writer.WriteSignature("cpp", $"// {qualifiedName}\n#include \"{includePath}\"");
         }
 
         var displayNs = string.IsNullOrEmpty(nsDisplayName) ? GlobalNamespaceKey : nsDisplayName;
         writer.WriteParagraph($"Operator overloads in the {displayNs} namespace.");
+
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
 
         // Emit an H2 section for each operator so readers can locate a specific overload quickly
         foreach (var op in operators)
         {
             var paramTypes = string.Join(", ", op.Parameters.Select(p => SimplifyTypeName(p.TypeName)));
             writer.WriteHeading(2, $"{op.Name}({paramTypes})");
-            WriteFreeFunctionContent(writer, nsDisplayName, op);
+            WriteFreeFunctionContent(writer, nsDisplayName, op, cppResolver, opsCurrentFolder, externalTypes, parametersHeadingLevel: 3);
         }
+
+        WriteExternalTypesSection(writer, externalTypes);
     }
 
     /// <summary>
@@ -1013,15 +1270,20 @@ public sealed class CppGenerator : IApiGenerator
     ///     name shown as the first line of the signature comment.
     /// </param>
     /// <param name="fn">The free function declaration to document.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify parameter type cells.</param>
     private void WriteFreeFunctionPage(
         IMarkdownWriterFactory factory,
         string nsKey,
         string nsDisplayName,
-        CppFunction fn)
+        CppFunction fn,
+        CppTypeLinkResolver cppResolver)
     {
+        var fnCurrentFolder = nsKey;
         using var writer = factory.CreateMarkdown(nsKey, SanitizeFileName(fn.Name));
         writer.WriteHeading(1, fn.Name);
-        WriteFreeFunctionContent(writer, nsDisplayName, fn);
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+        WriteFreeFunctionContent(writer, nsDisplayName, fn, cppResolver, fnCurrentFolder, externalTypes);
+        WriteExternalTypesSection(writer, externalTypes);
     }
 
     /// <summary>
@@ -1044,10 +1306,22 @@ public sealed class CppGenerator : IApiGenerator
     ///     for global-namespace functions.
     /// </param>
     /// <param name="fn">The free function declaration to document.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify parameter type cells.</param>
+    /// <param name="currentFolder">Folder path of the containing Markdown file for relative link computation.</param>
+    /// <param name="externalTypes">External type accumulator for the containing page.</param>
+    /// <param name="parametersHeadingLevel">
+    ///     Heading level for the "Parameters" and "Returns" sub-sections. Use 2 for standalone
+    ///     function pages (which open at H1) and 3 for combined/operator pages (where the
+    ///     function entry is already at H2).
+    /// </param>
     private void WriteFreeFunctionContent(
         IMarkdownWriter writer,
         string nsDisplayName,
-        CppFunction fn)
+        CppFunction fn,
+        CppTypeLinkResolver cppResolver,
+        string currentFolder,
+        ISet<CppExternalTypeInfo> externalTypes,
+        int parametersHeadingLevel = 2)
     {
         // Emit the fully-qualified name as a comment followed by the optional #include
         // directive and C++ signature so that an AI reader has all context needed to
@@ -1059,7 +1333,7 @@ public sealed class CppGenerator : IApiGenerator
         if (fn.Location != null)
         {
             var includePath = GetIncludePath(fn.Location.File);
-            writer.WriteSignature("cpp", $"// {qualifiedName}\n#include <{includePath}>\n{signature}");
+            writer.WriteSignature("cpp", $"// {qualifiedName}\n#include \"{includePath}\"\n{signature}");
         }
         else
         {
@@ -1077,13 +1351,22 @@ public sealed class CppGenerator : IApiGenerator
             writer.WriteParagraph(details);
         }
 
+        // Emit @note as a blockquote when present
+        var note = GetNote(fn.Doc);
+        if (!string.IsNullOrEmpty(note))
+        {
+            writer.WriteParagraph($"> **Note:** {note}");
+        }
+
         // Emit parameter table when the function has at least one parameter
         if (fn.Parameters.Count > 0)
         {
-            writer.WriteHeading(4, "Parameters");
+            writer.WriteHeading(parametersHeadingLevel, "Parameters");
             var paramHeaders = new[] { "Parameter", "Type", DescriptionColumnHeader };
+
+            // Linkify parameter type cells; resolver tracks external types encountered
             var paramRows = fn.Parameters.Select(p =>
-                new[] { p.Name, SimplifyTypeName(p.TypeName), GetParamDescription(fn.Doc, p.Name) ?? string.Empty });
+                new[] { p.Name, cppResolver.Linkify(SimplifyTypeName(p.TypeName), currentFolder, externalTypes), GetParamDescription(fn.Doc, p.Name) ?? string.Empty });
             writer.WriteTable(paramHeaders, paramRows);
         }
 
@@ -1091,9 +1374,11 @@ public sealed class CppGenerator : IApiGenerator
         var returnTypeName = SimplifyTypeName(fn.ReturnTypeName);
         if (!string.Equals(returnTypeName, "void", StringComparison.Ordinal))
         {
-            writer.WriteHeading(4, "Returns");
+            // Always linkify/track the return type even when a doc description is present
+            var linkedReturnType = cppResolver.Linkify(returnTypeName, currentFolder, externalTypes);
+            writer.WriteHeading(parametersHeadingLevel, "Returns");
             var returnDescription = GetReturnDescription(fn.Doc);
-            writer.WriteParagraph(!string.IsNullOrEmpty(returnDescription) ? returnDescription : returnTypeName);
+            writer.WriteParagraph(!string.IsNullOrEmpty(returnDescription) ? returnDescription : linkedReturnType);
         }
     }
 
@@ -1112,27 +1397,34 @@ public sealed class CppGenerator : IApiGenerator
     ///     or a <see cref="CppField"/>.
     /// </param>
     /// <param name="fileName">The unique file name (without extension) allocated for this member.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify parameter type cells.</param>
     private static void WriteMemberPage(
         IMarkdownWriterFactory factory,
         string nsKey,
         string nsDisplayName,
         CppClass cls,
         object member,
-        string fileName)
+        string fileName,
+        CppTypeLinkResolver cppResolver)
     {
-        using var memberWriter = factory.CreateMarkdown($"{nsKey}/{cls.Name}", fileName);
+        var memberCurrentFolder = $"{nsKey}/{cls.Name}";
+        using var memberWriter = factory.CreateMarkdown(memberCurrentFolder, fileName);
+
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
 
         // Dispatch to the appropriate page writer based on the concrete member type
         switch (member)
         {
             case CppFunction method:
-                WriteFunctionPage(memberWriter, nsDisplayName, cls.Name, method);
+                WriteFunctionPage(memberWriter, nsDisplayName, cls.Name, method, cppResolver, memberCurrentFolder, externalTypes);
                 break;
 
             case CppField field:
                 WriteFieldPage(memberWriter, nsDisplayName, cls.Name, field);
                 break;
         }
+
+        WriteExternalTypesSection(memberWriter, externalTypes);
     }
 
     /// <summary>
@@ -1146,14 +1438,20 @@ public sealed class CppGenerator : IApiGenerator
     /// </param>
     /// <param name="className">The declaring class name, used in the page heading.</param>
     /// <param name="method">The method declaration to document.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify parameter type cells.</param>
+    /// <param name="currentFolder">Folder path of the containing Markdown file for relative link computation.</param>
+    /// <param name="externalTypes">External type accumulator for the containing page.</param>
     private static void WriteFunctionPage(
         IMarkdownWriter writer,
         string nsDisplayName,
         string className,
-        CppFunction method)
+        CppFunction method,
+        CppTypeLinkResolver cppResolver,
+        string currentFolder,
+        ISet<CppExternalTypeInfo> externalTypes)
     {
-        writer.WriteHeading(3, $"{className}.{method.Name}");
-        WriteFunctionContent(writer, nsDisplayName, className, method);
+        writer.WriteHeading(1, $"{className}.{method.Name}");
+        WriteFunctionContent(writer, nsDisplayName, className, method, cppResolver, currentFolder, externalTypes);
     }
 
     /// <summary>
@@ -1163,7 +1461,7 @@ public sealed class CppGenerator : IApiGenerator
     /// </summary>
     /// <remarks>
     ///     Separated from <see cref="WriteFunctionPage"/> so that combined pages can write an
-    ///     H4 heading of their own before delegating to this method for the content body.
+    ///     H2 heading of their own before delegating to this method for the content body.
     /// </remarks>
     /// <param name="writer">The Markdown writer to emit content into.</param>
     /// <param name="nsDisplayName">
@@ -1172,11 +1470,23 @@ public sealed class CppGenerator : IApiGenerator
     /// </param>
     /// <param name="className">The declaring class name.</param>
     /// <param name="method">The method declaration to document.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify parameter type cells.</param>
+    /// <param name="currentFolder">Folder path of the containing Markdown file for relative link computation.</param>
+    /// <param name="externalTypes">External type accumulator for the containing page.</param>
+    /// <param name="parametersHeadingLevel">
+    ///     Heading level for the "Parameters" and "Returns" sub-sections. Use 2 for standalone
+    ///     member pages (which open at H1) and 3 for combined/operator pages (where the
+    ///     member entry is already at H2).
+    /// </param>
     private static void WriteFunctionContent(
         IMarkdownWriter writer,
         string nsDisplayName,
         string className,
-        CppFunction method)
+        CppFunction method,
+        CppTypeLinkResolver cppResolver,
+        string currentFolder,
+        ISet<CppExternalTypeInfo> externalTypes,
+        int parametersHeadingLevel = 2)
     {
         // Emit the fully-qualified name as a comment followed by the C++ signature so that
         // an AI reader has the namespace and class context needed to call the member correctly
@@ -1197,13 +1507,22 @@ public sealed class CppGenerator : IApiGenerator
             writer.WriteParagraph(details);
         }
 
+        // Emit @note as a blockquote when present
+        var note = GetNote(method.Doc);
+        if (!string.IsNullOrEmpty(note))
+        {
+            writer.WriteParagraph($"> **Note:** {note}");
+        }
+
         // Emit parameter table when the method has at least one parameter
         if (method.Parameters.Count > 0)
         {
-            writer.WriteHeading(4, "Parameters");
+            writer.WriteHeading(parametersHeadingLevel, "Parameters");
             var paramHeaders = new[] { "Parameter", "Type", DescriptionColumnHeader };
+
+            // Linkify parameter type cells; resolver tracks external types encountered
             var paramRows = method.Parameters.Select(p =>
-                new[] { p.Name, SimplifyTypeName(p.TypeName), GetParamDescription(method.Doc, p.Name) ?? string.Empty });
+                new[] { p.Name, cppResolver.Linkify(SimplifyTypeName(p.TypeName), currentFolder, externalTypes), GetParamDescription(method.Doc, p.Name) ?? string.Empty });
             writer.WriteTable(paramHeaders, paramRows);
         }
 
@@ -1214,9 +1533,11 @@ public sealed class CppGenerator : IApiGenerator
             var returnTypeName = SimplifyTypeName(method.ReturnTypeName);
             if (!string.Equals(returnTypeName, "void", StringComparison.Ordinal))
             {
-                writer.WriteHeading(4, "Returns");
+                // Always linkify/track the return type even when a doc description is present
+                var linkedReturnType = cppResolver.Linkify(returnTypeName, currentFolder, externalTypes);
+                writer.WriteHeading(parametersHeadingLevel, "Returns");
                 var returnDescription = GetReturnDescription(method.Doc);
-                writer.WriteParagraph(!string.IsNullOrEmpty(returnDescription) ? returnDescription : returnTypeName);
+                writer.WriteParagraph(!string.IsNullOrEmpty(returnDescription) ? returnDescription : linkedReturnType);
             }
         }
     }
@@ -1238,7 +1559,7 @@ public sealed class CppGenerator : IApiGenerator
         string className,
         CppField field)
     {
-        writer.WriteHeading(3, $"{className}.{field.Name}");
+        writer.WriteHeading(1, $"{className}.{field.Name}");
         WriteFieldContent(writer, nsDisplayName, className, field);
     }
 
@@ -1250,7 +1571,7 @@ public sealed class CppGenerator : IApiGenerator
     /// </summary>
     /// <remarks>
     ///     Separated from <see cref="WriteFieldPage"/> so that combined pages can write an
-    ///     H4 heading of their own before delegating to this method for the content body.
+    ///     H2 heading of their own before delegating to this method for the content body.
     /// </remarks>
     /// <param name="writer">The Markdown writer to emit content into.</param>
     /// <param name="nsDisplayName">
@@ -1283,6 +1604,13 @@ public sealed class CppGenerator : IApiGenerator
         {
             writer.WriteParagraph(details);
         }
+
+        // Emit @note as a blockquote when present
+        var note = GetNote(field.Doc);
+        if (!string.IsNullOrEmpty(note))
+        {
+            writer.WriteParagraph($"> **Note:** {note}");
+        }
     }
 
     /// <summary>
@@ -1313,7 +1641,7 @@ public sealed class CppGenerator : IApiGenerator
         if (cppEnum.Location != null)
         {
             var includePath = GetIncludePath(cppEnum.Location.File);
-            writer.WriteSignature("cpp", $"// {qualifiedName}\n#include <{includePath}>");
+            writer.WriteSignature("cpp", $"// {qualifiedName}\n#include \"{includePath}\"");
         }
         else
         {
@@ -1331,10 +1659,17 @@ public sealed class CppGenerator : IApiGenerator
             writer.WriteParagraph(enumDetails);
         }
 
+        // Emit @note as a blockquote when present
+        var enumNote = GetNote(cppEnum.Doc);
+        if (!string.IsNullOrEmpty(enumNote))
+        {
+            writer.WriteParagraph($"> **Note:** {enumNote}");
+        }
+
         // Emit a values table so readers can see all valid values and their meanings
         if (cppEnum.Values.Count > 0)
         {
-            writer.WriteHeading(3, "Values");
+            writer.WriteHeading(2, "Values");
             var headers = new[] { "Value", DescriptionColumnHeader };
             var rows = cppEnum.Values.Select(item =>
             {
@@ -1343,6 +1678,69 @@ public sealed class CppGenerator : IApiGenerator
             });
             writer.WriteTable(headers, rows);
         }
+    }
+
+    /// <summary>
+    ///     Writes a documentation page for a <c>using</c> type alias declaration.
+    /// </summary>
+    /// <param name="factory">Factory for creating the output writer.</param>
+    /// <param name="nsKey">The file-path-compatible namespace key used as the output folder.</param>
+    /// <param name="nsDisplayName">
+    ///     The C++ qualified namespace name used in the fully-qualified signature comment.
+    /// </param>
+    /// <param name="alias">The type alias declaration to document.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify the underlying type and track external types.</param>
+    private void WriteTypeAliasPage(
+        IMarkdownWriterFactory factory,
+        string nsKey,
+        string nsDisplayName,
+        CppTypeAlias alias,
+        CppTypeLinkResolver cppResolver)
+    {
+        using var writer = factory.CreateMarkdown(nsKey, alias.Name);
+        writer.WriteHeading(1, alias.Name);
+
+        // Accumulate external type references found in the underlying type on this page
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
+        // Emit the fully-qualified name comment, optional #include, and the using declaration
+        // so readers have everything needed to use the alias without browsing the header tree
+        var qualifiedName = string.IsNullOrEmpty(nsDisplayName)
+            ? alias.Name
+            : $"{nsDisplayName}::{alias.Name}";
+        var simplifiedUnderlying = SimplifyTypeName(alias.UnderlyingTypeName);
+        var declaration = $"using {alias.Name} = {simplifiedUnderlying}";
+        if (alias.Location != null)
+        {
+            var includePath = GetIncludePath(alias.Location.File);
+            writer.WriteSignature("cpp", $"// {qualifiedName}\n#include \"{includePath}\"\n{declaration}");
+        }
+        else
+        {
+            writer.WriteSignature("cpp", $"// {qualifiedName}\n{declaration}");
+        }
+
+        // Emit summary from doc comment or placeholder
+        var summary = GetSummary(alias.Doc);
+        writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : NoDescriptionPlaceholder);
+
+        // Emit extended details when the doc comment contains a @details or @remarks block
+        var details = GetDetails(alias.Doc);
+        if (!string.IsNullOrEmpty(details))
+        {
+            writer.WriteParagraph(details);
+        }
+
+        // Emit @note as a blockquote when present
+        var aliasNote = GetNote(alias.Doc);
+        if (!string.IsNullOrEmpty(aliasNote))
+        {
+            writer.WriteParagraph($"> **Note:** {aliasNote}");
+        }
+
+        // Resolve the underlying type to track any non-std external type references
+        cppResolver.Linkify(simplifiedUnderlying, nsKey, externalTypes);
+        WriteExternalTypesSection(writer, externalTypes);
     }
 
     // =========================================================================
@@ -1426,6 +1824,14 @@ public sealed class CppGenerator : IApiGenerator
     private static string? GetDetails(CppDocComment? doc) => doc?.Details;
 
     /// <summary>
+    ///     Extracts the <c>@note</c> text from a <see cref="CppDocComment"/>, or returns
+    ///     <see langword="null"/> when no note is present.
+    /// </summary>
+    /// <param name="doc">The doc comment to inspect. May be null.</param>
+    /// <returns>The note string, or <see langword="null"/> when absent.</returns>
+    private static string? GetNote(CppDocComment? doc) => doc?.Note;
+
+    /// <summary>
     ///     Looks up the description for a named parameter in a <see cref="CppDocComment"/>.
     /// </summary>
     /// <param name="doc">The doc comment containing the <c>@param</c> entries. May be null.</param>
@@ -1501,7 +1907,9 @@ public sealed class CppGenerator : IApiGenerator
 
         // Build the parameter list; append "..." for variadic functions
         var paramParts = fn.Parameters
-            .Select(p => $"{SimplifyTypeName(p.TypeName)} {p.Name}")
+            .Select(p => p.DefaultValue != null
+                ? $"{SimplifyTypeName(p.TypeName)} {p.Name} = {p.DefaultValue}"
+                : $"{SimplifyTypeName(p.TypeName)} {p.Name}")
             .ToList();
         if (fn.IsVariadic)
         {
@@ -1510,6 +1918,11 @@ public sealed class CppGenerator : IApiGenerator
 
         sb.Append(string.Join(", ", paramParts));
         sb.Append(')');
+
+        if (fn.IsDeleted)
+        {
+            sb.Append(" = delete");
+        }
 
         return sb.ToString();
     }
@@ -1520,14 +1933,15 @@ public sealed class CppGenerator : IApiGenerator
     ///     final and base class names when inheritance is present.
     /// </summary>
     /// <remarks>
-    ///     Called only when <see cref="CppClass.IsFinal"/> is true so that the declaration
-    ///     fragment makes the <c>final</c> constraint immediately visible to readers without
-    ///     them needing to open the header file.
+    ///     Used when <see cref="CppClass.IsFinal"/> is true or when the class has direct base
+    ///     types so that the declaration fragment makes the constraint and inheritance chain
+    ///     immediately visible to readers without them needing to open the header file.
     /// </remarks>
     /// <param name="cls">The C++ class to produce a declaration line for.</param>
     /// <returns>
-    ///     A C++ declaration string such as <c>class FinalClass final</c> or
-    ///     <c>class FinalClass final : public Shape</c>.
+    ///     A C++ declaration string such as <c>class FinalClass final</c>,
+    ///     <c>class FinalClass final : public Shape</c>, or
+    ///     <c>class Circle : public Shape</c>.
     /// </returns>
     private static string BuildClassDeclaration(CppClass cls)
     {
@@ -1643,7 +2057,7 @@ public sealed class CppGenerator : IApiGenerator
     /// <remarks>
     ///     This handles the case where a method <c>Name()</c> and a field <c>name</c> would
     ///     map to the same file name on case-insensitive file systems.
-    ///     All colliding members are documented together under H4 sub-headings that show
+    ///     All colliding members are documented together under H2 sub-headings that show
     ///     both the exact display name and the member kind (e.g., <c>Name (Method)</c>).
     /// </remarks>
     /// <param name="factory">Factory for creating the output writer.</param>
@@ -1654,7 +2068,7 @@ public sealed class CppGenerator : IApiGenerator
     /// </param>
     /// <param name="cls">The declaring class.</param>
     /// <param name="lowerKey">
-    ///     The shared lowercase file name key. Used as both the page file name and the H3
+    ///     The shared lowercase file name key. Used as both the page file name and the H1
     ///     page heading so the combined page has a stable, predictable address.
     /// </param>
     /// <param name="members">
@@ -1662,19 +2076,25 @@ public sealed class CppGenerator : IApiGenerator
     ///     systems. Elements must be <see cref="CppFunction"/> or <see cref="CppField"/>.
     ///     Must contain at least two elements.
     /// </param>
+    /// <param name="cppResolver">Type link resolver used to linkify parameter type cells.</param>
     private static void WriteCombinedMemberPage(
         IMarkdownWriterFactory factory,
         string nsKey,
         string nsDisplayName,
         CppClass cls,
         string lowerKey,
-        IReadOnlyList<object> members)
+        IReadOnlyList<object> members,
+        CppTypeLinkResolver cppResolver)
     {
-        using var writer = factory.CreateMarkdown($"{nsKey}/{cls.Name}", lowerKey);
+        var combinedCurrentFolder = $"{nsKey}/{cls.Name}";
+        using var writer = factory.CreateMarkdown(combinedCurrentFolder, lowerKey);
 
         // The shared lowercase key serves as the page heading so every member in the group
         // can be found at the same predictable path regardless of filesystem case-sensitivity
-        writer.WriteHeading(3, lowerKey);
+        writer.WriteHeading(1, lowerKey);
+
+        // Accumulate external types across all members on this shared page
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
 
         foreach (var member in members)
         {
@@ -1687,16 +2107,18 @@ public sealed class CppGenerator : IApiGenerator
                     var fnParamTypes = string.Join(
                         ", ",
                         fn.Parameters.Select(p => SimplifyTypeName(p.TypeName)));
-                    writer.WriteHeading(4, $"{fn.Name}({fnParamTypes}) ({fnKind})");
-                    WriteFunctionContent(writer, nsDisplayName, cls.Name, fn);
+                    writer.WriteHeading(2, $"{fn.Name}({fnParamTypes}) ({fnKind})");
+                    WriteFunctionContent(writer, nsDisplayName, cls.Name, fn, cppResolver, combinedCurrentFolder, externalTypes, parametersHeadingLevel: 3);
                     break;
 
                 case CppField field:
-                    writer.WriteHeading(4, $"{field.Name} (Field)");
+                    writer.WriteHeading(2, $"{field.Name} (Field)");
                     WriteFieldContent(writer, nsDisplayName, cls.Name, field);
                     break;
             }
         }
+
+        WriteExternalTypesSection(writer, externalTypes);
     }
 
     /// <summary>
@@ -1721,6 +2143,32 @@ public sealed class CppGenerator : IApiGenerator
         CppField field => field.Name,
         _ => className,
     };
+
+    /// <summary>
+    ///     Writes the "External Types" section at the end of a generated Markdown page,
+    ///     listing all non-standard C++ types referenced in table cells on that page.
+    /// </summary>
+    /// <remarks>
+    ///     The section is emitted only when <paramref name="externalTypes"/> is non-empty.
+    ///     Rows are sorted alphabetically by type string because <see cref="SortedSet{T}"/>
+    ///     preserves the order defined by <see cref="CppExternalTypeInfo.CompareTo"/>.
+    /// </remarks>
+    /// <param name="writer">The Markdown writer for the current page.</param>
+    /// <param name="externalTypes">
+    ///     The set of external types accumulated during table row generation. May be empty.
+    /// </param>
+    private static void WriteExternalTypesSection(IMarkdownWriter writer, SortedSet<CppExternalTypeInfo> externalTypes)
+    {
+        if (externalTypes.Count == 0)
+        {
+            return;
+        }
+
+        writer.WriteHeading(2, "External Types");
+        writer.WriteTable(
+            ["Type", "Namespace"],
+            externalTypes.Select(t => new[] { t.TypeString, t.Namespace }));
+    }
 
     // =========================================================================
     // Inner data model
@@ -1760,6 +2208,9 @@ public sealed class CppGenerator : IApiGenerator
 
         /// <summary>Gets the list of owned enums declared in this namespace.</summary>
         public List<CppEnum> Enums { get; } = [];
+
+        /// <summary>Gets the list of owned <c>using</c> type aliases declared in this namespace.</summary>
+        public List<CppTypeAlias> TypeAliases { get; } = [];
 
         /// <summary>Gets the list of owned free functions declared in this namespace.</summary>
         public List<CppFunction> FreeFunctions { get; } = [];

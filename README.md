@@ -1,9 +1,16 @@
 # ApiMark
 
-[![Build](https://github.com/DemaConsulting/ApiMark/actions/workflows/build_on_push.yaml/badge.svg)](https://github.com/DemaConsulting/ApiMark/actions/workflows/build_on_push.yaml)
-
 <!-- IMPORTANT: All links in this file must be absolute URLs.
      This file is distributed in packages and relative links will not resolve. -->
+
+[![GitHub forks](https://img.shields.io/github/forks/demaconsulting/ApiMark?style=plastic)](https://github.com/demaconsulting/ApiMark/network/members)
+[![GitHub stars](https://img.shields.io/github/stars/demaconsulting/ApiMark?style=plastic)](https://github.com/demaconsulting/ApiMark/stargazers)
+[![GitHub contributors](https://img.shields.io/github/contributors/demaconsulting/ApiMark?style=plastic)](https://github.com/demaconsulting/ApiMark/graphs/contributors)
+[![License](https://img.shields.io/github/license/demaconsulting/ApiMark?style=plastic)](https://github.com/demaconsulting/ApiMark/blob/main/LICENSE)
+[![Build](https://img.shields.io/github/actions/workflow/status/demaconsulting/ApiMark/build_on_push.yaml)](https://github.com/demaconsulting/ApiMark/actions/workflows/build_on_push.yaml)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=demaconsulting_ApiMark&metric=alert_status)](https://sonarcloud.io/dashboard?id=demaconsulting_ApiMark)
+[![Security](https://sonarcloud.io/api/project_badges/measure?project=demaconsulting_ApiMark&metric=security_rating)](https://sonarcloud.io/dashboard?id=demaconsulting_ApiMark)
+[![NuGet](https://img.shields.io/nuget/v/DemaConsulting.ApiMark.MSBuild?style=plastic)](https://www.nuget.org/packages/DemaConsulting.ApiMark.MSBuild)
 
 ## Overview
 
@@ -15,21 +22,23 @@ type page — consuming only as much context as the task requires.
 
 ## Features
 
-- Generates compact Markdown API reference from source code and doc comments
-- Gradual disclosure output: root index → namespace summary → type page → member detail
-- C#/.NET support via Mono.Cecil and XML documentation comments
-- C++ support via `clang -ast-dump=json` and Doxygen-style doc comments
-- MSBuild task integration for `.csproj` and `.vcxproj`-based builds
-- `dotnet tool` CLI (`apimark`) covering all supported languages
-- Designed for AI consumption — minimal noise, explicit navigation links between levels
+- 📄 **Compact Markdown Output** - AI-friendly API reference from source code
+- 🔍 **Gradual Disclosure** - Index → namespace → type → member detail
+- 🔷 **C#/.NET Support** - Mono.Cecil + XML documentation comments
+- ➕ **C++ Support** - `clang -ast-dump=json` + Doxygen-style comments
+- 🔧 **MSBuild Integration** - Auto-documents `.csproj` and `.vcxproj` builds
+- 🖥️ **CLI Tool** - `apimark` dotnet tool covering all languages
+- 🤖 **AI-Optimized** - Minimal noise, explicit navigation links
+- 🌐 **Multi-Platform** - Windows, Linux, and macOS on .NET 8, 9, and 10
+- ✅ **Self-Validation** - Built-in qualification tests for regulated environments
 
 ## Platform Support
 
 | Platform | .NET | C++ |
 | --- | --- | --- |
-| Windows x64 | ✅ | ✅ |
-| Linux x64 | ✅ | ✅ |
-| macOS (Apple Silicon) | ✅ | ✅ |
+| Windows | ✅ | ✅ |
+| Linux | ✅ | ✅ |
+| macOS | ✅ | ✅ |
 
 ## Prerequisites
 
@@ -97,8 +106,16 @@ ApiMark generates documentation automatically after every build.
 # Generate API documentation from a .NET assembly
 apimark dotnet --assembly MyProject.dll --xml-doc MyProject.xml --output docs/api
 
-# Generate API documentation from C++ public headers
+# Generate API documentation from C++ public headers (document all headers under include/)
 apimark cpp --includes include/ --output docs/api
+
+# Document only specific headers using --api-headers patterns (gitignore-style, ordered)
+apimark cpp \
+  --includes include/ \
+  --api-headers "include/**" \
+  --api-headers "!include/detail/**" \
+  --api-headers "include/detail/public_api.h" \
+  --output docs/api
 ```
 
 Run `apimark --help` for all options. Run `apimark dotnet --help` or `apimark cpp --help` for language-specific options.

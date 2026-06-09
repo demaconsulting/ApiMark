@@ -71,6 +71,11 @@ the generator, and calls `Generate`.
 - Throws `ArgumentException` for invalid `Visibility` values; throws
   `NotSupportedException` for unrecognized or not-yet-implemented language
   identifiers.
+- For the `cpp` language, `CppGeneratorOptions` is populated with
+  `PublicIncludeRoots` (from `context.Includes`), `ApiHeaderPatterns` (from
+  `context.ApiHeaders`), and the other cpp-specific options (`LibraryName`,
+  `Description`, `Defines`, `CppStandard`, `Visibility`, `IncludeDeprecated`,
+  `ClangPath`).
 
 **Program.PrintBanner** (private static): Prints the application banner (tool name,
 version, copyright line, and a blank line).

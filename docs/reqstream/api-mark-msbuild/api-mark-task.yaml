@@ -95,3 +95,14 @@ sections:
               build, parallel to the dotnet behavior when ApiMarkXmlDocPath is absent.
             tests:
               - ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExecution
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardApiHeaders
+            title: >-
+              ApiMarkTask shall forward each entry of ApiMarkApiHeaders to the tool as a separate
+              --api-headers flag for C++ builds, preserving order and forwarding '!'-prefixed
+              exclusion patterns verbatim.
+            justification: |
+              C++ projects need fine-grained, gitignore-style control over which headers contribute
+              to the documented API surface. Forwarding each pattern as its own --api-headers flag
+              preserves order and lets CppGenerator apply last-match-wins semantics correctly.
+            tests:
+              - ApiMarkTask_Cpp_ApiHeaders_ForwardedAsIndividualFlags

@@ -49,8 +49,10 @@ ApiMarkCore.
   compiler flags, then parses the JSON output into structured C++ AST records.
 - *Contract*: `clang -Xclang -ast-dump=json -fparse-all-comments -fsyntax-only
   -x c++ -std={standard} -I {roots} -isystem {sysroots} -D {defines} {headers}`.
-  The clang executable is located automatically (PATH, xcrun on macOS, vswhere on
-  Windows) or from `CppGeneratorOptions.ClangPath`.
+  The clang executable is located using this priority order:
+  (1) `CppGeneratorOptions.ClangPath` when set;
+  (2) the `APIMARK_CLANG_PATH` environment variable when set;
+  (3) `clang` on PATH; (4) `xcrun clang` on macOS; (5) vswhere / default LLVM path on Windows.
 - *Constraints*: clang must be installed and accessible; a clear
   `InvalidOperationException` is thrown when clang cannot be found.
 
@@ -79,14 +81,16 @@ N/A — not a safety-classified software item.
 ## Data Flow
 
 1. The caller (ApiMarkTool) constructs `CppGeneratorOptions` with
-   PublicIncludeRoots, IncludePatterns, ExcludePatterns, SystemIncludePaths,
-   AdditionalIncludePaths, Defines, CppStandard, AdditionalCompilerArguments,
+   PublicIncludeRoots, ApiHeaderPatterns, SystemIncludePaths,
+   Defines, CppStandard, AdditionalCompilerArguments,
    Visibility, IncludeDeprecated, and LibraryName, then passes an
    IMarkdownWriterFactory to Generate.
-2. CppGenerator enumerates all header files under each PublicIncludeRoot,
-   applying IncludePatterns and ExcludePatterns, to produce the candidate file
-   set. Each matched header is parsed as an independent translation unit so that
-   headers are self-contained.
+2. CppGenerator enumerates all header files under each PublicIncludeRoot.
+   When ApiHeaderPatterns is non-empty, patterns are applied with gitignore-style
+   last-match-wins semantics to produce the candidate file set; when empty, all
+   recognized header files under every root are included automatically. Each
+   matched header is parsed as an independent translation unit so that headers
+   are self-contained.
 3. CppGenerator calls `ClangAstParser.Parse` with all candidate headers and the
    configured options. `ClangAstParser` invokes `clang -ast-dump=json` and parses
    the resulting JSON into `CppCompilationResult` containing `CppNamespaceDecl`
@@ -96,9 +100,8 @@ N/A — not a safety-classified software item.
    physically located in the public headers, already filtered by ownership.
 5. CppGenerator applies the IsOwnedDeclaration filter to each declaration:
    only declarations whose source file normalizes to a path under a
-   PublicIncludeRoot, matches IncludePatterns, and does not match
-   ExcludePatterns are documented. System and third-party declarations are
-   used for type resolution only.
+   PublicIncludeRoot that was selected by ApiHeaderPatterns are documented.
+   System and third-party declarations are used for type resolution only.
 6. For each owned declaration, CppGenerator derives the canonical #include path
    as the source file path relative to its matching PublicIncludeRoot, expressed
    with forward slashes.

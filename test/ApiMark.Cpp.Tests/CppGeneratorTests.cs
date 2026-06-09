@@ -1,3 +1,4 @@
+// cspell:ignore deletedmembersclass
 using ApiMark.Core.TestHelpers;
 using ApiMark.Cpp;
 using ApiMark.Cpp.CppAst;
@@ -5,9 +6,28 @@ using Xunit;
 
 namespace ApiMark.Cpp.Tests;
 
-/// <summary>Integration tests for <see cref="CppGenerator"/>.</summary>
-public class CppGeneratorTests
+/// <summary>
+///     Integration tests for <see cref="CppGenerator"/> using a shared <see cref="CppGeneratorFixture"/>
+///     to avoid invoking clang more than 4 times per test run.
+/// </summary>
+public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
 {
+    /// <summary>The shared fixture providing pre-generated factories for common option configurations.</summary>
+    private readonly CppGeneratorFixture _fixture;
+
+    /// <summary>
+    ///     Initializes the test class with the shared <see cref="CppGeneratorFixture"/>.
+    /// </summary>
+    /// <param name="fixture">
+    ///     The fixture providing pre-generated factories for each standard option combination.
+    ///     Must not be null.
+    /// </param>
+    public CppGeneratorTests(CppGeneratorFixture fixture)
+    {
+        // Store the shared fixture so every test can read from the pre-generated factories
+        _fixture = fixture;
+    }
+
     /// <summary>
     ///     Builds a <see cref="CppGeneratorOptions"/> pointing at the fixture include directory
     ///     with the specified visibility and deprecated settings.
@@ -105,11 +125,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert
         Assert.True(factory.Writers.ContainsKey("api"), "Expected api.md to be created");
@@ -120,11 +136,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_ValidHeaders_CreatesNamespacePage()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the fixtures namespace maps to key "fixtures" at the root level
         Assert.True(
@@ -137,11 +149,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_ApiMd_ListsNamespacesWithTypeCount()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: namespace table is first in api.md and contains the fixtures namespace
         var apiWriter = factory.Writers["api"];
@@ -158,11 +166,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: type page key is "{namespace}/{typeName}"
         Assert.True(
@@ -175,11 +179,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_IncludeDeprecatedFalse_ExcludesDeprecatedClass()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions(includeDeprecated: false));
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert
         Assert.False(
@@ -192,11 +192,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_IncludeDeprecatedTrue_IncludesDeprecatedClass()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions(includeDeprecated: true));
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.WithDeprecatedFactory;
 
         // Assert
         Assert.True(
@@ -209,11 +205,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_PublicVisibility_ExcludesProtectedMethod()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions(ApiVisibility.Public));
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the type page itself must exist (the class is public)
         Assert.True(factory.Writers.ContainsKey("fixtures/ProtectedMembersClass"));
@@ -229,11 +221,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_PublicAndProtectedVisibility_IncludesProtectedMethod()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions(ApiVisibility.PublicAndProtected));
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicAndProtectedFactory;
 
         // Assert: ProtectedMethod has a parameter, so it gets its own page
         Assert.True(
@@ -246,11 +234,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_AllVisibility_IncludesPrivateMethod()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions(ApiVisibility.All));
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.AllFactory;
 
         // Assert: PrivateMethod has a parameter so it gets its own page under All visibility
         Assert.True(
@@ -263,11 +247,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_MethodWithParameters_CreatesMemberPage()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: GetGreeting has a parameter so it gets its own page
         Assert.True(
@@ -283,11 +263,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_SampleClass_TypePage_MethodRowShowsParameterType()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the SampleClass type page must include a method row whose link cell
         // starts with "[GetGreeting(" followed by a non-empty parameter type, confirming
@@ -302,24 +278,20 @@ public class CppGeneratorTests
     }
 
     /// <summary>
-    ///     Validates that an individual method member page uses an H3 heading, consistent
-    ///     with the DotNet generator and the combined member page convention.
+    ///     Validates that an individual method member page uses an H1 heading, consistent
+    ///     with the page-as-standalone-document convention.
     /// </summary>
     [Fact]
-    public void CppGenerator_Generate_MemberPage_UsesH3Heading()
+    public void CppGenerator_Generate_MemberPage_UsesH1Heading()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
+        var factory = _fixture.PublicFactory;
 
-        // Act
-        generator.Generate(factory, new InMemoryContext());
-
-        // Assert: the GetGreeting member page must open with an H3 heading containing the
-        // class and method name so the heading level matches combined member pages
+        // Assert: the GetGreeting member page must open with an H1 heading containing the
+        // class and method name so every generated page starts at H1
         var writer = factory.Writers["fixtures/SampleClass/GetGreeting"];
         var firstHeading = writer.Operations.OfType<HeadingOperation>().First();
-        Assert.Equal(3, firstHeading.Level);
+        Assert.Equal(1, firstHeading.Level);
         Assert.Contains("GetGreeting", firstHeading.Text, StringComparison.Ordinal);
     }
 
@@ -328,11 +300,7 @@ public class CppGeneratorTests
     public void CppGenerator_AllMembers_GetSeparateFiles()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: parameterless method in SampleClass gets own page
         Assert.True(
@@ -355,11 +323,7 @@ public class CppGeneratorTests
     public void CppGenerator_OutputFiles_FollowNamingConvention()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: root entrypoint is "api"
         Assert.True(factory.Writers.ContainsKey("api"));
@@ -379,11 +343,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_TypeWithDocComment_WritesSummaryToParagraph()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the SampleClass page must contain the key summary words from the @brief tag
         var writer = factory.Writers["fixtures/SampleClass"];
@@ -396,11 +356,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_MethodWithDocComment_WritesSummaryToParagraph()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the GetGreeting page must contain the key summary word from the @brief tag
         var writer = factory.Writers["fixtures/SampleClass/GetGreeting"];
@@ -413,11 +369,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_MissingDocComment_WritesPlaceholder()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: Refresh() has no Doxygen comment — the generator must emit the placeholder
         var writer = factory.Writers["fixtures/SampleClass/Refresh"];
@@ -430,11 +382,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_FreeFunctions_GetOwnPages()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: free functions in the fixtures namespace get pages at "{namespace}/{functionName}"
         Assert.True(
@@ -447,11 +395,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_ValidHeaders_CreatesEnumPage()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: enum page key follows the same "{namespace}/{typeName}" pattern as classes
         Assert.True(
@@ -464,11 +408,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_EnumPage_ContainsValues()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the enum values table must contain every declared SampleStatus value
         var writer = factory.Writers["fixtures/SampleStatus"];
@@ -484,11 +424,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_TemplateClass_CreatesTypePage()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: Stack is a template class and must receive its own documentation page
         Assert.True(
@@ -501,11 +437,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_InheritanceClass_CreatesTypePage()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: Circle inherits from Shape and must receive its own documentation page
         Assert.True(
@@ -513,16 +445,35 @@ public class CppGeneratorTests
             "Expected type page for Circle at 'fixtures/Circle'");
     }
 
+    /// <summary>
+    ///     Validates that the type page for a class with a base class includes the base class
+    ///     name in the signature block so that the inheritance relationship is visible without
+    ///     opening the header file.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_InheritanceClass_EmitsBaseClassInSignature()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: the Circle type page must exist
+        Assert.True(factory.Writers.ContainsKey("fixtures/Circle"), "Expected type page for Circle");
+
+        // Assert: the Circle type page signature must contain ": public Shape" so readers can
+        // see the inheritance relationship at a glance without opening the header file
+        var writer = factory.Writers["fixtures/Circle"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains(": public Shape", StringComparison.Ordinal));
+    }
+
     /// <summary>Validates that the <c>Circle</c> constructor receives its own member detail page.</summary>
     [Fact]
     public void CppGenerator_Generate_Constructor_CreatesConstructorPage()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: Circle has an explicit constructor that must receive its own page
         Assert.True(
@@ -535,11 +486,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_TypePage_ContainsQualifiedName()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the SampleClass type page must include "fixtures::SampleClass" in its signature
         // comment so an AI reader knows the exact qualified name to use in code
@@ -555,11 +502,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_MemberPage_ContainsQualifiedName()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the GetGreeting member page must include the fully-qualified name so that
         // an AI reader can call "fixtures::SampleClass::GetGreeting" without guessing the namespace
@@ -575,11 +518,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_VariadicFunction_CreatesPage()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: Format is a variadic free function and must receive its own documentation page
         Assert.True(
@@ -595,11 +534,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_CaseCollisionClass_CreatesCombinedPage()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the combined page is written at the lowercase key path
         Assert.True(
@@ -615,11 +550,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPage()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: no page should be created using the exact-case name "Name" when a collision
         // exists — the combined lowercase page replaces all individual pages for the group
@@ -629,31 +560,27 @@ public class CppGeneratorTests
     }
 
     /// <summary>
-    ///     Validates that the combined collision page contains H4 headings for both the
+    ///     Validates that the combined collision page contains H2 headings for both the
     ///     method <c>Name()</c> and the field <c>name</c>.
     /// </summary>
     [Fact]
     public void CppGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: combined page exists
         Assert.True(factory.Writers.ContainsKey("fixtures/CaseCollisionClass/name"));
         var writer = factory.Writers["fixtures/CaseCollisionClass/name"];
 
-        // Assert: both members appear as distinct H4 headings on the combined page
-        var level4Headings = writer.Operations
+        // Assert: both members appear as distinct H2 headings on the combined page
+        var level2Headings = writer.Operations
             .OfType<HeadingOperation>()
-            .Where(h => h.Level == 4)
+            .Where(h => h.Level == 2)
             .Select(h => h.Text)
             .ToList();
-        Assert.Contains(level4Headings, h => h.StartsWith("Name", StringComparison.Ordinal));
-        Assert.Contains(level4Headings, h => h.StartsWith("name", StringComparison.Ordinal));
+        Assert.Contains(level2Headings, h => h.StartsWith("Name", StringComparison.Ordinal));
+        Assert.Contains(level2Headings, h => h.StartsWith("name", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -664,11 +591,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_MethodWithDetails_WritesDetailsParagraph()
     {
         // Arrange: RemarksClass::Compute carries a @details block in its Doxygen comment
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the Compute member page must contain a paragraph with the @details text
         var writer = factory.Writers["fixtures/RemarksClass/Compute"];
@@ -687,11 +610,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_NamespaceWithoutDocComment_UsesPlaceholderDescription()
     {
         // Arrange: no fixture namespace carries a namespace-level Doxygen comment
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the namespace table in api.md must list the placeholder for the fixtures namespace,
         // confirming the description is taken from the namespace object (none present) and not
@@ -710,11 +629,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_EnumPage_ContainsIncludeDirective()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the SampleStatus enum page must contain an #include directive in its signature
         // block so readers can copy-paste the include path without consulting the header tree
@@ -733,11 +648,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_FreeFunctionPage_ContainsIncludeDirective()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the Add free-function page must contain an #include directive in its signature
         // block so readers can include the correct header without browsing the source tree
@@ -749,18 +660,51 @@ public class CppGeneratorTests
     }
 
     /// <summary>
-    ///     Validates that <see cref="CppGeneratorOptions.IncludePatterns"/> restricts header
-    ///     enumeration to files matching at least one pattern.
+    ///     Validates that when no <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> are set,
+    ///     all headers under the include roots with recognized C++ extensions are documented.
     /// </summary>
     [Fact]
-    public void CppGenerator_Generate_IncludePatterns_OnlyIncludesMatchingFiles()
+    public void CppGenerator_Generate_NoApiHeaderPatterns_DocumentsAllHeaders()
+    {
+        // Arrange: options with no ApiHeaderPatterns — the default glob should apply
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            // ApiHeaderPatterns intentionally left empty to exercise the default behavior
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: pages from multiple fixture headers must all be present, confirming the
+        // default glob includes every recognized header under the include root
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/SampleClass"),
+            "Expected SampleClass page when no ApiHeaderPatterns are set");
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/SampleStatus"),
+            "Expected SampleStatus page when no ApiHeaderPatterns are set");
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/FinalClass"),
+            "Expected FinalClass page when no ApiHeaderPatterns are set");
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> with a specific
+    ///     include pattern restricts header enumeration to files matching that pattern.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ApiHeaderPatterns_IncludePattern_OnlyMatchingFilesDocumented()
     {
         // Arrange: include only SampleClass.h to isolate a single type
         var options = new CppGeneratorOptions
         {
             LibraryName = "Fixtures",
             PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
-            IncludePatterns = ["**/SampleClass.h"],
+            ApiHeaderPatterns = ["**/SampleClass.h"],
         };
         var factory = new InMemoryMarkdownWriterFactory();
         var generator = new CppGenerator(options);
@@ -780,18 +724,19 @@ public class CppGeneratorTests
     }
 
     /// <summary>
-    ///     Validates that <see cref="CppGeneratorOptions.ExcludePatterns"/> removes specific
-    ///     files from the header enumeration while leaving all other headers intact.
+    ///     Validates that a <c>!</c>-prefixed exclusion pattern in
+    ///     <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> excludes matching headers while
+    ///     leaving all other headers documented.
     /// </summary>
     [Fact]
-    public void CppGenerator_Generate_ExcludePatterns_ExcludesMatchingFiles()
+    public void CppGenerator_Generate_ApiHeaderPatterns_ExcludePattern_ExcludesMatchingFiles()
     {
-        // Arrange: exclude SampleClass.h to verify its type disappears from output
+        // Arrange: catch-all followed by an exclusion pattern for SampleClass.h
         var options = new CppGeneratorOptions
         {
             LibraryName = "Fixtures",
             PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
-            ExcludePatterns = ["**/SampleClass.h"],
+            ApiHeaderPatterns = ["**/*", "!**/SampleClass.h"],
         };
         var factory = new InMemoryMarkdownWriterFactory();
         var generator = new CppGenerator(options);
@@ -799,15 +744,71 @@ public class CppGeneratorTests
         // Act
         generator.Generate(factory, new InMemoryContext());
 
-        // Assert: SampleClass page must not exist because its header was excluded
+        // Assert: SampleClass page must not exist because its header was excluded by the exclusion pattern
         Assert.False(
             factory.Writers.ContainsKey("fixtures/SampleClass"),
-            "Expected SampleClass to be absent when its header is excluded");
+            "Expected SampleClass to be absent when its header is excluded by exclusion pattern");
 
         // Assert: SampleStatus page must still exist because SampleEnum.h was not excluded
         Assert.True(
             factory.Writers.ContainsKey("fixtures/SampleStatus"),
             "Expected SampleStatus to be present when only SampleClass.h is excluded");
+    }
+
+    /// <summary>
+    ///     Validates gitignore-style re-include semantics: a header that is first excluded by
+    ///     an exclusion pattern and then re-included by a later positive pattern is documented.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ApiHeaderPatterns_ReInclude_GitignoreSemantics_IncludesReIncludedHeader()
+    {
+        // Arrange: catch-all, exclude DeprecatedClass.h, then re-include it;
+        // IncludeDeprecated=true so the class appears in output even when its header is parsed
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ApiHeaderPatterns = ["**/*", "!**/DeprecatedClass.h", "**/DeprecatedClass.h"],
+            IncludeDeprecated = true,
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: DeprecatedClass must be documented because the re-include pattern wins
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/DeprecatedClass"),
+            "Expected DeprecatedClass page when re-included after exclusion");
+    }
+
+    /// <summary>
+    ///     Validates that an exclusion pattern without a subsequent re-include permanently
+    ///     removes a header from documentation, confirming last-match-wins semantics.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ApiHeaderPatterns_ExcludeWithoutReInclude_ExcludesHeader()
+    {
+        // Arrange: catch-all followed by exclusion pattern for DeprecatedClass.h (no re-include);
+        // IncludeDeprecated=true so the class would appear if the header were parsed
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ApiHeaderPatterns = ["**/*", "!**/DeprecatedClass.h"],
+            IncludeDeprecated = true,
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: DeprecatedClass must not be documented because the exclusion pattern is final
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/DeprecatedClass"),
+            "Expected DeprecatedClass to be absent when excluded without re-include");
     }
 
     /// <summary>
@@ -819,11 +820,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_FinalClass_EmitsFinalKeywordInSignature()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the FinalClass type page must exist
         Assert.True(factory.Writers.ContainsKey("fixtures/FinalClass"), "Expected type page for FinalClass");
@@ -846,11 +843,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_NonFinalClass_DoesNotEmitFinalKeyword()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the SampleClass type page must exist and must not contain "final"
         // because SampleClass is not declared final
@@ -871,11 +864,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_ClassWithOperators_CreatesOperatorsPage()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: a single shared operators page is written for OperatorClass instead of
         // individual pages that would collide because operator+, operator-, etc. all
@@ -893,11 +882,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_ClassWithOperators_OperatorsPageContainsOperatorEntry()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the operators page must exist
         Assert.True(factory.Writers.ContainsKey("fixtures/OperatorClass/operators"));
@@ -920,11 +905,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_ClassWithOperators_TypePageLinksToOperatorsPage()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: the OperatorClass type page must exist
         Assert.True(factory.Writers.ContainsKey("fixtures/OperatorClass"));
@@ -947,11 +928,7 @@ public class CppGeneratorTests
     public void CppGenerator_Generate_NamespaceFreeOperator_CreatesNamespaceOperatorsPage()
     {
         // Arrange
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Generate(factory, new InMemoryContext());
+        var factory = _fixture.PublicFactory;
 
         // Assert: a shared namespace operators page is written under the fixtures namespace
         // for the free operator<< declared in OperatorClass.h
@@ -985,5 +962,392 @@ public class CppGeneratorTests
             context.Lines,
             line => line.Contains("[CppGenerator] clang:", StringComparison.Ordinal)
                     && line.Contains(systemError, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a method returning an intra-library type emits a Markdown link in
+    ///     the Returns column of the type page's Methods table.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_IntraLibraryReturnType_EmitsMarkdownLinkInReturnsCell()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: TypeLinkClass type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/TypeLinkClass"),
+            "Expected type page for TypeLinkClass");
+
+        // Assert: the Methods table on the TypeLinkClass page must have a Returns cell
+        // containing a Markdown link to Shape — the return type of CreateShape()
+        var writer = factory.Writers["fixtures/TypeLinkClass"];
+        var operations = writer.Operations.ToList();
+        var methodsIndex = operations.FindIndex(op => op is HeadingOperation h && h.Text == "Methods");
+        Assert.True(methodsIndex >= 0, "Expected 'Methods' heading on TypeLinkClass page");
+        var methodsTable = operations.Skip(methodsIndex + 1).OfType<TableOperation>().First();
+
+        // Returns column (index 1) for CreateShape must contain a Markdown link, not plain text
+        var row = methodsTable.Rows.FirstOrDefault(r => r[0].Contains("CreateShape", StringComparison.Ordinal));
+        Assert.NotNull(row);
+        Assert.Contains("[Shape]", row![1], StringComparison.Ordinal);
+        Assert.Contains("Shape.md", row[1], StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="CppTypeLinkResolver.Linkify"/> emits plain text and records
+    ///     the type in the external set when the type is not in the known-types dictionary.
+    /// </summary>
+    [Fact]
+    public void CppTypeLinkResolver_Linkify_UnknownNamespacedType_TracksExternalType()
+    {
+        // Arrange: a resolver with no known types, simulating a fully external reference
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
+        // Act: resolve a type that belongs to a non-std namespace not in the known-types map
+        var result = resolver.Linkify("acme::Logger *", string.Empty, externalTypes);
+
+        // Assert: the original type string is returned as-is (no link to an unknown page)
+        Assert.Equal("acme::Logger *", result);
+
+        // Assert: the type is tracked in the external types set with the correct namespace
+        Assert.Single(externalTypes);
+        Assert.Equal("Logger", externalTypes.First().TypeString);
+        Assert.Equal("acme", externalTypes.First().Namespace);
+    }
+
+    /// <summary>
+    ///     Validates that a deleted copy constructor is still documented and that its
+    ///     signature contains <c>= delete</c> so that readers know copying is explicitly
+    ///     forbidden without needing to open the header file.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_DeletedCopyConstructor_EmitsDeleteSuffix()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: the type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/DeletedMembersClass"),
+            "Expected type page for DeletedMembersClass");
+
+        // Assert: both constructors share the same base name, so they are combined onto
+        // a single page keyed by the lowercase class name
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/DeletedMembersClass/deletedmembersclass"),
+            "Expected combined constructor page for DeletedMembersClass");
+
+        // Assert: the combined constructor page must contain "= delete" for the deleted overload
+        var writer = factory.Writers["fixtures/DeletedMembersClass/deletedmembersclass"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains("= delete", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a deleted copy-assignment operator is still documented and that its
+    ///     signature contains <c>= delete</c> so that readers know assignment is explicitly
+    ///     forbidden without needing to open the header file.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_DeletedCopyAssignmentOperator_EmitsDeleteSuffix()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: the operators page for DeletedMembersClass must contain "= delete"
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/DeletedMembersClass/operators"),
+            "Expected operators page for DeletedMembersClass");
+
+        var writer = factory.Writers["fixtures/DeletedMembersClass/operators"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains("= delete", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that generating from valid fixture headers creates individual pages
+    ///     for each <c>using</c> type alias declared in the <c>TypeAliasFixtures.h</c> header.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_TypeAlias_CreatesAliasPages()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: each alias gets its own page under the namespace folder
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/item_id_t"),
+            "Expected type alias page for item_id_t at 'fixtures/item_id_t'");
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/label_t"),
+            "Expected type alias page for label_t at 'fixtures/label_t'");
+    }
+
+    /// <summary>
+    ///     Validates that the type alias page for <c>item_id_t</c> contains the correct
+    ///     <c>using</c> declaration and the doc-comment summary.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_TypeAliasPage_ContainsDeclarationAndSummary()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+        var writer = factory.Writers["fixtures/item_id_t"];
+
+        // Assert: the signature block must include the using declaration
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains("using item_id_t = int32_t", StringComparison.Ordinal));
+
+        // Assert: the summary paragraph must be present
+        var paragraphs = writer.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Contains("32-bit signed integer identifier", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that the <c>fixtures</c> namespace summary page lists each type alias
+    ///     in a "Type Aliases" section so readers can discover them without opening individual pages.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_NamespacePage_ListsTypeAliases()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+        var writer = factory.Writers["fixtures"];
+
+        // Assert: the namespace page must contain a "Type Aliases" heading
+        var headings = writer.Operations.OfType<HeadingOperation>().Select(h => h.Text).ToList();
+        Assert.Contains(headings, h => h.Contains("Type Aliases", StringComparison.Ordinal));
+
+        // Assert: the namespace page table must contain links to both alias pages
+        var tables = writer.Operations.OfType<TableOperation>().ToList();
+        var allCells = tables.SelectMany(t => t.Rows).SelectMany(r => r).ToList();
+        Assert.Contains(allCells, c => c.Contains("item_id_t", StringComparison.Ordinal));
+        Assert.Contains(allCells, c => c.Contains("label_t", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that the type alias page for <c>label_t</c> shows a simplified underlying
+    ///     type (<c>std::string</c> rather than the verbose clang form
+    ///     <c>std::basic_string&lt;char, ...&gt;</c>), and that the namespace summary table
+    ///     also uses the simplified form.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_TypeAliasPage_SimplifiesUnderlyingType()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: the alias page declaration must use the simplified form (not the verbose clang form)
+        var aliasWriter = factory.Writers["fixtures/label_t"];
+        var signatures = aliasWriter.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains("using label_t = std::string", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            signatures,
+            s => s.Contains("basic_string", StringComparison.Ordinal));
+
+        // Assert: the namespace summary table must also show the simplified underlying type
+        var nsWriter = factory.Writers["fixtures"];
+        var allCells = nsWriter.Operations.OfType<TableOperation>()
+            .SelectMany(t => t.Rows).SelectMany(r => r).ToList();
+        var underlyingCell = allCells
+            .SkipWhile(c => !c.Contains("label_t", StringComparison.Ordinal))
+            .Skip(1)
+            .FirstOrDefault();
+        Assert.NotNull(underlyingCell);
+        Assert.DoesNotContain("basic_string", underlyingCell, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that a free function with a default parameter value includes the default
+    ///     in its signature block (e.g. <c>uint32_t seed = 0</c>).
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_DefaultParameter_SignatureContainsDefault()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: crc32 page must show the default value in its signature
+        Assert.True(factory.Writers.ContainsKey("fixtures/crc32"));
+        var writer = factory.Writers["fixtures/crc32"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains("seed = 0", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a Doxygen <c>@note</c> tag is rendered as a blockquote paragraph
+    ///     (prefixed with <c>&gt; **Note:**</c>) on the function's detail page.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_BoolDefaultParameter_SignatureContainsFalse()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: configure page must show the bool default in its signature
+        Assert.True(factory.Writers.ContainsKey("fixtures/configure"));
+        var writer = factory.Writers["fixtures/configure"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains("initial = false", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a negative integer default argument (e.g. <c>int max = -1</c>)
+    ///     is rendered correctly in the function signature.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_NegativeIntDefaultParameter_SignatureContainsNegativeValue()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: count_capped page must show the negative default in its signature
+        Assert.True(factory.Writers.ContainsKey("fixtures/count_capped"));
+        var writer = factory.Writers["fixtures/count_capped"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains("max = -1", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a floating-point default argument (e.g. <c>float factor = 1.5f</c>)
+    ///     is rendered in the function signature without the type suffix.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_FloatDefaultParameter_SignatureContainsValue()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: scale page must show the float default in its signature
+        Assert.True(factory.Writers.ContainsKey("fixtures/scale"));
+        var writer = factory.Writers["fixtures/scale"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains("factor = 1.5", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a nested class declared inside a public outer class receives its
+    ///     own type page under the outer class's folder.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_NestedClass_CreatesNestedClassPage()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: Inner is a public nested class of Outer; its page must be under Outer's folder
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/Outer/Inner"),
+            "Expected nested class page at 'fixtures/Outer/Inner'");
+    }
+
+    /// <summary>
+    ///     Validates that the outer class's type page lists the nested class in a
+    ///     "Nested Classes" section so readers can discover inner types without opening the header.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_NestedClass_ListedOnOuterClassPage()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: the Outer type page must exist
+        Assert.True(factory.Writers.ContainsKey("fixtures/Outer"), "Expected type page for Outer");
+        var writer = factory.Writers["fixtures/Outer"];
+
+        // Assert: the page must include a "Nested Classes" heading
+        var headings = writer.Operations.OfType<HeadingOperation>().Select(h => h.Text).ToList();
+        Assert.Contains(headings, h => h.Contains("Nested Classes", StringComparison.Ordinal));
+
+        // Assert: the "Nested Classes" table must contain "Inner" in a link cell
+        var tables = writer.Operations.OfType<TableOperation>().ToList();
+        var allCells = tables.SelectMany(t => t.Rows).SelectMany(r => r).ToList();
+        Assert.Contains(allCells, c => c.Contains("Inner", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a <c>using</c> type alias declared inside a public class body receives
+    ///     its own page under the class's folder so readers can navigate to it directly.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ClassScopedTypeAlias_CreatesAliasPage()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: Outer::size_type must receive its own page under the Outer class folder
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/Outer/size_type"),
+            "Expected class-scoped alias page at 'fixtures/Outer/size_type'");
+    }
+
+    /// <summary>
+    ///     Validates that the outer class's type page lists its class-scoped type alias in a
+    ///     "Type Aliases" section so readers can see the alias without navigating to a sub-page.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ClassScopedTypeAlias_ListedOnClassPage()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: the Outer type page must exist
+        Assert.True(factory.Writers.ContainsKey("fixtures/Outer"), "Expected type page for Outer");
+        var writer = factory.Writers["fixtures/Outer"];
+
+        // Assert: the page must include a "Type Aliases" heading
+        var headings = writer.Operations.OfType<HeadingOperation>().Select(h => h.Text).ToList();
+        Assert.Contains(headings, h => h.Contains("Type Aliases", StringComparison.Ordinal));
+
+        // Assert: the "Type Aliases" table must contain "size_type"
+        var tables = writer.Operations.OfType<TableOperation>().ToList();
+        var allCells = tables.SelectMany(t => t.Rows).SelectMany(r => r).ToList();
+        Assert.Contains(allCells, c => c.Contains("size_type", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that two classes declaring the same alias name (<c>size_type</c>) each
+    ///     produce a distinct page keyed by their fully-qualified class scope, confirming that
+    ///     the <c>knownTypes</c> map does not collide across different owning classes.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ClassScopedTypeAlias_DoesNotCollideAcrossClasses()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: Outer::size_type and Other::size_type must each get their own distinct page;
+        // a collision would cause only one of them to exist
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/Outer/size_type"),
+            "Expected alias page for Outer::size_type at 'fixtures/Outer/size_type'");
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/Other/size_type"),
+            "Expected alias page for Other::size_type at 'fixtures/Other/size_type'");
+
+        // Assert: the two pages must be distinct writer instances so they contain different content
+        Assert.NotSame(
+            factory.Writers["fixtures/Outer/size_type"],
+            factory.Writers["fixtures/Other/size_type"]);
     }
 }

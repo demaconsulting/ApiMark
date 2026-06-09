@@ -343,4 +343,99 @@ public class ProgramTests
             Console.SetOut(originalOut);
         }
     }
+
+    /// <summary>
+    ///     Validates that the removed <c>--search-paths</c> flag is no longer recognized and
+    ///     produces an "Unsupported argument" diagnostic on stderr.
+    /// </summary>
+    [Fact]
+    public void Program_Main_CppWithSearchPathsFlag_ReturnsNonZeroExitCode()
+    {
+        // Arrange: provide --search-paths which was removed in the redesign
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+
+        try
+        {
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main(["cpp", "--search-paths", "/sdk", "--output", outputDir]);
+
+            // Assert: must fail with the unsupported-argument diagnostic so the test
+            // confirms the specific flag was rejected rather than some other failure
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--search-paths", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that the <c>--api-headers</c> flag is recognized by the parser and
+    ///     does not cause an argument exception; when <c>--includes</c> is absent the tool
+    ///     still fails with the expected includes-required diagnostic.
+    /// </summary>
+    [Fact]
+    public void Program_Main_CppWithApiHeadersFlag_FlagIsAccepted()
+    {
+        // Arrange: provide --api-headers but omit --includes so parsing completes but validation fails
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+
+        try
+        {
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main(["cpp", "--api-headers", "**/*.h", "--output", outputDir]);
+
+            // Assert: fails due to missing --includes (not due to unknown flag),
+            // confirming --api-headers was accepted by the parser
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--includes", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that the removed <c>--include-patterns</c> flag is no longer recognized
+    ///     and produces an "Unsupported argument" diagnostic on stderr.
+    /// </summary>
+    [Fact]
+    public void Program_Main_CppWithIncludePatternsFlag_ReturnsNonZeroExitCode()
+    {
+        // Arrange: provide --include-patterns which was removed in the redesign
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+
+        try
+        {
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "cpp",
+                "--include-patterns", "*.h",
+                "--output", outputDir,
+            ]);
+
+            // Assert: must fail with the unsupported-argument diagnostic so the test
+            // confirms the specific flag was rejected rather than some other failure
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--include-patterns", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+    }
 }

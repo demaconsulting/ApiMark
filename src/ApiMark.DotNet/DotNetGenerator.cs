@@ -155,6 +155,7 @@ public sealed class DotNetGenerator : IApiGenerator
         apiWriter.WriteTable(conventionHeaders, conventionRows);
 
         // Write one namespace page per namespace, ordered so parents precede children
+        var resolver = new TypeLinkResolver(rootNamespaces);
         foreach (var namespaceName in allNamespaces)
         {
             WriteNamespacePage(
@@ -164,7 +165,8 @@ public sealed class DotNetGenerator : IApiGenerator
                 byNamespace,
                 rootNamespaces,
                 xmlDocs,
-                namespaceDescriptions);
+                namespaceDescriptions,
+                resolver);
         }
     }
 
@@ -182,6 +184,7 @@ public sealed class DotNetGenerator : IApiGenerator
     ///     Namespace-level summaries sourced from the <c>NamespaceDoc</c> convention,
     ///     keyed by fully-qualified namespace name.
     /// </param>
+    /// <param name="resolver">Type link resolver forwarded to each type page within this namespace.</param>
     private void WriteNamespacePage(
         IMarkdownWriterFactory factory,
         string namespaceName,
@@ -189,7 +192,8 @@ public sealed class DotNetGenerator : IApiGenerator
         Dictionary<string, List<TypeDefinition>> byNamespace,
         List<string> rootNamespaces,
         XmlDocReader xmlDocs,
-        IReadOnlyDictionary<string, string?> namespaceDescriptions)
+        IReadOnlyDictionary<string, string?> namespaceDescriptions,
+        TypeLinkResolver resolver)
     {
         var folderPath = GetNamespaceFolderPath(namespaceName, rootNamespaces);
         SplitPath(folderPath, out var subFolder, out var shortName);
@@ -236,14 +240,15 @@ public sealed class DotNetGenerator : IApiGenerator
         {
             var typeMemberId = BuildTypeId(t);
             var summary = xmlDocs.GetSummary(typeMemberId) ?? NoDescriptionPlaceholder;
-            var link = $"{shortName}/{t.Name}.md";
-            return new[] { $"[{t.Name}]({link})", summary };
+            var typeDisplayName = StripArity(t.Name);
+            var link = $"{shortName}/{FlattenArity(t.Name)}.md";
+            return new[] { $"[{typeDisplayName}]({link})", summary };
         });
         nsWriter.WriteTable(typeHeaders, typeRows);
 
         foreach (var type in nsTypes)
         {
-            WriteTypePage(factory, namespaceName, folderPath, type, xmlDocs);
+            WriteTypePage(factory, namespaceName, folderPath, type, xmlDocs, resolver);
         }
     }
 
@@ -259,18 +264,20 @@ public sealed class DotNetGenerator : IApiGenerator
     /// </param>
     /// <param name="type">The type whose page is being written.</param>
     /// <param name="xmlDocs">XML documentation index for summary and remarks lookups.</param>
+    /// <param name="resolver">Type link resolver used to emit Markdown links in table type cells.</param>
     private void WriteTypePage(
         IMarkdownWriterFactory factory,
         string namespaceName,
         string namespaceFolderPath,
         TypeDefinition type,
-        XmlDocReader xmlDocs)
+        XmlDocReader xmlDocs,
+        TypeLinkResolver resolver)
     {
-        using var typeWriter = factory.CreateMarkdown(namespaceFolderPath, type.Name);
-        typeWriter.WriteHeading(2, type.Name);
+        using var typeWriter = factory.CreateMarkdown(namespaceFolderPath, FlattenArity(type.Name));
+        typeWriter.WriteHeading(1, StripArity(type.Name));
 
-        // Emit the C# declaration signature so readers can see the type kind and modifiers
-        var typeSignature = BuildTypeSignature(type);
+        // Emit the C# declaration signature so readers can see the type kind, modifiers, and direct inheritance
+        var typeSignature = BuildTypeSignature(type, namespaceName);
         typeWriter.WriteSignature("csharp", typeSignature);
 
         var typeMemberId = BuildTypeId(type);
@@ -283,6 +290,15 @@ public sealed class DotNetGenerator : IApiGenerator
         if (!string.IsNullOrEmpty(typeRemarks))
         {
             typeWriter.WriteParagraph(typeRemarks);
+        }
+
+        // Delegates carry all their useful information in the declaration signature —
+        // the compiler-injected Invoke/BeginInvoke/EndInvoke methods and the synthetic
+        // (object, IntPtr) constructor are implementation noise that should never appear
+        // in public API docs, analogous to how enum backing fields are suppressed.
+        if (IsDelegate(type))
+        {
+            return;
         }
 
         // Collect visible members: constructors first, then alphabetically
@@ -323,6 +339,9 @@ public sealed class DotNetGenerator : IApiGenerator
         var fieldRows = new List<string[]>();
         var eventRows = new List<string[]>();
 
+        // Accumulate external type references found in all type-column cells on this page
+        var externalTypes = new SortedSet<ExternalTypeInfo>();
+
         // Emit one page per unique lowercase key and one table row per visible member.
         // Members whose sanitized file names collide case-insensitively share a combined page
         // named after the lowercase key; all their table rows link to that shared page.
@@ -336,14 +355,17 @@ public sealed class DotNetGenerator : IApiGenerator
                 // No collision: write an individual page using the member's own display name
                 var memberId = BuildMemberId(member);
                 var memberSummary = xmlDocs.GetSummary(memberId) ?? NoDescriptionPlaceholder;
-                var memberTypeName = GetMemberTypeName(member, namespaceName);
+                var memberTypeRef = GetMemberTypeRef(member);
+                var memberTypeName = memberTypeRef != null
+                    ? resolver.Linkify(memberTypeRef, namespaceFolderPath, namespaceName, externalTypes, IsMemberTypeNullableAnnotated(member))
+                    : string.Empty;
                 var memberDisplayName = GetMemberDisplayName(member);
                 var sanitizedName = GetSanitizedMemberFileName(member, type);
-                var memberPageLink = $"{type.Name}/{sanitizedName}.md";
+                var memberPageLink = $"{FlattenArity(type.Name)}/{sanitizedName}.md";
 
                 if (member is MethodDefinition singleMethod)
                 {
-                    WriteMemberPage(factory, namespaceName, namespaceFolderPath, type, singleMethod, xmlDocs, memberId);
+                    WriteMemberPage(factory, namespaceName, namespaceFolderPath, type, singleMethod, xmlDocs, memberId, resolver);
                     var isConstructor = singleMethod.Name == ConstructorMethodName;
                     if (isConstructor)
                     {
@@ -356,7 +378,7 @@ public sealed class DotNetGenerator : IApiGenerator
                 }
                 else
                 {
-                    WriteMemberPage(factory, namespaceName, namespaceFolderPath, type, member, xmlDocs, memberId);
+                    WriteMemberPage(factory, namespaceName, namespaceFolderPath, type, member, xmlDocs, memberId, resolver);
                     switch (member)
                     {
                         case PropertyDefinition:
@@ -393,13 +415,16 @@ public sealed class DotNetGenerator : IApiGenerator
                 var representative = orderedOverloads[0];
                 var representativeMemberId = BuildMemberId(representative);
                 var representativeSummary = xmlDocs.GetSummary(representativeMemberId) ?? NoDescriptionPlaceholder;
-                var representativeTypeName = GetMemberTypeName(representative, namespaceName);
+                var representativeTypeRef = GetMemberTypeRef(representative);
+                var representativeTypeName = representativeTypeRef != null
+                    ? resolver.Linkify(representativeTypeRef, namespaceFolderPath, namespaceName, externalTypes, IsMemberTypeNullableAnnotated(representative))
+                    : string.Empty;
                 var overloadDisplayName = GetMethodGroupDisplayName(representative, orderedOverloads.Count);
                 var overloadFileName = GetSanitizedMemberFileName(representative, type);
-                var memberLink = $"{type.Name}/{overloadFileName}.md";
+                var memberLink = $"{FlattenArity(type.Name)}/{overloadFileName}.md";
                 var isConstructorGroup = representative.Name == ConstructorMethodName;
 
-                WriteMethodOverloadPage(factory, namespaceName, namespaceFolderPath, type, orderedOverloads, xmlDocs);
+                WriteMethodOverloadPage(factory, namespaceName, namespaceFolderPath, type, orderedOverloads, xmlDocs, resolver);
 
                 if (isConstructorGroup)
                 {
@@ -414,18 +439,21 @@ public sealed class DotNetGenerator : IApiGenerator
             {
                 // Case-insensitive collision: mixed kinds or different-case method names.
                 // Write a single combined page named after the lowercase key on first encounter.
-                var memberLink = $"{type.Name}/{lowerKey}.md";
+                var memberLink = $"{FlattenArity(type.Name)}/{lowerKey}.md";
 
                 if (writtenLowerKeys.Add(lowerKey))
                 {
-                    WriteCombinedMemberPage(factory, namespaceName, namespaceFolderPath, type, lowerKey, group, xmlDocs);
+                    WriteCombinedMemberPage(factory, namespaceName, namespaceFolderPath, type, lowerKey, group, xmlDocs, resolver);
                 }
 
                 // Every member in the collision group still contributes its own row to the
                 // appropriate sub-table, all linking to the shared combined page
                 var memberId = BuildMemberId(member);
                 var memberSummary = xmlDocs.GetSummary(memberId) ?? NoDescriptionPlaceholder;
-                var memberTypeName = GetMemberTypeName(member, namespaceName);
+                var memberTypeRef = GetMemberTypeRef(member);
+                var memberTypeName = memberTypeRef != null
+                    ? resolver.Linkify(memberTypeRef, namespaceFolderPath, namespaceName, externalTypes, IsMemberTypeNullableAnnotated(member))
+                    : string.Empty;
                 var memberDisplayName = GetMemberDisplayName(member);
 
                 switch (member)
@@ -459,7 +487,7 @@ public sealed class DotNetGenerator : IApiGenerator
         // Each section is only emitted when at least one member of that kind is present.
         if (constructorRows.Count > 0)
         {
-            typeWriter.WriteHeading(3, "Constructors");
+            typeWriter.WriteHeading(2, "Constructors");
 
             // Constructors omit the Type/Returns column — they have no meaningful return type
             typeWriter.WriteTable(new[] { "Member", DescriptionColumnHeader }, constructorRows);
@@ -467,13 +495,13 @@ public sealed class DotNetGenerator : IApiGenerator
 
         if (propertyRows.Count > 0)
         {
-            typeWriter.WriteHeading(3, "Properties");
+            typeWriter.WriteHeading(2, "Properties");
             typeWriter.WriteTable(new[] { "Member", "Type", DescriptionColumnHeader }, propertyRows);
         }
 
         if (methodRows.Count > 0)
         {
-            typeWriter.WriteHeading(3, "Methods");
+            typeWriter.WriteHeading(2, "Methods");
 
             // Use "Returns" instead of "Type" for the method type column — more accurate for return values
             typeWriter.WriteTable(new[] { "Member", "Returns", DescriptionColumnHeader }, methodRows);
@@ -481,15 +509,18 @@ public sealed class DotNetGenerator : IApiGenerator
 
         if (fieldRows.Count > 0)
         {
-            typeWriter.WriteHeading(3, "Fields");
+            typeWriter.WriteHeading(2, "Fields");
             typeWriter.WriteTable(new[] { "Member", "Type", DescriptionColumnHeader }, fieldRows);
         }
 
         if (eventRows.Count > 0)
         {
-            typeWriter.WriteHeading(3, "Events");
+            typeWriter.WriteHeading(2, "Events");
             typeWriter.WriteTable(new[] { "Member", "Type", DescriptionColumnHeader }, eventRows);
         }
+
+        // Emit the External Types section when any non-standard external types were referenced
+        WriteExternalTypesSection(typeWriter, externalTypes);
     }
 
     /// <summary>
@@ -506,6 +537,7 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <param name="member">The member whose page is being written.</param>
     /// <param name="xmlDocs">XML documentation index.</param>
     /// <param name="memberId">Pre-computed XML doc member identifier for <paramref name="member"/>.</param>
+    /// <param name="resolver">Type link resolver used to linkify parameter type cells.</param>
     private static void WriteMemberPage(
         IMarkdownWriterFactory factory,
         string namespaceName,
@@ -513,17 +545,22 @@ public sealed class DotNetGenerator : IApiGenerator
         TypeDefinition type,
         IMemberDefinition member,
         XmlDocReader xmlDocs,
-        string memberId)
+        string memberId,
+        TypeLinkResolver resolver)
     {
         var sanitizedName = GetSanitizedMemberFileName(member, type);
-        using var memberWriter = factory.CreateMarkdown($"{namespaceFolderPath}/{type.Name}", sanitizedName);
+        var memberCurrentFolder = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
+        using var memberWriter = factory.CreateMarkdown(memberCurrentFolder, sanitizedName);
 
         var displayName = GetMemberDisplayName(member);
-        memberWriter.WriteHeading(3, displayName);
+        memberWriter.WriteHeading(1, displayName);
 
         if (member is MethodDefinition method)
         {
-            WriteMethodDocumentation(memberWriter, namespaceName, method, xmlDocs, memberId);
+            // Method pages use the resolver for parameter type cells
+            var externalTypes = new SortedSet<ExternalTypeInfo>();
+            WriteMethodDocumentation(memberWriter, namespaceName, method, xmlDocs, memberId, resolver, memberCurrentFolder, externalTypes);
+            WriteExternalTypesSection(memberWriter, externalTypes);
             return;
         }
 
@@ -568,18 +605,24 @@ public sealed class DotNetGenerator : IApiGenerator
         string namespaceFolderPath,
         TypeDefinition type,
         IReadOnlyList<MethodDefinition> overloads,
-        XmlDocReader xmlDocs)
+        XmlDocReader xmlDocs,
+        TypeLinkResolver resolver)
     {
         var sanitizedName = BuildMethodFileName(overloads[0], type);
-        using var memberWriter = factory.CreateMarkdown($"{namespaceFolderPath}/{type.Name}", sanitizedName);
+        var overloadCurrentFolder = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
+        using var memberWriter = factory.CreateMarkdown(overloadCurrentFolder, sanitizedName);
 
-        memberWriter.WriteHeading(3, GetMethodGroupName(overloads[0]));
+        memberWriter.WriteHeading(1, GetMethodGroupName(overloads[0]));
 
+        // Accumulate external types across all overloads on this shared page
+        var externalTypes = new SortedSet<ExternalTypeInfo>();
         foreach (var overload in overloads)
         {
-            memberWriter.WriteHeading(4, BuildMethodDisplayName(overload));
-            WriteMethodDocumentation(memberWriter, namespaceName, overload, xmlDocs, BuildMemberId(overload));
+            memberWriter.WriteHeading(2, BuildMethodDisplayName(overload));
+            WriteMethodDocumentation(memberWriter, namespaceName, overload, xmlDocs, BuildMemberId(overload), resolver, overloadCurrentFolder, externalTypes);
         }
+
+        WriteExternalTypesSection(memberWriter, externalTypes);
     }
 
     /// <summary>
@@ -590,7 +633,7 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <remarks>
     ///     This handles the case where a field <c>name</c> and a property <c>Name</c> would
     ///     map to the same file name on case-insensitive file systems.
-    ///     All colliding members are documented together under H4 sub-headings that show
+    ///     All colliding members are documented together under H2 sub-headings that show
     ///     both the exact display name and the member kind (e.g., <c>name (Field)</c>).
     /// </remarks>
     /// <param name="factory">Factory for creating the output writer.</param>
@@ -603,7 +646,7 @@ public sealed class DotNetGenerator : IApiGenerator
     /// </param>
     /// <param name="type">The type that declares all members in <paramref name="members"/>.</param>
     /// <param name="lowerKey">
-    ///     The shared lowercase file name key. Used as both the page file name and the H3
+    ///     The shared lowercase file name key. Used as both the page file name and the H1
     ///     page heading so the combined page has a stable, predictable address.
     /// </param>
     /// <param name="members">
@@ -611,6 +654,7 @@ public sealed class DotNetGenerator : IApiGenerator
     ///     file systems. Must contain at least two elements.
     /// </param>
     /// <param name="xmlDocs">XML documentation index for summary and detail lookups.</param>
+    /// <param name="resolver">Type link resolver used to linkify parameter type cells.</param>
     private static void WriteCombinedMemberPage(
         IMarkdownWriterFactory factory,
         string namespaceName,
@@ -618,26 +662,31 @@ public sealed class DotNetGenerator : IApiGenerator
         TypeDefinition type,
         string lowerKey,
         IReadOnlyList<IMemberDefinition> members,
-        XmlDocReader xmlDocs)
+        XmlDocReader xmlDocs,
+        TypeLinkResolver resolver)
     {
-        using var writer = factory.CreateMarkdown($"{namespaceFolderPath}/{type.Name}", lowerKey);
+        var combinedCurrentFolder = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
+        using var writer = factory.CreateMarkdown(combinedCurrentFolder, lowerKey);
 
         // The shared lowercase key serves as the page heading so every member in the group
         // can be found at the same predictable path regardless of filesystem case-sensitivity
-        writer.WriteHeading(3, lowerKey);
+        writer.WriteHeading(1, lowerKey);
+
+        // Accumulate external types across all members on this shared page
+        var externalTypes = new SortedSet<ExternalTypeInfo>();
 
         foreach (var member in members)
         {
             var displayName = GetMemberDisplayName(member);
             var kindLabel = GetMemberKindLabel(member);
-            writer.WriteHeading(4, $"{displayName} ({kindLabel})");
+            writer.WriteHeading(2, $"{displayName} ({kindLabel})");
 
             var memberId = BuildMemberId(member);
             if (member is MethodDefinition method)
             {
                 // Reuse the method documentation writer so formatting is consistent
                 // with single-method pages and overload pages
-                WriteMethodDocumentation(writer, namespaceName, method, xmlDocs, memberId);
+                WriteMethodDocumentation(writer, namespaceName, method, xmlDocs, memberId, resolver, combinedCurrentFolder, externalTypes);
             }
             else
             {
@@ -675,6 +724,8 @@ public sealed class DotNetGenerator : IApiGenerator
                 }
             }
         }
+
+        WriteExternalTypesSection(writer, externalTypes);
     }
 
     /// <summary>
@@ -733,7 +784,10 @@ public sealed class DotNetGenerator : IApiGenerator
         string namespaceName,
         MethodDefinition method,
         XmlDocReader xmlDocs,
-        string memberId)
+        string memberId,
+        TypeLinkResolver resolver,
+        string currentFolder,
+        ISet<ExternalTypeInfo> externalTypes)
     {
         var signature = BuildMethodSignature(method, namespaceName);
         memberWriter.WriteSignature("csharp", signature);
@@ -746,10 +800,12 @@ public sealed class DotNetGenerator : IApiGenerator
         {
             var paramDocs = xmlDocs.GetParams(memberId);
             var paramHeaders = new[] { "Parameter", "Type", DescriptionColumnHeader };
+
+            // Linkify parameter types — resolver tracks external types and emits links for intra-assembly types
             var paramRows = method.Parameters.Select(p =>
             {
                 var desc = paramDocs.FirstOrDefault(pd => pd.Name == p.Name).Description ?? string.Empty;
-                var typeName = TypeNameSimplifier.Simplify(p.ParameterType, namespaceName);
+                var typeName = resolver.Linkify(p.ParameterType, currentFolder, namespaceName, externalTypes);
                 return new[] { p.Name, typeName, desc };
             });
             memberWriter.WriteTable(paramHeaders, paramRows);
@@ -793,7 +849,7 @@ public sealed class DotNetGenerator : IApiGenerator
     ///     and subsequent segments use forward slashes
     ///     (e.g. <c>ApiMark.DotNet.Fixtures/Inner</c>).
     /// </returns>
-    private static string GetNamespaceFolderPath(string namespaceName, List<string> rootNamespaces)
+    internal static string GetNamespaceFolderPath(string namespaceName, IReadOnlyList<string> rootNamespaces)
     {
         var root = rootNamespaces.FirstOrDefault(r =>
             string.Equals(r, namespaceName, StringComparison.Ordinal) ||
@@ -1017,11 +1073,87 @@ public sealed class DotNetGenerator : IApiGenerator
         return $"M:{typeName}.{methodName}({paramList})";
     }
 
-    /// <summary>Builds a human-readable C# declaration signature for a type definition.</summary>
-    /// <param name="type">The type definition to represent.</param>
-    /// <returns>A string of the form <c>public class Name</c> or <c>public interface Name&lt;T&gt;</c>.</returns>
-    private static string BuildTypeSignature(TypeDefinition type)
+    /// <summary>Returns <see langword="true"/> when <paramref name="type"/> is a delegate type.</summary>
+    /// <remarks>
+    ///     The C# compiler compiles every <c>delegate</c> declaration into a sealed class that
+    ///     inherits <c>System.MulticastDelegate</c>. Testing the base type name is therefore the
+    ///     reliable way to detect delegates from compiled metadata.
+    /// </remarks>
+    /// <param name="type">The type to test.</param>
+    /// <returns>
+    ///     <see langword="true"/> when <paramref name="type"/> derives directly from
+    ///     <c>System.MulticastDelegate</c>.
+    /// </returns>
+    private static bool IsDelegate(TypeDefinition type) =>
+        type.BaseType?.FullName == "System.MulticastDelegate";
+
+    /// <summary>
+    ///     Builds the source-level <c>public delegate</c> signature for a delegate type,
+    ///     derived from the compiler-injected <c>Invoke</c> method's return type and parameters.
+    /// </summary>
+    /// <remarks>
+    ///     The C# compiler injects three methods into every delegate type: <c>Invoke</c>,
+    ///     <c>BeginInvoke</c>, and <c>EndInvoke</c>. <c>Invoke</c> carries the exact signature
+    ///     the developer wrote in source, so it is used here to reconstruct the canonical
+    ///     <c>public delegate ReturnType Name(params)</c> form.
+    /// </remarks>
+    /// <param name="type">The delegate type (must satisfy <see cref="IsDelegate"/>).</param>
+    /// <param name="contextNamespace">Used to simplify type names in the signature.</param>
+    /// <returns>A string of the form <c>public delegate void ServiceEvent(DateTime timestamp, ...)</c>.</returns>
+    private static string BuildDelegateSignature(TypeDefinition type, string contextNamespace)
     {
+        var invoke = type.Methods.FirstOrDefault(m => m.Name == "Invoke");
+        if (invoke == null)
+        {
+            // Malformed delegate — fall back to a void declaration without parameters
+            return $"public delegate void {StripArity(type.Name)}()";
+        }
+
+        var returnType = TypeNameSimplifier.Simplify(invoke.ReturnType, contextNamespace);
+        var name = StripArity(type.Name);
+        if (type.HasGenericParameters)
+        {
+            var args = string.Join(", ", type.GenericParameters.Select(p => p.Name));
+            name = $"{name}<{args}>";
+        }
+
+        var parameters = string.Join(", ", invoke.Parameters.Select(p =>
+            $"{TypeNameSimplifier.Simplify(p.ParameterType, contextNamespace)} {p.Name}"));
+
+        return $"public delegate {returnType} {name}({parameters})";
+    }
+
+    /// <summary>Builds a human-readable C# declaration signature for a type definition.</summary>
+    /// <remarks>
+    ///     Base types <c>System.Object</c>, <c>System.ValueType</c>, <c>System.Enum</c>, and
+    ///     <c>System.MulticastDelegate</c> are suppressed because they are implicit compiler-assigned
+    ///     roots that carry no information for readers; showing them would add noise to every class,
+    ///     struct, enum, and delegate signature. The <paramref name="contextNamespace"/> is forwarded
+    ///     to <see cref="TypeNameSimplifier"/> so that types declared in the same namespace are
+    ///     rendered without their namespace prefix, keeping signatures concise.
+    ///     <para>
+    ///         Delegate types are detected and dispatched to <see cref="BuildDelegateSignature"/>
+    ///         before the class/struct/enum/interface switch so the output always shows the
+    ///         source-level <c>delegate</c> keyword rather than <c>sealed class</c>.
+    ///     </para>
+    /// </remarks>
+    /// <param name="type">The type definition to represent.</param>
+    /// <param name="contextNamespace">Used to simplify base type and interface names in the signature.</param>
+    /// <returns>
+    ///     A string of the form <c>public class Name</c>, <c>public interface Name&lt;T&gt;</c>,
+    ///     <c>public delegate void Name(params)</c>, or
+    ///     <c>public class Name : BaseClass, IInterface</c> when direct inheritance is present.
+    /// </returns>
+    private static string BuildTypeSignature(TypeDefinition type, string contextNamespace)
+    {
+        // Delegates are compiled to sealed classes deriving from MulticastDelegate.
+        // Detect them before the generic class/struct/enum/interface switch so that
+        // the output shows the original source-level delegate syntax.
+        if (IsDelegate(type))
+        {
+            return BuildDelegateSignature(type, contextNamespace);
+        }
+
         var keyword = type switch
         {
             { IsInterface: true } => "interface",
@@ -1050,6 +1182,31 @@ public sealed class DotNetGenerator : IApiGenerator
             name = $"{name}<{args}>";
         }
 
+        // Collect direct base class (excluding well-known root types) and directly declared interfaces
+        // so the signature shows inheritance at a glance without opening the source file
+        var bases = new List<string>();
+        if (type.BaseType != null)
+        {
+            var baseName = type.BaseType.FullName;
+
+            // Skip the standard implicit base types that carry no information for readers
+            if (baseName is not ("System.Object" or "System.ValueType" or "System.Enum" or "System.MulticastDelegate"))
+            {
+                bases.Add(TypeNameSimplifier.Simplify(type.BaseType, contextNamespace));
+            }
+        }
+
+        // Include all directly declared interfaces — transitive inheritance is omitted
+        foreach (var interfaceRef in type.Interfaces)
+        {
+            bases.Add(TypeNameSimplifier.Simplify(interfaceRef.InterfaceType, contextNamespace));
+        }
+
+        if (bases.Count > 0)
+        {
+            name = $"{name} : {string.Join(", ", bases)}";
+        }
+
         return $"public {classModifier}{keyword} {name}";
     }
 
@@ -1075,7 +1232,10 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <returns>The method signature string.</returns>
     private static string BuildMethodSignature(MethodDefinition method, string contextNamespace)
     {
-        var returnType = TypeNameSimplifier.Simplify(method.ReturnType, contextNamespace);
+        var returnType = TypeNameSimplifier.Simplify(
+            method.ReturnType,
+            contextNamespace,
+            HasNullableAnnotation(method.MethodReturnType.CustomAttributes));
         var isExtensionMethod = IsExtensionMethod(method);
 
         // Use the declaring type name for constructors rather than ConstructorMethodName
@@ -1086,7 +1246,11 @@ public sealed class DotNetGenerator : IApiGenerator
         var parameters = string.Join(", ", method.Parameters.Select((p, index) =>
         {
             var receiverPrefix = isExtensionMethod && index == 0 ? "this " : string.Empty;
-            return $"{receiverPrefix}{TypeNameSimplifier.Simplify(p.ParameterType, contextNamespace)} {p.Name}";
+            var paramType = TypeNameSimplifier.Simplify(
+                p.ParameterType,
+                contextNamespace,
+                HasNullableAnnotation(p.CustomAttributes));
+            return $"{receiverPrefix}{paramType} {p.Name}";
         }));
 
         var accessibility = GetAccessibilityKeyword(method);
@@ -1102,7 +1266,10 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <returns>The property signature string.</returns>
     private static string BuildPropertySignature(PropertyDefinition prop, string contextNamespace)
     {
-        var typeName = TypeNameSimplifier.Simplify(prop.PropertyType, contextNamespace);
+        var typeName = TypeNameSimplifier.Simplify(
+            prop.PropertyType,
+            contextNamespace,
+            HasNullableAnnotation(prop.CustomAttributes));
         var accessibility = GetAccessibilityKeyword(prop.GetMethod ?? prop.SetMethod!);
         var accessors = BuildPropertyAccessors(prop);
         return $"{accessibility} {typeName} {prop.Name} {{ {accessors} }}";
@@ -1137,7 +1304,10 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <returns>The field signature string.</returns>
     private static string BuildFieldSignature(FieldDefinition field, string contextNamespace)
     {
-        var typeName = TypeNameSimplifier.Simplify(field.FieldType, contextNamespace);
+        var typeName = TypeNameSimplifier.Simplify(
+            field.FieldType,
+            contextNamespace,
+            HasNullableAnnotation(field.CustomAttributes));
 
         // Determine modifier(s) from compile-time flags; literals imply IsStatic so they
         // must be tested before the IsStatic arm to avoid showing "static const"
@@ -1160,7 +1330,10 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <returns>The event signature string.</returns>
     private static string BuildEventSignature(EventDefinition evt, string contextNamespace)
     {
-        var typeName = TypeNameSimplifier.Simplify(evt.EventType, contextNamespace);
+        var typeName = TypeNameSimplifier.Simplify(
+            evt.EventType,
+            contextNamespace,
+            HasNullableAnnotation(evt.CustomAttributes));
         return $"public event {typeName} {evt.Name}";
     }
 
@@ -1191,22 +1364,111 @@ public sealed class DotNetGenerator : IApiGenerator
         };
     }
 
-    /// <summary>Returns the simplified C# type name for a member as it should appear in a type column.</summary>
-    /// <param name="member">The member whose type name to compute.</param>
-    /// <param name="contextNamespace">Used to simplify the type name.</param>
-    /// <returns>The simplified type name string.</returns>
-    private static string GetMemberTypeName(IMemberDefinition member, string contextNamespace)
+    /// <summary>
+    ///     Returns the <see cref="TypeReference"/> representing the type of a member, used to
+    ///     linkify the type column in documentation tables.
+    /// </summary>
+    /// <remarks>
+    ///     Constructors have no meaningful return type and return <see langword="null"/> so that
+    ///     callers can omit the type column from constructor rows.
+    /// </remarks>
+    /// <param name="member">The member whose type reference to retrieve.</param>
+    /// <returns>
+    ///     The type reference for properties, fields, events, and non-constructor methods;
+    ///     <see langword="null"/> for constructors and unrecognized member kinds.
+    /// </returns>
+    private static TypeReference? GetMemberTypeRef(IMemberDefinition member) => member switch
     {
-        return member switch
+        MethodDefinition m when m.Name == ConstructorMethodName => null,
+        MethodDefinition m => m.ReturnType,
+        PropertyDefinition p => p.PropertyType,
+        FieldDefinition f => f.FieldType,
+        EventDefinition e => e.EventType,
+        _ => null,
+    };
+
+    /// <summary>
+    ///     Returns <see langword="true"/> when the member's primary type (return type, property
+    ///     type, field type, or event type) carries a <c>NullableAttribute(2)</c> annotation on
+    ///     its outermost position, indicating a C# 8+ nullable reference type.
+    /// </summary>
+    /// <remarks>
+    ///     Mono.Cecil stores nullable-reference annotations on the containing member (method return
+    ///     parameter, property, field, or event) rather than on the <see cref="TypeReference"/>
+    ///     itself. This method reads the correct <see cref="ICustomAttributeProvider"/> for each
+    ///     member kind and delegates to <see cref="HasNullableAnnotation"/>.
+    /// </remarks>
+    private static bool IsMemberTypeNullableAnnotated(IMemberDefinition member) => member switch
+    {
+        MethodDefinition m when m.Name != ConstructorMethodName
+            => HasNullableAnnotation(m.MethodReturnType.CustomAttributes),
+        PropertyDefinition p => HasNullableAnnotation(p.CustomAttributes),
+        FieldDefinition f => HasNullableAnnotation(f.CustomAttributes),
+        EventDefinition e => HasNullableAnnotation(e.CustomAttributes),
+        _ => false,
+    };
+
+    /// <summary>
+    ///     Returns <see langword="true"/> when <paramref name="attrs"/> contains a
+    ///     <c>System.Runtime.CompilerServices.NullableAttribute</c> whose first (or only)
+    ///     byte argument is <c>2</c>, which is the compiler-emitted encoding for a nullable
+    ///     reference type annotation (<c>?</c>).
+    /// </summary>
+    /// <remarks>
+    ///     The attribute has two constructor forms: <c>NullableAttribute(byte)</c> for simple
+    ///     types and <c>NullableAttribute(byte[])</c> for composite types (arrays, generics).
+    ///     In the composite form, byte index 0 represents the outermost type's nullability.
+    /// </remarks>
+    private static bool HasNullableAnnotation(IEnumerable<CustomAttribute> attrs)
+    {
+        var nullableAttr = attrs.FirstOrDefault(
+            a => a.AttributeType.FullName == "System.Runtime.CompilerServices.NullableAttribute");
+        if (nullableAttr == null || nullableAttr.ConstructorArguments.Count == 0)
         {
-            // Constructors have no meaningful return type — the "type" column is omitted for them
-            MethodDefinition m when m.Name == ConstructorMethodName => string.Empty,
-            MethodDefinition m => TypeNameSimplifier.Simplify(m.ReturnType, contextNamespace),
-            PropertyDefinition p => TypeNameSimplifier.Simplify(p.PropertyType, contextNamespace),
-            FieldDefinition f => TypeNameSimplifier.Simplify(f.FieldType, contextNamespace),
-            EventDefinition e => TypeNameSimplifier.Simplify(e.EventType, contextNamespace),
-            _ => string.Empty,
-        };
+            return false;
+        }
+
+        var arg = nullableAttr.ConstructorArguments[0];
+
+        // Single-byte form: NullableAttribute(byte)
+        if (arg.Value is byte b)
+        {
+            return b == 2;
+        }
+
+        // Byte-array form: NullableAttribute(byte[]) — index 0 is the outermost type
+        if (arg.Value is CustomAttributeArgument[] arr && arr.Length > 0 && arr[0].Value is byte first)
+        {
+            return first == 2;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Writes the "External Types" section at the end of a generated Markdown page,
+    ///     listing all non-standard types referenced in table cells on that page.
+    /// </summary>
+    /// <remarks>
+    ///     The section is emitted only when <paramref name="externalTypes"/> is non-empty.
+    ///     Rows are sorted alphabetically by simplified name because <see cref="SortedSet{T}"/>
+    ///     preserves the order defined by <see cref="ExternalTypeInfo.CompareTo"/>.
+    /// </remarks>
+    /// <param name="writer">The Markdown writer for the current page.</param>
+    /// <param name="externalTypes">
+    ///     The set of external types accumulated during table row generation. May be empty.
+    /// </param>
+    private static void WriteExternalTypesSection(IMarkdownWriter writer, SortedSet<ExternalTypeInfo> externalTypes)
+    {
+        if (externalTypes.Count == 0)
+        {
+            return;
+        }
+
+        writer.WriteHeading(2, "External Types");
+        writer.WriteTable(
+            ["Type", "Namespace"],
+            externalTypes.Select(t => new[] { t.SimplifiedName, t.Namespace }));
     }
 
     /// <summary>
@@ -1297,4 +1559,12 @@ public sealed class DotNetGenerator : IApiGenerator
         var tick = name.IndexOf('`');
         return tick >= 0 ? name.Substring(0, tick) : name;
     }
+
+    /// <summary>
+    ///     Converts the IL backtick arity suffix to a plain numeric suffix for file-system-safe names.
+    ///     For example, <c>Foo`2</c> becomes <c>Foo2</c>; <c>Foo</c> is unchanged.
+    /// </summary>
+    /// <param name="name">The raw IL type name that may contain a backtick arity suffix.</param>
+    /// <returns>The name with the backtick removed but the arity count preserved.</returns>
+    private static string FlattenArity(string name) => TypeNameSimplifier.FlattenArity(name);
 }

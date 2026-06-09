@@ -27,7 +27,8 @@ argument array.
 | `Language` | `string?` | `null` | First positional non-flag token |
 | `Assembly` | `string?` | `null` | Path from `--assembly` |
 | `XmlDoc` | `string?` | `null` | Path from `--xml-doc` |
-| `Includes` | `string[]` | `[]` | Comma-split values from `--includes` |
+| `Includes` | `string[]` | `[]` | Plain directory paths accumulated from repeated `--includes` invocations |
+| `ApiHeaders` | `string[]` | `[]` | Ordered patterns from repeated `--api-headers` invocations (may start with `!`) |
 | `Output` | `string?` | `null` | Directory from `--output` |
 | `Visibility` | `string` | `"Public"` | Value from `--visibility` |
 | `IncludeObsolete` | `bool` | `false` | `--include-obsolete` flag |
@@ -52,7 +53,10 @@ construction path.
 - *Returns*: A new fully populated `Context` instance.
 - *Algorithm*: Creates an `ArgumentParser`, calls `ParseArguments`, copies
   all parsed values to a new `Context` via property initializers, and
-  optionally opens the log file.
+  optionally opens the log file. Each `--includes` flag appends a single
+  directory path to the `Includes` list; each `--api-headers` flag appends
+  a single pattern string (which may start with `!`) to the `ApiHeaders`
+  list, preserving order for gitignore-style evaluation.
 - *Preconditions*: `args` must be non-null.
 - *Postconditions*: All properties reflect the parsed argument values;
   log file is open if `--log` was specified.

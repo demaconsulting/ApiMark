@@ -153,6 +153,9 @@ internal sealed class ClangAstParser
     // Clang discovery
     // =========================================================================
 
+    /// <summary>The name of the environment variable that overrides automatic clang discovery.</summary>
+    internal const string ClangPathEnvVar = "APIMARK_CLANG_PATH";
+
     /// <summary>
     ///     Resolves the clang executable path and any command prefix needed to invoke it.
     /// </summary>
@@ -160,6 +163,7 @@ internal sealed class ClangAstParser
     ///     Discovery order:
     ///     <list type="number">
     ///       <item>Explicit <paramref name="clangPath"/> from options (must exist on disk).</item>
+    ///       <item><c>APIMARK_CLANG_PATH</c> environment variable (must exist on disk).</item>
     ///       <item><c>clang</c> on the system PATH.</item>
     ///       <item>On macOS: <c>xcrun</c> with <c>"clang"</c> as the first argument.</item>
     ///       <item>On Windows: vswhere-located LLVM clang, then
@@ -192,19 +196,33 @@ internal sealed class ClangAstParser
             return (clangPath, []);
         }
 
-        // Option 2: clang on the system PATH (all platforms)
+        // Option 2: APIMARK_CLANG_PATH environment variable
+        var envPath = Environment.GetEnvironmentVariable(ClangPathEnvVar);
+        if (!string.IsNullOrEmpty(envPath))
+        {
+            if (!File.Exists(envPath))
+            {
+                throw new InvalidOperationException(
+                    $"Clang executable not found at the path specified by the " +
+                    $"{ClangPathEnvVar} environment variable: '{envPath}'.");
+            }
+
+            return (envPath, []);
+        }
+
+        // Option 3: clang on the system PATH (all platforms)
         if (TryFindOnPath("clang", out var clangOnPath))
         {
             return (clangOnPath, []);
         }
 
-        // Option 3: macOS — use xcrun so the active Xcode SDK is selected automatically
+        // Option 4: macOS — use xcrun so the active Xcode SDK is selected automatically
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
             return ("xcrun", ["clang"]);
         }
 
-        // Option 4: Windows — query vswhere, then fall back to the default LLVM install location
+        // Option 5: Windows — query vswhere, then fall back to the default LLVM install location
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             var vsClang = FindVsClang();
@@ -223,6 +241,7 @@ internal sealed class ClangAstParser
 
         throw new InvalidOperationException(
             "Clang executable not found. Install LLVM clang and ensure 'clang' is on PATH, " +
+            $"set the {ClangPathEnvVar} environment variable, " +
             "or set CppGeneratorOptions.ClangPath to the absolute path of the clang executable.");
     }
 
@@ -342,7 +361,7 @@ internal sealed class ClangAstParser
     ///       <item>Any <paramref name="prefix"/> arguments (e.g. <c>"clang"</c> for xcrun).</item>
     ///       <item>Core AST-dump flags and input-type flags.</item>
     ///       <item>C++ standard flag.</item>
-    ///       <item><c>-I</c> flags for public include roots and additional include paths.</item>
+    ///       <item><c>-I</c> flags for public include roots.</item>
     ///       <item><c>-isystem</c> flags for system include paths.</item>
     ///       <item><c>-D</c> flags for preprocessor defines.</item>
     ///       <item>Additional compiler arguments (escape-hatch).</item>
@@ -366,17 +385,12 @@ internal sealed class ClangAstParser
         // C++ language standard
         args.Add($"-std={options.CppStandard}");
 
-        // Public include roots and additional include paths as -I flags
+        // All public include roots are passed as -I flags so headers can find each other
+        // — all compiler include directories live in PublicIncludeRoots after the redesign
         foreach (var root in options.PublicIncludeRoots)
         {
             args.Add("-I");
             args.Add(root);
-        }
-
-        foreach (var path in options.AdditionalIncludePaths)
-        {
-            args.Add("-I");
-            args.Add(path);
         }
 
         // System include paths — declarations found here are resolved but never documented
@@ -585,6 +599,10 @@ internal sealed class ClangAstParser
                     ParseEnum(node, nsQualName);
                     break;
 
+                case "TypeAliasDecl":
+                    ParseTypeAlias(node, nsQualName);
+                    break;
+
                 case "FunctionDecl":
                 case "FunctionTemplateDecl":
                     ParseFreeFunction(node, nsQualName);
@@ -671,6 +689,10 @@ internal sealed class ClangAstParser
     ///     Parses a <c>CXXRecordDecl</c> node into a <see cref="CppClass"/> and adds it
     ///     to the appropriate namespace builder.
     /// </summary>
+    /// <remarks>
+    ///     This is a thin wrapper over <see cref="BuildClass"/> that adds the resulting
+    ///     <see cref="CppClass"/> to the namespace accumulator when parsing succeeds.
+    /// </remarks>
     /// <param name="node">The <c>CXXRecordDecl</c> JSON node with <c>completeDefinition: true</c>.</param>
     /// <param name="nsQualName">The qualified name of the enclosing namespace.</param>
     /// <param name="templateParams">
@@ -682,22 +704,57 @@ internal sealed class ClangAstParser
         string nsQualName,
         IReadOnlyList<CppTemplateParam>? templateParams)
     {
+        // Delegate to BuildClass for all parsing, then register the result in the namespace builder
+        var cls = BuildClass(node, nsQualName, templateParams);
+        if (cls != null)
+        {
+            GetNsBuilder(nsQualName).Classes.Add(cls);
+        }
+    }
+
+    /// <summary>
+    ///     Builds a <see cref="CppClass"/> from a <c>CXXRecordDecl</c> JSON node and returns
+    ///     it without adding it to any namespace builder.
+    /// </summary>
+    /// <remarks>
+    ///     Separated from <see cref="ParseClass"/> so that nested class declarations found
+    ///     inside a class body can be parsed recursively and collected in the parent class's
+    ///     <see cref="CppClass.NestedClasses"/> list rather than added to the namespace builder.
+    /// </remarks>
+    /// <param name="node">The <c>CXXRecordDecl</c> JSON node with <c>completeDefinition: true</c>.</param>
+    /// <param name="nsQualName">
+    ///     The qualified name of the enclosing scope (namespace or class). Used as context
+    ///     when recursing into nested class bodies.
+    /// </param>
+    /// <param name="templateParams">
+    ///     Template parameters extracted from an enclosing <c>ClassTemplateDecl</c>, or
+    ///     <see langword="null"/> for non-template classes.
+    /// </param>
+    /// <returns>
+    ///     A populated <see cref="CppClass"/>, or <see langword="null"/> when the node is
+    ///     not owned, is compiler-synthesized, or has no valid name.
+    /// </returns>
+    private CppClass? BuildClass(
+        JsonElement node,
+        string nsQualName,
+        IReadOnlyList<CppTemplateParam>? templateParams)
+    {
         // Skip when the class is not owned by a public include root
         if (!IsOwned(_currentFile))
         {
-            return;
+            return null;
         }
 
         // Skip compiler-synthesized records (anonymous structs, etc.)
         if (node.TryGetProperty("isImplicit", out var impl) && impl.GetBoolean())
         {
-            return;
+            return null;
         }
 
         var name = GetName(node);
         if (string.IsNullOrEmpty(name))
         {
-            return;
+            return null;
         }
 
         // Determine the default access level: struct → public, class → private
@@ -709,6 +766,8 @@ internal sealed class ClangAstParser
         var members = new List<CppFunction>();
         var fields = new List<CppField>();
         var baseTypes = new List<CppBaseType>();
+        var nestedClasses = new List<CppClass>();
+        var typeAliases = new List<CppTypeAlias>();
         CppDocComment? doc = null;
 
         // Deprecated if isDeprecated flag is set; DeprecatedAttr in inner also triggers
@@ -717,6 +776,28 @@ internal sealed class ClangAstParser
         // Final if FinalAttr appears in the inner node array
         var isFinal = false;
         var location = GetCurrentSourceLocation(node);
+
+        // Clang 18+ surfaces base class information in a top-level "bases" array on the
+        // CXXRecordDecl node rather than as CXXBaseSpecifier child nodes inside "inner".
+        // Earlier versions emit CXXBaseSpecifier nodes in "inner" (handled below).
+        // Both paths are retained so the parser works across clang versions.
+        var hasTopLevelBases = false;
+        if (node.TryGetProperty("bases", out var bases))
+        {
+            foreach (var baseEntry in bases.EnumerateArray())
+            {
+                if (baseEntry.TryGetProperty("type", out var bt) &&
+                    bt.TryGetProperty("qualType", out var qtEl))
+                {
+                    var baseName = qtEl.GetString();
+                    if (!string.IsNullOrEmpty(baseName))
+                    {
+                        baseTypes.Add(new CppBaseType(baseName));
+                        hasTopLevelBases = true;
+                    }
+                }
+            }
+        }
 
         if (node.TryGetProperty("inner", out var inner))
         {
@@ -759,9 +840,112 @@ internal sealed class ClangAstParser
                             break;
                         }
 
+                    case "CXXRecordDecl":
+                        // Recursively collect public nested classes with complete definitions;
+                        // implicit and forward declarations are excluded by BuildClass itself
+                        if (currentAccess == CppAccessibility.Public &&
+                            child.TryGetProperty("completeDefinition", out var ncd) && ncd.GetBoolean())
+                        {
+                            var nestedCls = BuildClass(child, $"{nsQualName}::{name}", null);
+                            if (nestedCls != null)
+                            {
+                                nestedClasses.Add(nestedCls);
+                            }
+                        }
+
+                        break;
+
+                    case "ClassTemplateDecl":
+                        // Handle nested template classes; only collect public ones
+                        if (currentAccess == CppAccessibility.Public &&
+                            child.TryGetProperty("inner", out var tmplInner))
+                        {
+                            // Gather template type parameters before reaching the CXXRecordDecl child
+                            var tmplParams = new List<CppTemplateParam>();
+                            var tmplParsed = false;
+                            foreach (var tmplChild in tmplInner.EnumerateArray())
+                            {
+                                UpdateCurrentFile(tmplChild);
+                                var tmplKind = GetKind(tmplChild);
+                                if (tmplKind is "TemplateTypeParmDecl" or "NonTypeTemplateParmDecl"
+                                    or "TemplateTemplateParmDecl")
+                                {
+                                    var tpName = GetName(tmplChild);
+                                    if (!string.IsNullOrEmpty(tpName))
+                                    {
+                                        tmplParams.Add(new CppTemplateParam(tpName));
+                                    }
+                                }
+                                else if (!tmplParsed && tmplKind == "CXXRecordDecl" &&
+                                         tmplChild.TryGetProperty("completeDefinition", out var tcd) &&
+                                         tcd.GetBoolean())
+                                {
+                                    // Process only the primary template definition; skip specializations
+                                    var nestedCls = BuildClass(tmplChild, $"{nsQualName}::{name}", tmplParams);
+                                    if (nestedCls != null)
+                                    {
+                                        nestedClasses.Add(nestedCls);
+                                    }
+
+                                    tmplParsed = true;
+                                }
+                            }
+                        }
+
+                        break;
+
+                    case "TypeAliasDecl":
+                        // Collect public class-scoped using-aliases and parse their doc comments
+                        if (currentAccess == CppAccessibility.Public)
+                        {
+                            var aliasName = GetName(child);
+                            if (!string.IsNullOrEmpty(aliasName))
+                            {
+                                // Underlying type lives in child["type"]["qualType"]
+                                var underlyingType = string.Empty;
+                                if (child.TryGetProperty("type", out var typeNode) &&
+                                    typeNode.TryGetProperty("qualType", out var qualTypeNode))
+                                {
+                                    underlyingType = qualTypeNode.GetString() ?? string.Empty;
+                                }
+
+                                var aliasIsDeprecated =
+                                    child.TryGetProperty("isDeprecated", out var aliasDepEl) &&
+                                    aliasDepEl.GetBoolean();
+                                var aliasLocation = GetCurrentSourceLocation(child);
+                                CppDocComment? aliasDoc = null;
+
+                                if (child.TryGetProperty("inner", out var aliasInner))
+                                {
+                                    foreach (var aliasChild in aliasInner.EnumerateArray())
+                                    {
+                                        var aliasChildKind = GetKind(aliasChild);
+                                        switch (aliasChildKind)
+                                        {
+                                            case "FullComment":
+                                                aliasDoc = ParseFullComment(aliasChild);
+                                                break;
+                                            case "DeprecatedAttr":
+                                                aliasIsDeprecated = true;
+                                                break;
+                                        }
+                                    }
+                                }
+
+                                typeAliases.Add(new CppTypeAlias(
+                                    aliasName, underlyingType, aliasIsDeprecated, aliasLocation, aliasDoc));
+                            }
+                        }
+
+                        break;
+
                     case "CXXBaseSpecifier":
-                        // Capture the base-class name from type.qualType
-                        if (child.TryGetProperty("type", out var bt) &&
+                        // Fallback for clang versions older than 18 that emit base specifiers
+                        // as CXXBaseSpecifier child nodes in "inner" rather than in a top-level
+                        // "bases" array. Skipped when base types were already collected from the
+                        // top-level "bases" array to avoid duplicates across clang versions.
+                        if (!hasTopLevelBases &&
+                            child.TryGetProperty("type", out var bt) &&
                             bt.TryGetProperty("qualType", out var qtEl))
                         {
                             var baseName = qtEl.GetString();
@@ -788,18 +972,18 @@ internal sealed class ClangAstParser
             }
         }
 
-        var cls = new CppClass(
+        return new CppClass(
             name,
             baseTypes,
             templateParams ?? [],
             members,
             fields,
+            nestedClasses,
+            typeAliases,
             isDeprecated,
             isFinal,
             location,
             doc);
-
-        GetNsBuilder(nsQualName).Classes.Add(cls);
     }
 
     /// <summary>
@@ -858,6 +1042,7 @@ internal sealed class ClangAstParser
 
         var isVariadic = node.TryGetProperty("variadic", out var v) && v.GetBoolean();
         var isDeprecated = node.TryGetProperty("isDeprecated", out var dep) && dep.GetBoolean();
+        var isDeleted = node.TryGetProperty("explicitlyDeleted", out var del) && del.GetBoolean();
         var location = GetCurrentSourceLocation(node);
         var parameters = new List<CppParameter>();
         CppDocComment? doc = null;
@@ -892,6 +1077,7 @@ internal sealed class ClangAstParser
             false,
             isVariadic,
             isDeprecated,
+            isDeleted,
             location,
             doc);
 
@@ -964,6 +1150,59 @@ internal sealed class ClangAstParser
     }
 
     /// <summary>
+    ///     Parses a <c>TypeAliasDecl</c> node (a <c>using X = Y</c> declaration) into a
+    ///     <see cref="CppTypeAlias"/> and adds it to the appropriate namespace builder.
+    /// </summary>
+    /// <param name="node">The <c>TypeAliasDecl</c> JSON node.</param>
+    /// <param name="nsQualName">The qualified name of the enclosing namespace.</param>
+    private void ParseTypeAlias(JsonElement node, string nsQualName)
+    {
+        // Skip when not owned by a public include root
+        if (!IsOwned(_currentFile))
+        {
+            return;
+        }
+
+        var name = GetName(node);
+        if (string.IsNullOrEmpty(name))
+        {
+            return;
+        }
+
+        // The underlying type is in node["type"]["qualType"]
+        var underlyingType = string.Empty;
+        if (node.TryGetProperty("type", out var typeNode) &&
+            typeNode.TryGetProperty("qualType", out var qualTypeNode))
+        {
+            underlyingType = qualTypeNode.GetString() ?? string.Empty;
+        }
+
+        var isDeprecated = node.TryGetProperty("isDeprecated", out var dep) && dep.GetBoolean();
+        var location = GetCurrentSourceLocation(node);
+        CppDocComment? doc = null;
+
+        if (node.TryGetProperty("inner", out var inner))
+        {
+            foreach (var child in inner.EnumerateArray())
+            {
+                var childKind = GetKind(child);
+                switch (childKind)
+                {
+                    case "FullComment":
+                        doc = ParseFullComment(child);
+                        break;
+                    case "DeprecatedAttr":
+                        isDeprecated = true;
+                        break;
+                }
+            }
+        }
+
+        var alias = new CppTypeAlias(name, underlyingType, isDeprecated, location, doc);
+        GetNsBuilder(nsQualName).TypeAliases.Add(alias);
+    }
+
+    /// <summary>
     ///     Parses a <c>CXXMethodDecl</c>, <c>CXXConstructorDecl</c>, or
     ///     <c>CXXDestructorDecl</c> node into a <see cref="CppFunction"/>.
     /// </summary>
@@ -1018,6 +1257,7 @@ internal sealed class ClangAstParser
         var isVirtual = node.TryGetProperty("isVirtual", out var iv) && iv.GetBoolean();
         var isVariadic = node.TryGetProperty("variadic", out var varNode) && varNode.GetBoolean();
         var isDeprecated = node.TryGetProperty("isDeprecated", out var dep) && dep.GetBoolean();
+        var isDeleted = node.TryGetProperty("explicitlyDeleted", out var del) && del.GetBoolean();
 
         // Source location: record the file and line from the node's own loc field
         var location = GetCurrentSourceLocation(node);
@@ -1054,6 +1294,7 @@ internal sealed class ClangAstParser
             isConstructor,
             isVariadic,
             isDeprecated,
+            isDeleted,
             location,
             doc);
     }
@@ -1120,7 +1361,7 @@ internal sealed class ClangAstParser
     ///     Parses a <c>ParmVarDecl</c> node into a <see cref="CppParameter"/>.
     /// </summary>
     /// <param name="node">The <c>ParmVarDecl</c> JSON node.</param>
-    /// <returns>A <see cref="CppParameter"/> with the parameter name and type.</returns>
+    /// <returns>A <see cref="CppParameter"/> with the parameter name, type, and optional default value.</returns>
     private static CppParameter ParseParameter(JsonElement node)
     {
         var name = GetName(node) ?? string.Empty;
@@ -1129,7 +1370,79 @@ internal sealed class ClangAstParser
             ? qt.GetString() ?? string.Empty
             : string.Empty;
 
-        return new CppParameter(name, typeName);
+        // When "init" is present the parameter has a default argument; extract a display string
+        // from the first child expression node
+        string? defaultValue = null;
+        if (node.TryGetProperty("init", out _) &&
+            node.TryGetProperty("inner", out var innerEl) &&
+            innerEl.GetArrayLength() > 0)
+        {
+            defaultValue = ExtractDefaultValue(innerEl[0]);
+        }
+
+        return new CppParameter(name, typeName, defaultValue);
+    }
+
+    /// <summary>
+    ///     Recursively extracts a display string for a default-argument expression node.
+    ///     Handles integer, floating-point, boolean, string, and nullptr literals, as well
+    ///     as implicit cast wrappers that the clang AST inserts around some literals.
+    ///     Returns <see langword="null"/> when the expression is too complex to represent
+    ///     as a simple display string.
+    /// </summary>
+    /// <param name="node">The root expression node from the <c>inner</c> array of a <c>ParmVarDecl</c>.</param>
+    /// <returns>A display string for the default value, or <see langword="null"/>.</returns>
+    private static string? ExtractDefaultValue(JsonElement node)
+    {
+        var kind = node.TryGetProperty("kind", out var k) ? k.GetString() : null;
+
+        return kind switch
+        {
+            // Numeric literals carry their value as a JSON string
+            "IntegerLiteral" or "FloatingLiteral" =>
+                node.TryGetProperty("value", out var v) ? v.GetString() : null,
+
+            // Boolean literals carry their value as a JSON boolean, not a string
+            "CXXBoolLiteralExpr" =>
+                node.TryGetProperty("value", out var bv)
+                    ? bv.ValueKind switch
+                    {
+                        JsonValueKind.True => "true",
+                        JsonValueKind.False => "false",
+                        _ => bv.GetString(), // fallback for unexpected encoding
+                    }
+                    : null,
+
+            // String literals carry their value (already includes surrounding quotes)
+            "StringLiteral" =>
+                node.TryGetProperty("value", out var sv) ? sv.GetString() : null,
+
+            // nullptr literal
+            "CXXNullPtrLiteralExpr" => "nullptr",
+
+            // Named constant or enum value — use the referenced declaration name
+            "DeclRefExpr" =>
+                node.TryGetProperty("referencedDecl", out var rd) &&
+                rd.TryGetProperty("name", out var rn) ? rn.GetString() : null,
+
+            // Implicit casts and other wrapper expressions — recurse into first child
+            "ImplicitCastExpr" or "CStyleCastExpr" or "CXXStaticCastExpr"
+                or "CXXFunctionalCastExpr" or "MaterializeTemporaryExpr"
+                or "ExprWithCleanups" or "CXXBindTemporaryExpr" =>
+                node.TryGetProperty("inner", out var inner) && inner.GetArrayLength() > 0
+                    ? ExtractDefaultValue(inner[0])
+                    : null,
+
+            // Unary operator (e.g. -1) — reconstruct from operator token and child
+            "UnaryOperator" =>
+                node.TryGetProperty("opcode", out var op) &&
+                node.TryGetProperty("inner", out var uInner) && uInner.GetArrayLength() > 0
+                    ? $"{op.GetString()}{ExtractDefaultValue(uInner[0])}"
+                    : null,
+
+            // All other expressions are too complex to display simply
+            _ => null,
+        };
     }
 
     // =========================================================================
@@ -1184,6 +1497,7 @@ internal sealed class ClangAstParser
         string? summary = null;
         string? details = null;
         string? returns = null;
+        string? note = null;
         var paramDocs = new List<CppParamDoc>();
 
         foreach (var child in inner.EnumerateArray())
@@ -1233,6 +1547,11 @@ internal sealed class ClangAstParser
                     {
                         returns = NormalizeSingleLine(cmdText);
                     }
+                    else if (string.Equals(cmdName, "note", StringComparison.OrdinalIgnoreCase) &&
+                             !string.IsNullOrEmpty(cmdText))
+                    {
+                        note = NormalizeSingleLine(cmdText);
+                    }
 
                     break;
 
@@ -1250,12 +1569,12 @@ internal sealed class ClangAstParser
         }
 
         // Return null when the comment block carried no extractable documentation
-        if (summary == null && details == null && returns == null && paramDocs.Count == 0)
+        if (summary == null && details == null && returns == null && note == null && paramDocs.Count == 0)
         {
             return null;
         }
 
-        return new CppDocComment(summary, details, paramDocs, returns);
+        return new CppDocComment(summary, details, paramDocs, returns, note);
     }
 
     /// <summary>
@@ -1554,6 +1873,9 @@ internal sealed class ClangAstParser
         /// <summary>Gets the mutable list of enums being accumulated.</summary>
         public List<CppEnum> Enums { get; } = [];
 
+        /// <summary>Gets the mutable list of type aliases being accumulated.</summary>
+        public List<CppTypeAlias> TypeAliases { get; } = [];
+
         /// <summary>
         ///     Builds an immutable <see cref="CppNamespaceDecl"/> from the accumulated
         ///     declarations.
@@ -1563,7 +1885,7 @@ internal sealed class ClangAstParser
         {
             // Namespace-level doc comments are not reliably exposed in the clang JSON
             // AST dump for plain namespace declarations, so Doc is always null here
-            return new CppNamespaceDecl(QualifiedName, Classes, FreeFunctions, Enums, Doc: null);
+            return new CppNamespaceDecl(QualifiedName, Classes, FreeFunctions, Enums, TypeAliases, Doc: null);
         }
     }
 }

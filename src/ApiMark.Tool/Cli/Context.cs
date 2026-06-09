@@ -64,8 +64,18 @@ internal sealed class Context : IContext, IDisposable
 
     /// <summary>
     ///     Gets the include directory paths for the C++ language subcommand.
+    ///     Contains plain directory paths collected from repeated <c>--includes</c> invocations;
+    ///     all entries are passed to Clang as <c>-I</c> paths.
     /// </summary>
     public string[] Includes { get; private init; } = [];
+
+    /// <summary>
+    ///     Gets the ordered list of glob and exclusion pattern strings for the C++ language subcommand.
+    ///     Collected from repeated <c>--api-headers</c> invocations; entries with a <c>!</c>
+    ///     prefix are exclusion patterns. Order is significant — gitignore semantics apply
+    ///     (last matching pattern wins).
+    /// </summary>
+    public string[] ApiHeaders { get; private init; } = [];
 
     /// <summary>
     ///     Gets the output directory for generated Markdown files.
@@ -153,7 +163,8 @@ internal sealed class Context : IContext, IDisposable
             Language = parser.Language,
             Assembly = parser.Assembly,
             XmlDoc = parser.XmlDoc,
-            Includes = parser.Includes,
+            Includes = [.. parser.Includes],
+            ApiHeaders = [.. parser.ApiHeaders],
             Output = parser.Output,
             Visibility = parser.Visibility,
             IncludeObsolete = parser.IncludeObsolete,
@@ -308,9 +319,19 @@ internal sealed class Context : IContext, IDisposable
         public string? XmlDoc { get; private set; }
 
         /// <summary>
-        ///     Gets the include directory paths for C++.
+        ///     Gets the include directory paths for the C++ language subcommand.
+        ///     Accumulated by repeated <c>--includes</c> invocations; each invocation appends
+        ///     one plain directory path.
         /// </summary>
-        public string[] Includes { get; private set; } = [];
+        public List<string> Includes { get; } = new List<string>();
+
+        /// <summary>
+        ///     Gets the ordered list of glob and exclusion pattern strings for the C++ language subcommand.
+        ///     Accumulated by repeated <c>--api-headers</c> invocations; each invocation appends
+        ///     one pattern (with or without a leading <c>!</c>). Order is preserved for
+        ///     gitignore-style last-match-wins evaluation.
+        /// </summary>
+        public List<string> ApiHeaders { get; } = new List<string>();
 
         /// <summary>
         ///     Gets the output directory.
@@ -432,9 +453,22 @@ internal sealed class Context : IContext, IDisposable
                     return index + 1;
 
                 case "--includes":
-                    Includes = GetRequiredStringArgument(arg, args, index, "a comma-separated path list argument")
-                        .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-                    return index + 1;
+                    {
+                        // Append each --includes invocation as one plain directory path
+                        // — repeated --includes flags accumulate the full list
+                        var path = GetRequiredStringArgument(arg, args, index, "a directory path argument");
+                        Includes.Add(path);
+                        return index + 1;
+                    }
+
+                case "--api-headers":
+                    {
+                        // Append each --api-headers invocation as one pattern string
+                        // — may start with '!' for exclusion; order is preserved for gitignore evaluation
+                        var pattern = GetRequiredStringArgument(arg, args, index, "a glob pattern argument");
+                        ApiHeaders.Add(pattern);
+                        return index + 1;
+                    }
 
                 case "--output":
                     Output = GetRequiredStringArgument(arg, args, index, "a directory path argument");

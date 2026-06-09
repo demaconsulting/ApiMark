@@ -1112,7 +1112,7 @@ public class DotNetGeneratorTests
     }
 
     /// <summary>
-    ///     Validates that the combined collision page contains H4 headings for both the
+    ///     Validates that the combined collision page contains H2 headings for both the
     ///     field <c>name</c> and the property <c>Name</c>.
     /// </summary>
     [Fact]
@@ -1129,13 +1129,285 @@ public class DotNetGeneratorTests
         Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/CaseCollisionClass/name"));
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/CaseCollisionClass/name"];
 
-        // Assert: both members appear as distinct H4 headings on the combined page
-        var level4Headings = writer.Operations
+        // Assert: both members appear as distinct H2 headings on the combined page
+        var level2Headings = writer.Operations
             .OfType<HeadingOperation>()
-            .Where(h => h.Level == 4)
+            .Where(h => h.Level == 2)
             .Select(h => h.Text)
             .ToList();
-        Assert.Contains(level4Headings, h => h.StartsWith("name", StringComparison.Ordinal));
-        Assert.Contains(level4Headings, h => h.StartsWith("Name", StringComparison.Ordinal));
+        Assert.Contains(level2Headings, h => h.StartsWith("name", StringComparison.Ordinal));
+        Assert.Contains(level2Headings, h => h.StartsWith("Name", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a class implementing an interface shows the interface name in its
+    ///     type signature code block so readers can see the inheritance relationship at a
+    ///     glance without opening the source file.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_SampleImplementation_TypeSignatureShowsInterface()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: SampleImplementation type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleImplementation"),
+            "Expected type page for SampleImplementation");
+
+        // Assert: the signature code block must include ": ISampleInterface" so readers
+        // can see the interface contract without navigating to the source file
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleImplementation"];
+        var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
+        Assert.NotNull(signature);
+        Assert.Contains(": ISampleInterface", signature.Code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that an enum type signature does not include a base class (such as
+    ///     <c>System.Enum</c>) so that well-known implicit bases are suppressed and the
+    ///     signature remains clean and readable.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_EnumTypeSignature_HasNoBaseClass()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: SampleStatus enum type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleStatus"),
+            "Expected type page for SampleStatus");
+
+        // Assert: the signature must not contain ": System.Enum" or any base class annotation —
+        // well-known implicit enum bases must be suppressed to keep the signature clean
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleStatus"];
+        var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
+        Assert.NotNull(signature);
+        Assert.DoesNotContain("System.Enum", signature.Code, StringComparison.Ordinal);
+        Assert.DoesNotContain(" : ", signature.Code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that a method returning an intra-assembly type emits a Markdown link in
+    ///     the Returns column of the type page's Methods table.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_IntraAssemblyReturnType_EmitsMarkdownLinkInReturnsCell()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: TypeLinkFixture type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/TypeLinkFixture"),
+            "Expected type page for TypeLinkFixture");
+
+        // Assert: the Methods table on the TypeLinkFixture page must have a Returns cell containing
+        // a Markdown link to SampleClass — the return type of GetSampleClass()
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/TypeLinkFixture"];
+        var operations = writer.Operations.ToList();
+        var methodsIndex = operations.FindIndex(op => op is HeadingOperation h && h.Text == "Methods");
+        Assert.True(methodsIndex >= 0, "Expected 'Methods' heading on TypeLinkFixture page");
+        var methodsTable = operations.Skip(methodsIndex + 1).OfType<TableOperation>().First();
+
+        // Returns column (index 1) for GetSampleClass() must contain a Markdown link, not plain text
+        var row = methodsTable.Rows.FirstOrDefault(r => r[0].Contains("GetSampleClass", StringComparison.Ordinal));
+        Assert.NotNull(row);
+        Assert.Contains("[SampleClass]", row[1], StringComparison.Ordinal);
+        Assert.Contains("SampleClass.md", row[1], StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that a method accepting an external non-System type causes an "External Types"
+    ///     section to appear at the bottom of the member's detail page.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ExternalNonSystemParameterType_EmitsExternalTypesSection()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: Log member page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/TypeLinkFixture/Log"),
+            "Expected member page for TypeLinkFixture.Log");
+
+        // Assert: the member page must contain an "External Types" heading because
+        // ILogger<TypeLinkFixture> is from Microsoft.Extensions.Logging (non-System namespace)
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/TypeLinkFixture/Log"];
+        var headings = writer.Operations.OfType<HeadingOperation>().Select(h => h.Text).ToList();
+        Assert.Contains("External Types", headings, StringComparer.Ordinal);
+
+        // Assert: the External Types table must list ILogger with the Microsoft.Extensions.Logging namespace
+        var externalTable = writer.Operations
+            .OfType<TableOperation>()
+            .FirstOrDefault(t => t.Headers.Length == 2 && t.Headers[0] == "Type" && t.Headers[1] == "Namespace");
+        Assert.NotNull(externalTable);
+        Assert.Contains(
+            externalTable!.Rows,
+            row => row[0].Contains("ILogger", StringComparison.Ordinal) &&
+                   row[1].Contains("Microsoft.Extensions.Logging", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a delegate type produces a page with a <c>public delegate</c>
+    ///     signature rather than <c>public sealed class</c>, using the parameter list
+    ///     from the compiler-injected <c>Invoke</c> method.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_DelegateType_EmitsDelegateSignature()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ServiceEvent"),
+            "Expected type page for ServiceEvent delegate");
+
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/ServiceEvent"];
+        var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
+        Assert.NotNull(signature);
+
+        // Must use the delegate keyword, not sealed class
+        Assert.Contains("public delegate", signature.Code, StringComparison.Ordinal);
+        Assert.DoesNotContain("sealed class", signature.Code, StringComparison.Ordinal);
+
+        // Must include the return type and each parameter
+        Assert.Contains("void", signature.Code, StringComparison.Ordinal);
+        Assert.Contains("DateTime timestamp", signature.Code, StringComparison.Ordinal);
+        Assert.Contains("string service", signature.Code, StringComparison.Ordinal);
+        Assert.Contains("object[] arguments", signature.Code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that a delegate type page contains no member tables — the
+    ///     compiler-injected <c>Invoke</c>, <c>BeginInvoke</c>, <c>EndInvoke</c>, and
+    ///     synthetic constructor must not appear in the output.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_DelegateType_HasNoMemberTables()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ServiceEvent"),
+            "Expected type page for ServiceEvent delegate");
+
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/ServiceEvent"];
+
+        // No table rows must mention compiler-injected member names
+        var allTableText = writer.Operations
+            .OfType<TableOperation>()
+            .SelectMany(t => t.Rows)
+            .SelectMany(r => r)
+            .ToList();
+
+        Assert.DoesNotContain(allTableText, cell =>
+            cell.Contains("Invoke", StringComparison.Ordinal) ||
+            cell.Contains("BeginInvoke", StringComparison.Ordinal) ||
+            cell.Contains("EndInvoke", StringComparison.Ordinal));
+
+        // No member detail pages must be created for delegate synthetic members
+        Assert.False(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ServiceEvent/Invoke"),
+            "Delegate Invoke method must not produce a detail page");
+    }
+
+    /// <summary>
+    ///     Validates that a generic delegate type signature includes the type parameter list,
+    ///     e.g. <c>public delegate TResult SampleTransform&lt;TInput, TResult&gt;(TInput input)</c>.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_GenericDelegateType_IncludesTypeParameters()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: type page must exist (arity flattened: SampleTransform`2 → SampleTransform2)
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleTransform2"),
+            "Expected type page for SampleTransform generic delegate");
+
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleTransform2"];
+        var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
+        Assert.NotNull(signature);
+
+        Assert.Contains("public delegate", signature.Code, StringComparison.Ordinal);
+        Assert.Contains("TResult", signature.Code, StringComparison.Ordinal);
+        Assert.Contains("TInput", signature.Code, StringComparison.Ordinal);
+        Assert.Contains("TInput input", signature.Code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that a method returning <c>string[]?</c> (a nullable array reference)
+    ///     renders the return type as <c>string[]?</c> — not <c>string[]</c> — in both the
+    ///     type page's Methods table and the member's detail page signature.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_NullableArrayReturnType_RendersWithQuestionMark()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: ArrayAndNullableClass type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ArrayAndNullableClass"),
+            "Expected type page for ArrayAndNullableClass");
+
+        // Assert: the Methods table on the type page shows string[]? in the Returns column
+        var typePage = factory.Writers["ApiMark.DotNet.Fixtures/ArrayAndNullableClass"];
+        var methodsTable = typePage.Operations
+            .OfType<TableOperation>()
+            .FirstOrDefault(t => t.Headers.Contains("Returns", StringComparer.Ordinal));
+        Assert.NotNull(methodsTable);
+        var nullableRow = methodsTable.Rows.FirstOrDefault(
+            r => r[0].Contains("GetNullableNames", StringComparison.Ordinal));
+        Assert.NotNull(nullableRow);
+        Assert.Contains("string[]?", nullableRow[1], StringComparison.Ordinal);
+
+        // Assert: the member detail page signature also shows string[]?
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ArrayAndNullableClass/GetNullableNames"),
+            "Expected detail page for GetNullableNames");
+        var detailPage = factory.Writers["ApiMark.DotNet.Fixtures/ArrayAndNullableClass/GetNullableNames"];
+        var signature = detailPage.Operations.OfType<SignatureOperation>().FirstOrDefault();
+        Assert.NotNull(signature);
+        Assert.Contains("string[]?", signature.Code, StringComparison.Ordinal);
     }
 }

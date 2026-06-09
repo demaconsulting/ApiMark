@@ -79,9 +79,10 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
-    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> produces an argument string
-    ///     containing the <c>--includes</c> flag with include paths converted from the
-    ///     MSBuild semicolon-separated format to the comma-separated format expected by the tool.
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> emits a separate
+    ///     <c>--includes</c> flag for each path in <see cref="ApiMarkTask.ApiMarkIncludePaths"/>
+    ///     when the property is semicolon-separated, rather than joining them into a single
+    ///     comma-separated value.
     /// </summary>
     [Fact]
     public void ApiMarkTask_Cpp_SpawnsToolWithCorrectIncludePathArguments()
@@ -97,9 +98,15 @@ public class ApiMarkTaskTests
         // Act
         var args = task.BuildArguments("cpp");
 
-        // Assert: the --includes flag must appear and semicolons must be converted to commas
-        Assert.Contains("--includes", args);
-        Assert.Contains("/include1,/include2", args);
+        // Assert: each path must appear as a separate --includes <path> pair
+        var argList = args.ToList();
+        var firstIdx = argList.IndexOf("--includes");
+        var lastIdx = argList.LastIndexOf("--includes");
+        Assert.True(firstIdx >= 0, "--includes must be present");
+        Assert.NotEqual(firstIdx, lastIdx);
+        Assert.Equal("/include1", argList[firstIdx + 1]);
+        Assert.Equal("/include2", argList[lastIdx + 1]);
+        Assert.DoesNotContain("/include1,/include2", args);
         Assert.DoesNotContain("/include1;/include2", args);
     }
 
@@ -376,6 +383,39 @@ public class ApiMarkTaskTests
         // Assert: the description is present verbatim — ArgumentList handles OS-level quoting,
         // so the caller must not apply any backslash escaping
         Assert.Contains("My library (v\"2\")", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> emits a separate
+    ///     <c>--api-headers</c> flag for each pattern in <see cref="ApiMarkTask.ApiMarkApiHeaders"/>,
+    ///     preserving order and forwarding <c>!</c>-prefixed exclusion patterns verbatim.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_ApiHeaders_ForwardedAsIndividualFlags()
+    {
+        // Arrange: two patterns — a catch-all followed by an exclusion pattern
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include",
+            ApiMarkApiHeaders = "**/*.h;!**/detail/**",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: each pattern must appear as its own --api-headers <pattern> pair in order
+        var argList = args.ToList();
+        var firstIdx = argList.IndexOf("--api-headers");
+        var lastIdx = argList.LastIndexOf("--api-headers");
+        Assert.True(firstIdx >= 0, "--api-headers must be present");
+        Assert.NotEqual(firstIdx, lastIdx);
+        Assert.Equal("**/*.h", argList[firstIdx + 1]);
+
+        // The exclusion pattern must be forwarded verbatim with the ! prefix intact
+        Assert.Equal("!**/detail/**", argList[lastIdx + 1]);
+        Assert.DoesNotContain("**/*.h;!**/detail/**", args);
     }
 }
 

@@ -246,6 +246,7 @@ internal static class Program
                 LibraryName = cppLibraryName,
                 Description = context.LibraryDescription ?? string.Empty,
                 PublicIncludeRoots = context.Includes,
+                ApiHeaderPatterns = context.ApiHeaders,
                 Defines = context.Defines,
                 CppStandard = context.CppStandard ?? "c++17",
                 Visibility = (CppApiVisibility)(int)visibility,
@@ -299,7 +300,8 @@ internal static class Program
         context.WriteLine("  --include-obsolete         Include obsolete members in generated output");
         context.WriteLine("");
         context.WriteLine("cpp options:");
-        context.WriteLine("  --includes <paths>         Comma-separated list of public include directories (required)");
+        context.WriteLine("  --includes <path>          Include directory for clang -I (repeatable, required)");
+        context.WriteLine("  --api-headers <pattern>    Glob pattern for documented headers, supports ! exclusions (repeatable, ordered)");
         context.WriteLine("  --output <dir>             Output directory for Markdown files (required)");
         context.WriteLine("  --library-name <name>      Library name used as the top-level heading (default: output directory name)");
         context.WriteLine("  --library-description <d>  Optional description for the library api.md introduction");

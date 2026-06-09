@@ -22,28 +22,41 @@ public sealed class CppGeneratorOptions
     public string LibraryName { get; set; } = string.Empty;
 
     /// <summary>
-    ///     Gets or sets the public include root directories that define the documented API boundary.
+    ///     Gets or sets the compiler include directories passed to Clang as <c>-I</c> paths
+    ///     and used as the base for the default <see cref="ApiHeaderPatterns"/> glob when
+    ///     that list is empty.
     /// </summary>
     /// <remarks>
-    ///     Each root serves two purposes: (1) it is passed to Clang as an <c>-I</c> path so headers
-    ///     can find each other, and (2) a declaration is considered "owned" only when its source file
-    ///     falls under one of these roots. Must contain at least one entry.
+    ///     Each root serves two purposes: (1) it is passed to Clang as an <c>-I</c> path so
+    ///     headers can find each other during AST parsing, and (2) it is the base directory
+    ///     against which <see cref="ApiHeaderPatterns"/> globs are evaluated to select which
+    ///     headers appear in the generated documentation. Must contain at least one entry.
     /// </remarks>
     public IReadOnlyList<string> PublicIncludeRoots { get; set; } = [];
 
     /// <summary>
-    ///     Gets or sets glob patterns (relative to each <see cref="PublicIncludeRoots"/> entry)
-    ///     selecting which header files contribute to the documented API.
-    ///     When empty, all files under the roots are included.
+    ///     Gets or sets the ordered list of glob and exclusion pattern strings that define which
+    ///     headers appear in the generated documentation.
     /// </summary>
-    public IReadOnlyList<string> IncludePatterns { get; set; } = [];
-
-    /// <summary>
-    ///     Gets or sets glob patterns (relative to each <see cref="PublicIncludeRoots"/> entry)
-    ///     for header files to exclude from the documented API.
-    ///     Evaluated after <see cref="IncludePatterns"/>; a file matching both is excluded.
-    /// </summary>
-    public IReadOnlyList<string> ExcludePatterns { get; set; } = [];
+    /// <remarks>
+    ///     <para>
+    ///         Gitignore-style semantics apply: patterns are evaluated in order; the last
+    ///         matching pattern wins. Entries without a <c>!</c> prefix are include patterns;
+    ///         entries with a <c>!</c> prefix are exclusion patterns (the <c>!</c> is stripped
+    ///         before glob matching).
+    ///     </para>
+    ///     <para>
+    ///         When this list is empty, all headers under <see cref="PublicIncludeRoots"/> with
+    ///         recognized C++ header extensions (<c>.h</c>, <c>.hpp</c>, <c>.hxx</c>, <c>.h++</c>)
+    ///         are included — equivalent to specifying
+    ///         <c>["**/*.h", "**/*.hpp", "**/*.hxx", "**/*.h++"]</c>.
+    ///     </para>
+    ///     <para>
+    ///         Example — document all headers except a <c>detail/</c> subtree with re-include:
+    ///         <c>["**/*", "!**/detail/**", "**/detail/public.h"]</c>.
+    ///     </para>
+    /// </remarks>
+    public IList<string> ApiHeaderPatterns { get; set; } = new List<string>();
 
     /// <summary>
     ///     Gets or sets toolchain and SDK include directories passed to Clang as system include
@@ -51,13 +64,6 @@ public sealed class CppGeneratorOptions
     ///     resolve during parsing. Declarations from these paths are never documented.
     /// </summary>
     public IReadOnlyList<string> SystemIncludePaths { get; set; } = [];
-
-    /// <summary>
-    ///     Gets or sets additional include directories for third-party headers that are included
-    ///     by public headers but are not part of the documented API.
-    ///     Declarations from these paths are never documented.
-    /// </summary>
-    public IReadOnlyList<string> AdditionalIncludePaths { get; set; } = [];
 
     /// <summary>
     ///     Gets or sets preprocessor symbol definitions passed to Clang as <c>-D</c> flags,

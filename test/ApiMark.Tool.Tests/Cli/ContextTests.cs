@@ -251,37 +251,36 @@ public sealed class ContextTests
     }
 
     /// <summary>
-    ///     Validates that --includes sets the Includes property to the comma-split path array.
+    ///     Validates that <c>--includes</c> with a single path sets the <see cref="Context.Includes"/>
+    ///     property to a one-element array containing that path.
     /// </summary>
     [Fact]
     public void Context_Create_WithIncludesOption_SetsIncludes()
     {
-        // Arrange: supply a comma-separated list of include directory paths
-        var args = new[] { "--includes", "path/a,path/b" };
+        // Arrange: supply a single plain directory path via --includes
+        var args = new[] { "--includes", "path/a" };
 
         // Act
         using var context = Context.Create(args);
 
-        // Assert: Includes property must contain the two split paths
-        string[] expectedIncludes = ["path/a", "path/b"];
+        // Assert: Includes property must contain the single supplied path
+        string[] expectedIncludes = ["path/a"];
         Assert.Equal(expectedIncludes, context.Includes);
     }
 
     /// <summary>
-    ///     Validates that --includes trims whitespace and removes empty entries produced
-    ///     by trailing commas or extra spaces in the comma-separated list.
+    ///     Validates that repeated <c>--includes</c> flags accumulate all paths in order.
     /// </summary>
     [Fact]
-    public void Context_Create_WithIncludesOption_TrimsWhitespaceAndRemovesEmptyEntries()
+    public void Context_Create_WithRepeatedIncludesFlags_AccumulatesAllPathsInOrder()
     {
-        // Arrange: a comma-separated list with surrounding whitespace and an empty entry
-        var args = new[] { "--includes", " path/a , path/b , , path/c " };
+        // Arrange: three separate --includes flags, each with a plain path
+        var args = new[] { "--includes", "path/a", "--includes", "path/b", "--includes", "path/c" };
 
         // Act
         using var context = Context.Create(args);
 
-        // Assert: Includes must contain only the three non-empty trimmed paths,
-        // with no empty strings from the trailing comma or surrounding whitespace
+        // Assert: all three paths must appear in Includes in the supplied order
         string[] expectedIncludes = ["path/a", "path/b", "path/c"];
         Assert.Equal(expectedIncludes, context.Includes);
     }
@@ -313,6 +312,7 @@ public sealed class ContextTests
             () => Assert.False(context.IncludeObsolete),
             () => Assert.Equal(1, context.HeadingDepth),
             () => Assert.Empty(context.Includes),
+            () => Assert.Empty(context.ApiHeaders),
             () => Assert.Equal(0, context.ExitCode));
     }
 
@@ -396,5 +396,98 @@ public sealed class ContextTests
             () => Assert.True(context.Help),
             () => Assert.True(context.Silent),
             () => Assert.True(context.Validate));
+    }
+
+    /// <summary>
+    ///     Validates that repeated <c>--includes</c> flags accumulate into the
+    ///     <see cref="Context.Includes"/> array in order.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithRepeatedIncludes_AccumulatesAllPaths()
+    {
+        // Arrange: supply --includes twice, each with one plain directory path
+        var args = new[] { "--includes", "/usr/include", "--includes", "/opt/include" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: both paths must appear in Includes in the order they were given
+        Assert.Equal(["/usr/include", "/opt/include"], context.Includes);
+        Assert.Empty(context.ApiHeaders);
+    }
+
+    /// <summary>
+    ///     Validates that repeated <c>--api-headers</c> flags accumulate into the
+    ///     <see cref="Context.ApiHeaders"/> array in order, preserving <c>!</c> exclusion patterns.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithRepeatedApiHeaders_AccumulatesAllPatternsInOrder()
+    {
+        // Arrange: supply --api-headers three times to establish an include/exclude/re-include sequence
+        var args = new[]
+        {
+            "--api-headers", "**/*",
+            "--api-headers", "!**/detail/**",
+            "--api-headers", "**/detail/public_api.h",
+        };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: all three patterns must appear in ApiHeaders in the supplied order
+        string[] expected = ["**/*", "!**/detail/**", "**/detail/public_api.h"];
+        Assert.Equal(expected, context.ApiHeaders);
+    }
+
+    /// <summary>
+    ///     Validates that a <c>!</c>-prefixed exclusion pattern is forwarded verbatim through
+    ///     <c>--api-headers</c> without stripping the <c>!</c> prefix.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithApiHeadersExclusionPattern_ForwardsVerbatim()
+    {
+        // Arrange: supply an exclusion pattern via --api-headers
+        var args = new[] { "--api-headers", "!**/internal/**" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: the '!' prefix must be preserved so CppGenerator can apply gitignore semantics
+        Assert.Equal(["!**/internal/**"], context.ApiHeaders);
+    }
+
+    /// <summary>
+    ///     Validates that <c>--includes</c> no longer accepts comma-separated lists and each
+    ///     invocation appends exactly one plain directory path.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithSingleInclude_SetsSinglePath()
+    {
+        // Arrange: supply a single plain directory path via --includes
+        var args = new[] { "--includes", "/usr/include" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: exactly one path must be in Includes with no ApiHeaders
+        Assert.Equal(["/usr/include"], context.Includes);
+        Assert.Empty(context.ApiHeaders);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="Context"/> defaults <see cref="Context.ApiHeaders"/>
+    ///     to an empty array when no <c>--api-headers</c> flags are supplied.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithNoArguments_HasEmptyApiHeaders()
+    {
+        // Arrange: empty argument array
+        var args = Array.Empty<string>();
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: ApiHeaders must default to empty when not specified
+        Assert.Empty(context.ApiHeaders);
     }
 }

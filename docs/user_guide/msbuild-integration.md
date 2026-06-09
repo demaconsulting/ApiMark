@@ -38,10 +38,11 @@ the project file extension.
 
 | Property | Default | Description |
 | --- | --- | --- |
-| `ApiMarkIncludePaths` | _(required)_ | Semicolon-separated list of public include directories |
+| `ApiMarkIncludePaths` | _(required)_ | Semicolon-separated list of include directory paths. Each entry is passed to Clang as a `-I` path. When `ApiMarkApiHeaders` is not set, all headers with recognized C++ extensions under these paths are documented. |
+| `ApiMarkApiHeaders` | _(unset)_ | Semicolon-separated, order-preserved list of glob and exclusion pattern strings. Entries with `!` are exclusion patterns; gitignore-style last-match-wins semantics apply. When unset, all headers with recognized C++ extensions under `ApiMarkIncludePaths` are documented. |
 | `ApiMarkLibraryName` | `$(MSBuildProjectName)` | Library name used as the top-level heading in `api.md` |
 | `ApiMarkLibraryDescription` | _(unset)_ | Optional description for the `api.md` introduction paragraph |
-| `ApiMarkDefines` | _(unset)_ | Comma-separated preprocessor definitions (e.g. `MYLIB_API=,NDEBUG`) |
+| `ApiMarkDefines` | _(unset)_ | Semicolon-separated preprocessor definitions (e.g. `MYLIB_API=;NDEBUG`) |
 | `ApiMarkCppStandard` | `c++17` | C++ language standard passed to Clang |
 | `ApiMarkClangPath` | _(auto-discovered)_ | Path to clang executable; overrides PATH / xcrun / vswhere discovery |
 
@@ -89,6 +90,12 @@ the project file extension.
 
   <!-- Override clang path (optional; normally auto-discovered) -->
   <!-- <ApiMarkClangPath>C:\Program Files\LLVM\bin\clang.exe</ApiMarkClangPath> -->
+
+  <!-- Document all headers except a detail/ subtree (gitignore-style last-match-wins) -->
+  <!-- <ApiMarkApiHeaders>**/*;!**/detail/**</ApiMarkApiHeaders> -->
+
+  <!-- Re-include one header from the excluded subtree -->
+  <!-- <ApiMarkApiHeaders>**/*;!**/detail/**;**/detail/public_api.h</ApiMarkApiHeaders> -->
 </PropertyGroup>
 ```
 

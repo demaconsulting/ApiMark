@@ -77,6 +77,24 @@ between members of different kinds or differently-cased method names) emit a
 single combined page via `WriteCombinedMemberPage`; emit grouped sub-tables with
 links; dispose the AssemblyDefinition.
 
+**DotNetGenerator.BuildTypeSignature** (private): Builds a human-readable C#
+declaration signature for a type definition, including direct base class and
+interface names when present.
+
+- *Parameters*: `TypeDefinition type` — the type to represent;
+  `string contextNamespace` — the namespace used to simplify base type and
+  interface names.
+- *Returns*: `string` — a declaration of the form `public class Name`,
+  `public interface Name<T>`, or `public class Name : BaseClass, IInterface`
+  when direct inheritance is present.
+- *Algorithm*: Determines the keyword (`class`, `interface`, `enum`, or `struct`)
+  from the type's flags; computes the `sealed` or `static` modifier for classes;
+  strips generic arity from the type name and appends generic parameter names when
+  present; collects the direct base class (skipping `System.Object`,
+  `System.ValueType`, `System.Enum`, and `System.MulticastDelegate`) and all
+  directly declared interfaces using TypeNameSimplifier to produce idiomatic C#
+  names; appends `: BaseClass, IInterface` when the collected list is non-empty.
+
 **DotNetGenerator.WriteCombinedMemberPage** (private): Writes a single combined
 Markdown page for a group of members whose sanitized file names collide on
 case-insensitive filesystems.
@@ -119,6 +137,41 @@ a short human-readable kind string used in combined page H4 headings.
   `PropertyDefinition` → `"Property"`; `EventDefinition` → `"Event"`;
   `MethodDefinition` with name `.ctor` → `"Constructor"`; `MethodDefinition` →
   `"Method"`; all other types → `"Member"`.
+
+**TypeLinkResolver** (internal): Resolves Mono.Cecil `TypeReference` instances
+to Markdown link text for use in table cells.
+
+- *Constructor*: Accepts `IReadOnlyList<string> rootNamespaces` — forwarded to
+  `DotNetGenerator.GetNamespaceFolderPath` when computing target page paths.
+- **Linkify** method: resolves a `TypeReference` to a Markdown link string.
+  - *Parameters*: `TypeReference typeRef`, `string currentFolder` (path of the
+    containing file), `string contextNamespace`, `ISet<ExternalTypeInfo>
+    externalTypes` accumulator, optional `bool isNullableAnnotated`.
+  - *Returns*: a Markdown link when the type is intra-assembly; the original
+    simplified name otherwise; external non-System types are tracked in
+    `externalTypes`.
+  - *Rules*: `Nullable<T>` → `T?` via recursion; array types → `elementText[]`;
+    generic instance types linkify the container when intra-assembly; primitives
+    and `System.*` types render as plain text; non-System external types are
+    added to the accumulator.
+  - Intra-assembly detection: `TypeReference.Scope is ModuleDefinition`.
+
+**ExternalTypeInfo** (internal record): Represents a non-standard external type
+reference collected during table cell generation.
+
+- *Properties*: `SimplifiedName` (display form, may include escaped generic
+  angle brackets), `Namespace` (the type's .NET namespace).
+- *Ordering*: implements `IComparable<ExternalTypeInfo>` by `SimplifiedName` so
+  `SortedSet<ExternalTypeInfo>` produces alphabetically ordered tables.
+
+**DotNetGenerator.WriteExternalTypesSection** (private static): Emits the
+`## External Types` section at the bottom of a page when at least one external
+type was referenced in table cells.
+
+- *Parameters*: `IMarkdownWriter writer`, `SortedSet<ExternalTypeInfo>
+  externalTypes`.
+- *Algorithm*: Returns immediately when the set is empty; otherwise writes an
+  H2 heading `"External Types"` and a two-column table (`Type`, `Namespace`).
 
 ### Error Handling
 

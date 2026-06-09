@@ -108,7 +108,9 @@ public sealed class ApiMarkTask : Task
     /// </summary>
     /// <remarks>
     ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkIncludePaths)</c>.
-    ///     Semicolons are converted to commas for the <c>--includes</c> tool argument.
+    ///     Each semicolon-delimited entry is forwarded as an individual <c>--includes</c> flag;
+    ///     all entries are passed to Clang as <c>-I</c> paths and serve as the base directories
+    ///     for the default header glob when <see cref="ApiMarkApiHeaders"/> is not set.
     /// </remarks>
     public string? ApiMarkIncludePaths { get; set; }
 
@@ -148,6 +150,18 @@ public sealed class ApiMarkTask : Task
     ///     vswhere (Windows).
     /// </remarks>
     public string? ApiMarkClangPath { get; set; }
+
+    /// <summary>Gets or sets the semicolon-separated, order-preserved list of glob and exclusion pattern strings for C++ header selection.</summary>
+    /// <remarks>
+    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkApiHeaders)</c>.
+    ///     Entries are forwarded as individual <c>--api-headers</c> flags in the order they appear.
+    ///     Entries with a <c>!</c> prefix are exclusion patterns; entries without are include
+    ///     patterns. Gitignore semantics apply: the last matching pattern wins, enabling
+    ///     include/exclude/re-include sequences.
+    ///     Optional — when empty, all headers under <c>$(ApiMarkIncludePaths)</c> with recognized
+    ///     C++ header extensions are documented.
+    /// </remarks>
+    public string? ApiMarkApiHeaders { get; set; }
 
     /// <summary>
     ///     Gets or sets the full path to <c>ApiMark.Tool.dll</c> bundled inside the NuGet package.
@@ -215,12 +229,44 @@ public sealed class ApiMarkTask : Task
         }
         else
         {
-            // Include paths use semicolons as the MSBuild list separator; convert to commas
-            // because the tool's --includes argument is parsed as a comma-separated list
-            var commaIncludes = ApiMarkIncludePaths?.Replace(';', ',') ?? string.Empty;
             args.Add("cpp");
-            args.Add("--includes");
-            args.Add(commaIncludes);
+
+            // Emit one --includes flag per path entry — each semicolon-delimited entry becomes
+            // a separate repeatable --includes argument so paths with spaces are unambiguous
+            if (!string.IsNullOrEmpty(ApiMarkIncludePaths))
+            {
+                foreach (var rawEntry in ApiMarkIncludePaths!.Split(';'))
+                {
+                    // Manually trim each entry — StringSplitOptions.TrimEntries is not
+                    // available in netstandard2.0 which this assembly targets
+                    var entry = rawEntry.Trim();
+                    if (string.IsNullOrEmpty(entry))
+                    {
+                        continue;
+                    }
+
+                    args.Add("--includes");
+                    args.Add(entry);
+                }
+            }
+
+            // Emit one --api-headers flag per pattern entry, order-preserved including ! exclusion patterns
+            if (!string.IsNullOrEmpty(ApiMarkApiHeaders))
+            {
+                foreach (var rawEntry in ApiMarkApiHeaders!.Split(';'))
+                {
+                    // Manually trim each entry — StringSplitOptions.TrimEntries is not
+                    // available in netstandard2.0 which this assembly targets
+                    var entry = rawEntry.Trim();
+                    if (string.IsNullOrEmpty(entry))
+                    {
+                        continue;
+                    }
+
+                    args.Add("--api-headers");
+                    args.Add(entry);
+                }
+            }
 
             // Library name (defaults to project name via .targets)
             if (!string.IsNullOrEmpty(ApiMarkLibraryName))
