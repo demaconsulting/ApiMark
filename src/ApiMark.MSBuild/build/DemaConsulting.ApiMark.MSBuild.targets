@@ -26,6 +26,28 @@
   <Target Name="GenerateApiMarkDocumentation"
           AfterTargets="Build"
           Condition="'$(DisableApiMark)' != 'true'">
+
+    <!--
+      For C++ projects, default ApiMarkIncludePaths to the resolved AdditionalIncludeDirectories
+      from all ClCompile items when the user has not set it explicitly. This automatically picks
+      up paths injected by NuGet packages without requiring manual duplication. The Exists()
+      condition strips unexpanded MSBuild metadata sentinels (e.g. %(AdditionalIncludeDirectories))
+      and paths that do not exist on disk. Users who need a different set of roots can override
+      ApiMarkIncludePaths with a semicolon-separated list, which suppresses harvesting entirely.
+    -->
+    <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.vcxproj'
+                       and '$(ApiMarkIncludePaths)' == ''">
+      <_ApiMarkRawIncludeDirs Include="@(ClCompile->'%(AdditionalIncludeDirectories)')" />
+      <_ApiMarkIncludeDirs Include="@(_ApiMarkRawIncludeDirs)"
+                           Condition="'%(_ApiMarkRawIncludeDirs.Identity)' != ''
+                                   and Exists('%(_ApiMarkRawIncludeDirs.Identity)')" />
+    </ItemGroup>
+
+    <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.vcxproj'
+                           and '$(ApiMarkIncludePaths)' == ''">
+      <ApiMarkIncludePaths>@(_ApiMarkIncludeDirs->Distinct())</ApiMarkIncludePaths>
+    </PropertyGroup>
+
     <ApiMarkTask
       DisableApiMark="$(DisableApiMark)"
       ApiMarkLanguage="$(ApiMarkLanguage)"

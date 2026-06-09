@@ -28,7 +28,10 @@ public class SampleClass
     }
 
 #pragma warning disable CS1591 // Missing XML comment — intentional fixture for testing the no-description placeholder (test 14)
-    public void Refresh() { }
+    public void Refresh()
+    {
+        // Fixture: intentional empty implementation — exercises the no-description placeholder in generated docs
+    }
 #pragma warning restore CS1591
 
     /// <summary>Raises the <see cref="NameChanged"/> event.</summary>

@@ -217,94 +217,127 @@ public sealed class ApiMarkTask : Task
     {
         var args = new List<string>();
 
-        // Emit the language-specific required arguments first
         if (language == DotNetLanguage)
         {
-            // Assembly and XML doc paths are both required for .NET documentation
-            args.Add(DotNetLanguage);
-            args.Add("--assembly");
-            args.Add(ApiMarkAssemblyPath ?? string.Empty);
-            args.Add("--xml-doc");
-            args.Add(ApiMarkXmlDocPath ?? string.Empty);
+            AppendDotNetArguments(args);
         }
         else
         {
-            args.Add("cpp");
+            AppendCppArguments(args);
+        }
 
-            // Emit one --includes flag per path entry — each semicolon-delimited entry becomes
-            // a separate repeatable --includes argument so paths with spaces are unambiguous
-            if (!string.IsNullOrEmpty(ApiMarkIncludePaths))
+        AppendCommonArguments(args);
+
+        return args;
+    }
+
+    /// <summary>
+    ///     Appends the .NET-specific CLI arguments to <paramref name="args"/>, including the
+    ///     language subcommand (<c>dotnet</c>), <c>--assembly</c>, and <c>--xml-doc</c>.
+    /// </summary>
+    /// <param name="args">The argument list being built by <see cref="BuildArguments"/>.</param>
+    private void AppendDotNetArguments(List<string> args)
+    {
+        // Assembly and XML doc paths are both required for .NET documentation
+        args.Add(DotNetLanguage);
+        args.Add("--assembly");
+        args.Add(ApiMarkAssemblyPath ?? string.Empty);
+        args.Add("--xml-doc");
+        args.Add(ApiMarkXmlDocPath ?? string.Empty);
+    }
+
+    /// <summary>
+    ///     Appends all C++ specific CLI arguments to <paramref name="args"/>, including the
+    ///     <c>cpp</c> language subcommand and all optional C++ flags
+    ///     (<c>--includes</c>, <c>--api-headers</c>, <c>--library-name</c>,
+    ///     <c>--library-description</c>, <c>--defines</c>, <c>--cpp-standard</c>,
+    ///     <c>--clang-path</c>).
+    /// </summary>
+    /// <param name="args">The argument list being built by <see cref="BuildArguments"/>.</param>
+    private void AppendCppArguments(List<string> args)
+    {
+        args.Add("cpp");
+
+        // Emit one --includes flag per path entry — each semicolon-delimited entry becomes
+        // a separate repeatable --includes argument so paths with spaces are unambiguous
+        if (!string.IsNullOrEmpty(ApiMarkIncludePaths))
+        {
+            // Manually trim each entry — StringSplitOptions.TrimEntries is not
+            // available in netstandard2.0 which this assembly targets
+            foreach (var entry in ApiMarkIncludePaths!.Split(';').Select(e => e.Trim()))
             {
-                foreach (var rawEntry in ApiMarkIncludePaths!.Split(';'))
+                if (string.IsNullOrEmpty(entry))
                 {
-                    // Manually trim each entry — StringSplitOptions.TrimEntries is not
-                    // available in netstandard2.0 which this assembly targets
-                    var entry = rawEntry.Trim();
-                    if (string.IsNullOrEmpty(entry))
-                    {
-                        continue;
-                    }
-
-                    args.Add("--includes");
-                    args.Add(entry);
+                    continue;
                 }
-            }
 
-            // Emit one --api-headers flag per pattern entry, order-preserved including ! exclusion patterns
-            if (!string.IsNullOrEmpty(ApiMarkApiHeaders))
-            {
-                foreach (var rawEntry in ApiMarkApiHeaders!.Split(';'))
-                {
-                    // Manually trim each entry — StringSplitOptions.TrimEntries is not
-                    // available in netstandard2.0 which this assembly targets
-                    var entry = rawEntry.Trim();
-                    if (string.IsNullOrEmpty(entry))
-                    {
-                        continue;
-                    }
-
-                    args.Add("--api-headers");
-                    args.Add(entry);
-                }
-            }
-
-            // Library name (defaults to project name via .targets)
-            if (!string.IsNullOrEmpty(ApiMarkLibraryName))
-            {
-                args.Add("--library-name");
-                args.Add(ApiMarkLibraryName!);
-            }
-
-            // Optional library description
-            if (!string.IsNullOrEmpty(ApiMarkLibraryDescription))
-            {
-                args.Add("--library-description");
-                args.Add(ApiMarkLibraryDescription!);
-            }
-
-            // Preprocessor defines — semicolons converted to commas
-            if (!string.IsNullOrEmpty(ApiMarkDefines))
-            {
-                var commaDefines = ApiMarkDefines!.Replace(';', ',');
-                args.Add("--defines");
-                args.Add(commaDefines);
-            }
-
-            // C++ standard
-            if (!string.IsNullOrEmpty(ApiMarkCppStandard))
-            {
-                args.Add("--cpp-standard");
-                args.Add(ApiMarkCppStandard!);
-            }
-
-            // Optional: explicit clang path
-            if (!string.IsNullOrEmpty(ApiMarkClangPath))
-            {
-                args.Add("--clang-path");
-                args.Add(ApiMarkClangPath!);
+                args.Add("--includes");
+                args.Add(entry);
             }
         }
 
+        // Emit one --api-headers flag per pattern entry, order-preserved including ! exclusion patterns
+        if (!string.IsNullOrEmpty(ApiMarkApiHeaders))
+        {
+            // Manually trim each entry — StringSplitOptions.TrimEntries is not
+            // available in netstandard2.0 which this assembly targets
+            foreach (var entry in ApiMarkApiHeaders!.Split(';').Select(e => e.Trim()))
+            {
+                if (string.IsNullOrEmpty(entry))
+                {
+                    continue;
+                }
+
+                args.Add("--api-headers");
+                args.Add(entry);
+            }
+        }
+
+        // Library name (defaults to project name via .targets)
+        if (!string.IsNullOrEmpty(ApiMarkLibraryName))
+        {
+            args.Add("--library-name");
+            args.Add(ApiMarkLibraryName!);
+        }
+
+        // Optional library description
+        if (!string.IsNullOrEmpty(ApiMarkLibraryDescription))
+        {
+            args.Add("--library-description");
+            args.Add(ApiMarkLibraryDescription!);
+        }
+
+        // Preprocessor defines — semicolons converted to commas
+        if (!string.IsNullOrEmpty(ApiMarkDefines))
+        {
+            var commaDefines = ApiMarkDefines!.Replace(';', ',');
+            args.Add("--defines");
+            args.Add(commaDefines);
+        }
+
+        // C++ standard
+        if (!string.IsNullOrEmpty(ApiMarkCppStandard))
+        {
+            args.Add("--cpp-standard");
+            args.Add(ApiMarkCppStandard!);
+        }
+
+        // Optional: explicit clang path
+        if (!string.IsNullOrEmpty(ApiMarkClangPath))
+        {
+            args.Add("--clang-path");
+            args.Add(ApiMarkClangPath!);
+        }
+    }
+
+    /// <summary>
+    ///     Appends the common output and visibility arguments to <paramref name="args"/>,
+    ///     shared by both the .NET and C++ language paths: <c>--output</c>,
+    ///     <c>--visibility</c>, and <c>--include-obsolete</c>.
+    /// </summary>
+    /// <param name="args">The argument list being built by <see cref="BuildArguments"/>.</param>
+    private void AppendCommonArguments(List<string> args)
+    {
         // Optional: output directory
         if (!string.IsNullOrEmpty(ApiMarkOutputDir))
         {
@@ -324,8 +357,6 @@ public sealed class ApiMarkTask : Task
         {
             args.Add("--include-obsolete");
         }
-
-        return args;
     }
 
     /// <summary>
@@ -359,8 +390,9 @@ public sealed class ApiMarkTask : Task
         if (language == "cpp" && string.IsNullOrWhiteSpace(ApiMarkIncludePaths))
         {
             Log.LogMessage(MessageImportance.Normal,
-                "Skipping ApiMark: ApiMarkIncludePaths not set. " +
-                "Set $(ApiMarkIncludePaths) in your .vcxproj to enable C++ documentation generation.");
+                "Skipping ApiMark: no include paths resolved for C++ documentation generation. " +
+                "Ensure ClCompile items have AdditionalIncludeDirectories set, " +
+                "or set $(ApiMarkIncludePaths) explicitly in your .vcxproj.");
             return true;
         }
 

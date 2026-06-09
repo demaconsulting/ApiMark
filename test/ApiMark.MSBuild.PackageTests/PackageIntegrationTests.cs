@@ -306,7 +306,7 @@ public class PackageIntegrationTests
     /// </returns>
     private static string? FindMsBuildExe()
     {
-        var vsWherePath = Path.Combine(
+        var vsWherePath = Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
             "Microsoft Visual Studio", "Installer", "vswhere.exe");
 

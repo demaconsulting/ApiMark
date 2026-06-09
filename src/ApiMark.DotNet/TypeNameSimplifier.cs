@@ -144,7 +144,7 @@ public static class TypeNameSimplifier
     internal static string FlattenArity(string name)
     {
         var tick = name.IndexOf('`');
-        return tick >= 0 ? name.Substring(0, tick) + name.Substring(tick + 1) : name;
+        return tick >= 0 ? string.Concat(name.AsSpan(0, tick), name.AsSpan(tick + 1)) : name;
     }
 
     /// <summary>

@@ -17,7 +17,7 @@ internal static class FixturePaths
     /// <summary>Returns the path to the fixtures namespace directory.</summary>
     /// <returns>Absolute path to the include/fixtures/ directory containing per-fixture headers.</returns>
     public static string GetFixtureNamespaceDir() =>
-        Path.Combine(IncludeDir, "fixtures");
+        Path.Join(IncludeDir, "fixtures");
 
     /// <summary>
     ///     Resolves the fixture include directory at compile time using <see cref="CallerFilePathAttribute"/>.
@@ -31,6 +31,6 @@ internal static class FixturePaths
     private static string ResolveIncludeDir([CallerFilePath] string? sourceFile = null)
     {
         var testDir = Path.GetDirectoryName(sourceFile)!;
-        return Path.GetFullPath(Path.Combine(testDir, "..", "ApiMark.Cpp.Fixtures", "include"));
+        return Path.GetFullPath(Path.Join(testDir, "..", "ApiMark.Cpp.Fixtures", "include"));
     }
 }

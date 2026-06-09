@@ -28,6 +28,6 @@ internal static class FixturePaths
     private static string ResolveIncludeDir([CallerFilePath] string? sourceFile = null)
     {
         var testDir = Path.GetDirectoryName(sourceFile)!;
-        return Path.GetFullPath(Path.Combine(testDir, "..", "ApiMark.Cpp.Fixtures", "include"));
+        return Path.GetFullPath(Path.Join(testDir, "..", "ApiMark.Cpp.Fixtures", "include"));
     }
 }

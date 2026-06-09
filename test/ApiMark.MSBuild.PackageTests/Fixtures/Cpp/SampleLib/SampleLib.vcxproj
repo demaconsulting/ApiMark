@@ -44,12 +44,22 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
 
   <PropertyGroup>
-    <!-- Required: the public include root for ApiMark C++ documentation generation -->
-    <ApiMarkIncludePaths>$(MSBuildProjectDirectory)\include</ApiMarkIncludePaths>
     <ApiMarkLibraryName>SampleLib</ApiMarkLibraryName>
   </PropertyGroup>
 
-  <!-- No ClCompile items: nothing to compile, build succeeds trivially -->
+  <!--
+    A minimal stub source file so that ClCompile items exist and AdditionalIncludeDirectories
+    metadata is populated for ApiMark to harvest automatically.
+  -->
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(MSBuildProjectDirectory)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+
+  <ItemGroup>
+    <ClCompile Include="stub.cpp" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.0.0" />

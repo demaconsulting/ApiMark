@@ -109,7 +109,7 @@ internal sealed class ClangAstParser
         // clang processes them as a single translation unit and produces a single JSON
         // object. Passing multiple files directly would produce one JSON object per TU,
         // making the output unsuitable for a single-document JSON parser.
-        var tempFile = Path.Combine(
+        var tempFile = Path.Join(
             Path.GetTempPath(),
             $"apimark_combined_{Guid.NewGuid():N}.h");
         try
@@ -299,7 +299,7 @@ internal sealed class ClangAstParser
                 continue;
             }
 
-            var candidate = Path.Combine(dir, fileName);
+            var candidate = Path.Join(dir, fileName);
             if (File.Exists(candidate))
             {
                 path = candidate;
@@ -324,7 +324,7 @@ internal sealed class ClangAstParser
     private static string? FindVsClang()
     {
         // vswhere is shipped alongside the Visual Studio installer
-        var vsWherePath = Path.Combine(
+        var vsWherePath = Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
             "Microsoft Visual Studio",
             "Installer",
@@ -366,7 +366,7 @@ internal sealed class ClangAstParser
             }
 
             // The LLVM clang bundled with VS lives at VC\Tools\Llvm\x64\bin\clang.exe
-            var candidate = Path.Combine(installPath, "VC", "Tools", "Llvm", "x64", "bin", "clang.exe");
+            var candidate = Path.Join(installPath, "VC", "Tools", "Llvm", "x64", "bin", "clang.exe");
             return File.Exists(candidate) ? candidate : null;
         }
         catch
@@ -839,18 +839,14 @@ internal sealed class ClangAstParser
         var hasTopLevelBases = false;
         if (node.TryGetProperty("bases", out var bases))
         {
-            foreach (var baseEntry in bases.EnumerateArray())
+            foreach (var baseName in bases.EnumerateArray()
+                .Select(e => e.TryGetProperty("type", out var bt) && bt.TryGetProperty("qualType", out var qtEl)
+                    ? qtEl.GetString()
+                    : null)
+                .Where(n => !string.IsNullOrEmpty(n)))
             {
-                if (baseEntry.TryGetProperty("type", out var bt) &&
-                    bt.TryGetProperty("qualType", out var qtEl))
-                {
-                    var baseName = qtEl.GetString();
-                    if (!string.IsNullOrEmpty(baseName))
-                    {
-                        baseTypes.Add(new CppBaseType(baseName));
-                        hasTopLevelBases = true;
-                    }
-                }
+                baseTypes.Add(new CppBaseType(baseName!));
+                hasTopLevelBases = true;
             }
         }
 
@@ -896,120 +892,19 @@ internal sealed class ClangAstParser
                         }
 
                     case "CXXRecordDecl":
-                        // Recursively collect public nested classes with complete definitions;
-                        // implicit and forward declarations are excluded by BuildClass itself
-                        if (currentAccess == CppAccessibility.Public &&
-                            child.TryGetProperty("completeDefinition", out var ncd) && ncd.GetBoolean())
-                        {
-                            var nestedCls = BuildClass(child, $"{nsQualName}::{name}", null);
-                            if (nestedCls != null)
-                            {
-                                nestedClasses.Add(nestedCls);
-                            }
-                        }
-
+                        HandleNestedCxxRecord(child, nsQualName, name, currentAccess, nestedClasses);
                         break;
 
                     case "ClassTemplateDecl":
-                        // Handle nested template classes; only collect public ones
-                        if (currentAccess == CppAccessibility.Public &&
-                            child.TryGetProperty("inner", out var tmplInner))
-                        {
-                            // Gather template type parameters before reaching the CXXRecordDecl child
-                            var tmplParams = new List<CppTemplateParam>();
-                            var tmplParsed = false;
-                            foreach (var tmplChild in tmplInner.EnumerateArray())
-                            {
-                                UpdateCurrentFile(tmplChild);
-                                var tmplKind = GetKind(tmplChild);
-                                if (tmplKind is "TemplateTypeParmDecl" or "NonTypeTemplateParmDecl"
-                                    or "TemplateTemplateParmDecl")
-                                {
-                                    var tpName = GetName(tmplChild);
-                                    if (!string.IsNullOrEmpty(tpName))
-                                    {
-                                        tmplParams.Add(new CppTemplateParam(tpName));
-                                    }
-                                }
-                                else if (!tmplParsed && tmplKind == "CXXRecordDecl" &&
-                                         tmplChild.TryGetProperty("completeDefinition", out var tcd) &&
-                                         tcd.GetBoolean())
-                                {
-                                    // Process only the primary template definition; skip specializations
-                                    var nestedCls = BuildClass(tmplChild, $"{nsQualName}::{name}", tmplParams);
-                                    if (nestedCls != null)
-                                    {
-                                        nestedClasses.Add(nestedCls);
-                                    }
-
-                                    tmplParsed = true;
-                                }
-                            }
-                        }
-
+                        HandleClassTemplate(child, nsQualName, name, currentAccess, nestedClasses);
                         break;
 
                     case "TypeAliasDecl":
-                        // Collect public class-scoped using-aliases and parse their doc comments
-                        if (currentAccess == CppAccessibility.Public)
-                        {
-                            var aliasName = GetName(child);
-                            if (!string.IsNullOrEmpty(aliasName))
-                            {
-                                // Underlying type lives in child["type"]["qualType"]
-                                var underlyingType = string.Empty;
-                                if (child.TryGetProperty("type", out var typeNode) &&
-                                    typeNode.TryGetProperty("qualType", out var qualTypeNode))
-                                {
-                                    underlyingType = qualTypeNode.GetString() ?? string.Empty;
-                                }
-
-                                var aliasIsDeprecated =
-                                    child.TryGetProperty("isDeprecated", out var aliasDepEl) &&
-                                    aliasDepEl.GetBoolean();
-                                var aliasLocation = GetCurrentSourceLocation(child);
-                                CppDocComment? aliasDoc = null;
-
-                                if (child.TryGetProperty("inner", out var aliasInner))
-                                {
-                                    foreach (var aliasChild in aliasInner.EnumerateArray())
-                                    {
-                                        var aliasChildKind = GetKind(aliasChild);
-                                        switch (aliasChildKind)
-                                        {
-                                            case "FullComment":
-                                                aliasDoc = ParseFullComment(aliasChild);
-                                                break;
-                                            case "DeprecatedAttr":
-                                                aliasIsDeprecated = true;
-                                                break;
-                                        }
-                                    }
-                                }
-
-                                typeAliases.Add(new CppTypeAlias(
-                                    aliasName, underlyingType, aliasIsDeprecated, aliasLocation, aliasDoc));
-                            }
-                        }
-
+                        HandleTypeAliasInClass(child, currentAccess, typeAliases);
                         break;
 
                     case "CXXBaseSpecifier":
-                        // Fallback for clang versions older than 18 that emit base specifiers
-                        // as CXXBaseSpecifier child nodes in "inner" rather than in a top-level
-                        // "bases" array. Skipped when base types were already collected from the
-                        // top-level "bases" array to avoid duplicates across clang versions.
-                        if (!hasTopLevelBases &&
-                            child.TryGetProperty("type", out var bt) &&
-                            bt.TryGetProperty("qualType", out var qtEl))
-                        {
-                            var baseName = qtEl.GetString();
-                            if (!string.IsNullOrEmpty(baseName))
-                            {
-                                baseTypes.Add(new CppBaseType(baseName));
-                            }
-                        }
-
+                        HandleCxxBaseSpecifier(child, hasTopLevelBases, baseTypes);
                         break;
 
                     case "FullComment":
@@ -1039,6 +934,192 @@ internal sealed class ClangAstParser
             isFinal,
             location,
             doc);
+    }
+
+    /// <summary>
+    ///     Processes a <c>CXXRecordDecl</c> child node within a class body, recursively
+    ///     building a nested class and adding it to <paramref name="nestedClasses"/> when
+    ///     the current access level is public and the definition is complete.
+    /// </summary>
+    /// <param name="child">The <c>CXXRecordDecl</c> JSON child node.</param>
+    /// <param name="nsQualName">The qualified name of the enclosing scope (used for recursion context).</param>
+    /// <param name="name">The name of the enclosing class (used to build the nested scope name).</param>
+    /// <param name="currentAccess">The current access level at the point of this declaration.</param>
+    /// <param name="nestedClasses">Accumulator list that receives any successfully parsed nested class.</param>
+    private void HandleNestedCxxRecord(
+        JsonElement child,
+        string nsQualName,
+        string name,
+        CppAccessibility currentAccess,
+        List<CppClass> nestedClasses)
+    {
+        // Recursively collect public nested classes with complete definitions;
+        // implicit and forward declarations are excluded by BuildClass itself
+        if (currentAccess == CppAccessibility.Public &&
+            child.TryGetProperty("completeDefinition", out var ncd) && ncd.GetBoolean())
+        {
+            var nestedCls = BuildClass(child, $"{nsQualName}::{name}", null);
+            if (nestedCls != null)
+            {
+                nestedClasses.Add(nestedCls);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Processes a <c>ClassTemplateDecl</c> child node within a class body, extracting
+    ///     template parameters and recursively building the primary template class, then
+    ///     adding it to <paramref name="nestedClasses"/> when access permits.
+    /// </summary>
+    /// <remarks>
+    ///     Only the primary template definition is processed; specializations (nodes beyond
+    ///     the first <c>CXXRecordDecl</c> with <c>completeDefinition</c>) are skipped so
+    ///     that template instantiation details do not pollute the API documentation.
+    /// </remarks>
+    /// <param name="child">The <c>ClassTemplateDecl</c> JSON child node.</param>
+    /// <param name="nsQualName">The qualified name of the enclosing scope.</param>
+    /// <param name="name">The name of the enclosing class.</param>
+    /// <param name="currentAccess">The current access level at the point of this declaration.</param>
+    /// <param name="nestedClasses">Accumulator list that receives the parsed nested template class.</param>
+    private void HandleClassTemplate(
+        JsonElement child,
+        string nsQualName,
+        string name,
+        CppAccessibility currentAccess,
+        List<CppClass> nestedClasses)
+    {
+        // Handle nested template classes; only collect public ones
+        if (currentAccess != CppAccessibility.Public ||
+            !child.TryGetProperty("inner", out var tmplInner))
+        {
+            return;
+        }
+
+        // Gather template type parameters before reaching the CXXRecordDecl child
+        var tmplParams = new List<CppTemplateParam>();
+        var tmplParsed = false;
+        foreach (var tmplChild in tmplInner.EnumerateArray())
+        {
+            UpdateCurrentFile(tmplChild);
+            var tmplKind = GetKind(tmplChild);
+            if (tmplKind is "TemplateTypeParmDecl" or "NonTypeTemplateParmDecl"
+                or "TemplateTemplateParmDecl")
+            {
+                var tpName = GetName(tmplChild);
+                if (!string.IsNullOrEmpty(tpName))
+                {
+                    tmplParams.Add(new CppTemplateParam(tpName));
+                }
+            }
+            else if (!tmplParsed && tmplKind == "CXXRecordDecl" &&
+                     tmplChild.TryGetProperty("completeDefinition", out var tcd) &&
+                     tcd.GetBoolean())
+            {
+                // Process only the primary template definition; skip specializations
+                var nestedCls = BuildClass(tmplChild, $"{nsQualName}::{name}", tmplParams);
+                if (nestedCls != null)
+                {
+                    nestedClasses.Add(nestedCls);
+                }
+
+                tmplParsed = true;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Processes a <c>TypeAliasDecl</c> child node within a class body, collecting the
+    ///     alias name, underlying type, doc comment, and deprecation status, then appending
+    ///     the result to <paramref name="typeAliases"/> when the current access is public.
+    /// </summary>
+    /// <param name="child">The <c>TypeAliasDecl</c> JSON child node.</param>
+    /// <param name="currentAccess">The current access level at the point of this declaration.</param>
+    /// <param name="typeAliases">Accumulator list that receives the parsed type alias.</param>
+    private void HandleTypeAliasInClass(
+        JsonElement child,
+        CppAccessibility currentAccess,
+        List<CppTypeAlias> typeAliases)
+    {
+        // Collect public class-scoped using-aliases and parse their doc comments
+        if (currentAccess != CppAccessibility.Public)
+        {
+            return;
+        }
+
+        var aliasName = GetName(child);
+        if (string.IsNullOrEmpty(aliasName))
+        {
+            return;
+        }
+
+        // Underlying type lives in child["type"]["qualType"]
+        var underlyingType = string.Empty;
+        if (child.TryGetProperty("type", out var typeNode) &&
+            typeNode.TryGetProperty("qualType", out var qualTypeNode))
+        {
+            underlyingType = qualTypeNode.GetString() ?? string.Empty;
+        }
+
+        var aliasIsDeprecated =
+            child.TryGetProperty("isDeprecated", out var aliasDepEl) &&
+            aliasDepEl.GetBoolean();
+        var aliasLocation = GetCurrentSourceLocation(child);
+        CppDocComment? aliasDoc = null;
+
+        if (child.TryGetProperty("inner", out var aliasInner))
+        {
+            foreach (var aliasChild in aliasInner.EnumerateArray())
+            {
+                var aliasChildKind = GetKind(aliasChild);
+                switch (aliasChildKind)
+                {
+                    case "FullComment":
+                        aliasDoc = ParseFullComment(aliasChild);
+                        break;
+                    case "DeprecatedAttr":
+                        aliasIsDeprecated = true;
+                        break;
+                }
+            }
+        }
+
+        typeAliases.Add(new CppTypeAlias(
+            aliasName, underlyingType, aliasIsDeprecated, aliasLocation, aliasDoc));
+    }
+
+    /// <summary>
+    ///     Processes a <c>CXXBaseSpecifier</c> child node for clang versions older than 18,
+    ///     appending the base type name to <paramref name="baseTypes"/> when the top-level
+    ///     <c>bases</c> array was not already populated.
+    /// </summary>
+    /// <remarks>
+    ///     Clang 18+ surfaces base class information in a top-level <c>bases</c> array on
+    ///     the <c>CXXRecordDecl</c> node. This fallback handles older clang versions that
+    ///     emit <c>CXXBaseSpecifier</c> nodes inside <c>inner</c>. Skipped when
+    ///     <paramref name="hasTopLevelBases"/> is <see langword="true"/> to avoid duplicates.
+    /// </remarks>
+    /// <param name="child">The <c>CXXBaseSpecifier</c> JSON child node.</param>
+    /// <param name="hasTopLevelBases">Whether base types were already collected from the top-level array.</param>
+    /// <param name="baseTypes">Accumulator list that receives the parsed base type.</param>
+    private static void HandleCxxBaseSpecifier(
+        JsonElement child,
+        bool hasTopLevelBases,
+        List<CppBaseType> baseTypes)
+    {
+        // Fallback for clang versions older than 18 that emit base specifiers
+        // as CXXBaseSpecifier child nodes in "inner" rather than in a top-level
+        // "bases" array. Skipped when base types were already collected from the
+        // top-level "bases" array to avoid duplicates across clang versions.
+        if (!hasTopLevelBases &&
+            child.TryGetProperty("type", out var bt) &&
+            bt.TryGetProperty("qualType", out var qtEl))
+        {
+            var baseName = qtEl.GetString();
+            if (!string.IsNullOrEmpty(baseName))
+            {
+                baseTypes.Add(new CppBaseType(baseName));
+            }
+        }
     }
 
     /// <summary>
@@ -1576,49 +1657,11 @@ internal sealed class ClangAstParser
                     break;
 
                 case "BlockCommandComment":
-                    var cmdName = child.TryGetProperty("name", out var cn) ? cn.GetString() : null;
-                    var cmdText = CollectText(child);
-
-                    if (string.Equals(cmdName, "brief", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // @brief overrides any plain paragraph already captured as summary
-                        if (!string.IsNullOrEmpty(cmdText))
-                        {
-                            summary = NormalizeSingleLine(cmdText);
-                        }
-                    }
-                    else if (string.Equals(cmdName, "details", StringComparison.OrdinalIgnoreCase) ||
-                             string.Equals(cmdName, "remarks", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Preserve internal structure for @details so multi-sentence text reads well
-                        if (!string.IsNullOrEmpty(cmdText))
-                        {
-                            details = cmdText.Trim();
-                        }
-                    }
-                    else if ((string.Equals(cmdName, "return", StringComparison.OrdinalIgnoreCase) ||
-                              string.Equals(cmdName, "returns", StringComparison.OrdinalIgnoreCase)) &&
-                             !string.IsNullOrEmpty(cmdText))
-                    {
-                        returns = NormalizeSingleLine(cmdText);
-                    }
-                    else if (string.Equals(cmdName, "note", StringComparison.OrdinalIgnoreCase) &&
-                             !string.IsNullOrEmpty(cmdText))
-                    {
-                        note = NormalizeSingleLine(cmdText);
-                    }
-
+                    HandleBlockCommandComment(child, ref summary, ref details, ref returns, ref note);
                     break;
 
                 case "ParamCommandComment":
-                    // @param name Description — the param name comes from the "param" property
-                    var paramName = child.TryGetProperty("param", out var pn) ? pn.GetString() : null;
-                    var paramText = CollectText(child);
-                    if (!string.IsNullOrEmpty(paramName) && !string.IsNullOrEmpty(paramText))
-                    {
-                        paramDocs.Add(new CppParamDoc(paramName!, NormalizeSingleLine(paramText)));
-                    }
-
+                    HandleParamCommandComment(child, paramDocs);
                     break;
             }
         }
@@ -1630,6 +1673,82 @@ internal sealed class ClangAstParser
         }
 
         return new CppDocComment(summary, details, paramDocs, returns, note);
+    }
+
+    /// <summary>
+    ///     Processes a single <c>BlockCommandComment</c> child node, updating the
+    ///     <paramref name="summary"/>, <paramref name="details"/>, <paramref name="returns"/>,
+    ///     and <paramref name="note"/> accumulators based on the command name.
+    /// </summary>
+    /// <remarks>
+    ///     Recognized commands: <c>@brief</c> (overrides plain paragraph summary),
+    ///     <c>@details</c> / <c>@remarks</c> (extended description),
+    ///     <c>@return</c> / <c>@returns</c> (return description), and
+    ///     <c>@note</c> (blockquote note). Unknown commands are silently ignored.
+    /// </remarks>
+    /// <param name="child">The <c>BlockCommandComment</c> JSON node to process.</param>
+    /// <param name="summary">Current summary accumulator; updated when <c>@brief</c> is found.</param>
+    /// <param name="details">Current details accumulator; updated when <c>@details</c>/<c>@remarks</c> is found.</param>
+    /// <param name="returns">Current returns accumulator; updated when <c>@return</c>/<c>@returns</c> is found.</param>
+    /// <param name="note">Current note accumulator; updated when <c>@note</c> is found.</param>
+    private static void HandleBlockCommandComment(
+        JsonElement child,
+        ref string? summary,
+        ref string? details,
+        ref string? returns,
+        ref string? note)
+    {
+        var cmdName = child.TryGetProperty("name", out var cn) ? cn.GetString() : null;
+        var cmdText = CollectText(child);
+
+        if (string.Equals(cmdName, "brief", StringComparison.OrdinalIgnoreCase))
+        {
+            // @brief overrides any plain paragraph already captured as summary
+            if (!string.IsNullOrEmpty(cmdText))
+            {
+                summary = NormalizeSingleLine(cmdText);
+            }
+        }
+        else if (string.Equals(cmdName, "details", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(cmdName, "remarks", StringComparison.OrdinalIgnoreCase))
+        {
+            // Preserve internal structure for @details so multi-sentence text reads well
+            if (!string.IsNullOrEmpty(cmdText))
+            {
+                details = cmdText.Trim();
+            }
+        }
+        else if ((string.Equals(cmdName, "return", StringComparison.OrdinalIgnoreCase) ||
+                  string.Equals(cmdName, "returns", StringComparison.OrdinalIgnoreCase)) &&
+                 !string.IsNullOrEmpty(cmdText))
+        {
+            returns = NormalizeSingleLine(cmdText);
+        }
+        else if (string.Equals(cmdName, "note", StringComparison.OrdinalIgnoreCase) &&
+                 !string.IsNullOrEmpty(cmdText))
+        {
+            note = NormalizeSingleLine(cmdText);
+        }
+    }
+
+    /// <summary>
+    ///     Processes a single <c>ParamCommandComment</c> child node, appending a new
+    ///     <see cref="CppParamDoc"/> entry to <paramref name="paramDocs"/> when both a
+    ///     parameter name and description text are present.
+    /// </summary>
+    /// <param name="child">The <c>ParamCommandComment</c> JSON node to process.</param>
+    /// <param name="paramDocs">The accumulator list to append to when a valid param is found.</param>
+    private static void HandleParamCommandComment(
+        JsonElement child,
+        List<CppParamDoc> paramDocs)
+    {
+        // @param name Description — the param name comes from the "param" property
+        var paramName = child.TryGetProperty("param", out var pn) ? pn.GetString() : null;
+        var paramText = CollectText(child);
+        if (!string.IsNullOrEmpty(paramName) && !string.IsNullOrEmpty(paramText))
+        {
+            paramDocs.Add(new CppParamDoc(paramName!, NormalizeSingleLine(paramText)));
+        }
     }
 
     /// <summary>

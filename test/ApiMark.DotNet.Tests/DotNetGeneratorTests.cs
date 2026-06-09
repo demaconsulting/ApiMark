@@ -7,6 +7,14 @@ namespace ApiMark.DotNet.Tests;
 /// <summary>Integration tests for <see cref="DotNetGenerator"/>.</summary>
 public class DotNetGeneratorTests
 {
+    /// <summary>Expected headers for the Constructors table — Member and Description only (no Returns column).</summary>
+    private static readonly string[] ConstructorTableHeaders = ["Member", "Description"];
+
+    /// <summary>Expected headers for the Properties table — Member, Type, and Description.</summary>
+    private static readonly string[] PropertyTableHeaders = ["Member", "Type", "Description"];
+
+    /// <summary>Expected headers for the Methods table — Member, Returns, and Description.</summary>
+    private static readonly string[] MethodTableHeaders = ["Member", "Returns", "Description"];
     /// <summary>
     ///     Builds a <see cref="DotNetGeneratorOptions"/> pointing at the fixture assembly
     ///     with the specified visibility and obsolete settings.
@@ -605,11 +613,8 @@ public class DotNetGeneratorTests
         generator.Generate(factory, new InMemoryContext());
 
         // Assert: the root namespace page exists at root level
-        Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures"),
+        Assert.True(factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures", out var rootNsWriter),
             "Root namespace page must be at root level");
-
-        // Assert: the root namespace page has a table that references the child namespace
-        var rootNsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
         var tables = rootNsWriter.Operations.OfType<TableOperation>().ToList();
         Assert.True(tables.Count > 0, "Root namespace page must have at least one table");
         Assert.Contains(tables, t => t.Rows.Any(row => row[0].Contains("Inner")));
@@ -664,11 +669,8 @@ public class DotNetGeneratorTests
 
         // Assert: type page exists
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SealedClass"),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/SealedClass", out var writer),
             "Expected a type page for SealedClass");
-
-        // Assert: signature contains the sealed modifier
-        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SealedClass"];
         var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
         Assert.NotNull(signature);
         Assert.Contains("sealed", signature.Code, StringComparison.Ordinal);
@@ -801,7 +803,7 @@ public class DotNetGeneratorTests
         Assert.Contains(
             methodsTable.Rows,
             row => row[0].Contains("GetGreeting", StringComparison.Ordinal) &&
-                   row[0].Contains("(", StringComparison.Ordinal));
+                   row[0].Contains('('));
     }
 
     /// <summary>Validates that the SampleClass type page has a Constructors sub-section whose table headers are <c>Member</c> and <c>Description</c> (no Returns column).</summary>
@@ -823,7 +825,7 @@ public class DotNetGeneratorTests
 
         // Assert: the table immediately following uses Member + Description (constructors have no Returns column)
         var ctorTable = operations.Skip(ctorIndex + 1).OfType<TableOperation>().First();
-        Assert.Equal(new[] { "Member", "Description" }, ctorTable.Headers);
+        Assert.Equal(ConstructorTableHeaders, ctorTable.Headers);
     }
 
     /// <summary>Validates that the SampleClass type page has a Properties sub-section whose table headers are <c>Member</c>, <c>Type</c>, and <c>Description</c>.</summary>
@@ -845,7 +847,7 @@ public class DotNetGeneratorTests
 
         // Assert: the table immediately following uses Member + Type + Description
         var propTable = operations.Skip(propIndex + 1).OfType<TableOperation>().First();
-        Assert.Equal(new[] { "Member", "Type", "Description" }, propTable.Headers);
+        Assert.Equal(PropertyTableHeaders, propTable.Headers);
     }
 
     /// <summary>Validates that the SampleClass type page has a Methods sub-section whose table uses <c>Returns</c> (not <c>Type</c>) as the second header.</summary>
@@ -867,7 +869,7 @@ public class DotNetGeneratorTests
 
         // Assert: the table immediately following uses Member + Returns + Description ("Returns" not "Type")
         var methodsTable = operations.Skip(methodsIndex + 1).OfType<TableOperation>().First();
-        Assert.Equal(new[] { "Member", "Returns", "Description" }, methodsTable.Headers);
+        Assert.Equal(MethodTableHeaders, methodsTable.Headers);
     }
 
     /// <summary>Validates that no cell in the Constructors sub-table equals <c>"void"</c>.</summary>
@@ -1126,8 +1128,7 @@ public class DotNetGeneratorTests
         generator.Generate(factory, new InMemoryContext());
 
         // Assert: combined page exists
-        Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/CaseCollisionClass/name"));
-        var writer = factory.Writers["ApiMark.DotNet.Fixtures/CaseCollisionClass/name"];
+        Assert.True(factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/CaseCollisionClass/name", out var writer));
 
         // Assert: both members appear as distinct H2 headings on the combined page
         var level2Headings = writer.Operations
@@ -1156,12 +1157,8 @@ public class DotNetGeneratorTests
 
         // Assert: SampleImplementation type page must exist
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleImplementation"),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/SampleImplementation", out var writer),
             "Expected type page for SampleImplementation");
-
-        // Assert: the signature code block must include ": ISampleInterface" so readers
-        // can see the interface contract without navigating to the source file
-        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleImplementation"];
         var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
         Assert.NotNull(signature);
         Assert.Contains(": ISampleInterface", signature.Code, StringComparison.Ordinal);
@@ -1184,12 +1181,8 @@ public class DotNetGeneratorTests
 
         // Assert: SampleStatus enum type page must exist
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleStatus"),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/SampleStatus", out var writer),
             "Expected type page for SampleStatus");
-
-        // Assert: the signature must not contain ": System.Enum" or any base class annotation —
-        // well-known implicit enum bases must be suppressed to keep the signature clean
-        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleStatus"];
         var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
         Assert.NotNull(signature);
         Assert.DoesNotContain("System.Enum", signature.Code, StringComparison.Ordinal);
@@ -1212,12 +1205,8 @@ public class DotNetGeneratorTests
 
         // Assert: TypeLinkFixture type page must exist
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/TypeLinkFixture"),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/TypeLinkFixture", out var writer),
             "Expected type page for TypeLinkFixture");
-
-        // Assert: the Methods table on the TypeLinkFixture page must have a Returns cell containing
-        // a Markdown link to SampleClass — the return type of GetSampleClass()
-        var writer = factory.Writers["ApiMark.DotNet.Fixtures/TypeLinkFixture"];
         var operations = writer.Operations.ToList();
         var methodsIndex = operations.FindIndex(op => op is HeadingOperation h && h.Text == "Methods");
         Assert.True(methodsIndex >= 0, "Expected 'Methods' heading on TypeLinkFixture page");
@@ -1246,12 +1235,8 @@ public class DotNetGeneratorTests
 
         // Assert: Log member page must exist
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/TypeLinkFixture/Log"),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/TypeLinkFixture/Log", out var writer),
             "Expected member page for TypeLinkFixture.Log");
-
-        // Assert: the member page must contain an "External Types" heading because
-        // ILogger<TypeLinkFixture> is from Microsoft.Extensions.Logging (non-System namespace)
-        var writer = factory.Writers["ApiMark.DotNet.Fixtures/TypeLinkFixture/Log"];
         var headings = writer.Operations.OfType<HeadingOperation>().Select(h => h.Text).ToList();
         Assert.Contains("External Types", headings, StringComparer.Ordinal);
 
@@ -1283,10 +1268,9 @@ public class DotNetGeneratorTests
 
         // Assert: type page must exist
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ServiceEvent"),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ServiceEvent", out var writer),
             "Expected type page for ServiceEvent delegate");
 
-        var writer = factory.Writers["ApiMark.DotNet.Fixtures/ServiceEvent"];
         var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
         Assert.NotNull(signature);
 
@@ -1318,10 +1302,8 @@ public class DotNetGeneratorTests
 
         // Assert: type page must exist
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ServiceEvent"),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ServiceEvent", out var writer),
             "Expected type page for ServiceEvent delegate");
-
-        var writer = factory.Writers["ApiMark.DotNet.Fixtures/ServiceEvent"];
 
         // No table rows must mention compiler-injected member names
         var allTableText = writer.Operations
@@ -1357,10 +1339,8 @@ public class DotNetGeneratorTests
 
         // Assert: type page must exist (arity flattened: SampleTransform`2 → SampleTransform2)
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleTransform2"),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/SampleTransform2", out var writer),
             "Expected type page for SampleTransform generic delegate");
-
-        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleTransform2"];
         var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
         Assert.NotNull(signature);
 
@@ -1387,11 +1367,8 @@ public class DotNetGeneratorTests
 
         // Assert: ArrayAndNullableClass type page must exist
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ArrayAndNullableClass"),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ArrayAndNullableClass", out var typePage),
             "Expected type page for ArrayAndNullableClass");
-
-        // Assert: the Methods table on the type page shows string[]? in the Returns column
-        var typePage = factory.Writers["ApiMark.DotNet.Fixtures/ArrayAndNullableClass"];
         var methodsTable = typePage.Operations
             .OfType<TableOperation>()
             .FirstOrDefault(t => t.Headers.Contains("Returns", StringComparer.Ordinal));
@@ -1403,9 +1380,8 @@ public class DotNetGeneratorTests
 
         // Assert: the member detail page signature also shows string[]?
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ArrayAndNullableClass/GetNullableNames"),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ArrayAndNullableClass/GetNullableNames", out var detailPage),
             "Expected detail page for GetNullableNames");
-        var detailPage = factory.Writers["ApiMark.DotNet.Fixtures/ArrayAndNullableClass/GetNullableNames"];
         var signature = detailPage.Operations.OfType<SignatureOperation>().FirstOrDefault();
         Assert.NotNull(signature);
         Assert.Contains("string[]?", signature.Code, StringComparison.Ordinal);
@@ -1429,11 +1405,8 @@ public class DotNetGeneratorTests
 
         // Assert: OperatorsStruct has a documented constructor; its detail page must exist
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsStruct/OperatorsStruct"),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/OperatorsStruct/OperatorsStruct", out var writer),
             "Expected member page for OperatorsStruct constructor");
-
-        // Assert: the constructor summary must appear as a paragraph — not the no-description placeholder
-        var writer = factory.Writers["ApiMark.DotNet.Fixtures/OperatorsStruct/OperatorsStruct"];
         var paragraphs = writer.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
         Assert.Contains(paragraphs, p => p.Contains("Initializes a new instance"));
         Assert.DoesNotContain(paragraphs, p => p.Contains("No description provided"));
@@ -1663,10 +1636,8 @@ public class DotNetGeneratorTests
 
         // Assert: outer type page must exist
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OuterClass"),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/OuterClass", out var outerWriter),
             "Expected a type page for OuterClass");
-
-        var outerWriter = factory.Writers["ApiMark.DotNet.Fixtures/OuterClass"];
         var operations = outerWriter.Operations.ToList();
 
         // Assert: a "Nested Types" heading must be present
@@ -1694,11 +1665,8 @@ public class DotNetGeneratorTests
 
         // Assert: the nested type page must exist
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OuterClass/Inner"),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/OuterClass/Inner", out var nestedWriter),
             "Expected a dedicated page for OuterClass.Inner");
-
-        // Assert: the XML summary text must appear as a paragraph on the page
-        var nestedWriter = factory.Writers["ApiMark.DotNet.Fixtures/OuterClass/Inner"];
         var paragraphs = nestedWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
         Assert.Contains(paragraphs, p => p.Contains("A public nested class inside OuterClass", StringComparison.Ordinal));
     }
@@ -1721,13 +1689,8 @@ public class DotNetGeneratorTests
 
         // Assert: the operators page for OperatorsStruct must exist
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsStruct/operators"),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/OperatorsStruct/operators", out var opsWriter),
             "Expected operators page for OperatorsStruct");
-
-        // Assert: the XML summary for the implicit operator returning Wrapped must appear —
-        // without the Replace('/', '.') fix, the XML doc lookup would fail and the summary
-        // would be replaced by the no-description placeholder instead
-        var opsWriter = factory.Writers["ApiMark.DotNet.Fixtures/OperatorsStruct/operators"];
         var paragraphs = opsWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
         Assert.Contains(paragraphs, p => p.Contains("Wraps this instance as a Wrapped value", StringComparison.Ordinal));
     }

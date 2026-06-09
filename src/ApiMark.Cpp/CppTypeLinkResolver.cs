@@ -227,9 +227,9 @@ internal sealed class CppTypeLinkResolver
             if (s.EndsWith(" &&", StringComparison.Ordinal)) { s = s[..^3].TrimEnd(); continue; }
             if (s.EndsWith("&&", StringComparison.Ordinal)) { s = s[..^2].TrimEnd(); continue; }
             if (s.EndsWith(" &", StringComparison.Ordinal)) { s = s[..^2].TrimEnd(); continue; }
-            if (s.EndsWith("&", StringComparison.Ordinal)) { s = s[..^1].TrimEnd(); continue; }
+            if (s.EndsWith('&')) { s = s[..^1].TrimEnd(); continue; }
             if (s.EndsWith(" *", StringComparison.Ordinal)) { s = s[..^2].TrimEnd(); continue; }
-            if (s.EndsWith("*", StringComparison.Ordinal)) { s = s[..^1].TrimEnd(); continue; }
+            if (s.EndsWith('*')) { s = s[..^1].TrimEnd(); continue; }
             if (s.EndsWith(" const", StringComparison.OrdinalIgnoreCase)) { s = s[..^6].TrimEnd(); continue; }
 
             break;
