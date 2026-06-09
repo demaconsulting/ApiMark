@@ -26,4 +26,14 @@ public readonly struct OperatorsStruct
     /// <returns>The difference of the two instances.</returns>
     public static OperatorsStruct operator -(OperatorsStruct left, OperatorsStruct right) =>
         new(left.Value - right.Value);
+
+    /// <summary>Implicitly converts an instance to a double.</summary>
+    /// <param name="value">The instance to convert.</param>
+    /// <returns>The scalar value as a double.</returns>
+    public static implicit operator double(OperatorsStruct value) => value.Value;
+
+    /// <summary>Explicitly converts an instance to an integer.</summary>
+    /// <param name="value">The instance to convert.</param>
+    /// <returns>The scalar value truncated to an integer.</returns>
+    public static explicit operator int(OperatorsStruct value) => (int)value.Value;
 }

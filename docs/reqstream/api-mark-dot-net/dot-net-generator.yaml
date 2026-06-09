@@ -130,8 +130,14 @@ sections:
               Grouping all operators for a type onto a single operators.md page with C#
               symbol headings (operator +, operator -) makes the operator API surface
               discoverable and navigable without file-name collisions.
+              Conversion operators (op_Implicit, op_Explicit) carry a ~ReturnType suffix in
+              their XML doc member ID (e.g. M:Type.op_Implicit(SourceType)~TargetType); the
+              generator must append this suffix when resolving XML documentation for them so
+              their summaries and parameter descriptions are not silently dropped.
             tests:
               - DotNetGenerator_Generate_TypeWithOperators_CreatesOperatorsPage
               - DotNetGenerator_Generate_TypeWithOperators_TypePageHasOperatorsSection
               - DotNetGenerator_Generate_TypeWithOperators_OperatorsPageContainsSummaries
               - DotNetGenerator_Generate_TypeWithOperators_OperatorsPageUsesSymbolHeadings
+              - DotNetGenerator_Generate_TypeWithConversionOperators_OperatorsPageContainsSummaries
+              - DotNetGenerator_Generate_TypeWithConversionOperators_OperatorsPageUsesConversionSyntax

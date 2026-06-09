@@ -1569,4 +1569,61 @@ public class DotNetGeneratorTests
         Assert.DoesNotContain(h2Headings, h => h.Contains("op_Addition"));
         Assert.DoesNotContain(h2Headings, h => h.Contains("op_Subtraction"));
     }
+
+    /// <summary>
+    ///     Validates that XML documentation summaries authored on <c>implicit</c> and
+    ///     <c>explicit</c> conversion operators are resolved via the <c>~ReturnType</c>
+    ///     XML doc ID suffix and appear on the <c>operators.md</c> page.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_TypeWithConversionOperators_OperatorsPageContainsSummaries()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: conversion operator summaries must appear on the operators page
+        Assert.True(factory.Writers.TryGetValue(
+            "ApiMark.DotNet.Fixtures/OperatorsStruct/operators", out var writer));
+        var paragraphs = writer!.Operations
+            .OfType<ParagraphOperation>()
+            .Select(p => p.Text)
+            .ToList();
+
+        Assert.Contains(paragraphs, p => p.Contains("Implicitly converts an instance"));
+        Assert.Contains(paragraphs, p => p.Contains("Explicitly converts an instance"));
+    }
+
+    /// <summary>
+    ///     Validates that conversion operator headings on <c>operators.md</c> use C# syntax
+    ///     (<c>implicit operator T</c> / <c>explicit operator T</c>) rather than the raw IL
+    ///     method names (<c>op_Implicit</c> / <c>op_Explicit</c>).
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_TypeWithConversionOperators_OperatorsPageUsesConversionSyntax()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert
+        Assert.True(factory.Writers.TryGetValue(
+            "ApiMark.DotNet.Fixtures/OperatorsStruct/operators", out var writer));
+        var h2Headings = writer!.Operations
+            .OfType<HeadingOperation>()
+            .Where(h => h.Level == 2)
+            .Select(h => h.Text)
+            .ToList();
+
+        Assert.Contains(h2Headings, h => h.Contains("implicit operator"));
+        Assert.Contains(h2Headings, h => h.Contains("explicit operator"));
+        Assert.DoesNotContain(h2Headings, h => h.Contains("op_Implicit"));
+        Assert.DoesNotContain(h2Headings, h => h.Contains("op_Explicit"));
+    }
 }
