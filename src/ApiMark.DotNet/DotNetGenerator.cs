@@ -150,7 +150,9 @@ public sealed class DotNetGenerator : IApiGenerator
             new[] { "Root namespace", "`{Namespace}.md`" },
             new[] { "Child namespace", "`{ParentPath}/{ChildName}.md`" },
             new[] { "Type", "`{NamespacePath}/{TypeName}.md`" },
+            new[] { "Nested type", "`{NamespacePath}/{TypeName}/{NestedTypeName}.md`" },
             new[] { "Member", "`{NamespacePath}/{TypeName}/{MemberName}.md`" },
+            new[] { "Operators", "`{NamespacePath}/{TypeName}/operators.md`" },
         };
         apiWriter.WriteTable(conventionHeaders, conventionRows);
 
@@ -302,12 +304,26 @@ public sealed class DotNetGenerator : IApiGenerator
         }
 
         // Collect visible members: constructors first, then alphabetically
-        var members = GetVisibleMembers(type)
+        var allMembers = GetVisibleMembers(type)
             .OrderBy(m => m.Name == ConstructorMethodName ? 0 : 1)
             .ThenBy(m => m.Name)
             .ToList();
 
-        if (members.Count == 0)
+        // Separate operator overloads: all operators share a single operators.md page
+        // and are not processed through the per-member collision/overload logic below
+        var operatorMethods = allMembers
+            .OfType<MethodDefinition>()
+            .Where(IsOperator)
+            .OrderBy(m => m.Name, StringComparer.Ordinal)
+            .ThenBy(m => m.Parameters.Count)
+            .ThenBy(m => string.Join(",", m.Parameters.Select(p => p.ParameterType.FullName)), StringComparer.Ordinal)
+            .ToList();
+
+        var members = allMembers
+            .Where(m => !(m is MethodDefinition md && IsOperator(md)))
+            .ToList();
+
+        if (members.Count == 0 && operatorMethods.Count == 0)
         {
             return;
         }
@@ -519,6 +535,44 @@ public sealed class DotNetGenerator : IApiGenerator
             typeWriter.WriteTable(new[] { "Member", "Type", DescriptionColumnHeader }, eventRows);
         }
 
+        // Emit Operators section when the type has operator overloads — all operators share
+        // a single page to prevent file-name collisions between op_Addition, op_Subtraction, etc.
+        if (operatorMethods.Count > 0)
+        {
+            WriteTypeOperatorsPage(factory, namespaceName, namespaceFolderPath, type, operatorMethods, xmlDocs, resolver);
+            typeWriter.WriteHeading(2, "Operators");
+            typeWriter.WriteTable(
+                new[] { "Member", DescriptionColumnHeader },
+                new[] { new[] { $"[operators]({FlattenArity(type.Name)}/operators.md)", "Operator overloads" } });
+        }
+
+        // Emit Nested Types section when the type has visible nested types — each nested type
+        // receives a dedicated page under the containing type's folder so the documentation
+        // hierarchy mirrors the C# type hierarchy
+        var visibleNestedTypes = GetVisibleNestedTypes(type).ToList();
+        if (visibleNestedTypes.Count > 0)
+        {
+            typeWriter.WriteHeading(2, "Nested Types");
+            var nestedTypeHeaders = new[] { "Type", DescriptionColumnHeader };
+            var nestedTypeRows = visibleNestedTypes.Select(nested =>
+            {
+                var nestedTypeId = BuildTypeId(nested);
+                var nestedSummary = xmlDocs.GetSummary(nestedTypeId) ?? NoDescriptionPlaceholder;
+                var nestedDisplayName = StripArity(nested.Name);
+                var nestedLink = $"{FlattenArity(type.Name)}/{FlattenArity(nested.Name)}.md";
+                return new[] { $"[{nestedDisplayName}]({nestedLink})", nestedSummary };
+            });
+            typeWriter.WriteTable(nestedTypeHeaders, nestedTypeRows);
+
+            // Recursively write a dedicated page for each visible nested type under the
+            // containing type's folder, mirroring the C# type nesting hierarchy
+            var nestedFolderPath = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
+            foreach (var nested in visibleNestedTypes)
+            {
+                WriteTypePage(factory, namespaceName, nestedFolderPath, nested, xmlDocs, resolver);
+            }
+        }
+
         // Emit the External Types section when any non-standard external types were referenced
         WriteExternalTypesSection(typeWriter, externalTypes);
     }
@@ -623,6 +677,52 @@ public sealed class DotNetGenerator : IApiGenerator
         }
 
         WriteExternalTypesSection(memberWriter, externalTypes);
+    }
+
+    /// <summary>
+    ///     Writes the combined operator overloads page for a type, placing all operator
+    ///     methods onto a single <c>operators.md</c> page to prevent file-name collisions.
+    /// </summary>
+    /// <remarks>
+    ///     Operator names such as <c>operator +</c>, <c>operator -</c>, and <c>operator *</c>
+    ///     would produce unsafe or ambiguous file names when written individually. Grouping
+    ///     them onto a single deterministic page resolves the collision and makes the operators
+    ///     section a stable navigation target for both human readers and AI agents.
+    /// </remarks>
+    /// <param name="factory">Factory for creating the output writer.</param>
+    /// <param name="namespaceName">The namespace that owns the declaring type; used to simplify type names in signatures.</param>
+    /// <param name="namespaceFolderPath">
+    ///     The file-system folder path for the namespace (e.g. <c>ApiMark.DotNet.Fixtures</c>).
+    ///     Used to construct the operators file's subfolder path.
+    /// </param>
+    /// <param name="type">The declaring type whose operator overloads are being documented.</param>
+    /// <param name="operators">
+    ///     The ordered list of operator methods to document. All elements must satisfy
+    ///     <see cref="IsOperator"/>. Must contain at least one element.
+    /// </param>
+    /// <param name="xmlDocs">XML documentation index for summary and detail lookups.</param>
+    /// <param name="resolver">Type link resolver used to linkify parameter type cells.</param>
+    private static void WriteTypeOperatorsPage(
+        IMarkdownWriterFactory factory,
+        string namespaceName,
+        string namespaceFolderPath,
+        TypeDefinition type,
+        IReadOnlyList<MethodDefinition> operators,
+        XmlDocReader xmlDocs,
+        TypeLinkResolver resolver)
+    {
+        var operatorsCurrentFolder = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
+        using var writer = factory.CreateMarkdown(operatorsCurrentFolder, "operators");
+        writer.WriteHeading(1, "operators");
+
+        var externalTypes = new SortedSet<ExternalTypeInfo>();
+        foreach (var op in operators)
+        {
+            writer.WriteHeading(2, BuildMethodDisplayName(op));
+            WriteMethodDocumentation(writer, namespaceName, op, xmlDocs, BuildMemberId(op), resolver, operatorsCurrentFolder, externalTypes);
+        }
+
+        WriteExternalTypesSection(writer, externalTypes);
     }
 
     /// <summary>
@@ -933,6 +1033,34 @@ public sealed class DotNetGenerator : IApiGenerator
     }
 
     /// <summary>
+    ///     Returns the nested types of <paramref name="type"/> that satisfy the visibility
+    ///     setting in <see cref="_options"/>, ordered by name.
+    /// </summary>
+    /// <remarks>
+    ///     Nested-type visibility is tested with the <c>IsNested*</c> flags rather than the
+    ///     top-level <c>IsPublic</c> flag because Cecil assigns separate flags to each
+    ///     nested-access level. Ordering by name ensures deterministic output regardless of
+    ///     metadata table order.
+    /// </remarks>
+    /// <param name="type">The declaring type whose nested types are to be filtered.</param>
+    /// <returns>
+    ///     An ordered enumerable of nested <see cref="TypeDefinition"/> instances that pass
+    ///     the current visibility filter.
+    /// </returns>
+    private IEnumerable<TypeDefinition> GetVisibleNestedTypes(TypeDefinition type)
+    {
+        return type.NestedTypes
+            .Where(t => _options.Visibility switch
+            {
+                ApiVisibility.Public => t.IsNestedPublic,
+                ApiVisibility.PublicAndProtected => t.IsNestedPublic || t.IsNestedFamily || t.IsNestedFamilyOrAssembly,
+                ApiVisibility.All => true,
+                _ => t.IsNestedPublic,
+            })
+            .OrderBy(t => t.Name, StringComparer.Ordinal);
+    }
+
+    /// <summary>
     ///     Returns <c>true</c> when <paramref name="member"/> satisfies the visibility
     ///     setting in <see cref="_options"/>.
     /// </summary>
@@ -1025,11 +1153,17 @@ public sealed class DotNetGenerator : IApiGenerator
     private bool ShouldIncludeMember(IMemberDefinition member) =>
         IsMemberVisible(member) && (_options.IncludeObsolete || !IsObsolete(member));
 
-    /// <summary>Returns <c>true</c> when <paramref name="method"/> is a special-name accessor that is not a constructor.</summary>
+    /// <summary>Returns <c>true</c> when <paramref name="method"/> is a C# user-defined operator overload.</summary>
+    /// <param name="method">The method to test.</param>
+    /// <returns><c>true</c> when the method has the special-name flag and a name starting with <c>op_</c>.</returns>
+    private static bool IsOperator(MethodDefinition method) =>
+        method.IsSpecialName && method.Name.StartsWith("op_", StringComparison.Ordinal);
+
+    /// <summary>Returns <c>true</c> when <paramref name="method"/> is a special-name accessor that is not a constructor or operator.</summary>
     /// <param name="method">The method to test.</param>
     /// <returns><c>true</c> for property getters/setters and event add/remove methods.</returns>
     private static bool IsSpecialNameNonConstructor(MethodDefinition method) =>
-        method.IsSpecialName && method.Name != ConstructorMethodName;
+        method.IsSpecialName && method.Name != ConstructorMethodName && !IsOperator(method);
 
     /// <summary>Returns <c>true</c> when <paramref name="field"/> is a compiler-generated backing field.</summary>
     /// <param name="field">The field to test.</param>
@@ -1061,7 +1195,9 @@ public sealed class DotNetGenerator : IApiGenerator
     private static string BuildMethodId(MethodDefinition method)
     {
         var typeName = method.DeclaringType.FullName.Replace('/', '.');
-        var methodName = method.Name;
+
+        // XML doc format uses #ctor for constructors; IL metadata uses .ctor
+        var methodName = method.Name == ConstructorMethodName ? "#ctor" : method.Name;
 
         // XML doc format includes parenthesized parameter list only when parameters exist
         if (!method.HasParameters)
@@ -1070,6 +1206,17 @@ public sealed class DotNetGenerator : IApiGenerator
         }
 
         var paramList = string.Join(",", method.Parameters.Select(p => p.ParameterType.FullName));
+
+        // Conversion operators carry a ~ReturnType suffix in the XML doc member ID
+        // (e.g. M:Type.op_Implicit(SourceType)~TargetType) that distinguishes overloads
+        // with the same source type but different target types
+        if (method.Name is "op_Implicit" or "op_Explicit")
+        {
+            // Normalize nested-type separators: Cecil uses '/' in FullName (e.g. OuterClass/Inner)
+            // but XML doc IDs always use '.' (e.g. OuterClass.Inner)
+            return $"M:{typeName}.{methodName}({paramList})~{method.ReturnType.FullName.Replace('/', '.')}";
+        }
+
         return $"M:{typeName}.{methodName}({paramList})";
     }
 
@@ -1232,6 +1379,11 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <returns>The method signature string.</returns>
     private static string BuildMethodSignature(MethodDefinition method, string contextNamespace)
     {
+        if (IsOperator(method))
+        {
+            return BuildOperatorSignature(method, contextNamespace);
+        }
+
         var returnType = TypeNameSimplifier.Simplify(
             method.ReturnType,
             contextNamespace,
@@ -1511,10 +1663,113 @@ public sealed class DotNetGenerator : IApiGenerator
         return overloadCount > 1 ? $"{baseName} ({overloadCount} overloads)" : baseName;
     }
 
-    private static string GetMethodGroupName(MethodDefinition method) =>
-        method.Name == ConstructorMethodName
-            ? StripArity(method.DeclaringType.Name)
-            : method.Name;
+    private static string GetMethodGroupName(MethodDefinition method)
+    {
+        if (method.Name == ConstructorMethodName)
+        {
+            return StripArity(method.DeclaringType.Name);
+        }
+
+        if (IsOperator(method))
+        {
+            return GetOperatorCSharpName(method);
+        }
+
+        return method.Name;
+    }
+
+    /// <summary>
+    ///     Returns the C# source-level name for an operator method, suitable for use as a heading
+    ///     and display name in documentation (e.g. <c>operator +</c> or <c>implicit operator double</c>).
+    /// </summary>
+    /// <param name="method">The operator method. Must satisfy <see cref="IsOperator"/>.</param>
+    /// <returns>
+    ///     For conversion operators, returns <c>implicit operator {ReturnType}</c> or
+    ///     <c>explicit operator {ReturnType}</c>. For all others, returns <c>operator {symbol}</c>.
+    /// </returns>
+    private static string GetOperatorCSharpName(MethodDefinition method)
+    {
+        var conversionKeyword = method.Name switch
+        {
+            "op_Implicit" => "implicit",
+            "op_Explicit" => "explicit",
+            _ => null,
+        };
+
+        if (conversionKeyword != null)
+        {
+            var returnType = TypeNameSimplifier.Simplify(method.ReturnType, method.DeclaringType.Namespace);
+            return $"{conversionKeyword} operator {returnType}";
+        }
+
+        return $"operator {GetOperatorSymbol(method.Name)}";
+    }
+
+    /// <summary>
+    ///     Maps an IL operator method name (e.g. <c>op_Addition</c>) to its C# source-level
+    ///     symbol (e.g. <c>+</c>). Returns the IL name unchanged when no mapping is defined.
+    /// </summary>
+    /// <param name="ilName">The IL operator method name.</param>
+    /// <returns>The C# symbol string, or <paramref name="ilName"/> when unmapped.</returns>
+    private static string GetOperatorSymbol(string ilName) => ilName switch
+    {
+        "op_Addition" => "+",
+        "op_Subtraction" => "-",
+        "op_Multiply" => "*",
+        "op_Division" => "/",
+        "op_Modulus" => "%",
+        "op_BitwiseAnd" => "&",
+        "op_BitwiseOr" => "|",
+        "op_ExclusiveOr" => "^",
+        "op_LeftShift" => "<<",
+        "op_RightShift" => ">>",
+        "op_Equality" => "==",
+        "op_Inequality" => "!=",
+        "op_LessThan" => "<",
+        "op_GreaterThan" => ">",
+        "op_LessThanOrEqual" => "<=",
+        "op_GreaterThanOrEqual" => ">=",
+        "op_UnaryNegation" => "-",
+        "op_UnaryPlus" => "+",
+        "op_Increment" => "++",
+        "op_Decrement" => "--",
+        "op_OnesComplement" => "~",
+        "op_LogicalNot" => "!",
+        "op_True" => "true",
+        "op_False" => "false",
+        _ => ilName,
+    };
+
+    /// <summary>Builds a C# operator declaration signature for an operator method.</summary>
+    /// <param name="method">The operator method. Must satisfy <see cref="IsOperator"/>.</param>
+    /// <param name="contextNamespace">Used to simplify type names in parameters and return type.</param>
+    /// <returns>
+    ///     For conversion operators: <c>public static implicit operator T(U v)</c>.
+    ///     For all others: <c>public static T operator +(T left, T right)</c>.
+    /// </returns>
+    private static string BuildOperatorSignature(MethodDefinition method, string contextNamespace)
+    {
+        var accessibility = GetAccessibilityKeyword(method);
+        var returnType = TypeNameSimplifier.Simplify(
+            method.ReturnType,
+            contextNamespace,
+            HasNullableAnnotation(method.MethodReturnType.CustomAttributes));
+        var parameters = string.Join(", ", method.Parameters.Select(p =>
+        {
+            var paramType = TypeNameSimplifier.Simplify(
+                p.ParameterType,
+                contextNamespace,
+                HasNullableAnnotation(p.CustomAttributes));
+            return $"{paramType} {p.Name}";
+        }));
+
+        return method.Name switch
+        {
+            "op_Implicit" => $"{accessibility} static implicit operator {returnType}({parameters})",
+            "op_Explicit" => $"{accessibility} static explicit operator {returnType}({parameters})",
+            _ => $"{accessibility} static {returnType} operator {GetOperatorSymbol(method.Name)}({parameters})",
+        };
+    }
 
     private static bool IsExtensionMethod(MethodDefinition method) =>
         method.IsStatic && method.CustomAttributes.Any(attribute =>

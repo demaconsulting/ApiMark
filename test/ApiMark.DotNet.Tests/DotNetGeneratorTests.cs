@@ -1410,4 +1410,325 @@ public class DotNetGeneratorTests
         Assert.NotNull(signature);
         Assert.Contains("string[]?", signature.Code, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    ///     Validates that a constructor's XML <c>&lt;summary&gt;</c> text appears as a paragraph
+    ///     on the constructor's member detail page.
+    ///     Regression test for the <c>.ctor</c> → <c>#ctor</c> XML doc ID mismatch that caused
+    ///     constructor summaries to be silently discarded.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ConstructorWithXmlSummary_WritesSummaryToMemberPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: OperatorsStruct has a documented constructor; its detail page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsStruct/OperatorsStruct"),
+            "Expected member page for OperatorsStruct constructor");
+
+        // Assert: the constructor summary must appear as a paragraph — not the no-description placeholder
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/OperatorsStruct/OperatorsStruct"];
+        var paragraphs = writer.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Initializes a new instance"));
+        Assert.DoesNotContain(paragraphs, p => p.Contains("No description provided"));
+    }
+
+    /// <summary>
+    ///     Validates that XML <c>&lt;param&gt;</c> descriptions for constructor parameters appear
+    ///     in the parameter table on the constructor's member detail page.
+    ///     Regression test for the same <c>.ctor</c> → <c>#ctor</c> XML doc ID mismatch.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ConstructorWithXmlParams_WritesParamDescriptionsToMemberPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: the constructor detail page has a Parameter table whose description column
+        // contains the XML-authored text for the 'value' parameter
+        Assert.True(factory.Writers.TryGetValue(
+            "ApiMark.DotNet.Fixtures/OperatorsStruct/OperatorsStruct", out var writer));
+        var paramTable = writer!.Operations
+            .OfType<TableOperation>()
+            .FirstOrDefault(t => t.Headers.Contains("Parameter", StringComparer.Ordinal));
+        Assert.NotNull(paramTable);
+        Assert.Contains(
+            paramTable!.Rows,
+            row => row[0] == "value" && row[2].Contains("scalar value"));
+    }
+
+    /// <summary>
+    ///     Validates that a type with operator overloads produces a dedicated
+    ///     <c>operators.md</c> page rather than individual per-operator pages.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_TypeWithOperators_CreatesOperatorsPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: shared operators page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsStruct/operators"),
+            "Expected operators.md page for OperatorsStruct");
+
+        // Assert: no individual per-operator pages must be created
+        Assert.False(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsStruct/op_Addition"),
+            "Individual operator pages must not be created; all operators share operators.md");
+    }
+
+    /// <summary>
+    ///     Validates that the type page for a type with operators includes an Operators section
+    ///     with a single row linking to <c>operators.md</c>.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_TypeWithOperators_TypePageHasOperatorsSection()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: Operators heading is present on the type page
+        var typeWriter = factory.Writers["ApiMark.DotNet.Fixtures/OperatorsStruct"];
+        var operations = typeWriter.Operations.ToList();
+        var opsIndex = operations.FindIndex(op => op is HeadingOperation h && h.Text == "Operators");
+        Assert.True(opsIndex >= 0, "Expected 'Operators' heading on OperatorsStruct type page");
+
+        // Assert: the table immediately following links to operators.md
+        var opsTable = operations.Skip(opsIndex + 1).OfType<TableOperation>().First();
+        Assert.Single(opsTable.Rows);
+        Assert.Contains("operators.md", opsTable.Rows[0][0], StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that the <c>operators.md</c> page contains the XML summary text for each
+    ///     documented operator overload.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_TypeWithOperators_OperatorsPageContainsSummaries()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: the operators page exists and its summaries come from the XML doc
+        Assert.True(factory.Writers.TryGetValue(
+            "ApiMark.DotNet.Fixtures/OperatorsStruct/operators", out var writer));
+        var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Adds two instances"));
+        Assert.Contains(paragraphs, p => p.Contains("Subtracts one instance"));
+    }
+
+    /// <summary>
+    ///     Validates that the <c>operators.md</c> page uses C# operator symbols (e.g. <c>operator +</c>)
+    ///     as H2 headings rather than the raw IL names (e.g. <c>op_Addition</c>).
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_TypeWithOperators_OperatorsPageUsesSymbolHeadings()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert
+        Assert.True(factory.Writers.TryGetValue(
+            "ApiMark.DotNet.Fixtures/OperatorsStruct/operators", out var writer));
+        var h2Headings = writer!.Operations
+            .OfType<HeadingOperation>()
+            .Where(h => h.Level == 2)
+            .Select(h => h.Text)
+            .ToList();
+
+        // Headings must use C# symbols, not IL names
+        Assert.Contains(h2Headings, h => h.Contains("operator +"));
+        Assert.Contains(h2Headings, h => h.Contains("operator -"));
+        Assert.DoesNotContain(h2Headings, h => h.Contains("op_Addition"));
+        Assert.DoesNotContain(h2Headings, h => h.Contains("op_Subtraction"));
+    }
+
+    /// <summary>
+    ///     Validates that XML documentation summaries authored on <c>implicit</c> and
+    ///     <c>explicit</c> conversion operators are resolved via the <c>~ReturnType</c>
+    ///     XML doc ID suffix and appear on the <c>operators.md</c> page.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_TypeWithConversionOperators_OperatorsPageContainsSummaries()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: conversion operator summaries must appear on the operators page
+        Assert.True(factory.Writers.TryGetValue(
+            "ApiMark.DotNet.Fixtures/OperatorsStruct/operators", out var writer));
+        var paragraphs = writer!.Operations
+            .OfType<ParagraphOperation>()
+            .Select(p => p.Text)
+            .ToList();
+
+        Assert.Contains(paragraphs, p => p.Contains("Implicitly converts an instance"));
+        Assert.Contains(paragraphs, p => p.Contains("Explicitly converts an instance"));
+    }
+
+    /// <summary>
+    ///     Validates that conversion operator headings on <c>operators.md</c> use C# syntax
+    ///     (<c>implicit operator T</c> / <c>explicit operator T</c>) rather than the raw IL
+    ///     method names (<c>op_Implicit</c> / <c>op_Explicit</c>).
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_TypeWithConversionOperators_OperatorsPageUsesConversionSyntax()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert
+        Assert.True(factory.Writers.TryGetValue(
+            "ApiMark.DotNet.Fixtures/OperatorsStruct/operators", out var writer));
+        var h2Headings = writer!.Operations
+            .OfType<HeadingOperation>()
+            .Where(h => h.Level == 2)
+            .Select(h => h.Text)
+            .ToList();
+
+        Assert.Contains(h2Headings, h => h.Contains("implicit operator"));
+        Assert.Contains(h2Headings, h => h.Contains("explicit operator"));
+        Assert.DoesNotContain(h2Headings, h => h.Contains("op_Implicit"));
+        Assert.DoesNotContain(h2Headings, h => h.Contains("op_Explicit"));
+    }
+
+    /// <summary>
+    ///     Validates that a public nested class inside an outer type receives a dedicated page
+    ///     at <c>{NamespacePath}/{OuterTypeName}/{NestedTypeName}</c> in the writer factory.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_NestedClass_CreatesNestedClassPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: the nested type page must exist at the hierarchical key
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OuterClass/Inner"),
+            "Expected a dedicated page for OuterClass.Inner at ApiMark.DotNet.Fixtures/OuterClass/Inner");
+    }
+
+    /// <summary>
+    ///     Validates that the outer type page includes a "Nested Types" H2 section with a
+    ///     table row for each visible nested type so readers can navigate to them.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_NestedClass_ListedOnOuterClassPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: outer type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OuterClass"),
+            "Expected a type page for OuterClass");
+
+        var outerWriter = factory.Writers["ApiMark.DotNet.Fixtures/OuterClass"];
+        var operations = outerWriter.Operations.ToList();
+
+        // Assert: a "Nested Types" heading must be present
+        var nestedIndex = operations.FindIndex(op => op is HeadingOperation h && h.Level == 2 && h.Text == "Nested Types");
+        Assert.True(nestedIndex >= 0, "Expected 'Nested Types' H2 heading on OuterClass page");
+
+        // Assert: the table immediately following must contain a row for Inner
+        var nestedTable = operations.Skip(nestedIndex + 1).OfType<TableOperation>().First();
+        Assert.Contains(nestedTable.Rows, row => row[0].Contains("Inner", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that the dedicated page for a public nested class contains the XML
+    ///     summary authored on that nested type.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_NestedClass_PageContainsSummary()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: the nested type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OuterClass/Inner"),
+            "Expected a dedicated page for OuterClass.Inner");
+
+        // Assert: the XML summary text must appear as a paragraph on the page
+        var nestedWriter = factory.Writers["ApiMark.DotNet.Fixtures/OuterClass/Inner"];
+        var paragraphs = nestedWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("A public nested class inside OuterClass", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a conversion operator whose return type is a nested type resolves its
+    ///     XML documentation correctly, confirming that the <c>~ReturnType</c> suffix in the XML
+    ///     doc member ID uses <c>.</c> as the separator (matching the XML doc format) rather than
+    ///     the <c>/</c> separator used by Cecil's <c>FullName</c>.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ConversionOperatorReturningNestedType_OperatorsPageContainsSummary()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: the operators page for OperatorsStruct must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsStruct/operators"),
+            "Expected operators page for OperatorsStruct");
+
+        // Assert: the XML summary for the implicit operator returning Wrapped must appear —
+        // without the Replace('/', '.') fix, the XML doc lookup would fail and the summary
+        // would be replaced by the no-description placeholder instead
+        var opsWriter = factory.Writers["ApiMark.DotNet.Fixtures/OperatorsStruct/operators"];
+        var paragraphs = opsWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Wraps this instance as a Wrapped value", StringComparison.Ordinal));
+    }
 }
