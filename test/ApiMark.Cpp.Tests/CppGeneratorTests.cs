@@ -812,6 +812,44 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     }
 
     /// <summary>
+    ///     Validates that symbols from a transitively-included header that is under a configured
+    ///     PublicIncludeRoot but was NOT selected by ApiHeaderPatterns are excluded from output.
+    ///     This confirms that api-headers filtering controls symbol ownership, not just which
+    ///     files are passed to clang.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ApiHeaderPatterns_TransitiveInclude_ExcludesNonSelectedSymbols()
+    {
+        // Arrange: select only TypeLinkClass.h; InheritanceClass.h is transitively included by it
+        // but must NOT be treated as an owned source file
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ApiHeaderPatterns = ["**/TypeLinkClass.h"],
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: TypeLinkClass page must exist — its header was selected
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/TypeLinkClass"),
+            "Expected TypeLinkClass page when its header is selected");
+
+        // Assert: Shape and Circle must be absent — they are defined in InheritanceClass.h which
+        // was not selected by --api-headers, even though it is under PublicIncludeRoot
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/Shape"),
+            "Expected Shape to be absent: InheritanceClass.h was not selected by --api-headers");
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/Circle"),
+            "Expected Circle to be absent: InheritanceClass.h was not selected by --api-headers");
+    }
+
+    /// <summary>
     ///     Validates that the type page for a <c>final</c> class contains the <c>final</c>
     ///     keyword in its signature block so that AI readers immediately know the class
     ///     cannot be used as a base class.
