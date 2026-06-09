@@ -1069,4 +1069,69 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
             signatures,
             s => s.Contains("= delete", StringComparison.Ordinal));
     }
+
+    /// <summary>
+    ///     Validates that generating from valid fixture headers creates individual pages
+    ///     for each <c>using</c> type alias declared in the <c>TypeAliasFixtures.h</c> header.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_TypeAlias_CreatesAliasPages()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: each alias gets its own page under the namespace folder
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/item_id_t"),
+            "Expected type alias page for item_id_t at 'fixtures/item_id_t'");
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/label_t"),
+            "Expected type alias page for label_t at 'fixtures/label_t'");
+    }
+
+    /// <summary>
+    ///     Validates that the type alias page for <c>item_id_t</c> contains the correct
+    ///     <c>using</c> declaration and the doc-comment summary.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_TypeAliasPage_ContainsDeclarationAndSummary()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+        var writer = factory.Writers["fixtures/item_id_t"];
+
+        // Assert: the signature block must include the using declaration
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains("using item_id_t = int32_t", StringComparison.Ordinal));
+
+        // Assert: the summary paragraph must be present
+        var paragraphs = writer.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Contains("32-bit signed integer identifier", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that the <c>fixtures</c> namespace summary page lists each type alias
+    ///     in a "Type Aliases" section so readers can discover them without opening individual pages.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_NamespacePage_ListsTypeAliases()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+        var writer = factory.Writers["fixtures"];
+
+        // Assert: the namespace page must contain a "Type Aliases" heading
+        var headings = writer.Operations.OfType<HeadingOperation>().Select(h => h.Text).ToList();
+        Assert.Contains(headings, h => h.Contains("Type Aliases", StringComparison.Ordinal));
+
+        // Assert: the namespace page table must contain links to both alias pages
+        var tables = writer.Operations.OfType<TableOperation>().ToList();
+        var allCells = tables.SelectMany(t => t.Rows).SelectMany(r => r).ToList();
+        Assert.Contains(allCells, c => c.Contains("item_id_t", StringComparison.Ordinal));
+        Assert.Contains(allCells, c => c.Contains("label_t", StringComparison.Ordinal));
+    }
 }

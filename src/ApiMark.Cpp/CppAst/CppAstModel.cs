@@ -184,6 +184,24 @@ public record CppEnum(
     CppSourceLocation? Location,
     CppDocComment? Doc);
 
+/// <summary>Represents a <c>using</c> type alias declaration in a C++ namespace.</summary>
+/// <param name="Name">The alias name (e.g. <c>fatal_error_code_t</c>).</param>
+/// <param name="UnderlyingTypeName">
+///     The underlying type string as reported by clang (e.g. <c>int32_t</c> or
+///     <c>void (*)(fatal_error_code_t, const void *)</c>).
+/// </param>
+/// <param name="IsDeprecated">
+///     <see langword="true"/> when the alias carries a <c>[[deprecated]]</c> attribute.
+/// </param>
+/// <param name="Location">Source location of the alias declaration, or <see langword="null"/> when unavailable.</param>
+/// <param name="Doc">Doxygen documentation attached to this alias, or <see langword="null"/> when absent.</param>
+public record CppTypeAlias(
+    string Name,
+    string UnderlyingTypeName,
+    bool IsDeprecated,
+    CppSourceLocation? Location,
+    CppDocComment? Doc);
+
 /// <summary>
 ///     Groups all owned declarations contributed by a single C++ namespace (or the global namespace).
 /// </summary>
@@ -199,12 +217,14 @@ public record CppEnum(
 /// <param name="Classes">All owned class and struct declarations contributed to this namespace.</param>
 /// <param name="FreeFunctions">All owned free function declarations contributed to this namespace.</param>
 /// <param name="Enums">All owned enum declarations contributed to this namespace.</param>
+/// <param name="TypeAliases">All owned <c>using</c> type alias declarations contributed to this namespace.</param>
 /// <param name="Doc">Doxygen documentation attached to the namespace, or <see langword="null"/> when absent.</param>
 public record CppNamespaceDecl(
     string QualifiedName,
     IReadOnlyList<CppClass> Classes,
     IReadOnlyList<CppFunction> FreeFunctions,
     IReadOnlyList<CppEnum> Enums,
+    IReadOnlyList<CppTypeAlias> TypeAliases,
     CppDocComment? Doc);
 
 /// <summary>Encapsulates the complete parsed result returned by <see cref="ClangAstParser"/>.</summary>

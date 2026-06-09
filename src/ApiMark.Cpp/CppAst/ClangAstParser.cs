@@ -580,6 +580,10 @@ internal sealed class ClangAstParser
                     ParseEnum(node, nsQualName);
                     break;
 
+                case "TypeAliasDecl":
+                    ParseTypeAlias(node, nsQualName);
+                    break;
+
                 case "FunctionDecl":
                 case "FunctionTemplateDecl":
                     ParseFreeFunction(node, nsQualName);
@@ -984,6 +988,59 @@ internal sealed class ClangAstParser
 
         var cppEnum = new CppEnum(name, values, isDeprecated, location, doc);
         GetNsBuilder(nsQualName).Enums.Add(cppEnum);
+    }
+
+    /// <summary>
+    ///     Parses a <c>TypeAliasDecl</c> node (a <c>using X = Y</c> declaration) into a
+    ///     <see cref="CppTypeAlias"/> and adds it to the appropriate namespace builder.
+    /// </summary>
+    /// <param name="node">The <c>TypeAliasDecl</c> JSON node.</param>
+    /// <param name="nsQualName">The qualified name of the enclosing namespace.</param>
+    private void ParseTypeAlias(JsonElement node, string nsQualName)
+    {
+        // Skip when not owned by a public include root
+        if (!IsOwned(_currentFile))
+        {
+            return;
+        }
+
+        var name = GetName(node);
+        if (string.IsNullOrEmpty(name))
+        {
+            return;
+        }
+
+        // The underlying type is in node["type"]["qualType"]
+        var underlyingType = string.Empty;
+        if (node.TryGetProperty("type", out var typeNode) &&
+            typeNode.TryGetProperty("qualType", out var qualTypeNode))
+        {
+            underlyingType = qualTypeNode.GetString() ?? string.Empty;
+        }
+
+        var isDeprecated = node.TryGetProperty("isDeprecated", out var dep) && dep.GetBoolean();
+        var location = GetCurrentSourceLocation(node);
+        CppDocComment? doc = null;
+
+        if (node.TryGetProperty("inner", out var inner))
+        {
+            foreach (var child in inner.EnumerateArray())
+            {
+                var childKind = GetKind(child);
+                switch (childKind)
+                {
+                    case "FullComment":
+                        doc = ParseFullComment(child);
+                        break;
+                    case "DeprecatedAttr":
+                        isDeprecated = true;
+                        break;
+                }
+            }
+        }
+
+        var alias = new CppTypeAlias(name, underlyingType, isDeprecated, location, doc);
+        GetNsBuilder(nsQualName).TypeAliases.Add(alias);
     }
 
     /// <summary>
@@ -1579,6 +1636,9 @@ internal sealed class ClangAstParser
         /// <summary>Gets the mutable list of enums being accumulated.</summary>
         public List<CppEnum> Enums { get; } = [];
 
+        /// <summary>Gets the mutable list of type aliases being accumulated.</summary>
+        public List<CppTypeAlias> TypeAliases { get; } = [];
+
         /// <summary>
         ///     Builds an immutable <see cref="CppNamespaceDecl"/> from the accumulated
         ///     declarations.
@@ -1588,7 +1648,7 @@ internal sealed class ClangAstParser
         {
             // Namespace-level doc comments are not reliably exposed in the clang JSON
             // AST dump for plain namespace declarations, so Doc is always null here
-            return new CppNamespaceDecl(QualifiedName, Classes, FreeFunctions, Enums, Doc: null);
+            return new CppNamespaceDecl(QualifiedName, Classes, FreeFunctions, Enums, TypeAliases, Doc: null);
         }
     }
 }

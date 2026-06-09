@@ -120,7 +120,8 @@ public sealed class CppGenerator : IApiGenerator
             var nsDisplay = kv.Key.Replace(".", "::", StringComparison.Ordinal);
             var nsPath = kv.Key.Replace(".", "/", StringComparison.Ordinal);
             return kv.Value.Classes.Select(cls => (Key: $"{nsDisplay}::{cls.Name}", Value: $"{nsPath}/{cls.Name}"))
-                .Concat(kv.Value.Enums.Select(enm => (Key: $"{nsDisplay}::{enm.Name}", Value: $"{nsPath}/{enm.Name}")));
+                .Concat(kv.Value.Enums.Select(enm => (Key: $"{nsDisplay}::{enm.Name}", Value: $"{nsPath}/{enm.Name}")))
+                .Concat(kv.Value.TypeAliases.Select(a => (Key: $"{nsDisplay}::{a.Name}", Value: $"{nsPath}/{a.Name}")));
         }).ToDictionary(x => x.Key, x => x.Value, StringComparer.Ordinal);
 
         var cppResolver = new CppTypeLinkResolver(knownTypes);
@@ -160,6 +161,12 @@ public sealed class CppGenerator : IApiGenerator
             foreach (var en in nsDecls.Enums)
             {
                 WriteEnumPage(factory, nsKey, nsDecls.DisplayName, en);
+            }
+
+            // Write one type alias page per owned using-alias declared in this namespace
+            foreach (var alias in nsDecls.TypeAliases)
+            {
+                WriteTypeAliasPage(factory, nsKey, nsDecls.DisplayName, alias);
             }
         }
     }
@@ -447,6 +454,18 @@ public sealed class CppGenerator : IApiGenerator
             EnsureNamespace(result, nsKey, displayName, ns.Doc);
             result[nsKey].Enums.Add(en);
         }
+
+        // Collect owned type aliases, applying the deprecated filter
+        foreach (var alias in ns.TypeAliases)
+        {
+            if (!_options.IncludeDeprecated && alias.IsDeprecated)
+            {
+                continue;
+            }
+
+            EnsureNamespace(result, nsKey, displayName, ns.Doc);
+            result[nsKey].TypeAliases.Add(alias);
+        }
     }
 
     /// <summary>
@@ -676,6 +695,22 @@ public sealed class CppGenerator : IApiGenerator
                     return new[] { $"[{en.Name}]({nsKey}/{en.Name}.md)", summary };
                 });
             writer.WriteTable(enumHeaders, enumRows);
+        }
+
+        // Type alias table — one row per owned using-alias, sorted alphabetically
+        if (nsDecls.TypeAliases.Count > 0)
+        {
+            writer.WriteHeading(2, "Type Aliases");
+            var aliasHeaders = new[] { "Alias", "Underlying Type", DescriptionColumnHeader };
+            var aliasRows = nsDecls.TypeAliases
+                .OrderBy(a => a.Name, StringComparer.Ordinal)
+                .Select(alias =>
+                {
+                    var summary = GetSummary(alias.Doc) ?? NoDescriptionPlaceholder;
+                    var underlying = SimplifyTypeName(alias.UnderlyingTypeName);
+                    return new[] { $"[{alias.Name}]({nsKey}/{alias.Name}.md)", underlying, summary };
+                });
+            writer.WriteTable(aliasHeaders, aliasRows);
         }
 
         // Partition free functions into regular functions and operator overloads; operator names
@@ -1511,6 +1546,52 @@ public sealed class CppGenerator : IApiGenerator
         }
     }
 
+    /// <summary>
+    ///     Writes a documentation page for a <c>using</c> type alias declaration.
+    /// </summary>
+    /// <param name="factory">Factory for creating the output writer.</param>
+    /// <param name="nsKey">The file-path-compatible namespace key used as the output folder.</param>
+    /// <param name="nsDisplayName">
+    ///     The C++ qualified namespace name used in the fully-qualified signature comment.
+    /// </param>
+    /// <param name="alias">The type alias declaration to document.</param>
+    private void WriteTypeAliasPage(
+        IMarkdownWriterFactory factory,
+        string nsKey,
+        string nsDisplayName,
+        CppTypeAlias alias)
+    {
+        using var writer = factory.CreateMarkdown(nsKey, alias.Name);
+        writer.WriteHeading(1, alias.Name);
+
+        // Emit the fully-qualified name comment, optional #include, and the using declaration
+        // so readers have everything needed to use the alias without browsing the header tree
+        var qualifiedName = string.IsNullOrEmpty(nsDisplayName)
+            ? alias.Name
+            : $"{nsDisplayName}::{alias.Name}";
+        var declaration = $"using {alias.Name} = {alias.UnderlyingTypeName}";
+        if (alias.Location != null)
+        {
+            var includePath = GetIncludePath(alias.Location.File);
+            writer.WriteSignature("cpp", $"// {qualifiedName}\n#include \"{includePath}\"\n{declaration}");
+        }
+        else
+        {
+            writer.WriteSignature("cpp", $"// {qualifiedName}\n{declaration}");
+        }
+
+        // Emit summary from doc comment or placeholder
+        var summary = GetSummary(alias.Doc);
+        writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : NoDescriptionPlaceholder);
+
+        // Emit extended details when the doc comment contains a @details or @remarks block
+        var details = GetDetails(alias.Doc);
+        if (!string.IsNullOrEmpty(details))
+        {
+            writer.WriteParagraph(details);
+        }
+    }
+
     // =========================================================================
     // Visibility filtering
     // =========================================================================
@@ -1966,6 +2047,9 @@ public sealed class CppGenerator : IApiGenerator
 
         /// <summary>Gets the list of owned enums declared in this namespace.</summary>
         public List<CppEnum> Enums { get; } = [];
+
+        /// <summary>Gets the list of owned <c>using</c> type aliases declared in this namespace.</summary>
+        public List<CppTypeAlias> TypeAliases { get; } = [];
 
         /// <summary>Gets the list of owned free functions declared in this namespace.</summary>
         public List<CppFunction> FreeFunctions { get; } = [];
