@@ -659,6 +659,39 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     }
 
     /// <summary>
+    ///     Validates that when no <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> are set,
+    ///     all headers under the include roots with recognized C++ extensions are documented.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_NoApiHeaderPatterns_DocumentsAllHeaders()
+    {
+        // Arrange: options with no ApiHeaderPatterns — the default glob should apply
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            // ApiHeaderPatterns intentionally left empty to exercise the default behavior
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: pages from multiple fixture headers must all be present, confirming the
+        // default glob includes every recognized header under the include root
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/SampleClass"),
+            "Expected SampleClass page when no ApiHeaderPatterns are set");
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/SampleStatus"),
+            "Expected SampleStatus page when no ApiHeaderPatterns are set");
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/FinalClass"),
+            "Expected FinalClass page when no ApiHeaderPatterns are set");
+    }
+
+    /// <summary>
     ///     Validates that <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> with a specific
     ///     include pattern restricts header enumeration to files matching that pattern.
     /// </summary>
@@ -690,14 +723,14 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     }
 
     /// <summary>
-    ///     Validates that a <c>!</c>-prefixed antipattern in
+    ///     Validates that a <c>!</c>-prefixed exclusion pattern in
     ///     <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> excludes matching headers while
     ///     leaving all other headers documented.
     /// </summary>
     [Fact]
-    public void CppGenerator_Generate_ApiHeaderPatterns_ExcludeAntipattern_ExcludesMatchingFiles()
+    public void CppGenerator_Generate_ApiHeaderPatterns_ExcludePattern_ExcludesMatchingFiles()
     {
-        // Arrange: catch-all followed by an exclusion antipattern for SampleClass.h
+        // Arrange: catch-all followed by an exclusion pattern for SampleClass.h
         var options = new CppGeneratorOptions
         {
             LibraryName = "Fixtures",
@@ -710,10 +743,10 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         // Act
         generator.Generate(factory, new InMemoryContext());
 
-        // Assert: SampleClass page must not exist because its header was excluded by the antipattern
+        // Assert: SampleClass page must not exist because its header was excluded by the exclusion pattern
         Assert.False(
             factory.Writers.ContainsKey("fixtures/SampleClass"),
-            "Expected SampleClass to be absent when its header is excluded by antipattern");
+            "Expected SampleClass to be absent when its header is excluded by exclusion pattern");
 
         // Assert: SampleStatus page must still exist because SampleEnum.h was not excluded
         Assert.True(
@@ -723,7 +756,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
 
     /// <summary>
     ///     Validates gitignore-style re-include semantics: a header that is first excluded by
-    ///     an antipattern and then re-included by a later positive pattern is documented.
+    ///     an exclusion pattern and then re-included by a later positive pattern is documented.
     /// </summary>
     [Fact]
     public void CppGenerator_Generate_ApiHeaderPatterns_ReInclude_GitignoreSemantics_IncludesReIncludedHeader()
@@ -750,13 +783,13 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     }
 
     /// <summary>
-    ///     Validates that an exclusion antipattern without a subsequent re-include permanently
+    ///     Validates that an exclusion pattern without a subsequent re-include permanently
     ///     removes a header from documentation, confirming last-match-wins semantics.
     /// </summary>
     [Fact]
     public void CppGenerator_Generate_ApiHeaderPatterns_ExcludeWithoutReInclude_ExcludesHeader()
     {
-        // Arrange: catch-all followed by exclusion antipattern for DeprecatedClass.h (no re-include);
+        // Arrange: catch-all followed by exclusion pattern for DeprecatedClass.h (no re-include);
         // IncludeDeprecated=true so the class would appear if the header were parsed
         var options = new CppGeneratorOptions
         {
@@ -771,7 +804,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         // Act
         generator.Generate(factory, new InMemoryContext());
 
-        // Assert: DeprecatedClass must not be documented because the exclusion antipattern is final
+        // Assert: DeprecatedClass must not be documented because the exclusion pattern is final
         Assert.False(
             factory.Writers.ContainsKey("fixtures/DeprecatedClass"),
             "Expected DeprecatedClass to be absent when excluded without re-include");

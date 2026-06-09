@@ -52,15 +52,15 @@ sections:
                   - Context_Create_WithRepeatedIncludes_AccumulatesAllPaths
                   - Context_Create_WithSingleInclude_SetsSinglePath
               - id: ApiMarkTool-Cli-Context-ParseApiHeaders
-                title: Context shall parse repeated --api-headers flags and accumulate each pattern into the ApiHeaders array in order, forwarding '!'-prefixed antipatterns verbatim.
+                title: Context shall parse repeated --api-headers flags and accumulate each pattern into the ApiHeaders array in order, forwarding '!'-prefixed exclusion patterns verbatim.
                 justification: |
                   C++ projects express gitignore-style header selection as an ordered sequence of
-                  include patterns and '!'-prefixed antipatterns. The context must accumulate all
-                  supplied patterns in order and forward antipatterns verbatim so CppGenerator can
+                  include patterns and '!'-prefixed exclusion patterns. The context must accumulate all
+                  supplied patterns in order and forward exclusion patterns verbatim so CppGenerator can
                   apply last-match-wins semantics correctly.
                 tests:
                   - Context_Create_WithRepeatedApiHeaders_AccumulatesAllPatternsInOrder
-                  - Context_Create_WithApiHeadersAntipattern_ForwardsVerbatim
+                  - Context_Create_WithApiHeadersExclusionPattern_ForwardsVerbatim
                   - Context_Create_WithNoArguments_HasEmptyApiHeaders
               - id: ApiMarkTool-Cli-Context-ParseDepthOption
                 title: Context shall parse the --depth option and set HeadingDepth to the specified integer value in the range 1–6, defaulting to 1 when the option is absent.

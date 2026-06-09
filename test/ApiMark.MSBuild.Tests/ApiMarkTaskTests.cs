@@ -388,12 +388,12 @@ public class ApiMarkTaskTests
     /// <summary>
     ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> emits a separate
     ///     <c>--api-headers</c> flag for each pattern in <see cref="ApiMarkTask.ApiMarkApiHeaders"/>,
-    ///     preserving order and forwarding <c>!</c>-prefixed antipatterns verbatim.
+    ///     preserving order and forwarding <c>!</c>-prefixed exclusion patterns verbatim.
     /// </summary>
     [Fact]
     public void ApiMarkTask_Cpp_ApiHeaders_ForwardedAsIndividualFlags()
     {
-        // Arrange: two patterns — a catch-all followed by an exclusion antipattern
+        // Arrange: two patterns — a catch-all followed by an exclusion pattern
         var task = new ApiMarkTask
         {
             ProjectExtension = ".vcxproj",
@@ -413,7 +413,7 @@ public class ApiMarkTaskTests
         Assert.NotEqual(firstIdx, lastIdx);
         Assert.Equal("**/*.h", argList[firstIdx + 1]);
 
-        // The antipattern must be forwarded verbatim with the ! prefix intact
+        // The exclusion pattern must be forwarded verbatim with the ! prefix intact
         Assert.Equal("!**/detail/**", argList[lastIdx + 1]);
         Assert.DoesNotContain("**/*.h;!**/detail/**", args);
     }

@@ -167,11 +167,12 @@ sections:
               Projects need fine-grained control over which headers appear in the generated
               reference without changing the include roots. Gitignore-style semantics allow
               build authors to start with a broad include pattern and then selectively exclude
-              or re-include specific subtrees using '!'-prefixed antipatterns, matching the
+              or re-include specific subtrees using '!'-prefixed exclusion patterns, matching the
               familiar gitignore convention.
             tests:
+              - CppGenerator_Generate_NoApiHeaderPatterns_DocumentsAllHeaders
               - CppGenerator_Generate_ApiHeaderPatterns_IncludePattern_OnlyMatchingFilesDocumented
-              - CppGenerator_Generate_ApiHeaderPatterns_ExcludeAntipattern_ExcludesMatchingFiles
+              - CppGenerator_Generate_ApiHeaderPatterns_ExcludePattern_ExcludesMatchingFiles
               - CppGenerator_Generate_ApiHeaderPatterns_ReInclude_GitignoreSemantics_IncludesReIncludedHeader
               - CppGenerator_Generate_ApiHeaderPatterns_ExcludeWithoutReInclude_ExcludesHeader
           - id: ApiMarkCpp-CppGenerator-EmitExternalTypesSection

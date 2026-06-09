@@ -40,7 +40,7 @@ users or CI pipelines.
   Options for `dotnet`: `--assembly <path>`, `--xml-doc <path>`, `--output <dir>`,
   `--visibility <value>`, `--include-obsolete`.
   Options for `cpp`: `--includes <path>` (repeatable), `--api-headers <pattern>`
-  (repeatable, ordered, supports `!` exclusion antipatterns),
+  (repeatable, ordered, supports `!` exclusion patterns),
   `--library-name <name>`, `--library-description <text>`, `--defines <defs>`,
   `--cpp-standard <std>`, `--output <dir>`, `--visibility <value>`,
   `--include-obsolete`.

@@ -70,9 +70,9 @@ internal sealed class Context : IContext, IDisposable
     public string[] Includes { get; private init; } = [];
 
     /// <summary>
-    ///     Gets the ordered list of glob and antipattern strings for the C++ language subcommand.
+    ///     Gets the ordered list of glob and exclusion pattern strings for the C++ language subcommand.
     ///     Collected from repeated <c>--api-headers</c> invocations; entries with a <c>!</c>
-    ///     prefix are exclusion antipatterns. Order is significant — gitignore semantics apply
+    ///     prefix are exclusion patterns. Order is significant — gitignore semantics apply
     ///     (last matching pattern wins).
     /// </summary>
     public string[] ApiHeaders { get; private init; } = [];
@@ -326,7 +326,7 @@ internal sealed class Context : IContext, IDisposable
         public List<string> Includes { get; } = new List<string>();
 
         /// <summary>
-        ///     Gets the ordered list of glob and antipattern strings for the C++ language subcommand.
+        ///     Gets the ordered list of glob and exclusion pattern strings for the C++ language subcommand.
         ///     Accumulated by repeated <c>--api-headers</c> invocations; each invocation appends
         ///     one pattern (with or without a leading <c>!</c>). Order is preserved for
         ///     gitignore-style last-match-wins evaluation.

@@ -45,10 +45,10 @@ When multiple roots are configured and a file matches more than one, the
 longest matching root path (most specific) wins.
 
 **CppGeneratorOptions.ApiHeaderPatterns**: `IList<string>` — ordered list of
-glob and antipattern strings that determine which header files contribute to the
+glob and exclusion pattern strings that determine which header files contribute to the
 documented public API. Gitignore-style semantics apply: patterns are evaluated
 in order; the last matching pattern wins. Entries without a `!` prefix are
-include patterns; entries with a `!` prefix are exclusion antipatterns (the `!`
+include patterns; entries with a `!` prefix are exclusion patterns (the `!`
 is stripped before glob matching). When empty, the default patterns
 `["**/*.h", "**/*.hpp", "**/*.hxx", "**/*.h++"]` are applied, which selects all
 headers with recognized C++ extensions under all roots.

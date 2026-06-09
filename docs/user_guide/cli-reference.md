@@ -60,7 +60,7 @@ are passed to Clang as `-I` paths and serve as the base for the default `--api-h
 
 `--api-headers <pattern>` controls which headers appear in the generated documentation.
 It is repeatable and ordered — patterns are evaluated in order with gitignore-style
-last-match-wins semantics. Entries starting with `!` are exclusion antipatterns.
+last-match-wins semantics. Entries starting with `!` are exclusion patterns.
 
 When `--api-headers` is not specified, all headers under the `--includes` directories
 with recognized C++ header extensions (`.h`, `.hpp`, `.hxx`, `.h++`) are documented.

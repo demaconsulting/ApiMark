@@ -419,7 +419,7 @@ public sealed class ContextTests
 
     /// <summary>
     ///     Validates that repeated <c>--api-headers</c> flags accumulate into the
-    ///     <see cref="Context.ApiHeaders"/> array in order, preserving <c>!</c> antipatterns.
+    ///     <see cref="Context.ApiHeaders"/> array in order, preserving <c>!</c> exclusion patterns.
     /// </summary>
     [Fact]
     public void Context_Create_WithRepeatedApiHeaders_AccumulatesAllPatternsInOrder()
@@ -441,13 +441,13 @@ public sealed class ContextTests
     }
 
     /// <summary>
-    ///     Validates that a <c>!</c>-prefixed antipattern is forwarded verbatim through
+    ///     Validates that a <c>!</c>-prefixed exclusion pattern is forwarded verbatim through
     ///     <c>--api-headers</c> without stripping the <c>!</c> prefix.
     /// </summary>
     [Fact]
-    public void Context_Create_WithApiHeadersAntipattern_ForwardsVerbatim()
+    public void Context_Create_WithApiHeadersExclusionPattern_ForwardsVerbatim()
     {
-        // Arrange: supply an exclusion antipattern via --api-headers
+        // Arrange: supply an exclusion pattern via --api-headers
         var args = new[] { "--api-headers", "!**/internal/**" };
 
         // Act

@@ -99,7 +99,7 @@ sections:
             title: >-
               ApiMarkTask shall forward each entry of ApiMarkApiHeaders to the tool as a separate
               --api-headers flag for C++ builds, preserving order and forwarding '!'-prefixed
-              antipatterns verbatim.
+              exclusion patterns verbatim.
             justification: |
               C++ projects need fine-grained, gitignore-style control over which headers contribute
               to the documented API surface. Forwarding each pattern as its own --api-headers flag

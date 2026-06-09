@@ -25,10 +25,9 @@ can be tested independently.
   file cannot be opened.
 - `Context` (IDisposable) — exposes parsed flags and options as typed
   properties (`Version`, `Help`, `Silent`, `Validate`, `Language`,
-  `Assembly`, `XmlDoc`, `Includes`, `SearchPaths`, `IncludePatterns`,
-  `ExcludePatterns`, `Output`, `Visibility`, `IncludeObsolete`,
-  `ResultsFile`, `HeadingDepth`, `ExitCode`) and provides `WriteLine` and
-  `WriteError` for all program output routing.
+  `Assembly`, `XmlDoc`, `Includes`, `ApiHeaders`, `Output`, `Visibility`,
+  `IncludeObsolete`, `ResultsFile`, `HeadingDepth`, `ExitCode`) and provides
+  `WriteLine` and `WriteError` for all program output routing.
 
 **Consumed**:
 
@@ -44,10 +43,9 @@ flags (`-v`, `--version`, `--help`, `--silent`, `--validate`, `--log`,
 `--results`, `--depth`) are recognized anywhere in the argument list. The
 first positional non-flag token (a token that does not start with `-`) is
 captured as the language subcommand. Language-specific options (`--assembly`,
-`--xml-doc`, `--includes`, `--search-paths`, `--include-patterns`,
-`--exclude-patterns`, `--output`, `--visibility`, `--include-obsolete`)
-may appear anywhere in the argument list after the language token is
-recognized.
+`--xml-doc`, `--includes`, `--api-headers`, `--output`, `--visibility`,
+`--include-obsolete`) may appear anywhere in the argument list after the
+language token is recognized.
 
 `Context` implements `IDisposable` to release the optional log file writer
 when the caller is done with the context.

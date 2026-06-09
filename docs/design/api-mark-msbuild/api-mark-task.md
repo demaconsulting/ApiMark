@@ -61,8 +61,8 @@ default header glob when `ApiMarkApiHeaders` is not set.
 
 **ApiMarkTask.ApiMarkApiHeaders**: `string` — MSBuild property
 `$(ApiMarkApiHeaders)`; for the `cpp` language, a semicolon-separated,
-order-preserved list of glob and antipattern strings forwarded as individual
-`--api-headers` flags. Entries with a `!` prefix are exclusion antipatterns;
+order-preserved list of glob and exclusion pattern strings forwarded as individual
+`--api-headers` flags. Entries with a `!` prefix are exclusion patterns;
 gitignore-style last-match-wins semantics apply. Optional — when empty or not
 set, all headers with recognized C++ extensions under `ApiMarkIncludePaths` are
 documented.
@@ -120,7 +120,7 @@ path (check `DOTNET_HOST_PATH` environment variable first, then search `PATH`);
 build the argument list from MSBuild properties according to language-specific
 mapping (for `cpp`, split `ApiMarkIncludePaths` on `;` and emit one `--includes`
 flag per entry; split `ApiMarkApiHeaders` on `;` and emit one `--api-headers`
-flag per entry, order-preserved including `!` antipatterns; if `ApiMarkLibraryName`
+flag per entry, order-preserved including `!` exclusion patterns; if `ApiMarkLibraryName`
 is set, append `--library-name`; if `ApiMarkLibraryDescription` is set, append
 `--library-description`; if `ApiMarkDefines` is set, convert semicolons to commas
 and append `--defines`; if `ApiMarkCppStandard` is set, append `--cpp-standard`;

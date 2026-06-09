@@ -35,14 +35,14 @@ public sealed class CppGeneratorOptions
     public IReadOnlyList<string> PublicIncludeRoots { get; set; } = [];
 
     /// <summary>
-    ///     Gets or sets the ordered list of glob and antipattern strings that define which
+    ///     Gets or sets the ordered list of glob and exclusion pattern strings that define which
     ///     headers appear in the generated documentation.
     /// </summary>
     /// <remarks>
     ///     <para>
     ///         Gitignore-style semantics apply: patterns are evaluated in order; the last
     ///         matching pattern wins. Entries without a <c>!</c> prefix are include patterns;
-    ///         entries with a <c>!</c> prefix are exclude antipatterns (the <c>!</c> is stripped
+    ///         entries with a <c>!</c> prefix are exclusion patterns (the <c>!</c> is stripped
     ///         before glob matching).
     ///     </para>
     ///     <para>

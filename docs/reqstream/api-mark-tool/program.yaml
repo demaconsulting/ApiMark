@@ -30,20 +30,18 @@ sections:
               - Program_Main_WithInvalidVisibility_ReturnsNonZeroExitCode
               - Program_Main_WithMissingAssembly_PrintsErrorAndFails
           - id: ApiMarkTool-Program-SupportCppOptions
-            title: Program shall support the cpp language with --includes, --output, --visibility, --include-obsolete, --library-name, --library-description, --defines, --cpp-standard, --search-paths, --include-patterns, and --exclude-patterns options.
+            title: Program shall support the cpp language with --includes, --output, --visibility, --include-obsolete, --library-name, --library-description, --defines, --cpp-standard, and --api-headers options.
             justification: |
               C++ documentation generation requires at minimum the public include root(s) and
               output directory. The --includes option is required; the tool validates its
               presence and returns a non-zero exit code with a descriptive error message when
               it is absent, ensuring users receive actionable feedback before any generation
-              is attempted. The --search-paths option allows compiler-only -I paths to be
-              specified without contributing to the documented API surface. The --include-patterns
-              and --exclude-patterns options provide fine-grained glob filtering of headers.
+              is attempted. The --api-headers option provides gitignore-style header selection,
+              allowing fine-grained control over which headers contribute to the documented
+              API surface using ordered patterns with '!' exclusion prefix support.
             tests:
               - Program_Main_WithCppSubcommand_MissingIncludes_ReturnsNonZeroExitCode
-              - Program_Main_CppWithSearchPathsFlag_FlagIsAccepted
-              - Program_Main_CppWithGlobOnlyIncludes_FailsMissingRootValidation
-              - Program_Main_CppWithIncludeAndExcludePatternFlags_FlagsAreAccepted
+              - Program_Main_CppWithApiHeadersFlag_FlagIsAccepted
           - id: ApiMarkTool-Program-SupportHelpOption
             title: Program shall support -?, -h, and --help options that display usage information and exit zero.
             justification: |

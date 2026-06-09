@@ -182,7 +182,7 @@ public sealed class CppGenerator : IApiGenerator
     ///     <para>
     ///         When <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> is empty the default
     ///         patterns <c>["**/*.h", "**/*.hpp", "**/*.hxx", "**/*.h++"]</c> are used,
-    ///         preserving the behavior of unconfigured runs.
+    ///         preserving the behavior of runs with no configured patterns.
     ///     </para>
     ///     <para>
     ///         Gitignore-style evaluation: for each candidate file, start with
@@ -246,7 +246,7 @@ public sealed class CppGenerator : IApiGenerator
                 {
                     if (pattern.StartsWith("!", StringComparison.Ordinal))
                     {
-                        // Exclusion antipattern: strip the '!' prefix and check whether the
+                        // Exclusion pattern: strip the '!' prefix and check whether the
                         // file matches — if it does, mark it excluded (included = false)
                         var exclusionGlob = pattern.Substring(1).Trim();
                         if (exclusionGlob.Length > 0 && MatchesGlob(exclusionGlob, rootAbsolute, absoluteFile))
@@ -257,7 +257,7 @@ public sealed class CppGenerator : IApiGenerator
                     else
                     {
                         // Inclusion pattern: a match sets included=true, and a later exclusion
-                        // antipattern can still override this to produce gitignore semantics
+                        // pattern can still override this to produce gitignore semantics
                         if (MatchesGlob(pattern, rootAbsolute, absoluteFile))
                         {
                             included = true;

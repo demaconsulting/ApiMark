@@ -151,11 +151,11 @@ public sealed class ApiMarkTask : Task
     /// </remarks>
     public string? ApiMarkClangPath { get; set; }
 
-    /// <summary>Gets or sets the semicolon-separated, order-preserved list of glob and antipattern strings for C++ header selection.</summary>
+    /// <summary>Gets or sets the semicolon-separated, order-preserved list of glob and exclusion pattern strings for C++ header selection.</summary>
     /// <remarks>
     ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkApiHeaders)</c>.
     ///     Entries are forwarded as individual <c>--api-headers</c> flags in the order they appear.
-    ///     Entries with a <c>!</c> prefix are exclusion antipatterns; entries without are include
+    ///     Entries with a <c>!</c> prefix are exclusion patterns; entries without are include
     ///     patterns. Gitignore semantics apply: the last matching pattern wins, enabling
     ///     include/exclude/re-include sequences.
     ///     Optional — when empty, all headers under <c>$(ApiMarkIncludePaths)</c> with recognized
@@ -250,7 +250,7 @@ public sealed class ApiMarkTask : Task
                 }
             }
 
-            // Emit one --api-headers flag per pattern entry, order-preserved including ! antipatterns
+            // Emit one --api-headers flag per pattern entry, order-preserved including ! exclusion patterns
             if (!string.IsNullOrEmpty(ApiMarkApiHeaders))
             {
                 foreach (var rawEntry in ApiMarkApiHeaders!.Split(';'))
