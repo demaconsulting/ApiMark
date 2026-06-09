@@ -238,7 +238,7 @@ internal sealed class TypeLinkResolver
     private string GetTypePageKey(TypeReference typeRef)
     {
         var folder = DotNetGenerator.GetNamespaceFolderPath(typeRef.Namespace, _rootNamespaces);
-        var name = TypeNameSimplifier.StripArity(typeRef.Name);
+        var name = TypeNameSimplifier.FlattenArity(typeRef.Name);
         return folder.Length > 0 ? $"{folder}/{name}" : name;
     }
 
@@ -277,7 +277,8 @@ internal sealed class TypeLinkResolver
     /// <param name="externalTypes">The set to add to when the type qualifies.</param>
     private static void TrackExternalType(TypeReference typeRef, ISet<ExternalTypeInfo> externalTypes)
     {
-        if (typeRef.Namespace.StartsWith("System", StringComparison.Ordinal))
+        if (typeRef.Namespace == "System" ||
+            typeRef.Namespace.StartsWith("System.", StringComparison.Ordinal))
         {
             return;
         }

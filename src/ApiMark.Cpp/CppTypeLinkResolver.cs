@@ -146,7 +146,7 @@ internal sealed class CppTypeLinkResolver
 
         // External type with a namespace: track for the External Types section
         var ns = ExtractNamespace(stripped);
-        if (!string.IsNullOrEmpty(ns) && !ns.StartsWith("std", StringComparison.Ordinal))
+        if (!string.IsNullOrEmpty(ns) && ns != "std" && !ns.StartsWith("std::", StringComparison.Ordinal))
         {
             var lastSep = stripped.LastIndexOf("::", StringComparison.Ordinal);
             var shortName = lastSep >= 0 ? stripped[(lastSep + 2)..] : stripped;

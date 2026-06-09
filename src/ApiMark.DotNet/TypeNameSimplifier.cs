@@ -131,6 +131,23 @@ public static class TypeNameSimplifier
     }
 
     /// <summary>
+    ///     Converts the IL backtick arity suffix to a plain numeric suffix, producing a
+    ///     file-system-safe name that still distinguishes generic types by parameter count.
+    /// </summary>
+    /// <remarks>
+    ///     For example, <c>Foo`2</c> becomes <c>Foo2</c> and <c>Foo</c> is unchanged.
+    ///     This avoids the collision that <see cref="StripArity"/> would cause when both
+    ///     <c>Foo</c> and <c>Foo&lt;T&gt;</c> exist in the same namespace.
+    /// </remarks>
+    /// <param name="name">The raw IL type name that may contain a backtick arity suffix.</param>
+    /// <returns>The name with the backtick removed but the arity count preserved.</returns>
+    internal static string FlattenArity(string name)
+    {
+        var tick = name.IndexOf('`');
+        return tick >= 0 ? name.Substring(0, tick) + name.Substring(tick + 1) : name;
+    }
+
+    /// <summary>
     ///     Returns the shortest unambiguous name for <paramref name="typeRef"/> relative to
     ///     <paramref name="contextNamespace"/>, stripping that namespace's prefix if present.
     /// </summary>

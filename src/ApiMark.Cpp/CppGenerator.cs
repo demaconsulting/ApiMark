@@ -1677,6 +1677,11 @@ public sealed class CppGenerator : IApiGenerator
         sb.Append(string.Join(", ", paramParts));
         sb.Append(')');
 
+        if (fn.IsDeleted)
+        {
+            sb.Append(" = delete");
+        }
+
         return sb.ToString();
     }
 

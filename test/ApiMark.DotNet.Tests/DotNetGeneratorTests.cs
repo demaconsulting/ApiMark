@@ -1355,12 +1355,12 @@ public class DotNetGeneratorTests
         // Act
         generator.Generate(factory, new InMemoryContext());
 
-        // Assert: type page must exist (arity suffix stripped from IL name SampleTransform`2)
+        // Assert: type page must exist (arity flattened: SampleTransform`2 → SampleTransform2)
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleTransform"),
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleTransform2"),
             "Expected type page for SampleTransform generic delegate");
 
-        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleTransform"];
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleTransform2"];
         var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
         Assert.NotNull(signature);
 

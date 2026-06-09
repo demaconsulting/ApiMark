@@ -120,6 +120,9 @@ public record CppField(
 /// <param name="IsDeprecated">
 ///     <see langword="true"/> when the function carries a <c>[[deprecated]]</c> attribute.
 /// </param>
+/// <param name="IsDeleted">
+///     <see langword="true"/> when the function is declared <c>= delete</c>, explicitly forbidding its use.
+/// </param>
 /// <param name="Location">Source location of the declaration, or <see langword="null"/> when unavailable.</param>
 /// <param name="Doc">Doxygen documentation attached to this function, or <see langword="null"/> when absent.</param>
 public record CppFunction(
@@ -132,6 +135,7 @@ public record CppFunction(
     bool IsConstructor,
     bool IsVariadic,
     bool IsDeprecated,
+    bool IsDeleted,
     CppSourceLocation? Location,
     CppDocComment? Doc);
 

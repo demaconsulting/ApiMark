@@ -241,7 +241,7 @@ public sealed class DotNetGenerator : IApiGenerator
             var typeMemberId = BuildTypeId(t);
             var summary = xmlDocs.GetSummary(typeMemberId) ?? NoDescriptionPlaceholder;
             var typeDisplayName = StripArity(t.Name);
-            var link = $"{shortName}/{typeDisplayName}.md";
+            var link = $"{shortName}/{FlattenArity(t.Name)}.md";
             return new[] { $"[{typeDisplayName}]({link})", summary };
         });
         nsWriter.WriteTable(typeHeaders, typeRows);
@@ -273,7 +273,7 @@ public sealed class DotNetGenerator : IApiGenerator
         XmlDocReader xmlDocs,
         TypeLinkResolver resolver)
     {
-        using var typeWriter = factory.CreateMarkdown(namespaceFolderPath, StripArity(type.Name));
+        using var typeWriter = factory.CreateMarkdown(namespaceFolderPath, FlattenArity(type.Name));
         typeWriter.WriteHeading(1, StripArity(type.Name));
 
         // Emit the C# declaration signature so readers can see the type kind, modifiers, and direct inheritance
@@ -361,7 +361,7 @@ public sealed class DotNetGenerator : IApiGenerator
                     : string.Empty;
                 var memberDisplayName = GetMemberDisplayName(member);
                 var sanitizedName = GetSanitizedMemberFileName(member, type);
-                var memberPageLink = $"{StripArity(type.Name)}/{sanitizedName}.md";
+                var memberPageLink = $"{FlattenArity(type.Name)}/{sanitizedName}.md";
 
                 if (member is MethodDefinition singleMethod)
                 {
@@ -421,7 +421,7 @@ public sealed class DotNetGenerator : IApiGenerator
                     : string.Empty;
                 var overloadDisplayName = GetMethodGroupDisplayName(representative, orderedOverloads.Count);
                 var overloadFileName = GetSanitizedMemberFileName(representative, type);
-                var memberLink = $"{StripArity(type.Name)}/{overloadFileName}.md";
+                var memberLink = $"{FlattenArity(type.Name)}/{overloadFileName}.md";
                 var isConstructorGroup = representative.Name == ConstructorMethodName;
 
                 WriteMethodOverloadPage(factory, namespaceName, namespaceFolderPath, type, orderedOverloads, xmlDocs, resolver);
@@ -439,7 +439,7 @@ public sealed class DotNetGenerator : IApiGenerator
             {
                 // Case-insensitive collision: mixed kinds or different-case method names.
                 // Write a single combined page named after the lowercase key on first encounter.
-                var memberLink = $"{StripArity(type.Name)}/{lowerKey}.md";
+                var memberLink = $"{FlattenArity(type.Name)}/{lowerKey}.md";
 
                 if (writtenLowerKeys.Add(lowerKey))
                 {
@@ -549,7 +549,7 @@ public sealed class DotNetGenerator : IApiGenerator
         TypeLinkResolver resolver)
     {
         var sanitizedName = GetSanitizedMemberFileName(member, type);
-        var memberCurrentFolder = $"{namespaceFolderPath}/{StripArity(type.Name)}";
+        var memberCurrentFolder = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
         using var memberWriter = factory.CreateMarkdown(memberCurrentFolder, sanitizedName);
 
         var displayName = GetMemberDisplayName(member);
@@ -609,7 +609,7 @@ public sealed class DotNetGenerator : IApiGenerator
         TypeLinkResolver resolver)
     {
         var sanitizedName = BuildMethodFileName(overloads[0], type);
-        var overloadCurrentFolder = $"{namespaceFolderPath}/{StripArity(type.Name)}";
+        var overloadCurrentFolder = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
         using var memberWriter = factory.CreateMarkdown(overloadCurrentFolder, sanitizedName);
 
         memberWriter.WriteHeading(1, GetMethodGroupName(overloads[0]));
@@ -665,7 +665,7 @@ public sealed class DotNetGenerator : IApiGenerator
         XmlDocReader xmlDocs,
         TypeLinkResolver resolver)
     {
-        var combinedCurrentFolder = $"{namespaceFolderPath}/{StripArity(type.Name)}";
+        var combinedCurrentFolder = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
         using var writer = factory.CreateMarkdown(combinedCurrentFolder, lowerKey);
 
         // The shared lowercase key serves as the page heading so every member in the group
@@ -1485,4 +1485,12 @@ public sealed class DotNetGenerator : IApiGenerator
         var tick = name.IndexOf('`');
         return tick >= 0 ? name.Substring(0, tick) : name;
     }
+
+    /// <summary>
+    ///     Converts the IL backtick arity suffix to a plain numeric suffix for file-system-safe names.
+    ///     For example, <c>Foo`2</c> becomes <c>Foo2</c>; <c>Foo</c> is unchanged.
+    /// </summary>
+    /// <param name="name">The raw IL type name that may contain a backtick arity suffix.</param>
+    /// <returns>The name with the backtick removed but the arity count preserved.</returns>
+    private static string FlattenArity(string name) => TypeNameSimplifier.FlattenArity(name);
 }

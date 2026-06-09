@@ -1,3 +1,4 @@
+// cspell:ignore deletedmembersclass
 using ApiMark.Core.TestHelpers;
 using ApiMark.Cpp;
 using ApiMark.Cpp.CppAst;
@@ -1014,5 +1015,58 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         Assert.Single(externalTypes);
         Assert.Equal("Logger", externalTypes.First().TypeString);
         Assert.Equal("acme", externalTypes.First().Namespace);
+    }
+
+    /// <summary>
+    ///     Validates that a deleted copy constructor is still documented and that its
+    ///     signature contains <c>= delete</c> so that readers know copying is explicitly
+    ///     forbidden without needing to open the header file.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_DeletedCopyConstructor_EmitsDeleteSuffix()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: the type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/DeletedMembersClass"),
+            "Expected type page for DeletedMembersClass");
+
+        // Assert: both constructors share the same base name, so they are combined onto
+        // a single page keyed by the lowercase class name
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/DeletedMembersClass/deletedmembersclass"),
+            "Expected combined constructor page for DeletedMembersClass");
+
+        // Assert: the combined constructor page must contain "= delete" for the deleted overload
+        var writer = factory.Writers["fixtures/DeletedMembersClass/deletedmembersclass"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains("= delete", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a deleted copy-assignment operator is still documented and that its
+    ///     signature contains <c>= delete</c> so that readers know assignment is explicitly
+    ///     forbidden without needing to open the header file.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_DeletedCopyAssignmentOperator_EmitsDeleteSuffix()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: the operators page for DeletedMembersClass must contain "= delete"
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/DeletedMembersClass/operators"),
+            "Expected operators page for DeletedMembersClass");
+
+        var writer = factory.Writers["fixtures/DeletedMembersClass/operators"];
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains("= delete", StringComparison.Ordinal));
     }
 }

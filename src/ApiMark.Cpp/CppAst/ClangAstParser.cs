@@ -879,6 +879,7 @@ internal sealed class ClangAstParser
 
         var isVariadic = node.TryGetProperty("variadic", out var v) && v.GetBoolean();
         var isDeprecated = node.TryGetProperty("isDeprecated", out var dep) && dep.GetBoolean();
+        var isDeleted = node.TryGetProperty("explicitlyDeleted", out var del) && del.GetBoolean();
         var location = GetCurrentSourceLocation(node);
         var parameters = new List<CppParameter>();
         CppDocComment? doc = null;
@@ -913,6 +914,7 @@ internal sealed class ClangAstParser
             false,
             isVariadic,
             isDeprecated,
+            isDeleted,
             location,
             doc);
 
@@ -1039,6 +1041,7 @@ internal sealed class ClangAstParser
         var isVirtual = node.TryGetProperty("isVirtual", out var iv) && iv.GetBoolean();
         var isVariadic = node.TryGetProperty("variadic", out var varNode) && varNode.GetBoolean();
         var isDeprecated = node.TryGetProperty("isDeprecated", out var dep) && dep.GetBoolean();
+        var isDeleted = node.TryGetProperty("explicitlyDeleted", out var del) && del.GetBoolean();
 
         // Source location: record the file and line from the node's own loc field
         var location = GetCurrentSourceLocation(node);
@@ -1075,6 +1078,7 @@ internal sealed class ClangAstParser
             isConstructor,
             isVariadic,
             isDeprecated,
+            isDeleted,
             location,
             doc);
     }
