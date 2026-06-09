@@ -315,6 +315,7 @@ public sealed class DotNetGenerator : IApiGenerator
             .Where(IsOperator)
             .OrderBy(m => m.Name, StringComparer.Ordinal)
             .ThenBy(m => m.Parameters.Count)
+            .ThenBy(m => string.Join(",", m.Parameters.Select(p => p.ParameterType.FullName)), StringComparer.Ordinal)
             .ToList();
 
         var members = allMembers
@@ -1149,6 +1150,15 @@ public sealed class DotNetGenerator : IApiGenerator
         }
 
         var paramList = string.Join(",", method.Parameters.Select(p => p.ParameterType.FullName));
+
+        // Conversion operators carry a ~ReturnType suffix in the XML doc member ID
+        // (e.g. M:Type.op_Implicit(SourceType)~TargetType) that distinguishes overloads
+        // with the same source type but different target types
+        if (method.Name is "op_Implicit" or "op_Explicit")
+        {
+            return $"M:{typeName}.{methodName}({paramList})~{method.ReturnType.FullName}";
+        }
+
         return $"M:{typeName}.{methodName}({paramList})";
     }
 

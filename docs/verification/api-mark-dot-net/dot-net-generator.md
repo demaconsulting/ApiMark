@@ -104,6 +104,8 @@ it, and that no individual per-operator pages are created. This scenario is test
 `DotNetGenerator_Generate_TypeWithOperators_TypePageHasOperatorsSection`,
 `DotNetGenerator_Generate_TypeWithOperators_OperatorsPageContainsSummaries`, and
 `DotNetGenerator_Generate_TypeWithOperators_OperatorsPageUsesSymbolHeadings`.
+
+**Case-collision class creates a combined page**: Verifies that members whose names differ only by
 case are merged into a single combined detail page on case-insensitive targets. This scenario is
 tested by `DotNetGenerator_Generate_CaseCollisionClass_CreatesCombinedPage`.
 

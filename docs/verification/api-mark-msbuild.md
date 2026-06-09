@@ -92,6 +92,8 @@ semicolon-delimited entry in `ApiMarkApiHeaders` is emitted as its own `--api-he
 in order, and that `!`-prefixed exclusion patterns are forwarded verbatim so the generator
 can apply last-match-wins gitignore semantics. This scenario is tested by
 `ApiMarkTask_Cpp_ApiHeaders_ForwardedAsIndividualFlags`.
+
+**Empty include paths causes graceful skip for C++ project**: Verifies that when
 `ApiMarkIncludePaths` is not set for a C++ project, the task returns success immediately with no
 side effects and no tool invocation. This scenario is tested by
 `ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExecution`.

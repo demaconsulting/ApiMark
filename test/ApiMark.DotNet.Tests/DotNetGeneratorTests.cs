@@ -1427,13 +1427,13 @@ public class DotNetGeneratorTests
         // Act
         generator.Generate(factory, new InMemoryContext());
 
-        // Assert: OperatorsClass has a documented constructor; its detail page must exist
+        // Assert: OperatorsStruct has a documented constructor; its detail page must exist
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsClass/OperatorsClass"),
-            "Expected member page for OperatorsClass constructor");
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsStruct/OperatorsStruct"),
+            "Expected member page for OperatorsStruct constructor");
 
         // Assert: the constructor summary must appear as a paragraph — not the no-description placeholder
-        var writer = factory.Writers["ApiMark.DotNet.Fixtures/OperatorsClass/OperatorsClass"];
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/OperatorsStruct/OperatorsStruct"];
         var paragraphs = writer.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
         Assert.Contains(paragraphs, p => p.Contains("Initializes a new instance"));
         Assert.DoesNotContain(paragraphs, p => p.Contains("No description provided"));
@@ -1457,7 +1457,7 @@ public class DotNetGeneratorTests
         // Assert: the constructor detail page has a Parameter table whose description column
         // contains the XML-authored text for the 'value' parameter
         Assert.True(factory.Writers.TryGetValue(
-            "ApiMark.DotNet.Fixtures/OperatorsClass/OperatorsClass", out var writer));
+            "ApiMark.DotNet.Fixtures/OperatorsStruct/OperatorsStruct", out var writer));
         var paramTable = writer!.Operations
             .OfType<TableOperation>()
             .FirstOrDefault(t => t.Headers.Contains("Parameter", StringComparer.Ordinal));
@@ -1483,12 +1483,12 @@ public class DotNetGeneratorTests
 
         // Assert: shared operators page must exist
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsClass/operators"),
-            "Expected operators.md page for OperatorsClass");
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsStruct/operators"),
+            "Expected operators.md page for OperatorsStruct");
 
         // Assert: no individual per-operator pages must be created
         Assert.False(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsClass/op_Addition"),
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsStruct/op_Addition"),
             "Individual operator pages must not be created; all operators share operators.md");
     }
 
@@ -1507,10 +1507,10 @@ public class DotNetGeneratorTests
         generator.Generate(factory, new InMemoryContext());
 
         // Assert: Operators heading is present on the type page
-        var typeWriter = factory.Writers["ApiMark.DotNet.Fixtures/OperatorsClass"];
+        var typeWriter = factory.Writers["ApiMark.DotNet.Fixtures/OperatorsStruct"];
         var operations = typeWriter.Operations.ToList();
         var opsIndex = operations.FindIndex(op => op is HeadingOperation h && h.Text == "Operators");
-        Assert.True(opsIndex >= 0, "Expected 'Operators' heading on OperatorsClass type page");
+        Assert.True(opsIndex >= 0, "Expected 'Operators' heading on OperatorsStruct type page");
 
         // Assert: the table immediately following links to operators.md
         var opsTable = operations.Skip(opsIndex + 1).OfType<TableOperation>().First();
@@ -1534,7 +1534,7 @@ public class DotNetGeneratorTests
 
         // Assert: the operators page exists and its summaries come from the XML doc
         Assert.True(factory.Writers.TryGetValue(
-            "ApiMark.DotNet.Fixtures/OperatorsClass/operators", out var writer));
+            "ApiMark.DotNet.Fixtures/OperatorsStruct/operators", out var writer));
         var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
         Assert.Contains(paragraphs, p => p.Contains("Adds two instances"));
         Assert.Contains(paragraphs, p => p.Contains("Subtracts one instance"));
@@ -1556,7 +1556,7 @@ public class DotNetGeneratorTests
 
         // Assert
         Assert.True(factory.Writers.TryGetValue(
-            "ApiMark.DotNet.Fixtures/OperatorsClass/operators", out var writer));
+            "ApiMark.DotNet.Fixtures/OperatorsStruct/operators", out var writer));
         var h2Headings = writer!.Operations
             .OfType<HeadingOperation>()
             .Where(h => h.Level == 2)
