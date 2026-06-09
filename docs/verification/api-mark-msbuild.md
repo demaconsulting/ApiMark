@@ -35,6 +35,8 @@ permission is required.
 - For C++ projects, `ApiMarkDefines` semicolons are converted to commas when forwarding as
   `--defines`.
 - For C++ projects, `ApiMarkCppStandard` is forwarded as `--cpp-standard` when set.
+- For C++ projects, each entry in `ApiMarkApiHeaders` is forwarded as a separate `--api-headers`
+  flag in order, with `!`-prefixed exclusion patterns passed verbatim.
 - When `ApiMarkIncludePaths` is empty for a C++ project, the task returns success with no
   side effects.
 
@@ -85,7 +87,11 @@ C++ builds. This scenario is tested by `ApiMarkTask_Cpp_Defines_SemicolonsConver
 passed to the spawned tool as the `--cpp-standard` argument for C++ builds. This scenario is
 tested by `ApiMarkTask_Cpp_CppStandard_ForwardedToTool`.
 
-**Empty include paths causes graceful skip for C++ project**: Verifies that when
+**C++ api-headers patterns are forwarded as individual flags**: Verifies that each
+semicolon-delimited entry in `ApiMarkApiHeaders` is emitted as its own `--api-headers` flag
+in order, and that `!`-prefixed exclusion patterns are forwarded verbatim so the generator
+can apply last-match-wins gitignore semantics. This scenario is tested by
+`ApiMarkTask_Cpp_ApiHeaders_ForwardedAsIndividualFlags`.
 `ApiMarkIncludePaths` is not set for a C++ project, the task returns success immediately with no
 side effects and no tool invocation. This scenario is tested by
 `ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExecution`.

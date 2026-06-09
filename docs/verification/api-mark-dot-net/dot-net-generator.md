@@ -27,6 +27,10 @@ network dependency, or privileged configuration is needed.
 - Every visible member receives its own dedicated detail page unless case-insensitive file-name
   collisions require combining members onto one page, and the resulting page is linked from the
   type page, making navigation fully deterministic.
+- Constructor XML summary and parameter descriptions are read from the XML documentation file
+  and written to the constructor's member detail page.
+- Operator overload methods are documented on a single per-type `operators.md` page using C#
+  operator symbols as headings; no individual per-operator pages are created.
 - Generated Markdown content matches expected file names, headings, and signatures.
 - Output files follow the naming convention: `api.md` entrypoint, `{Namespace}.md`
   namespace summaries, `{Namespace}/{TypeName}.md` type pages, and
@@ -85,7 +89,21 @@ namespace — root and child — in a single table with a Types column showing t
 for each namespace, giving AI agents a complete navigation map in one read. This scenario is tested
 by `DotNetGenerator_Generate_ApiMd_ListsAllNamespacesWithTypeCount`.
 
-**Case-collision class creates a combined page**: Verifies that members whose names differ only by
+**Constructor XML documentation appears in the constructor detail page**: Verifies that the
+XML summary and parameter descriptions authored for a constructor are read from the XML
+documentation file and emitted onto the constructor's member detail page, confirming the
+`#ctor` doc ID mapping is applied correctly. This scenario is tested by
+`DotNetGenerator_Generate_ConstructorWithXmlSummary_WritesSummaryToMemberPage` and
+`DotNetGenerator_Generate_ConstructorWithXmlParams_WritesParamDescriptionsToMemberPage`.
+
+**Operator overloads produce a shared operators.md page**: Verifies that all operator
+overload methods defined on a type are grouped onto a single `operators.md` page named with
+C# operator symbols as H2 headings, that the type page shows an Operators section linking to
+it, and that no individual per-operator pages are created. This scenario is tested by
+`DotNetGenerator_Generate_TypeWithOperators_CreatesOperatorsPage`,
+`DotNetGenerator_Generate_TypeWithOperators_TypePageHasOperatorsSection`,
+`DotNetGenerator_Generate_TypeWithOperators_OperatorsPageContainsSummaries`, and
+`DotNetGenerator_Generate_TypeWithOperators_OperatorsPageUsesSymbolHeadings`.
 case are merged into a single combined detail page on case-insensitive targets. This scenario is
 tested by `DotNetGenerator_Generate_CaseCollisionClass_CreatesCombinedPage`.
 

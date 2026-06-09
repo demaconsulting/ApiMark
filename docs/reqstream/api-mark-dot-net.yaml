@@ -17,6 +17,7 @@ sections:
           - ApiMarkDotNet-DotNetGenerator-IncludeObsoleteApisWhenRequested
           - ApiMarkDotNet-DotNetGenerator-EmitDetailPageForEveryMember
           - ApiMarkDotNet-DotNetGenerator-ProduceConsistentOutputFileStructure
+          - ApiMarkDotNet-DotNetGenerator-DocumentOperatorOverloads
         tests:
           - ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown
       - id: ApiMarkDotNet-TypeNameSimplifier-ProduceReadableTypeNames

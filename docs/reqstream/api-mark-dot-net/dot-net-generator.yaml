@@ -29,6 +29,8 @@ sections:
               available from the XML documentation file produced by the C# compiler.
             tests:
               - DotNetGenerator_ReadXmlComments_SummaryAndRemarks_AppearInMarkdown
+              - DotNetGenerator_Generate_ConstructorWithXmlSummary_WritesSummaryToMemberPage
+              - DotNetGenerator_Generate_ConstructorWithXmlParams_WritesParamDescriptionsToMemberPage
           - id: ApiMarkDotNet-DotNetGenerator-FilterByVisibility
             title: DotNetGenerator shall support ApiVisibility filtering for Public, PublicAndProtected, and All.
             justification: |
@@ -116,3 +118,20 @@ sections:
               without cluttering individual type cells with fully-qualified names.
             tests:
               - DotNetGenerator_Generate_ExternalNonSystemParameterType_EmitsExternalTypesSection
+          - id: ApiMarkDotNet-DotNetGenerator-DocumentOperatorOverloads
+            title: >-
+              DotNetGenerator shall document visible operator overload methods on a single
+              dedicated operators.md page per type, using C# operator symbols as headings.
+            justification: |
+              C# types frequently expose arithmetic, comparison, and conversion operators
+              as part of their public API. Operators cannot be given individual pages using
+              their IL names (op_Addition, op_Subtraction, etc.) without ambiguity on
+              case-insensitive file systems, and their IL names are not readable to consumers.
+              Grouping all operators for a type onto a single operators.md page with C#
+              symbol headings (operator +, operator -) makes the operator API surface
+              discoverable and navigable without file-name collisions.
+            tests:
+              - DotNetGenerator_Generate_TypeWithOperators_CreatesOperatorsPage
+              - DotNetGenerator_Generate_TypeWithOperators_TypePageHasOperatorsSection
+              - DotNetGenerator_Generate_TypeWithOperators_OperatorsPageContainsSummaries
+              - DotNetGenerator_Generate_TypeWithOperators_OperatorsPageUsesSymbolHeadings
