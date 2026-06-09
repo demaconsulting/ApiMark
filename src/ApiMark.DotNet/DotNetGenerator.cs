@@ -543,7 +543,7 @@ public sealed class DotNetGenerator : IApiGenerator
             typeWriter.WriteHeading(2, "Operators");
             typeWriter.WriteTable(
                 new[] { "Member", DescriptionColumnHeader },
-                new[] { new[] { $"[operators]({FlattenArity(type.Name)}/operators.md)", "Operator overloads" } });
+                new[] { new[] { $"[Operators]({FlattenArity(type.Name)}/operators.md)", "Operator overloads" } });
         }
 
         // Emit Nested Types section when the type has visible nested types — each nested type
@@ -713,7 +713,7 @@ public sealed class DotNetGenerator : IApiGenerator
     {
         var operatorsCurrentFolder = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
         using var writer = factory.CreateMarkdown(operatorsCurrentFolder, "operators");
-        writer.WriteHeading(1, "operators");
+        writer.WriteHeading(1, "Operators");
 
         var externalTypes = new SortedSet<ExternalTypeInfo>();
         foreach (var op in operators)
@@ -1205,7 +1205,9 @@ public sealed class DotNetGenerator : IApiGenerator
             return $"M:{typeName}.{methodName}";
         }
 
-        var paramList = string.Join(",", method.Parameters.Select(p => p.ParameterType.FullName));
+        // Normalize nested-type separators: Cecil uses '/' in FullName (e.g. Outer/Inner)
+        // but XML doc IDs always use '.' (e.g. Outer.Inner)
+        var paramList = string.Join(",", method.Parameters.Select(p => p.ParameterType.FullName.Replace('/', '.')));
 
         // Conversion operators carry a ~ReturnType suffix in the XML doc member ID
         // (e.g. M:Type.op_Implicit(SourceType)~TargetType) that distinguishes overloads

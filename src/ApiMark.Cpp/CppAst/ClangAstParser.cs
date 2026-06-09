@@ -27,6 +27,15 @@ internal sealed class ClangAstParser
     private readonly CppGeneratorOptions _options;
 
     /// <summary>
+    ///     The set of normalized absolute paths of header files that were explicitly selected
+    ///     as the API surface by the <see cref="Parse"/> caller. Only declarations whose source
+    ///     file appears in this set are considered owned by the library; transitively-included
+    ///     dependency headers that are under a <see cref="CppGeneratorOptions.PublicIncludeRoots"/>
+    ///     entry but were not selected are therefore excluded.
+    /// </summary>
+    private readonly IReadOnlySet<string> _selectedHeaders;
+
+    /// <summary>
     ///     Tracks the source file currently being walked. The clang JSON AST emits
     ///     <c>loc.file</c> only when the file changes; all subsequent nodes without a
     ///     <c>loc.file</c> field inherit this value.
@@ -41,9 +50,16 @@ internal sealed class ClangAstParser
         new(StringComparer.Ordinal);
 
     /// <summary>Private constructor — callers use the static <see cref="Parse"/> entry point.</summary>
-    private ClangAstParser(CppGeneratorOptions options)
+    /// <param name="options">Generator options. Must not be null.</param>
+    /// <param name="selectedHeaders">
+    ///     Normalized absolute paths of the header files selected as the API surface.
+    ///     Must not be null. <see cref="IsOwned"/> uses this set to reject declarations
+    ///     from transitively-included headers that were not explicitly selected.
+    /// </param>
+    private ClangAstParser(CppGeneratorOptions options, IReadOnlySet<string> selectedHeaders)
     {
         _options = options;
+        _selectedHeaders = selectedHeaders;
     }
 
     // =========================================================================
@@ -67,7 +83,11 @@ internal sealed class ClangAstParser
     ///     </list>
     /// </remarks>
     /// <param name="headers">
-    ///     Absolute paths of the header files to parse. Must not be null or empty.
+    ///     Absolute paths of the header files to parse. These paths also define the
+    ///     owned-symbol filter: only declarations whose source file normalizes to one of
+    ///     these paths are emitted; transitively-included dependency headers that fall under
+    ///     a <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry but are not in this
+    ///     list are excluded. Must not be null or empty.
     /// </param>
     /// <param name="options">
     ///     Generator options controlling include paths, defines, C++ standard, and clang
@@ -115,12 +135,20 @@ internal sealed class ClangAstParser
             // Collect error lines from stderr for the caller to log
             var errors = CollectStderrErrors(stderr);
 
+            // Build the normalized set of selected header paths so that IsOwned() can
+            // restrict output to declarations physically defined in those files.
+            // Headers that are only transitively included (and therefore not in this set)
+            // are excluded even when their paths fall under a PublicIncludeRoot.
+            var selectedHeaders = headers
+                .Select(Path.GetFullPath)
+                .ToHashSet(FileSystemPathComparer);
+
             // Parse the JSON and walk the AST.
             // Use Utf8JsonReader with an explicit MaxDepth because clang's JSON AST can nest
             // hundreds of levels deep inside standard library template instantiations.
             // JsonDocument.ParseValue reads exactly one JSON object from the reader position,
             // consuming the entire TU in one call.
-            var parser = new ClangAstParser(options);
+            var parser = new ClangAstParser(options, selectedHeaders);
             try
             {
                 var jsonBytes = System.Text.Encoding.UTF8.GetBytes(stdout);
@@ -508,16 +536,39 @@ internal sealed class ClangAstParser
             : StringComparison.OrdinalIgnoreCase;
 
     /// <summary>
-    ///     Determines whether a source file falls under one of the configured
-    ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> and therefore belongs to
-    ///     the documented public API.
+    ///     Returns the <see cref="StringComparer"/> appropriate for file-system path comparisons
+    ///     on the current platform.
     /// </summary>
+    /// <remarks>
+    ///     Linux file systems are case-sensitive, so <see cref="StringComparer.Ordinal"/> is
+    ///     used there to avoid incorrectly treating paths that differ only in case as the same
+    ///     file. Windows and macOS default to case-insensitive file systems, so
+    ///     <see cref="StringComparer.OrdinalIgnoreCase"/> is used on those platforms.
+    /// </remarks>
+    private static StringComparer FileSystemPathComparer =>
+        RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
+            ? StringComparer.Ordinal
+            : StringComparer.OrdinalIgnoreCase;
+
+    /// <summary>
+    ///     Determines whether a source file both falls under one of the configured
+    ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entries and was explicitly
+    ///     selected as part of the API surface by the <see cref="Parse"/> caller.
+    /// </summary>
+    /// <remarks>
+    ///     Both conditions must be satisfied: the file must be rooted under a public include
+    ///     root (first check) and its normalized path must appear in <see cref="_selectedHeaders"/>
+    ///     (second check). The second check prevents transitively-included dependency headers
+    ///     that happen to live under a public include root from having their declarations
+    ///     documented when only specific headers were selected by <c>--api-headers</c>.
+    /// </remarks>
     /// <param name="sourceFile">
     ///     The source file path from a clang AST node. May be null or empty for built-in
     ///     or synthesized declarations — those are never considered owned.
     /// </param>
     /// <returns>
-    ///     <see langword="true"/> when the file is under a configured include root;
+    ///     <see langword="true"/> when the file is under a configured include root and its
+    ///     normalized absolute path appears in the selected-headers set;
     ///     <see langword="false"/> otherwise.
     /// </returns>
     private bool IsOwned(string? sourceFile)
@@ -530,13 +581,17 @@ internal sealed class ClangAstParser
         // Normalize the source path to resolve relative segments and mixed separators
         var normalized = Path.GetFullPath(sourceFile);
 
+        // Require the file to be under a public include root AND in the selected-headers set.
+        // The selected-headers check excludes transitively-included dependency headers that
+        // share the same root but were not explicitly chosen by the caller.
         return _options.PublicIncludeRoots.Any(root =>
         {
             // Append the directory separator so "lib" cannot match "libext"
             var normalizedRoot = Path.GetFullPath(root)
                 .TrimEnd(Path.DirectorySeparatorChar, '/') + Path.DirectorySeparatorChar;
             return normalized.StartsWith(normalizedRoot, FileSystemPathComparison);
-        });
+        })
+            && _selectedHeaders.Contains(normalized);
     }
 
     // =========================================================================
