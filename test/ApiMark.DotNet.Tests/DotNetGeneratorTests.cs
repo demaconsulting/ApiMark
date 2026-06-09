@@ -1483,8 +1483,8 @@ public class DotNetGeneratorTests
 
         // Assert: shared operators page must exist
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsStruct/Operators"),
-            "Expected Operators.md page for OperatorsStruct");
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsStruct/operators"),
+            "Expected operators.md page for OperatorsStruct");
 
         // Assert: no individual per-operator pages must be created
         Assert.False(
@@ -1515,7 +1515,7 @@ public class DotNetGeneratorTests
         // Assert: the table immediately following links to operators.md
         var opsTable = operations.Skip(opsIndex + 1).OfType<TableOperation>().First();
         Assert.Single(opsTable.Rows);
-        Assert.Contains("Operators.md", opsTable.Rows[0][0], StringComparison.Ordinal);
+        Assert.Contains("operators.md", opsTable.Rows[0][0], StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -1534,7 +1534,7 @@ public class DotNetGeneratorTests
 
         // Assert: the operators page exists and its summaries come from the XML doc
         Assert.True(factory.Writers.TryGetValue(
-            "ApiMark.DotNet.Fixtures/OperatorsStruct/Operators", out var writer));
+            "ApiMark.DotNet.Fixtures/OperatorsStruct/operators", out var writer));
         var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
         Assert.Contains(paragraphs, p => p.Contains("Adds two instances"));
         Assert.Contains(paragraphs, p => p.Contains("Subtracts one instance"));
@@ -1556,7 +1556,7 @@ public class DotNetGeneratorTests
 
         // Assert
         Assert.True(factory.Writers.TryGetValue(
-            "ApiMark.DotNet.Fixtures/OperatorsStruct/Operators", out var writer));
+            "ApiMark.DotNet.Fixtures/OperatorsStruct/operators", out var writer));
         var h2Headings = writer!.Operations
             .OfType<HeadingOperation>()
             .Where(h => h.Level == 2)
@@ -1587,7 +1587,7 @@ public class DotNetGeneratorTests
 
         // Assert: conversion operator summaries must appear on the operators page
         Assert.True(factory.Writers.TryGetValue(
-            "ApiMark.DotNet.Fixtures/OperatorsStruct/Operators", out var writer));
+            "ApiMark.DotNet.Fixtures/OperatorsStruct/operators", out var writer));
         var paragraphs = writer!.Operations
             .OfType<ParagraphOperation>()
             .Select(p => p.Text)
@@ -1614,7 +1614,7 @@ public class DotNetGeneratorTests
 
         // Assert
         Assert.True(factory.Writers.TryGetValue(
-            "ApiMark.DotNet.Fixtures/OperatorsStruct/Operators", out var writer));
+            "ApiMark.DotNet.Fixtures/OperatorsStruct/operators", out var writer));
         var h2Headings = writer!.Operations
             .OfType<HeadingOperation>()
             .Where(h => h.Level == 2)
@@ -1721,13 +1721,13 @@ public class DotNetGeneratorTests
 
         // Assert: the operators page for OperatorsStruct must exist
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsStruct/Operators"),
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/OperatorsStruct/operators"),
             "Expected operators page for OperatorsStruct");
 
         // Assert: the XML summary for the implicit operator returning Wrapped must appear —
         // without the Replace('/', '.') fix, the XML doc lookup would fail and the summary
         // would be replaced by the no-description placeholder instead
-        var opsWriter = factory.Writers["ApiMark.DotNet.Fixtures/OperatorsStruct/Operators"];
+        var opsWriter = factory.Writers["ApiMark.DotNet.Fixtures/OperatorsStruct/operators"];
         var paragraphs = opsWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
         Assert.Contains(paragraphs, p => p.Contains("Wraps this instance as a Wrapped value", StringComparison.Ordinal));
     }

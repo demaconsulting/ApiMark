@@ -1164,6 +1164,7 @@ public sealed class CppGenerator : IApiGenerator
         var opsCurrentFolder = $"{nsKey}/{cls.Name}";
         using var writer = factory.CreateMarkdown(opsCurrentFolder, "operators");
         writer.WriteHeading(1, "Operators");
+        // Emit the qualified class name comment and #include directive from the first operator
         // that has source location information — gives readers context without browsing headers
         var qualifiedClassName = string.IsNullOrEmpty(nsDisplayName)
             ? cls.Name
@@ -1223,6 +1224,7 @@ public sealed class CppGenerator : IApiGenerator
         var opsCurrentFolder = nsKey;
         using var writer = factory.CreateMarkdown(nsKey, "operators");
         writer.WriteHeading(1, "Operators");
+        // Emit the qualified name comment and #include directive from the first operator that
         // has source location information so readers know which header to include
         var firstWithLocation = operators.FirstOrDefault(op => op.Location != null);
         if (firstWithLocation != null)

@@ -543,7 +543,7 @@ public sealed class DotNetGenerator : IApiGenerator
             typeWriter.WriteHeading(2, "Operators");
             typeWriter.WriteTable(
                 new[] { "Member", DescriptionColumnHeader },
-                new[] { new[] { $"[Operators]({FlattenArity(type.Name)}/Operators.md)", "Operator overloads" } });
+                new[] { new[] { $"[Operators]({FlattenArity(type.Name)}/operators.md)", "Operator overloads" } });
         }
 
         // Emit Nested Types section when the type has visible nested types — each nested type
@@ -712,7 +712,7 @@ public sealed class DotNetGenerator : IApiGenerator
         TypeLinkResolver resolver)
     {
         var operatorsCurrentFolder = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
-        using var writer = factory.CreateMarkdown(operatorsCurrentFolder, "Operators");
+        using var writer = factory.CreateMarkdown(operatorsCurrentFolder, "operators");
         writer.WriteHeading(1, "Operators");
 
         var externalTypes = new SortedSet<ExternalTypeInfo>();
