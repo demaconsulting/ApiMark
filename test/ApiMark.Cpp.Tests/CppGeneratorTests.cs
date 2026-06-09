@@ -1136,6 +1136,40 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     }
 
     /// <summary>
+    ///     Validates that the type alias page for <c>label_t</c> shows a simplified underlying
+    ///     type (<c>std::string</c> rather than the verbose clang form
+    ///     <c>std::basic_string&lt;char, ...&gt;</c>), and that the namespace summary table
+    ///     also uses the simplified form.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_TypeAliasPage_SimplifiesUnderlyingType()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: the alias page declaration must use the simplified form (not the verbose clang form)
+        var aliasWriter = factory.Writers["fixtures/label_t"];
+        var signatures = aliasWriter.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(
+            signatures,
+            s => s.Contains("using label_t = std::string", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            signatures,
+            s => s.Contains("basic_string", StringComparison.Ordinal));
+
+        // Assert: the namespace summary table must also show the simplified underlying type
+        var nsWriter = factory.Writers["fixtures"];
+        var allCells = nsWriter.Operations.OfType<TableOperation>()
+            .SelectMany(t => t.Rows).SelectMany(r => r).ToList();
+        var underlyingCell = allCells
+            .SkipWhile(c => !c.Contains("label_t", StringComparison.Ordinal))
+            .Skip(1)
+            .FirstOrDefault();
+        Assert.NotNull(underlyingCell);
+        Assert.DoesNotContain("basic_string", underlyingCell, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     Validates that a free function with a default parameter value includes the default
     ///     in its signature block (e.g. <c>uint32_t seed = 0</c>).
     /// </summary>

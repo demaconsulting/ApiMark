@@ -166,7 +166,7 @@ public sealed class CppGenerator : IApiGenerator
             // Write one type alias page per owned using-alias declared in this namespace
             foreach (var alias in nsDecls.TypeAliases)
             {
-                WriteTypeAliasPage(factory, nsKey, nsDecls.DisplayName, alias);
+                WriteTypeAliasPage(factory, nsKey, nsDecls.DisplayName, alias, cppResolver);
             }
         }
     }
@@ -707,7 +707,7 @@ public sealed class CppGenerator : IApiGenerator
                 .Select(alias =>
                 {
                     var summary = GetSummary(alias.Doc) ?? NoDescriptionPlaceholder;
-                    var underlying = SimplifyTypeName(alias.UnderlyingTypeName);
+                    var underlying = cppResolver.Linkify(SimplifyTypeName(alias.UnderlyingTypeName), nsKey, externalTypes);
                     return new[] { $"[{alias.Name}]({nsKey}/{alias.Name}.md)", underlying, summary };
                 });
             writer.WriteTable(aliasHeaders, aliasRows);
@@ -1594,21 +1594,27 @@ public sealed class CppGenerator : IApiGenerator
     ///     The C++ qualified namespace name used in the fully-qualified signature comment.
     /// </param>
     /// <param name="alias">The type alias declaration to document.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify the underlying type and track external types.</param>
     private void WriteTypeAliasPage(
         IMarkdownWriterFactory factory,
         string nsKey,
         string nsDisplayName,
-        CppTypeAlias alias)
+        CppTypeAlias alias,
+        CppTypeLinkResolver cppResolver)
     {
         using var writer = factory.CreateMarkdown(nsKey, alias.Name);
         writer.WriteHeading(1, alias.Name);
+
+        // Accumulate external type references found in the underlying type on this page
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
 
         // Emit the fully-qualified name comment, optional #include, and the using declaration
         // so readers have everything needed to use the alias without browsing the header tree
         var qualifiedName = string.IsNullOrEmpty(nsDisplayName)
             ? alias.Name
             : $"{nsDisplayName}::{alias.Name}";
-        var declaration = $"using {alias.Name} = {alias.UnderlyingTypeName}";
+        var simplifiedUnderlying = SimplifyTypeName(alias.UnderlyingTypeName);
+        var declaration = $"using {alias.Name} = {simplifiedUnderlying}";
         if (alias.Location != null)
         {
             var includePath = GetIncludePath(alias.Location.File);
@@ -1636,6 +1642,10 @@ public sealed class CppGenerator : IApiGenerator
         {
             writer.WriteParagraph($"> **Note:** {aliasNote}");
         }
+
+        // Resolve the underlying type to track any non-std external type references
+        cppResolver.Linkify(simplifiedUnderlying, nsKey, externalTypes);
+        WriteExternalTypesSection(writer, externalTypes);
     }
 
     // =========================================================================
