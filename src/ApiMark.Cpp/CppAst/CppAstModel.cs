@@ -150,12 +150,23 @@ public record CppFunction(
 ///     Template classes carry their type parameters in <see cref="TemplateParams"/>; non-template
 ///     classes have an empty list. <see cref="Members"/> contains all constructors and methods;
 ///     callers use <see cref="CppFunction.IsConstructor"/> to distinguish them.
+///     <see cref="NestedClasses"/> holds any public nested class or struct declarations found
+///     inside the class body. <see cref="TypeAliases"/> holds any public <c>using</c> type alias
+///     declarations scoped to this class.
 /// </remarks>
 /// <param name="Name">The unqualified class name.</param>
 /// <param name="BaseTypes">Direct base classes, in declaration order.</param>
 /// <param name="TemplateParams">Template type parameters; empty for non-template classes.</param>
 /// <param name="Members">All constructors and methods declared in the class body, in declaration order.</param>
 /// <param name="Fields">All data member fields declared in the class body, in declaration order.</param>
+/// <param name="NestedClasses">
+///     Public nested class and struct declarations found inside the class body, in declaration order.
+///     Empty when no nested classes are present.
+/// </param>
+/// <param name="TypeAliases">
+///     Public <c>using</c> type alias declarations scoped to this class, in declaration order.
+///     Empty when no class-scoped aliases are present.
+/// </param>
 /// <param name="IsDeprecated">
 ///     <see langword="true"/> when the class carries a <c>[[deprecated]]</c> attribute.
 /// </param>
@@ -170,6 +181,8 @@ public record CppClass(
     IReadOnlyList<CppTemplateParam> TemplateParams,
     IReadOnlyList<CppFunction> Members,
     IReadOnlyList<CppField> Fields,
+    IReadOnlyList<CppClass> NestedClasses,
+    IReadOnlyList<CppTypeAlias> TypeAliases,
     bool IsDeprecated,
     bool IsFinal,
     CppSourceLocation? Location,

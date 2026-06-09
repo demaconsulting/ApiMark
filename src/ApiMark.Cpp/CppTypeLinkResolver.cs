@@ -170,18 +170,28 @@ internal sealed class CppTypeLinkResolver
             return key;
         }
 
-        // Short-name fallback: match when the stripped value is the unqualified part of a known name
+        // Short-name fallback: only used when exactly one known type has this unqualified name.
+        // If multiple types share the same short name (e.g. Outer::size_type and Other::size_type),
+        // the reference is ambiguous and we fall through to external-type tracking instead.
+        string? matchKey = null;
+        var ambiguous = false;
         foreach (var (knownQualified, knownKey) in _knownTypes)
         {
             var lastSep = knownQualified.LastIndexOf("::", StringComparison.Ordinal);
             var shortName = lastSep >= 0 ? knownQualified[(lastSep + 2)..] : knownQualified;
             if (shortName == stripped)
             {
-                return knownKey;
+                if (matchKey != null)
+                {
+                    ambiguous = true;
+                    break;
+                }
+
+                matchKey = knownKey;
             }
         }
 
-        return null;
+        return ambiguous ? null : matchKey;
     }
 
     /// <summary>

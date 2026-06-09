@@ -689,6 +689,10 @@ internal sealed class ClangAstParser
     ///     Parses a <c>CXXRecordDecl</c> node into a <see cref="CppClass"/> and adds it
     ///     to the appropriate namespace builder.
     /// </summary>
+    /// <remarks>
+    ///     This is a thin wrapper over <see cref="BuildClass"/> that adds the resulting
+    ///     <see cref="CppClass"/> to the namespace accumulator when parsing succeeds.
+    /// </remarks>
     /// <param name="node">The <c>CXXRecordDecl</c> JSON node with <c>completeDefinition: true</c>.</param>
     /// <param name="nsQualName">The qualified name of the enclosing namespace.</param>
     /// <param name="templateParams">
@@ -700,22 +704,57 @@ internal sealed class ClangAstParser
         string nsQualName,
         IReadOnlyList<CppTemplateParam>? templateParams)
     {
+        // Delegate to BuildClass for all parsing, then register the result in the namespace builder
+        var cls = BuildClass(node, nsQualName, templateParams);
+        if (cls != null)
+        {
+            GetNsBuilder(nsQualName).Classes.Add(cls);
+        }
+    }
+
+    /// <summary>
+    ///     Builds a <see cref="CppClass"/> from a <c>CXXRecordDecl</c> JSON node and returns
+    ///     it without adding it to any namespace builder.
+    /// </summary>
+    /// <remarks>
+    ///     Separated from <see cref="ParseClass"/> so that nested class declarations found
+    ///     inside a class body can be parsed recursively and collected in the parent class's
+    ///     <see cref="CppClass.NestedClasses"/> list rather than added to the namespace builder.
+    /// </remarks>
+    /// <param name="node">The <c>CXXRecordDecl</c> JSON node with <c>completeDefinition: true</c>.</param>
+    /// <param name="nsQualName">
+    ///     The qualified name of the enclosing scope (namespace or class). Used as context
+    ///     when recursing into nested class bodies.
+    /// </param>
+    /// <param name="templateParams">
+    ///     Template parameters extracted from an enclosing <c>ClassTemplateDecl</c>, or
+    ///     <see langword="null"/> for non-template classes.
+    /// </param>
+    /// <returns>
+    ///     A populated <see cref="CppClass"/>, or <see langword="null"/> when the node is
+    ///     not owned, is compiler-synthesized, or has no valid name.
+    /// </returns>
+    private CppClass? BuildClass(
+        JsonElement node,
+        string nsQualName,
+        IReadOnlyList<CppTemplateParam>? templateParams)
+    {
         // Skip when the class is not owned by a public include root
         if (!IsOwned(_currentFile))
         {
-            return;
+            return null;
         }
 
         // Skip compiler-synthesized records (anonymous structs, etc.)
         if (node.TryGetProperty("isImplicit", out var impl) && impl.GetBoolean())
         {
-            return;
+            return null;
         }
 
         var name = GetName(node);
         if (string.IsNullOrEmpty(name))
         {
-            return;
+            return null;
         }
 
         // Determine the default access level: struct → public, class → private
@@ -727,6 +766,8 @@ internal sealed class ClangAstParser
         var members = new List<CppFunction>();
         var fields = new List<CppField>();
         var baseTypes = new List<CppBaseType>();
+        var nestedClasses = new List<CppClass>();
+        var typeAliases = new List<CppTypeAlias>();
         CppDocComment? doc = null;
 
         // Deprecated if isDeprecated flag is set; DeprecatedAttr in inner also triggers
@@ -799,6 +840,105 @@ internal sealed class ClangAstParser
                             break;
                         }
 
+                    case "CXXRecordDecl":
+                        // Recursively collect public nested classes with complete definitions;
+                        // implicit and forward declarations are excluded by BuildClass itself
+                        if (currentAccess == CppAccessibility.Public &&
+                            child.TryGetProperty("completeDefinition", out var ncd) && ncd.GetBoolean())
+                        {
+                            var nestedCls = BuildClass(child, $"{nsQualName}::{name}", null);
+                            if (nestedCls != null)
+                            {
+                                nestedClasses.Add(nestedCls);
+                            }
+                        }
+
+                        break;
+
+                    case "ClassTemplateDecl":
+                        // Handle nested template classes; only collect public ones
+                        if (currentAccess == CppAccessibility.Public &&
+                            child.TryGetProperty("inner", out var tmplInner))
+                        {
+                            // Gather template type parameters before reaching the CXXRecordDecl child
+                            var tmplParams = new List<CppTemplateParam>();
+                            var tmplParsed = false;
+                            foreach (var tmplChild in tmplInner.EnumerateArray())
+                            {
+                                UpdateCurrentFile(tmplChild);
+                                var tmplKind = GetKind(tmplChild);
+                                if (tmplKind is "TemplateTypeParmDecl" or "NonTypeTemplateParmDecl"
+                                    or "TemplateTemplateParmDecl")
+                                {
+                                    var tpName = GetName(tmplChild);
+                                    if (!string.IsNullOrEmpty(tpName))
+                                    {
+                                        tmplParams.Add(new CppTemplateParam(tpName));
+                                    }
+                                }
+                                else if (!tmplParsed && tmplKind == "CXXRecordDecl" &&
+                                         tmplChild.TryGetProperty("completeDefinition", out var tcd) &&
+                                         tcd.GetBoolean())
+                                {
+                                    // Process only the primary template definition; skip specializations
+                                    var nestedCls = BuildClass(tmplChild, $"{nsQualName}::{name}", tmplParams);
+                                    if (nestedCls != null)
+                                    {
+                                        nestedClasses.Add(nestedCls);
+                                    }
+
+                                    tmplParsed = true;
+                                }
+                            }
+                        }
+
+                        break;
+
+                    case "TypeAliasDecl":
+                        // Collect public class-scoped using-aliases and parse their doc comments
+                        if (currentAccess == CppAccessibility.Public)
+                        {
+                            var aliasName = GetName(child);
+                            if (!string.IsNullOrEmpty(aliasName))
+                            {
+                                // Underlying type lives in child["type"]["qualType"]
+                                var underlyingType = string.Empty;
+                                if (child.TryGetProperty("type", out var typeNode) &&
+                                    typeNode.TryGetProperty("qualType", out var qualTypeNode))
+                                {
+                                    underlyingType = qualTypeNode.GetString() ?? string.Empty;
+                                }
+
+                                var aliasIsDeprecated =
+                                    child.TryGetProperty("isDeprecated", out var aliasDepEl) &&
+                                    aliasDepEl.GetBoolean();
+                                var aliasLocation = GetCurrentSourceLocation(child);
+                                CppDocComment? aliasDoc = null;
+
+                                if (child.TryGetProperty("inner", out var aliasInner))
+                                {
+                                    foreach (var aliasChild in aliasInner.EnumerateArray())
+                                    {
+                                        var aliasChildKind = GetKind(aliasChild);
+                                        switch (aliasChildKind)
+                                        {
+                                            case "FullComment":
+                                                aliasDoc = ParseFullComment(aliasChild);
+                                                break;
+                                            case "DeprecatedAttr":
+                                                aliasIsDeprecated = true;
+                                                break;
+                                        }
+                                    }
+                                }
+
+                                typeAliases.Add(new CppTypeAlias(
+                                    aliasName, underlyingType, aliasIsDeprecated, aliasLocation, aliasDoc));
+                            }
+                        }
+
+                        break;
+
                     case "CXXBaseSpecifier":
                         // Fallback for clang versions older than 18 that emit base specifiers
                         // as CXXBaseSpecifier child nodes in "inner" rather than in a top-level
@@ -832,18 +972,18 @@ internal sealed class ClangAstParser
             }
         }
 
-        var cls = new CppClass(
+        return new CppClass(
             name,
             baseTypes,
             templateParams ?? [],
             members,
             fields,
+            nestedClasses,
+            typeAliases,
             isDeprecated,
             isFinal,
             location,
             doc);
-
-        GetNsBuilder(nsQualName).Classes.Add(cls);
     }
 
     /// <summary>

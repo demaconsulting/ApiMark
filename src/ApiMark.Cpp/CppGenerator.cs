@@ -115,11 +115,24 @@ public sealed class CppGenerator : IApiGenerator
 
         // Build the intra-library type map for link resolution.
         // nsKey uses "." separators for file paths; display names use "::" for C++ qualified names.
+        // FlattenClass recursively registers a class, its scoped type aliases, and any nested
+        // classes so that fully-qualified names like "fixtures::Outer::Inner" resolve correctly.
+        static IEnumerable<(string Key, string Value)> FlattenClass(string nsDisplay, string nsPath, CppClass cls)
+        {
+            var clsDisplay = $"{nsDisplay}::{cls.Name}";
+            var clsPath = $"{nsPath}/{cls.Name}";
+            return new[] { (Key: clsDisplay, Value: clsPath) }
+                .Concat(cls.TypeAliases.Select(alias =>
+                    (Key: $"{clsDisplay}::{alias.Name}", Value: $"{clsPath}/{alias.Name}")))
+                .Concat(cls.NestedClasses.SelectMany(nested =>
+                    FlattenClass(clsDisplay, clsPath, nested)));
+        }
+
         var knownTypes = namespaceDecls.SelectMany(kv =>
         {
             var nsDisplay = kv.Key.Replace(".", "::", StringComparison.Ordinal);
             var nsPath = kv.Key; // preserve dot-separated key to match CreateMarkdown page keys
-            return kv.Value.Classes.Select(cls => (Key: $"{nsDisplay}::{cls.Name}", Value: $"{nsPath}/{cls.Name}"))
+            return kv.Value.Classes.SelectMany(cls => FlattenClass(nsDisplay, nsPath, cls))
                 .Concat(kv.Value.Enums.Select(enm => (Key: $"{nsDisplay}::{enm.Name}", Value: $"{nsPath}/{enm.Name}")))
                 .Concat(kv.Value.TypeAliases.Select(a => (Key: $"{nsDisplay}::{a.Name}", Value: $"{nsPath}/{a.Name}")));
         }).ToDictionary(x => x.Key, x => x.Value, StringComparer.Ordinal);
@@ -137,6 +150,7 @@ public sealed class CppGenerator : IApiGenerator
             foreach (var cls in nsDecls.Classes)
             {
                 WriteTypePage(factory, nsKey, nsDecls.DisplayName, cls, cppResolver);
+                WriteNestedTypePages(factory, nsKey, nsDecls.DisplayName, cls, cppResolver);
             }
 
             // Partition free functions into regular functions and operator overloads;
@@ -857,7 +871,15 @@ public sealed class CppGenerator : IApiGenerator
         var visibleMethods = GetVisibleMethods(cls).OrderBy(m => m.Name, StringComparer.Ordinal).ToList();
         var visibleFields = GetVisibleFields(cls).OrderBy(f => f.Name, StringComparer.Ordinal).ToList();
 
-        if (visibleCtors.Count == 0 && visibleMethods.Count == 0 && visibleFields.Count == 0)
+        // Accumulate external type references found in type-column cells on this page.
+        // Declared before the early return so the nested-class and type-alias sections
+        // that follow the member tables can also add entries.
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
+        // Early exit when the class has no members, no nested classes, and no type aliases —
+        // emitting an empty page with only the signature and summary is still valid output
+        if (visibleCtors.Count == 0 && visibleMethods.Count == 0 && visibleFields.Count == 0
+            && cls.NestedClasses.Count == 0 && cls.TypeAliases.Count == 0)
         {
             return;
         }
@@ -904,9 +926,6 @@ public sealed class CppGenerator : IApiGenerator
         var ctorRows = new List<string[]>();
         var methodRows = new List<string[]>();
         var fieldRows = new List<string[]>();
-
-        // Accumulate external type references found in type-column cells on this page
-        var externalTypes = new SortedSet<CppExternalTypeInfo>();
 
         // Process constructors — emitted first because instantiation is the first thing
         // a consumer needs to understand about a type
@@ -1033,7 +1052,83 @@ public sealed class CppGenerator : IApiGenerator
                 new[] { new[] { $"[operators]({cls.Name}/operators.md)", "Operator overloads" } });
         }
 
+        // Emit Nested Classes table so readers can discover inner types without browsing the header
+        if (cls.NestedClasses.Count > 0)
+        {
+            writer.WriteHeading(2, "Nested Classes");
+            var nestedHeaders = new[] { "Type", DescriptionColumnHeader };
+            var nestedRows = cls.NestedClasses
+                .OrderBy(n => n.Name, StringComparer.Ordinal)
+                .Select(nested =>
+                {
+                    var summary = GetSummary(nested.Doc) ?? NoDescriptionPlaceholder;
+                    return new[] { $"[{nested.Name}]({cls.Name}/{nested.Name}.md)", summary };
+                });
+            writer.WriteTable(nestedHeaders, nestedRows);
+        }
+
+        // Emit Type Aliases table for public class-scoped using-aliases
+        if (cls.TypeAliases.Count > 0)
+        {
+            writer.WriteHeading(2, "Type Aliases");
+            var aliasHeaders = new[] { "Alias", "Underlying Type", DescriptionColumnHeader };
+            var aliasRows = cls.TypeAliases
+                .OrderBy(a => a.Name, StringComparer.Ordinal)
+                .Select(alias =>
+                {
+                    var summary = GetSummary(alias.Doc) ?? NoDescriptionPlaceholder;
+                    var underlying = cppResolver.Linkify(SimplifyTypeName(alias.UnderlyingTypeName), nsKey, externalTypes);
+                    return new[] { $"[{alias.Name}]({cls.Name}/{alias.Name}.md)", underlying, summary };
+                });
+            writer.WriteTable(aliasHeaders, aliasRows);
+        }
+
         WriteExternalTypesSection(writer, externalTypes);
+    }
+
+    /// <summary>
+    ///     Recursively writes type alias pages and nested class pages for a class,
+    ///     following the same folder conventions as the parent class pages.
+    /// </summary>
+    /// <remarks>
+    ///     Class-scoped type alias pages are placed at <c>{parentKey}/{cls.Name}/{alias.Name}</c>.
+    ///     Nested class type pages are placed at <c>{parentKey}/{cls.Name}/{nested.Name}</c>.
+    ///     Recursion continues so that arbitrarily deep nesting is supported.
+    /// </remarks>
+    /// <param name="factory">Factory for creating output writers.</param>
+    /// <param name="parentKey">
+    ///     The file-path-compatible key of the parent scope (namespace key for top-level classes,
+    ///     or the parent class folder for deeper nesting).
+    /// </param>
+    /// <param name="parentDisplayName">
+    ///     The C++ qualified name of the parent scope used to build fully-qualified names
+    ///     shown in signature comments.
+    /// </param>
+    /// <param name="cls">The class whose nested artifacts to write.</param>
+    /// <param name="cppResolver">Type link resolver used to linkify type-column cells.</param>
+    private void WriteNestedTypePages(
+        IMarkdownWriterFactory factory,
+        string parentKey,
+        string parentDisplayName,
+        CppClass cls,
+        CppTypeLinkResolver cppResolver)
+    {
+        // The class folder and display name form the base for all children of this class
+        var clsKey = $"{parentKey}/{cls.Name}";
+        var clsDisplayName = $"{parentDisplayName}::{cls.Name}";
+
+        // Write one type alias page per public class-scoped using-alias
+        foreach (var alias in cls.TypeAliases)
+        {
+            WriteTypeAliasPage(factory, clsKey, clsDisplayName, alias, cppResolver);
+        }
+
+        // Write one type page per public nested class and recurse into its own children
+        foreach (var nested in cls.NestedClasses)
+        {
+            WriteTypePage(factory, clsKey, clsDisplayName, nested, cppResolver);
+            WriteNestedTypePages(factory, clsKey, clsDisplayName, nested, cppResolver);
+        }
     }
 
     /// <summary>

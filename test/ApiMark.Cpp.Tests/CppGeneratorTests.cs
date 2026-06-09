@@ -1244,4 +1244,110 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
             signatures,
             s => s.Contains("factor = 1.5", StringComparison.Ordinal));
     }
+
+    /// <summary>
+    ///     Validates that a nested class declared inside a public outer class receives its
+    ///     own type page under the outer class's folder.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_NestedClass_CreatesNestedClassPage()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: Inner is a public nested class of Outer; its page must be under Outer's folder
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/Outer/Inner"),
+            "Expected nested class page at 'fixtures/Outer/Inner'");
+    }
+
+    /// <summary>
+    ///     Validates that the outer class's type page lists the nested class in a
+    ///     "Nested Classes" section so readers can discover inner types without opening the header.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_NestedClass_ListedOnOuterClassPage()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: the Outer type page must exist
+        Assert.True(factory.Writers.ContainsKey("fixtures/Outer"), "Expected type page for Outer");
+        var writer = factory.Writers["fixtures/Outer"];
+
+        // Assert: the page must include a "Nested Classes" heading
+        var headings = writer.Operations.OfType<HeadingOperation>().Select(h => h.Text).ToList();
+        Assert.Contains(headings, h => h.Contains("Nested Classes", StringComparison.Ordinal));
+
+        // Assert: the "Nested Classes" table must contain "Inner" in a link cell
+        var tables = writer.Operations.OfType<TableOperation>().ToList();
+        var allCells = tables.SelectMany(t => t.Rows).SelectMany(r => r).ToList();
+        Assert.Contains(allCells, c => c.Contains("Inner", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a <c>using</c> type alias declared inside a public class body receives
+    ///     its own page under the class's folder so readers can navigate to it directly.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ClassScopedTypeAlias_CreatesAliasPage()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: Outer::size_type must receive its own page under the Outer class folder
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/Outer/size_type"),
+            "Expected class-scoped alias page at 'fixtures/Outer/size_type'");
+    }
+
+    /// <summary>
+    ///     Validates that the outer class's type page lists its class-scoped type alias in a
+    ///     "Type Aliases" section so readers can see the alias without navigating to a sub-page.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ClassScopedTypeAlias_ListedOnClassPage()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: the Outer type page must exist
+        Assert.True(factory.Writers.ContainsKey("fixtures/Outer"), "Expected type page for Outer");
+        var writer = factory.Writers["fixtures/Outer"];
+
+        // Assert: the page must include a "Type Aliases" heading
+        var headings = writer.Operations.OfType<HeadingOperation>().Select(h => h.Text).ToList();
+        Assert.Contains(headings, h => h.Contains("Type Aliases", StringComparison.Ordinal));
+
+        // Assert: the "Type Aliases" table must contain "size_type"
+        var tables = writer.Operations.OfType<TableOperation>().ToList();
+        var allCells = tables.SelectMany(t => t.Rows).SelectMany(r => r).ToList();
+        Assert.Contains(allCells, c => c.Contains("size_type", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that two classes declaring the same alias name (<c>size_type</c>) each
+    ///     produce a distinct page keyed by their fully-qualified class scope, confirming that
+    ///     the <c>knownTypes</c> map does not collide across different owning classes.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ClassScopedTypeAlias_DoesNotCollideAcrossClasses()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+
+        // Assert: Outer::size_type and Other::size_type must each get their own distinct page;
+        // a collision would cause only one of them to exist
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/Outer/size_type"),
+            "Expected alias page for Outer::size_type at 'fixtures/Outer/size_type'");
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/Other/size_type"),
+            "Expected alias page for Other::size_type at 'fixtures/Other/size_type'");
+
+        // Assert: the two pages must be distinct writer instances so they contain different content
+        Assert.NotSame(
+            factory.Writers["fixtures/Outer/size_type"],
+            factory.Writers["fixtures/Other/size_type"]);
+    }
 }
