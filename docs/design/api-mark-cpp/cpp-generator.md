@@ -38,7 +38,7 @@ two purposes:
    normalizing separators to forward slashes. For example, if the root is
    `C:\project\include` and the declaration source is
    `C:\project\include\mylib\renderer.h`, the canonical include path is
-   `mylib/renderer.h`, yielding `#include <mylib/renderer.h>` in the type
+   `mylib/renderer.h`, yielding `#include "mylib/renderer.h"` in the type
    page output.
 
 When multiple roots are configured and a file matches more than one, the
@@ -49,12 +49,12 @@ glob and exclusion pattern strings that determine which header files contribute 
 documented public API. Gitignore-style semantics apply: patterns are evaluated
 in order; the last matching pattern wins. Entries without a `!` prefix are
 include patterns; entries with a `!` prefix are exclusion patterns (the `!`
-is stripped before glob matching). When empty, the default patterns
-`["**/*.h", "**/*.hpp", "**/*.hxx", "**/*.h++"]` are applied, which selects all
-headers with recognized C++ extensions under all roots.
+is stripped before glob matching). When empty, all headers with recognized C++
+extensions (`.h`, `.hpp`, `.hxx`, `.h++`) under all configured roots are
+documented automatically without any pattern filtering.
 
 Example — all headers except `detail/`, with one re-included:
-`["**/*", "!**/detail/**", "**/detail/public_api.h"]`
+`["include/**", "!include/detail/**", "include/detail/public_api.h"]`
 
 **CppGeneratorOptions.SystemIncludePaths**: `IReadOnlyList<string>` — toolchain
 and SDK include directories passed to the Clang parser as system include paths
@@ -196,9 +196,12 @@ the documented public API.
      overlap).
   4. Compute relative path: strip the root prefix and normalize separators to
      forward slashes.
-  5. Test the relative path against ApiHeaderPatterns using gitignore-style
-     last-match-wins evaluation. Return owned=true only when the final
-     evaluated state is included.
+  5. When ApiHeaderPatterns is non-empty, test whether the file is selected using
+     gitignore-style last-match-wins evaluation. Patterns are first evaluated
+     CWD-relative (when the file falls within the current working directory); when
+     the root is outside the CWD the file path relative to the root is used instead.
+     Return owned=true only when the final evaluated state is included. When
+     ApiHeaderPatterns is empty, all files under the matched root are owned.
 
 **CppGenerator.WriteCombinedMemberPage** (private): Writes a single combined
 Markdown page for a group of members whose base names collide on case-insensitive

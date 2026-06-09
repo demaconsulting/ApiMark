@@ -56,7 +56,8 @@ apimark cpp [options]
 #### `--includes` and `--api-headers`
 
 `--includes <path>` is repeatable — provide it once per include directory. All directories
-are passed to Clang as `-I` paths and serve as the base for the default `--api-headers` glob.
+are passed to Clang as `-I` paths. When `--api-headers` is not specified, all recognized
+header files under every `--includes` directory are documented automatically.
 
 `--api-headers <pattern>` controls which headers appear in the generated documentation.
 It is repeatable and ordered — patterns are evaluated in order with gitignore-style
@@ -65,22 +66,29 @@ last-match-wins semantics. Entries starting with `!` are exclusion patterns.
 When `--api-headers` is not specified, all headers under the `--includes` directories
 with recognized C++ header extensions (`.h`, `.hpp`, `.hxx`, `.h++`) are documented.
 
+Patterns are evaluated as relative paths. When include roots lie within the current
+working directory (the typical project layout), patterns are relative to the CWD —
+so `include/**` targets exactly one root tree even when multiple `--includes` roots
+are configured. When an include root is an absolute path outside the CWD (e.g.
+`/usr/local/include`), patterns are matched against the path relative to that root
+instead; filename-wildcard patterns such as `**/foo.h` work correctly in both cases.
+
 Example — document all headers except a `detail/` subtree, then re-include one header:
 
 ```text
---includes /usr/local/include \
---api-headers "**/*" \
---api-headers "!**/detail/**" \
---api-headers "**/detail/public_api.h"
+--includes include/ \
+--api-headers "include/**" \
+--api-headers "!include/detail/**" \
+--api-headers "include/detail/public_api.h"
 ```
 
 This is equivalent to the gitignore rule sequence:
 
 | Pattern | Effect |
 | --- | --- |
-| `**/*` | Include all headers |
-| `!**/detail/**` | Exclude all headers under `detail/` |
-| `**/detail/public_api.h` | Re-include `detail/public_api.h` specifically |
+| `include/**` | Include all headers under `include/` |
+| `!include/detail/**` | Exclude all headers under `include/detail/` |
+| `include/detail/public_api.h` | Re-include `include/detail/public_api.h` specifically |
 
 ## Platform Support
 

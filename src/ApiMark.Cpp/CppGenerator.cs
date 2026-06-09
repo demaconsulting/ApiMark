@@ -194,9 +194,10 @@ public sealed class CppGenerator : IApiGenerator
     ///         sequences that are not possible with separate include and exclude lists.
     ///     </para>
     ///     <para>
-    ///         A single-pattern <see cref="Matcher"/> is created per pattern check; patterns
-    ///         are evaluated relative to each root directory using
-    ///         <see cref="Matcher"/> from <c>Microsoft.Extensions.FileSystemGlobbing</c>.
+    ///         All patterns (both caller-supplied and the per-root defaults) are evaluated
+    ///         relative to the current working directory so that paths like
+    ///         <c>"src/include/**"</c> are unambiguous across multiple <c>--includes</c>
+    ///         roots. A single-pattern <see cref="Matcher"/> is created per pattern check.
     ///     </para>
     /// </remarks>
     /// <exception cref="DirectoryNotFoundException">
@@ -211,11 +212,10 @@ public sealed class CppGenerator : IApiGenerator
             ".h", ".hpp", ".hxx", ".h++",
         };
 
-        // Use the caller-supplied patterns or the default extension-based catch-all when none
-        // are configured — the default produces the same set as the old extension-filter-only path
-        var effectivePatterns = _options.ApiHeaderPatterns.Count > 0
-            ? _options.ApiHeaderPatterns
-            : (IList<string>)new List<string> { "**/*.h", "**/*.hpp", "**/*.hxx", "**/*.h++" };
+        // Patterns are evaluated preferentially against the current working directory.
+        // When the include root is not under CWD (e.g. an absolute path), the pattern
+        // falls back to root-relative matching. See MatchesGlob for details.
+        var cwdAbsolute = Path.GetFullPath(Directory.GetCurrentDirectory());
 
         var headers = new List<string>();
         foreach (var root in _options.PublicIncludeRoots)
@@ -236,38 +236,52 @@ public sealed class CppGenerator : IApiGenerator
                 .Select(Path.GetFullPath)
                 .ToList();
 
-            // Apply gitignore-style evaluation for each header file
-            foreach (var absoluteFile in allFiles)
+            if (_options.ApiHeaderPatterns.Count == 0)
             {
-                // Start with the file excluded — it must explicitly match an include pattern
-                var included = false;
-
-                foreach (var pattern in effectivePatterns)
+                // No patterns configured: include all recognized header files under this root.
+                // This is the default behavior that documents every header reachable from
+                // the include roots, equivalent to specifying --api-headers **/*.h etc.
+                headers.AddRange(allFiles);
+            }
+            else
+            {
+                // Apply gitignore-style evaluation for each header file.
+                // Patterns are CWD-relative so "src/include/**" targets exactly one root tree
+                // regardless of how many --includes roots are configured; pure filename
+                // patterns like "**/foo.h" work correctly against both CWD and root-relative
+                // paths (see MatchesGlob for the fallback strategy).
+                foreach (var absoluteFile in allFiles)
                 {
-                    if (pattern.StartsWith("!", StringComparison.Ordinal))
+                    // Start with the file excluded — it must explicitly match an include pattern
+                    var included = false;
+
+                    foreach (var pattern in _options.ApiHeaderPatterns)
                     {
-                        // Exclusion pattern: strip the '!' prefix and check whether the
-                        // file matches — if it does, mark it excluded (included = false)
-                        var exclusionGlob = pattern.Substring(1).Trim();
-                        if (exclusionGlob.Length > 0 && MatchesGlob(exclusionGlob, rootAbsolute, absoluteFile))
+                        if (pattern.StartsWith("!", StringComparison.Ordinal))
                         {
-                            included = false;
+                            // Exclusion pattern: strip the '!' prefix and check whether the
+                            // file matches — if it does, mark it excluded (included = false)
+                            var exclusionGlob = pattern.Substring(1).Trim();
+                            if (exclusionGlob.Length > 0 && MatchesGlob(exclusionGlob, cwdAbsolute, rootAbsolute, absoluteFile))
+                            {
+                                included = false;
+                            }
+                        }
+                        else
+                        {
+                            // Inclusion pattern: a match sets included=true, and a later exclusion
+                            // pattern can still override this to produce gitignore semantics
+                            if (MatchesGlob(pattern, cwdAbsolute, rootAbsolute, absoluteFile))
+                            {
+                                included = true;
+                            }
                         }
                     }
-                    else
-                    {
-                        // Inclusion pattern: a match sets included=true, and a later exclusion
-                        // pattern can still override this to produce gitignore semantics
-                        if (MatchesGlob(pattern, rootAbsolute, absoluteFile))
-                        {
-                            included = true;
-                        }
-                    }
-                }
 
-                if (included)
-                {
-                    headers.Add(absoluteFile);
+                    if (included)
+                    {
+                        headers.Add(absoluteFile);
+                    }
                 }
             }
         }
@@ -283,37 +297,68 @@ public sealed class CppGenerator : IApiGenerator
     }
 
     /// <summary>
-    ///     Tests whether a single header file matches a glob pattern, evaluated relative to
-    ///     the specified include root directory.
+    ///     Tests whether a single header file matches a glob pattern.
     /// </summary>
     /// <remarks>
-    ///     Creates a single-pattern <see cref="Matcher"/> per call so that each pattern
-    ///     in the ordered <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> list is
-    ///     evaluated independently, which is required to correctly implement gitignore-style
-    ///     last-match-wins semantics.
+    ///     <para>
+    ///         Patterns are evaluated as relative paths in order to support gitignore-style
+    ///         semantics. A single-pattern <see cref="Matcher"/> is created per call so that
+    ///         each pattern in the ordered <see cref="CppGeneratorOptions.ApiHeaderPatterns"/>
+    ///         list is evaluated independently.
+    ///     </para>
+    ///     <para>
+    ///         The matching strategy is:
+    ///         <list type="number">
+    ///             <item>
+    ///                 <description>
+    ///                     If <paramref name="absoluteFile"/> is under <paramref name="cwdAbsolute"/>,
+    ///                     match the pattern against the CWD-relative path. This is the normal
+    ///                     production path and lets users write patterns like <c>src/include/**</c>
+    ///                     to target a specific root tree.
+    ///                 </description>
+    ///             </item>
+    ///             <item>
+    ///                 <description>
+    ///                     Otherwise fall back to matching against the path relative to
+    ///                     <paramref name="rootAbsolute"/>. This covers absolute include roots
+    ///                     (e.g. <c>/usr/local/include</c>) and test environments where the
+    ///                     include root is not under the CWD. Pure filename patterns such as
+    ///                     <c>**/foo.h</c> work correctly in both strategies.
+    ///                 </description>
+    ///             </item>
+    ///         </list>
+    ///     </para>
     /// </remarks>
     /// <param name="glob">
-    ///     A glob pattern relative to <paramref name="rootAbsolute"/>, e.g. <c>"**/*.h"</c>
-    ///     or <c>"**/detail/**"</c>. Must not be null or empty.
+    ///     A glob pattern relative to <paramref name="cwdAbsolute"/> (or
+    ///     <paramref name="rootAbsolute"/> as fallback), e.g.
+    ///     <c>"src/include/**/*.h"</c> or <c>"**/foo.hpp"</c>.
+    ///     Must not be null or empty.
     /// </param>
-    /// <param name="rootAbsolute">
-    ///     Absolute path of the include root directory that serves as the pattern base.
-    /// </param>
-    /// <param name="absoluteFile">
-    ///     Absolute path of the header file to test against the pattern.
-    /// </param>
+    /// <param name="cwdAbsolute">Absolute path of the current working directory.</param>
+    /// <param name="rootAbsolute">Absolute path of the include root for this file.</param>
+    /// <param name="absoluteFile">Absolute path of the header file to test.</param>
     /// <returns>
     ///     <see langword="true"/> when <paramref name="absoluteFile"/> matches
-    ///     <paramref name="glob"/> relative to <paramref name="rootAbsolute"/>.
+    ///     <paramref name="glob"/>.
     /// </returns>
-    private static bool MatchesGlob(string glob, string rootAbsolute, string absoluteFile)
+    private static bool MatchesGlob(string glob, string cwdAbsolute, string rootAbsolute, string absoluteFile)
     {
-        // A single-pattern matcher is created per call so each pattern in the ordered
-        // ApiHeaderPatterns list is tested in isolation — this is what enables the
-        // last-match-wins (gitignore) semantics in the caller
         var matcher = new Matcher();
         matcher.AddInclude(glob);
-        return matcher.Match(rootAbsolute, absoluteFile).HasMatches;
+
+        // Prefer CWD-relative matching so that explicit path patterns like "src/include/**"
+        // unambiguously target one root tree when multiple roots are configured
+        var relFromCwd = Path.GetRelativePath(cwdAbsolute, absoluteFile).Replace('\\', '/');
+        if (!relFromCwd.StartsWith("..", StringComparison.Ordinal))
+        {
+            return matcher.Match(relFromCwd).HasMatches;
+        }
+
+        // File is outside CWD (absolute root path or test environment): fall back to the
+        // path relative to the include root so that "**/foo.h" still matches correctly
+        var relFromRoot = Path.GetRelativePath(rootAbsolute, absoluteFile).Replace('\\', '/');
+        return matcher.Match(relFromRoot).HasMatches;
     }
 
     // =========================================================================
@@ -751,7 +796,7 @@ public sealed class CppGenerator : IApiGenerator
                 sigParts.Add(templateDecl);
             }
 
-            sigParts.Add($"#include <{includePath}>");
+            sigParts.Add($"#include \"{includePath}\"");
 
             // Append the class declaration line when the class is marked final or has base types so
             // readers can see the final constraint and inheritance chain at a glance without
@@ -1015,7 +1060,7 @@ public sealed class CppGenerator : IApiGenerator
         if (firstWithLocation != null)
         {
             var includePath = GetIncludePath(firstWithLocation.Location!.File);
-            writer.WriteSignature("cpp", $"// {qualifiedClassName}\n#include <{includePath}>");
+            writer.WriteSignature("cpp", $"// {qualifiedClassName}\n#include \"{includePath}\"");
         }
 
         writer.WriteParagraph($"Operator overloads for {cls.Name}.");
@@ -1076,7 +1121,7 @@ public sealed class CppGenerator : IApiGenerator
                 ? firstWithLocation.Name
                 : $"{nsDisplayName}::{firstWithLocation.Name}";
             var includePath = GetIncludePath(firstWithLocation.Location!.File);
-            writer.WriteSignature("cpp", $"// {qualifiedName}\n#include <{includePath}>");
+            writer.WriteSignature("cpp", $"// {qualifiedName}\n#include \"{includePath}\"");
         }
 
         var displayNs = string.IsNullOrEmpty(nsDisplayName) ? GlobalNamespaceKey : nsDisplayName;
@@ -1174,7 +1219,7 @@ public sealed class CppGenerator : IApiGenerator
         if (fn.Location != null)
         {
             var includePath = GetIncludePath(fn.Location.File);
-            writer.WriteSignature("cpp", $"// {qualifiedName}\n#include <{includePath}>\n{signature}");
+            writer.WriteSignature("cpp", $"// {qualifiedName}\n#include \"{includePath}\"\n{signature}");
         }
         else
         {
@@ -1457,7 +1502,7 @@ public sealed class CppGenerator : IApiGenerator
         if (cppEnum.Location != null)
         {
             var includePath = GetIncludePath(cppEnum.Location.File);
-            writer.WriteSignature("cpp", $"// {qualifiedName}\n#include <{includePath}>");
+            writer.WriteSignature("cpp", $"// {qualifiedName}\n#include \"{includePath}\"");
         }
         else
         {

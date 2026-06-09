@@ -106,8 +106,16 @@ ApiMark generates documentation automatically after every build.
 # Generate API documentation from a .NET assembly
 apimark dotnet --assembly MyProject.dll --xml-doc MyProject.xml --output docs/api
 
-# Generate API documentation from C++ public headers
+# Generate API documentation from C++ public headers (document all headers under include/)
 apimark cpp --includes include/ --output docs/api
+
+# Document only specific headers using --api-headers patterns (gitignore-style, ordered)
+apimark cpp \
+  --includes include/ \
+  --api-headers "include/**" \
+  --api-headers "!include/detail/**" \
+  --api-headers "include/detail/public_api.h" \
+  --output docs/api
 ```
 
 Run `apimark --help` for all options. Run `apimark dotnet --help` or `apimark cpp --help` for language-specific options.

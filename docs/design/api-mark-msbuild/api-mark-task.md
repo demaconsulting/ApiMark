@@ -56,8 +56,8 @@ the `.targets` file when not explicitly set. If not set and the language is
 **ApiMarkTask.ApiMarkIncludePaths**: `string` — MSBuild property
 `$(ApiMarkIncludePaths)`; for the `cpp` language, a semicolon-separated list of
 include directory paths. Each entry is forwarded as an individual `--includes`
-flag; all paths are passed to Clang as `-I` flags and serve as the base for the
-default header glob when `ApiMarkApiHeaders` is not set.
+flag; all paths are passed to Clang as `-I` flags. When `ApiMarkApiHeaders` is
+not set, all headers with recognized C++ extensions under these paths are documented.
 
 **ApiMarkTask.ApiMarkApiHeaders**: `string` — MSBuild property
 `$(ApiMarkApiHeaders)`; for the `cpp` language, a semicolon-separated,

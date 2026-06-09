@@ -38,7 +38,7 @@ the project file extension.
 
 | Property | Default | Description |
 | --- | --- | --- |
-| `ApiMarkIncludePaths` | _(required)_ | Semicolon-separated list of include directory paths. Each entry is passed to Clang as a `-I` path and serves as the base for the default header glob. |
+| `ApiMarkIncludePaths` | _(required)_ | Semicolon-separated list of include directory paths. Each entry is passed to Clang as a `-I` path. When `ApiMarkApiHeaders` is not set, all headers with recognized C++ extensions under these paths are documented. |
 | `ApiMarkApiHeaders` | _(unset)_ | Semicolon-separated, order-preserved list of glob and exclusion pattern strings. Entries with `!` are exclusion patterns; gitignore-style last-match-wins semantics apply. When unset, all headers with recognized C++ extensions under `ApiMarkIncludePaths` are documented. |
 | `ApiMarkLibraryName` | `$(MSBuildProjectName)` | Library name used as the top-level heading in `api.md` |
 | `ApiMarkLibraryDescription` | _(unset)_ | Optional description for the `api.md` introduction paragraph |

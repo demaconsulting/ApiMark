@@ -83,10 +83,12 @@ N/A — not a safety-classified software item.
    Defines, CppStandard, AdditionalCompilerArguments,
    Visibility, IncludeDeprecated, and LibraryName, then passes an
    IMarkdownWriterFactory to Generate.
-2. CppGenerator enumerates all header files under each PublicIncludeRoot,
-   applying ApiHeaderPatterns with gitignore-style last-match-wins semantics,
-   to produce the candidate file set. Each matched header is parsed as an
-   independent translation unit so that headers are self-contained.
+2. CppGenerator enumerates all header files under each PublicIncludeRoot.
+   When ApiHeaderPatterns is non-empty, patterns are applied with gitignore-style
+   last-match-wins semantics to produce the candidate file set; when empty, all
+   recognized header files under every root are included automatically. Each
+   matched header is parsed as an independent translation unit so that headers
+   are self-contained.
 3. CppGenerator calls `ClangAstParser.Parse` with all candidate headers and the
    configured options. `ClangAstParser` invokes `clang -ast-dump=json` and parses
    the resulting JSON into `CppCompilationResult` containing `CppNamespaceDecl`
