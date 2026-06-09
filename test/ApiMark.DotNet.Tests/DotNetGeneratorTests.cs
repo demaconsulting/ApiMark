@@ -1265,4 +1265,108 @@ public class DotNetGeneratorTests
             row => row[0].Contains("ILogger", StringComparison.Ordinal) &&
                    row[1].Contains("Microsoft.Extensions.Logging", StringComparison.Ordinal));
     }
+
+    /// <summary>
+    ///     Validates that a delegate type produces a page with a <c>public delegate</c>
+    ///     signature rather than <c>public sealed class</c>, using the parameter list
+    ///     from the compiler-injected <c>Invoke</c> method.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_DelegateType_EmitsDelegateSignature()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ServiceEvent"),
+            "Expected type page for ServiceEvent delegate");
+
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/ServiceEvent"];
+        var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
+        Assert.NotNull(signature);
+
+        // Must use the delegate keyword, not sealed class
+        Assert.Contains("public delegate", signature.Code, StringComparison.Ordinal);
+        Assert.DoesNotContain("sealed class", signature.Code, StringComparison.Ordinal);
+
+        // Must include the return type and each parameter
+        Assert.Contains("void", signature.Code, StringComparison.Ordinal);
+        Assert.Contains("DateTime timestamp", signature.Code, StringComparison.Ordinal);
+        Assert.Contains("string service", signature.Code, StringComparison.Ordinal);
+        Assert.Contains("object[] arguments", signature.Code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that a delegate type page contains no member tables — the
+    ///     compiler-injected <c>Invoke</c>, <c>BeginInvoke</c>, <c>EndInvoke</c>, and
+    ///     synthetic constructor must not appear in the output.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_DelegateType_HasNoMemberTables()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: type page must exist
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ServiceEvent"),
+            "Expected type page for ServiceEvent delegate");
+
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/ServiceEvent"];
+
+        // No table rows must mention compiler-injected member names
+        var allTableText = writer.Operations
+            .OfType<TableOperation>()
+            .SelectMany(t => t.Rows)
+            .SelectMany(r => r)
+            .ToList();
+
+        Assert.DoesNotContain(allTableText, cell =>
+            cell.Contains("Invoke", StringComparison.Ordinal) ||
+            cell.Contains("BeginInvoke", StringComparison.Ordinal) ||
+            cell.Contains("EndInvoke", StringComparison.Ordinal));
+
+        // No member detail pages must be created for delegate synthetic members
+        Assert.False(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ServiceEvent/Invoke"),
+            "Delegate Invoke method must not produce a detail page");
+    }
+
+    /// <summary>
+    ///     Validates that a generic delegate type signature includes the type parameter list,
+    ///     e.g. <c>public delegate TResult SampleTransform&lt;TInput, TResult&gt;(TInput input)</c>.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_GenericDelegateType_IncludesTypeParameters()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Generate(factory, new InMemoryContext());
+
+        // Assert: type page must exist (IL name for a 2-param generic is SampleTransform`2)
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleTransform`2"),
+            "Expected type page for SampleTransform generic delegate");
+
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleTransform`2"];
+        var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
+        Assert.NotNull(signature);
+
+        Assert.Contains("public delegate", signature.Code, StringComparison.Ordinal);
+        Assert.Contains("TResult", signature.Code, StringComparison.Ordinal);
+        Assert.Contains("TInput", signature.Code, StringComparison.Ordinal);
+        Assert.Contains("TInput input", signature.Code, StringComparison.Ordinal);
+    }
 }

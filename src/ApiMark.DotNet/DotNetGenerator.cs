@@ -291,6 +291,15 @@ public sealed class DotNetGenerator : IApiGenerator
             typeWriter.WriteParagraph(typeRemarks);
         }
 
+        // Delegates carry all their useful information in the declaration signature —
+        // the compiler-injected Invoke/BeginInvoke/EndInvoke methods and the synthetic
+        // (object, IntPtr) constructor are implementation noise that should never appear
+        // in public API docs, analogous to how enum backing fields are suppressed.
+        if (IsDelegate(type))
+        {
+            return;
+        }
+
         // Collect visible members: constructors first, then alphabetically
         var members = GetVisibleMembers(type)
             .OrderBy(m => m.Name == ConstructorMethodName ? 0 : 1)
@@ -1063,6 +1072,56 @@ public sealed class DotNetGenerator : IApiGenerator
         return $"M:{typeName}.{methodName}({paramList})";
     }
 
+    /// <summary>Returns <see langword="true"/> when <paramref name="type"/> is a delegate type.</summary>
+    /// <remarks>
+    ///     The C# compiler compiles every <c>delegate</c> declaration into a sealed class that
+    ///     inherits <c>System.MulticastDelegate</c>. Testing the base type name is therefore the
+    ///     reliable way to detect delegates from compiled metadata.
+    /// </remarks>
+    /// <param name="type">The type to test.</param>
+    /// <returns>
+    ///     <see langword="true"/> when <paramref name="type"/> derives directly from
+    ///     <c>System.MulticastDelegate</c>.
+    /// </returns>
+    private static bool IsDelegate(TypeDefinition type) =>
+        type.BaseType?.FullName == "System.MulticastDelegate";
+
+    /// <summary>
+    ///     Builds the source-level <c>public delegate</c> signature for a delegate type,
+    ///     derived from the compiler-injected <c>Invoke</c> method's return type and parameters.
+    /// </summary>
+    /// <remarks>
+    ///     The C# compiler injects three methods into every delegate type: <c>Invoke</c>,
+    ///     <c>BeginInvoke</c>, and <c>EndInvoke</c>. <c>Invoke</c> carries the exact signature
+    ///     the developer wrote in source, so it is used here to reconstruct the canonical
+    ///     <c>public delegate ReturnType Name(params)</c> form.
+    /// </remarks>
+    /// <param name="type">The delegate type (must satisfy <see cref="IsDelegate"/>).</param>
+    /// <param name="contextNamespace">Used to simplify type names in the signature.</param>
+    /// <returns>A string of the form <c>public delegate void ServiceEvent(DateTime timestamp, ...)</c>.</returns>
+    private static string BuildDelegateSignature(TypeDefinition type, string contextNamespace)
+    {
+        var invoke = type.Methods.FirstOrDefault(m => m.Name == "Invoke");
+        if (invoke == null)
+        {
+            // Malformed delegate — fall back to a bare declaration without parameters
+            return $"public delegate {StripArity(type.Name)}()";
+        }
+
+        var returnType = TypeNameSimplifier.Simplify(invoke.ReturnType, contextNamespace);
+        var name = StripArity(type.Name);
+        if (type.HasGenericParameters)
+        {
+            var args = string.Join(", ", type.GenericParameters.Select(p => p.Name));
+            name = $"{name}<{args}>";
+        }
+
+        var parameters = string.Join(", ", invoke.Parameters.Select(p =>
+            $"{TypeNameSimplifier.Simplify(p.ParameterType, contextNamespace)} {p.Name}"));
+
+        return $"public delegate {returnType} {name}({parameters})";
+    }
+
     /// <summary>Builds a human-readable C# declaration signature for a type definition.</summary>
     /// <remarks>
     ///     Base types <c>System.Object</c>, <c>System.ValueType</c>, <c>System.Enum</c>, and
@@ -1071,15 +1130,29 @@ public sealed class DotNetGenerator : IApiGenerator
     ///     struct, enum, and delegate signature. The <paramref name="contextNamespace"/> is forwarded
     ///     to <see cref="TypeNameSimplifier"/> so that types declared in the same namespace are
     ///     rendered without their namespace prefix, keeping signatures concise.
+    ///     <para>
+    ///         Delegate types are detected and dispatched to <see cref="BuildDelegateSignature"/>
+    ///         before the class/struct/enum/interface switch so the output always shows the
+    ///         source-level <c>delegate</c> keyword rather than <c>sealed class</c>.
+    ///     </para>
     /// </remarks>
     /// <param name="type">The type definition to represent.</param>
     /// <param name="contextNamespace">Used to simplify base type and interface names in the signature.</param>
     /// <returns>
     ///     A string of the form <c>public class Name</c>, <c>public interface Name&lt;T&gt;</c>,
-    ///     or <c>public class Name : BaseClass, IInterface</c> when direct inheritance is present.
+    ///     <c>public delegate void Name(params)</c>, or
+    ///     <c>public class Name : BaseClass, IInterface</c> when direct inheritance is present.
     /// </returns>
     private static string BuildTypeSignature(TypeDefinition type, string contextNamespace)
     {
+        // Delegates are compiled to sealed classes deriving from MulticastDelegate.
+        // Detect them before the generic class/struct/enum/interface switch so that
+        // the output shows the original source-level delegate syntax.
+        if (IsDelegate(type))
+        {
+            return BuildDelegateSignature(type, contextNamespace);
+        }
+
         var keyword = type switch
         {
             { IsInterface: true } => "interface",
