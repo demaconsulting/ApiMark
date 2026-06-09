@@ -240,8 +240,9 @@ public sealed class DotNetGenerator : IApiGenerator
         {
             var typeMemberId = BuildTypeId(t);
             var summary = xmlDocs.GetSummary(typeMemberId) ?? NoDescriptionPlaceholder;
-            var link = $"{shortName}/{t.Name}.md";
-            return new[] { $"[{t.Name}]({link})", summary };
+            var typeDisplayName = StripArity(t.Name);
+            var link = $"{shortName}/{typeDisplayName}.md";
+            return new[] { $"[{typeDisplayName}]({link})", summary };
         });
         nsWriter.WriteTable(typeHeaders, typeRows);
 
@@ -272,8 +273,8 @@ public sealed class DotNetGenerator : IApiGenerator
         XmlDocReader xmlDocs,
         TypeLinkResolver resolver)
     {
-        using var typeWriter = factory.CreateMarkdown(namespaceFolderPath, type.Name);
-        typeWriter.WriteHeading(1, type.Name);
+        using var typeWriter = factory.CreateMarkdown(namespaceFolderPath, StripArity(type.Name));
+        typeWriter.WriteHeading(1, StripArity(type.Name));
 
         // Emit the C# declaration signature so readers can see the type kind, modifiers, and direct inheritance
         var typeSignature = BuildTypeSignature(type, namespaceName);
@@ -360,7 +361,7 @@ public sealed class DotNetGenerator : IApiGenerator
                     : string.Empty;
                 var memberDisplayName = GetMemberDisplayName(member);
                 var sanitizedName = GetSanitizedMemberFileName(member, type);
-                var memberPageLink = $"{type.Name}/{sanitizedName}.md";
+                var memberPageLink = $"{StripArity(type.Name)}/{sanitizedName}.md";
 
                 if (member is MethodDefinition singleMethod)
                 {
@@ -420,7 +421,7 @@ public sealed class DotNetGenerator : IApiGenerator
                     : string.Empty;
                 var overloadDisplayName = GetMethodGroupDisplayName(representative, orderedOverloads.Count);
                 var overloadFileName = GetSanitizedMemberFileName(representative, type);
-                var memberLink = $"{type.Name}/{overloadFileName}.md";
+                var memberLink = $"{StripArity(type.Name)}/{overloadFileName}.md";
                 var isConstructorGroup = representative.Name == ConstructorMethodName;
 
                 WriteMethodOverloadPage(factory, namespaceName, namespaceFolderPath, type, orderedOverloads, xmlDocs, resolver);
@@ -438,7 +439,7 @@ public sealed class DotNetGenerator : IApiGenerator
             {
                 // Case-insensitive collision: mixed kinds or different-case method names.
                 // Write a single combined page named after the lowercase key on first encounter.
-                var memberLink = $"{type.Name}/{lowerKey}.md";
+                var memberLink = $"{StripArity(type.Name)}/{lowerKey}.md";
 
                 if (writtenLowerKeys.Add(lowerKey))
                 {
@@ -548,7 +549,7 @@ public sealed class DotNetGenerator : IApiGenerator
         TypeLinkResolver resolver)
     {
         var sanitizedName = GetSanitizedMemberFileName(member, type);
-        var memberCurrentFolder = $"{namespaceFolderPath}/{type.Name}";
+        var memberCurrentFolder = $"{namespaceFolderPath}/{StripArity(type.Name)}";
         using var memberWriter = factory.CreateMarkdown(memberCurrentFolder, sanitizedName);
 
         var displayName = GetMemberDisplayName(member);
@@ -608,7 +609,7 @@ public sealed class DotNetGenerator : IApiGenerator
         TypeLinkResolver resolver)
     {
         var sanitizedName = BuildMethodFileName(overloads[0], type);
-        var overloadCurrentFolder = $"{namespaceFolderPath}/{type.Name}";
+        var overloadCurrentFolder = $"{namespaceFolderPath}/{StripArity(type.Name)}";
         using var memberWriter = factory.CreateMarkdown(overloadCurrentFolder, sanitizedName);
 
         memberWriter.WriteHeading(1, GetMethodGroupName(overloads[0]));
@@ -664,7 +665,7 @@ public sealed class DotNetGenerator : IApiGenerator
         XmlDocReader xmlDocs,
         TypeLinkResolver resolver)
     {
-        var combinedCurrentFolder = $"{namespaceFolderPath}/{type.Name}";
+        var combinedCurrentFolder = $"{namespaceFolderPath}/{StripArity(type.Name)}";
         using var writer = factory.CreateMarkdown(combinedCurrentFolder, lowerKey);
 
         // The shared lowercase key serves as the page heading so every member in the group
