@@ -158,6 +158,22 @@ sections:
               inside fences.
             tests:
               - CppGenerator_Generate_IntraLibraryReturnType_EmitsMarkdownLinkInReturnsCell
+          - id: ApiMarkCpp-CppGenerator-ApplyGitignoreStylePatternSelectionToHeaders
+            title: >-
+              CppGenerator shall apply gitignore-style last-match-wins pattern selection to
+              determine which headers under the include roots contribute to the documented API
+              surface when ApiHeaderPatterns is set.
+            justification: |
+              Projects need fine-grained control over which headers appear in the generated
+              reference without changing the include roots. Gitignore-style semantics allow
+              build authors to start with a broad include pattern and then selectively exclude
+              or re-include specific subtrees using '!'-prefixed antipatterns, matching the
+              familiar gitignore convention.
+            tests:
+              - CppGenerator_Generate_ApiHeaderPatterns_IncludePattern_OnlyMatchingFilesDocumented
+              - CppGenerator_Generate_ApiHeaderPatterns_ExcludeAntipattern_ExcludesMatchingFiles
+              - CppGenerator_Generate_ApiHeaderPatterns_ReInclude_GitignoreSemantics_IncludesReIncludedHeader
+              - CppGenerator_Generate_ApiHeaderPatterns_ExcludeWithoutReInclude_ExcludesHeader
           - id: ApiMarkCpp-CppGenerator-EmitExternalTypesSection
             title: CppGenerator shall emit an "External Types" section at the bottom of each generated page that references at least one non-std external type.
             justification: |

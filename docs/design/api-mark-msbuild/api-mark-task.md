@@ -66,6 +66,8 @@ order-preserved list of glob and antipattern strings forwarded as individual
 gitignore-style last-match-wins semantics apply. Optional — when empty or not
 set, all headers with recognized C++ extensions under `ApiMarkIncludePaths` are
 documented.
+
+**ApiMarkTask.ApiMarkLibraryName**: `string` — MSBuild property
 `$(ApiMarkLibraryName)`; for the `cpp` language, the library name used as the
 top-level heading in `api.md`. The `.targets` file defaults this to
 `$(MSBuildProjectName)` when not explicitly set.
@@ -88,9 +90,6 @@ passed to Clang (e.g. `c++17`, `c++20`). The `.targets` file defaults this to
 `$(ApiMarkClangPath)`; for the `cpp` language, the path to the clang
 executable. Optional — when empty, clang is located automatically via PATH,
 xcrun (macOS), or vswhere (Windows).
-
-**ApiMarkTask.ApiMarkSearchPaths**: `string` — removed in this version. Use
-`ApiMarkIncludePaths` to pass all include directories to Clang.
 
 **ApiMarkTask.ToolDllPath**: `string` — set by the `.targets` file to the path of
 the bundled `ApiMark.Tool.dll` inside the NuGet package `tools/net8.0/` directory.
