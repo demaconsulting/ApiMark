@@ -21,6 +21,8 @@ unit tests.
 - All ApiMark.Core unit tests pass with zero failures.
 - `IApiGenerator` implementations satisfy the contract and can be invoked through the
   interface reference.
+- `IContext` implementations capture informational messages in `Lines` and error messages
+  in `Errors` with no cross-channel contamination.
 - `IMarkdownWriterFactory` can create writers for root and subfolder paths.
 - `IMarkdownWriter` structured operations (headings, paragraphs, code blocks, tables,
   links) are forwarded with the correct values and sequence.
@@ -28,6 +30,13 @@ unit tests.
   path input.
 
 ## Test Scenarios
+
+**IContext contract routes messages to the correct channel**: Verifies that the
+`IContext` interface contract is correctly implemented — informational messages reach
+`Lines`, error messages reach `Errors`, and no cross-contamination occurs between
+channels. This scenario is tested by `IContext_WriteLine_CapturesMessage_InLines`,
+`IContext_WriteError_CapturesMessage_InErrors`, and
+`ApiMarkCore_ContextContract_WrittenMessages_AreAccessibleForAssertion`.
 
 **Generator contract is satisfied**: Verifies that a language-generator implementation
 compiles against the `IApiGenerator` interface and can be invoked through an interface

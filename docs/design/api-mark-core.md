@@ -88,8 +88,8 @@ supplied relative path segments with a trusted base path.
   segments before creating directories or files.
 - *Contract*: `string SafePathCombine(string basePath, params string[] relativePaths)`
   returns the combined path when all segments are valid.
-- *Constraints*: Rejects null, rooted, or `..`-containing segments and rejects any
-  normalized result that escapes the trusted base path.
+- *Constraints*: Rejects combinations that resolve outside the base directory, and rejects
+  null arguments.
 
 ## Dependencies
 

@@ -57,7 +57,12 @@ the `.targets` file when not explicitly set. If not set and the language is
 `$(ApiMarkIncludePaths)`; for the `cpp` language, a semicolon-separated list of
 include directory paths. Each entry is forwarded as an individual `--includes`
 flag; all paths are passed to Clang as `-I` flags. When `ApiMarkApiHeaders` is
-not set, all headers with recognized C++ extensions under these paths are documented.
+not set, all headers with recognized C++ extensions under these paths are
+documented. For `.vcxproj` projects this property is automatically defaulted by
+the `.targets` file from the `AdditionalIncludeDirectories` metadata of all
+`ClCompile` items (including paths injected by NuGet packages) when the property
+is not set explicitly. Setting `$(ApiMarkIncludePaths)` in the project file
+suppresses auto-population and uses the supplied value instead.
 
 **ApiMarkTask.ApiMarkApiHeaders**: `string` — MSBuild property
 `$(ApiMarkApiHeaders)`; for the `cpp` language, a semicolon-separated,
@@ -105,8 +110,7 @@ argument list, spawns the tool process, and pipes its output to the MSBuild log.
 - *Returns*: `bool` — true if the child process exits with code zero; false
   otherwise.
 - *Preconditions*: `ToolDllPath` must point to a file that exists on disk;
-  `dotnet` must be locatable via `DOTNET_HOST_PATH` or `PATH`; `ApiMarkOutputDir`
-  must be a writable path.
+  `dotnet` must be locatable via `DOTNET_HOST_PATH` or `PATH`.
 - *Postconditions*: On success (exit code zero), the `ApiMarkOutputDir` contains
   the generated Markdown tree. On failure (non-zero exit code), at least one
   MSBuild error has been logged and Execute returns false, causing MSBuild to mark
@@ -145,8 +149,8 @@ the task returns true silently with no side effects.
 - **Microsoft.Build.Framework** — `ITask`, `IBuildEngine` (provided by the MSBuild
   host; no NuGet reference needed when targeting `netstandard2.0` with the
   appropriate SDK package).
-- **Microsoft.Build.Utilities.Core** — `Task` base class, `ToolTask` helper APIs,
-  `Log.LogMessage`, `Log.LogError`.
+- **Microsoft.Build.Utilities.Core** — `Task` base class, `Log.LogMessage`,
+  `Log.LogError`.
 - **System.Diagnostics.Process** — BCL; used to spawn the `dotnet` child process
   and capture stdout/stderr.
 

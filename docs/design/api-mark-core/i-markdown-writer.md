@@ -37,12 +37,14 @@ implementation, `FileMarkdownWriter`, holds:
 - *Parameters*: `string language` — fence language tag (e.g. `csharp`);
   `string code` — the formatted signature text.
 - *Returns*: `void`
+- *Preconditions*: N/A — no constraints on parameter values beyond the interface type.
 - *Postconditions*: A fenced code block is appended to the current output file.
 
 **IMarkdownWriter.WriteParagraph**: Writes a prose paragraph.
 
 - *Parameters*: `string text` — paragraph content.
 - *Returns*: `void`
+- *Preconditions*: N/A — no constraints on parameter values beyond the interface type.
 - *Postconditions*: A blank-line-delimited paragraph is appended to the current
   output file.
 
@@ -52,6 +54,7 @@ implementation, `FileMarkdownWriter`, holds:
   `IEnumerable<string[]> rows` — row data, each inner array containing one cell
   per column.
 - *Returns*: `void`
+- *Preconditions*: N/A — no constraints on parameter values beyond the interface type.
 - *Postconditions*: A pipe-delimited Markdown table is appended to the current
   output file.
 
@@ -59,6 +62,7 @@ implementation, `FileMarkdownWriter`, holds:
 
 - *Parameters*: `string language` — fence language tag; `string code` — code text.
 - *Returns*: `void`
+- *Preconditions*: N/A — no constraints on parameter values beyond the interface type.
 - *Postconditions*: A fenced code block is appended to the current output file.
 
 **IMarkdownWriter.WriteLink**: Writes a relative file reference as prose text.
@@ -66,6 +70,7 @@ implementation, `FileMarkdownWriter`, holds:
 - *Parameters*: `string text` — display label; `string relativePath` — path to the
   linked file relative to the current output file.
 - *Returns*: `void`
+- *Preconditions*: N/A — no constraints on parameter values beyond the interface type.
 - *Postconditions*: A Markdown inline link of the form `[text](relativePath)` is
   appended to the current output file.
 
@@ -100,3 +105,7 @@ on other units, OTS items, or shared packages.
   for each type and member discovered in the assembly. Writers are obtained from
   the IMarkdownWriterFactory passed to IApiGenerator.Generate and disposed after
   each file is complete.
+- **CppGenerator** — calls IMarkdownWriter write methods to emit Markdown content
+  for each namespace, type, and member discovered in the public headers. Writers
+  are obtained from the IMarkdownWriterFactory passed to IApiGenerator.Generate
+  and disposed after each file is complete.

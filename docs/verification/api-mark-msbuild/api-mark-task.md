@@ -34,6 +34,8 @@ service, network dependency, or elevated permission is required.
 - For C++ builds, `ApiMarkDefines` semicolons are converted to commas and forwarded as
   `--defines`.
 - For C++ builds, `ApiMarkCppStandard` is forwarded as `--cpp-standard` when set.
+- For C++ builds, each semicolon-delimited entry in `ApiMarkApiHeaders` is forwarded as its own
+  `--api-headers` flag in order, with `!`-prefixed exclusion patterns passed verbatim.
 - When `ApiMarkIncludePaths` is not set for a C++ project, the task returns true immediately
   with no side effects.
 
@@ -83,13 +85,32 @@ expects commas. This scenario is tested by
 property is passed to the spawned tool as the `--cpp-standard` argument for C++ builds.
 This scenario is tested by `ApiMarkTask_Cpp_CppStandard_ForwardedToTool`.
 
+**C++ api-headers patterns are forwarded as individual flags**: Verifies that each
+semicolon-delimited entry in `ApiMarkApiHeaders` is emitted as its own `--api-headers` flag in
+order, and that `!`-prefixed exclusion patterns are forwarded verbatim so the tool can apply
+last-match-wins gitignore semantics. This scenario is tested by
+`ApiMarkTask_Cpp_ApiHeaders_ForwardedAsIndividualFlags`.
+
 **Empty include paths skips execution for C++ project**: Verifies that when
 `ApiMarkIncludePaths` is not set for a C++ project, the task returns true immediately without
 spawning any process, providing graceful skip behavior parallel to the dotnet XmlDocPath
 behavior. This scenario is tested by `ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExecution`.
+
+**DotNet project executes tool and generates documentation**: End-to-end integration test that
+exercises the complete .NET documentation generation path — locates the bundled `ApiMark.Tool.dll`,
+spawns it against a real fixture assembly, and verifies that `api.md` is produced in the output
+directory. This scenario is tested by `ApiMarkTask_Execute_WithDotNetProject_GeneratesDocumentation`.
 
 **C++ project generates documentation via spawned tool**: End-to-end integration test that
 exercises the complete C++ documentation generation path against real fixture headers. Verifies
 that the spawned tool produces the expected Markdown output files. This scenario is tested by
 `ApiMarkTask_Execute_WithCppProject_GeneratesDocumentation` (not yet implemented — tracked
 as a future test).
+
+**C++ include paths auto-populated from AdditionalIncludeDirectories**: End-to-end package
+integration test that verifies `ApiMarkIncludePaths` is correctly defaulted from `ClCompile`
+`AdditionalIncludeDirectories` metadata when not explicitly set in the project file. The
+`.vcxproj` fixture uses only `ItemDefinitionGroup/ClCompile/AdditionalIncludeDirectories`
+with no explicit `$(ApiMarkIncludePaths)` property, and documentation is still generated
+successfully. This scenario is tested by
+`ApiMarkMsbuild_NuGetPackage_CppVcxprojProject_AutoDocumentsOnBuild`.

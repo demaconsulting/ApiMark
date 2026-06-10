@@ -23,6 +23,7 @@ words:
   - docstrings
   - fileassert
   - frontmatter
+  - ANTLR
   - GHDL
   - hrefs
   - isysroot
@@ -63,6 +64,7 @@ words:
   - fparse
   - fsyntax
   - versionmark
+  - writability
   - VHDL
   - vswhere
   - Weasyprint

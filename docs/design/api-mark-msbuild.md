@@ -43,10 +43,18 @@ task.
   to infer the language when `ApiMarkLanguage` is not set), `ApiMarkPackDocs`
   (opt-in; when `true`, causes the generated `api/` folder to be included in the
   NuGet package via `TargetsForTfmSpecificContentInPackage`), and language-specific
-  properties (`ApiMarkAssemblyPath`, `ApiMarkXmlDocPath` for dotnet;
-  `ApiMarkIncludePaths` for cpp). Fires `AfterTargets="Build"` unless
-  `DisableApiMark` is true. Language is inferred from `ProjectExtension` when
-  `ApiMarkLanguage` is not explicitly set.
+  properties:
+  - .NET: `ApiMarkAssemblyPath`, `ApiMarkXmlDocPath`
+  - C++: `ApiMarkIncludePaths` (semicolon-delimited `-I` include roots),
+    `ApiMarkLibraryName` (defaults to `$(MSBuildProjectName)` via `.targets`),
+    `ApiMarkLibraryDescription` (optional), `ApiMarkApiHeaders`
+    (semicolon-delimited ordered glob/exclusion patterns; optional),
+    `ApiMarkDefines` (semicolon-delimited preprocessor defines; semicolons
+    converted to commas for the tool argument),
+    `ApiMarkCppStandard` (e.g. `c++17`; optional, tool defaults to `c++17`),
+    `ApiMarkClangPath` (optional explicit clang executable path).
+  Fires `AfterTargets="Build"` unless `DisableApiMark` is true. Language is
+  inferred from `ProjectExtension` when `ApiMarkLanguage` is not explicitly set.
 - *Constraints*: Must not load any language-generator libraries in the MSBuild
   process; all generation is delegated out-of-process. `dotnet` must be locatable
   at task execution time.
@@ -59,8 +67,12 @@ executable to perform generation.
   MSBuild properties, and starts the process.
 - *Contract*: `dotnet <ToolDllPath> dotnet --assembly <path> --xml-doc <path>
   [--output <dir>] [--visibility <value>] [--include-obsolete]` for .NET;
-  `dotnet <ToolDllPath> cpp --includes <paths> [--output <dir>]
-  [--visibility <value>] [--include-obsolete]` for C++.
+  `dotnet <ToolDllPath> cpp
+  --includes <path> [--includes <path> ...] [--api-headers <pattern> ...]
+  [--library-name <name>] [--library-description <desc>]
+  [--defines <NAME[=val],NAME[=val],...>] [--cpp-standard <std>]
+  [--clang-path <path>] [--output <dir>] [--visibility <value>]
+  [--include-obsolete]` for C++.
 - *Constraints*: `ToolDllPath` is set by the `.targets` file to the bundled
   `ApiMark.Tool.dll`. The `dotnet` executable is resolved from the
   `DOTNET_HOST_PATH` environment variable first, then from `PATH`. The task treats
@@ -80,7 +92,13 @@ N/A — not a safety-classified software item.
 ## Data Flow
 
 1. MSBuild evaluates the `.targets` file and sets `ApiMarkTask` properties from the
-   project property bag before invoking the task.
+   project property bag before invoking the task. For `.vcxproj` projects where
+   `ApiMarkIncludePaths` is not explicitly set, the `.targets` file harvests
+   `AdditionalIncludeDirectories` metadata from all `ClCompile` items (stripping
+   unexpanded MSBuild sentinels and non-existent paths via `Exists()`) and
+   deduplicates the result into `ApiMarkIncludePaths`. This ensures that NuGet
+   package-injected include paths are resolved automatically without manual
+   configuration.
 2. ApiMarkTask checks `DisableApiMark`; if true, returns success immediately.
 3. ApiMarkTask determines `ApiMarkLanguage`: if not set, infers `cpp` for
    `.vcxproj` projects and `dotnet` for all others.

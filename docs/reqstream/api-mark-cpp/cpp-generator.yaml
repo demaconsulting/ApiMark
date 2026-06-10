@@ -101,15 +101,14 @@ sections:
               - CppGenerator_Generate_IncludeDeprecatedFalse_ExcludesDeprecatedClass
               - CppGenerator_Generate_IncludeDeprecatedTrue_IncludesDeprecatedClass
           - id: ApiMarkCpp-CppGenerator-RenderDoxygenDocComments
-            title: >-
-              CppGenerator shall extract and render Doxygen @brief, @param, and @return
-              comments
-              from parsed declarations.
+            title: CppGenerator shall extract and render Doxygen doc comments from parsed declarations.
             justification: |
               Developer-authored Doxygen comments contain the descriptions, parameter explanations,
               and return-value documentation that belong in the published API reference. Without
               extracting these comments the generated pages contain only signatures, which is
-              insufficient for an AI-readable reference.
+              insufficient for an AI-readable reference. Specifically: @brief is rendered as a
+              description paragraph; @param and @return are rendered in their respective sections;
+              missing doc comments emit a standard placeholder.
             tests:
               - CppGenerator_Generate_TypeWithDocComment_WritesSummaryToParagraph
               - CppGenerator_Generate_MethodWithDocComment_WritesSummaryToParagraph
@@ -153,11 +152,9 @@ sections:
               - CppGenerator_Generate_NamespaceFreeOperator_CreatesNamespaceOperatorsPage
           - id: ApiMarkCpp-CppGenerator-ShowDirectInheritanceInTypeSignature
             title: >-
-              CppGenerator shall include direct base class names in the class declaration
-              line of the signature block for classes that have direct base classes
-              or are
-              marked final, so the inheritance chain is visible without opening the
-              header.
+              CppGenerator shall include a class declaration line in the signature block showing
+              direct base class names and the final specifier for classes that have direct base
+              classes or are marked final.
             justification: |
               The direct base class list tells AI agents the contract a type satisfies and
               the class it extends without requiring them to navigate to the header file.

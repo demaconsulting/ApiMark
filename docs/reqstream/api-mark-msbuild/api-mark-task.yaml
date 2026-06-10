@@ -95,6 +95,46 @@ sections:
               build, parallel to the dotnet behavior when ApiMarkXmlDocPath is absent.
             tests:
               - ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExecution
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardLibraryDescription
+            title: ApiMarkTask shall forward the ApiMarkLibraryDescription property to the tool as the --library-description argument for C++ builds.
+            justification: |
+              C++ projects need to set a human-readable library description that appears in
+              the generated api.md, independent of any project metadata. Forwarding the MSBuild
+              property keeps the build configuration as the single source of truth.
+            tests:
+              - ApiMarkTask_BuildArguments_LibraryDescriptionWithDoubleQuote_PassedVerbatim
+              - ApiMarkTask_Cpp_LibraryDescription_ForwardedToTool
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardClangPath
+            title: ApiMarkTask shall forward the ApiMarkClangPath property to the tool as the --clang-path argument for C++ builds when set.
+            justification: |
+              CI environments and multi-toolchain projects frequently have clang installed at a
+              non-default path. Forwarding ApiMarkClangPath lets build authors specify the
+              executable path without modifying system PATH, keeping the build reproducible.
+            tests:
+              - ApiMarkTask_Cpp_ClangPath_ForwardedToTool
+          - id: ApiMarkMsbuild-ApiMarkTask-AutoPopulateIncludePaths
+            title: >-
+              ApiMarkTask shall automatically populate ApiMarkIncludePaths from the
+              AdditionalIncludeDirectories metadata on ClCompile items when ApiMarkIncludePaths
+              is not explicitly set.
+            justification: |
+              vcxproj builds already declare their include directories via ClCompile
+              AdditionalIncludeDirectories, often populated by NuGet packages. Harvesting
+              this metadata automatically means C++ projects require no manual ApiMark
+              configuration beyond the package reference.
+            tests:
+              - ApiMarkMsbuild_NuGetPackage_CppVcxprojProject_AutoDocumentsOnBuild
+          - id: ApiMarkMsbuild-ApiMarkTask-SkipWhenDotNetXmlDocPathNotSet
+            title: >-
+              ApiMarkTask shall return success immediately without spawning the tool when the
+              language is dotnet and ApiMarkXmlDocPath is not set.
+            justification: |
+              .NET projects in a solution may not all have XML documentation generation
+              enabled. When ApiMarkXmlDocPath is absent the task must skip gracefully rather
+              than fail the build, parallel to the C++ behavior when ApiMarkIncludePaths is
+              absent.
+            tests:
+              - ApiMarkTask_DotNet_EmptyXmlDocPath_SkipsExecution
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardApiHeaders
             title: >-
               ApiMarkTask shall forward each entry of ApiMarkApiHeaders to the tool as a separate

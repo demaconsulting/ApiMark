@@ -26,8 +26,9 @@ can be tested independently.
 - `Context` (IDisposable) — exposes parsed flags and options as typed
   properties (`Version`, `Help`, `Silent`, `Validate`, `Language`,
   `Assembly`, `XmlDoc`, `Includes`, `ApiHeaders`, `Output`, `Visibility`,
-  `IncludeObsolete`, `ResultsFile`, `HeadingDepth`, `ExitCode`) and provides
-  `WriteLine` and `WriteError` for all program output routing.
+  `IncludeObsolete`, `ResultsFile`, `HeadingDepth`, `LibraryName`,
+  `LibraryDescription`, `Defines`, `CppStandard`, `ClangPath`, `ExitCode`)
+  and provides `WriteLine` and `WriteError` for all program output routing.
 
 **Consumed**:
 
@@ -44,7 +45,8 @@ flags (`-v`, `--version`, `--help`, `--silent`, `--validate`, `--log`,
 first positional non-flag token (a token that does not start with `-`) is
 captured as the language subcommand. Language-specific options (`--assembly`,
 `--xml-doc`, `--includes`, `--api-headers`, `--output`, `--visibility`,
-`--include-obsolete`) may appear anywhere in the argument list after the
+`--include-obsolete`, `--library-name`, `--library-description`, `--defines`,
+`--cpp-standard`, `--clang-path`) may appear anywhere in the argument list after the
 language token is recognized.
 
 `Context` implements `IDisposable` to release the optional log file writer

@@ -32,6 +32,11 @@ argument array.
 | `Output` | `string?` | `null` | Directory from `--output` |
 | `Visibility` | `string` | `"Public"` | Value from `--visibility` |
 | `IncludeObsolete` | `bool` | `false` | `--include-obsolete` flag |
+| `LibraryName` | `string?` | `null` | Library name from `--library-name`; optional, used for C++ `api.md` heading |
+| `LibraryDescription` | `string?` | `null` | Library description from `--library-description`; optional, omitted when null |
+| `Defines` | `string[]` | `[]` | Preprocessor definitions from `--defines` (comma-separated, split into entries of the form `NAME` or `NAME=value`) |
+| `CppStandard` | `string?` | `null` | C++ language standard from `--cpp-standard` (e.g. `c++17`); optional, tool defaults to `c++17` when null |
+| `ClangPath` | `string?` | `null` | Explicit clang executable path from `--clang-path`; optional, auto-discovered when null |
 
 **Private fields**:
 

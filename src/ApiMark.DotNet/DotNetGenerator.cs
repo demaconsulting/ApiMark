@@ -25,6 +25,43 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <summary>Configuration controlling which assembly, XML doc, and visibility filter to use.</summary>
     private readonly DotNetGeneratorOptions _options;
 
+    /// <summary>
+    ///     Bundles the per-type-page writing context that is constant across all member
+    ///     pages generated for a single type. Used to reduce parameter counts on the
+    ///     private helper methods that emit individual member pages and table rows.
+    /// </summary>
+    private sealed record TypePageWriteContext(
+        IMarkdownWriterFactory Factory,
+        string NamespaceName,
+        string NamespaceFolderPath,
+        TypeDefinition Type,
+        XmlDocReader XmlDocs,
+        TypeLinkResolver Resolver);
+
+    /// <summary>
+    ///     Bundles the per-method documentation writing context passed to
+    ///     <see cref="WriteMethodDocumentation"/> so that callers do not need to
+    ///     thread five constant parameters through each call site.
+    /// </summary>
+    private sealed record MethodDocContext(
+        string NamespaceName,
+        XmlDocReader XmlDocs,
+        TypeLinkResolver Resolver,
+        string CurrentFolder,
+        ISet<ExternalTypeInfo> ExternalTypes);
+
+    /// <summary>
+    ///     Bundles the per-assembly namespace documentation context that is constant
+    ///     across all namespace page writes in a single generation run.
+    /// </summary>
+    private sealed record NamespaceDocContext(
+        List<string> AllNamespaces,
+        Dictionary<string, List<TypeDefinition>> ByNamespace,
+        List<string> RootNamespaces,
+        IReadOnlyDictionary<string, string?> NamespaceDescriptions,
+        XmlDocReader XmlDocs,
+        TypeLinkResolver Resolver);
+
     /// <summary>Initializes a new instance of <see cref="DotNetGenerator"/> with the specified options.</summary>
     /// <remarks>
     ///     No file system access occurs at construction time; all I/O is deferred to <see cref="Generate"/>.
@@ -163,12 +200,7 @@ public sealed class DotNetGenerator : IApiGenerator
             WriteNamespacePage(
                 factory,
                 namespaceName,
-                allNamespaces,
-                byNamespace,
-                rootNamespaces,
-                xmlDocs,
-                namespaceDescriptions,
-                resolver);
+                new NamespaceDocContext(allNamespaces, byNamespace, rootNamespaces, namespaceDescriptions, xmlDocs, resolver));
         }
     }
 
@@ -178,40 +210,27 @@ public sealed class DotNetGenerator : IApiGenerator
     /// </summary>
     /// <param name="factory">Factory for creating output writers.</param>
     /// <param name="namespaceName">The full namespace name to document.</param>
-    /// <param name="allNamespaces">All namespaces present in the assembly.</param>
-    /// <param name="byNamespace">Types grouped by namespace name.</param>
-    /// <param name="rootNamespaces">Namespaces that have no parent in this assembly.</param>
-    /// <param name="xmlDocs">XML documentation index for summary lookups.</param>
-    /// <param name="namespaceDescriptions">
-    ///     Namespace-level summaries sourced from the <c>NamespaceDoc</c> convention,
-    ///     keyed by fully-qualified namespace name.
-    /// </param>
-    /// <param name="resolver">Type link resolver forwarded to each type page within this namespace.</param>
+    /// <param name="ctx">Bundled namespace documentation context shared across all namespace page writes.</param>
     private void WriteNamespacePage(
         IMarkdownWriterFactory factory,
         string namespaceName,
-        List<string> allNamespaces,
-        Dictionary<string, List<TypeDefinition>> byNamespace,
-        List<string> rootNamespaces,
-        XmlDocReader xmlDocs,
-        IReadOnlyDictionary<string, string?> namespaceDescriptions,
-        TypeLinkResolver resolver)
+        NamespaceDocContext ctx)
     {
-        var folderPath = GetNamespaceFolderPath(namespaceName, rootNamespaces);
+        var folderPath = GetNamespaceFolderPath(namespaceName, ctx.RootNamespaces);
         SplitPath(folderPath, out var subFolder, out var shortName);
 
         using var nsWriter = factory.CreateMarkdown(subFolder, shortName);
         nsWriter.WriteHeading(1, namespaceName);
 
         // Emit the namespace summary when one was supplied via the NamespaceDoc convention
-        if (namespaceDescriptions.TryGetValue(namespaceName, out var nsSummary) &&
+        if (ctx.NamespaceDescriptions.TryGetValue(namespaceName, out var nsSummary) &&
             !string.IsNullOrEmpty(nsSummary))
         {
             nsWriter.WriteParagraph(nsSummary);
         }
 
         // List immediate child namespaces (gradual disclosure — one level at a time)
-        var children = GetImmediateChildNamespaces(namespaceName, allNamespaces)
+        var children = GetImmediateChildNamespaces(namespaceName, ctx.AllNamespaces)
             .OrderBy(n => n)
             .ToList();
 
@@ -220,10 +239,10 @@ public sealed class DotNetGenerator : IApiGenerator
             var childNsHeaders = new[] { "Namespace", DescriptionColumnHeader };
             var childNsRows = children.Select(child =>
             {
-                var childFolderPath = GetNamespaceFolderPath(child, rootNamespaces);
+                var childFolderPath = GetNamespaceFolderPath(child, ctx.RootNamespaces);
                 SplitPath(childFolderPath, out _, out var childShortName);
                 var link = $"{shortName}/{childShortName}.md";
-                var childDesc = namespaceDescriptions.TryGetValue(child, out var desc) && !string.IsNullOrEmpty(desc)
+                var childDesc = ctx.NamespaceDescriptions.TryGetValue(child, out var desc) && !string.IsNullOrEmpty(desc)
                     ? desc
                     : NoDescriptionPlaceholder;
                 return new[] { $"[{child}]({link})", childDesc };
@@ -232,7 +251,7 @@ public sealed class DotNetGenerator : IApiGenerator
         }
 
         // List types declared directly in this namespace
-        if (!byNamespace.TryGetValue(namespaceName, out var nsTypes) || nsTypes.Count == 0)
+        if (!ctx.ByNamespace.TryGetValue(namespaceName, out var nsTypes) || nsTypes.Count == 0)
         {
             return;
         }
@@ -241,7 +260,7 @@ public sealed class DotNetGenerator : IApiGenerator
         var typeRows = nsTypes.Select(t =>
         {
             var typeMemberId = BuildTypeId(t);
-            var summary = xmlDocs.GetSummary(typeMemberId) ?? NoDescriptionPlaceholder;
+            var summary = ctx.XmlDocs.GetSummary(typeMemberId) ?? NoDescriptionPlaceholder;
             var typeDisplayName = StripArity(t.Name);
             var link = $"{shortName}/{FlattenArity(t.Name)}.md";
             return new[] { $"[{typeDisplayName}]({link})", summary };
@@ -250,7 +269,8 @@ public sealed class DotNetGenerator : IApiGenerator
 
         foreach (var type in nsTypes)
         {
-            WriteTypePage(factory, namespaceName, folderPath, type, xmlDocs, resolver);
+            var typeCtx = new TypePageWriteContext(factory, namespaceName, folderPath, type, ctx.XmlDocs, ctx.Resolver);
+            WriteTypePage(typeCtx);
         }
     }
 
@@ -258,37 +278,23 @@ public sealed class DotNetGenerator : IApiGenerator
     ///     Writes the Markdown page for a single type, including a members table and
     ///     links to complex member pages.
     /// </summary>
-    /// <param name="factory">Factory for creating output writers.</param>
-    /// <param name="namespaceName">The namespace that owns <paramref name="type"/>.</param>
-    /// <param name="namespaceFolderPath">
-    ///     The file-system folder path for the namespace (e.g. <c>ApiMark.DotNet.Fixtures/Inner</c>).
-    ///     Used as the subfolder when creating the type's output file.
-    /// </param>
-    /// <param name="type">The type whose page is being written.</param>
-    /// <param name="xmlDocs">XML documentation index for summary and remarks lookups.</param>
-    /// <param name="resolver">Type link resolver used to emit Markdown links in table type cells.</param>
-    private void WriteTypePage(
-        IMarkdownWriterFactory factory,
-        string namespaceName,
-        string namespaceFolderPath,
-        TypeDefinition type,
-        XmlDocReader xmlDocs,
-        TypeLinkResolver resolver)
+    /// <param name="ctx">The type-page context encapsulating factory, namespace, type, and resolver.</param>
+    private void WriteTypePage(TypePageWriteContext ctx)
     {
-        using var typeWriter = factory.CreateMarkdown(namespaceFolderPath, FlattenArity(type.Name));
-        typeWriter.WriteHeading(1, StripArity(type.Name));
+        using var typeWriter = ctx.Factory.CreateMarkdown(ctx.NamespaceFolderPath, FlattenArity(ctx.Type.Name));
+        typeWriter.WriteHeading(1, StripArity(ctx.Type.Name));
 
         // Emit the C# declaration signature so readers can see the type kind, modifiers, and direct inheritance
-        var typeSignature = BuildTypeSignature(type, namespaceName);
+        var typeSignature = BuildTypeSignature(ctx.Type, ctx.NamespaceName);
         typeWriter.WriteSignature("csharp", typeSignature);
 
-        var typeMemberId = BuildTypeId(type);
+        var typeMemberId = BuildTypeId(ctx.Type);
 
         // Always emit a summary paragraph — use the placeholder when no doc is present
-        var typeSummary = xmlDocs.GetSummary(typeMemberId);
+        var typeSummary = ctx.XmlDocs.GetSummary(typeMemberId);
         typeWriter.WriteParagraph(!string.IsNullOrEmpty(typeSummary) ? typeSummary : NoDescriptionPlaceholder);
 
-        var typeRemarks = xmlDocs.GetRemarks(typeMemberId);
+        var typeRemarks = ctx.XmlDocs.GetRemarks(typeMemberId);
         if (!string.IsNullOrEmpty(typeRemarks))
         {
             typeWriter.WriteParagraph(typeRemarks);
@@ -298,13 +304,13 @@ public sealed class DotNetGenerator : IApiGenerator
         // the compiler-injected Invoke/BeginInvoke/EndInvoke methods and the synthetic
         // (object, IntPtr) constructor are implementation noise that should never appear
         // in public API docs, analogous to how enum backing fields are suppressed.
-        if (IsDelegate(type))
+        if (IsDelegate(ctx.Type))
         {
             return;
         }
 
         // Collect visible members: constructors first, then alphabetically
-        var allMembers = GetVisibleMembers(type)
+        var allMembers = GetVisibleMembers(ctx.Type)
             .OrderBy(m => m.Name == ConstructorMethodName ? 0 : 1)
             .ThenBy(m => m.Name)
             .ToList();
@@ -334,7 +340,7 @@ public sealed class DotNetGenerator : IApiGenerator
         var caseInsensitiveGroups = new Dictionary<string, List<IMemberDefinition>>(StringComparer.Ordinal);
         foreach (var member in members)
         {
-            var lowerKey = GetSanitizedMemberFileName(member, type).ToLowerInvariant();
+            var lowerKey = GetSanitizedMemberFileName(member, ctx.Type).ToLowerInvariant();
             if (!caseInsensitiveGroups.TryGetValue(lowerKey, out var list))
             {
                 list = [];
@@ -363,139 +369,25 @@ public sealed class DotNetGenerator : IApiGenerator
         // named after the lowercase key; all their table rows link to that shared page.
         foreach (var member in members)
         {
-            var lowerKey = GetSanitizedMemberFileName(member, type).ToLowerInvariant();
+            var lowerKey = GetSanitizedMemberFileName(member, ctx.Type).ToLowerInvariant();
             var group = caseInsensitiveGroups[lowerKey];
 
             if (group.Count == 1)
             {
-                // No collision: write an individual page using the member's own display name
-                var memberId = BuildMemberId(member);
-                var memberSummary = xmlDocs.GetSummary(memberId) ?? NoDescriptionPlaceholder;
-                var memberTypeRef = GetMemberTypeRef(member);
-                var memberTypeName = memberTypeRef != null
-                    ? resolver.Linkify(memberTypeRef, namespaceFolderPath, namespaceName, externalTypes, IsMemberTypeNullableAnnotated(member))
-                    : string.Empty;
-                var memberDisplayName = GetMemberDisplayName(member);
-                var sanitizedName = GetSanitizedMemberFileName(member, type);
-                var memberPageLink = $"{FlattenArity(type.Name)}/{sanitizedName}.md";
-
-                if (member is MethodDefinition singleMethod)
-                {
-                    WriteMemberPage(factory, namespaceName, namespaceFolderPath, type, singleMethod, xmlDocs, memberId, resolver);
-                    var isConstructor = singleMethod.Name == ConstructorMethodName;
-                    if (isConstructor)
-                    {
-                        constructorRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberSummary });
-                    }
-                    else
-                    {
-                        methodRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
-                    }
-                }
-                else
-                {
-                    WriteMemberPage(factory, namespaceName, namespaceFolderPath, type, member, xmlDocs, memberId, resolver);
-                    switch (member)
-                    {
-                        case PropertyDefinition:
-                            propertyRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
-                            break;
-                        case FieldDefinition:
-                            fieldRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
-                            break;
-                        case EventDefinition:
-                            eventRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
-                            break;
-                    }
-                }
+                ProcessSingleMember(ctx, member, constructorRows, propertyRows, methodRows, fieldRows, eventRows, externalTypes);
             }
-            else if (IsPureMethodOverloadGroup(group, type))
+            else if (IsPureMethodOverloadGroup(group, ctx.Type))
             {
-                // Pure method overloads (all MethodDefinition with the same exact file name):
-                // emit a single shared overload page and one representative table row.
-                // Skip all but the first occurrence so only one row is added per overload group.
                 if (!writtenLowerKeys.Add(lowerKey))
                 {
                     continue;
                 }
 
-                var methods = group.Cast<MethodDefinition>().ToList();
-
-                // Ensure deterministic ordering for representative selection and page rendering
-                var orderedOverloads = methods
-                    .OrderBy(m => m.GenericParameters.Count)
-                    .ThenBy(m => m.Parameters.Count)
-                    .ThenBy(m => string.Join(",", m.Parameters.Select(p => p.ParameterType.FullName)), StringComparer.Ordinal)
-                    .ToList();
-
-                var representative = orderedOverloads[0];
-                var representativeMemberId = BuildMemberId(representative);
-                var representativeSummary = xmlDocs.GetSummary(representativeMemberId) ?? NoDescriptionPlaceholder;
-                var representativeTypeRef = GetMemberTypeRef(representative);
-                var representativeTypeName = representativeTypeRef != null
-                    ? resolver.Linkify(representativeTypeRef, namespaceFolderPath, namespaceName, externalTypes, IsMemberTypeNullableAnnotated(representative))
-                    : string.Empty;
-                var overloadDisplayName = GetMethodGroupDisplayName(representative, orderedOverloads.Count);
-                var overloadFileName = GetSanitizedMemberFileName(representative, type);
-                var memberLink = $"{FlattenArity(type.Name)}/{overloadFileName}.md";
-                var isConstructorGroup = representative.Name == ConstructorMethodName;
-
-                WriteMethodOverloadPage(factory, namespaceName, namespaceFolderPath, type, orderedOverloads, xmlDocs, resolver);
-
-                if (isConstructorGroup)
-                {
-                    constructorRows.Add(new[] { $"[{overloadDisplayName}]({memberLink})", representativeSummary });
-                }
-                else
-                {
-                    methodRows.Add(new[] { $"[{overloadDisplayName}]({memberLink})", representativeTypeName, representativeSummary });
-                }
+                ProcessOverloadGroup(ctx, group, constructorRows, methodRows, externalTypes);
             }
             else
             {
-                // Case-insensitive collision: mixed kinds or different-case method names.
-                // Write a single combined page named after the lowercase key on first encounter.
-                var memberLink = $"{FlattenArity(type.Name)}/{lowerKey}.md";
-
-                if (writtenLowerKeys.Add(lowerKey))
-                {
-                    WriteCombinedMemberPage(factory, namespaceName, namespaceFolderPath, type, lowerKey, group, xmlDocs, resolver);
-                }
-
-                // Every member in the collision group still contributes its own row to the
-                // appropriate sub-table, all linking to the shared combined page
-                var memberId = BuildMemberId(member);
-                var memberSummary = xmlDocs.GetSummary(memberId) ?? NoDescriptionPlaceholder;
-                var memberTypeRef = GetMemberTypeRef(member);
-                var memberTypeName = memberTypeRef != null
-                    ? resolver.Linkify(memberTypeRef, namespaceFolderPath, namespaceName, externalTypes, IsMemberTypeNullableAnnotated(member))
-                    : string.Empty;
-                var memberDisplayName = GetMemberDisplayName(member);
-
-                switch (member)
-                {
-                    case MethodDefinition m:
-                        var isConstructor = m.Name == ConstructorMethodName;
-                        if (isConstructor)
-                        {
-                            constructorRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberSummary });
-                        }
-                        else
-                        {
-                            methodRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
-                        }
-
-                        break;
-                    case PropertyDefinition:
-                        propertyRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
-                        break;
-                    case FieldDefinition:
-                        fieldRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
-                        break;
-                    case EventDefinition:
-                        eventRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
-                        break;
-                }
+                ProcessCollisionMember(ctx, member, group, lowerKey, writtenLowerKeys, constructorRows, propertyRows, methodRows, fieldRows, eventRows, externalTypes);
             }
         }
 
@@ -539,17 +431,17 @@ public sealed class DotNetGenerator : IApiGenerator
         // a single page to prevent file-name collisions between op_Addition, op_Subtraction, etc.
         if (operatorMethods.Count > 0)
         {
-            WriteTypeOperatorsPage(factory, namespaceName, namespaceFolderPath, type, operatorMethods, xmlDocs, resolver);
+            WriteTypeOperatorsPage(ctx.Factory, ctx.NamespaceName, ctx.NamespaceFolderPath, ctx.Type, operatorMethods, ctx.XmlDocs, ctx.Resolver);
             typeWriter.WriteHeading(2, "Operators");
             typeWriter.WriteTable(
                 new[] { "Member", DescriptionColumnHeader },
-                new[] { new[] { $"[Operators]({FlattenArity(type.Name)}/operators.md)", "Operator overloads" } });
+                new[] { new[] { $"[Operators]({FlattenArity(ctx.Type.Name)}/operators.md)", "Operator overloads" } });
         }
 
         // Emit Nested Types section when the type has visible nested types — each nested type
         // receives a dedicated page under the containing type's folder so the documentation
         // hierarchy mirrors the C# type hierarchy
-        var visibleNestedTypes = GetVisibleNestedTypes(type).ToList();
+        var visibleNestedTypes = GetVisibleNestedTypes(ctx.Type).ToList();
         if (visibleNestedTypes.Count > 0)
         {
             typeWriter.WriteHeading(2, "Nested Types");
@@ -557,19 +449,19 @@ public sealed class DotNetGenerator : IApiGenerator
             var nestedTypeRows = visibleNestedTypes.Select(nested =>
             {
                 var nestedTypeId = BuildTypeId(nested);
-                var nestedSummary = xmlDocs.GetSummary(nestedTypeId) ?? NoDescriptionPlaceholder;
+                var nestedSummary = ctx.XmlDocs.GetSummary(nestedTypeId) ?? NoDescriptionPlaceholder;
                 var nestedDisplayName = StripArity(nested.Name);
-                var nestedLink = $"{FlattenArity(type.Name)}/{FlattenArity(nested.Name)}.md";
+                var nestedLink = $"{FlattenArity(ctx.Type.Name)}/{FlattenArity(nested.Name)}.md";
                 return new[] { $"[{nestedDisplayName}]({nestedLink})", nestedSummary };
             });
             typeWriter.WriteTable(nestedTypeHeaders, nestedTypeRows);
 
             // Recursively write a dedicated page for each visible nested type under the
             // containing type's folder, mirroring the C# type nesting hierarchy
-            var nestedFolderPath = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
+            var nestedFolderPath = $"{ctx.NamespaceFolderPath}/{FlattenArity(ctx.Type.Name)}";
             foreach (var nested in visibleNestedTypes)
             {
-                WriteTypePage(factory, namespaceName, nestedFolderPath, nested, xmlDocs, resolver);
+                WriteTypePage(new TypePageWriteContext(ctx.Factory, ctx.NamespaceName, nestedFolderPath, nested, ctx.XmlDocs, ctx.Resolver));
             }
         }
 
@@ -581,30 +473,23 @@ public sealed class DotNetGenerator : IApiGenerator
     ///     Writes the detailed Markdown page for a single complex member, including
     ///     signature, parameters, returns, exceptions, remarks, and examples.
     /// </summary>
-    /// <param name="factory">Factory for creating output writers.</param>
-    /// <param name="namespaceName">The namespace that owns the declaring type (used for type name simplification).</param>
-    /// <param name="namespaceFolderPath">
-    ///     The file-system folder path for the namespace (e.g. <c>ApiMark.DotNet.Fixtures/Inner</c>).
-    ///     Used to construct the member file's subfolder path.
-    /// </param>
-    /// <param name="type">The type that declares <paramref name="member"/>.</param>
+    /// <remarks>
+    ///     Method members delegate to <see cref="WriteMethodDocumentation"/>; all other
+    ///     member kinds use a direct signature/summary/sections layout. External type
+    ///     references found in parameter type cells are accumulated and emitted in a
+    ///     trailing section via <see cref="WriteExternalTypesSection"/>.
+    /// </remarks>
+    /// <param name="ctx">The type-page context containing factory, namespace, type, and resolver.</param>
     /// <param name="member">The member whose page is being written.</param>
-    /// <param name="xmlDocs">XML documentation index.</param>
     /// <param name="memberId">Pre-computed XML doc member identifier for <paramref name="member"/>.</param>
-    /// <param name="resolver">Type link resolver used to linkify parameter type cells.</param>
     private static void WriteMemberPage(
-        IMarkdownWriterFactory factory,
-        string namespaceName,
-        string namespaceFolderPath,
-        TypeDefinition type,
+        TypePageWriteContext ctx,
         IMemberDefinition member,
-        XmlDocReader xmlDocs,
-        string memberId,
-        TypeLinkResolver resolver)
+        string memberId)
     {
-        var sanitizedName = GetSanitizedMemberFileName(member, type);
-        var memberCurrentFolder = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
-        using var memberWriter = factory.CreateMarkdown(memberCurrentFolder, sanitizedName);
+        var sanitizedName = GetSanitizedMemberFileName(member, ctx.Type);
+        var memberCurrentFolder = $"{ctx.NamespaceFolderPath}/{FlattenArity(ctx.Type.Name)}";
+        using var memberWriter = ctx.Factory.CreateMarkdown(memberCurrentFolder, sanitizedName);
 
         var displayName = GetMemberDisplayName(member);
         memberWriter.WriteHeading(1, displayName);
@@ -613,26 +498,26 @@ public sealed class DotNetGenerator : IApiGenerator
         {
             // Method pages use the resolver for parameter type cells
             var externalTypes = new SortedSet<ExternalTypeInfo>();
-            WriteMethodDocumentation(memberWriter, namespaceName, method, xmlDocs, memberId, resolver, memberCurrentFolder, externalTypes);
+            WriteMethodDocumentation(memberWriter, method, memberId, new MethodDocContext(ctx.NamespaceName, ctx.XmlDocs, ctx.Resolver, memberCurrentFolder, externalTypes));
             WriteExternalTypesSection(memberWriter, externalTypes);
             return;
         }
 
-        var signature = BuildMemberSignature(member, namespaceName);
+        var signature = BuildMemberSignature(member, ctx.NamespaceName);
         memberWriter.WriteSignature("csharp", signature);
 
         // Always emit a summary paragraph — use the placeholder when no doc is present
-        var summary = xmlDocs.GetSummary(memberId);
+        var summary = ctx.XmlDocs.GetSummary(memberId);
         memberWriter.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : NoDescriptionPlaceholder);
 
-        var returns = xmlDocs.GetReturns(memberId);
+        var returns = ctx.XmlDocs.GetReturns(memberId);
         if (!string.IsNullOrEmpty(returns))
         {
             memberWriter.WriteParagraph($"**Returns:** {returns}");
         }
 
         // Emit exception table when documented exceptions exist
-        var exceptions = xmlDocs.GetExceptionDetails(memberId);
+        var exceptions = ctx.XmlDocs.GetExceptionDetails(memberId);
         if (exceptions.Count > 0)
         {
             var exHeaders = new[] { "Exception", DescriptionColumnHeader };
@@ -640,13 +525,13 @@ public sealed class DotNetGenerator : IApiGenerator
             memberWriter.WriteTable(exHeaders, exRows);
         }
 
-        var remarks = xmlDocs.GetRemarks(memberId);
+        var remarks = ctx.XmlDocs.GetRemarks(memberId);
         if (!string.IsNullOrEmpty(remarks))
         {
             memberWriter.WriteParagraph(remarks);
         }
 
-        var example = xmlDocs.GetExample(memberId);
+        var example = ctx.XmlDocs.GetExample(memberId);
         if (!string.IsNullOrEmpty(example))
         {
             memberWriter.WriteCodeBlock("csharp", example);
@@ -673,7 +558,7 @@ public sealed class DotNetGenerator : IApiGenerator
         foreach (var overload in overloads)
         {
             memberWriter.WriteHeading(2, BuildMethodDisplayName(overload));
-            WriteMethodDocumentation(memberWriter, namespaceName, overload, xmlDocs, BuildMemberId(overload), resolver, overloadCurrentFolder, externalTypes);
+            WriteMethodDocumentation(memberWriter, overload, BuildMemberId(overload), new MethodDocContext(namespaceName, xmlDocs, resolver, overloadCurrentFolder, externalTypes));
         }
 
         WriteExternalTypesSection(memberWriter, externalTypes);
@@ -719,7 +604,7 @@ public sealed class DotNetGenerator : IApiGenerator
         foreach (var op in operators)
         {
             writer.WriteHeading(2, BuildMethodDisplayName(op));
-            WriteMethodDocumentation(writer, namespaceName, op, xmlDocs, BuildMemberId(op), resolver, operatorsCurrentFolder, externalTypes);
+            WriteMethodDocumentation(writer, op, BuildMemberId(op), new MethodDocContext(namespaceName, xmlDocs, resolver, operatorsCurrentFolder, externalTypes));
         }
 
         WriteExternalTypesSection(writer, externalTypes);
@@ -732,19 +617,11 @@ public sealed class DotNetGenerator : IApiGenerator
     /// </summary>
     /// <remarks>
     ///     This handles the case where a field <c>name</c> and a property <c>Name</c> would
-    ///     map to the same file name on case-insensitive file systems.
-    ///     All colliding members are documented together under H2 sub-headings that show
-    ///     both the exact display name and the member kind (e.g., <c>name (Field)</c>).
+    ///     map to the same file name on case-insensitive file systems. All colliding members
+    ///     are documented together under H2 sub-headings that show both the exact display name
+    ///     and the member kind (e.g., <c>name (Field)</c>).
     /// </remarks>
-    /// <param name="factory">Factory for creating the output writer.</param>
-    /// <param name="namespaceName">
-    ///     The namespace that owns the declaring type; used to simplify type names in signatures.
-    /// </param>
-    /// <param name="namespaceFolderPath">
-    ///     The file-system folder path for the namespace (e.g. <c>ApiMark.DotNet.Fixtures/Inner</c>).
-    ///     Used to construct the member file's subfolder path.
-    /// </param>
-    /// <param name="type">The type that declares all members in <paramref name="members"/>.</param>
+    /// <param name="ctx">The type-page context containing factory, namespace, type, and resolver.</param>
     /// <param name="lowerKey">
     ///     The shared lowercase file name key. Used as both the page file name and the H1
     ///     page heading so the combined page has a stable, predictable address.
@@ -753,20 +630,13 @@ public sealed class DotNetGenerator : IApiGenerator
     ///     The ordered list of members whose sanitized file names collide on case-insensitive
     ///     file systems. Must contain at least two elements.
     /// </param>
-    /// <param name="xmlDocs">XML documentation index for summary and detail lookups.</param>
-    /// <param name="resolver">Type link resolver used to linkify parameter type cells.</param>
     private static void WriteCombinedMemberPage(
-        IMarkdownWriterFactory factory,
-        string namespaceName,
-        string namespaceFolderPath,
-        TypeDefinition type,
+        TypePageWriteContext ctx,
         string lowerKey,
-        IReadOnlyList<IMemberDefinition> members,
-        XmlDocReader xmlDocs,
-        TypeLinkResolver resolver)
+        IReadOnlyList<IMemberDefinition> members)
     {
-        var combinedCurrentFolder = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
-        using var writer = factory.CreateMarkdown(combinedCurrentFolder, lowerKey);
+        var combinedCurrentFolder = $"{ctx.NamespaceFolderPath}/{FlattenArity(ctx.Type.Name)}";
+        using var writer = ctx.Factory.CreateMarkdown(combinedCurrentFolder, lowerKey);
 
         // The shared lowercase key serves as the page heading so every member in the group
         // can be found at the same predictable path regardless of filesystem case-sensitivity
@@ -786,42 +656,11 @@ public sealed class DotNetGenerator : IApiGenerator
             {
                 // Reuse the method documentation writer so formatting is consistent
                 // with single-method pages and overload pages
-                WriteMethodDocumentation(writer, namespaceName, method, xmlDocs, memberId, resolver, combinedCurrentFolder, externalTypes);
+                WriteMethodDocumentation(writer, method, memberId, new MethodDocContext(ctx.NamespaceName, ctx.XmlDocs, ctx.Resolver, combinedCurrentFolder, externalTypes));
             }
             else
             {
-                // Non-method: emit signature, summary, and optional documentation sections
-                var signature = BuildMemberSignature(member, namespaceName);
-                writer.WriteSignature("csharp", signature);
-
-                var summary = xmlDocs.GetSummary(memberId);
-                writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : NoDescriptionPlaceholder);
-
-                var returns = xmlDocs.GetReturns(memberId);
-                if (!string.IsNullOrEmpty(returns))
-                {
-                    writer.WriteParagraph($"**Returns:** {returns}");
-                }
-
-                var exceptions = xmlDocs.GetExceptionDetails(memberId);
-                if (exceptions.Count > 0)
-                {
-                    var exHeaders = new[] { "Exception", DescriptionColumnHeader };
-                    var exRows = exceptions.Select(e => new[] { e.Type, e.Description ?? string.Empty });
-                    writer.WriteTable(exHeaders, exRows);
-                }
-
-                var remarks = xmlDocs.GetRemarks(memberId);
-                if (!string.IsNullOrEmpty(remarks))
-                {
-                    writer.WriteParagraph(remarks);
-                }
-
-                var example = xmlDocs.GetExample(memberId);
-                if (!string.IsNullOrEmpty(example))
-                {
-                    writer.WriteCodeBlock("csharp", example);
-                }
+                WriteNonMethodMemberContent(writer, member, memberId, new MethodDocContext(ctx.NamespaceName, ctx.XmlDocs, ctx.Resolver, combinedCurrentFolder, externalTypes));
             }
         }
 
@@ -879,45 +718,307 @@ public sealed class DotNetGenerator : IApiGenerator
         _ => "Member",
     };
 
+    /// <summary>
+    ///     Processes a single member (no name collisions) by writing its individual detail page
+    ///     and appending the appropriate row to one of the per-kind row accumulators.
+    /// </summary>
+    /// <remarks>
+    ///     Called when a member's sanitized file name is unique within its type (no
+    ///     case-insensitive collision). Writes the page immediately and adds the table row
+    ///     to the correct bucket based on the member's runtime kind.
+    /// </remarks>
+    /// <param name="ctx">The type-page context containing factory, namespace, type, and resolver.</param>
+    /// <param name="member">The single member to document.</param>
+    /// <param name="constructorRows">Accumulator for constructor table rows.</param>
+    /// <param name="propertyRows">Accumulator for property table rows.</param>
+    /// <param name="methodRows">Accumulator for method table rows.</param>
+    /// <param name="fieldRows">Accumulator for field table rows.</param>
+    /// <param name="eventRows">Accumulator for event table rows.</param>
+    /// <param name="externalTypes">External type reference accumulator for the current type page.</param>
+    private static void ProcessSingleMember(
+        TypePageWriteContext ctx,
+        IMemberDefinition member,
+        List<string[]> constructorRows,
+        List<string[]> propertyRows,
+        List<string[]> methodRows,
+        List<string[]> fieldRows,
+        List<string[]> eventRows,
+        SortedSet<ExternalTypeInfo> externalTypes)
+    {
+        var memberId = BuildMemberId(member);
+        var memberSummary = ctx.XmlDocs.GetSummary(memberId) ?? NoDescriptionPlaceholder;
+        var memberTypeRef = GetMemberTypeRef(member);
+        var memberTypeName = memberTypeRef != null
+            ? ctx.Resolver.Linkify(memberTypeRef, ctx.NamespaceFolderPath, ctx.NamespaceName, externalTypes, IsMemberTypeNullableAnnotated(member))
+            : string.Empty;
+        var memberDisplayName = GetMemberDisplayName(member);
+        var sanitizedName = GetSanitizedMemberFileName(member, ctx.Type);
+        var memberPageLink = $"{FlattenArity(ctx.Type.Name)}/{sanitizedName}.md";
+
+        if (member is MethodDefinition singleMethod)
+        {
+            WriteMemberPage(ctx, singleMethod, memberId);
+            var isConstructor = singleMethod.Name == ConstructorMethodName;
+            if (isConstructor)
+            {
+                constructorRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberSummary });
+            }
+            else
+            {
+                methodRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+            }
+        }
+        else
+        {
+            WriteMemberPage(ctx, member, memberId);
+            switch (member)
+            {
+                case PropertyDefinition:
+                    propertyRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                    break;
+                case FieldDefinition:
+                    fieldRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                    break;
+                case EventDefinition:
+                    eventRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Processes a pure method overload group (all methods share the same exact file name)
+    ///     by writing a single shared overload page and adding one representative table row.
+    /// </summary>
+    /// <remarks>
+    ///     Called on the first encounter of each overload group key. Subsequent members
+    ///     in the same group are skipped by the caller via a <c>writtenLowerKeys</c> guard.
+    ///     The representative overload is the method with the fewest generic and value
+    ///     parameters (deterministic selection).
+    /// </remarks>
+    /// <param name="ctx">The type-page context containing factory, namespace, type, and resolver.</param>
+    /// <param name="group">All members sharing the same lowercase key (all must be MethodDefinition).</param>
+    /// <param name="constructorRows">Accumulator for constructor table rows.</param>
+    /// <param name="methodRows">Accumulator for method table rows.</param>
+    /// <param name="externalTypes">External type reference accumulator for the current type page.</param>
+    private static void ProcessOverloadGroup(
+        TypePageWriteContext ctx,
+        IReadOnlyList<IMemberDefinition> group,
+        List<string[]> constructorRows,
+        List<string[]> methodRows,
+        SortedSet<ExternalTypeInfo> externalTypes)
+    {
+        var methods = group.Cast<MethodDefinition>().ToList();
+
+        // Ensure deterministic ordering for representative selection and page rendering
+        var orderedOverloads = methods
+            .OrderBy(m => m.GenericParameters.Count)
+            .ThenBy(m => m.Parameters.Count)
+            .ThenBy(m => string.Join(",", m.Parameters.Select(p => p.ParameterType.FullName)), StringComparer.Ordinal)
+            .ToList();
+
+        var representative = orderedOverloads[0];
+        var representativeMemberId = BuildMemberId(representative);
+        var representativeSummary = ctx.XmlDocs.GetSummary(representativeMemberId) ?? NoDescriptionPlaceholder;
+        var representativeTypeRef = GetMemberTypeRef(representative);
+        var representativeTypeName = representativeTypeRef != null
+            ? ctx.Resolver.Linkify(representativeTypeRef, ctx.NamespaceFolderPath, ctx.NamespaceName, externalTypes, IsMemberTypeNullableAnnotated(representative))
+            : string.Empty;
+        var overloadDisplayName = GetMethodGroupDisplayName(representative, orderedOverloads.Count);
+        var overloadFileName = GetSanitizedMemberFileName(representative, ctx.Type);
+        var memberLink = $"{FlattenArity(ctx.Type.Name)}/{overloadFileName}.md";
+        var isConstructorGroup = representative.Name == ConstructorMethodName;
+
+        WriteMethodOverloadPage(ctx.Factory, ctx.NamespaceName, ctx.NamespaceFolderPath, ctx.Type, orderedOverloads, ctx.XmlDocs, ctx.Resolver);
+
+        if (isConstructorGroup)
+        {
+            constructorRows.Add(new[] { $"[{overloadDisplayName}]({memberLink})", representativeSummary });
+        }
+        else
+        {
+            methodRows.Add(new[] { $"[{overloadDisplayName}]({memberLink})", representativeTypeName, representativeSummary });
+        }
+    }
+
+    /// <summary>
+    ///     Processes one member from a case-insensitive collision group, writing the shared
+    ///     combined page on first encounter and adding the member's individual row to the
+    ///     appropriate per-kind accumulator.
+    /// </summary>
+    /// <remarks>
+    ///     A collision occurs when members whose names differ only in case map to the same
+    ///     file name. All such members share a single page named after the lowercase key;
+    ///     each still contributes its own row to the sub-table on the containing type page.
+    /// </remarks>
+    /// <param name="ctx">The type-page context containing factory, namespace, type, and resolver.</param>
+    /// <param name="member">The member to process.</param>
+    /// <param name="group">All members sharing the same lowercase collision key.</param>
+    /// <param name="lowerKey">The shared lowercase file name key.</param>
+    /// <param name="writtenLowerKeys">Tracks keys whose combined page has already been written.</param>
+    /// <param name="constructorRows">Accumulator for constructor table rows.</param>
+    /// <param name="propertyRows">Accumulator for property table rows.</param>
+    /// <param name="methodRows">Accumulator for method table rows.</param>
+    /// <param name="fieldRows">Accumulator for field table rows.</param>
+    /// <param name="eventRows">Accumulator for event table rows.</param>
+    /// <param name="externalTypes">External type reference accumulator for the current type page.</param>
+    private static void ProcessCollisionMember(
+        TypePageWriteContext ctx,
+        IMemberDefinition member,
+        IReadOnlyList<IMemberDefinition> group,
+        string lowerKey,
+        HashSet<string> writtenLowerKeys,
+        List<string[]> constructorRows,
+        List<string[]> propertyRows,
+        List<string[]> methodRows,
+        List<string[]> fieldRows,
+        List<string[]> eventRows,
+        SortedSet<ExternalTypeInfo> externalTypes)
+    {
+        var memberLink = $"{FlattenArity(ctx.Type.Name)}/{lowerKey}.md";
+
+        if (writtenLowerKeys.Add(lowerKey))
+        {
+            WriteCombinedMemberPage(ctx, lowerKey, group);
+        }
+
+        // Every member in the collision group still contributes its own row to the
+        // appropriate sub-table, all linking to the shared combined page
+        var memberId = BuildMemberId(member);
+        var memberSummary = ctx.XmlDocs.GetSummary(memberId) ?? NoDescriptionPlaceholder;
+        var memberTypeRef = GetMemberTypeRef(member);
+        var memberTypeName = memberTypeRef != null
+            ? ctx.Resolver.Linkify(memberTypeRef, ctx.NamespaceFolderPath, ctx.NamespaceName, externalTypes, IsMemberTypeNullableAnnotated(member))
+            : string.Empty;
+        var memberDisplayName = GetMemberDisplayName(member);
+
+        switch (member)
+        {
+            case MethodDefinition m:
+                var isConstructor = m.Name == ConstructorMethodName;
+                if (isConstructor)
+                {
+                    constructorRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberSummary });
+                }
+                else
+                {
+                    methodRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
+                }
+
+                break;
+            case PropertyDefinition:
+                propertyRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
+                break;
+            case FieldDefinition:
+                fieldRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
+                break;
+            case EventDefinition:
+                eventRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
+                break;
+        }
+    }
+
+    /// <summary>
+    ///     Writes the signature, summary, returns, exceptions, remarks, and example sections
+    ///     for a single non-method member into <paramref name="writer"/>.
+    /// </summary>
+    /// <remarks>
+    ///     Extracted from <see cref="WriteCombinedMemberPage"/> to reduce its cognitive
+    ///     complexity. Covers all member kinds except <see cref="MethodDefinition"/>, which
+    ///     is handled by <see cref="WriteMethodDocumentation"/>.
+    /// </remarks>
+    /// <param name="writer">The Markdown writer for the containing combined page.</param>
+    /// <param name="member">The non-method member to document.</param>
+    /// <param name="memberId">Pre-computed XML doc member identifier for <paramref name="member"/>.</param>
+    /// <param name="ctx">Bundled documentation context providing XmlDocs and namespace name.</param>
+    private static void WriteNonMethodMemberContent(
+        IMarkdownWriter writer,
+        IMemberDefinition member,
+        string memberId,
+        MethodDocContext ctx)
+    {
+        var signature = BuildMemberSignature(member, ctx.NamespaceName);
+        writer.WriteSignature("csharp", signature);
+
+        var summary = ctx.XmlDocs.GetSummary(memberId);
+        writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : NoDescriptionPlaceholder);
+
+        var returns = ctx.XmlDocs.GetReturns(memberId);
+        if (!string.IsNullOrEmpty(returns))
+        {
+            writer.WriteParagraph($"**Returns:** {returns}");
+        }
+
+        var exceptions = ctx.XmlDocs.GetExceptionDetails(memberId);
+        if (exceptions.Count > 0)
+        {
+            var exHeaders = new[] { "Exception", DescriptionColumnHeader };
+            var exRows = exceptions.Select(e => new[] { e.Type, e.Description ?? string.Empty });
+            writer.WriteTable(exHeaders, exRows);
+        }
+
+        var remarks = ctx.XmlDocs.GetRemarks(memberId);
+        if (!string.IsNullOrEmpty(remarks))
+        {
+            writer.WriteParagraph(remarks);
+        }
+
+        var example = ctx.XmlDocs.GetExample(memberId);
+        if (!string.IsNullOrEmpty(example))
+        {
+            writer.WriteCodeBlock("csharp", example);
+        }
+    }
+
+    /// <summary>
+    ///     Writes the complete documentation body for a single method or constructor into
+    ///     <paramref name="memberWriter"/>, including signature, summary, parameter table,
+    ///     returns, exceptions, remarks, and example sections.
+    /// </summary>
+    /// <remarks>
+    ///     Shared by <see cref="WriteMemberPage"/>, <see cref="WriteMethodOverloadPage"/>,
+    ///     <see cref="WriteTypeOperatorsPage"/>, and <see cref="WriteCombinedMemberPage"/> so
+    ///     that all method-documentation paths produce identically structured output.
+    /// </remarks>
+    /// <param name="memberWriter">The Markdown writer to emit content into.</param>
+    /// <param name="method">The method whose documentation to write.</param>
+    /// <param name="memberId">Pre-computed XML doc member identifier for <paramref name="method"/>.</param>
+    /// <param name="ctx">Bundled documentation context shared across all members on the current page.</param>
     private static void WriteMethodDocumentation(
         IMarkdownWriter memberWriter,
-        string namespaceName,
         MethodDefinition method,
-        XmlDocReader xmlDocs,
         string memberId,
-        TypeLinkResolver resolver,
-        string currentFolder,
-        ISet<ExternalTypeInfo> externalTypes)
+        MethodDocContext ctx)
     {
-        var signature = BuildMethodSignature(method, namespaceName);
+        var signature = BuildMethodSignature(method, ctx.NamespaceName);
         memberWriter.WriteSignature("csharp", signature);
 
         // Always emit a summary paragraph — use the placeholder when no doc is present
-        var summary = xmlDocs.GetSummary(memberId);
+        var summary = ctx.XmlDocs.GetSummary(memberId);
         memberWriter.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : NoDescriptionPlaceholder);
 
         if (method.HasParameters)
         {
-            var paramDocs = xmlDocs.GetParams(memberId);
+            var paramDocs = ctx.XmlDocs.GetParams(memberId);
             var paramHeaders = new[] { "Parameter", "Type", DescriptionColumnHeader };
 
             // Linkify parameter types — resolver tracks external types and emits links for intra-assembly types
             var paramRows = method.Parameters.Select(p =>
             {
                 var desc = paramDocs.FirstOrDefault(pd => pd.Name == p.Name).Description ?? string.Empty;
-                var typeName = resolver.Linkify(p.ParameterType, currentFolder, namespaceName, externalTypes);
+                var typeName = ctx.Resolver.Linkify(p.ParameterType, ctx.CurrentFolder, ctx.NamespaceName, ctx.ExternalTypes);
                 return new[] { p.Name, typeName, desc };
             });
             memberWriter.WriteTable(paramHeaders, paramRows);
         }
 
-        var returns = xmlDocs.GetReturns(memberId);
+        var returns = ctx.XmlDocs.GetReturns(memberId);
         if (!string.IsNullOrEmpty(returns))
         {
             memberWriter.WriteParagraph($"**Returns:** {returns}");
         }
 
-        var exceptions = xmlDocs.GetExceptionDetails(memberId);
+        var exceptions = ctx.XmlDocs.GetExceptionDetails(memberId);
         if (exceptions.Count > 0)
         {
             var exHeaders = new[] { "Exception", DescriptionColumnHeader };
@@ -925,13 +1026,13 @@ public sealed class DotNetGenerator : IApiGenerator
             memberWriter.WriteTable(exHeaders, exRows);
         }
 
-        var remarks = xmlDocs.GetRemarks(memberId);
+        var remarks = ctx.XmlDocs.GetRemarks(memberId);
         if (!string.IsNullOrEmpty(remarks))
         {
             memberWriter.WriteParagraph(remarks);
         }
 
-        var example = xmlDocs.GetExample(memberId);
+        var example = ctx.XmlDocs.GetExample(memberId);
         if (!string.IsNullOrEmpty(example))
         {
             memberWriter.WriteCodeBlock("csharp", example);

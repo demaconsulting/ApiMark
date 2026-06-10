@@ -457,11 +457,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var factory = _fixture.PublicFactory;
 
         // Assert: the Circle type page must exist
-        Assert.True(factory.Writers.ContainsKey("fixtures/Circle"), "Expected type page for Circle");
-
-        // Assert: the Circle type page signature must contain ": public Shape" so readers can
-        // see the inheritance relationship at a glance without opening the header file
-        var writer = factory.Writers["fixtures/Circle"];
+        Assert.True(factory.Writers.TryGetValue("fixtures/Circle", out var writer), "Expected type page for Circle");
         var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
         Assert.Contains(
             signatures,
@@ -570,8 +566,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var factory = _fixture.PublicFactory;
 
         // Assert: combined page exists
-        Assert.True(factory.Writers.ContainsKey("fixtures/CaseCollisionClass/name"));
-        var writer = factory.Writers["fixtures/CaseCollisionClass/name"];
+        Assert.True(factory.Writers.TryGetValue("fixtures/CaseCollisionClass/name", out var writer));
 
         // Assert: both members appear as distinct H2 headings on the combined page
         var level2Headings = writer.Operations
@@ -861,11 +856,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var factory = _fixture.PublicFactory;
 
         // Assert: the FinalClass type page must exist
-        Assert.True(factory.Writers.ContainsKey("fixtures/FinalClass"), "Expected type page for FinalClass");
-
-        // Assert: the FinalClass type page signature must contain "final" so that
-        // readers know the class cannot be subclassed without opening the header
-        var writer = factory.Writers["fixtures/FinalClass"];
+        Assert.True(factory.Writers.TryGetValue("fixtures/FinalClass", out var writer), "Expected type page for FinalClass");
         var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
         Assert.Contains(
             signatures,
@@ -885,9 +876,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
 
         // Assert: the SampleClass type page must exist and must not contain "final"
         // because SampleClass is not declared final
-        Assert.True(factory.Writers.ContainsKey("fixtures/SampleClass"), "Expected type page for SampleClass");
-
-        var writer = factory.Writers["fixtures/SampleClass"];
+        Assert.True(factory.Writers.TryGetValue("fixtures/SampleClass", out var writer), "Expected type page for SampleClass");
         var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
         Assert.DoesNotContain(
             signatures,
@@ -923,8 +912,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var factory = _fixture.PublicFactory;
 
         // Assert: the operators page must exist
-        Assert.True(factory.Writers.ContainsKey("fixtures/OperatorClass/operators"));
-        var writer = factory.Writers["fixtures/OperatorClass/operators"];
+        Assert.True(factory.Writers.TryGetValue("fixtures/OperatorClass/operators", out var writer));
 
         // Assert: operator+ must appear as a heading on the operators page so readers
         // can navigate directly to the addition overload
@@ -946,8 +934,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var factory = _fixture.PublicFactory;
 
         // Assert: the OperatorClass type page must exist
-        Assert.True(factory.Writers.ContainsKey("fixtures/OperatorClass"));
-        var writer = factory.Writers["fixtures/OperatorClass"];
+        Assert.True(factory.Writers.TryGetValue("fixtures/OperatorClass", out var writer));
 
         // Assert: at least one table on the type page must contain a cell referencing
         // operators.md so that readers can navigate from the type page to the operators page
@@ -1014,12 +1001,8 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
 
         // Assert: TypeLinkClass type page must exist
         Assert.True(
-            factory.Writers.ContainsKey("fixtures/TypeLinkClass"),
+            factory.Writers.TryGetValue("fixtures/TypeLinkClass", out var writer),
             "Expected type page for TypeLinkClass");
-
-        // Assert: the Methods table on the TypeLinkClass page must have a Returns cell
-        // containing a Markdown link to Shape — the return type of CreateShape()
-        var writer = factory.Writers["fixtures/TypeLinkClass"];
         var operations = writer.Operations.ToList();
         var methodsIndex = operations.FindIndex(op => op is HeadingOperation h && h.Text == "Methods");
         Assert.True(methodsIndex >= 0, "Expected 'Methods' heading on TypeLinkClass page");
@@ -1074,11 +1057,10 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         // Assert: both constructors share the same base name, so they are combined onto
         // a single page keyed by the lowercase class name
         Assert.True(
-            factory.Writers.ContainsKey("fixtures/DeletedMembersClass/deletedmembersclass"),
+            factory.Writers.TryGetValue("fixtures/DeletedMembersClass/deletedmembersclass", out var writer),
             "Expected combined constructor page for DeletedMembersClass");
 
         // Assert: the combined constructor page must contain "= delete" for the deleted overload
-        var writer = factory.Writers["fixtures/DeletedMembersClass/deletedmembersclass"];
         var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
         Assert.Contains(
             signatures,
@@ -1098,10 +1080,8 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
 
         // Assert: the operators page for DeletedMembersClass must contain "= delete"
         Assert.True(
-            factory.Writers.ContainsKey("fixtures/DeletedMembersClass/operators"),
+            factory.Writers.TryGetValue("fixtures/DeletedMembersClass/operators", out var writer),
             "Expected operators page for DeletedMembersClass");
-
-        var writer = factory.Writers["fixtures/DeletedMembersClass/operators"];
         var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
         Assert.Contains(
             signatures,
@@ -1218,8 +1198,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var factory = _fixture.PublicFactory;
 
         // Assert: crc32 page must show the default value in its signature
-        Assert.True(factory.Writers.ContainsKey("fixtures/crc32"));
-        var writer = factory.Writers["fixtures/crc32"];
+        Assert.True(factory.Writers.TryGetValue("fixtures/crc32", out var writer));
         var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
         Assert.Contains(
             signatures,
@@ -1237,8 +1216,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var factory = _fixture.PublicFactory;
 
         // Assert: configure page must show the bool default in its signature
-        Assert.True(factory.Writers.ContainsKey("fixtures/configure"));
-        var writer = factory.Writers["fixtures/configure"];
+        Assert.True(factory.Writers.TryGetValue("fixtures/configure", out var writer));
         var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
         Assert.Contains(
             signatures,
@@ -1256,8 +1234,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var factory = _fixture.PublicFactory;
 
         // Assert: count_capped page must show the negative default in its signature
-        Assert.True(factory.Writers.ContainsKey("fixtures/count_capped"));
-        var writer = factory.Writers["fixtures/count_capped"];
+        Assert.True(factory.Writers.TryGetValue("fixtures/count_capped", out var writer));
         var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
         Assert.Contains(
             signatures,
@@ -1275,8 +1252,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var factory = _fixture.PublicFactory;
 
         // Assert: scale page must show the float default in its signature
-        Assert.True(factory.Writers.ContainsKey("fixtures/scale"));
-        var writer = factory.Writers["fixtures/scale"];
+        Assert.True(factory.Writers.TryGetValue("fixtures/scale", out var writer));
         var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
         Assert.Contains(
             signatures,
@@ -1310,8 +1286,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var factory = _fixture.PublicFactory;
 
         // Assert: the Outer type page must exist
-        Assert.True(factory.Writers.ContainsKey("fixtures/Outer"), "Expected type page for Outer");
-        var writer = factory.Writers["fixtures/Outer"];
+        Assert.True(factory.Writers.TryGetValue("fixtures/Outer", out var writer), "Expected type page for Outer");
 
         // Assert: the page must include a "Nested Classes" heading
         var headings = writer.Operations.OfType<HeadingOperation>().Select(h => h.Text).ToList();
@@ -1350,8 +1325,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var factory = _fixture.PublicFactory;
 
         // Assert: the Outer type page must exist
-        Assert.True(factory.Writers.ContainsKey("fixtures/Outer"), "Expected type page for Outer");
-        var writer = factory.Writers["fixtures/Outer"];
+        Assert.True(factory.Writers.TryGetValue("fixtures/Outer", out var writer), "Expected type page for Outer");
 
         // Assert: the page must include a "Type Aliases" heading
         var headings = writer.Operations.OfType<HeadingOperation>().Select(h => h.Text).ToList();
@@ -1377,15 +1351,13 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         // Assert: Outer::size_type and Other::size_type must each get their own distinct page;
         // a collision would cause only one of them to exist
         Assert.True(
-            factory.Writers.ContainsKey("fixtures/Outer/size_type"),
+            factory.Writers.TryGetValue("fixtures/Outer/size_type", out var outerSizeTypeWriter),
             "Expected alias page for Outer::size_type at 'fixtures/Outer/size_type'");
         Assert.True(
-            factory.Writers.ContainsKey("fixtures/Other/size_type"),
+            factory.Writers.TryGetValue("fixtures/Other/size_type", out var otherSizeTypeWriter),
             "Expected alias page for Other::size_type at 'fixtures/Other/size_type'");
 
         // Assert: the two pages must be distinct writer instances so they contain different content
-        Assert.NotSame(
-            factory.Writers["fixtures/Outer/size_type"],
-            factory.Writers["fixtures/Other/size_type"]);
+        Assert.NotSame(outerSizeTypeWriter, otherSizeTypeWriter);
     }
 }

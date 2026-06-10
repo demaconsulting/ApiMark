@@ -39,7 +39,7 @@ sections:
             tests:
               - DotNetGenerator_Visibility_PublicPublicAndProtectedAll_FilterExpectedApis
           - id: ApiMarkDotNet-DotNetGenerator-IncludeObsoleteApisWhenRequested
-            title: DotNetGenerator shall include obsolete APIs when IncludeObsolete is enabled and omit them when it is disabled.
+            title: DotNetGenerator shall control obsolete API inclusion via the IncludeObsolete flag, including them when enabled and omitting them when disabled.
             justification: |
               Teams sometimes need complete historical reference output and sometimes need
               only the actively supported API surface, so obsolete items must be controllable.
@@ -121,7 +121,8 @@ sections:
           - id: ApiMarkDotNet-DotNetGenerator-DocumentOperatorOverloads
             title: >-
               DotNetGenerator shall document visible operator overload methods on a single
-              dedicated operators.md page per type, using C# operator symbols as headings.
+              dedicated operators.md page per type, using C# operator symbols as headings
+              and resolving conversion operator XML doc keys with their ~ReturnType suffix.
             justification: |
               C# types frequently expose arithmetic, comparison, and conversion operators
               as part of their public API. Operators cannot be given individual pages using

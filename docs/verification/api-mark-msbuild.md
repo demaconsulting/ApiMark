@@ -98,7 +98,13 @@ can apply last-match-wins gitignore semantics. This scenario is tested by
 side effects and no tool invocation. This scenario is tested by
 `ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExecution`.
 
+**DotNet project executes tool and generates documentation**: End-to-end integration test that
+exercises the complete .NET documentation generation path — locates the bundled `ApiMark.Tool.dll`,
+spawns it against a real fixture assembly, and verifies that `api.md` is produced in the output
+directory. This scenario is tested by `ApiMarkTask_Execute_WithDotNetProject_GeneratesDocumentation`.
+
 **C++ project generates documentation via spawned tool**: End-to-end integration test against real
 fixture headers; verifies that a C++ project produces correct documentation output when the task is
 executed with valid include paths. This scenario is tested by
-`ApiMarkTask_Execute_WithCppProject_GeneratesDocumentation`.
+`ApiMarkTask_Execute_WithCppProject_GeneratesDocumentation` (not yet implemented — tracked as a
+future test).

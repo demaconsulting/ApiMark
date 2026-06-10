@@ -88,15 +88,10 @@ Enable XML documentation generation so ApiMark can read doc comments:
 </ItemGroup>
 ```
 
-Set the public include root so ApiMark knows which headers to document:
-
-```xml
-<PropertyGroup>
-  <ApiMarkIncludePaths>$(MSBuildProjectDirectory)\include</ApiMarkIncludePaths>
-</PropertyGroup>
-```
-
-ApiMark generates documentation automatically after every build.
+ApiMark discovers include paths from `AdditionalIncludeDirectories` automatically
+for projects with a conventional layout. For projects with unusual include
+structures, generated headers, or complex NuGet arrangements, use the CLI directly
+for full control over what gets passed to clang.
 
 ## Usage
 
