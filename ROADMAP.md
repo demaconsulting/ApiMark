@@ -90,22 +90,31 @@ interpretation:
 
 Because Phase 1 (source parsing) is the expensive step, the symbol tree can be
 passed to **multiple format strategies in a single build** — each writing to its
-own output directory — at negligible extra cost. For example, a `.csproj` could
-simultaneously produce a single-file output for Pandoc PDF compilation and a
-gradual-disclosure output for NuGet packing:
+own output directory with its own visibility filter — at negligible extra cost.
+The symbol tree is populated at the broadest useful visibility (`All`); each
+emitter then filters independently based on its configured audience. For example,
+a `.csproj` could simultaneously produce internal developer docs (all members) and
+a public NuGet consumer reference (public only):
 
 ```xml
 <ItemGroup>
-  <ApiMarkOutput Include="SingleFile">
+  <ApiMarkOutput Include="InternalDocs">
     <OutputDir>$(MSBuildProjectDirectory)\docs\api</OutputDir>
     <Format>single-file</Format>
+    <Visibility>All</Visibility>
   </ApiMarkOutput>
-  <ApiMarkOutput Include="GradualDisclosure">
+  <ApiMarkOutput Include="PublicDocs">
     <OutputDir>$(MSBuildProjectDirectory)\api</OutputDir>
     <Format>gradual</Format>
+    <Visibility>Public</Visibility>
   </ApiMarkOutput>
 </ItemGroup>
 ```
+
+This means visibility is no longer a global parse-time gate — it becomes a
+per-output rendering concern. Adding a new audience (e.g. `PublicAndProtected`
+for subclass authors) costs nothing in parse time and requires no additional
+source analysis.
 
 The existing scalar `ApiMarkOutputDir` / `--output` properties default to a single
 gradual-disclosure output and remain fully backward-compatible. The `ApiMarkOutput`
