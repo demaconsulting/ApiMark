@@ -23,6 +23,7 @@ words:
   - docstrings
   - fileassert
   - frontmatter
+  - ANTLR
   - GHDL
   - hrefs
   - isysroot

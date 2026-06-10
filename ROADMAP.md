@@ -82,9 +82,9 @@ its symbol tree. The output *format* is then an orthogonal strategy injected int
 that generator — it controls file layout decisions without touching symbol
 interpretation:
 
-| Format strategy | Behaviour |
+| Format strategy | Behavior |
 | --- | --- |
-| `GradualDisclosureStrategy` | Current behaviour — index → namespace → type pages |
+| `GradualDisclosureStrategy` | Current behavior — index → namespace → type pages |
 | `SingleFileStrategy` | Entire tree in one `api.md`; heading levels offset by depth |
 | *(future)* `DoxygenStyleStrategy` | Per-type files with full member detail, cross-links |
 
