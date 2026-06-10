@@ -15,5 +15,17 @@ sections:
           - ApiMarkCpp-CppGenerator-FilterDeclarationsByOwnership
           - ApiMarkCpp-CppGenerator-EmitDetailPageForEveryMember
           - ApiMarkCpp-CppGenerator-ProduceConsistentOutputFileStructure
+          - ApiMarkCpp-CppGenerator-EmitCombinedMemberPageForCaseInsensitiveCollisions
+          - ApiMarkCpp-CppGenerator-FilterByVisibility
+          - ApiMarkCpp-CppGenerator-IncludeDeprecatedApisWhenRequested
+          - ApiMarkCpp-CppGenerator-RenderDoxygenDocComments
+          - ApiMarkCpp-CppGenerator-ApiMdListsAllNamespacesWithTypeCount
+          - ApiMarkCpp-CppGenerator-GroupOperatorOverloadsOnSinglePage
+          - ApiMarkCpp-CppGenerator-ShowDirectInheritanceInTypeSignature
+          - ApiMarkCpp-CppGenerator-EmitIntraDocLinksInTableCells
+          - ApiMarkCpp-CppGenerator-ApplyGitignoreStylePatternSelectionToHeaders
+          - ApiMarkCpp-CppGenerator-EmitExternalTypesSection
+          - ApiMarkCpp-CppGenerator-ShowDeletedFunctionsWithDeletedNotation
+          - ApiMarkCpp-CppGenerator-DocumentTypeAliases
         tests:
           - CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint

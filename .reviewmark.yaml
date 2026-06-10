@@ -8,6 +8,7 @@ needs-review:
   - README.md  # Root README file
   - requirements.yaml  # Root requirements file
   - '**/*.cs'  # All C# source and test files
+  - '**/*.targets'  # MSBuild targets files
   - docs/reqstream/**/*.yaml  # Requirements files
   - docs/design/**/*.md  # Design documentation files
   - docs/verification/**/*.md  # Verification documentation files
@@ -190,6 +191,7 @@ reviews:
     paths:
       - docs/reqstream/api-mark-cpp/cpp-generator.yaml
       - docs/design/api-mark-cpp/cpp-generator.md
+      - docs/design/api-mark-cpp/clang-ast-parser.md
       - docs/verification/api-mark-cpp/cpp-generator.md
       - src/ApiMark.Cpp/ApiVisibility.cs
       - src/ApiMark.Cpp/CppGenerator.cs
@@ -233,6 +235,7 @@ reviews:
       - docs/design/api-mark-msbuild/api-mark-task.md
       - docs/verification/api-mark-msbuild/api-mark-task.md
       - src/ApiMark.MSBuild/ApiMarkTask.cs
+      - src/ApiMark.MSBuild/build/DemaConsulting.ApiMark.MSBuild.targets
       - test/ApiMark.MSBuild.Tests/ApiMarkTaskTests.cs
       - test/ApiMark.MSBuild.PackageTests/**/*.cs
 

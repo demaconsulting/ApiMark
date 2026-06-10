@@ -12,8 +12,9 @@ C++ documentation generation additionally requires `clang` to be installed:
 - **Linux**: Install via your package manager, e.g. `sudo apt install clang` or
   `sudo dnf install clang`.
 
-If `clang` is not on your PATH, use the `--clang-path` CLI option or `ApiMarkClangPath` MSBuild
-property to specify the full path to the clang executable.
+If `clang` is not on your PATH, set the `APIMARK_CLANG_PATH` environment variable,
+use the `--clang-path` CLI option, or set the `ApiMarkClangPath` MSBuild property
+to specify the full path to the clang executable.
 
 ## CLI Tool
 
@@ -31,8 +32,10 @@ apimark --version
 
 ## MSBuild Package
 
-Add the `DemaConsulting.ApiMark.MSBuild` NuGet package to any `.csproj` project to
+Add the `DemaConsulting.ApiMark.MSBuild` NuGet package to any project to
 automatically generate API documentation after every build.
+
+### C# Projects
 
 In your `.csproj`:
 
@@ -51,3 +54,22 @@ Enable XML documentation generation so ApiMark can read your doc comments:
 ```
 
 After the next `dotnet build`, documentation is written to `$(MSBuildProjectDirectory)\api`.
+
+### C++ Projects
+
+In your `.vcxproj`:
+
+```xml
+<ItemGroup>
+  <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="x.y.z" />
+</ItemGroup>
+```
+
+ApiMark automatically discovers include paths from `AdditionalIncludeDirectories`
+(including paths injected by NuGet packages), so no additional configuration is
+required for most projects. Documentation is written to `$(MSBuildProjectDirectory)\api`
+after every build.
+
+See the *MSBuild Integration* section of the User Guide for the full list of
+C++-specific properties such as `ApiMarkApiHeaders`, `ApiMarkDefines`, and
+`ApiMarkCppStandard`.

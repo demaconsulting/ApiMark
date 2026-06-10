@@ -19,6 +19,11 @@ sections:
           - ApiMarkDotNet-DotNetGenerator-ProduceConsistentOutputFileStructure
           - ApiMarkDotNet-DotNetGenerator-DocumentOperatorOverloads
           - ApiMarkDotNet-DotNetGenerator-DocumentNestedTypes
+          - ApiMarkDotNet-DotNetGenerator-EmitCombinedMemberPageForCaseInsensitiveCollisions
+          - ApiMarkDotNet-DotNetGenerator-ApiMdListsAllNamespacesWithTypeCount
+          - ApiMarkDotNet-DotNetGenerator-ShowDirectInheritanceInTypeSignature
+          - ApiMarkDotNet-DotNetGenerator-EmitIntraDocLinksInTableCells
+          - ApiMarkDotNet-DotNetGenerator-EmitExternalTypesSection
         tests:
           - ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown
       - id: ApiMarkDotNet-TypeNameSimplifier-ProduceReadableTypeNames

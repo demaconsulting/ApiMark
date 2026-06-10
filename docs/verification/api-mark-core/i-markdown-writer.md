@@ -87,3 +87,31 @@ the correct display label and relative path. Tested by
 calling `Dispose` on a `FileMarkdownWriter` flushes all buffered content to disk and
 releases the file handle so another caller can open the file immediately after
 disposal. Tested by `FileMarkdownWriter_Dispose_AfterWrite_FlushesAndClosesFile`.
+
+**WriteHeading interface method is callable without error**: Verifies that
+`IMarkdownWriter.WriteHeading` can be called with a valid level and text through the
+interface without throwing, confirming the method is correctly declared and implemented
+by the test double. Tested by `IMarkdownWriter_WriteHeading_ValidArgs_DoesNotThrow`.
+
+**WriteSignature interface method is callable without error**: Verifies that
+`IMarkdownWriter.WriteSignature` can be called with a valid language and signature
+string through the interface without throwing. Tested by
+`IMarkdownWriter_WriteSignature_ValidArgs_DoesNotThrow`.
+
+**WriteParagraph interface method is callable without error**: Verifies that
+`IMarkdownWriter.WriteParagraph` can be called with valid text through the interface
+without throwing. Tested by `IMarkdownWriter_WriteParagraph_ValidText_DoesNotThrow`.
+
+**WriteTable interface method is callable without error**: Verifies that
+`IMarkdownWriter.WriteTable` can be called with valid headers and rows through the
+interface without throwing. Tested by `IMarkdownWriter_WriteTable_ValidArgs_DoesNotThrow`.
+
+**WriteCodeBlock interface method is callable without error**: Verifies that
+`IMarkdownWriter.WriteCodeBlock` can be called with a valid language and code string
+through the interface without throwing. Tested by
+`IMarkdownWriter_WriteCodeBlock_ValidArgs_DoesNotThrow`.
+
+**WriteLink interface method is callable without error**: Verifies that
+`IMarkdownWriter.WriteLink` can be called with valid display text and a relative path
+through the interface without throwing. Tested by
+`IMarkdownWriter_WriteLink_ValidArgs_DoesNotThrow`.

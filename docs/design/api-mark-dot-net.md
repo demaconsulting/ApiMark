@@ -49,6 +49,21 @@ ApiMarkCore.
 - *Constraints*: The assembly file must exist on disk and be a valid .NET assembly
   at call time; see Mono.Cecil Integration Design for details.
 
+**IMarkdownWriterFactory (consumed)**: DotNetGenerator receives an IMarkdownWriterFactory
+from its caller and uses it to create each Markdown output file.
+
+- *Type*: In-process .NET interface from ApiMarkCore.
+- *Role*: Consumer — DotNetGenerator calls `CreateMarkdown` for each output file
+  path it needs to write.
+- *Constraints*: Must not be null at Generate call time.
+
+**IContext (consumed)**: DotNetGenerator receives an IContext from its caller and uses
+it to emit informational and diagnostic messages during generation.
+
+- *Type*: In-process .NET interface from ApiMarkCore.
+- *Role*: Consumer — DotNetGenerator calls `WriteLine` for progress messages.
+- *Constraints*: Must not be null at Generate call time.
+
 ## Dependencies
 
 - **Mono.Cecil**: used for reading .NET assembly metadata without loading the

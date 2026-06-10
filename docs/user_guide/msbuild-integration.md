@@ -38,7 +38,7 @@ the project file extension.
 
 | Property | Default | Description |
 | --- | --- | --- |
-| `ApiMarkIncludePaths` | _(required)_ | Semicolon-separated list of include directory paths. Each entry is passed to Clang as a `-I` path. When `ApiMarkApiHeaders` is not set, all headers with recognized C++ extensions under these paths are documented. |
+| `ApiMarkIncludePaths` | _(auto-detected)_ | Semicolon-separated list of include directory paths passed to Clang as `-I` paths. Defaults to the resolved `AdditionalIncludeDirectories` from all `ClCompile` items (including NuGet-injected paths). Set explicitly to override auto-detection. When `ApiMarkApiHeaders` is not set, all headers with recognized C++ extensions under these paths are documented. |
 | `ApiMarkApiHeaders` | _(unset)_ | Semicolon-separated, order-preserved list of glob and exclusion pattern strings. Entries with `!` are exclusion patterns; gitignore-style last-match-wins semantics apply. When unset, all headers with recognized C++ extensions under `ApiMarkIncludePaths` are documented. |
 | `ApiMarkLibraryName` | `$(MSBuildProjectName)` | Library name used as the top-level heading in `api.md` |
 | `ApiMarkLibraryDescription` | _(unset)_ | Optional description for the `api.md` introduction paragraph |
@@ -73,9 +73,6 @@ the project file extension.
 
 ```xml
 <PropertyGroup>
-  <!-- Required: the public include root(s) to document -->
-  <ApiMarkIncludePaths>$(MSBuildProjectDirectory)\include</ApiMarkIncludePaths>
-
   <!-- Change the output directory -->
   <ApiMarkOutputDir>$(MSBuildProjectDirectory)\docs\api</ApiMarkOutputDir>
 
@@ -96,6 +93,9 @@ the project file extension.
 
   <!-- Re-include one header from the excluded subtree -->
   <!-- <ApiMarkApiHeaders>**/*;!**/detail/**;**/detail/public_api.h</ApiMarkApiHeaders> -->
+
+  <!-- Override include paths (optional; defaults to AdditionalIncludeDirectories) -->
+  <!-- <ApiMarkIncludePaths>$(MSBuildProjectDirectory)\include</ApiMarkIncludePaths> -->
 </PropertyGroup>
 ```
 

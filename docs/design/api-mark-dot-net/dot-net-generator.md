@@ -33,6 +33,14 @@ of access modifier).
 **DotNetGeneratorOptions.IncludeObsolete**: `bool` — when false, members marked
 with `[Obsolete]` are excluded from the output.
 
+**ExternalTypeInfo** (internal record): Represents a non-standard external type
+reference collected during table cell generation.
+
+- *Properties*: `SimplifiedName` (display form, may include escaped generic
+  angle brackets), `Namespace` (the type's .NET namespace).
+- *Ordering*: implements `IComparable<ExternalTypeInfo>` by `SimplifiedName` so
+  `SortedSet<ExternalTypeInfo>` produces alphabetically ordered tables.
+
 ### Key Methods
 
 **DotNetGenerator constructor**: Accepts and stores a DotNetGeneratorOptions
@@ -47,10 +55,11 @@ instance for use during Generate.
 writes the full Markdown output tree.
 
 - *Parameters*: `IMarkdownWriterFactory factory` — factory used to create each
-  Markdown output file.
+  Markdown output file. `IContext context` — output channel for diagnostic and
+  progress messages emitted during generation.
 - *Returns*: `void`
 - *Preconditions*: `AssemblyPath` and `XmlDocPath` must exist on disk; `factory`
-  must not be null.
+  and `context` must not be null.
 - *Postconditions*: The factory has produced a complete Markdown tree for the
   configured assembly. Output file naming follows these conventions:
   - `factory.CreateMarkdown("", "api")` — assembly entrypoint listing all
@@ -155,14 +164,6 @@ to Markdown link text for use in table cells.
     and `System.*` types render as plain text; non-System external types are
     added to the accumulator.
   - Intra-assembly detection: `TypeReference.Scope is ModuleDefinition`.
-
-**ExternalTypeInfo** (internal record): Represents a non-standard external type
-reference collected during table cell generation.
-
-- *Properties*: `SimplifiedName` (display form, may include escaped generic
-  angle brackets), `Namespace` (the type's .NET namespace).
-- *Ordering*: implements `IComparable<ExternalTypeInfo>` by `SimplifiedName` so
-  `SortedSet<ExternalTypeInfo>` produces alphabetically ordered tables.
 
 **DotNetGenerator.WriteExternalTypesSection** (private static): Emits the
 `## External Types` section at the bottom of a page when at least one external

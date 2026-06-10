@@ -36,6 +36,8 @@ sections:
         children:
           - ApiMarkCore-IMarkdownWriterFactory-DefineCreateMarkdownMethod
           - ApiMarkCore-IMarkdownWriterFactory-SupportRootLevelFiles
+          - ApiMarkCore-IMarkdownWriterFactory-RejectInvalidOutputDirectory
+          - ApiMarkCore-IMarkdownWriterFactory-EnsureOutputDirectory
         tests:
           - ApiMarkCore_WriterFactory_CanCreate_RootAndSubfolderWriters
       - id: ApiMarkCore-IMarkdownWriter-ProvideMarkdownOutputInterface

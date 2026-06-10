@@ -44,15 +44,18 @@ ApiMarkCore (System)
 ├── IApiGenerator (Unit)
 ├── IContext (Unit)
 ├── IMarkdownWriterFactory (Unit)
+├── FileMarkdownWriterFactory (Unit)
 ├── IMarkdownWriter (Unit)
 └── PathHelpers (Unit)
 
 ApiMarkDotNet (System)
 ├── DotNetGenerator (Unit)
+├── XmlDocReader (Unit)
 └── TypeNameSimplifier (Unit)
 
 ApiMarkCpp (System)
-└── CppGenerator (Unit)
+├── CppGenerator (Unit)
+└── ClangAstParser (Unit)
 
 ApiMarkMsbuild (System)
 └── ApiMarkTask (Unit)
@@ -66,6 +69,7 @@ ApiMarkTool (System)
 
 OTS Dependencies:
 ├── Mono.Cecil (OTS)
+├── DemaConsulting.TestResults (OTS)
 └── clang -ast-dump=json (OTS)
 ```
 

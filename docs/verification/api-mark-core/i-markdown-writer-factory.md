@@ -24,6 +24,12 @@ in `ApiMark.Core.TestHelpers`.
 
 ### Test Scenarios
 
+**CreateMarkdown returns a non-null writer through the interface**: Verifies that
+calling `IMarkdownWriterFactory.CreateMarkdown` with valid subFolder and name
+arguments through the interface reference returns a non-null `IMarkdownWriter`,
+confirming the method is correctly declared in the contract. Tested by
+`IMarkdownWriterFactory_HasCreateMarkdown_Method`.
+
 **Test double implements IMarkdownWriterFactory without errors**: Verifies that
 `InMemoryMarkdownWriterFactory` compiles cleanly and can be instantiated,
 confirming the interface contract has no hidden dependencies. Tested by

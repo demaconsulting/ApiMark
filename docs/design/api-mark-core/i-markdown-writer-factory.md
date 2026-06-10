@@ -69,6 +69,8 @@ dependencies on other units, OTS items, or shared packages.
 
 - **DotNetGenerator** — receives an IMarkdownWriterFactory via IApiGenerator.Generate
   and calls CreateMarkdown once per output file produced during generation.
+- **CppGenerator** — receives an IMarkdownWriterFactory via IApiGenerator.Generate
+  and calls CreateMarkdown once per output file produced during generation.
 - **ApiMarkTask** — spawns ApiMark.Tool as a child process, within which Program
   creates the `FileMarkdownWriterFactory`. ApiMarkTask does not use IMarkdownWriterFactory
   directly.

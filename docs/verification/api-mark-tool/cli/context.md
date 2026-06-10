@@ -23,7 +23,7 @@ up after itself. No other external files, services, or configuration are require
 - `--log <file>` creates the file and captures `WriteLine` output.
 - `--depth <n>` sets `HeadingDepth` to `n`; values outside 1–6 or non-integers throw `ArgumentException`.
 - `--results`/`--result` sets `ResultsFile` to the supplied path.
-- `--includes` splits on commas and sets `Includes` to the resulting array.
+- `--includes` accepts one directory path per flag; repeated flags accumulate paths into `Includes`.
 
 #### Test Scenarios
 

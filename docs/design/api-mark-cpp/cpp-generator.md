@@ -1,6 +1,6 @@
 ## CppGenerator
 
-<!-- All sections below are MANDATORY. If a section do not apply, write
+<!-- All sections below are MANDATORY. If a section does not apply, write
      "N/A - {justification}" rather than removing it. -->
 
 ### Purpose
@@ -103,20 +103,21 @@ for use during Generate.
 
 - *Parameters*: `CppGeneratorOptions options` — fully populated options object.
 - *Preconditions*: `options` must not be null; `LibraryName` must be
-  non-empty; `PublicIncludeRoots` must contain at least one entry and each
-  entry must be an existing directory.
+  non-empty; `PublicIncludeRoots` must contain at least one entry.
 - *Postconditions*: The generator instance is ready to call Generate.
 
 **CppGenerator.Generate**: Parses the public headers, applies the ownership
 filter, and writes the full Markdown output tree.
 
 - *Parameters*: `IMarkdownWriterFactory factory` — factory used to create each
-  Markdown output file.
+  Markdown output file. `IContext context` — output channel for diagnostic and
+  progress messages emitted during parsing and generation.
 - *Returns*: `void`
-- *Preconditions*: All paths in PublicIncludeRoots must exist on disk; system
-  headers must be resolvable via SystemIncludePaths; `factory` must not be null.
-  Public headers are required to be self-contained — each header must parse
-  successfully on its own under the configured options.
+- *Preconditions*: Each path in `PublicIncludeRoots` must exist on disk
+  (`DirectoryNotFoundException` is thrown if any path is missing); system
+  headers must be resolvable via `SystemIncludePaths`; `factory` and `context`
+  must not be null. Public headers are required to be self-contained — each
+  header must parse successfully on its own under the configured options.
 - *Postconditions*: The factory has produced a complete Markdown tree. Output
   file naming follows these conventions:
   - `factory.CreateMarkdown("", "api")` — library entrypoint listing all

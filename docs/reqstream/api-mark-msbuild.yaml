@@ -22,6 +22,10 @@ sections:
           - ApiMarkMsbuild-ApiMarkTask-ForwardCppStandard
           - ApiMarkMsbuild-ApiMarkTask-SkipWhenCppIncludePathsNotSet
           - ApiMarkMsbuild-ApiMarkTask-ForwardApiHeaders
+          - ApiMarkMsbuild-ApiMarkTask-ForwardLibraryDescription
+          - ApiMarkMsbuild-ApiMarkTask-ForwardClangPath
+          - ApiMarkMsbuild-ApiMarkTask-AutoPopulateIncludePaths
+          - ApiMarkMsbuild-ApiMarkTask-SkipWhenDotNetXmlDocPathNotSet
         tests:
           - ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoDocumentsOnBuild
       - id: ApiMarkMsbuild-IncludeDocsInNuGetPackage

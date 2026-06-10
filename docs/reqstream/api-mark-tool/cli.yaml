@@ -14,6 +14,9 @@ sections:
               - ApiMarkTool-Cli-Context-ParseGlobalFlags
               - ApiMarkTool-Cli-Context-ParseLanguageSubcommand
               - ApiMarkTool-Cli-Context-ParseLanguageOptions
+              - ApiMarkTool-Cli-Context-ParseIncludes
+              - ApiMarkTool-Cli-Context-ParseApiHeaders
+              - ApiMarkTool-Cli-Context-ParseCppNamedOptions
               - ApiMarkTool-Cli-Context-ParseDepthOption
               - ApiMarkTool-Cli-Context-ParseResultsOption
               - ApiMarkTool-Cli-Context-OpenLogFileOnRequest

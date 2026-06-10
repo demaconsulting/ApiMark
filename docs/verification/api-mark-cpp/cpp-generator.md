@@ -48,6 +48,14 @@ privileged configuration is required beyond a standard clang installation.
 - Enum pages list all declared enum values.
 - Template class primary templates receive their own type pages.
 - Null-input error paths throw the expected exception types immediately.
+- When `ApiHeaderPatterns` is empty, all headers under configured PublicIncludeRoots with
+  recognized C++ extensions are documented. When patterns are configured, only headers whose last
+  matching pattern is a positive (non-`!`) pattern are included; gitignore last-match-wins
+  semantics apply.
+- Methods returning types documented within the same library emit Markdown links in the Returns
+  column of the Methods table; methods returning types not found in the library emit plain text.
+- Types referenced in member signatures that are not documented within the library are tracked
+  and listed in the External Types section of the library entrypoint.
 
 ### Test Scenarios
 
@@ -227,3 +235,41 @@ selected by `--api-headers`, symbols defined in the non-selected header are excl
 generated output. This confirms that ownership requires both root-membership and header selection,
 preventing dependency types from appearing in the docs. This scenario is tested by
 `CppGenerator_Generate_ApiHeaderPatterns_TransitiveInclude_ExcludesNonSelectedSymbols`.
+
+**No api-header patterns documents all headers**: Verifies that when `ApiHeaderPatterns` is empty,
+all headers with recognized C++ extensions under the configured PublicIncludeRoots are documented
+without any pattern filtering. This scenario is tested by
+`CppGenerator_Generate_NoApiHeaderPatterns_DocumentsAllHeaders`.
+
+**Include pattern restricts documented headers**: Verifies that a specific include pattern (e.g.
+`**/SampleClass.h`) restricts header enumeration so only files matching the pattern are documented;
+headers not matching the pattern are excluded. This scenario is tested by
+`CppGenerator_Generate_ApiHeaderPatterns_IncludePattern_OnlyMatchingFilesDocumented`.
+
+**Exclusion pattern excludes matching headers**: Verifies that a `!`-prefixed exclusion pattern
+excludes matching headers while headers not matching the exclusion pattern are still documented.
+This scenario is tested by
+`CppGenerator_Generate_ApiHeaderPatterns_ExcludePattern_ExcludesMatchingFiles`.
+
+**Re-include pattern overrides earlier exclusion (gitignore semantics)**: Verifies that a header
+excluded by a `!`-prefixed pattern is re-included when a subsequent positive pattern matches it.
+Last-pattern-wins (gitignore) semantics are confirmed by this scenario, which is tested by
+`CppGenerator_Generate_ApiHeaderPatterns_ReInclude_GitignoreSemantics_IncludesReIncludedHeader`.
+
+**Exclusion without re-include permanently excludes header**: Verifies that a header excluded by a
+`!`-prefixed pattern with no subsequent positive pattern remains excluded from the generated
+output, confirming that the last matching pattern wins. This scenario is tested by
+`CppGenerator_Generate_ApiHeaderPatterns_ExcludeWithoutReInclude_ExcludesHeader`.
+
+**Intra-library return type emits a Markdown link in the Returns cell**: Verifies that when a
+method returns a type that is itself documented within the same library, the Returns column in the
+Methods table contains a Markdown link to that type's page rather than plain text. This gives AI
+readers navigable links for cross-type traversal. This scenario is tested by
+`CppGenerator_Generate_IntraLibraryReturnType_EmitsMarkdownLinkInReturnsCell`.
+
+**Unknown namespaced type is tracked as external**: Verifies that when `CppTypeLinkResolver`
+resolves a type whose namespace is not in the known-types dictionary, the original type string is
+returned as plain text (no broken link) and the type is recorded in the external types tracking
+set with its namespace and type name. This prevents broken links and enables the External Types
+section to enumerate all referenced-but-undocumented types. This scenario is tested by
+`CppTypeLinkResolver_Linkify_UnknownNamespacedType_TracksExternalType`.

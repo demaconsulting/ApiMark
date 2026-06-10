@@ -63,6 +63,7 @@ words:
   - fparse
   - fsyntax
   - versionmark
+  - writability
   - VHDL
   - vswhere
   - Weasyprint

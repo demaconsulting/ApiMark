@@ -62,6 +62,51 @@ sections:
                   - Context_Create_WithRepeatedApiHeaders_AccumulatesAllPatternsInOrder
                   - Context_Create_WithApiHeadersExclusionPattern_ForwardsVerbatim
                   - Context_Create_WithNoArguments_HasEmptyApiHeaders
+              - id: ApiMarkTool-Cli-Context-ParseCppNamedOptions
+                title: Context shall parse the C++-specific named options --library-name, --library-description, --defines, and --cpp-standard into the corresponding Context properties.
+                justification: |
+                  C++ documentation generation requires library metadata and parser configuration
+                  that has no equivalent in the .NET path. Grouping these as a unit gives a single
+                  traceable requirement for the cpp-specific scalar option set.
+                children:
+                  - ApiMarkTool-Cli-Context-ParseLibraryName
+                  - ApiMarkTool-Cli-Context-ParseLibraryDescription
+                  - ApiMarkTool-Cli-Context-ParseDefines
+                  - ApiMarkTool-Cli-Context-ParseCppStandard
+                tests:
+                  - Context_Create_WithLibraryNameOption_SetsLibraryName
+                  - Context_Create_WithLibraryDescriptionOption_SetsLibraryDescription
+                  - Context_Create_WithDefinesOption_SetsDefines
+                  - Context_Create_WithCppStandardOption_SetsCppStandard
+              - id: ApiMarkTool-Cli-Context-ParseLibraryName
+                title: Context shall parse the --library-name option and store it in the LibraryName property.
+                justification: |
+                  Program.CreateGenerator passes LibraryName to CppGeneratorOptions so the
+                  generated api.md uses the project-supplied display name rather than a filename.
+                tests:
+                  - Context_Create_WithLibraryNameOption_SetsLibraryName
+              - id: ApiMarkTool-Cli-Context-ParseLibraryDescription
+                title: Context shall parse the --library-description option and store it in the LibraryDescription property.
+                justification: |
+                  Program.CreateGenerator passes LibraryDescription to CppGeneratorOptions so the
+                  generated api.md can include a project-supplied description paragraph.
+                tests:
+                  - Context_Create_WithLibraryDescriptionOption_SetsLibraryDescription
+              - id: ApiMarkTool-Cli-Context-ParseDefines
+                title: Context shall parse the --defines option and store the comma-separated values in the Defines array.
+                justification: |
+                  C++ projects rely on preprocessor defines (e.g. export macros) for correct
+                  parsing. Context must split the comma-separated list and store each define so
+                  Program.CreateGenerator can pass them to CppGeneratorOptions.
+                tests:
+                  - Context_Create_WithDefinesOption_SetsDefines
+              - id: ApiMarkTool-Cli-Context-ParseCppStandard
+                title: Context shall parse the --cpp-standard option and store it in the CppStandard property.
+                justification: |
+                  Different C++ projects target different language standards; CppGenerator must
+                  receive the same standard as the actual build to parse headers correctly.
+                tests:
+                  - Context_Create_WithCppStandardOption_SetsCppStandard
               - id: ApiMarkTool-Cli-Context-ParseDepthOption
                 title: Context shall parse the --depth option and set HeadingDepth to the specified integer value in the range 1–6, defaulting to 1 when the option is absent.
                 justification: |
