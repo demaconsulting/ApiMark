@@ -88,10 +88,30 @@ interpretation:
 | `SingleFileStrategy` | Entire tree in one `api.md`; heading levels offset by depth |
 | *(future)* `DoxygenStyleStrategy` | Per-type files with full member detail, cross-links |
 
-The format strategy is selected via an `--output-format` CLI option
-(`gradual` \| `single-file`) and a corresponding MSBuild property
-`ApiMarkOutputFormat`. Language generators own all symbol knowledge; format
-strategies own all file-layout decisions. New formats are added once and work
-across all languages.
+Because Phase 1 (source parsing) is the expensive step, the symbol tree can be
+passed to **multiple format strategies in a single build** — each writing to its
+own output directory — at negligible extra cost. For example, a `.csproj` could
+simultaneously produce a single-file output for Pandoc PDF compilation and a
+gradual-disclosure output for NuGet packing:
+
+```xml
+<ItemGroup>
+  <ApiMarkOutput Include="SingleFile">
+    <OutputDir>$(MSBuildProjectDirectory)\docs\api</OutputDir>
+    <Format>single-file</Format>
+  </ApiMarkOutput>
+  <ApiMarkOutput Include="GradualDisclosure">
+    <OutputDir>$(MSBuildProjectDirectory)\api</OutputDir>
+    <Format>gradual</Format>
+  </ApiMarkOutput>
+</ItemGroup>
+```
+
+The existing scalar `ApiMarkOutputDir` / `--output` properties default to a single
+gradual-disclosure output and remain fully backward-compatible. The `ApiMarkOutput`
+item group is opt-in for multi-format scenarios.
+
+New formats are added once and immediately available to all languages and all
+multi-format configurations.
 
 ---
