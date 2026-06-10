@@ -36,6 +36,12 @@ the project file extension.
 
 ### C++-Specific Properties
 
+> **Note**: C++ MSBuild integration works well for projects where
+> `AdditionalIncludeDirectories` is set in the conventional way. For projects with
+> unusual include structures, generated headers, or complex NuGet arrangements,
+> use the `apimark cpp` CLI command directly — it gives full control over every
+> argument passed to clang.
+
 | Property | Default | Description |
 | --- | --- | --- |
 | `ApiMarkIncludePaths` | _(auto-detected)_ | Semicolon-separated list of include directory paths passed to Clang as `-I` paths. Defaults to the resolved `AdditionalIncludeDirectories` from all `ClCompile` items (including NuGet-injected paths). Set explicitly to override auto-detection. When `ApiMarkApiHeaders` is not set, all headers with recognized C++ extensions under these paths are documented. |

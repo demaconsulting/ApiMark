@@ -65,10 +65,10 @@ In your `.vcxproj`:
 </ItemGroup>
 ```
 
-ApiMark automatically discovers include paths from `AdditionalIncludeDirectories`
-(including paths injected by NuGet packages), so no additional configuration is
-required for most projects. Documentation is written to `$(MSBuildProjectDirectory)\api`
-after every build.
+ApiMark discovers include paths from `AdditionalIncludeDirectories` automatically
+for projects where that property is set in the conventional way. For projects with
+unusual include structures, generated headers, or complex NuGet arrangements,
+use the `apimark cpp` CLI command directly for full control.
 
 See the *MSBuild Integration* section of the User Guide for the full list of
 C++-specific properties such as `ApiMarkApiHeaders`, `ApiMarkDefines`, and
