@@ -63,11 +63,47 @@ Allow users to choose between output strategies depending on their use case:
 - **Single-file** - entire API rendered into one `api.md`; suitable for dropping
   directly into a system prompt, replacing a Doxygen HTML output, or archiving.
 
-**Proposed implementation**: Introduce an `--output-format` CLI option
-(`gradual` | `single-file`) and a corresponding MSBuild property
-`ApiMarkOutputFormat`. The format selection is threaded through `IContext` and
-controls how `IMarkdownWriterFactory` is instantiated - single-file uses a
-multiplexing writer that appends all output to one stream with injected heading
-level offsets, leaving generator logic unchanged.
+The current architecture couples symbol extraction and Markdown rendering tightly
+inside each language generator. Supporting multiple output formats cleanly requires
+separating these two concerns into a two-phase pipeline:
+
+### Phase 1 — Symbol Extraction (language-specific)
+
+Each language `IApiGenerator` implementation parses its source and populates a
+shared, language-agnostic in-memory symbol tree:
+
+```text
+ApiLibrary
+  ApiNamespace (one per namespace / package / VHDL library)
+    ApiType     (class, struct, enum, interface, entity, component, module, ...)
+      ApiMember (method, property, field, port, generic, constant, ...)
+        DocComment (summary, parameters, returns, remarks — Doxygen or XML)
+```
+
+The tree carries only semantic information — no formatting decisions are made here.
+This is analogous to a compiler front-end producing an IR: the same tree can be
+consumed by any number of back-ends.
+
+### Phase 2 — Document Rendering (format-specific)
+
+An `IDocumentGenerator` receives the populated `ApiLibrary`, the `IContext`, and
+an `IMarkdownWriterFactory`, and is solely responsible for deciding how to lay out
+the tree as Markdown files:
+
+| Implementation | Behaviour |
+| --- | --- |
+| `GradualDisclosureDocumentGenerator` | Current behaviour — index → namespace → type pages |
+| `SingleFileDocumentGenerator` | Entire tree in one `api.md`; heading levels offset by depth |
+| *(future)* `DoxygenStyleDocumentGenerator` | Per-type files with full member detail, cross-links |
+
+The `IDocumentGenerator` to instantiate is selected by an `--output-format` CLI
+option (`gradual` \| `single-file`) and a corresponding MSBuild property
+`ApiMarkOutputFormat`. Language generators need no changes — they only populate
+the symbol tree. New output formats are added by implementing `IDocumentGenerator`
+without touching any language-specific code.
+
+This separation also enables **multi-language libraries**: a future `apimark multi`
+command could merge symbol trees from several generators (e.g. a C# core + C++
+extension layer) and pass the combined `ApiLibrary` to a single document renderer.
 
 ---
