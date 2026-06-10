@@ -417,5 +417,81 @@ public class ApiMarkTaskTests
         Assert.Equal("!**/detail/**", argList[lastIdx + 1]);
         Assert.DoesNotContain("**/*.h;!**/detail/**", args);
     }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> appends the
+    ///     <c>--library-description</c> flag with the configured value when
+    ///     <see cref="ApiMarkTask.ApiMarkLibraryDescription"/> is set.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_LibraryDescription_ForwardedToTool()
+    {
+        // Arrange: configure a library description alongside the required cpp include paths
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include",
+            ApiMarkLibraryDescription = "A fast geometry library.",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: the --library-description flag and the configured value must appear
+        Assert.Contains("--library-description", args);
+        Assert.Contains("A fast geometry library.", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> appends the <c>--clang-path</c>
+    ///     flag with the configured value when <see cref="ApiMarkTask.ApiMarkClangPath"/> is set.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_ClangPath_ForwardedToTool()
+    {
+        // Arrange: configure an explicit clang path alongside the required cpp include paths
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include",
+            ApiMarkClangPath = "/usr/local/bin/clang",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: the --clang-path flag and the configured path must appear
+        Assert.Contains("--clang-path", args);
+        Assert.Contains("/usr/local/bin/clang", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.Execute"/> returns <c>true</c> with no errors
+    ///     when <see cref="ApiMarkTask.ApiMarkXmlDocPath"/> is empty for a <c>.csproj</c> project,
+    ///     confirming that .NET generation is skipped gracefully rather than failing the build.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_DotNet_EmptyXmlDocPath_SkipsExecution()
+    {
+        // Arrange: csproj project with no XML doc path and a non-existent tool DLL to confirm
+        // the tool is never invoked
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new ApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".csproj",
+            ToolDllPath = "path/does/not/exist.dll",
+            ApiMarkXmlDocPath = string.Empty,
+        };
+
+        // Act: execute the task — should skip gracefully without touching the tool DLL path
+        var result = task.Execute();
+
+        // Assert: must return true with no errors logged
+        Assert.True(result);
+        buildEngine.DidNotReceive().LogErrorEvent(Arg.Any<BuildErrorEventArgs>());
+    }
 }
 

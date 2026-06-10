@@ -490,4 +490,70 @@ public sealed class ContextTests
         // Assert: ApiHeaders must default to empty when not specified
         Assert.Empty(context.ApiHeaders);
     }
+
+    /// <summary>
+    ///     Validates that <c>--library-name</c> sets the <see cref="Context.LibraryName"/> property.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithLibraryNameOption_SetsLibraryName()
+    {
+        // Arrange: supply a library name via --library-name
+        var args = new[] { "--library-name", "MyAwesomeLib" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: LibraryName property must match the supplied value
+        Assert.Equal("MyAwesomeLib", context.LibraryName);
+    }
+
+    /// <summary>
+    ///     Validates that <c>--library-description</c> sets the
+    ///     <see cref="Context.LibraryDescription"/> property.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithLibraryDescriptionOption_SetsLibraryDescription()
+    {
+        // Arrange: supply a description via --library-description
+        var args = new[] { "--library-description", "A fast geometry library." };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: LibraryDescription property must match the supplied value
+        Assert.Equal("A fast geometry library.", context.LibraryDescription);
+    }
+
+    /// <summary>
+    ///     Validates that <c>--defines</c> splits the comma-separated value and stores the
+    ///     individual defines in the <see cref="Context.Defines"/> array.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithDefinesOption_SetsDefines()
+    {
+        // Arrange: supply two comma-separated preprocessor defines
+        var args = new[] { "--defines", "MYLIB_API=,NDEBUG" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: Defines array must contain each define as a separate entry
+        Assert.Equal(["MYLIB_API=", "NDEBUG"], context.Defines);
+    }
+
+    /// <summary>
+    ///     Validates that <c>--cpp-standard</c> sets the <see cref="Context.CppStandard"/> property.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithCppStandardOption_SetsCppStandard()
+    {
+        // Arrange: supply a C++ standard via --cpp-standard
+        var args = new[] { "--cpp-standard", "c++20" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: CppStandard property must match the supplied value
+        Assert.Equal("c++20", context.CppStandard);
+    }
 }
