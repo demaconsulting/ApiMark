@@ -27,11 +27,17 @@ Document public classes, functions, and module-level constants from Python sourc
 Type annotations and docstrings (Google, NumPy, or reStructuredText style) are
 the primary documentation source. Likely CLI-only.
 
-**Proposed implementation**: Use Python's built-in `ast` module (via a small
-Python helper invoked as a subprocess, similar to `clang -ast-dump=json`) rather
-than ANTLR4 — the language ships its own reliable parser, making a grammar
-unnecessary. The helper emits a JSON AST that a new `ApiMark.Python` assembly
-consumes via the same visitor pattern used by `ApiMark.DotNet` and `ApiMark.Cpp`.
+**Proposed implementation**: Invoke `python` as a subprocess with a one-liner that
+uses the built-in `ast` module — no native DLLs, no grammar, no separate helper
+script to deploy:
+
+```text
+python -c "import ast, sys; print(ast.dump(ast.parse(open(sys.argv[1]).read()), indent=4))" module.py
+```
+
+The JSON-like AST dump is parsed by a new `ApiMark.Python` assembly using the same
+pattern as `ApiMark.Cpp` with `clang -ast-dump=json` — a visitor walks the tree and
+feeds the existing `IContext`/`IMarkdownWriterFactory` pipeline.
 
 ---
 
