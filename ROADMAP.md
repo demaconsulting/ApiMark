@@ -7,17 +7,30 @@ anticipated demand, not commitment to schedule.
 
 ## VHDL Document Generation
 
-Document the public contract of VHDL design units — entities, architectures,
-packages, and components — from source files and associated Doxygen-style doc
+Document the public contract of VHDL design units - entities, architectures,
+packages, and components - from source files and associated Doxygen-style doc
 comments. Internal signal and process details are excluded; this is documentation
 for IP consumers, not implementors. Likely CLI-only given the niche toolchain.
 
-**Proposed implementation**: Parse VHDL source using an
-[ANTLR4 VHDL grammar](https://github.com/antlr/grammars-v4) and a
+**Proposed implementation - Option A (ANTLR4, pure managed)**: Parse VHDL source
+using an [ANTLR4 VHDL grammar](https://github.com/antlr/grammars-v4) and a
 `ParseTreeVisitor` walking entity declarations, port maps, and generic lists.
 Doc comments (lines starting with `--!`) are harvested from the preceding comment
-block. The visitor emits the same `IContext`/`IMarkdownWriterFactory` pipeline as
-the existing generators — no new output infrastructure needed.
+block. No external tool dependency; all processing stays in-process.
+
+**Proposed implementation - Option B (Python + hdlConvertor, preferred)**: Invoke
+`python` as a subprocess using [hdlConvertor](https://github.com/Nic30/hdlConvertor),
+a battle-tested HDL parser that natively preserves Doxygen-style doc comments
+attached to ports and generics - no comment scraping needed:
+
+```text
+python -c "from hdlConvertor import HdlConvertor; import json, sys; ..."  design.vhd
+```
+
+Consistent with the `clang -ast-dump=json` and Python `ast` subprocess patterns;
+the JSON output is consumed by `ApiMark.Vhdl` feeding the existing
+`IContext`/`IMarkdownWriterFactory` pipeline. Requires `pip install hdlConvertor`
+on the host.
 
 ---
 
@@ -28,7 +41,7 @@ Type annotations and docstrings (Google, NumPy, or reStructuredText style) are
 the primary documentation source. Likely CLI-only.
 
 **Proposed implementation**: Invoke `python` as a subprocess with a one-liner that
-uses the built-in `ast` module — no native DLLs, no grammar, no separate helper
+uses the built-in `ast` module - no native DLLs, no grammar, no separate helper
 script to deploy:
 
 ```text
@@ -36,7 +49,7 @@ python -c "import ast, sys; print(ast.dump(ast.parse(open(sys.argv[1]).read()), 
 ```
 
 The JSON-like AST dump is parsed by a new `ApiMark.Python` assembly using the same
-pattern as `ApiMark.Cpp` with `clang -ast-dump=json` — a visitor walks the tree and
+pattern as `ApiMark.Cpp` with `clang -ast-dump=json` - a visitor walks the tree and
 feeds the existing `IContext`/`IMarkdownWriterFactory` pipeline.
 
 ---
@@ -45,15 +58,15 @@ feeds the existing `IContext`/`IMarkdownWriterFactory` pipeline.
 
 Allow users to choose between output strategies depending on their use case:
 
-- **Gradual disclosure** *(current default)* — index page linking to per-namespace
+- **Gradual disclosure** *(current default)* - index page linking to per-namespace
   and per-type pages; optimized for AI agents that navigate progressively.
-- **Single-file** — entire API rendered into one `api.md`; suitable for dropping
+- **Single-file** - entire API rendered into one `api.md`; suitable for dropping
   directly into a system prompt, replacing a Doxygen HTML output, or archiving.
 
 **Proposed implementation**: Introduce an `--output-format` CLI option
 (`gradual` | `single-file`) and a corresponding MSBuild property
 `ApiMarkOutputFormat`. The format selection is threaded through `IContext` and
-controls how `IMarkdownWriterFactory` is instantiated — single-file uses a
+controls how `IMarkdownWriterFactory` is instantiated - single-file uses a
 multiplexing writer that appends all output to one stream with injected heading
 level offsets, leaving generator logic unchanged.
 
