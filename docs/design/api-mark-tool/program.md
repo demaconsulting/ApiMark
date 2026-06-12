@@ -8,8 +8,9 @@
 Program is the CLI entry point for ApiMarkTool. It parses command-line arguments
 via the `Context` class, dispatches to the appropriate priority path (version, help,
 self-validation, or main tool logic), constructs the appropriate `IApiGenerator`
-implementation for the requested language using a language switch, and calls
-`Generate`. It is the sole public CLI surface of ApiMarkTool.
+implementation for the requested language using a language switch, calls `Parse` to
+obtain an `IApiEmitter`, and calls `Emit` with an `EmitConfig` constructed from the
+CLI options. It is the sole public CLI surface of ApiMarkTool.
 
 ### Data Model
 
@@ -54,13 +55,15 @@ are written to `Console.Error` and re-thrown.
 - Priority 5: main tool logic via `RunToolLogic`.
 
 **Program.RunToolLogic** (private static): Validates required options, constructs
-the generator, and calls `Generate`.
+the generator, and calls `Parse` then `Emit`.
 
 - _Parameters_: `Context context`.
 - Validates `Language`, `Output`, and (for `dotnet`) `Assembly`; calls
   `context.WriteError` and `PrintHelp` if any are missing.
-- Calls `CreateGenerator(context)` and `generator.Generate(factory, context)` inside a
-  broad try-catch; all exceptions are routed to `context.WriteError`.
+- Calls `CreateGenerator(context)`, then `generator.Parse(context)` to get an
+  `IApiEmitter`, then `emitter.Emit(factory, emitConfig, context)` where
+  `emitConfig` is constructed from `context.Format` and `context.HeadingDepth`.
+  All exceptions are caught and routed to `context.WriteError`.
 
 **Program.CreateGenerator** (private static): Constructs and returns an
 `IApiGenerator` configured from the parsed context.
@@ -104,6 +107,10 @@ re-thrown.
   Unit Design_ (`self-test/validation.md`).
 - **IApiGenerator** — Program references `IApiGenerator` from ApiMarkCore as the
   common interface for all language generators — see IApiGenerator Unit Design.
+- **IApiEmitter** — Program calls `IApiEmitter.Emit` on the value returned by
+  `IApiGenerator.Parse` — see IApiEmitter Unit Design.
+- **EmitConfig** — Program constructs an `EmitConfig` from `Context.Format` and
+  `Context.HeadingDepth` before calling `IApiEmitter.Emit` — see EmitConfig Unit Design.
 - **DotNetGenerator** — Program constructs `DotNetGenerator` for the `dotnet`
   language subcommand — see DotNetGenerator Unit Design.
 

@@ -140,3 +140,14 @@ sections:
                   failure signal for command-line tools.
                 tests:
                   - Context_WriteError_SetsExitCodeToOne
+              - id: ApiMarkTool-Cli-Context-ParseFormatOption
+                title: Context shall parse the --format option and store it in the Format property.
+                justification: |
+                  The output format controls whether ApiMark writes the gradual-disclosure tree or
+                  the single-file api.md variant, so the CLI must forward the user's choice into
+                  Context for generator configuration.
+                tests:
+                  - Context_Create_WithFormatGradual_SetsGradualDisclosureFormat
+                  - Context_Create_WithFormatSingleFile_SetsSingleFileFormat
+                  - Context_Create_WithNoFormatOption_DefaultsToGradualDisclosure
+                  - Context_Create_WithInvalidFormat_ThrowsArgumentException

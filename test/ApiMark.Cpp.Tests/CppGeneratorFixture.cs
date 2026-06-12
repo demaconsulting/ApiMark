@@ -1,3 +1,4 @@
+using ApiMark.Core;
 using ApiMark.Core.TestHelpers;
 using ApiMark.Cpp;
 
@@ -12,14 +13,15 @@ namespace ApiMark.Cpp.Tests;
 /// <remarks>
 ///     Without this fixture each test would invoke clang independently, making the suite
 ///     proportionally slower as new tests are added.  Sharing a single fixture instance
-///     caps clang invocations at four regardless of test count, while keeping each test
+///     caps clang invocations at five regardless of test count, while keeping each test
 ///     focused on a single assertion over pre-built output.
-///     The four option combinations covered are:
+///     The five option combinations covered are:
 ///     <list type="bullet">
 ///       <item><see cref="PublicFactory"/> — <see cref="ApiVisibility.Public"/>, <c>IncludeDeprecated = false</c></item>
 ///       <item><see cref="WithDeprecatedFactory"/> — <see cref="ApiVisibility.Public"/>, <c>IncludeDeprecated = true</c></item>
 ///       <item><see cref="PublicAndProtectedFactory"/> — <see cref="ApiVisibility.PublicAndProtected"/>, <c>IncludeDeprecated = false</c></item>
 ///       <item><see cref="AllFactory"/> — <see cref="ApiVisibility.All"/>, <c>IncludeDeprecated = false</c></item>
+///       <item><see cref="PublicSingleFileFactory"/> — <see cref="ApiVisibility.Public"/>, single-file output format</item>
 ///     </list>
 ///     All factories are immutable after construction; tests must only read from them.
 /// </remarks>
@@ -67,6 +69,16 @@ public sealed class CppGeneratorFixture
     public InMemoryMarkdownWriterFactory AllFactory { get; }
 
     /// <summary>
+    ///     Gets the factory produced by a <see cref="CppGenerator"/> configured for
+    ///     <see cref="ApiVisibility.Public"/> using <see cref="OutputFormat.SingleFile"/> output.
+    /// </summary>
+    /// <value>
+    ///     A populated <see cref="InMemoryMarkdownWriterFactory"/> whose single writer reflects
+    ///     the entire public API surface in a single <c>api.md</c> document.
+    /// </value>
+    public InMemoryMarkdownWriterFactory PublicSingleFileFactory { get; }
+
+    /// <summary>
     ///     Initializes the fixture by invoking <see cref="CppGenerator.Generate"/> once for
     ///     each of the four standard option combinations and storing the resulting factories.
     /// </summary>
@@ -79,26 +91,32 @@ public sealed class CppGeneratorFixture
         // Run with Public visibility, excluding deprecated declarations
         var publicFactory = new InMemoryMarkdownWriterFactory();
         new CppGenerator(BuildOptions(ApiVisibility.Public, includeDeprecated: false))
-            .Generate(publicFactory, new InMemoryContext());
+            .Parse(new InMemoryContext()).Emit(publicFactory, new EmitConfig(), new InMemoryContext());
         PublicFactory = publicFactory;
 
         // Run with Public visibility, including deprecated declarations
         var withDeprecatedFactory = new InMemoryMarkdownWriterFactory();
         new CppGenerator(BuildOptions(ApiVisibility.Public, includeDeprecated: true))
-            .Generate(withDeprecatedFactory, new InMemoryContext());
+            .Parse(new InMemoryContext()).Emit(withDeprecatedFactory, new EmitConfig(), new InMemoryContext());
         WithDeprecatedFactory = withDeprecatedFactory;
 
         // Run with PublicAndProtected visibility, excluding deprecated declarations
         var publicAndProtectedFactory = new InMemoryMarkdownWriterFactory();
         new CppGenerator(BuildOptions(ApiVisibility.PublicAndProtected, includeDeprecated: false))
-            .Generate(publicAndProtectedFactory, new InMemoryContext());
+            .Parse(new InMemoryContext()).Emit(publicAndProtectedFactory, new EmitConfig(), new InMemoryContext());
         PublicAndProtectedFactory = publicAndProtectedFactory;
 
         // Run with All visibility, excluding deprecated declarations
         var allFactory = new InMemoryMarkdownWriterFactory();
         new CppGenerator(BuildOptions(ApiVisibility.All, includeDeprecated: false))
-            .Generate(allFactory, new InMemoryContext());
+            .Parse(new InMemoryContext()).Emit(allFactory, new EmitConfig(), new InMemoryContext());
         AllFactory = allFactory;
+
+        // Run with Public visibility in single-file format
+        var publicSingleFileFactory = new InMemoryMarkdownWriterFactory();
+        new CppGenerator(BuildOptions(ApiVisibility.Public, includeDeprecated: false))
+            .Parse(new InMemoryContext()).Emit(publicSingleFileFactory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+        PublicSingleFileFactory = publicSingleFileFactory;
     }
 
     /// <summary>

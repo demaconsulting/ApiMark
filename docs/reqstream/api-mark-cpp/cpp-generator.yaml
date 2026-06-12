@@ -104,15 +104,17 @@ sections:
             title: CppGenerator shall extract and render Doxygen doc comments from parsed declarations.
             justification: |
               Developer-authored Doxygen comments contain the descriptions, parameter explanations,
-              and return-value documentation that belong in the published API reference. Without
-              extracting these comments the generated pages contain only signatures, which is
+              return-value documentation, and example code that belong in the published API reference.
+              Without extracting these comments the generated pages contain only signatures, which is
               insufficient for an AI-readable reference. Specifically: @brief is rendered as a
               description paragraph; @param and @return are rendered in their respective sections;
-              missing doc comments emit a standard placeholder.
+              @code/@endcode blocks are rendered as fenced code blocks; missing doc comments emit a
+              standard placeholder.
             tests:
               - CppGenerator_Generate_TypeWithDocComment_WritesSummaryToParagraph
               - CppGenerator_Generate_MethodWithDocComment_WritesSummaryToParagraph
               - CppGenerator_Generate_MissingDocComment_WritesPlaceholder
+              - CppGenerator_Generate_MethodWithCodeExample_EmitsCodeBlockOnMemberPage
           - id: ApiMarkCpp-CppGenerator-ProduceConsistentOutputFileStructure
             title: CppGenerator shall produce output files following a consistent
               naming convention.
@@ -235,3 +237,11 @@ sections:
               - CppGenerator_Generate_TypeAlias_CreatesAliasPages
               - CppGenerator_Generate_TypeAliasPage_ContainsDeclarationAndSummary
               - CppGenerator_Generate_NamespacePage_ListsTypeAliases
+          - id: ApiMarkCpp-CppGenerator-EmitSingleFileOutput
+            title: CppGenerator shall emit a single api.md file when OutputFormat.SingleFile is selected.
+            justification: |
+              Single-file output is required for consumers who want a compact, linear reference
+              instead of the gradual-disclosure folder tree.
+            tests:
+              - CppGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown
+              - CppGenerator_SingleFile_MethodWithCodeExample_EmitsCodeBlock

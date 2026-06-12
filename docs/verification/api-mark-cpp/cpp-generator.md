@@ -273,3 +273,11 @@ returned as plain text (no broken link) and the type is recorded in the external
 set with its namespace and type name. This prevents broken links and enables the External Types
 section to enumerate all referenced-but-undocumented types. This scenario is tested by
 `CppTypeLinkResolver_Linkify_UnknownNamespacedType_TracksExternalType`.
+
+**Single-file output writes a complete api.md tree**: Verifies that when `OutputFormat.SingleFile`
+is configured, the generator produces exactly one writer keyed `api`, containing an H1 library
+name heading, H2 namespace heading, H3 class heading (e.g., `SampleClass`), H4 member headings
+with parentheses, no group headings (`Constructors`, `Methods`), and at least one compact
+bullet-list paragraph (`- **MemberName**: description`) summarizing a class's members.
+This scenario is tested by
+`CppGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown`.

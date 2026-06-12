@@ -39,6 +39,9 @@ task.
   NuGet package; MSBuild invokes the task at build time.
 - *Contract*: MSBuild properties `ApiMarkLanguage`, `ApiMarkOutputDir`,
   `ApiMarkVisibility`, `ApiMarkIncludeObsolete`, `DisableApiMark`,
+  `ApiMarkFormat` (string, optional; accepted values: `gradual-disclosure`
+  (default) and `single-file`; controls the `--format` argument forwarded to
+  ApiMark.Tool and therefore the `EmitConfig.Format` used during emit),
   `ProjectExtension` (required; maps to `$(MSBuildProjectExtension)` and is used
   to infer the language when `ApiMarkLanguage` is not set), `ApiMarkPackDocs`
   (opt-in; when `true`, causes the generated `api/` folder to be included in the
@@ -53,6 +56,9 @@ task.
     converted to commas for the tool argument),
     `ApiMarkCppStandard` (e.g. `c++17`; optional, tool defaults to `c++17`),
     `ApiMarkClangPath` (optional explicit clang executable path).
+  Item group `ApiMarkOutputs` (output; populated by the task after a successful
+  run with the paths of all generated Markdown files so that dependent targets
+  can consume or package them).
   Fires `AfterTargets="Build"` unless `DisableApiMark` is true. Language is
   inferred from `ProjectExtension` when `ApiMarkLanguage` is not explicitly set.
 - *Constraints*: Must not load any language-generator libraries in the MSBuild

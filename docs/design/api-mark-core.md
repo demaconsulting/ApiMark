@@ -8,48 +8,86 @@
 ApiMarkCore is a shared-contracts system. It defines the interfaces, output
 conventions, and internal path-safety helpers that all other systems depend on.
 There is no system-level executable logic — the system exists to give callers a
-single, stable definition of the generation interface, the markdown-writing
-interfaces, and the trusted path-combination helper used by file-based
-implementations.
+single, stable definition of the two-stage generation pipeline interfaces, the
+markdown-writing interfaces, and the trusted path-combination helper used by
+file-based implementations.
 
 ```mermaid
 flowchart TD
-    IApiGenerator
+    IApiGenerator --> |Parse returns| IApiEmitter
+    EmitConfig
+    OutputFormat
     IContext
     IMarkdownWriterFactory
     IMarkdownWriter
-    PathHelpers
     FileMarkdownWriterFactory --> |implements| IMarkdownWriterFactory
     FileMarkdownWriter --> |implements| IMarkdownWriter
     IMarkdownWriterFactory --> |creates| IMarkdownWriter
     FileMarkdownWriterFactory --> |uses| PathHelpers
+    IApiEmitter --> |Emit uses| IMarkdownWriterFactory
+    IApiEmitter --> |Emit uses| EmitConfig
+    IApiEmitter --> |Emit uses| IContext
 ```
 
-ApiMarkDotNet implements IApiGenerator and calls IMarkdownWriterFactory to create
-per-file IMarkdownWriter instances. ApiMarkTool directly consumes IApiGenerator;
-ApiMarkMsbuild spawns ApiMarkTool as a child process and never calls IApiGenerator
-in-process. PathHelpers remains an internal utility used by ApiMarkCore
-implementations rather than a public dependency surface.
+ApiMarkDotNet and ApiMarkCpp each implement IApiGenerator. The `Parse` method
+returns an `IApiEmitter` (a private nested class) that holds the parsed symbol
+model. The caller then calls `IApiEmitter.Emit` with an `EmitConfig` and
+`IMarkdownWriterFactory` to write the documentation tree. ApiMarkTool directly
+consumes IApiGenerator; ApiMarkMsbuild spawns ApiMarkTool as a child process
+and never calls IApiGenerator in-process. PathHelpers remains an internal
+utility used by ApiMarkCore implementations rather than a public dependency
+surface.
 
 ## External Interfaces
 
-**IApiGenerator (provided)**: Public interface contract for any language generator.
+**IApiGenerator (provided)**: First stage of the two-stage pipeline — parses
+symbol data for a configured software component.
 
 - *Type*: In-process .NET public API.
-- *Role*: Provider — ApiMarkCore publishes this interface; ApiMarkDotNet implements
-  it; ApiMarkTool consumes it directly. ApiMarkMsbuild spawns ApiMarkTool as a child
-  process and does not call this interface in-process.
-- *Contract*: `void Generate(IMarkdownWriterFactory factory, IContext context)` — writes the complete
-  Markdown tree for a configured software component using the supplied factory. The
-  output MUST include a file named `api.md` as the fixed entrypoint.
-- *Constraints*: The implementing class creates output directories as needed;
-  callers supply a valid, configured factory.
+- *Role*: Provider — ApiMarkCore publishes this interface; ApiMarkDotNet and
+  ApiMarkCpp implement it; ApiMarkTool consumes it directly. ApiMarkMsbuild
+  spawns ApiMarkTool as a child process and does not call this interface
+  in-process.
+- *Contract*: `IApiEmitter Parse(IContext context)` — parses the configured
+  software component and returns an `IApiEmitter` ready to emit. No output
+  files are written by `Parse`.
+- *Constraints*: The implementing class creates no I/O during Parse; callers
+  supply a valid, configured context.
+
+**IApiEmitter (provided)**: Second stage of the two-stage pipeline — writes
+the complete Markdown documentation tree.
+
+- *Type*: In-process .NET public API.
+- *Role*: Provider — ApiMarkCore publishes this interface; language emitter
+  nested classes implement it; ApiMarkTool consumes it by calling `Emit` on
+  the value returned from `IApiGenerator.Parse`.
+- *Contract*: `void Emit(IMarkdownWriterFactory factory, EmitConfig config,
+  IContext context)` — writes the complete Markdown tree for a parsed component
+  using the supplied factory and configuration. For
+  `OutputFormat.GradualDisclosure`, the output MUST include a file named
+  `api.md` as the fixed entrypoint plus separate namespace, type, and member
+  pages. For `OutputFormat.SingleFile`, a single `api.md` file contains all
+  content at the heading levels specified by `EmitConfig.HeadingDepth`.
+- *Constraints*: `factory` must not be null; `config` and `context` must not
+  be null.
+
+**EmitConfig (provided)**: Immutable value object carrying output-format
+configuration for the emit stage.
+
+- *Type*: In-process .NET public API (sealed class, init-only properties).
+- *Role*: Provider — ApiMarkCore publishes this type; ApiMarkTool constructs
+  it from CLI options; language emitters read it inside `IApiEmitter.Emit`.
+- *Contract*: `Format` (`OutputFormat`) — selects between
+  `GradualDisclosure` (default) and `SingleFile`; `HeadingDepth` (`int`,
+  default 1) — absolute heading level for the top-level section in single-file
+  output.
 
 **IContext (provided)**: Minimal output channel for informational and error messages.
 
 - *Type*: In-process .NET public API.
 - *Role*: Provider — ApiMarkCore publishes this interface; ApiMarkTool's `Cli.Context`
-  implements it; language generators consume it via the `Generate` method parameter.
+  implements it; language generators consume it via the `Parse` and `Emit`
+  method parameters.
 - *Contract*: `void WriteLine(string message)` — writes an informational message;
   `void WriteError(string message)` — writes an error or warning message.
 - *Constraints*: Both methods accept non-null message strings; the implementing
@@ -59,7 +97,7 @@ implementations rather than a public dependency surface.
 
 - *Type*: In-process .NET public API.
 - *Role*: Provider — ApiMarkCore publishes this interface; callers inject it into
-  Generate; language generators call it to open individual output files.
+  `IApiEmitter.Emit`; language emitters call it to open individual output files.
 - *Contract*: `IMarkdownWriter CreateMarkdown(string subFolder, string name)` —
   creates and returns a writer for the file at `subFolder/name.md`. Pass an empty
   string for subFolder to create a root-level file.
@@ -105,17 +143,19 @@ N/A — not a safety-classified software item.
 ApiMarkCore does not process data at runtime. Its contribution to the overall data
 flow is:
 
-1. Language generators write Markdown content by calling IMarkdownWriter methods in
-   document order.
-2. ApiMarkTool invokes IApiGenerator.Generate to trigger generation for a configured
-   component. ApiMarkMsbuild triggers generation by spawning ApiMarkTool as a child
-   process.
+1. Language generators parse symbol data by reading assembly or header files during
+   `IApiGenerator.Parse`.
+2. Language emitters write Markdown content by calling IMarkdownWriter methods in
+   document order inside `IApiEmitter.Emit`.
+3. ApiMarkTool invokes `IApiGenerator.Parse` then `IApiEmitter.Emit` to trigger the
+   full two-stage pipeline for a configured component. ApiMarkMsbuild triggers
+   generation by spawning ApiMarkTool as a child process.
 
 ## Design Constraints
 
 - Platform: targets .NET 8 as a class library; no platform-specific code.
 - No in-memory document model: Core defines only interfaces and their file-system
   implementations; language-specific generators own all in-memory state.
-- Stable API surface: changes to IApiGenerator, IMarkdownWriterFactory, or
-  IMarkdownWriter method signatures require corresponding updates in all
-  implementing systems.
+- Stable API surface: changes to IApiGenerator, IApiEmitter, EmitConfig,
+  IMarkdownWriterFactory, or IMarkdownWriter method signatures require corresponding
+  updates in all implementing systems.

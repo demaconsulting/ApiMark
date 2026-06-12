@@ -493,5 +493,137 @@ public class ApiMarkTaskTests
         Assert.True(result);
         buildEngine.DidNotReceive().LogErrorEvent(Arg.Any<BuildErrorEventArgs>());
     }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> appends the <c>--format</c>
+    ///     flag with the configured value when <see cref="ApiMarkTask.ApiMarkFormat"/> is set.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Format_ForwardedToToolAsFormatArgument()
+    {
+        // Arrange: set format alongside the required dotnet paths
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".csproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/api.dll",
+            ApiMarkXmlDocPath = "/some/api.xml",
+            ApiMarkFormat = "single-file",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet");
+
+        // Assert: the --format flag and the configured value must appear
+        Assert.Contains("--format", args);
+        Assert.Contains("single-file", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> does not append any
+    ///     <c>--format</c> flag when <see cref="ApiMarkTask.ApiMarkFormat"/> is null or empty.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Format_NotForwarded_WhenNotSet()
+    {
+        // Arrange: no format configured
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".csproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/api.dll",
+            ApiMarkXmlDocPath = "/some/api.xml",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet");
+
+        // Assert: the --format flag must NOT appear
+        Assert.DoesNotContain("--format", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArgumentsForOutput"/> overrides scalar
+    ///     output directory, visibility, and format properties from item group metadata.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_BuildArgumentsForOutput_OverridesScalarPropertiesFromMetadata()
+    {
+        // Arrange: base scalar properties plus an output item that overrides them all
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".csproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/api.dll",
+            ApiMarkXmlDocPath = "/some/api.xml",
+            ApiMarkOutputDir = "/base/output",
+            ApiMarkVisibility = "Public",
+            ApiMarkFormat = "gradual",
+        };
+
+        var outputItem = Substitute.For<Microsoft.Build.Framework.ITaskItem>();
+        outputItem.GetMetadata("OutputDir").Returns("/item/output");
+        outputItem.GetMetadata("Visibility").Returns("All");
+        outputItem.GetMetadata("Format").Returns("single-file");
+
+        // Act
+        var args = task.BuildArgumentsForOutput("dotnet", outputItem).ToList();
+
+        // Assert: item metadata values must override scalar properties
+        var outputIdx = args.IndexOf("--output");
+        Assert.True(outputIdx >= 0, "--output flag must appear");
+        Assert.Equal("/item/output", args[outputIdx + 1]);
+
+        var visIdx = args.IndexOf("--visibility");
+        Assert.True(visIdx >= 0, "--visibility flag must appear");
+        Assert.Equal("All", args[visIdx + 1]);
+
+        var formatIdx = args.IndexOf("--format");
+        Assert.True(formatIdx >= 0, "--format flag must appear");
+        Assert.Equal("single-file", args[formatIdx + 1]);
+    }
+
+    /// <summary>
+    ///     Validates that scalar properties are restored after
+    ///     <see cref="ApiMarkTask.BuildArgumentsForOutput"/> returns, so subsequent calls
+    ///     still use the original values.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_BuildArgumentsForOutput_RestoresScalarPropertiesAfterCall()
+    {
+        // Arrange
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".csproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/api.dll",
+            ApiMarkXmlDocPath = "/api.xml",
+            ApiMarkOutputDir = "/original-output",
+            ApiMarkVisibility = "Public",
+            ApiMarkFormat = "gradual",
+        };
+
+        var outputItem = Substitute.For<Microsoft.Build.Framework.ITaskItem>();
+        outputItem.GetMetadata("OutputDir").Returns("/override-output");
+        outputItem.GetMetadata("Visibility").Returns("All");
+        outputItem.GetMetadata("Format").Returns("single-file");
+
+        // Act: call BuildArgumentsForOutput, then BuildArguments again
+        task.BuildArgumentsForOutput("dotnet", outputItem);
+        var afterArgs = task.BuildArguments("dotnet").ToList();
+
+        // Assert: scalar properties must have been restored to their original values
+        var outputIdx = afterArgs.IndexOf("--output");
+        Assert.True(outputIdx >= 0);
+        Assert.Equal("/original-output", afterArgs[outputIdx + 1]);
+
+        var visIdx = afterArgs.IndexOf("--visibility");
+        Assert.True(visIdx >= 0);
+        Assert.Equal("Public", afterArgs[visIdx + 1]);
+
+        var formatIdx = afterArgs.IndexOf("--format");
+        Assert.True(formatIdx >= 0);
+        Assert.Equal("gradual", afterArgs[formatIdx + 1]);
+    }
 }
 

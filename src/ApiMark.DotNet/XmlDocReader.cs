@@ -144,6 +144,87 @@ public sealed class XmlDocReader
         return el?.Value.Trim();
     }
 
+    /// <summary>
+    ///     Returns the structured example content for <paramref name="memberId"/> as a list of
+    ///     (IsCode, Content) parts. <c>IsCode = true</c> indicates a fenced code block; <c>false</c>
+    ///     indicates a prose paragraph.
+    /// </summary>
+    /// <remarks>
+    ///     When the <c>&lt;example&gt;</c> element contains no <c>&lt;code&gt;</c> children, the
+    ///     entire text is returned as a single code part. When <c>&lt;code&gt;</c> children are
+    ///     present, text nodes become prose parts and <c>&lt;code&gt;</c> elements become code parts.
+    /// </remarks>
+    /// <param name="memberId">The XML doc member identifier.</param>
+    /// <returns>
+    ///     A list of (IsCode, Content) pairs, or an empty list when the member is absent or has
+    ///     no <c>&lt;example&gt;</c> element.
+    /// </returns>
+    public IReadOnlyList<(bool IsCode, string Content)> GetExampleParts(string memberId)
+    {
+        if (!_members.TryGetValue(memberId, out var member))
+        {
+            return Array.Empty<(bool, string)>();
+        }
+
+        var el = member.Element("example");
+        if (el == null)
+        {
+            return Array.Empty<(bool, string)>();
+        }
+
+        // When no <code> children exist, treat the entire value as a single code block
+        if (!el.Elements("code").Any())
+        {
+            var text = el.Value.Trim();
+            return string.IsNullOrEmpty(text)
+                ? Array.Empty<(bool, string)>()
+                : [(true, text)];
+        }
+
+        // Mixed content: process child nodes in order, separating <code> blocks from prose
+        var parts = new List<(bool IsCode, string Content)>();
+        foreach (var node in el.Nodes())
+        {
+            switch (node)
+            {
+                case XText textNode:
+                    {
+                        var text = textNode.Value.Trim();
+                        if (text.Length > 0)
+                        {
+                            parts.Add((false, text));
+                        }
+
+                        break;
+                    }
+
+                case XElement childElement when childElement.Name.LocalName == "code":
+                    {
+                        var code = childElement.Value.Trim();
+                        if (code.Length > 0)
+                        {
+                            parts.Add((true, code));
+                        }
+
+                        break;
+                    }
+
+                case XElement otherElement:
+                    {
+                        var text = otherElement.Value.Trim();
+                        if (text.Length > 0)
+                        {
+                            parts.Add((false, text));
+                        }
+
+                        break;
+                    }
+            }
+        }
+
+        return parts;
+    }
+
     private static string? GetDocumentationText(XElement? element)
     {
         if (element == null)

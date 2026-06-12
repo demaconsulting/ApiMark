@@ -42,6 +42,8 @@ of OTS items.
 ```text
 ApiMarkCore (System)
 ├── IApiGenerator (Unit)
+├── IApiEmitter (Unit)
+├── EmitConfig + OutputFormat (Unit)
 ├── IContext (Unit)
 ├── IMarkdownWriterFactory (Unit)
 ├── FileMarkdownWriterFactory (Unit)
@@ -79,6 +81,9 @@ OTS Dependencies:
 src/
 ├── ApiMark.Core/
 │   ├── IApiGenerator.cs                - interface every language generator must implement
+│   ├── IApiEmitter.cs                  - interface for writing parsed results as Markdown output
+│   ├── EmitConfig.cs                   - value object controlling output format and heading depth
+│   ├── OutputFormat.cs                 - enum selecting GradualDisclosure or SingleFile output
 │   ├── IContext.cs                     - minimal output channel that generators use to emit messages
 │   ├── IMarkdownWriterFactory.cs       - factory interface for creating per-file markdown writers
 │   ├── IMarkdownWriter.cs              - per-file markdown writing interface (IDisposable)

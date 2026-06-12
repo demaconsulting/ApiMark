@@ -25,12 +25,15 @@ sections:
             title: DotNetGenerator shall read XML documentation comments from the configured XML documentation file and include that content in generated markdown.
             justification: |
               Developer-authored summaries, remarks, parameter descriptions, returns,
-              exceptions, and examples belong in the published API reference and are
-              available from the XML documentation file produced by the C# compiler.
+              exceptions, examples, and example code blocks belong in the published API
+              reference and are available from the XML documentation file produced by
+              the C# compiler. The <example> element may contain a mix of prose and
+              <code> blocks; both are rendered in the output.
             tests:
               - DotNetGenerator_ReadXmlComments_SummaryAndRemarks_AppearInMarkdown
               - DotNetGenerator_Generate_ConstructorWithXmlSummary_WritesSummaryToMemberPage
               - DotNetGenerator_Generate_ConstructorWithXmlParams_WritesParamDescriptionsToMemberPage
+              - DotNetGenerator_Generate_MethodWithExample_EmitsCodeBlockOnMemberPage
           - id: ApiMarkDotNet-DotNetGenerator-FilterByVisibility
             title: DotNetGenerator shall support ApiVisibility filtering for Public, PublicAndProtected, and All.
             justification: |
@@ -157,3 +160,11 @@ sections:
               - DotNetGenerator_Generate_NestedClass_CreatesNestedClassPage
               - DotNetGenerator_Generate_NestedClass_ListedOnOuterClassPage
               - DotNetGenerator_Generate_NestedClass_PageContainsSummary
+          - id: ApiMarkDotNet-DotNetGenerator-EmitSingleFileOutput
+            title: DotNetGenerator shall emit a single api.md file when OutputFormat.SingleFile is selected.
+            justification: |
+              Single-file output is required for consumers who want a compact, linear reference
+              instead of the gradual-disclosure folder tree.
+            tests:
+              - DotNetGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown
+              - DotNetGenerator_SingleFile_MethodWithExample_EmitsCodeBlock

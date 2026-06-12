@@ -175,10 +175,15 @@ internal static class Program
 
         try
         {
-            // Construct the generator and invoke it with a file-system writer factory
+            // Construct the generator, parse symbols, then emit using the configured format
             var generator = CreateGenerator(context);
             var factory = new FileMarkdownWriterFactory(context.Output!);
-            generator.Generate(factory, context);
+            var emitConfig = new EmitConfig
+            {
+                Format = context.Format,
+                HeadingDepth = context.HeadingDepth,
+            };
+            generator.Parse(context).Emit(factory, emitConfig, context);
         }
         // Catch all generator construction and execution errors so failures produce
         // clean non-zero exits without an unhandled-exception stack trace
@@ -286,6 +291,7 @@ internal static class Program
         context.WriteLine("  --validate                 Run self-validation tests");
         context.WriteLine("  --results <file>           Write validation results to file (.trx or .xml)");
         context.WriteLine("  --depth <#>                Set heading depth for validation output (default: 1)");
+        context.WriteLine("  --format <value>           Output format: gradual (default) or single-file");
         context.WriteLine("  --log <file>               Write all output to log file");
         context.WriteLine("");
         context.WriteLine("Languages:");

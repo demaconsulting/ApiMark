@@ -146,3 +146,19 @@ sections:
               preserves order and lets CppGenerator apply last-match-wins semantics correctly.
             tests:
               - ApiMarkTask_Cpp_ApiHeaders_ForwardedAsIndividualFlags
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardFormatProperty
+            title: ApiMarkTask shall forward the ApiMarkFormat property to the tool as the --format argument.
+            justification: |
+              Build authors need to choose between gradual-disclosure output and single-file output
+              without changing the command line in every project file.
+            tests:
+              - ApiMarkTask_Format_ForwardedToToolAsFormatArgument
+              - ApiMarkTask_Format_NotForwarded_WhenNotSet
+          - id: ApiMarkMsbuild-ApiMarkTask-SupportOutputsItemGroup
+            title: ApiMarkTask shall support ApiMarkOutputs ItemGroup metadata when building tool arguments.
+            justification: |
+              The task must temporarily override scalar properties with per-output metadata while
+              preserving the original values after the call so multi-output configurations remain safe.
+            tests:
+              - ApiMarkTask_BuildArgumentsForOutput_OverridesScalarPropertiesFromMetadata
+              - ApiMarkTask_BuildArgumentsForOutput_RestoresScalarPropertiesAfterCall

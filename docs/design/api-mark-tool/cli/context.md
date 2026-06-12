@@ -37,6 +37,7 @@ argument array.
 | `Defines` | `string[]` | `[]` | Preprocessor definitions from `--defines` (comma-separated, split into entries of the form `NAME` or `NAME=value`) |
 | `CppStandard` | `string?` | `null` | C++ language standard from `--cpp-standard` (e.g. `c++17`); optional, tool defaults to `c++17` when null |
 | `ClangPath` | `string?` | `null` | Explicit clang executable path from `--clang-path`; optional, auto-discovered when null |
+| `Format` | `OutputFormat` | `GradualDisclosure` | Output format from `--format` (`gradual` → `GradualDisclosure`, `single-file` → `SingleFile`) |
 
 **Private fields**:
 

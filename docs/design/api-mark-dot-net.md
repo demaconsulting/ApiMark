@@ -27,17 +27,20 @@ interfaces. TypeNameSimplifier has no dependencies of its own beyond Mono.Cecil.
 
 ## External Interfaces
 
-**IApiGenerator (provided)**: DotNetGenerator implements IApiGenerator from
-ApiMarkCore.
+**IApiGenerator / IApiEmitter (provided)**: DotNetGenerator implements IApiGenerator from
+ApiMarkCore; parsing is separated from emit via the two-stage pipeline.
 
 - *Type*: In-process .NET public API.
 - *Role*: Provider — ApiMarkMsbuild and ApiMarkTool construct DotNetGenerator
-  and call Generate through the IApiGenerator interface.
+  and call the two-stage pipeline through the IApiGenerator / IApiEmitter interfaces.
 - *Contract*: `DotNetGenerator(DotNetGeneratorOptions options)` constructs a
-  configured generator; `Generate(IMarkdownWriterFactory factory, IContext context)` writes the
-  full Markdown tree for the configured assembly using the supplied factory.
+  configured generator; `IApiGenerator.Parse(IContext context)` reads the assembly
+  and returns a `DotNetEmitter` (implements `IApiEmitter`);
+  `IApiEmitter.Emit(IMarkdownWriterFactory factory, EmitConfig config, IContext context)`
+  writes the full Markdown tree for the configured assembly using the supplied factory
+  and the format selected by `config`.
 - *Constraints*: DotNetGeneratorOptions must be fully populated before calling
-  Generate; AssemblyPath and XmlDocPath must reference files that exist on disk.
+  Parse; AssemblyPath and XmlDocPath must reference files that exist on disk.
 
 **Mono.Cecil (consumed)**: DotNetGenerator uses Mono.Cecil to read assembly metadata.
 
@@ -53,16 +56,16 @@ ApiMarkCore.
 from its caller and uses it to create each Markdown output file.
 
 - *Type*: In-process .NET interface from ApiMarkCore.
-- *Role*: Consumer — DotNetGenerator calls `CreateMarkdown` for each output file
+- *Role*: Consumer — DotNetEmitter calls `CreateMarkdown` for each output file
   path it needs to write.
-- *Constraints*: Must not be null at Generate call time.
+- *Constraints*: Must not be null at Emit call time.
 
 **IContext (consumed)**: DotNetGenerator receives an IContext from its caller and uses
 it to emit informational and diagnostic messages during generation.
 
 - *Type*: In-process .NET interface from ApiMarkCore.
 - *Role*: Consumer — DotNetGenerator calls `WriteLine` for progress messages.
-- *Constraints*: Must not be null at Generate call time.
+- *Constraints*: Must not be null at Parse and Emit call time.
 
 ## Dependencies
 
@@ -76,8 +79,10 @@ N/A — not a safety-classified software item.
 ## Data Flow
 
 1. The caller (ApiMarkMsbuild or ApiMarkTool) constructs DotNetGeneratorOptions
-   with AssemblyPath, XmlDocPath, Visibility, and IncludeObsolete, then passes an
-   IMarkdownWriterFactory to Generate.
+   with AssemblyPath, XmlDocPath, Visibility, and IncludeObsolete, then calls
+   `DotNetGenerator.Parse(context)` to obtain a `DotNetEmitter`. The caller
+   then passes an IMarkdownWriterFactory and an EmitConfig to
+   `DotNetEmitter.Emit(factory, config, context)`.
 2. DotNetGenerator calls `AssemblyDefinition.ReadAssembly` (Mono.Cecil) to load
    type and member metadata from disk without loading the assembly into the AppDomain.
 3. DotNetGenerator parses the XML documentation file and indexes entries by member
@@ -96,8 +101,9 @@ N/A — not a safety-classified software item.
 ## Design Constraints
 
 - Platform: targets .NET 8 as a class library; no platform-specific code.
-- Dependency on ApiMarkCore: depends on IApiGenerator, IMarkdownWriterFactory, and
-  IMarkdownWriter from ApiMarkCore; must not duplicate their logic.
+- Dependency on ApiMarkCore: depends on IApiGenerator, IApiEmitter, EmitConfig,
+  IMarkdownWriterFactory, and IMarkdownWriter from ApiMarkCore; must not duplicate
+  their logic.
 - No AppDomain loading: assemblies must be read via Mono.Cecil only — the standard
   System.Reflection API must not be used for assembly reflection.
 - Visibility filter: the Visibility option (Public, PublicAndProtected, All) must be

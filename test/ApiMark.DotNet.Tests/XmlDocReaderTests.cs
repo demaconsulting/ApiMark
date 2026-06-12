@@ -236,4 +236,91 @@ public class XmlDocReaderTests
             File.Delete(path);
         }
     }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> returns the whole text as a single
+    ///     code part when the example has no <c>&lt;code&gt;</c> child element.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_NoCodeElement_ReturnsWholeTextAsCodePart()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>var x = new Bar();</example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: single part, treated as code
+            Assert.Single(parts);
+            Assert.True(parts[0].IsCode);
+            Assert.Equal("var x = new Bar();", parts[0].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> separates prose text nodes from
+    ///     <c>&lt;code&gt;</c> child elements when both are present.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithCodeElement_SeparatesProseFromCode()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Use this method like so:<code>var x = new Bar();
+            x.Run();</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: prose part followed by code part
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Equal("Use this method like so:", parts[0].Content);
+            Assert.True(parts[1].IsCode);
+            Assert.Equal("var x = new Bar();\nx.Run();", parts[1].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> returns an empty list when
+    ///     the member identifier is not present in the XML doc file.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_MemberAbsent_ReturnsEmpty()
+    {
+        // Arrange
+        var path = WriteXmlDoc(string.Empty);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Missing.Type.Method");
+
+            // Assert
+            Assert.Empty(parts);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }

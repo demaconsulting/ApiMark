@@ -114,3 +114,23 @@ integration test that verifies `ApiMarkIncludePaths` is correctly defaulted from
 with no explicit `$(ApiMarkIncludePaths)` property, and documentation is still generated
 successfully. This scenario is tested by
 `ApiMarkMsbuild_NuGetPackage_CppVcxprojProject_AutoDocumentsOnBuild`.
+
+**Format is forwarded as --format**: Verifies that the `ApiMarkFormat` value is passed to
+the tool as the `--format` argument when set. This scenario is tested by
+`ApiMarkTask_Format_ForwardedToToolAsFormatArgument`.
+
+**Format is not forwarded when not set**: Verifies that the `--format` flag is omitted from
+the spawned command when `ApiMarkFormat` is null or empty. This scenario is tested by
+`ApiMarkTask_Format_NotForwarded_WhenNotSet`.
+
+**BuildArgumentsForOutput overrides scalar properties from item metadata**: Verifies that
+`BuildArgumentsForOutput` overrides the `OutputDir`, `Visibility`, and `Format` scalar
+properties with values taken from the supplied output item's metadata, so per-output
+overrides are applied correctly. This scenario is tested by
+`ApiMarkTask_BuildArgumentsForOutput_OverridesScalarPropertiesFromMetadata`.
+
+**BuildArgumentsForOutput restores scalar properties after call**: Verifies that the scalar
+properties (`OutputDir`, `Visibility`, `Format`) are restored to their original values after
+`BuildArgumentsForOutput` returns, so subsequent calls still use the original property
+values. This scenario is tested by
+`ApiMarkTask_BuildArgumentsForOutput_RestoresScalarPropertiesAfterCall`.

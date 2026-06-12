@@ -66,6 +66,26 @@ reviews:
       - src/ApiMark.Core/IApiGenerator.cs
       - test/ApiMark.Core.Tests/IApiGeneratorTests.cs
 
+  # ApiMarkCore - IApiEmitter
+  - id: ApiMark-Core-IApiEmitter
+    title: Review that ApiMark Core IApiEmitter Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-core/i-api-emitter.yaml
+      - docs/design/api-mark-core/i-api-emitter.md
+      - docs/verification/api-mark-core/i-api-emitter.md
+      - src/ApiMark.Core/IApiEmitter.cs
+      - test/ApiMark.Core.Tests/IApiGeneratorTests.cs
+
+  # ApiMarkCore - EmitConfig
+  - id: ApiMark-Core-EmitConfig
+    title: Review that ApiMark Core EmitConfig Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-core/emit-config.yaml
+      - docs/design/api-mark-core/emit-config.md
+      - docs/verification/api-mark-core/emit-config.md
+      - src/ApiMark.Core/EmitConfig.cs
+      - src/ApiMark.Core/OutputFormat.cs
+
   # ApiMarkCore - IContext
   - id: ApiMark-Core-IContext
     title: Review that ApiMark Core IContext Implementation is Correct
@@ -144,6 +164,10 @@ reviews:
       - docs/design/api-mark-dot-net/dot-net-generator.md
       - docs/verification/api-mark-dot-net/dot-net-generator.md
       - src/ApiMark.DotNet/ApiVisibility.cs
+      - src/ApiMark.DotNet/DotNetAstModel.cs
+      - src/ApiMark.DotNet/DotNetEmitter.cs
+      - src/ApiMark.DotNet/DotNetEmitterGradualDisclosure.cs
+      - src/ApiMark.DotNet/DotNetEmitterSingleFile.cs
       - src/ApiMark.DotNet/DotNetGenerator.cs
       - src/ApiMark.DotNet/DotNetGeneratorOptions.cs
       - src/ApiMark.DotNet/XmlDocReader.cs
@@ -194,6 +218,9 @@ reviews:
       - docs/design/api-mark-cpp/clang-ast-parser.md
       - docs/verification/api-mark-cpp/cpp-generator.md
       - src/ApiMark.Cpp/ApiVisibility.cs
+      - src/ApiMark.Cpp/CppEmitter.cs
+      - src/ApiMark.Cpp/CppEmitterGradualDisclosure.cs
+      - src/ApiMark.Cpp/CppEmitterSingleFile.cs
       - src/ApiMark.Cpp/CppGenerator.cs
       - src/ApiMark.Cpp/CppGeneratorOptions.cs
       - src/ApiMark.Cpp/CppAst/CppAstModel.cs

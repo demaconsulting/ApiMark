@@ -43,12 +43,14 @@ public record CppParamDoc(string Name, string Description);
 /// <param name="Params">One entry for each <c>@param</c> tag found on the declaration.</param>
 /// <param name="Returns">Return description from a <c>@return</c> or <c>@returns</c> tag.</param>
 /// <param name="Note">Contextual note from a <c>@note</c> tag, or <see langword="null"/> when absent.</param>
+/// <param name="Example">Example code from a <c>@code</c>/<c>@endcode</c> block, or <see langword="null"/> when absent.</param>
 public record CppDocComment(
     string? Summary,
     string? Details,
     IReadOnlyList<CppParamDoc> Params,
     string? Returns,
-    string? Note = null);
+    string? Note = null,
+    string? Example = null);
 
 /// <summary>Names a base type in a C++ class inheritance list.</summary>
 /// <param name="Name">

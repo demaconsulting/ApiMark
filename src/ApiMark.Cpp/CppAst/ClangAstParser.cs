@@ -1634,6 +1634,7 @@ internal sealed class ClangAstParser
         string? details = null;
         string? returns = null;
         string? note = null;
+        string? example = null;
         var paramDocs = new List<CppParamDoc>();
 
         foreach (var child in inner.EnumerateArray())
@@ -1663,16 +1664,25 @@ internal sealed class ClangAstParser
                 case "ParamCommandComment":
                     HandleParamCommandComment(child, paramDocs);
                     break;
+
+                case "VerbatimBlockComment":
+                    var blockText = CollectVerbatimBlockText(child);
+                    if (!string.IsNullOrEmpty(blockText))
+                    {
+                        example = blockText;
+                    }
+
+                    break;
             }
         }
 
         // Return null when the comment block carried no extractable documentation
-        if (summary == null && details == null && returns == null && note == null && paramDocs.Count == 0)
+        if (summary == null && details == null && returns == null && note == null && example == null && paramDocs.Count == 0)
         {
             return null;
         }
 
-        return new CppDocComment(summary, details, paramDocs, returns, note);
+        return new CppDocComment(summary, details, paramDocs, returns, note, example);
     }
 
     /// <summary>
@@ -1802,6 +1812,41 @@ internal sealed class ClangAstParser
                 CollectTextNodes(child, parts);
             }
         }
+    }
+
+    /// <summary>
+    ///     Collects the source lines from a <c>VerbatimBlockComment</c> node (produced by
+    ///     Doxygen <c>@code</c>/<c>@endcode</c> blocks) and joins them into a single string.
+    /// </summary>
+    /// <param name="node">The <c>VerbatimBlockComment</c> JSON node.</param>
+    /// <returns>
+    ///     The joined code text, trimmed of leading/trailing blank lines, or
+    ///     <see langword="null"/> when the block contains no lines.
+    /// </returns>
+    private static string? CollectVerbatimBlockText(JsonElement node)
+    {
+        if (!node.TryGetProperty("inner", out var inner))
+        {
+            return null;
+        }
+
+        var lines = new List<string>();
+        foreach (var child in inner.EnumerateArray())
+        {
+            var kind = child.TryGetProperty("kind", out var k) ? k.GetString() : null;
+            if (kind == "VerbatimBlockLineComment" &&
+                child.TryGetProperty("text", out var textEl))
+            {
+                lines.Add(textEl.GetString() ?? string.Empty);
+            }
+        }
+
+        if (lines.Count == 0)
+        {
+            return null;
+        }
+
+        return string.Join("\n", lines).Trim();
     }
 
     /// <summary>

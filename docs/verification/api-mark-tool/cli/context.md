@@ -82,3 +82,15 @@ documented defaults; `ExitCode = 0`, `HeadingDepth = 1`, `Includes` empty.
 
 **`Context_Cli_ParsesAllGlobalFlags`**: All global flags in one array → all
 corresponding properties set simultaneously.
+
+**`Context_Create_WithFormatGradual_SetsGradualDisclosureFormat`**: `--format gradual` →
+`Format = OutputFormat.GradualDisclosure`.
+
+**`Context_Create_WithFormatSingleFile_SetsSingleFileFormat`**: `--format single-file` →
+`Format = OutputFormat.SingleFile`.
+
+**`Context_Create_WithNoFormatOption_DefaultsToGradualDisclosure`**: No `--format` argument →
+`Format = OutputFormat.GradualDisclosure` (default).
+
+**`Context_Create_WithInvalidFormat_ThrowsArgumentException`**: `--format unknown-value` →
+`ArgumentException` thrown.

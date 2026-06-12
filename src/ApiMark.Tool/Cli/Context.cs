@@ -43,6 +43,13 @@ internal sealed class Context : IContext, IDisposable
     public string? ResultsFile { get; private init; }
 
     /// <summary>
+    ///     Gets the output format for generated Markdown documentation.
+    ///     <see cref="OutputFormat.GradualDisclosure"/> produces one page per type (default);
+    ///     <see cref="OutputFormat.SingleFile"/> writes all content to a single <c>api.md</c>.
+    /// </summary>
+    public OutputFormat Format { get; private init; } = OutputFormat.GradualDisclosure;
+
+    /// <summary>
     ///     Gets the heading depth for markdown output (default is 1).
     /// </summary>
     public int HeadingDepth { get; private init; } = 1;
@@ -159,6 +166,7 @@ internal sealed class Context : IContext, IDisposable
             Silent = parser.Silent,
             Validate = parser.Validate,
             ResultsFile = parser.ResultsFile,
+            Format = parser.Format,
             HeadingDepth = parser.HeadingDepth,
             Language = parser.Language,
             Assembly = parser.Assembly,
@@ -297,6 +305,12 @@ internal sealed class Context : IContext, IDisposable
         ///     Gets the validation results file path.
         /// </summary>
         public string? ResultsFile { get; private set; }
+
+        /// <summary>
+        ///     Gets the output format for generated Markdown documentation.
+        ///     Defaults to <see cref="OutputFormat.GradualDisclosure"/>.
+        /// </summary>
+        public OutputFormat Format { get; private set; } = OutputFormat.GradualDisclosure;
 
         /// <summary>
         ///     Gets the heading depth for markdown output.
@@ -442,6 +456,20 @@ internal sealed class Context : IContext, IDisposable
                 case "--depth":
                     HeadingDepth = GetRequiredIntArgument(arg, args, index, "a heading depth argument", 1, 6);
                     return index + 1;
+
+                case "--format":
+                    {
+                        var formatValue = GetRequiredStringArgument(arg, args, index, "a format value argument");
+                        Format = formatValue.ToLowerInvariant() switch
+                        {
+                            "gradual" => OutputFormat.GradualDisclosure,
+                            "single-file" => OutputFormat.SingleFile,
+                            _ => throw new ArgumentException(
+                                $"'{arg}' value must be 'gradual' or 'single-file', got '{formatValue}'.",
+                                nameof(args)),
+                        };
+                        return index + 1;
+                    }
 
                 // Language-specific options — accepted anywhere; validated at run time if needed
                 case "--assembly":

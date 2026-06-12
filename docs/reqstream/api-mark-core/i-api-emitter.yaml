@@ -1,0 +1,36 @@
+---
+# IApiEmitter unit requirements
+sections:
+  - title: ApiMarkCore Requirements
+    sections:
+      - title: IApiEmitter Requirements
+        requirements:
+          - id: ApiMarkCore-IApiEmitter-DefineEmitMethod
+            title: IApiEmitter shall define an Emit method that accepts an IMarkdownWriterFactory, EmitConfig, and IContext parameter.
+            justification: |
+              Callers need one consistent invocation point for writing Markdown output
+              after parsing is complete. Accepting IMarkdownWriterFactory decouples the
+              emitter from the file system; accepting EmitConfig allows the caller to
+              select the output format at emit time without re-parsing; accepting IContext
+              decouples the emitter from Console so output can be captured, suppressed,
+              or redirected by different hosts.
+            tests:
+              - IApiGenerator_Parse_WithMinimalStub_ExecutesSuccessfully
+          - id: ApiMarkCore-IApiEmitter-SupportGradualDisclosure
+            title: IApiEmitter.Emit shall support writing multi-file gradual-disclosure output when EmitConfig.Format is GradualDisclosure.
+            justification: |
+              The gradual-disclosure tree (one file per concept) is the primary output
+              format optimized for AI agent navigation. An emitter must honor this
+              format when selected so callers can produce the expected multi-file layout
+              without knowing which language module generated the symbol data.
+            tests:
+              - IApiGenerator_Emit_GradualDisclosure_ProducesMultipleFiles
+          - id: ApiMarkCore-IApiEmitter-SupportSingleFile
+            title: IApiEmitter.Emit shall support writing all content into a single api.md file when EmitConfig.Format is SingleFile.
+            justification: |
+              The single-file format is optimized for direct reading or embedding in a
+              larger document. An emitter must honor this format when selected so callers
+              can produce a single consolidated Markdown file without knowing which language
+              module generated the symbol data.
+            tests:
+              - IApiGenerator_Emit_SingleFile_ProducesSingleApiMd

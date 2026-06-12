@@ -29,17 +29,20 @@ ClangAstParser invokes clang as an external process and parses its JSON output.
 
 ## External Interfaces
 
-**IApiGenerator (provided)**: CppGenerator implements IApiGenerator from
-ApiMarkCore.
+**IApiGenerator / IApiEmitter (provided)**: CppGenerator implements IApiGenerator from
+ApiMarkCore; parsing is separated from emit via the two-stage pipeline.
 
 - *Type*: In-process .NET public API.
-- *Role*: Provider — ApiMarkTool constructs CppGenerator and calls Generate
-  through the IApiGenerator interface.
+- *Role*: Provider — ApiMarkTool constructs CppGenerator and calls the two-stage
+  pipeline through the IApiGenerator / IApiEmitter interfaces.
 - *Contract*: `CppGenerator(CppGeneratorOptions options)` constructs a
-  configured generator; `Generate(IMarkdownWriterFactory factory, IContext context)` writes the
-  full Markdown tree using the supplied factory.
+  configured generator; `IApiGenerator.Parse(IContext context)` invokes clang,
+  filters declarations, and returns a `CppEmitter` (implements `IApiEmitter`);
+  `IApiEmitter.Emit(IMarkdownWriterFactory factory, EmitConfig config, IContext context)`
+  writes the full Markdown tree using the supplied factory and the format selected
+  by `config`.
 - *Constraints*: CppGeneratorOptions must be fully populated before calling
-  Generate; all paths in PublicIncludeRoots must exist on disk.
+  Parse; all paths in PublicIncludeRoots must exist on disk.
 
 **clang (consumed)**: CppGenerator uses clang via `ClangAstParser` to parse C++ headers.
 
@@ -83,8 +86,10 @@ N/A — not a safety-classified software item.
 1. The caller (ApiMarkTool) constructs `CppGeneratorOptions` with
    PublicIncludeRoots, ApiHeaderPatterns, SystemIncludePaths,
    Defines, CppStandard, AdditionalCompilerArguments,
-   Visibility, IncludeDeprecated, and LibraryName, then passes an
-   IMarkdownWriterFactory to Generate.
+   Visibility, IncludeDeprecated, and LibraryName, then calls
+   `CppGenerator.Parse(context)` to obtain a `CppEmitter`. The caller then
+   passes an IMarkdownWriterFactory and an EmitConfig to
+   `CppEmitter.Emit(factory, config, context)`.
 2. CppGenerator enumerates all header files under each PublicIncludeRoot.
    When ApiHeaderPatterns is non-empty, patterns are applied with gitignore-style
    last-match-wins semantics to produce the candidate file set; when empty, all

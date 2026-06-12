@@ -142,3 +142,11 @@ tested by `DotNetGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCase
 **Case-collision class combined page contains both members**: Verifies that the combined detail
 page includes documentation for both case-colliding members. This scenario is tested by
 `DotNetGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers`.
+
+**Single-file output writes a complete api.md tree**: Verifies that when `OutputFormat.SingleFile`
+is configured, the generator produces exactly one writer keyed `api`, containing an H1 assembly
+title, H2 namespace heading, H3 type heading (e.g., `SampleClass`), H4 member headings with
+parentheses, no group headings (`Constructors`, `Methods`, `Properties`), and at least one
+compact bullet-list paragraph (`- **MemberName**: description`) summarizing a type's members.
+This scenario is tested by
+`DotNetGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown`.
