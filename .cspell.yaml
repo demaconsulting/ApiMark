@@ -42,6 +42,7 @@ words:
   - msvc
   - mylib
   - MYLIB
+  - testlib
   - NDEBUG
   - netstandard
   - Pandoc

@@ -52,12 +52,22 @@ ApiMarkCore (System)
 
 ApiMarkDotNet (System)
 ├── DotNetGenerator (Unit)
+├── DotNetAstModel (Unit)
+├── DotNetEmitter (Unit)
+├── DotNetEmitterGradualDisclosure (Unit)
+├── DotNetEmitterSingleFile (Unit)
+├── TypeLinkResolver (Unit)
 ├── XmlDocReader (Unit)
 └── TypeNameSimplifier (Unit)
 
 ApiMarkCpp (System)
 ├── CppGenerator (Unit)
-└── ClangAstParser (Unit)
+├── CppAstModel (Unit)
+├── ClangAstParser (Unit)
+├── CppEmitter (Unit)
+├── CppEmitterGradualDisclosure (Unit)
+├── CppEmitterSingleFile (Unit)
+└── CppTypeLinkResolver (Unit)
 
 ApiMarkMsbuild (System)
 └── ApiMarkTask (Unit)
@@ -94,12 +104,21 @@ src/
 │   ├── ApiVisibility.cs           - enum controlling which members are included in output
 │   ├── DotNetGenerator.cs         - C#/.NET IApiGenerator implementation
 │   ├── DotNetGeneratorOptions.cs  - configuration options for the .NET generator
+│   ├── DotNetAstModel.cs          - holds pre-parsed assembly data for the emit phase
+│   ├── DotNetEmitter.cs           - dispatches to single-file or gradual-disclosure emitter
+│   ├── DotNetEmitterGradualDisclosure.cs - writes multiple-file gradual-disclosure output
+│   ├── DotNetEmitterSingleFile.cs - writes single-file output
+│   ├── TypeLinkResolver.cs        - resolves Mono.Cecil type references to Markdown links
 │   ├── TypeNameSimplifier.cs      - simplifies rendered .NET type references
 │   └── XmlDocReader.cs            - parses XML documentation files produced by the C# compiler
 ├── ApiMark.Cpp/
 │   ├── ApiVisibility.cs           - enum controlling which members are included in output
 │   ├── CppGenerator.cs            - C++ IApiGenerator implementation
 │   ├── CppGeneratorOptions.cs     - configuration options for the C++ generator
+│   ├── CppEmitter.cs              - dispatches to single-file or gradual-disclosure C++ emitter
+│   ├── CppEmitterGradualDisclosure.cs - writes multiple-file gradual-disclosure C++ output
+│   ├── CppEmitterSingleFile.cs    - writes single-file C++ output
+│   ├── CppTypeLinkResolver.cs     - resolves C++ type strings to Markdown links
 │   └── CppAst/
 │       ├── CppAstModel.cs         - C++ AST data model (types, functions, namespaces)
 │       └── ClangAstParser.cs      - invokes clang -ast-dump=json and parses the AST
