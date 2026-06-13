@@ -21,6 +21,12 @@ sections:
               build outputs and dependency graphs.
             tests:
               - DotNetGenerator_ReadAssembly_WithMonoCecil_ReturnsTypesAndMembers
+              - DotNetAstModel_AllNamespaces_ReturnsAlphabeticallySorted
+              - DotNetAstModel_ByNamespace_ContainsFixtureNamespace
+              - DotNetAstModel_RootNamespaces_ContainsFixtureNamespace
+              - DotNetAstModel_Options_ReturnsOptionsPassedAtConstruction
+              - DotNetAstModel_Assembly_ReturnsLoadedAssembly
+              - DotNetAstModel_Resolver_IsNotNull
           - id: ApiMarkDotNet-DotNetGenerator-ReadXmlDocumentationComments
             title: DotNetGenerator shall read XML documentation comments from the configured XML documentation file and include that content in generated markdown.
             justification: |
@@ -80,6 +86,11 @@ sections:
               a separate path-resolution helper.
             tests:
               - DotNetGenerator_OutputFiles_FollowNamingConvention
+              - DotNetEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
+              - DotNetEmitter_GetNamespaceFolderPath_RootNamespace_ReturnsDottedName
+              - DotNetEmitter_GetNamespaceFolderPath_ChildNamespace_ReturnsSlashSeparated
+              - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesNamespacePage
+              - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesTypePage
           - id: ApiMarkDotNet-DotNetGenerator-ApiMdListsAllNamespacesWithTypeCount
             title: DotNetGenerator shall list all namespaces in api.md with a direct type count column.
             justification: |
@@ -90,6 +101,8 @@ sections:
               opening it first.
             tests:
               - DotNetGenerator_Generate_ApiMd_ListsAllNamespacesWithTypeCount
+              - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesApiIndexPage
+              - DotNetEmitterGradualDisclosure_Emit_ValidModel_ApiIndexContainsAssemblyNameHeading
           - id: ApiMarkDotNet-DotNetGenerator-ShowDirectInheritanceInTypeSignature
             title: >-
               DotNetGenerator shall include the direct base class and directly declared
@@ -112,6 +125,10 @@ sections:
               inside fences.
             tests:
               - DotNetGenerator_Generate_IntraAssemblyReturnType_EmitsMarkdownLinkInReturnsCell
+              - TypeLinkResolver_Linkify_Int32_ReturnsCSharpAlias
+              - TypeLinkResolver_Linkify_StringType_ReturnsCSharpAlias
+              - TypeLinkResolver_Linkify_GenerateLinksTrue_IntraAssemblyType_ReturnsMarkdownLink
+              - TypeLinkResolver_Linkify_GenerateLinksFalse_IntraAssemblyType_ReturnsPlainText
           - id: ApiMarkDotNet-DotNetGenerator-EmitExternalTypesSection
             title: DotNetGenerator shall emit an "External Types" section at the bottom of each generated page that references at least one non-System external type.
             justification: |
@@ -168,3 +185,9 @@ sections:
             tests:
               - DotNetGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown
               - DotNetGenerator_SingleFile_MethodWithExample_EmitsCodeBlock
+              - DotNetEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
+              - DotNetEmitterSingleFile_Emit_ValidModel_CreatesExactlyOneWriter
+              - DotNetEmitterSingleFile_Emit_ValidModel_CreatesApiFileOnly
+              - DotNetEmitterSingleFile_Emit_ValidModel_ApiFileContainsAssemblyHeading
+              - DotNetEmitterSingleFile_Emit_ValidModel_ApiFileContainsNamespaceHeading
+              - DotNetEmitterSingleFile_Emit_ValidModel_ApiFileContainsTypeHeading

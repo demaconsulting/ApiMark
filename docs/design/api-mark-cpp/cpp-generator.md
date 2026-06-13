@@ -194,6 +194,25 @@ links; for each namespace with operator free functions emit a single
 pages; for each owned type alias emit a type alias page via `WriteTypeAliasPage`;
 delete the temporary combined header file.
 
+**CppEmitter.Emit** (implements `IApiEmitter`): Writes the full Markdown output tree using the
+format specified by `config.Format`.
+
+- *Parameters*: `IMarkdownWriterFactory factory` — factory used to create each Markdown output
+  file; must not be null. `EmitConfig config` — output configuration including format and heading
+  depth. `IContext context` — output channel for diagnostic messages; not used by the emitter
+  itself but satisfies the interface contract.
+- *Returns*: `void`
+- *Preconditions*: `factory` must not be null; throws `ArgumentNullException` immediately when null
+  is passed.
+- *Postconditions (GradualDisclosure)*: Delegates all page writing to a new
+  `CppEmitterGradualDisclosure` instance, producing one file per namespace, type, member, and
+  operator group as described in `CppGenerator.Generate`.
+- *Postconditions (SingleFile)*: Delegates all page writing to a new `CppEmitterSingleFile`
+  instance, producing a single `api.md` file with an H{depth} library title, H{depth+1} namespace
+  heading, H{depth+2} type/function/enum heading (with signature and member bullet list), and
+  H{depth+3} individual member headings. Type links are omitted to prevent anchor collisions in the
+  single-file layout. The convention appendix is not included in single-file output.
+
 **IsOwnedDeclaration** (internal): Determines whether a declaration belongs to
 the documented public API.
 

@@ -18,6 +18,7 @@ sections:
             tests:
               - CppGenerator_Constructor_NullOptions_ThrowsArgumentNullException
               - CppGenerator_Generate_NonexistentIncludeRoot_ThrowsDirectoryNotFoundException
+              - CppEmitter_Emit_NullFactory_ThrowsArgumentNullException
           - id: ApiMarkCpp-CppGenerator-ParseHeadersViaClang
             title: CppGenerator shall parse public header files via clang -ast-dump=json
               to obtain a fully resolved C++ AST.
@@ -26,7 +27,28 @@ sections:
               inheritance relationships across headers are available for accurate documentation
               generation; invoking clang directly produces a complete, standards-compliant AST
               without requiring a bundled parser library.
-            tests: [CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint]
+            tests: [CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint,
+                    ClangAstParser_Parse_FixtureHeaders_ReturnsNonEmptyNamespaces,
+                    ClangAstParser_Parse_FixtureHeaders_ContainsFixturesNamespace,
+                    ClangAstParser_Parse_FixtureHeaders_FixturesNamespaceContainsSampleClass,
+                    ClangAstParser_Parse_FixtureHeaders_SampleClassHasMembers,
+                    CppSourceLocation_Construction_SetsFileAndLine,
+                    CppParamDoc_Construction_SetsNameAndDescription,
+                    CppDocComment_Construction_SetsSummaryAndDetails,
+                    CppDocComment_Equality_TwoIdenticalInstances_AreEqual,
+                    CppBaseType_Construction_SetsName,
+                    CppTemplateParam_Construction_SetsName,
+                    CppEnumValue_Construction_SetsNameAndDoc,
+                    CppParameter_Construction_SetsNameAndTypeName,
+                    CppParameter_DefaultValue_WhenNotProvided_IsNull,
+                    CppField_Construction_SetsAllProperties,
+                    CppFunction_Construction_SetsAllProperties,
+                    CppClass_Construction_SetsAllProperties,
+                    CppEnum_Construction_SetsNameAndValues,
+                    CppTypeAlias_Construction_SetsNameAndUnderlyingType,
+                    CppNamespaceDecl_Construction_SetsQualifiedName,
+                    CppCompilationResult_Construction_SetsNamespacesAndErrors,
+                    CppAccessibility_Values_ArePublicProtectedPrivate]
           - id: ApiMarkCpp-CppGenerator-FilterDeclarationsByOwnership
             title: >-
               CppGenerator shall apply a file-provenance filter that documents only
@@ -126,6 +148,10 @@ sections:
               - CppGenerator_OutputFiles_FollowNamingConvention
               - CppGenerator_Generate_ValidHeaders_CreatesNamespacePage
               - CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass
+              - CppEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
+              - CppEmitter_SanitizeFileName_RegularName_IsUnchanged
+              - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesNamespacePage
+              - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesTypePage
           - id: ApiMarkCpp-CppGenerator-ApiMdListsAllNamespacesWithTypeCount
             title: CppGenerator shall list all namespaces in api.md with a declaration
               count column.
@@ -134,7 +160,10 @@ sections:
               a single read. The declaration count (classes + enums + free functions) provides
               scope signal so an AI can calibrate how deeply to explore each namespace without
               opening it first.
-            tests: [CppGenerator_Generate_ApiMd_ListsNamespacesWithTypeCount]
+            tests:
+              - CppGenerator_Generate_ApiMd_ListsNamespacesWithTypeCount
+              - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesApiIndexPage
+              - CppEmitterGradualDisclosure_Emit_MinimalData_ApiIndexContainsLibraryNameHeading
           - id: ApiMarkCpp-CppGenerator-GroupOperatorOverloadsOnSinglePage
             title: >-
               CppGenerator shall group all operator overloads for a class onto a single
@@ -152,6 +181,7 @@ sections:
               - CppGenerator_Generate_ClassWithOperators_OperatorsPageContainsOperatorEntry
               - CppGenerator_Generate_ClassWithOperators_TypePageLinksToOperatorsPage
               - CppGenerator_Generate_NamespaceFreeOperator_CreatesNamespaceOperatorsPage
+              - CppEmitter_SanitizeFileName_OperatorName_ReplacesInvalidChars
           - id: ApiMarkCpp-CppGenerator-ShowDirectInheritanceInTypeSignature
             title: >-
               CppGenerator shall include a class declaration line in the signature block showing
@@ -165,6 +195,8 @@ sections:
             tests:
               - CppGenerator_Generate_InheritanceClass_EmitsBaseClassInSignature
               - CppGenerator_Generate_FinalClass_EmitsFinalKeywordInSignature
+              - CppEmitter_BuildClassDeclaration_NonFinalNoBase_ReturnsJustClassName
+              - CppEmitter_BuildClassDeclaration_FinalClass_AppendsFinalKeyword
           - id: ApiMarkCpp-CppGenerator-EmitIntraDocLinksInTableCells
             title: CppGenerator shall emit Markdown links in type and parameter type
               table cells when the referenced type is documented in the same library.
@@ -245,3 +277,8 @@ sections:
             tests:
               - CppGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown
               - CppGenerator_SingleFile_MethodWithCodeExample_EmitsCodeBlock
+              - CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
+              - CppEmitterSingleFile_Emit_MinimalData_CreatesExactlyOneWriter
+              - CppEmitterSingleFile_Emit_MinimalData_CreatesApiFileOnly
+              - CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsLibraryNameHeading
+              - CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsNamespaceHeading
