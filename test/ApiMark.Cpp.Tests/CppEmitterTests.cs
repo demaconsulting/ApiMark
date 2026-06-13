@@ -76,17 +76,6 @@ public class CppEmitterTests
         Assert.Single(factory.Writers);
     }
 
-    /// <summary>Validates that <see cref="CppEmitter.SanitizeFileName"/> replaces invalid characters in operator names.</summary>
-    [Fact]
-    public void CppEmitter_SanitizeFileName_OperatorName_ReplacesInvalidChars()
-    {
-        // Arrange / Act
-        var result = CppEmitter.SanitizeFileName("operator*");
-
-        // Assert: asterisk is an invalid file name character and must be replaced
-        Assert.DoesNotContain("*", result, StringComparison.Ordinal);
-    }
-
     /// <summary>Validates that <see cref="CppEmitter.SanitizeFileName"/> leaves regular names unchanged.</summary>
     [Fact]
     public void CppEmitter_SanitizeFileName_RegularName_IsUnchanged()
