@@ -37,6 +37,7 @@ OTS items:
 - **Mono.Cecil**: integration and usage design.
 - **clang**: integration and usage design (via `clang -ast-dump=json`).
 - **DemaConsulting.TestResults**: integration and usage design.
+- **Antlr4.Runtime.Standard / ANTLR4 vhdl2008 grammar**: integration and usage design.
 - **cpp-ast-net**: integration and usage design (archived; retained for historical reference).
 
 Out of scope: test projects, build pipeline CI configuration, and the internal design
@@ -97,6 +98,7 @@ OTS Dependencies:
 ├── Mono.Cecil (OTS)
 ├── DemaConsulting.TestResults (OTS)
 ├── clang -ast-dump=json (OTS)
+├── Antlr4.Runtime.Standard / ANTLR4 vhdl2008 grammar (OTS)
 └── cpp-ast-net (OTS) [archived]
 ```
 
@@ -255,7 +257,8 @@ Each local software item has corresponding artifacts in parallel directory trees
   `docs/verification/api-mark-vhdl/vhdl-emitter-single-file.md`,
   `docs/verification/api-mark-msbuild.md`, `docs/verification/api-mark-msbuild/{item}.md`,
   `docs/verification/api-mark-tool.md`, `docs/verification/api-mark-tool/{item}.md`
-- Source: `src/ApiMark.Core/`, `src/ApiMark.DotNet/`, `src/ApiMark.Cpp/`, `src/ApiMark.MSBuild/`, `src/ApiMark.Tool/`
+- Source: `src/ApiMark.Core/`, `src/ApiMark.DotNet/`, `src/ApiMark.Cpp/`, `src/ApiMark.Vhdl/`,
+  `src/ApiMark.MSBuild/`, `src/ApiMark.Tool/`
 - Tests: `test/ApiMark.Core.TestHelpers/`, `test/ApiMark.Core.Tests/`, `test/ApiMark.DotNet.Tests/`,
   `test/ApiMark.Cpp.Fixtures/`, `test/ApiMark.Cpp.Tests/`, `test/ApiMark.Vhdl.Tests/`,
   `test/ApiMark.MSBuild.Tests/`, `test/ApiMark.Tool.Tests/`
@@ -277,6 +280,12 @@ And for DemaConsulting.TestResults:
 - Requirements: `docs/reqstream/ots/dema-consulting-test-results.yaml`
 - Design: `docs/design/ots/dema-consulting-test-results.md`
 - Verification: `docs/verification/ots/dema-consulting-test-results.md`
+
+And for ANTLR4:
+
+- Requirements: `docs/reqstream/ots/antlr4.yaml`
+- Design: `docs/design/ots/antlr4.md`
+- Verification: `docs/verification/ots/antlr4.md`
 
 And for cpp-ast-net (archived):
 

@@ -1,0 +1,32 @@
+---
+# ANTLR4 OTS requirements
+sections:
+  - title: OTS Software Requirements
+    sections:
+      - title: ANTLR4 Requirements
+        requirements:
+          - id: Antlr4-GeneratedParser-ParseVhdl2008Entities
+            title: The ANTLR4-generated vhdl2008 parser shall correctly parse entity
+              declarations, including generic parameters and port declarations, from
+              VHDL-2008 source files.
+            justification: |
+              ApiMark documents VHDL entity declarations. Correct parsing of entities,
+              their generics, and their ports is a prerequisite for any useful VHDL
+              output. A defect in the generated parser code would silently produce
+              empty or incorrect documentation.
+            tests:
+              - VhdlAstParser_Parse_FixtureFile_ReturnsEntity
+              - VhdlAstParser_Parse_FixtureFile_EntityHasGenerics
+              - VhdlAstParser_Parse_FixtureFile_EntityHasPorts
+          - id: Antlr4-GeneratedParser-ExtractDocComments
+            title: The ANTLR4-generated vhdl2008 parser shall correctly identify the
+              token positions needed for VhdlAstParser to extract associated
+              doc comments from VHDL source files.
+            justification: |
+              ApiMark's doc-comment extraction maps source line numbers from the
+              parser token stream to pre-extracted comment lines. If the parser
+              produces incorrect token positions, doc comments will be silently
+              lost or misattributed.
+            tests:
+              - VhdlAstParser_Parse_FixtureFile_EntityDocCommentParsed
+              - VhdlAstParser_Parse_FixtureFile_PortsHaveInlineDocComments

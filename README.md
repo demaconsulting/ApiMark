@@ -133,7 +133,7 @@ apimark vhdl --source "src/**/*.vhd" --output docs/api
 apimark vhdl --source "src/**/*.vhd" --source "!src/tb/**/*.vhd" --output docs/api
 ```
 
-Run `apimark --help` for all options. Run `apimark dotnet --help` or `apimark cpp --help` for language-specific options.
+Run `apimark --help` for all options. Run `apimark dotnet --help`, `apimark cpp --help`, or `apimark vhdl --help` for language-specific options.
 
 ### MSBuild Usage
 

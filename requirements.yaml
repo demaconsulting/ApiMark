@@ -43,5 +43,6 @@ includes:
   - docs/reqstream/api-mark-vhdl/vhdl-emitter-gradual-disclosure.yaml
   - docs/reqstream/api-mark-vhdl/vhdl-emitter-single-file.yaml
   - docs/reqstream/ots/clang.yaml
+  - docs/reqstream/ots/antlr4.yaml
   - docs/reqstream/ots/cpp-ast-net.yaml
   - docs/reqstream/ots/dema-consulting-test-results.yaml

@@ -144,3 +144,48 @@ Set `DisableApiMark=true` on projects where documentation is not needed (test
 projects, benchmarks). For C++ projects with many headers, use `--api-headers`
 patterns to limit which files are parsed by clang — undocumented headers still
 contribute to compilation but are not analyzed for documentation.
+
+---
+
+## VHDL
+
+### How do I specify which .vhd files to document?
+
+Use `--source` with a glob pattern:
+
+```bash
+apimark vhdl --source "src/**/*.vhd" --output docs/api
+```
+
+Multiple `--source` patterns are evaluated in order using gitignore-style
+last-match-wins semantics. A pattern prefixed with `!` excludes matching files.
+
+### How do I exclude testbenches or simulation-only files?
+
+Use an exclusion pattern after the inclusion pattern:
+
+```bash
+apimark vhdl \
+  --source "src/**/*.vhd" \
+  --source "!src/tb/**/*.vhd" \
+  --output docs/api
+```
+
+Files matching the exclusion pattern (`!src/tb/**/*.vhd`) are removed from
+the set even if they matched an earlier inclusion pattern.
+
+### What VHDL constructs are documented?
+
+ApiMark documents the following VHDL constructs when they carry `--!` doc comments:
+
+- **Entities** — entity name, generic parameters, port declarations
+- **Architectures** — architecture name and body
+- **Packages** — package declarations and their contents
+
+`--!` doc comments are single-line comments prefixed with `--!` placed
+immediately before the construct they describe.
+
+### Does VHDL support require any additional tools?
+
+No. VHDL parsing is done in-process using the ANTLR4 vhdl2008 grammar —
+no external tools or runtimes are required beyond the .NET SDK.
