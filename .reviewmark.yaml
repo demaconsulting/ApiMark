@@ -45,7 +45,9 @@ reviews:
       - docs/reqstream/api-mark-core/**/*.yaml
   - id: ApiMark-Core-Design
     title: Review that ApiMark Core Design is Consistent and Complete
-    paths: [docs/design/api-mark-core.md, docs/design/api-mark-core/**/*.md]
+    paths:
+      - docs/design/api-mark-core.md
+      - docs/design/api-mark-core/**/*.md
   - id: ApiMark-Core-Verification
     title: Review that ApiMark Core Verification is Consistent and Complete
     paths:
@@ -258,7 +260,9 @@ reviews:
       - docs/reqstream/api-mark-cpp/**/*.yaml
   - id: ApiMark-Cpp-Design
     title: Review that ApiMark Cpp Design is Consistent and Complete
-    paths: [docs/design/api-mark-cpp.md, docs/design/api-mark-cpp/**/*.md]
+    paths:
+      - docs/design/api-mark-cpp.md
+      - docs/design/api-mark-cpp/**/*.md
   - id: ApiMark-Cpp-Verification
     title: Review that ApiMark Cpp Verification is Consistent and Complete
     paths:
@@ -342,72 +346,92 @@ reviews:
 
   # ApiMarkVhdl - Specials
   - id: ApiMark-Vhdl-Architecture
-  title: Review that ApiMark Vhdl Architecture Satisfies Requirements
-  paths:
-    - docs/reqstream/api-mark-vhdl.yaml
-    - docs/design/introduction.md
-    - docs/design/api-mark-vhdl.md
-    - docs/verification/introduction.md
-    - docs/verification/api-mark-vhdl.md
+    title: Review that ApiMark Vhdl Architecture Satisfies Requirements
+    paths:
+      - docs/reqstream/api-mark-vhdl.yaml
+      - docs/design/introduction.md
+      - docs/design/api-mark-vhdl.md
+      - docs/verification/introduction.md
+      - docs/verification/api-mark-vhdl.md
   - id: ApiMark-Vhdl-AllRequirements
-  title: Review that All ApiMark Vhdl Requirements are Complete
-  paths:
-    - docs/reqstream/api-mark-vhdl.yaml
-    - docs/reqstream/api-mark-vhdl/**/*.yaml
+    title: Review that All ApiMark Vhdl Requirements are Complete
+    paths:
+      - docs/reqstream/api-mark-vhdl.yaml
+      - docs/reqstream/api-mark-vhdl/**/*.yaml
   - id: ApiMark-Vhdl-Design
-  title: Review that ApiMark Vhdl Design is Consistent and Complete
-  paths: [docs/design/api-mark-vhdl.md, docs/design/api-mark-vhdl/**/*.md]
+    title: Review that ApiMark Vhdl Design is Consistent and Complete
+    paths:
+      - docs/design/api-mark-vhdl.md
+      - docs/design/api-mark-vhdl/**/*.md
   - id: ApiMark-Vhdl-Verification
-  title: Review that ApiMark Vhdl Verification is Consistent and Complete
-  paths: [docs/verification/api-mark-vhdl.md, docs/verification/api-mark-vhdl/**/*.md]
+    title: Review that ApiMark Vhdl Verification is Consistent and Complete
+    paths:
+      - docs/verification/api-mark-vhdl.md
+      - docs/verification/api-mark-vhdl/**/*.md
+
+  # ApiMarkVhdl - VhdlGenerator
   - id: ApiMark-Vhdl-VhdlGenerator
-  title: Review that ApiMark Vhdl VhdlGenerator Implementation is Correct
-  paths:
-    - docs/reqstream/api-mark-vhdl/vhdl-generator.yaml
-    - docs/design/api-mark-vhdl/vhdl-generator.md
-    - docs/verification/api-mark-vhdl/vhdl-generator.md
-    - src/ApiMark.Vhdl/VhdlGenerator.cs
-    - src/ApiMark.Vhdl/VhdlGeneratorOptions.cs
-    - test/ApiMark.Vhdl.Tests/VhdlGeneratorTests.cs
+    title: Review that ApiMark Vhdl VhdlGenerator Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-vhdl/vhdl-generator.yaml
+      - docs/design/api-mark-vhdl/vhdl-generator.md
+      - docs/verification/api-mark-vhdl/vhdl-generator.md
+      - src/ApiMark.Vhdl/VhdlGenerator.cs
+      - src/ApiMark.Vhdl/VhdlGeneratorOptions.cs
+      - test/ApiMark.Vhdl.Tests/VhdlGeneratorTests.cs
+      - test/ApiMark.Vhdl.Tests/FixturePaths.cs
+
+  # ApiMarkVhdl - VhdlAstModel
   - id: ApiMark-Vhdl-VhdlAstModel
-  title: Review that ApiMark Vhdl VhdlAstModel Implementation is Correct
-  paths:
-    - docs/reqstream/api-mark-vhdl/vhdl-ast-model.yaml
-    - docs/design/api-mark-vhdl/vhdl-ast-model.md
-    - docs/verification/api-mark-vhdl/vhdl-ast-model.md
-    - src/ApiMark.Vhdl/VhdlAst/VhdlAstModel.cs
+    title: Review that ApiMark Vhdl VhdlAstModel Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-vhdl/vhdl-ast-model.yaml
+      - docs/design/api-mark-vhdl/vhdl-ast-model.md
+      - docs/verification/api-mark-vhdl/vhdl-ast-model.md
+      - src/ApiMark.Vhdl/VhdlAst/VhdlAstModel.cs
+
+  # ApiMarkVhdl - VhdlAstParser
   - id: ApiMark-Vhdl-VhdlAstParser
-  title: Review that ApiMark Vhdl VhdlAstParser Implementation is Correct
-  paths:
-    - docs/reqstream/api-mark-vhdl/vhdl-ast-parser.yaml
-    - docs/design/api-mark-vhdl/vhdl-ast-parser.md
-    - docs/verification/api-mark-vhdl/vhdl-ast-parser.md
-    - src/ApiMark.Vhdl/VhdlAst/VhdlAstParser.cs
-    - test/ApiMark.Vhdl.Tests/VhdlAstParserTests.cs
+    title: Review that ApiMark Vhdl VhdlAstParser Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-vhdl/vhdl-ast-parser.yaml
+      - docs/design/api-mark-vhdl/vhdl-ast-parser.md
+      - docs/verification/api-mark-vhdl/vhdl-ast-parser.md
+      - src/ApiMark.Vhdl/VhdlAst/VhdlAstParser.cs
+      - test/ApiMark.Vhdl.Tests/Fixtures/counter.vhd
+      - test/ApiMark.Vhdl.Tests/VhdlAstParserTests.cs
+
+  # ApiMarkVhdl - VhdlEmitter
   - id: ApiMark-Vhdl-VhdlEmitter
-  title: Review that ApiMark Vhdl VhdlEmitter Implementation is Correct
-  paths:
-    - docs/reqstream/api-mark-vhdl/vhdl-emitter.yaml
-    - docs/design/api-mark-vhdl/vhdl-emitter.md
-    - docs/verification/api-mark-vhdl/vhdl-emitter.md
-    - src/ApiMark.Vhdl/VhdlEmitter.cs
-    - test/ApiMark.Vhdl.Tests/VhdlEmitterTests.cs
+    title: Review that ApiMark Vhdl VhdlEmitter Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-vhdl/vhdl-emitter.yaml
+      - docs/design/api-mark-vhdl/vhdl-emitter.md
+      - docs/verification/api-mark-vhdl/vhdl-emitter.md
+      - src/ApiMark.Vhdl/VhdlEmitter.cs
+      - test/ApiMark.Vhdl.Tests/VhdlEmitterTests.cs
+
+  # ApiMarkVhdl - VhdlEmitterGradualDisclosure
   - id: ApiMark-Vhdl-VhdlEmitterGradualDisclosure
-  title: Review that ApiMark Vhdl VhdlEmitterGradualDisclosure Implementation is Correct
-  paths:
-    - docs/reqstream/api-mark-vhdl/vhdl-emitter-gradual-disclosure.yaml
-    - docs/design/api-mark-vhdl/vhdl-emitter-gradual-disclosure.md
-    - docs/verification/api-mark-vhdl/vhdl-emitter-gradual-disclosure.md
-    - src/ApiMark.Vhdl/VhdlEmitterGradualDisclosure.cs
-    - test/ApiMark.Vhdl.Tests/VhdlEmitterGradualDisclosureTests.cs
+    title: Review that ApiMark Vhdl VhdlEmitterGradualDisclosure Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-vhdl/vhdl-emitter-gradual-disclosure.yaml
+      - docs/design/api-mark-vhdl/vhdl-emitter-gradual-disclosure.md
+      - docs/verification/api-mark-vhdl/vhdl-emitter-gradual-disclosure.md
+      - src/ApiMark.Vhdl/VhdlEmitterGradualDisclosure.cs
+      - test/ApiMark.Vhdl.Tests/Fixtures/counter.vhd
+      - test/ApiMark.Vhdl.Tests/VhdlEmitterGradualDisclosureTests.cs
+
+  # ApiMarkVhdl - VhdlEmitterSingleFile
   - id: ApiMark-Vhdl-VhdlEmitterSingleFile
-  title: Review that ApiMark Vhdl VhdlEmitterSingleFile Implementation is Correct
-  paths:
-    - docs/reqstream/api-mark-vhdl/vhdl-emitter-single-file.yaml
-    - docs/design/api-mark-vhdl/vhdl-emitter-single-file.md
-    - docs/verification/api-mark-vhdl/vhdl-emitter-single-file.md
-    - src/ApiMark.Vhdl/VhdlEmitterSingleFile.cs
-    - test/ApiMark.Vhdl.Tests/VhdlEmitterSingleFileTests.cs
+    title: Review that ApiMark Vhdl VhdlEmitterSingleFile Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-vhdl/vhdl-emitter-single-file.yaml
+      - docs/design/api-mark-vhdl/vhdl-emitter-single-file.md
+      - docs/verification/api-mark-vhdl/vhdl-emitter-single-file.md
+      - src/ApiMark.Vhdl/VhdlEmitterSingleFile.cs
+      - test/ApiMark.Vhdl.Tests/Fixtures/counter.vhd
+      - test/ApiMark.Vhdl.Tests/VhdlEmitterSingleFileTests.cs
 
   # ApiMarkMSBuild - Specials
   - id: ApiMark-MSBuild-Architecture
@@ -462,7 +486,9 @@ reviews:
       - docs/reqstream/api-mark-tool/**/*.yaml
   - id: ApiMark-Tool-Design
     title: Review that ApiMark Tool Design is Consistent and Complete
-    paths: [docs/design/api-mark-tool.md, docs/design/api-mark-tool/**/*.md]
+    paths:
+      - docs/design/api-mark-tool.md
+      - docs/design/api-mark-tool/**/*.md
   - id: ApiMark-Tool-Verification
     title: Review that ApiMark Tool Verification is Consistent and Complete
     paths:
