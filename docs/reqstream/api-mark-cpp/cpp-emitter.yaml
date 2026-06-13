@@ -17,6 +17,9 @@ sections:
               include-path resolution) in one place.
             children:
               - ApiMarkCpp-CppEmitter-WriteCombinedMemberPage
+            tests:
+              - CppEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
+              - CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
           - id: ApiMarkCpp-CppEmitter-WriteCombinedMemberPage
             title: >-
               CppEmitter shall emit a combined member page for case-insensitive
@@ -32,7 +35,6 @@ sections:
               - CppEmitter_Emit_NullFactory_ThrowsArgumentNullException
               - CppEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
               - CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
-              - CppEmitter_SanitizeFileName_OperatorName_ReplacesInvalidChars
               - CppEmitter_SanitizeFileName_RegularName_IsUnchanged
               - CppEmitter_BuildClassDeclaration_NonFinalNoBase_ReturnsJustClassName
               - CppEmitter_BuildClassDeclaration_FinalClass_AppendsFinalKeyword

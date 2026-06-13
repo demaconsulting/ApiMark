@@ -164,7 +164,6 @@ sections:
               - CppGenerator_Generate_ClassWithOperators_OperatorsPageContainsOperatorEntry
               - CppGenerator_Generate_ClassWithOperators_TypePageLinksToOperatorsPage
               - CppGenerator_Generate_NamespaceFreeOperator_CreatesNamespaceOperatorsPage
-              - CppEmitter_SanitizeFileName_OperatorName_ReplacesInvalidChars
           - id: ApiMarkCpp-CppGenerator-ShowDirectInheritanceInTypeSignature
             title: >-
               CppGenerator shall include a class declaration line in the signature block showing

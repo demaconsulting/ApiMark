@@ -56,7 +56,7 @@ sections:
           - ApiMarkCore-IMarkdownWriter-DefineWriteCodeBlock
           - ApiMarkCore-IMarkdownWriter-DefineWriteLink
         tests:
-          - ApiMarkCore_MarkdownWriterContract_FileSections_RenderConsistently
+          - InMemoryMarkdownWriter_Write_AllOperations_RecordsInOrder
       - id: ApiMarkCore-PathHelpers-ProvideSafePathCombinationHelper
         title: ApiMarkCore shall provide an internal helper for safely combining caller-supplied relative path segments with a trusted base path.
         justification: |

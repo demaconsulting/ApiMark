@@ -39,7 +39,8 @@ sections:
                   mechanism; routing all failures through WriteError ensures that both
                   console and log-file consumers see the diagnostic and that the exit
                   code reflects the failure.
-                tests: []
+                tests:
+                  - Validation_Run_WithUnsupportedResultsExtension_SetsExitCodeToOne
               - id: ApiMarkTool-SelfTest-Validation-RejectUnsupportedExtension
                 title: Validation shall set ExitCode to 1 and write a diagnostic message when the results file extension is not .trx or .xml.
                 justification: |

@@ -16,8 +16,7 @@ sections:
               structured container that aggregates individual test outcomes into a reportable
               collection.
             tests:
-              - Validation_Run_VersionDisplayPasses_WritesPassedResult
-              - Validation_Run_HelpDisplayPasses_WritesPassedResult
+              - Validation_Run_WritesVersionAndHelpTestResults
           - id: DemaConsultingTestResults-Results-SerializeToTrx
             title: >-
               DemaConsulting.TestResults shall serialize a TestResults collection to TRX format
@@ -28,7 +27,7 @@ sections:
               and reporting. The SelfTest subsystem writes a .trx file when the caller supplies
               a results file path with a .trx extension, enabling downstream CI integration.
             tests:
-              - Validation_Run_WithResultsFileTrx_WritesResultsFile
+              - Validation_Run_WithResultsTrxFile_CreatesTrxFile
           - id: DemaConsultingTestResults-Results-SerializeToJUnit
             title: >-
               DemaConsulting.TestResults shall serialize a TestResults collection to JUnit XML
@@ -40,4 +39,4 @@ sections:
               the caller supplies a results file path with a .xml extension, enabling
               cross-platform CI reporting.
             tests:
-              - Validation_Run_WithResultsFileXml_WritesResultsFile
+              - Validation_Run_WithResultsXmlFile_CreatesXmlFile
