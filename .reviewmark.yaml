@@ -66,6 +66,26 @@ reviews:
       - src/ApiMark.Core/IApiGenerator.cs
       - test/ApiMark.Core.Tests/IApiGeneratorTests.cs
 
+  # ApiMarkCore - IApiEmitter
+  - id: ApiMark-Core-IApiEmitter
+    title: Review that ApiMark Core IApiEmitter Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-core/i-api-emitter.yaml
+      - docs/design/api-mark-core/i-api-emitter.md
+      - docs/verification/api-mark-core/i-api-emitter.md
+      - src/ApiMark.Core/IApiEmitter.cs
+      - test/ApiMark.Core.Tests/IApiGeneratorTests.cs
+
+  # ApiMarkCore - EmitConfig
+  - id: ApiMark-Core-EmitConfig
+    title: Review that ApiMark Core EmitConfig Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-core/emit-config.yaml
+      - docs/design/api-mark-core/emit-config.md
+      - docs/verification/api-mark-core/emit-config.md
+      - src/ApiMark.Core/EmitConfig.cs
+      - src/ApiMark.Core/OutputFormat.cs
+
   # ApiMarkCore - IContext
   - id: ApiMark-Core-IContext
     title: Review that ApiMark Core IContext Implementation is Correct
@@ -136,9 +156,9 @@ reviews:
       - docs/verification/api-mark-dot-net.md
       - docs/verification/api-mark-dot-net/**/*.md
 
-  # ApiMarkDotNet - Generator
-  - id: ApiMark-DotNet-Generator
-    title: Review that ApiMark DotNet Generator Implementation is Correct
+  # ApiMarkDotNet - DotNetGenerator
+  - id: ApiMark-DotNet-DotNetGenerator
+    title: Review that ApiMark DotNet DotNetGenerator Implementation is Correct
     paths:
       - docs/reqstream/api-mark-dot-net/dot-net-generator.yaml
       - docs/design/api-mark-dot-net/dot-net-generator.md
@@ -146,11 +166,71 @@ reviews:
       - src/ApiMark.DotNet/ApiVisibility.cs
       - src/ApiMark.DotNet/DotNetGenerator.cs
       - src/ApiMark.DotNet/DotNetGeneratorOptions.cs
-      - src/ApiMark.DotNet/XmlDocReader.cs
-      - test/ApiMark.DotNet.Fixtures/**/*.cs
       - test/ApiMark.DotNet.Tests/DotNetGeneratorTests.cs
-      - test/ApiMark.DotNet.Tests/XmlDocReaderTests.cs
       - test/ApiMark.DotNet.Tests/FixturePaths.cs
+
+  # ApiMarkDotNet - DotNetAstModel
+  - id: ApiMark-DotNet-DotNetAstModel
+    title: Review that ApiMark DotNet DotNetAstModel Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-dot-net/dot-net-ast-model.yaml
+      - docs/design/api-mark-dot-net/dot-net-ast-model.md
+      - docs/verification/api-mark-dot-net/dot-net-ast-model.md
+      - src/ApiMark.DotNet/DotNetAstModel.cs
+      - test/ApiMark.DotNet.Tests/DotNetAstModelTests.cs
+
+  # ApiMarkDotNet - DotNetEmitter
+  - id: ApiMark-DotNet-DotNetEmitter
+    title: Review that ApiMark DotNet DotNetEmitter Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-dot-net/dot-net-emitter.yaml
+      - docs/design/api-mark-dot-net/dot-net-emitter.md
+      - docs/verification/api-mark-dot-net/dot-net-emitter.md
+      - src/ApiMark.DotNet/DotNetEmitter.cs
+      - test/ApiMark.DotNet.Tests/DotNetEmitterTests.cs
+
+  # ApiMarkDotNet - DotNetEmitterGradualDisclosure
+  - id: ApiMark-DotNet-DotNetEmitterGradualDisclosure
+    title: Review that ApiMark DotNet DotNetEmitterGradualDisclosure Implementation
+      is Correct
+    paths:
+      - docs/reqstream/api-mark-dot-net/dot-net-emitter-gradual-disclosure.yaml
+      - docs/design/api-mark-dot-net/dot-net-emitter-gradual-disclosure.md
+      - docs/verification/api-mark-dot-net/dot-net-emitter-gradual-disclosure.md
+      - src/ApiMark.DotNet/DotNetEmitterGradualDisclosure.cs
+      - test/ApiMark.DotNet.Fixtures/**/*.cs
+      - test/ApiMark.DotNet.Tests/DotNetEmitterGradualDisclosureTests.cs
+
+  # ApiMarkDotNet - DotNetEmitterSingleFile
+  - id: ApiMark-DotNet-DotNetEmitterSingleFile
+    title: Review that ApiMark DotNet DotNetEmitterSingleFile Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-dot-net/dot-net-emitter-single-file.yaml
+      - docs/design/api-mark-dot-net/dot-net-emitter-single-file.md
+      - docs/verification/api-mark-dot-net/dot-net-emitter-single-file.md
+      - src/ApiMark.DotNet/DotNetEmitterSingleFile.cs
+      - test/ApiMark.DotNet.Fixtures/**/*.cs
+      - test/ApiMark.DotNet.Tests/DotNetEmitterSingleFileTests.cs
+
+  # ApiMarkDotNet - XmlDocReader
+  - id: ApiMark-DotNet-XmlDocReader
+    title: Review that ApiMark DotNet XmlDocReader Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-dot-net/xml-doc-reader.yaml
+      - docs/design/api-mark-dot-net/xml-doc-reader.md
+      - docs/verification/api-mark-dot-net/xml-doc-reader.md
+      - src/ApiMark.DotNet/XmlDocReader.cs
+      - test/ApiMark.DotNet.Tests/XmlDocReaderTests.cs
+
+  # ApiMarkDotNet - TypeLinkResolver
+  - id: ApiMark-DotNet-TypeLinkResolver
+    title: Review that ApiMark DotNet TypeLinkResolver Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-dot-net/type-link-resolver.yaml
+      - docs/design/api-mark-dot-net/type-link-resolver.md
+      - docs/verification/api-mark-dot-net/type-link-resolver.md
+      - src/ApiMark.DotNet/TypeLinkResolver.cs
+      - test/ApiMark.DotNet.Tests/TypeLinkResolverTests.cs
 
   # ApiMarkDotNet - TypeNameSimplifier
   - id: ApiMark-DotNet-TypeNameSimplifier
@@ -185,22 +265,80 @@ reviews:
       - docs/verification/api-mark-cpp.md
       - docs/verification/api-mark-cpp/**/*.md
 
-  # ApiMarkCpp - Generator
-  - id: ApiMark-Cpp-Generator
-    title: Review that ApiMark Cpp Generator Implementation is Correct
+  # ApiMarkCpp - CppGenerator
+  - id: ApiMark-Cpp-CppGenerator
+    title: Review that ApiMark Cpp CppGenerator Implementation is Correct
     paths:
       - docs/reqstream/api-mark-cpp/cpp-generator.yaml
       - docs/design/api-mark-cpp/cpp-generator.md
-      - docs/design/api-mark-cpp/clang-ast-parser.md
       - docs/verification/api-mark-cpp/cpp-generator.md
       - src/ApiMark.Cpp/ApiVisibility.cs
       - src/ApiMark.Cpp/CppGenerator.cs
       - src/ApiMark.Cpp/CppGeneratorOptions.cs
-      - src/ApiMark.Cpp/CppAst/CppAstModel.cs
-      - src/ApiMark.Cpp/CppAst/ClangAstParser.cs
-      - test/ApiMark.Cpp.Fixtures/**/*.h
       - test/ApiMark.Cpp.Tests/CppGeneratorTests.cs
       - test/ApiMark.Cpp.Tests/FixturePaths.cs
+
+  # ApiMarkCpp - CppAstModel
+  - id: ApiMark-Cpp-CppAstModel
+    title: Review that ApiMark Cpp CppAstModel Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-cpp/cpp-ast-model.yaml
+      - docs/design/api-mark-cpp/cpp-ast-model.md
+      - docs/verification/api-mark-cpp/cpp-ast-model.md
+      - src/ApiMark.Cpp/CppAst/CppAstModel.cs
+      - test/ApiMark.Cpp.Tests/CppAstModelTests.cs
+
+  # ApiMarkCpp - ClangAstParser
+  - id: ApiMark-Cpp-ClangAstParser
+    title: Review that ApiMark Cpp ClangAstParser Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-cpp/clang-ast-parser.yaml
+      - docs/design/api-mark-cpp/clang-ast-parser.md
+      - docs/verification/api-mark-cpp/clang-ast-parser.md
+      - src/ApiMark.Cpp/CppAst/ClangAstParser.cs
+      - test/ApiMark.Cpp.Fixtures/**/*.h
+      - test/ApiMark.Cpp.Tests/ClangAstParserTests.cs
+
+  # ApiMarkCpp - CppEmitter
+  - id: ApiMark-Cpp-CppEmitter
+    title: Review that ApiMark Cpp CppEmitter Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-cpp/cpp-emitter.yaml
+      - docs/design/api-mark-cpp/cpp-emitter.md
+      - docs/verification/api-mark-cpp/cpp-emitter.md
+      - src/ApiMark.Cpp/CppEmitter.cs
+      - test/ApiMark.Cpp.Tests/CppEmitterTests.cs
+
+  # ApiMarkCpp - CppEmitterGradualDisclosure
+  - id: ApiMark-Cpp-CppEmitterGradualDisclosure
+    title: Review that ApiMark Cpp CppEmitterGradualDisclosure Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-cpp/cpp-emitter-gradual-disclosure.yaml
+      - docs/design/api-mark-cpp/cpp-emitter-gradual-disclosure.md
+      - docs/verification/api-mark-cpp/cpp-emitter-gradual-disclosure.md
+      - src/ApiMark.Cpp/CppEmitterGradualDisclosure.cs
+      - test/ApiMark.Cpp.Fixtures/**/*.h
+      - test/ApiMark.Cpp.Tests/CppEmitterGradualDisclosureTests.cs
+
+  # ApiMarkCpp - CppEmitterSingleFile
+  - id: ApiMark-Cpp-CppEmitterSingleFile
+    title: Review that ApiMark Cpp CppEmitterSingleFile Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-cpp/cpp-emitter-single-file.yaml
+      - docs/design/api-mark-cpp/cpp-emitter-single-file.md
+      - docs/verification/api-mark-cpp/cpp-emitter-single-file.md
+      - src/ApiMark.Cpp/CppEmitterSingleFile.cs
+      - test/ApiMark.Cpp.Tests/CppEmitterSingleFileTests.cs
+
+  # ApiMarkCpp - CppTypeLinkResolver
+  - id: ApiMark-Cpp-CppTypeLinkResolver
+    title: Review that ApiMark Cpp CppTypeLinkResolver Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-cpp/cpp-type-link-resolver.yaml
+      - docs/design/api-mark-cpp/cpp-type-link-resolver.md
+      - docs/verification/api-mark-cpp/cpp-type-link-resolver.md
+      - src/ApiMark.Cpp/CppTypeLinkResolver.cs
+      - test/ApiMark.Cpp.Tests/CppTypeLinkResolverTests.cs
 
   # ApiMarkMSBuild - Specials
   - id: ApiMark-MSBuild-Architecture
@@ -317,3 +455,15 @@ reviews:
       - docs/reqstream/ots/clang.yaml
       - docs/design/ots/clang.md
       - docs/verification/ots/clang.md
+  - id: OTS-DemaConsultingTestResults
+    title: Review that DemaConsulting.TestResults Provides Required Functionality
+    paths:
+      - docs/reqstream/ots/dema-consulting-test-results.yaml
+      - docs/design/ots/dema-consulting-test-results.md
+      - docs/verification/ots/dema-consulting-test-results.md
+  - id: OTS-CppAstNet
+    title: Review that CppAst.Net Archived OTS Artifacts are Complete
+    paths:
+      - docs/reqstream/ots/cpp-ast-net.yaml
+      - docs/design/ots/cpp-ast-net.md
+      - docs/verification/ots/cpp-ast-net.md

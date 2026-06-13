@@ -42,7 +42,7 @@ contract is correctly implemented by the test double. Tested by
 `InMemoryMarkdownWriter_Dispose_Called_SetsIsDisposedFlag`.
 
 **Structured Markdown operations are forwarded with correct values**: Verifies that
-consumers can call heading, paragraph, table, code block, and link operations through
+consumers can call heading, signature, paragraph, table, code block, and link operations through
 an `IMarkdownWriter` reference and that the recorded invocations carry the correct
 level, text, and path arguments. Tested by
 `InMemoryMarkdownWriter_Write_AllMethods_RecordsOperations`.
@@ -83,6 +83,12 @@ language identifier and code content. Tested by
 the correct display label and relative path. Tested by
 `FileMarkdownWriter_WriteLink_ValidArgs_WritesMarkdownLink`.
 
+**All write operations recorded in order**: Verifies that all six section types
+(heading, signature, paragraph, table, code block, and link) can be written to an
+`InMemoryMarkdownWriter` and that `IsDisposed` is set after disposal, with each
+operation type correctly identified in sequence. Tested by
+`InMemoryMarkdownWriter_Write_AllOperations_RecordsInOrder`.
+
 **Dispose flushes buffered content and releases the file handle**: Verifies that
 calling `Dispose` on a `FileMarkdownWriter` flushes all buffered content to disk and
 releases the file handle so another caller can open the file immediately after
@@ -115,3 +121,8 @@ through the interface without throwing. Tested by
 `IMarkdownWriter.WriteLink` can be called with valid display text and a relative path
 through the interface without throwing. Tested by
 `IMarkdownWriter_WriteLink_ValidArgs_DoesNotThrow`.
+
+**WriteTable pipe characters in cell content are escaped**: Verifies that
+`FileMarkdownWriter.WriteTable` escapes literal pipe characters in cell content as `\|`
+so that they do not break the pipe-delimited table structure. Tested by
+`FileMarkdownWriter_WriteTable_CellWithPipe_EscapesPipe`.

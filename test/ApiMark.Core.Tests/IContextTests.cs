@@ -47,12 +47,12 @@ public sealed class IContextTests
     }
 
     /// <summary>
-    ///     System-level test: verifies that an <see cref="IContext"/> implementation
-    ///     correctly routes informational messages to the informational channel and error
-    ///     messages to the error channel without cross-contamination.
+    ///     Verifies that an <see cref="InMemoryContext"/> correctly routes informational
+    ///     messages to the informational channel and error messages to the error channel
+    ///     without cross-contamination.
     /// </summary>
     [Fact]
-    public void ApiMarkCore_ContextContract_WrittenMessages_AreAccessibleForAssertion()
+    public void InMemoryContext_WriteLineAndWriteError_RouteToSeparateChannels()
     {
         // Arrange: a fresh in-memory context
         var context = new InMemoryContext();

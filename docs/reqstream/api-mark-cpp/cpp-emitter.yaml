@@ -1,0 +1,40 @@
+---
+# CppEmitter unit requirements
+sections:
+  - title: ApiMarkCpp Requirements
+    sections:
+      - title: CppEmitter Requirements
+        requirements:
+          - id: ApiMarkCpp-CppEmitter
+            title: >-
+              CppEmitter shall implement IApiEmitter and dispatch Markdown generation
+              to the appropriate format-specific emitter.
+            justification: |
+              CppEmitter acts as the central dispatcher and shared-helper hub for both
+              gradual-disclosure and single-file output. Separating the dispatch from
+              format-specific logic allows each format emitter to be tested in isolation
+              while keeping shared utilities (visibility filters, signature builders,
+              include-path resolution) in one place.
+            children:
+              - ApiMarkCpp-CppEmitter-WriteCombinedMemberPage
+            tests:
+              - CppEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
+              - CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
+          - id: ApiMarkCpp-CppEmitter-WriteCombinedMemberPage
+            title: >-
+              CppEmitter shall emit a combined member page for case-insensitive
+              filename collisions within a single type, reject null factories, and
+              sanitize file names for operator declarations.
+            justification: |
+              On case-insensitive filesystems members whose names differ only in case
+              collide at the file-system level. CppEmitter must detect these collisions
+              and merge the affected members onto one shared page. Null-factory rejection
+              provides fast-fail behavior. File-name sanitization prevents invalid
+              characters in operator names from causing I/O errors.
+            tests:
+              - CppEmitter_Emit_NullFactory_ThrowsArgumentNullException
+              - CppEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
+              - CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
+              - CppEmitter_SanitizeFileName_RegularName_IsUnchanged
+              - CppEmitter_BuildClassDeclaration_NonFinalNoBase_ReturnsJustClassName
+              - CppEmitter_BuildClassDeclaration_FinalClass_AppendsFinalKeyword

@@ -24,6 +24,12 @@ up after itself. No other external files, services, or configuration are require
 - `--depth <n>` sets `HeadingDepth` to `n`; values outside 1–6 or non-integers throw `ArgumentException`.
 - `--results`/`--result` sets `ResultsFile` to the supplied path.
 - `--includes` accepts one directory path per flag; repeated flags accumulate paths into `Includes`.
+- `--api-headers` patterns are accumulated in order; `!`-prefixed exclusion patterns are forwarded verbatim.
+- C++ named options (`--library-name`, `--library-description`, `--defines`, `--cpp-standard`) set their
+  corresponding properties.
+- `--clang-path` sets `ClangPath` to the supplied path.
+- `--format` accepts `gradual` and `single-file`; defaults to `GradualDisclosure`; invalid values throw
+  `ArgumentException`.
 
 #### Test Scenarios
 
@@ -57,8 +63,11 @@ up after itself. No other external files, services, or configuration are require
 **`Context_Create_WithIncludeObsoleteFlag_SetsIncludeObsoleteTrue`**: `--include-obsolete`
 → `IncludeObsolete = true`.
 
-**`Context_Create_WithIncludesOption_SetsIncludes`**: `--includes path/a,path/b` →
-`Includes = ["path/a", "path/b"]`.
+**`Context_Create_WithIncludesOption_SetsIncludes`**: `--includes path/a` →
+`Includes = ["path/a"]` (one path per flag; no comma splitting).
+
+**`Context_Create_WithRepeatedIncludesFlags_AccumulatesAllPathsInOrder`**:
+`--includes path/a --includes path/b` → `Includes = ["path/a", "path/b"]`.
 
 **`Context_Create_WithDepthOption_SetsHeadingDepth`**: `--depth 3` → `HeadingDepth = 3`.
 
@@ -82,3 +91,44 @@ documented defaults; `ExitCode = 0`, `HeadingDepth = 1`, `Includes` empty.
 
 **`Context_Cli_ParsesAllGlobalFlags`**: All global flags in one array → all
 corresponding properties set simultaneously.
+
+**`Context_Create_WithFormatGradual_SetsGradualDisclosureFormat`**: `--format gradual` →
+`Format = OutputFormat.GradualDisclosure`.
+
+**`Context_Create_WithFormatSingleFile_SetsSingleFileFormat`**: `--format single-file` →
+`Format = OutputFormat.SingleFile`.
+
+**`Context_Create_WithNoFormatOption_DefaultsToGradualDisclosure`**: No `--format` argument →
+`Format = OutputFormat.GradualDisclosure` (default).
+
+**`Context_Create_WithInvalidFormat_ThrowsArgumentException`**: `--format unknown-value` →
+`ArgumentException` thrown.
+
+**`Context_Create_WithRepeatedApiHeaders_AccumulatesAllPatternsInOrder`**:
+`--api-headers "**/*" --api-headers "!**/detail/**" --api-headers "**/detail/public_api.h"` →
+`ApiHeaders = ["**/*", "!**/detail/**", "**/detail/public_api.h"]`.
+
+**`Context_Create_WithApiHeadersExclusionPattern_ForwardsVerbatim`**:
+`--api-headers "!**/internal/**"` → `ApiHeaders = ["!**/internal/**"]`
+(the `!` prefix is preserved verbatim so `CppGenerator` can apply gitignore semantics).
+
+**`Context_Create_WithSingleInclude_SetsSinglePath`**: `--includes /usr/include` →
+`Includes = ["/usr/include"]`, `ApiHeaders` is empty.
+
+**`Context_Create_WithNoArguments_HasEmptyApiHeaders`**: Empty args →
+`ApiHeaders` defaults to an empty array.
+
+**`Context_Create_WithLibraryNameOption_SetsLibraryName`**: `--library-name MyAwesomeLib` →
+`LibraryName = "MyAwesomeLib"`.
+
+**`Context_Create_WithLibraryDescriptionOption_SetsLibraryDescription`**:
+`--library-description "A fast geometry library."` → `LibraryDescription = "A fast geometry library."`.
+
+**`Context_Create_WithDefinesOption_SetsDefines`**: `--defines MYLIB_API=,NDEBUG` →
+`Defines = ["MYLIB_API=", "NDEBUG"]` (comma-separated value split into individual entries).
+
+**`Context_Create_WithCppStandardOption_SetsCppStandard`**: `--cpp-standard c++20` →
+`CppStandard = "c++20"`.
+
+**`Context_Create_WithClangPathOption_SetsClangPath`**: `--clang-path /usr/bin/clang` →
+`ClangPath = "/usr/bin/clang"`.

@@ -2,7 +2,7 @@
 
 Clang is a C/C++ compiler front-end from the LLVM project. In ApiMark, it is used exclusively
 as a static parser — it is invoked via `clang -Xclang -ast-dump=json -fparse-all-comments
--fsyntax-only` to produce a JSON representation of the C++ abstract syntax tree (AST) for
+-fsyntax-only -x c++` to produce a JSON representation of the C++ abstract syntax tree (AST) for
 a set of public header files. The JSON output is then parsed by `ClangAstParser` to build
 the in-memory AST used by CppGenerator.
 
@@ -18,7 +18,7 @@ users to control the exact compiler version used for parsing.
 
 ### Features Used
 
-- **AST JSON dump** — `clang -Xclang -ast-dump=json -fsyntax-only -fparse-all-comments` accepts a
+- **AST JSON dump** — `clang -Xclang -ast-dump=json -fparse-all-comments -fsyntax-only -x c++` accepts a
   combined header file and produces a JSON AST on stdout. The top-level object contains an
   `"inner"` array of top-level declaration nodes, each with `"kind"`, `"name"`, `"loc"`, and
   nested `"inner"` arrays for children.
@@ -56,7 +56,7 @@ integration follows these steps:
 2. The parser builds a combined `#include` header file that includes every file in the configured
    public include roots (after applying `ApiHeaderPatterns` gitignore-style filters).
 3. The parser constructs a clang command line: `-Xclang -ast-dump=json -fparse-all-comments
-   -fsyntax-only` followed by include path flags (`-I`, `-isystem`), preprocessor defines (`-D`),
+   -fsyntax-only -x c++` followed by include path flags (`-I`, `-isystem`), preprocessor defines (`-D`),
    and the combined header file.
 4. Clang is launched via `Process.Start`; stdout is read and deserialized as a `JsonDocument`.
 5. `ClangAstParser` walks the JSON AST, collecting only nodes whose `"loc.file"` falls under a

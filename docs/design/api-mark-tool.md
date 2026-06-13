@@ -17,8 +17,9 @@ the NuGet package `ApiMark.MSBuild` (under `tools/net8.0/`, `tools/net9.0/`, and
   self-validation tests when `--validate` is specified.
 - `Program` unit — the CLI entry point; creates a `Context`, dispatches to the appropriate
   action (version display, help, self-validation, or main tool logic), constructs the
-  appropriate `IApiGenerator` implementation for the requested language subcommand, and
-  calls `Generate`.
+  appropriate `IApiGenerator` implementation for the requested language subcommand, calls
+  `Parse()` to obtain an `IApiEmitter`, then calls `IApiEmitter.Emit()` with an `EmitConfig`
+  built from the parsed context.
 
 ApiMarkTool targets `net8.0;net9.0;net10.0` (multi-target). It is packaged as a
 dotnet tool (`PackAsTool=true`, `ToolCommandName=apimark`). Because it runs as a
@@ -35,38 +36,46 @@ users or CI pipelines.
 - *Role*: Provider — ApiMarkTask and end users invoke the tool directly.
 - *Contract*: `apimark [options] [language [language-options]]`. Standard options:
   `-v, --version`, `-?, -h, --help`, `--silent`, `--validate`,
-  `--results <file>` (alias: `--result <file>`), `--depth <#>`, `--log <file>`.
+  `--results <file>` (alias: `--result <file>`), `--format <format>` (values:
+  `gradual (default)`, `single-file`), `--depth <#>`, `--log <file>`.
   Supported subcommands: `dotnet`, `cpp`.
   Options for `dotnet`: `--assembly <path>`, `--xml-doc <path>`, `--output <dir>`,
   `--visibility <value>`, `--include-obsolete`.
   Options for `cpp`: `--includes <path>` (repeatable), `--api-headers <pattern>`
   (repeatable, ordered, supports `!` exclusion patterns),
   `--library-name <name>`, `--library-description <text>`, `--defines <defs>`,
-  `--cpp-standard <std>`, `--output <dir>`, `--visibility <value>`,
-  `--include-obsolete`.
+  `--cpp-standard <std>`, `--clang-path <path>`, `--output <dir>`,
+  `--visibility <value>`, `--include-obsolete`.
   Standard flags are valid anywhere in the argument list,
   before or after the language subcommand (single-pass parser).
 - *Constraints*: Exits non-zero on error; writes a descriptive message to stderr;
   writes Markdown files to the directory specified by `--output`.
 
-**IApiGenerator (consumed)**: Program constructs language-specific `IApiGenerator`
-implementations from ApiMarkCore and dispatches to them.
+**IApiGenerator / IApiEmitter (consumed)**: Program constructs language-specific `IApiGenerator`
+implementations from ApiMarkCore and dispatches to them using the two-stage pipeline.
 
 - *Type*: In-process .NET public API.
 - *Role*: Consumer — Program constructs the appropriate `IApiGenerator`
-  implementation for the requested language and calls `Generate`.
-- *Contract*: `IApiGenerator.Generate(IMarkdownWriterFactory factory, IContext context)`.
+  implementation for the requested language, calls `Parse()` to obtain an
+  `IApiEmitter`, then calls `IApiEmitter.Emit()` with an `EmitConfig` built
+  from the parsed `Context`.
+- *Contract*: `IApiGenerator.Parse(IContext context)` returns `IApiEmitter`;
+  `IApiEmitter.Emit(IMarkdownWriterFactory factory, EmitConfig config, IContext context)`.
 - *Constraints*: The generator must be fully configured from CLI options before
-  `Generate` is called.
+  `Parse` is called; `EmitConfig` must be constructed from the parsed context
+  before `Emit` is called.
 
 ## Dependencies
 
 - **ApiMarkDotNet**: Program constructs `DotNetGenerator` for the `dotnet` language
   subcommand — see ApiMarkDotNet System Design.
+- **ApiMarkCpp**: Program constructs `CppGenerator` for the `cpp` subcommand — see
+  ApiMarkCpp System Design.
 - **ApiMarkCore**: Program references `IApiGenerator` from ApiMarkCore — see
   ApiMarkCore System Design.
 - **DemaConsulting.TestResults**: Program uses `TrxSerializer` and `JUnitSerializer`
-  from this package when writing `--validate` results to a file.
+  from this package when writing `--validate` results to a file —
+  see DemaConsulting.TestResults OTS Design.
 
 ## Risk Control Measures
 
@@ -83,8 +92,10 @@ N/A — not a safety-classified software item.
    present; exits non-zero with a usage message if any are missing.
 4. Program constructs the appropriate `IApiGenerator` implementation based on the
    language subcommand (`DotNetGenerator` for `dotnet`; `CppGenerator` for `cpp`).
-5. Program creates a `FileMarkdownWriterFactory` for the output directory and calls
-   `IApiGenerator.Generate(factory, context)`.
+5. Program creates a `FileMarkdownWriterFactory` for the output directory, builds an
+   `EmitConfig` from the parsed context (using `--format` and `--depth`), calls
+   `IApiGenerator.Parse(context)` to obtain an `IApiEmitter`, and then calls
+   `IApiEmitter.Emit(factory, emitConfig, context)`.
 6. On success, Program exits 0. On error, exceptions are caught, written to stderr,
    and Program exits non-zero.
 

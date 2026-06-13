@@ -23,7 +23,10 @@ sections:
               - DotNetGenerator_ReadAssembly_WithMonoCecil_ReturnsTypesAndMembers
               - DotNetGenerator_Generate_ValidAssembly_CreatesTypePageForSampleClass
           - id: MonoCecil-Assembly-ExposeMemberSignatures
-            title: Mono.Cecil shall expose the name, parameter types, return type, and generic parameters of every method, property, field, and event defined on a type.
+            title: >-
+              Mono.Cecil shall expose member signature metadata scoped per kind: methods and properties
+              expose name, parameter types, return type, and generic parameters; fields expose name
+              and type; events expose name and handler type.
             justification: |
               Member-level detail is needed to generate accurate API signatures in the
               markdown output and to produce dedicated detail pages for every visible member.

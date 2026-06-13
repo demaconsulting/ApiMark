@@ -29,6 +29,11 @@ node_modules/
 # Generated compliance documents (build outputs — never committed)
 **/generated/
 
+# Generated API documentation output (written by ApiMark; never committed)
+**/api-gradual/
+**/api-single/
+**/api/
+
 # Agent logs
 .agent-logs/
 

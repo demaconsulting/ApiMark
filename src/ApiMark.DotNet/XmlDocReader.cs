@@ -10,6 +10,12 @@ public sealed class XmlDocReader
     private readonly Dictionary<string, XElement> _members;
 
     /// <summary>Initializes a new instance of <see cref="XmlDocReader"/> from the given path.</summary>
+    /// <remarks>
+    ///     When duplicate member names appear in the XML doc file, the first occurrence is used
+    ///     and subsequent duplicates are silently discarded. This is a defensive policy for
+    ///     malformed but real-world XML doc files where the compiler emits the same member ID
+    ///     more than once (e.g., due to partial-class splits or tooling bugs).
+    /// </remarks>
     /// <param name="xmlDocPath">Path to the XML documentation file.</param>
     /// <exception cref="FileNotFoundException">Thrown when <paramref name="xmlDocPath"/> does not exist.</exception>
     public XmlDocReader(string xmlDocPath)
@@ -22,11 +28,14 @@ public sealed class XmlDocReader
         }
 
         // Build an index of member elements keyed by their 'name' attribute so
-        // individual lookups are O(1) rather than scanning all descendants each call
+        // individual lookups are O(1) rather than scanning all descendants each call.
+        // GroupBy before ToDictionary provides first-wins duplicate handling so a
+        // malformed XML doc file with repeated name attributes does not throw.
         var doc = XDocument.Load(xmlDocPath);
         _members = doc.Descendants("member")
             .Where(m => m.Attribute("name") != null)
-            .ToDictionary(m => m.Attribute("name")!.Value, m => m);
+            .GroupBy(m => m.Attribute("name")!.Value)
+            .ToDictionary(g => g.Key, g => g.First());
     }
 
     /// <summary>Returns the trimmed summary text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
@@ -131,8 +140,13 @@ public sealed class XmlDocReader
     }
 
     /// <summary>Returns the trimmed example text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
+    /// <remarks>
+    ///     Returns <c>null</c> when the <c>&lt;example&gt;</c> element is absent or contains only
+    ///     whitespace, matching the null-for-missing contract of <see cref="GetSummary"/>,
+    ///     <see cref="GetRemarks"/>, and <see cref="GetReturns"/>.
+    /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
-    /// <returns>Trimmed example text, or <c>null</c>.</returns>
+    /// <returns>Trimmed example text, or <c>null</c> when the element is absent or whitespace-only.</returns>
     public string? GetExample(string memberId)
     {
         if (!_members.TryGetValue(memberId, out var member))
@@ -141,7 +155,93 @@ public sealed class XmlDocReader
         }
 
         var el = member.Element("example");
-        return el?.Value.Trim();
+
+        // Treat whitespace-only content the same as a missing element — callers rely on
+        // null to indicate no example is present, so an empty-after-trim value must not
+        // be returned as an empty string
+        var text = el?.Value.Trim();
+        return string.IsNullOrEmpty(text) ? null : text;
+    }
+
+    /// <summary>
+    ///     Returns the structured example content for <paramref name="memberId"/> as a list of
+    ///     (IsCode, Content) parts. <c>IsCode = true</c> indicates a fenced code block; <c>false</c>
+    ///     indicates a prose paragraph.
+    /// </summary>
+    /// <remarks>
+    ///     When the <c>&lt;example&gt;</c> element contains no <c>&lt;code&gt;</c> children, the
+    ///     entire text is returned as a single code part. When <c>&lt;code&gt;</c> children are
+    ///     present, text nodes become prose parts and <c>&lt;code&gt;</c> elements become code parts.
+    /// </remarks>
+    /// <param name="memberId">The XML doc member identifier.</param>
+    /// <returns>
+    ///     A list of (IsCode, Content) pairs, or an empty list when the member is absent or has
+    ///     no <c>&lt;example&gt;</c> element.
+    /// </returns>
+    public IReadOnlyList<(bool IsCode, string Content)> GetExampleParts(string memberId)
+    {
+        if (!_members.TryGetValue(memberId, out var member))
+        {
+            return Array.Empty<(bool, string)>();
+        }
+
+        var el = member.Element("example");
+        if (el == null)
+        {
+            return Array.Empty<(bool, string)>();
+        }
+
+        // When no <code> children exist, treat the entire value as a single code block
+        if (!el.Elements("code").Any())
+        {
+            var text = el.Value.Trim();
+            return string.IsNullOrEmpty(text)
+                ? Array.Empty<(bool, string)>()
+                : [(true, text)];
+        }
+
+        // Mixed content: process child nodes in order, separating <code> blocks from prose
+        var parts = new List<(bool IsCode, string Content)>();
+        foreach (var node in el.Nodes())
+        {
+            switch (node)
+            {
+                case XText textNode:
+                    {
+                        var text = textNode.Value.Trim();
+                        if (text.Length > 0)
+                        {
+                            parts.Add((false, text));
+                        }
+
+                        break;
+                    }
+
+                case XElement childElement when childElement.Name.LocalName == "code":
+                    {
+                        var code = childElement.Value.Trim();
+                        if (code.Length > 0)
+                        {
+                            parts.Add((true, code));
+                        }
+
+                        break;
+                    }
+
+                case XElement otherElement:
+                    {
+                        var text = otherElement.Value.Trim();
+                        if (text.Length > 0)
+                        {
+                            parts.Add((false, text));
+                        }
+
+                        break;
+                    }
+            }
+        }
+
+        return parts;
     }
 
     private static string? GetDocumentationText(XElement? element)

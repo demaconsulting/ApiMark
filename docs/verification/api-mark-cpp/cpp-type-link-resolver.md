@@ -1,0 +1,51 @@
+## CppTypeLinkResolver
+
+### Verification Approach
+
+`CppTypeLinkResolver` is unit-tested in `test/ApiMark.Cpp.Tests/CppTypeLinkResolverTests.cs`
+without any test doubles. The resolver is stateless with respect to link resolution itself;
+each test constructs a resolver with a controlled `knownTypes` dictionary and supplies a
+fresh `SortedSet<CppExternalTypeInfo>` as the external-type accumulator. Tests cover the
+exact-qualified-match path, the unambiguous short-name fallback, the ambiguous short-name
+non-link path, and the qualified-reference disambiguation path.
+
+### Test Environment
+
+No external services, network access, or file system access are required. Tests run with
+the standard xUnit.net test runner. No clang installation is needed.
+
+### Acceptance Criteria
+
+- An exact qualified-name match in `knownTypes` always produces a Markdown link in the
+  returned string.
+- An unambiguous short-name reference (only one known type with that unqualified name)
+  produces a Markdown link via the short-name fallback.
+- An ambiguous short-name reference (two or more known types share the same unqualified
+  name) produces plain text and does not produce a link.
+- A fully-qualified reference to one of two ambiguously-named types resolves correctly
+  via the exact-match path and produces the correct Markdown link.
+
+### Test Scenarios
+
+**Exact qualified match emits a link**: Verifies that when a fully-qualified type name
+(e.g. `"ns::Foo"`) exactly matches a key in `knownTypes`, `Linkify` returns a string
+containing a Markdown link with the short type name and the resolved relative path.
+This scenario is tested by `CppTypeLinkResolver_Linkify_ExactQualifiedMatch_EmitsLink`.
+
+**Unambiguous short name emits a link**: Verifies that when only one known type has the
+unqualified name being resolved (e.g. `"Bar"` with only `"ns::Bar"` in `knownTypes`),
+`Linkify` returns a Markdown link via the short-name fallback path.
+This scenario is tested by `CppTypeLinkResolver_Linkify_UnambiguousShortName_EmitsLink`.
+
+**Ambiguous short name emits plain text**: Verifies that when two known types share the
+same unqualified name (e.g. `"size_type"` is both `"ns::Outer::size_type"` and
+`"ns::Other::size_type"`), an unqualified reference produces plain text and no link,
+preventing non-deterministic navigation.
+This scenario is tested by `CppTypeLinkResolver_Linkify_AmbiguousShortName_EmitsPlainText`.
+
+**Qualified reference to ambiguous type emits correct link**: Verifies that a
+fully-qualified reference (e.g. `"ns::Outer::size_type"`) still resolves to the correct
+page even when two types share the same unqualified name, because the exact-match path
+takes precedence over the ambiguous short-name path.
+This scenario is tested by
+`CppTypeLinkResolver_Linkify_QualifiedReferenceToAmbiguousType_EmitsCorrectLink`.

@@ -1,3 +1,4 @@
+using ApiMark.Core;
 using ApiMark.Core.TestHelpers;
 using ApiMark.DotNet;
 using Xunit;
@@ -35,7 +36,7 @@ public class DotNetGeneratorTests
         };
     }
 
-    /// <summary>Validates that <see cref="DotNetGenerator.Generate"/> throws <see cref="FileNotFoundException"/> when the XML doc file is missing.</summary>
+    /// <summary>Validates that <see cref="DotNetGenerator.Parse"/> throws <see cref="FileNotFoundException"/> when the XML doc file is missing.</summary>
     [Fact]
     public void DotNetGenerator_Generate_XmlDocMissing_ThrowsFileNotFoundException()
     {
@@ -49,7 +50,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(options);
 
         // Act / Assert
-        Assert.Throws<FileNotFoundException>(() => generator.Generate(factory, new InMemoryContext()));
+        Assert.Throws<FileNotFoundException>(() => generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext()));
     }
 
     /// <summary>Validates that a valid assembly produces an <c>api</c> entrypoint Markdown page.</summary>
@@ -61,7 +62,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert
         Assert.True(factory.Writers.ContainsKey("api"), "Expected api.md to be created");
@@ -76,7 +77,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: root namespace page sits at root level (not inside a subfolder)
         Assert.True(
@@ -93,7 +94,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert
         Assert.True(
@@ -110,7 +111,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions(includeObsolete: false));
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert
         Assert.False(
@@ -127,7 +128,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions(includeObsolete: true));
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert
         Assert.True(
@@ -144,7 +145,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions(ApiVisibility.Public));
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: ProtectedMembersClass type page should exist (it is public)
         Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ProtectedMembersClass"));
@@ -164,7 +165,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions(ApiVisibility.PublicAndProtected));
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: ProtectedMethod has a parameter so it gets its own page
         Assert.True(
@@ -181,7 +182,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions(ApiVisibility.All));
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: PrivateMethod has a parameter so it gets its own page under All visibility
         Assert.True(
@@ -198,7 +199,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: GetGreeting(string name) has a parameter so it gets its own page
         Assert.True(
@@ -215,7 +216,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: Connect(string host) has documented exceptions -> own page
         Assert.True(
@@ -232,7 +233,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: Compute() has multi-line remarks -> own page
         Assert.True(
@@ -249,7 +250,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
@@ -267,7 +268,7 @@ public class DotNetGeneratorTests
 
         // Assert: generator was created without exception and can produce output
         var factory = new InMemoryMarkdownWriterFactory();
-        var exception = Record.Exception(() => generator.Generate(factory, new InMemoryContext()));
+        var exception = Record.Exception(() => generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext()));
         Assert.Null(exception);
     }
 
@@ -280,7 +281,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: type pages exist for all expected fixture types
         Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleClass"));
@@ -297,7 +298,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: SampleClass type page contains the XML summary text
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
@@ -316,11 +317,11 @@ public class DotNetGeneratorTests
     {
         // Arrange: Public visibility — protected method should be absent
         var publicFactory = new InMemoryMarkdownWriterFactory();
-        new DotNetGenerator(BuildOptions(ApiVisibility.Public)).Generate(publicFactory, new InMemoryContext());
+        new DotNetGenerator(BuildOptions(ApiVisibility.Public)).Parse(new InMemoryContext()).Emit(publicFactory, new EmitConfig(), new InMemoryContext());
 
         // Arrange: PublicAndProtected visibility — protected method should be present
         var protectedFactory = new InMemoryMarkdownWriterFactory();
-        new DotNetGenerator(BuildOptions(ApiVisibility.PublicAndProtected)).Generate(protectedFactory, new InMemoryContext());
+        new DotNetGenerator(BuildOptions(ApiVisibility.PublicAndProtected)).Parse(new InMemoryContext()).Emit(protectedFactory, new EmitConfig(), new InMemoryContext());
 
         // Assert: with Public visibility, protected method page does not exist
         Assert.False(publicFactory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ProtectedMembersClass/ProtectedMethod"));
@@ -335,11 +336,11 @@ public class DotNetGeneratorTests
     {
         // Arrange: IncludeObsolete=false
         var withoutObsolete = new InMemoryMarkdownWriterFactory();
-        new DotNetGenerator(BuildOptions(includeObsolete: false)).Generate(withoutObsolete, new InMemoryContext());
+        new DotNetGenerator(BuildOptions(includeObsolete: false)).Parse(new InMemoryContext()).Emit(withoutObsolete, new EmitConfig(), new InMemoryContext());
 
         // Arrange: IncludeObsolete=true
         var withObsolete = new InMemoryMarkdownWriterFactory();
-        new DotNetGenerator(BuildOptions(includeObsolete: true)).Generate(withObsolete, new InMemoryContext());
+        new DotNetGenerator(BuildOptions(includeObsolete: true)).Parse(new InMemoryContext()).Emit(withObsolete, new EmitConfig(), new InMemoryContext());
 
         // Assert: obsolete type excluded when false
         Assert.False(withoutObsolete.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ObsoleteClass"));
@@ -357,7 +358,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: method with parameters gets own page
         Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleClass/GetGreeting"));
@@ -378,7 +379,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: root entrypoint is "api"
         Assert.True(factory.Writers.ContainsKey("api"));
@@ -402,7 +403,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: the generator produces at least the api, namespace, and type pages
         Assert.True(factory.Writers.ContainsKey("api"));
@@ -418,7 +419,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: GetGreeting member page shows "string" (not "System.String") in the parameter table
         var greetingWriter = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass/GetGreeting"];
@@ -439,7 +440,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert
         var typeWriter = factory.Writers["ApiMark.DotNet.Fixtures/SampleStatusExtensions"];
@@ -465,7 +466,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/ExceptionDocClass"];
@@ -483,7 +484,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert
         var memberWriters = factory.Writers
@@ -505,7 +506,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/ExceptionDocClass/Connect"];
@@ -526,7 +527,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert
         Assert.Equal(
@@ -544,7 +545,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         Assert.True(
             factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/IntVsIntArrayClass/Process"),
@@ -564,7 +565,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: api.md has a heading for the naming convention section
         var apiWriter = factory.Writers["api"];
@@ -588,7 +589,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: namespace table is first in api.md and contains both root and child namespaces
         var apiWriter = factory.Writers["api"];
@@ -610,7 +611,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: the root namespace page exists at root level
         Assert.True(factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures", out var rootNsWriter),
@@ -629,7 +630,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: InnerNamespaceClass is in ApiMark.DotNet.Fixtures.Inner namespace
         // Its page should be at ApiMark.DotNet.Fixtures/Inner/InnerNamespaceClass
@@ -647,7 +648,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: Compute(int input) in InnerNamespaceClass has a parameter → gets its own page
         // Page must be at ApiMark.DotNet.Fixtures/Inner/InnerNamespaceClass/Compute
@@ -665,7 +666,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: type page exists
         Assert.True(
@@ -685,7 +686,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/IntVsIntArrayClass/Process"];
         var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
@@ -703,7 +704,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: after FIX 11, methods appear under a "Methods" sub-table with "Returns" header;
         // SampleStatusExtensions is a static class with only methods so there is exactly one table
@@ -726,7 +727,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: child namespace page is at {rootNs}/{childShortName}, not at {childFullName}/{childFullName}
         Assert.True(
@@ -746,7 +747,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: find the Methods section on the SampleClass type page
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
@@ -768,7 +769,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: find the Constructors section on the SampleClass type page
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
@@ -790,7 +791,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: find the Methods section on the SampleClass type page
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
@@ -815,7 +816,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: Constructors heading is present
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
@@ -837,7 +838,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: Properties heading is present
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
@@ -859,7 +860,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: Methods heading is present
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
@@ -881,7 +882,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: find the Constructors table on the SampleClass type page
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
@@ -903,7 +904,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: no table on the SampleStatus page lists "value__" as a member
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleStatus"];
@@ -920,7 +921,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: find the type table on the ApiMark.DotNet.Fixtures namespace page
         var nsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
@@ -943,7 +944,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: find PipeSummaryClass in the namespace type table
         var nsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
@@ -967,7 +968,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: api.md contains exactly one H1 heading that ends with "API Reference"
         var apiWriter = factory.Writers["api"];
@@ -985,7 +986,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: api.md contains a paragraph matching the <Description> set in the fixture .csproj
         var apiWriter = factory.Writers["api"];
@@ -1004,7 +1005,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: api.md has at least a namespace table and the convention appendix table
         var apiWriter = factory.Writers["api"];
@@ -1027,7 +1028,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: find the Methods table on the SampleClass type page
         var writer = factory.Writers["ApiMark.DotNet.Fixtures/SampleClass"];
@@ -1052,7 +1053,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: the namespace type table must not contain NamespaceDoc as a listed type
         var nsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
@@ -1084,7 +1085,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: the combined page is written at the lowercase key path
         Assert.True(
@@ -1104,7 +1105,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: no page should be created using the exact-case name "Name" when a collision
         // exists — the combined lowercase page replaces all individual pages for the group
@@ -1125,7 +1126,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: combined page exists
         Assert.True(factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/CaseCollisionClass/name", out var writer));
@@ -1153,7 +1154,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: SampleImplementation type page must exist
         Assert.True(
@@ -1177,7 +1178,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: SampleStatus enum type page must exist
         Assert.True(
@@ -1201,7 +1202,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: TypeLinkFixture type page must exist
         Assert.True(
@@ -1231,7 +1232,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: Log member page must exist
         Assert.True(
@@ -1264,7 +1265,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: type page must exist
         Assert.True(
@@ -1298,7 +1299,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: type page must exist
         Assert.True(
@@ -1335,7 +1336,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: type page must exist (arity flattened: SampleTransform`2 → SampleTransform2)
         Assert.True(
@@ -1363,7 +1364,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: ArrayAndNullableClass type page must exist
         Assert.True(
@@ -1401,7 +1402,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: OperatorsStruct has a documented constructor; its detail page must exist
         Assert.True(
@@ -1425,7 +1426,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: the constructor detail page has a Parameter table whose description column
         // contains the XML-authored text for the 'value' parameter
@@ -1452,7 +1453,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: shared operators page must exist
         Assert.True(
@@ -1477,7 +1478,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: Operators heading is present on the type page
         var typeWriter = factory.Writers["ApiMark.DotNet.Fixtures/OperatorsStruct"];
@@ -1503,7 +1504,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: the operators page exists and its summaries come from the XML doc
         Assert.True(factory.Writers.TryGetValue(
@@ -1525,7 +1526,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert
         Assert.True(factory.Writers.TryGetValue(
@@ -1556,7 +1557,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: conversion operator summaries must appear on the operators page
         Assert.True(factory.Writers.TryGetValue(
@@ -1583,7 +1584,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert
         Assert.True(factory.Writers.TryGetValue(
@@ -1612,7 +1613,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: the nested type page must exist at the hierarchical key
         Assert.True(
@@ -1632,7 +1633,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: outer type page must exist
         Assert.True(
@@ -1661,7 +1662,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: the nested type page must exist
         Assert.True(
@@ -1685,7 +1686,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(BuildOptions());
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: the operators page for OperatorsStruct must exist
         Assert.True(
@@ -1694,4 +1695,110 @@ public class DotNetGeneratorTests
         var paragraphs = opsWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
         Assert.Contains(paragraphs, p => p.Contains("Wraps this instance as a Wrapped value", StringComparison.Ordinal));
     }
+
+    /// <summary>
+    ///     Validates that single-file output writes all API surface into a single <c>api</c>
+    ///     writer with H1 assembly title, H2 namespace, H3 type, and H4 member headings,
+    ///     no group headings (Constructors/Methods/Properties), and a compact bullet-list
+    ///     paragraph summarizing each type's members.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown()
+    {
+        // Arrange: configure with SingleFile format so all output goes into one api.md file
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(
+            factory,
+            new EmitConfig { Format = OutputFormat.SingleFile },
+            new InMemoryContext());
+
+        // Assert: exactly one writer, keyed "api"
+        Assert.Single(factory.Writers);
+        Assert.True(factory.Writers.ContainsKey("api"), "Expected a single api writer for single-file output");
+
+        var writer = factory.Writers["api"];
+        var headings = writer.Operations.OfType<HeadingOperation>().ToList();
+
+        // Assert: H1 is the assembly-level title ending with "API Reference"
+        Assert.Contains(headings, h => h.Level == 1 && h.Text.EndsWith("API Reference", StringComparison.Ordinal));
+
+        // Assert: H2 is the namespace heading
+        Assert.Contains(
+            headings,
+            h => h.Level == 2 && h.Text.Contains("ApiMark.DotNet.Fixtures", StringComparison.Ordinal));
+
+        // Assert: H3 is a type heading — SampleClass is always present in the fixture assembly
+        Assert.Contains(headings, h => h.Level == 3 && h.Text == "SampleClass");
+
+        // Assert: H4 is a member heading — constructor or method contains parentheses
+        Assert.Contains(
+            headings,
+            h => h.Level == 4 && h.Text.Contains("(", StringComparison.Ordinal));
+
+        // Assert: no group headings — single-file format emits members directly without section labels
+        Assert.DoesNotContain(headings, h => h.Text == "Constructors");
+        Assert.DoesNotContain(headings, h => h.Text == "Methods");
+        Assert.DoesNotContain(headings, h => h.Text == "Properties");
+
+        // Assert: at least one compact bullet-list paragraph summarizing members is emitted
+        var paragraphs = writer.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Contains("- **", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a method with an <c>&lt;example&gt;&lt;code&gt;</c> block emits
+    ///     a <see cref="CodeBlockOperation"/> on its member detail page (gradual-disclosure).
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_MethodWithExample_EmitsCodeBlockOnMemberPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: GetGreeting has a parameter so it gets its own member page
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ExampleDocClass/GetGreeting"),
+            "Expected member page for ExampleDocClass.GetGreeting");
+
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/ExampleDocClass/GetGreeting"];
+        var codeBlocks = writer.Operations.OfType<CodeBlockOperation>().ToList();
+
+        // Assert: at least one csharp code block is emitted from the <example><code> content
+        Assert.Contains(codeBlocks, cb => cb.Language == "csharp" && cb.Code.Contains("GetGreeting", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a method with an <c>&lt;example&gt;&lt;code&gt;</c> block emits
+    ///     a <see cref="CodeBlockOperation"/> in the single-file output.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_SingleFile_MethodWithExample_EmitsCodeBlock()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+        var config = new EmitConfig { Format = OutputFormat.SingleFile };
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, config, new InMemoryContext());
+
+        // Assert: single-file writes exactly one "api" file
+        Assert.True(factory.Writers.ContainsKey("api"), "Expected single-file api writer");
+
+        var writer = factory.Writers["api"];
+        var codeBlocks = writer.Operations.OfType<CodeBlockOperation>().ToList();
+
+        // Assert: at least one csharp code block from the ExampleDocClass.GetGreeting example
+        Assert.Contains(codeBlocks, cb => cb.Language == "csharp" && cb.Code.Contains("GetGreeting", StringComparison.Ordinal));
+    }
 }
+
+
+

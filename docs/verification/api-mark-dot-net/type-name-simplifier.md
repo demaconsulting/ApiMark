@@ -60,4 +60,4 @@ correctly combines the primitive alias with the `?` suffix — for example `Syst
 nullable annotation produces `string?`; and that a non-annotated reference type does not receive a
 spurious `?` suffix. This scenario is tested by
 `TypeNameSimplifier_Simplify_NullableAnnotatedReferenceType_AppendsQuestionMark` and
-`TypeNameSimplifier_NullableReferenceTypes_UseQuestionMarkSuffix`.
+`TypeNameSimplifier_Simplify_NonAnnotatedReferenceType_DoesNotAppendQuestionMark`.

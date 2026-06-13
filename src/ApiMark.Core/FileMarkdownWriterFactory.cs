@@ -22,7 +22,7 @@ public sealed class FileMarkdownWriterFactory : IMarkdownWriterFactory
     /// <param name="outputDirectory">
     ///     Absolute or relative path to the root output directory. The directory
     ///     will be created on first use if it does not already exist. Must not be
-    ///     null or whitespace.
+    ///     null, empty, or whitespace.
     /// </param>
     /// <exception cref="ArgumentException">
     ///     Thrown when <paramref name="outputDirectory"/> is null, empty, or whitespace.
@@ -48,7 +48,7 @@ public sealed class FileMarkdownWriterFactory : IMarkdownWriterFactory
     ///     whitespace to place the file directly under the output root. Forward
     ///     slashes are acceptable; the implementation normalizes path separators.
     /// </param>
-    /// <param name="name">File name without extension. Must not be null or empty.</param>
+    /// <param name="name">File name without extension. Must not be null, empty, or whitespace.</param>
     /// <returns>
     ///     A new <see cref="FileMarkdownWriter"/> ready for write calls. The caller
     ///     is responsible for disposing the returned writer when finished.

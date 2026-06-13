@@ -1,0 +1,21 @@
+---
+# DotNetAstModel unit requirements
+sections:
+  - title: ApiMarkDotNet Requirements
+    sections:
+      - title: DotNetAstModel Requirements
+        requirements:
+          - id: ApiMarkDotNet-DotNetAstModel-HoldParsedAssemblyData
+            title: DotNetAstModel shall hold all parsed assembly data required during the emit phase.
+            justification: |
+              The parse and emit phases are separated by the IApiGenerator / IApiEmitter
+              contract. DotNetAstModel bridges these phases by holding the assembly
+              definition, XML documentation index, namespace data, and configuration
+              options so the emitter can operate without re-reading any files.
+            tests:
+              - DotNetAstModel_AllNamespaces_ReturnsAlphabeticallySorted
+              - DotNetAstModel_ByNamespace_ContainsFixtureNamespace
+              - DotNetAstModel_RootNamespaces_ContainsFixtureNamespace
+              - DotNetAstModel_Options_ReturnsOptionsPassedAtConstruction
+              - DotNetAstModel_Assembly_ReturnsLoadedAssembly
+              - DotNetAstModel_Resolver_IsNotNull

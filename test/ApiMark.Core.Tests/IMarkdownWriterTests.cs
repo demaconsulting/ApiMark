@@ -233,11 +233,12 @@ public sealed class IMarkdownWriterTests
     }
 
     /// <summary>
-    ///     System-level test: verifies that all section types can be written to an
-    ///     <see cref="InMemoryMarkdownWriter"/> and retrieved consistently.
+    ///     Verifies that all write operations can be issued through an
+    ///     <see cref="InMemoryMarkdownWriter"/> and are recorded in the expected order
+    ///     with the correct type for each operation.
     /// </summary>
     [Fact]
-    public void ApiMarkCore_MarkdownWriterContract_FileSections_RenderConsistently()
+    public void InMemoryMarkdownWriter_Write_AllOperations_RecordsInOrder()
     {
         // Arrange: create an in-memory writer
         using var writer = new InMemoryMarkdownWriter();
@@ -264,5 +265,53 @@ public sealed class IMarkdownWriterTests
             () => Assert.IsType<TableOperation>(writer.Operations[3]),
             () => Assert.IsType<CodeBlockOperation>(writer.Operations[4]),
             () => Assert.IsType<LinkOperation>(writer.Operations[5]));
+    }
+
+    /// <summary>
+    ///     Verifies that literal pipe characters in table cell content are escaped as
+    ///     <c>\|</c> in the written Markdown output.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="InMemoryMarkdownWriter"/> records raw arguments without performing
+    ///     pipe escaping; the escape is applied by <see cref="FileMarkdownWriter"/>. This
+    ///     test exercises the concrete implementation via <see cref="FileMarkdownWriterFactory"/>
+    ///     and reads back the written file to verify the escape.
+    /// </remarks>
+    [Fact]
+    public void FileMarkdownWriter_WriteTable_CellWithPipe_EscapesPipe()
+    {
+        // Arrange: create a temp directory and a factory to test pipe escaping through
+        // the concrete FileMarkdownWriter; InMemoryMarkdownWriter records raw arguments
+        // without escaping, so the file-based writer is required here.
+        var tempDir = Path.Join(Path.GetTempPath(), "ApiMarkPipeTest_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string[] headers = ["Col A", "Col B"];
+            string[] row = ["value|with|pipes", "normal"];
+            var factory = new FileMarkdownWriterFactory(tempDir);
+
+            // Act: write the table through a FileMarkdownWriter
+            using (var writer = factory.CreateMarkdown("", "pipe-test"))
+            {
+                writer.WriteTable(headers, [row]);
+            }
+
+            // Assert: pipe characters in cell content are escaped as \|
+            var content = File.ReadAllText(Path.Join(tempDir, "pipe-test.md"));
+            Assert.Contains(@"value\|with\|pipes", content);
+        }
+        finally
+        {
+            // Best-effort cleanup — swallow errors to avoid masking a real test failure
+            try
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Ignore
+            }
+        }
     }
 }

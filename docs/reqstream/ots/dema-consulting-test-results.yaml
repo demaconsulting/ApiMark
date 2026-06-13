@@ -1,0 +1,42 @@
+---
+# DemaConsulting.TestResults OTS requirements
+sections:
+  - title: OTS Software Requirements
+    sections:
+      - title: DemaConsultingTestResults Requirements
+        requirements:
+          - id: DemaConsultingTestResults-Results-RecordTestOutcomes
+            title: >-
+              DemaConsulting.TestResults shall provide a TestResults container and TestResult record
+              that captures the name, outcome, error message, and duration for each self-validation
+              test case.
+            justification: |
+              The SelfTest subsystem must collect pass/fail evidence for each self-validation
+              scenario and report totals to the user. DemaConsulting.TestResults provides the
+              structured container that aggregates individual test outcomes into a reportable
+              collection.
+            tests:
+              - Validation_Run_WritesVersionAndHelpTestResults
+          - id: DemaConsultingTestResults-Results-SerializeToTrx
+            title: >-
+              DemaConsulting.TestResults shall serialize a TestResults collection to TRX format
+              via TrxSerializer so that self-validation results can be consumed by CI test
+              reporting tools.
+            justification: |
+              CI pipelines and test dashboards commonly consume TRX format for result aggregation
+              and reporting. The SelfTest subsystem writes a .trx file when the caller supplies
+              a results file path with a .trx extension, enabling downstream CI integration.
+            tests:
+              - Validation_Run_WithResultsTrxFile_CreatesTrxFile
+          - id: DemaConsultingTestResults-Results-SerializeToJUnit
+            title: >-
+              DemaConsulting.TestResults shall serialize a TestResults collection to JUnit XML
+              format via JUnitSerializer so that self-validation results can be consumed by
+              non-Microsoft CI tools.
+            justification: |
+              JUnit XML is the de-facto standard for test result interchange in many CI systems
+              (Jenkins, GitLab CI, CircleCI). The SelfTest subsystem writes a .xml file when
+              the caller supplies a results file path with a .xml extension, enabling
+              cross-platform CI reporting.
+            tests:
+              - Validation_Run_WithResultsXmlFile_CreatesXmlFile

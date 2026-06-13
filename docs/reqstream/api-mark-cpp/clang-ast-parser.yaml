@@ -1,0 +1,33 @@
+---
+# ClangAstParser unit requirements
+sections:
+  - title: ApiMarkCpp Requirements
+    sections:
+      - title: ClangAstParser Requirements
+        requirements:
+          - id: ApiMarkCpp-ClangAstParser
+            title: >-
+              ClangAstParser shall invoke clang -ast-dump=json on supplied C++ header
+              files and return a structured CppCompilationResult.
+            justification: |
+              CppGenerator cannot produce accurate documentation without a fully
+              resolved C++ AST. Delegating parse to ClangAstParser keeps the I/O and
+              JSON-deserialization logic isolated from the higher-level generation
+              logic, making each unit independently testable.
+            children:
+              - ApiMarkCpp-ClangAstParser-ParseHeaders
+          - id: ApiMarkCpp-ClangAstParser-ParseHeaders
+            title: >-
+              ClangAstParser.Parse shall write a temporary combined header, invoke
+              clang, parse the resulting JSON AST, and return a CppCompilationResult
+              containing the parsed namespaces filtered to the supplied header set.
+            justification: |
+              Concatenating all headers into one temporary file allows clang to resolve
+              cross-header type references in a single translation unit. Filtering the
+              returned declarations to those in the supplied header set prevents system
+              and third-party declarations from polluting the result.
+            tests:
+              - ClangAstParser_Parse_FixtureHeaders_ReturnsNonEmptyNamespaces
+              - ClangAstParser_Parse_FixtureHeaders_ContainsFixturesNamespace
+              - ClangAstParser_Parse_FixtureHeaders_FixturesNamespaceContainsSampleClass
+              - ClangAstParser_Parse_FixtureHeaders_SampleClassHasMembers

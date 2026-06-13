@@ -39,6 +39,9 @@ task.
   NuGet package; MSBuild invokes the task at build time.
 - *Contract*: MSBuild properties `ApiMarkLanguage`, `ApiMarkOutputDir`,
   `ApiMarkVisibility`, `ApiMarkIncludeObsolete`, `DisableApiMark`,
+  `ApiMarkFormat` (string, optional; accepted values: `gradual`
+  (default) and `single-file`; controls the `--format` argument forwarded to
+  ApiMark.Tool and therefore the `EmitConfig.Format` used during emit),
   `ProjectExtension` (required; maps to `$(MSBuildProjectExtension)` and is used
   to infer the language when `ApiMarkLanguage` is not set), `ApiMarkPackDocs`
   (opt-in; when `true`, causes the generated `api/` folder to be included in the
@@ -51,8 +54,13 @@ task.
     (semicolon-delimited ordered glob/exclusion patterns; optional),
     `ApiMarkDefines` (semicolon-delimited preprocessor defines; semicolons
     converted to commas for the tool argument),
-    `ApiMarkCppStandard` (e.g. `c++17`; optional, tool defaults to `c++17`),
+    `ApiMarkCppStandard` (e.g. `c++17`; optional, defaulted to `c++17` by the `.targets` file
+    when not set by the project),
     `ApiMarkClangPath` (optional explicit clang executable path).
+  Optional input item group `ApiMarkOutputs`; each item carries `OutputDir`, `Format`, and
+  `Visibility` metadata that overrides the corresponding scalar properties for that named output
+  configuration; one child process is spawned per item; documentation packaging is handled by
+  `_ApiMarkIncludeDocsInPackage`.
   Fires `AfterTargets="Build"` unless `DisableApiMark` is true. Language is
   inferred from `ProjectExtension` when `ApiMarkLanguage` is not explicitly set.
 - *Constraints*: Must not load any language-generator libraries in the MSBuild
@@ -66,13 +74,14 @@ executable to perform generation.
 - *Role*: Consumer — ApiMarkTask locates `dotnet`, builds the argument list from
   MSBuild properties, and starts the process.
 - *Contract*: `dotnet <ToolDllPath> dotnet --assembly <path> --xml-doc <path>
-  [--output <dir>] [--visibility <value>] [--include-obsolete]` for .NET;
+  [--output <dir>] [--visibility <value>] [--include-obsolete]
+  [--format <gradual|single-file>]` for .NET;
   `dotnet <ToolDllPath> cpp
   --includes <path> [--includes <path> ...] [--api-headers <pattern> ...]
   [--library-name <name>] [--library-description <desc>]
   [--defines <NAME[=val],NAME[=val],...>] [--cpp-standard <std>]
   [--clang-path <path>] [--output <dir>] [--visibility <value>]
-  [--include-obsolete]` for C++.
+  [--include-obsolete] [--format <gradual|single-file>]` for C++.
 - *Constraints*: `ToolDllPath` is set by the `.targets` file to the bundled
   `ApiMark.Tool.dll`. The `dotnet` executable is resolved from the
   `DOTNET_HOST_PATH` environment variable first, then from `PATH`. The task treats

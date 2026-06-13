@@ -1,0 +1,19 @@
+---
+# DotNetEmitterGradualDisclosure unit requirements
+sections:
+  - title: ApiMarkDotNet Requirements
+    sections:
+      - title: DotNetEmitterGradualDisclosure Requirements
+        requirements:
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-ProduceMultiFileTree
+            title: DotNetEmitterGradualDisclosure shall produce a multi-file gradual-disclosure Markdown tree with one file per namespace, type, and member.
+            justification: |
+              Gradual-disclosure output allows AI agents and human readers to navigate
+              documentation hierarchically, reading only as much as the task requires.
+              A separate file per concept ensures each page is independently addressable
+              and can be read without consuming unrelated content.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesApiIndexPage
+              - DotNetEmitterGradualDisclosure_Emit_ValidModel_ApiIndexContainsAssemblyNameHeading
+              - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesNamespacePage
+              - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesTypePage

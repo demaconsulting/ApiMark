@@ -5,33 +5,36 @@
 
 ### Purpose
 
-IApiGenerator is the contract every language-specific generator must implement.
-It decouples ApiMarkTool from any concrete language module. A caller constructs a
-generator, optionally configures it at construction time, and then calls Generate —
-the caller never needs to know which language it is processing. ApiMarkMsbuild
-invokes the generator indirectly by spawning ApiMarkTool as a child process.
+IApiGenerator is the first stage of the two-stage generation pipeline. It is
+the contract every language-specific generator must implement. A caller
+constructs a generator, optionally configures it at construction time, and then
+calls `Parse` to obtain an `IApiEmitter` that holds all parsed symbol data.
+The caller then calls `IApiEmitter.Emit` with the desired output format and
+heading depth. This separation decouples symbol parsing from output formatting
+and allows the same parsed model to be emitted into different formats.
+
+ApiMarkMsbuild invokes the generator indirectly by spawning ApiMarkTool as a
+child process. ApiMarkTool never shares an in-process parsed model across
+multiple Emit calls.
 
 ### Data Model
 
 N/A — IApiGenerator is an interface with no fields or properties of its own.
-Language-specific options are passed at construction time of the implementing class
-and are not exposed through this interface.
+Language-specific options are passed at construction time of the implementing
+class and are not exposed through this interface.
 
 ### Key Methods
 
-**IApiGenerator.Generate**: Generates the full Markdown documentation tree for a
-configured software component.
+**IApiGenerator.Parse**: Parses the configured software component and returns
+an `IApiEmitter` that holds all symbol data needed to produce documentation.
 
-- *Parameters*: `IMarkdownWriterFactory factory` — the factory used to create
-  per-file markdown writers for each output file; `IContext context` — the output
-  channel used to emit informational and error messages during generation.
-- *Returns*: `void`
+- *Parameters*: `IContext context` — the output channel used to emit
+  informational and error messages during parsing.
+- *Returns*: `IApiEmitter` — a fully populated emitter ready to call `Emit`.
 - *Preconditions*: The implementing class must have been constructed with valid
-  options; `factory` and `context` must be non-null, configured instances.
-- *Postconditions*: The output contains a complete Markdown tree. A file named
-  `api.md` MUST be created via `factory.CreateMarkdown("", "api")` as the fixed
-  top-level entrypoint. The output directory is created by the factory if it does
-  not already exist.
+  options; `context` must be a non-null, configured instance.
+- *Postconditions*: The returned `IApiEmitter` holds all parsed symbol data.
+  No output files have been written; all I/O is deferred to `IApiEmitter.Emit`.
 
 ### Error Handling
 
@@ -42,14 +45,13 @@ their error behavior in their own unit designs.
 
 ### Dependencies
 
-N/A — IApiGenerator is an interface defined in ApiMarkCore; it has no dependencies
-on other units, OTS items, or shared packages.
+- **IApiEmitter** — IApiGenerator.Parse returns an IApiEmitter instance.
 
 ### Callers
 
 - **ApiMarkTask** — spawns ApiMark.Tool as a child process, within which the
-  appropriate IApiGenerator implementation is constructed and Generate is called.
-  ApiMarkTask does not call IApiGenerator directly.
-- **Program** — constructs the appropriate IApiGenerator for the requested language
-  subcommand and calls Generate with a `FileMarkdownWriterFactory` built from CLI
-  options.
+  appropriate IApiGenerator implementation is constructed and Parse is called,
+  followed by IApiEmitter.Emit. ApiMarkTask does not call IApiGenerator directly.
+- **Program** — constructs the appropriate IApiGenerator for the requested
+  language subcommand and calls Parse, then calls Emit on the returned emitter
+  with a `FileMarkdownWriterFactory` and `EmitConfig` built from CLI options.

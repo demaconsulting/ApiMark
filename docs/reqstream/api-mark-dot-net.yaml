@@ -24,6 +24,13 @@ sections:
           - ApiMarkDotNet-DotNetGenerator-ShowDirectInheritanceInTypeSignature
           - ApiMarkDotNet-DotNetGenerator-EmitIntraDocLinksInTableCells
           - ApiMarkDotNet-DotNetGenerator-EmitExternalTypesSection
+          - ApiMarkDotNet-DotNetGenerator-EmitSingleFileOutput
+          - ApiMarkDotNet-DotNetAstModel-HoldParsedAssemblyData
+          - ApiMarkDotNet-DotNetEmitter-DispatchToFormatSpecificEmitter
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-ProduceMultiFileTree
+          - ApiMarkDotNet-DotNetEmitterSingleFile-ProduceSingleApiMd
+          - ApiMarkDotNet-TypeLinkResolver-ResolveTypeReferencesToMarkdownLinks
+          - ApiMarkDotNet-XmlDocReader-ParseAndIndexXmlDocumentation
         tests:
           - ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown
       - id: ApiMarkDotNet-TypeNameSimplifier-ProduceReadableTypeNames

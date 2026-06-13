@@ -23,6 +23,7 @@ the project file extension.
 | `ApiMarkOutputDir` | `$(MSBuildProjectDirectory)\api` | Output directory for generated Markdown |
 | `ApiMarkVisibility` | `Public` | Visibility filter: `Public`, `PublicAndProtected`, `All` |
 | `ApiMarkIncludeObsolete` | `false` | Include `[Obsolete]` / deprecated members |
+| `ApiMarkFormat` | _(unset, defaults to `gradual`)_ | Output format: `gradual` (file-per-type) or `single-file` (single `api.md`) |
 | `ApiMarkPackDocs` | `false` | Include the `api/` folder in the NuGet package (C# only) |
 | `DisableApiMark` | _(unset)_ | Set to `true` to disable generation entirely |
 | `ApiMarkLanguage` | _(inferred)_ | Override language: `dotnet` or `cpp` |
@@ -51,6 +52,32 @@ the project file extension.
 | `ApiMarkDefines` | _(unset)_ | Semicolon-separated preprocessor definitions (e.g. `MYLIB_API=;NDEBUG`) |
 | `ApiMarkCppStandard` | `c++17` | C++ language standard passed to Clang |
 | `ApiMarkClangPath` | _(auto-discovered)_ | Path to clang executable; overrides PATH / xcrun / vswhere discovery |
+
+## Multiple Output Formats
+
+Use `ApiMarkFormat` to select the output format for a build:
+
+```xml
+<PropertyGroup>
+  <!-- Write all docs to a single api.md instead of one file per type -->
+  <ApiMarkFormat>single-file</ApiMarkFormat>
+</PropertyGroup>
+```
+
+To generate both formats in one build, use the `ApiMarkOutput` item group.
+Each item specifies an `OutputDir`, an optional `Visibility`, and an optional
+`Format`. When `ApiMarkOutput` items are present they replace the scalar
+`ApiMarkOutputDir`, `ApiMarkVisibility`, and `ApiMarkFormat` properties:
+
+```xml
+<ItemGroup>
+  <!-- Gradual-disclosure output for browsing -->
+  <ApiMarkOutput Include="gradual" OutputDir="$(MSBuildProjectDirectory)\api" Format="gradual" />
+
+  <!-- Single-file output for AI context windows -->
+  <ApiMarkOutput Include="single" OutputDir="$(MSBuildProjectDirectory)\api-single" Format="single-file" />
+</ItemGroup>
+```
 
 ## Configuration Examples
 

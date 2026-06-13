@@ -175,10 +175,15 @@ internal static class Program
 
         try
         {
-            // Construct the generator and invoke it with a file-system writer factory
+            // Construct the generator, parse symbols, then emit using the configured format
             var generator = CreateGenerator(context);
             var factory = new FileMarkdownWriterFactory(context.Output!);
-            generator.Generate(factory, context);
+            var emitConfig = new EmitConfig
+            {
+                Format = context.Format,
+                HeadingDepth = context.HeadingDepth,
+            };
+            generator.Parse(context).Emit(factory, emitConfig, context);
         }
         // Catch all generator construction and execution errors so failures produce
         // clean non-zero exits without an unhandled-exception stack trace
@@ -192,7 +197,7 @@ internal static class Program
     ///     Constructs and returns an <see cref="IApiGenerator"/> configured from the parsed context.
     /// </summary>
     /// <param name="context">Fully parsed CLI context.</param>
-    /// <returns>A configured generator ready for <c>Generate</c> to be called.</returns>
+    /// <returns>A configured generator ready for <c>Parse</c> to be called.</returns>
     /// <exception cref="ArgumentException">
     ///     Thrown when <see cref="Context.Visibility"/> is not a recognized
     ///     <see cref="DotNetApiVisibility"/> value.
@@ -285,7 +290,8 @@ internal static class Program
         context.WriteLine("  --silent                   Suppress console output");
         context.WriteLine("  --validate                 Run self-validation tests");
         context.WriteLine("  --results <file>           Write validation results to file (.trx or .xml)");
-        context.WriteLine("  --depth <#>                Set heading depth for validation output (default: 1)");
+        context.WriteLine("  --depth <#>                Set the top-level heading depth for generated Markdown output (default: 1)");
+        context.WriteLine("  --format <value>           Output format: gradual (default) or single-file");
         context.WriteLine("  --log <file>               Write all output to log file");
         context.WriteLine("");
         context.WriteLine("Languages:");

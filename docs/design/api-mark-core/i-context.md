@@ -50,10 +50,10 @@ on other units, OTS items, or shared packages.
 ### Callers
 
 - **IApiGenerator implementations** — receive an IContext instance via the
-  `Generate` method parameter and call `WriteLine` to report informational
+  `Parse` method parameter and call `WriteLine` to report informational
   messages and `WriteError` to report errors or warnings during generation.
 - **Program** — passes a `Cli.Context` instance (which implements IContext) to
-  the IApiGenerator implementation's `Generate` method.
+  the IApiGenerator implementation's `Parse` method.
 - **InMemoryContext** (test helper) — implements IContext for unit tests,
   capturing messages in in-memory lists so test code can assert on emitted
   output.

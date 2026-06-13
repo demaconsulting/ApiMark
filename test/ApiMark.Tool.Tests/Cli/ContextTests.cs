@@ -1,3 +1,4 @@
+using ApiMark.Core;
 using ApiMark.Tool.Cli;
 using Xunit;
 
@@ -555,5 +556,87 @@ public sealed class ContextTests
 
         // Assert: CppStandard property must match the supplied value
         Assert.Equal("c++20", context.CppStandard);
+    }
+
+    /// <summary>
+    ///     Validates that <c>--format gradual</c> sets <see cref="Context.Format"/> to
+    ///     <see cref="OutputFormat.GradualDisclosure"/>.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithFormatGradual_SetsGradualDisclosureFormat()
+    {
+        // Arrange
+        var args = new[] { "--format", "gradual" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert
+        Assert.Equal(OutputFormat.GradualDisclosure, context.Format);
+    }
+
+    /// <summary>
+    ///     Validates that <c>--format single-file</c> sets <see cref="Context.Format"/> to
+    ///     <see cref="OutputFormat.SingleFile"/>.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithFormatSingleFile_SetsSingleFileFormat()
+    {
+        // Arrange
+        var args = new[] { "--format", "single-file" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert
+        Assert.Equal(OutputFormat.SingleFile, context.Format);
+    }
+
+    /// <summary>
+    ///     Validates that the default <see cref="Context.Format"/> is
+    ///     <see cref="OutputFormat.GradualDisclosure"/> when <c>--format</c> is not specified.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithNoFormatOption_DefaultsToGradualDisclosure()
+    {
+        // Arrange: no --format argument
+        var args = Array.Empty<string>();
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: default must be GradualDisclosure
+        Assert.Equal(OutputFormat.GradualDisclosure, context.Format);
+    }
+
+    /// <summary>
+    ///     Validates that <c>--format</c> with an unrecognized value throws
+    ///     <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithInvalidFormat_ThrowsArgumentException()
+    {
+        // Arrange
+        var args = new[] { "--format", "unknown-value" };
+
+        // Act / Assert
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
+    }
+
+    /// <summary>
+    ///     Validates that <c>--clang-path</c> sets the <see cref="Context.ClangPath"/> property
+    ///     to the supplied path.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithClangPathOption_SetsClangPath()
+    {
+        // Arrange: supply an explicit clang binary path
+        var args = new[] { "--clang-path", "/usr/bin/clang" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: ClangPath property must match the supplied path
+        Assert.Equal("/usr/bin/clang", context.ClangPath);
     }
 }

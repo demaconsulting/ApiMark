@@ -1,0 +1,57 @@
+---
+# CppAstModel unit requirements
+sections:
+  - title: ApiMarkCpp Requirements
+    sections:
+      - title: CppAstModel Requirements
+        requirements:
+          - id: ApiMarkCpp-CppAstModel
+            title: >-
+              CppAstModel shall provide immutable record types representing parsed
+              C++ AST declarations.
+            justification: |
+              A well-typed, immutable data model is required so that ClangAstParser,
+              CppEmitter, and CppEmitterGradualDisclosure can exchange structured C++
+              AST data without depending on the raw JSON format or mutable intermediate
+              objects. Immutable records also make the data flow easy to reason about
+              and test in isolation.
+            children:
+              - ApiMarkCpp-CppAstModel-ConstructionAndValidation
+              - ApiMarkCpp-CppAstModel-SetsCoreProperties
+          - id: ApiMarkCpp-CppAstModel-ConstructionAndValidation
+            title: >-
+              CppAstModel record types shall be constructable from their declared
+              parameters and shall expose those values through their properties.
+            justification: |
+              Every consumer of the AST model depends on correct property values after
+              construction; verifying each record type at the constructor level confirms
+              that the C# record compiler-generated constructor and property synthesis
+              are correctly wired.
+            tests:
+              - CppSourceLocation_Construction_SetsFileAndLine
+              - CppParamDoc_Construction_SetsNameAndDescription
+              - CppDocComment_Construction_SetsSummaryAndDetails
+              - CppDocComment_Equality_TwoIdenticalInstances_AreEqual
+              - CppBaseType_Construction_SetsName
+              - CppTemplateParam_Construction_SetsName
+              - CppEnumValue_Construction_SetsNameAndDoc
+              - CppParameter_Construction_SetsNameAndTypeName
+              - CppParameter_DefaultValue_WhenNotProvided_IsNull
+              - CppEnum_Construction_SetsNameAndValues
+              - CppTypeAlias_Construction_SetsNameAndUnderlyingType
+              - CppNamespaceDecl_Construction_SetsQualifiedName
+              - CppCompilationResult_Construction_SetsNamespacesAndErrors
+              - CppAccessibility_Values_ArePublicProtectedPrivate
+          - id: ApiMarkCpp-CppAstModel-SetsCoreProperties
+            title: >-
+              CppAstModel complex record types (CppField, CppFunction, CppClass) shall
+              expose their core properties correctly after construction.
+            justification: |
+              CppField, CppFunction, and CppClass carry multiple behavioral flags
+              (IsStatic, IsConstructor, IsFinal, etc.) in addition to basic name and
+              type properties. Verifying these core properties at construction time
+              ensures that the flag-based logic in the emitters operates on correct data.
+            tests:
+              - CppField_Construction_SetsCoreProperties
+              - CppFunction_Construction_SetsCoreProperties
+              - CppClass_Construction_SetsCoreProperties

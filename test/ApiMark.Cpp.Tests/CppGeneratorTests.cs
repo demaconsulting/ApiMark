@@ -1,4 +1,5 @@
 // cspell:ignore deletedmembersclass
+using ApiMark.Core;
 using ApiMark.Core.TestHelpers;
 using ApiMark.Cpp;
 using ApiMark.Cpp.CppAst;
@@ -92,7 +93,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         Assert.Throws<ArgumentException>(() => new CppGenerator(options));
     }
 
-    /// <summary>Validates that passing a null factory to <see cref="CppGenerator.Generate"/> throws <see cref="ArgumentNullException"/>.</summary>
+    /// <summary>Validates that passing a null factory to <see cref="CppGenerator.Parse"/> throws <see cref="ArgumentNullException"/>.</summary>
     [Fact]
     public void CppGenerator_Generate_NullFactory_ThrowsArgumentNullException()
     {
@@ -100,7 +101,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var generator = new CppGenerator(BuildOptions());
 
         // Act / Assert: null factory must be rejected before any I/O is attempted
-        Assert.Throws<ArgumentNullException>(() => generator.Generate(null!, new InMemoryContext()));
+        Assert.Throws<ArgumentNullException>(() => generator.Parse(new InMemoryContext()).Emit(null!, new EmitConfig(), new InMemoryContext()));
     }
 
     /// <summary>Validates that a nonexistent public include root throws <see cref="DirectoryNotFoundException"/>.</summary>
@@ -117,7 +118,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var generator = new CppGenerator(options);
 
         // Act / Assert: a missing root must fail early rather than silently producing empty output
-        Assert.Throws<DirectoryNotFoundException>(() => generator.Generate(factory, new InMemoryContext()));
+        Assert.Throws<DirectoryNotFoundException>(() => generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext()));
     }
 
     /// <summary>Validates that generating from valid headers creates the <c>api</c> entrypoint page.</summary>
@@ -672,7 +673,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var generator = new CppGenerator(options);
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: pages from multiple fixture headers must all be present, confirming the
         // default glob includes every recognized header under the include root
@@ -705,7 +706,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var generator = new CppGenerator(options);
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: SampleClass page must exist because its header matched the include pattern
         Assert.True(
@@ -737,7 +738,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var generator = new CppGenerator(options);
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: SampleClass page must not exist because its header was excluded by the exclusion pattern
         Assert.False(
@@ -770,7 +771,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var generator = new CppGenerator(options);
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: DeprecatedClass must be documented because the re-include pattern wins
         Assert.True(
@@ -798,7 +799,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var generator = new CppGenerator(options);
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: DeprecatedClass must not be documented because the exclusion pattern is final
         Assert.False(
@@ -827,7 +828,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         var generator = new CppGenerator(options);
 
         // Act
-        generator.Generate(factory, new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: TypeLinkClass page must exist — its header was selected
         Assert.True(
@@ -1359,5 +1360,93 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
 
         // Assert: the two pages must be distinct writer instances so they contain different content
         Assert.NotSame(outerSizeTypeWriter, otherSizeTypeWriter);
+    }
+
+    /// <summary>
+    ///     Validates that single-file output writes all API surface into a single <c>api</c>
+    ///     writer with H1 library name, H2 namespace, H3 class, and H4 member headings,
+    ///     no group headings (Constructors/Methods), and a compact bullet-list paragraph
+    ///     summarizing each class's members.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown()
+    {
+        // Arrange: run a fresh generator with SingleFile format — the shared fixture uses
+        // GradualDisclosure and cannot be reused for this test
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(
+            factory,
+            new EmitConfig { Format = OutputFormat.SingleFile },
+            new InMemoryContext());
+
+        // Assert: exactly one writer, keyed "api"
+        Assert.Single(factory.Writers);
+        Assert.True(factory.Writers.ContainsKey("api"), "Expected a single api writer for single-file output");
+
+        var writer = factory.Writers["api"];
+        var headings = writer.Operations.OfType<HeadingOperation>().ToList();
+
+        // Assert: H1 is the library-level title containing the library name
+        Assert.Contains(
+            headings,
+            h => h.Level == 1 && h.Text.Contains("Fixtures", StringComparison.Ordinal));
+
+        // Assert: H2 is the namespace heading
+        Assert.Contains(
+            headings,
+            h => h.Level == 2 && h.Text.Contains("fixtures", StringComparison.Ordinal));
+
+        // Assert: H3 is a class heading — SampleClass is always present in the fixture headers
+        Assert.Contains(headings, h => h.Level == 3 && h.Text == "SampleClass");
+
+        // Assert: H4 is a member heading — methods contain parentheses
+        Assert.Contains(
+            headings,
+            h => h.Level == 4 && h.Text.Contains("(", StringComparison.Ordinal));
+
+        // Assert: no group headings — single-file format emits members directly without section labels
+        Assert.DoesNotContain(headings, h => h.Text == "Constructors");
+        Assert.DoesNotContain(headings, h => h.Text == "Methods");
+
+        // Assert: at least one compact bullet-list paragraph summarizing members is emitted
+        var paragraphs = writer.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Contains("- **", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a method with a Doxygen <c>@code</c>/<c>@endcode</c> example block
+    ///     produces a fenced <c>cpp</c> code block on its gradual-disclosure member page.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_MethodWithCodeExample_EmitsCodeBlockOnMemberPage()
+    {
+        // Act: locate the member page for ExampleDocClass::GetGreeting
+        var memberPage = _fixture.PublicFactory.Writers["fixtures/ExampleDocClass/GetGreeting"];
+
+        // Assert: a fenced cpp code block was written
+        var codeBlocks = memberPage.Operations.OfType<CodeBlockOperation>().ToList();
+        Assert.Contains(codeBlocks, cb =>
+            string.Equals(cb.Language, "cpp", StringComparison.Ordinal) &&
+            cb.Code.Contains("GetGreeting", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a method with a Doxygen <c>@code</c>/<c>@endcode</c> example block
+    ///     produces a fenced <c>cpp</c> code block in single-file output.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_SingleFile_MethodWithCodeExample_EmitsCodeBlock()
+    {
+        // Act: locate the single api.md writer and find the code blocks
+        var writer = _fixture.PublicSingleFileFactory.Writers["api"];
+
+        // Assert: a fenced cpp code block containing the example content was written
+        var codeBlocks = writer.Operations.OfType<CodeBlockOperation>().ToList();
+        Assert.Contains(codeBlocks, cb =>
+            string.Equals(cb.Language, "cpp", StringComparison.Ordinal) &&
+            cb.Code.Contains("GetGreeting", StringComparison.Ordinal));
     }
 }

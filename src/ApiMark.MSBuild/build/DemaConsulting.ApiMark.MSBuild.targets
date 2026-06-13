@@ -55,6 +55,7 @@
       ApiMarkOutputDir="$(ApiMarkOutputDir)"
       ApiMarkVisibility="$(ApiMarkVisibility)"
       ApiMarkIncludeObsolete="$(ApiMarkIncludeObsolete)"
+      ApiMarkFormat="$(ApiMarkFormat)"
       ApiMarkAssemblyPath="$(ApiMarkAssemblyPath)"
       ApiMarkXmlDocPath="$(ApiMarkXmlDocPath)"
       ApiMarkIncludePaths="$(ApiMarkIncludePaths)"
@@ -64,6 +65,7 @@
       ApiMarkDefines="$(ApiMarkDefines)"
       ApiMarkCppStandard="$(ApiMarkCppStandard)"
       ApiMarkClangPath="$(ApiMarkClangPath)"
+      ApiMarkOutputs="@(ApiMarkOutput)"
       ToolDllPath="$(_ApiMarkToolDllPath)" />
   </Target>
 

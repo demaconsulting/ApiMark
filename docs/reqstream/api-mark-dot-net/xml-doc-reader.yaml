@@ -1,0 +1,33 @@
+---
+# XmlDocReader unit requirements
+sections:
+  - title: ApiMarkDotNet Requirements
+    sections:
+      - title: XmlDocReader Requirements
+        requirements:
+          - id: ApiMarkDotNet-XmlDocReader-ParseAndIndexXmlDocumentation
+            title: XmlDocReader shall parse a .NET XML documentation file and provide O(1) per-member lookups for summary, remarks, parameters, returns, exceptions, and example content.
+            justification: |
+              Assembly documentation comes from compiler-produced XML files that can
+              contain thousands of member entries. Indexing on construction ensures
+              each documentation lookup during emit is O(1) rather than a linear scan,
+              keeping generation time proportional to the number of members documented
+              rather than the square of that count.
+            tests:
+              - XmlDocReader_Constructor_FileDoesNotExist_ThrowsFileNotFoundException
+              - XmlDocReader_GetSummary_MemberPresent_ReturnsTrimmedText
+              - XmlDocReader_GetSummary_WithInlineReferences_PreservesReferencedNames
+              - XmlDocReader_GetSummary_MemberAbsent_ReturnsNull
+              - XmlDocReader_GetRemarks_MemberPresent_ReturnsTrimmedText
+              - XmlDocReader_GetExceptions_MemberWithExceptions_ReturnsCrefValues
+              - XmlDocReader_GetParams_MemberWithParams_ReturnsNamesAndDescriptions
+              - XmlDocReader_GetReturns_MemberWithReturns_ReturnsTrimmedText
+              - XmlDocReader_GetExample_MemberWithExample_ReturnsTrimmedText
+              - XmlDocReader_GetExample_WhitespaceOnly_ReturnsNull
+              - XmlDocReader_GetExampleParts_NoCodeElement_ReturnsWholeTextAsCodePart
+              - XmlDocReader_GetExampleParts_WithCodeElement_SeparatesProseFromCode
+              - XmlDocReader_GetExampleParts_MemberAbsent_ReturnsEmpty
+              - XmlDocReader_GetExceptionDetails_MemberWithExceptions_ReturnsFormattedTypesAndDescriptions
+              - XmlDocReader_GetRemarks_MemberAbsent_ReturnsNull
+              - XmlDocReader_GetReturns_MemberAbsent_ReturnsNull
+              - XmlDocReader_GetExample_MemberAbsent_ReturnsNull

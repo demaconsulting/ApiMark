@@ -6,7 +6,7 @@ sections:
       - title: SelfTest Requirements
         requirements:
           - id: ApiMarkTool-SelfTest-RunSelfValidation
-            title: The SelfTest subsystem shall run in-process self-validation tests when --validate is specified and report pass/fail results through the Context.
+            title: The SelfTest subsystem shall run in-process self-validation tests when --validate is specified and report pass/fail results to its output (standard output and, when requested, a results file).
             justification: |
               Self-validation confirms that the deployed tool binary is functional without
               requiring external infrastructure or the full source tree, giving operators
@@ -15,6 +15,7 @@ sections:
               - ApiMarkTool-SelfTest-Validation-RunVersionDisplayTest
               - ApiMarkTool-SelfTest-Validation-RunHelpDisplayTest
               - ApiMarkTool-SelfTest-Validation-WriteResultsFileOnRequest
-              - ApiMarkTool-SelfTest-Validation-ReportFailuresViaWriteError
+              - ApiMarkTool-SelfTest-Validation-SetExitCodeOnFailure
+              - ApiMarkTool-SelfTest-Validation-RejectUnsupportedExtension
             tests:
               - Validation_Run_WithValidContext_ExitsZero

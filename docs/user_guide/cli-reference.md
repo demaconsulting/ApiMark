@@ -15,7 +15,7 @@ Usage: apimark [options] [language [language-options]]
 | `--silent` | Suppress console output |
 | `--validate` | Run self-validation tests |
 | `--results <file>` | Write validation results to file (`.trx` or `.xml`) |
-| `--depth <#>` | Set heading depth for validation output (default: `1`) |
+| `--depth <#>` | Set the top-level heading depth for generated Markdown output (default: `1`) |
 | `--log <file>` | Write all output to log file |
 
 ## Languages
@@ -31,6 +31,7 @@ apimark dotnet [options]
 | `--assembly <path>` | Path to the .NET assembly (required) |
 | `--xml-doc <path>` | Path to the XML documentation file |
 | `--output <dir>` | Output directory for Markdown files (required) |
+| `--format <value>` | Output format: `gradual` (file-per-type) or `single-file` (single `api.md`) (default: `gradual`) |
 | `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `Public`) |
 | `--include-obsolete` | Include obsolete members in generated output |
 
@@ -45,6 +46,7 @@ apimark cpp [options]
 | `--includes <path>` | Include directory for clang `-I` (repeatable, required) |
 | `--api-headers <pattern>` | Glob pattern for documented headers; supports `!` exclusions (repeatable, ordered) |
 | `--output <dir>` | Output directory for Markdown files (required) |
+| `--format <value>` | Output format: `gradual` (file-per-type) or `single-file` (single `api.md`) (default: `gradual`) |
 | `--library-name <name>` | Library name used as the top-level heading (default: output directory name) |
 | `--library-description <d>` | Optional description for the library `api.md` introduction |
 | `--defines <values>` | Comma-separated preprocessor definitions (e.g. `MYLIB_API=,NDEBUG`) |
@@ -107,11 +109,15 @@ ApiMark locates the clang executable using the following priority order:
 | --- | --- | --- |
 | Windows x64 | ✅ | ✅ |
 | Linux x64 | ✅ | ✅ |
-| macOS (Apple Silicon) | ✅ | ✅ |
+| macOS | ✅ | ✅ |
 
 ## Output Structure
 
-ApiMark uses a four-tier gradual disclosure layout:
+ApiMark supports two output formats selectable via `--format`.
+
+### Gradual Disclosure (default: `--format gradual`)
+
+A four-tier hierarchy of Markdown files designed for incremental context loading:
 
 | File | Description |
 | --- | --- |
@@ -119,10 +125,25 @@ ApiMark uses a four-tier gradual disclosure layout:
 | `{namespace}.md` | Namespace summary — lists all types, enums, type aliases, and functions with one-line summaries |
 | `{namespace}/{type}.md` | Type page — members grouped by kind with signatures and doc comment details |
 | `{namespace}/{alias}.md` | Type alias page — `using` declaration, underlying type, and doc comment |
-| `{namespace}/{type}/{member}.md` | Member detail page — full signature, parameters, return value, remarks |
+| `{namespace}/{type}/{member}.md` | Member detail page — full signature, parameters, return value, remarks, example |
 | `{namespace}/{type}/{nested-type}.md` | Nested type page — same structure as a top-level type page |
 | `{namespace}/{type}/{alias}.md` | Class-scoped type alias page — alias declared inside a class body |
 
 An AI agent can read the root index first, drill into the relevant namespace
 summary, and then load a specific type or member page — consuming only as much
 context as the task requires.
+
+### Single File (`--format single-file`)
+
+All content is written to a single `api.md` file using a flat heading hierarchy:
+
+| Level | Content |
+| --- | --- |
+| H1 | Assembly or library name |
+| H2 | Namespace |
+| H3 | Type (with prototype code block and member bullet list) |
+| H4 | Individual member (signature, parameters, return value, example) |
+
+Single-file output is best suited for contexts where a complete, linear reference
+is preferred over a navigable multi-file tree, such as attaching documentation to
+a chat context window.

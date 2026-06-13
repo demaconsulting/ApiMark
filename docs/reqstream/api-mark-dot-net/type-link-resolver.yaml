@@ -1,0 +1,22 @@
+---
+# TypeLinkResolver unit requirements
+sections:
+  - title: ApiMarkDotNet Requirements
+    sections:
+      - title: TypeLinkResolver Requirements
+        requirements:
+          - id: ApiMarkDotNet-TypeLinkResolver-ResolveTypeReferencesToMarkdownLinks
+            title: TypeLinkResolver shall resolve Mono.Cecil type references to Markdown link text, emitting intra-assembly links or plain text for external and primitive types.
+            justification: |
+              Intra-document cross-references improve navigability for both AI agents
+              and human readers. TypeLinkResolver centralizes the logic for deciding
+              whether a type reference produces a clickable link (intra-assembly),
+              a plain alias (primitive or System type), or tracked plain text (external
+              non-System type), keeping emitter code free of resolution logic.
+            tests:
+              - TypeLinkResolver_Linkify_NullTypeRef_ReturnsEmptyString
+              - TypeLinkResolver_Linkify_Int32_ReturnsCSharpAlias
+              - TypeLinkResolver_Linkify_StringType_ReturnsCSharpAlias
+              - TypeLinkResolver_Linkify_GenerateLinksTrue_IntraAssemblyType_ReturnsMarkdownLink
+              - TypeLinkResolver_Linkify_GenerateLinksFalse_IntraAssemblyType_ReturnsPlainText
+              - TypeLinkResolver_Linkify_NullableGenericParameter_AppendsQuestionMark

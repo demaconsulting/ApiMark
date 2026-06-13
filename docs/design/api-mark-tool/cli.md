@@ -26,7 +26,7 @@ can be tested independently.
 - `Context` (IDisposable) — exposes parsed flags and options as typed
   properties (`Version`, `Help`, `Silent`, `Validate`, `Language`,
   `Assembly`, `XmlDoc`, `Includes`, `ApiHeaders`, `Output`, `Visibility`,
-  `IncludeObsolete`, `ResultsFile`, `HeadingDepth`, `LibraryName`,
+  `IncludeObsolete`, `ResultsFile`, `HeadingDepth`, `Format`, `LibraryName`,
   `LibraryDescription`, `Defines`, `CppStandard`, `ClangPath`, `ExitCode`)
   and provides `WriteLine` and `WriteError` for all program output routing.
 
@@ -40,8 +40,8 @@ The Cli subsystem contains one unit: `Context` (see Context Unit Design).
 
 `Context` implements parsing through a private `ArgumentParser` inner class
 that performs a single left-to-right pass over the argument array. Standard
-flags (`-v`, `--version`, `--help`, `--silent`, `--validate`, `--log`,
-`--results`, `--depth`) are recognized anywhere in the argument list. The
+flags (`-v`, `--version`, `-?`/`-h`/`--help`, `--silent`, `--validate`, `--log`,
+`--results`/`--result`, `--depth`, `--format`) are recognized anywhere in the argument list. The
 first positional non-flag token (a token that does not start with `-`) is
 captured as the language subcommand. Language-specific options (`--assembly`,
 `--xml-doc`, `--includes`, `--api-headers`, `--output`, `--visibility`,

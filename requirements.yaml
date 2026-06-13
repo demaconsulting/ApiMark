@@ -3,6 +3,8 @@
 includes:
   - docs/reqstream/api-mark-core.yaml
   - docs/reqstream/api-mark-core/i-api-generator.yaml
+  - docs/reqstream/api-mark-core/i-api-emitter.yaml
+  - docs/reqstream/api-mark-core/emit-config.yaml
   - docs/reqstream/api-mark-core/i-context.yaml
   - docs/reqstream/api-mark-core/i-markdown-writer-factory.yaml
   - docs/reqstream/api-mark-core/i-markdown-writer.yaml
@@ -10,6 +12,12 @@ includes:
   - docs/reqstream/api-mark-dot-net.yaml
   - docs/reqstream/api-mark-dot-net/dot-net-generator.yaml
   - docs/reqstream/api-mark-dot-net/type-name-simplifier.yaml
+  - docs/reqstream/api-mark-dot-net/dot-net-ast-model.yaml
+  - docs/reqstream/api-mark-dot-net/dot-net-emitter.yaml
+  - docs/reqstream/api-mark-dot-net/dot-net-emitter-gradual-disclosure.yaml
+  - docs/reqstream/api-mark-dot-net/dot-net-emitter-single-file.yaml
+  - docs/reqstream/api-mark-dot-net/type-link-resolver.yaml
+  - docs/reqstream/api-mark-dot-net/xml-doc-reader.yaml
   - docs/reqstream/api-mark-msbuild.yaml
   - docs/reqstream/api-mark-msbuild/api-mark-task.yaml
   - docs/reqstream/api-mark-tool.yaml
@@ -21,4 +29,12 @@ includes:
   - docs/reqstream/ots/mono-cecil.yaml
   - docs/reqstream/api-mark-cpp.yaml
   - docs/reqstream/api-mark-cpp/cpp-generator.yaml
+  - docs/reqstream/api-mark-cpp/cpp-ast-model.yaml
+  - docs/reqstream/api-mark-cpp/clang-ast-parser.yaml
+  - docs/reqstream/api-mark-cpp/cpp-emitter.yaml
+  - docs/reqstream/api-mark-cpp/cpp-emitter-gradual-disclosure.yaml
+  - docs/reqstream/api-mark-cpp/cpp-emitter-single-file.yaml
+  - docs/reqstream/api-mark-cpp/cpp-type-link-resolver.yaml
   - docs/reqstream/ots/clang.yaml
+  - docs/reqstream/ots/cpp-ast-net.yaml
+  - docs/reqstream/ots/dema-consulting-test-results.yaml

@@ -210,6 +210,8 @@ public sealed class PathHelpersTests
         // Arrange: create a null relative path segment
         var basePath = Path.Join("home", "user", "project");
         string? relativePath = null;
+
+        // Act / Assert: null segment is rejected before path combination
         Assert.Throws<ArgumentNullException>(() =>
             PathHelpers.SafePathCombine(basePath, relativePath!));
     }

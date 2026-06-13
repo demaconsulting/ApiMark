@@ -1,0 +1,33 @@
+---
+# CppTypeLinkResolver unit requirements
+sections:
+  - title: ApiMarkCpp Requirements
+    sections:
+      - title: CppTypeLinkResolver Requirements
+        requirements:
+          - id: ApiMarkCpp-CppTypeLinkResolver
+            title: >-
+              CppTypeLinkResolver shall resolve C++ type strings to Markdown link text
+              for table cells in the generated API documentation.
+            justification: |
+              Clickable Markdown links in type and parameter cells allow AI agents and
+              human readers to navigate directly to the referenced type page rather than
+              requiring a separate search. Correct handling of ambiguous short names
+              and unresolvable external types prevents broken links and incorrect navigation.
+            children:
+              - ApiMarkCpp-CppTypeLinkResolver-Linkify
+          - id: ApiMarkCpp-CppTypeLinkResolver-Linkify
+            title: >-
+              CppTypeLinkResolver.Linkify shall emit a Markdown link for intra-library
+              types (exact or unambiguous short-name match) and plain text for
+              primitives, std:: types, and ambiguous references.
+            justification: |
+              Exact qualified-name matching is the primary resolution path and must
+              always produce a link. The short-name fallback allows callers to use
+              unqualified names when only one type has that name. Ambiguous short names
+              must not produce links because the target would be non-deterministic.
+            tests:
+              - CppTypeLinkResolver_Linkify_ExactQualifiedMatch_EmitsLink
+              - CppTypeLinkResolver_Linkify_UnambiguousShortName_EmitsLink
+              - CppTypeLinkResolver_Linkify_AmbiguousShortName_EmitsPlainText
+              - CppTypeLinkResolver_Linkify_QualifiedReferenceToAmbiguousType_EmitsCorrectLink

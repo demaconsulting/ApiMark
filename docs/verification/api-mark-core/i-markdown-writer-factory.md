@@ -8,6 +8,11 @@ incomplete the test double fails to compile, providing immediate compile-time
 feedback. Runtime contract tests confirm that CreateMarkdown returns a usable
 IMarkdownWriter for each call.
 
+`FileMarkdownWriterFactory` is verified by concrete implementation tests in
+`FileMarkdownWriterFactoryTests` that exercise disk I/O, on-demand directory
+creation, constructor validation, and path safety. These tests use a unique
+temporary directory per test run to avoid inter-test interference.
+
 ### Test Environment
 
 N/A — standard test environment using the .NET test runner is sufficient.
@@ -20,7 +25,11 @@ in `ApiMark.Core.TestHelpers`.
 - The interface exposes `CreateMarkdown(string subFolder, string name)` returning
   an `IMarkdownWriter`.
 - An in-memory test double that implements `IMarkdownWriterFactory` compiles
-  without errors and can be instantiated and injected into `IApiGenerator.Generate`.
+  without errors and can be instantiated and injected into `IApiEmitter.Emit`.
+- `FileMarkdownWriterFactory` creates actual files and directories on disk when
+  `CreateMarkdown` is called, including creating a non-existent output root on demand.
+- `FileMarkdownWriterFactory` rejects null or whitespace constructor arguments and
+  null file name arguments with `ArgumentException`.
 
 ### Test Scenarios
 

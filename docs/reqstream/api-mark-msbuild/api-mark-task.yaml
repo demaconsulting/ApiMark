@@ -123,7 +123,7 @@ sections:
               this metadata automatically means C++ projects require no manual ApiMark
               configuration beyond the package reference.
             tests:
-              - ApiMarkMsbuild_NuGetPackage_CppVcxprojProject_AutoDocumentsOnBuild
+              - windows@ApiMarkMsbuild_NuGetPackage_CppVcxprojProject_AutoDocumentsOnBuild
           - id: ApiMarkMsbuild-ApiMarkTask-SkipWhenDotNetXmlDocPathNotSet
             title: >-
               ApiMarkTask shall return success immediately without spawning the tool when the
@@ -146,3 +146,24 @@ sections:
               preserves order and lets CppGenerator apply last-match-wins semantics correctly.
             tests:
               - ApiMarkTask_Cpp_ApiHeaders_ForwardedAsIndividualFlags
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardFormatProperty
+            title: ApiMarkTask shall forward the ApiMarkFormat property to the tool as the --format argument.
+            justification: |
+              Build authors need to choose between gradual-disclosure output and single-file output
+              without changing the command line in every project file.
+            tests:
+              - ApiMarkTask_Format_ForwardedToToolAsFormatArgument
+              - ApiMarkTask_Format_NotForwarded_WhenNotSet
+          - id: ApiMarkMsbuild-ApiMarkTask-SupportOutputsItemGroup
+            title: >-
+              ApiMarkTask shall generate documentation for each ApiMarkOutputs item using that
+              item's per-output metadata (OutputDir, Format, Visibility) to control where and how
+              each output is written.
+            justification: |
+              Projects that need multiple output formats or visibility levels from a single build
+              must be able to declare named outputs via the ApiMarkOutputs ItemGroup, each carrying
+              its own OutputDir, Format, and Visibility metadata, so that the task produces
+              distinct documentation artifacts without requiring separate build invocations.
+            tests:
+              - ApiMarkTask_BuildArgumentsForOutput_OverridesScalarPropertiesFromMetadata
+              - ApiMarkTask_BuildArgumentsForOutput_RestoresScalarPropertiesAfterCall

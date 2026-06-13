@@ -25,12 +25,15 @@ sections:
             title: DotNetGenerator shall read XML documentation comments from the configured XML documentation file and include that content in generated markdown.
             justification: |
               Developer-authored summaries, remarks, parameter descriptions, returns,
-              exceptions, and examples belong in the published API reference and are
-              available from the XML documentation file produced by the C# compiler.
+              exceptions, examples, and example code blocks belong in the published API
+              reference and are available from the XML documentation file produced by
+              the C# compiler. The <example> element may contain a mix of prose and
+              <code> blocks; both are rendered in the output.
             tests:
               - DotNetGenerator_ReadXmlComments_SummaryAndRemarks_AppearInMarkdown
               - DotNetGenerator_Generate_ConstructorWithXmlSummary_WritesSummaryToMemberPage
               - DotNetGenerator_Generate_ConstructorWithXmlParams_WritesParamDescriptionsToMemberPage
+              - DotNetGenerator_Generate_MethodWithExample_EmitsCodeBlockOnMemberPage
           - id: ApiMarkDotNet-DotNetGenerator-FilterByVisibility
             title: DotNetGenerator shall support ApiVisibility filtering for Public, PublicAndProtected, and All.
             justification: |
@@ -63,7 +66,7 @@ sections:
               names differ only in case (e.g. a field 'name' and a property 'Name') would
               produce colliding filenames. To avoid data loss and maintain predictable link
               targets, such members are combined onto a single page named after the
-              lower-invariant of the shared key, with each member distinguished by an H4
+              lower-invariant of the shared key, with each member distinguished by an H2
               heading showing its exact name and kind label.
             tests:
               - DotNetGenerator_Generate_CaseCollisionClass_CreatesCombinedPage
@@ -120,21 +123,12 @@ sections:
               - DotNetGenerator_Generate_ExternalNonSystemParameterType_EmitsExternalTypesSection
           - id: ApiMarkDotNet-DotNetGenerator-DocumentOperatorOverloads
             title: >-
-              DotNetGenerator shall document visible operator overload methods on a single
-              dedicated operators.md page per type, using C# operator symbols as headings
-              and resolving conversion operator XML doc keys with their ~ReturnType suffix.
+              DotNetGenerator shall emit operator overload methods for a type on its dedicated operators.md page, using C# operator symbols as headings and including conversion operator documentation with summary and parameters.
             justification: |
               C# types frequently expose arithmetic, comparison, and conversion operators
-              as part of their public API. Operators cannot be given individual pages using
-              their IL names (op_Addition, op_Subtraction, etc.) without ambiguity on
-              case-insensitive file systems, and their IL names are not readable to consumers.
-              Grouping all operators for a type onto a single operators.md page with C#
-              symbol headings (operator +, operator -) makes the operator API surface
-              discoverable and navigable without file-name collisions.
-              Conversion operators (op_Implicit, op_Explicit) carry a ~ReturnType suffix in
-              their XML doc member ID (e.g. M:Type.op_Implicit(SourceType)~TargetType); the
-              generator must append this suffix when resolving XML documentation for them so
-              their summaries and parameter descriptions are not silently dropped.
+              as part of their public API. Grouping all operators for a type onto a single
+              operators.md page with C# symbol headings (operator +, operator -) makes the
+              operator API surface discoverable and navigable without file-name collisions.
             tests:
               - DotNetGenerator_Generate_TypeWithOperators_CreatesOperatorsPage
               - DotNetGenerator_Generate_TypeWithOperators_TypePageHasOperatorsSection
@@ -157,3 +151,11 @@ sections:
               - DotNetGenerator_Generate_NestedClass_CreatesNestedClassPage
               - DotNetGenerator_Generate_NestedClass_ListedOnOuterClassPage
               - DotNetGenerator_Generate_NestedClass_PageContainsSummary
+          - id: ApiMarkDotNet-DotNetGenerator-EmitSingleFileOutput
+            title: DotNetGenerator shall emit a single api.md file when OutputFormat.SingleFile is selected.
+            justification: |
+              Single-file output is required for consumers who want a compact, linear reference
+              instead of the gradual-disclosure folder tree.
+            tests:
+              - DotNetGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown
+              - DotNetGenerator_SingleFile_MethodWithExample_EmitsCodeBlock

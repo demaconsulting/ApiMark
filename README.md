@@ -24,6 +24,8 @@ type page — consuming only as much context as the task requires.
 
 - 📄 **Compact Markdown Output** - AI-friendly API reference from source code
 - 🔍 **Gradual Disclosure** - Index → namespace → type → member detail
+- 🗂️ **Multiple Output Formats** - Gradual-disclosure (file-per-type) or single `api.md` via `--format`
+- 💡 **Example Code Blocks** - `<example><code>` (C#) and `@code`/`@endcode` (Doxygen) blocks rendered in output
 - 🔷 **C#/.NET Support** - Mono.Cecil + XML documentation comments
 - ➕ **C++ Support** - `clang -ast-dump=json` + Doxygen-style comments
 - 🔧 **MSBuild Integration** - Auto-documents `.csproj` and `.vcxproj` builds
@@ -101,8 +103,14 @@ for full control over what gets passed to clang.
 # Generate API documentation from a .NET assembly
 apimark dotnet --assembly MyProject.dll --xml-doc MyProject.xml --output docs/api
 
+# Generate a single-file API reference
+apimark dotnet --assembly MyProject.dll --xml-doc MyProject.xml --output docs/api --format single-file
+
 # Generate API documentation from C++ public headers (document all headers under include/)
 apimark cpp --includes include/ --output docs/api
+
+# Generate a single-file C++ API reference
+apimark cpp --includes include/ --output docs/api --format single-file
 
 # Document only specific headers using --api-headers patterns (gitignore-style, ordered)
 apimark cpp \

@@ -62,16 +62,29 @@ internal sealed class TypeLinkResolver
     private readonly IReadOnlyList<string> _rootNamespaces;
 
     /// <summary>
+    ///     When <see langword="false"/>, intra-assembly type references are rendered as plain
+    ///     text instead of Markdown links. Used by the single-file emitter where relative file
+    ///     links are meaningless and same-name anchors across types would collide.
+    /// </summary>
+    private readonly bool _generateLinks;
+
+    /// <summary>
     ///     Initializes a new instance of <see cref="TypeLinkResolver"/> with the assembly root namespaces.
     /// </summary>
     /// <param name="rootNamespaces">
     ///     The root namespaces identified in the assembly being documented. These are forwarded to
-    ///     <see cref="DotNetGenerator.GetNamespaceFolderPath"/> to derive the documentation path for
+    ///     <see cref="DotNetEmitter.GetNamespaceFolderPath"/> to derive the documentation path for
     ///     each referenced type.
     /// </param>
-    public TypeLinkResolver(IReadOnlyList<string> rootNamespaces)
+    /// <param name="generateLinks">
+    ///     When <see langword="true"/> (default), intra-assembly types are rendered as relative
+    ///     Markdown links. When <see langword="false"/>, all types are rendered as plain text —
+    ///     used in single-file output where file-relative links are invalid.
+    /// </param>
+    public TypeLinkResolver(IReadOnlyList<string> rootNamespaces, bool generateLinks = true)
     {
         _rootNamespaces = rootNamespaces;
+        _generateLinks = generateLinks;
     }
 
     /// <summary>
@@ -118,10 +131,11 @@ internal sealed class TypeLinkResolver
             return string.Empty;
         }
 
-        // Generic type parameters (e.g. T, TKey) are not real types — render as plain text
+        // Generic type parameters (e.g. T, TKey) are not real types — render as plain text,
+        // appending "?" when the annotation indicates the parameter itself is nullable
         if (typeRef is GenericParameter genericParam)
         {
-            return genericParam.Name;
+            return isNullableAnnotated ? genericParam.Name + "?" : genericParam.Name;
         }
 
         // Handle Nullable<T> → T? by recursing on the inner type with the nullable flag set
@@ -191,10 +205,15 @@ internal sealed class TypeLinkResolver
 
         if (IsIntraAssembly(genericType))
         {
-            var pageKey = GetTypePageKey(genericType);
-            var relativePath = ComputeRelativePath(currentFolder, pageKey);
-            var containerLink = $"[{containerName}]({relativePath})";
-            return $"{containerLink}\\<{argsText}\\>{suffix}";
+            if (_generateLinks)
+            {
+                var pageKey = GetTypePageKey(genericType);
+                var relativePath = ComputeRelativePath(currentFolder, pageKey);
+                var containerLink = $"[{containerName}]({relativePath})";
+                return $"{containerLink}\\<{argsText}\\>{suffix}";
+            }
+
+            return $"{containerName}\\<{argsText}\\>{suffix}";
         }
 
         TrackExternalType(genericType, externalTypes);
@@ -211,6 +230,11 @@ internal sealed class TypeLinkResolver
     private string LinkifyIntraAssemblyType(TypeReference typeRef, string currentFolder, bool isNullableAnnotated)
     {
         var simpleName = TypeNameSimplifier.StripArity(typeRef.Name);
+        if (!_generateLinks)
+        {
+            return isNullableAnnotated ? simpleName + "?" : simpleName;
+        }
+
         var pageKey = GetTypePageKey(typeRef);
         var relativePath = ComputeRelativePath(currentFolder, pageKey);
         return isNullableAnnotated
@@ -237,7 +261,7 @@ internal sealed class TypeLinkResolver
     /// <returns>A forward-slash-separated page key such as <c>MyLib/MyType</c>.</returns>
     private string GetTypePageKey(TypeReference typeRef)
     {
-        var folder = DotNetGenerator.GetNamespaceFolderPath(typeRef.Namespace, _rootNamespaces);
+        var folder = DotNetEmitter.GetNamespaceFolderPath(typeRef.Namespace, _rootNamespaces);
         var name = TypeNameSimplifier.FlattenArity(typeRef.Name);
         return folder.Length > 0 ? $"{folder}/{name}" : name;
     }

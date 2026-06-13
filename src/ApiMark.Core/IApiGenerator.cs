@@ -4,31 +4,34 @@ namespace ApiMark.Core;
 ///     Contract every language-specific generator must implement.
 /// </summary>
 /// <remarks>
-///     Decouples callers (ApiMarkTask and Program) from any concrete language module.
-///     A caller constructs a generator with language-specific options, then calls Generate —
-///     the caller never needs to know which language it is processing.
+///     <para>
+///         Decouples callers (ApiMarkTask and Program) from any concrete language module.
+///         A caller constructs a generator with language-specific options, then calls
+///         <see cref="Parse"/> to obtain an <see cref="IApiEmitter"/>, which is then
+///         invoked with an <see cref="EmitConfig"/> to produce the Markdown output.
+///     </para>
+///     <para>
+///         The two-stage design separates I/O-heavy parsing (reading assemblies or C++
+///         headers) from format-specific writing so that the parsed symbol data can be
+///         emitted in different output formats without re-parsing.
+///     </para>
 /// </remarks>
 public interface IApiGenerator
 {
     /// <summary>
-    ///     Generates the full Markdown documentation tree for a configured software component.
+    ///     Parses the configured software component and returns an emitter ready to
+    ///     produce Markdown documentation in the requested format.
     /// </summary>
-    /// <param name="factory">
-    ///     Factory used to create per-file Markdown writers for each output file.
-    ///     Must not be null. The factory is responsible for creating output directories.
-    ///     The generator MUST call factory.CreateMarkdown("", "api") to produce the
-    ///     fixed top-level entrypoint file "api.md".
-    /// </param>
     /// <param name="context">
-    ///     Output channel used to emit informational and error messages during generation.
+    ///     Output channel used to emit informational and error messages during parsing.
     ///     Must not be null. Implementations use <see cref="IContext.WriteLine"/> for
     ///     informational output and <see cref="IContext.WriteError"/> for error or
     ///     warning messages.
     /// </param>
-    /// <remarks>
-    ///     The output MUST include a file named "api.md" at the root (created via
-    ///     factory.CreateMarkdown("", "api")) as the fixed entrypoint. Additional
-    ///     files are language-module-specific.
-    /// </remarks>
-    void Generate(IMarkdownWriterFactory factory, IContext context);
+    /// <returns>
+    ///     An <see cref="IApiEmitter"/> holding all data required to emit documentation
+    ///     in any supported <see cref="OutputFormat"/>. The caller must subsequently
+    ///     invoke <see cref="IApiEmitter.Emit"/> to write output.
+    /// </returns>
+    IApiEmitter Parse(IContext context);
 }

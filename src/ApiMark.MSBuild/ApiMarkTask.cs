@@ -164,6 +164,28 @@ public sealed class ApiMarkTask : Task
     public string? ApiMarkApiHeaders { get; set; }
 
     /// <summary>
+    ///     Gets or sets the output format forwarded to the tool.
+    /// </summary>
+    /// <remarks>
+    ///     Accepted values: <c>gradual</c>, <c>single-file</c>. Maps to <c>$(ApiMarkFormat)</c>.
+    ///     When not set, the tool applies its own default (<c>gradual</c>).
+    ///     Optional — omit the <c>--format</c> flag when this property is empty.
+    /// </remarks>
+    public string? ApiMarkFormat { get; set; }
+
+    /// <summary>
+    ///     Gets or sets an optional list of named output configurations for multi-format generation.
+    /// </summary>
+    /// <remarks>
+    ///     Maps to the <c>ApiMarkOutput</c> item group. Each item may carry <c>OutputDir</c>,
+    ///     <c>Format</c>, and <c>Visibility</c> metadata. When this collection is non-empty,
+    ///     the task spawns one child process per item instead of the single-invocation path.
+    ///     When empty or absent, the task uses the scalar <see cref="ApiMarkOutputDir"/>,
+    ///     <see cref="ApiMarkVisibility"/>, and <see cref="ApiMarkFormat"/> properties.
+    /// </remarks>
+    public Microsoft.Build.Framework.ITaskItem[]? ApiMarkOutputs { get; set; }
+
+    /// <summary>
     ///     Gets or sets the full path to <c>ApiMark.Tool.dll</c> bundled inside the NuGet package.
     /// </summary>
     /// <remarks>
@@ -357,6 +379,58 @@ public sealed class ApiMarkTask : Task
         {
             args.Add("--include-obsolete");
         }
+
+        // Optional: output format
+        if (!string.IsNullOrEmpty(ApiMarkFormat))
+        {
+            args.Add("--format");
+            args.Add(ApiMarkFormat!);
+        }
+    }
+
+    /// <summary>
+    ///     Builds the argument list for a named output item from the <c>ApiMarkOutput</c> item group,
+    ///     overriding scalar output, visibility, and format values with item metadata.
+    /// </summary>
+    /// <param name="language">Resolved language string (<c>"dotnet"</c> or <c>"cpp"</c>).</param>
+    /// <param name="outputItem">The MSBuild item providing per-output metadata.</param>
+    /// <returns>An ordered list of arguments for the child process invocation.</returns>
+    internal IReadOnlyList<string> BuildArgumentsForOutput(string language, Microsoft.Build.Framework.ITaskItem outputItem)
+    {
+        // Override scalar properties for this invocation
+        var savedOutputDir = ApiMarkOutputDir;
+        var savedVisibility = ApiMarkVisibility;
+        var savedFormat = ApiMarkFormat;
+
+        try
+        {
+            var itemOutputDir = outputItem.GetMetadata("OutputDir");
+            var itemVisibility = outputItem.GetMetadata("Visibility");
+            var itemFormat = outputItem.GetMetadata("Format");
+
+            if (!string.IsNullOrEmpty(itemOutputDir))
+            {
+                ApiMarkOutputDir = itemOutputDir;
+            }
+
+            if (!string.IsNullOrEmpty(itemVisibility))
+            {
+                ApiMarkVisibility = itemVisibility;
+            }
+
+            if (!string.IsNullOrEmpty(itemFormat))
+            {
+                ApiMarkFormat = itemFormat;
+            }
+
+            return BuildArguments(language);
+        }
+        finally
+        {
+            ApiMarkOutputDir = savedOutputDir;
+            ApiMarkVisibility = savedVisibility;
+            ApiMarkFormat = savedFormat;
+        }
     }
 
     /// <summary>
@@ -414,6 +488,35 @@ public sealed class ApiMarkTask : Task
             return false;
         }
 
+        // When ApiMarkOutputs is populated, spawn one child process per output item
+        if (ApiMarkOutputs != null && ApiMarkOutputs.Length > 0)
+        {
+            var allSucceeded = true;
+            foreach (var outputItem in ApiMarkOutputs)
+            {
+                var itemArgs = BuildArgumentsForOutput(language, outputItem);
+                if (!RunToolProcess(dotnetExe, itemArgs))
+                {
+                    allSucceeded = false;
+                }
+            }
+
+            return allSucceeded;
+        }
+
+        // Single-invocation path: use scalar properties as before
+        return RunToolProcess(dotnetExe, BuildArguments(language));
+    }
+
+    /// <summary>
+    ///     Spawns an ApiMark.Tool child process with the given argument list and pipes
+    ///     its output to the MSBuild build log.
+    /// </summary>
+    /// <param name="dotnetExe">Full path to the <c>dotnet</c> executable.</param>
+    /// <param name="toolArgs">Ordered argument list starting with the language subcommand.</param>
+    /// <returns><c>true</c> when the process exits with code zero; <c>false</c> otherwise.</returns>
+    private bool RunToolProcess(string dotnetExe, IReadOnlyList<string> toolArgs)
+    {
         // Configure the child process with redirected I/O so all output feeds the MSBuild log.
         // ArgumentList is used instead of Arguments so that the runtime applies correct
         // OS-level quoting regardless of whether the host is Windows, macOS, or Linux.
@@ -427,7 +530,7 @@ public sealed class ApiMarkTask : Task
 
         // First argument is the tool DLL path, followed by the language-specific arguments
         psi.ArgumentList.Add(ToolDllPath!);
-        foreach (var arg in BuildArguments(language))
+        foreach (var arg in toolArgs)
         {
             psi.ArgumentList.Add(arg);
         }

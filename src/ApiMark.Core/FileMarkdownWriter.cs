@@ -35,15 +35,22 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
     ///     Writes a Markdown heading at the specified depth.
     /// </summary>
     /// <param name="level">
-    ///     Heading depth 1–4 (# through ####). Out-of-range values produce a
-    ///     syntactically incorrect heading but do not throw.
+    ///     Heading level in the range 1–6. Values outside this range throw
+    ///     <see cref="ArgumentOutOfRangeException"/>: zero or negative are always
+    ///     invalid; values above 6 are not defined by CommonMark and will not render
+    ///     as headings in standard Markdown processors.
     /// </param>
     /// <param name="text">Heading text to display. Must not be null.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="level"/> is less than 1 or greater than 6.</exception>
     /// <exception cref="ObjectDisposedException">Thrown if this writer has been disposed.</exception>
     public void WriteHeading(int level, string text)
     {
         // Guard against use-after-dispose to honour the IDisposable contract
         ObjectDisposedException.ThrowIf(_disposed, this);
+
+        // Reject levels outside the 1–6 range defined by CommonMark ATX headings
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(level);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(level, 6);
 
         // Emit the ATX heading prefix followed by the text and a blank line to
         // separate the heading from the next block element
@@ -137,7 +144,9 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
         // Guard against use-after-dispose
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // The fenced code block format is identical to WriteSignature; delegate to avoid duplication
+        // Both WriteSignature and WriteCodeBlock produce identical fenced code block output;
+        // WriteCodeBlock delegates here to avoid duplication. The methods are distinct at the
+        // API level only; post-processors may differentiate them in future.
         WriteSignature(language, code);
     }
 

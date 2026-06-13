@@ -97,6 +97,37 @@ executable. Optional — when empty, clang is located using the priority order:
 `APIMARK_CLANG_PATH` environment variable → `clang` on PATH → `xcrun` (macOS)
 → vswhere / default LLVM path (Windows).
 
+**ApiMarkTask.ApiMarkFormat**: `string` — MSBuild property `$(ApiMarkFormat)`;
+controls the output format forwarded to the tool. Accepted values: `gradual`
+(multi-file gradual-disclosure tree) or `single-file` (single `api.md`
+document). Defaults to empty — the tool uses its own default of `gradual` when
+not set.
+
+**ApiMarkTask.ApiMarkOutputs**: `ITaskItem[]` — MSBuild item group
+`@(ApiMarkOutput)`; optional. When non-empty, the task spawns one child process
+per item. Each item's `OutputDir`, `Format`, and `Visibility` metadata override
+the corresponding scalar properties (`ApiMarkOutputDir`, `ApiMarkFormat`,
+`ApiMarkVisibility`) for that invocation. The scalar `ApiMarkOutputDir`,
+`ApiMarkFormat`, and `ApiMarkVisibility` remain fully backward-compatible; when
+`ApiMarkOutputs` is empty or absent, the task behaves exactly as before.
+
+Example item group usage:
+
+```xml
+<ItemGroup>
+  <ApiMarkOutput Include="InternalDocs">
+    <OutputDir>$(MSBuildProjectDirectory)\docs\api</OutputDir>
+    <Format>single-file</Format>
+    <Visibility>All</Visibility>
+  </ApiMarkOutput>
+  <ApiMarkOutput Include="PublicDocs">
+    <OutputDir>$(MSBuildProjectDirectory)\api</OutputDir>
+    <Format>gradual</Format>
+    <Visibility>Public</Visibility>
+  </ApiMarkOutput>
+</ItemGroup>
+```
+
 **ApiMarkTask.ToolDllPath**: `string` — set by the `.targets` file to the path of
 the bundled `ApiMark.Tool.dll` inside the NuGet package `tools/net8.0/` directory.
 Not intended to be overridden by project authors.
@@ -122,17 +153,19 @@ language from `ApiMarkLanguage` or project extension inference; if language is
 language is `cpp` and `ApiMarkIncludePaths` is not set, return true (skip
 generation with an informational log message); resolve the `dotnet` executable
 path (check `DOTNET_HOST_PATH` environment variable first, then search `PATH`);
-build the argument list from MSBuild properties according to language-specific
+if `ApiMarkOutputs` is non-empty, spawn one child process per item using metadata
+overrides for `OutputDir`, `Format`, and `Visibility`; otherwise build the
+argument list from scalar MSBuild properties according to language-specific
 mapping (for `cpp`, split `ApiMarkIncludePaths` on `;` and emit one `--includes`
 flag per entry; split `ApiMarkApiHeaders` on `;` and emit one `--api-headers`
 flag per entry, order-preserved including `!` exclusion patterns; if `ApiMarkLibraryName`
 is set, append `--library-name`; if `ApiMarkLibraryDescription` is set, append
 `--library-description`; if `ApiMarkDefines` is set, convert semicolons to commas
 and append `--defines`; if `ApiMarkCppStandard` is set, append `--cpp-standard`;
-if `ApiMarkClangPath` is set, append `--clang-path`); start the child
-process and pipe stdout lines as MSBuild messages and stderr lines as MSBuild
-errors; wait for exit; return true if exit code is zero, otherwise log an error
-with the exit code and return false.
+if `ApiMarkClangPath` is set, append `--clang-path`; if `ApiMarkFormat` is set,
+append `--format`); start the child process and pipe stdout lines as MSBuild
+messages and stderr lines as MSBuild errors; wait for exit; return true if exit
+code is zero, otherwise log an error with the exit code and return false.
 
 ### Error Handling
 

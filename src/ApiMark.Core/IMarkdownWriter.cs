@@ -38,8 +38,9 @@ public interface IMarkdownWriter : IDisposable
     ///     is passed through as-is inside the fence.
     /// </param>
     /// <remarks>
-    ///     Distinct from <see cref="WriteCodeBlock"/> to allow rendering engines
-    ///     or post-processors to distinguish signatures from usage examples.
+    ///     Distinct from <see cref="WriteCodeBlock"/> at the API level only. The current
+    ///     file-based implementation renders both identically as a fenced code block.
+    ///     The separation is retained for potential future differentiation by post-processors.
     /// </remarks>
     void WriteSignature(string language, string code);
 
@@ -77,8 +78,9 @@ public interface IMarkdownWriter : IDisposable
     ///     as-is inside the fence.
     /// </param>
     /// <remarks>
-    ///     Distinct from <see cref="WriteSignature"/> to allow rendering engines
-    ///     or post-processors to distinguish usage examples from API signatures.
+    ///     Distinct from <see cref="WriteSignature"/> at the API level only. The current
+    ///     file-based implementation renders both identically as a fenced code block.
+    ///     The separation is retained for potential future differentiation by post-processors.
     /// </remarks>
     void WriteCodeBlock(string language, string code);
 

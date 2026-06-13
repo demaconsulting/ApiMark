@@ -8,10 +8,29 @@
 DotNetGenerator implements IApiGenerator for C#/.NET assemblies. It reads a
 compiled .dll assembly via Mono.Cecil and pairs its type and member metadata with
 documentation from the associated XML documentation file. It applies visibility
-filtering, uses TypeNameSimplifier to produce idiomatic C# type names, and writes
-the complete gradual-disclosure Markdown tree through IMarkdownWriterFactory. Every
-visible member always receives its own dedicated detail page, making all navigation
-paths fully deterministic.
+filtering, uses TypeNameSimplifier to produce idiomatic C# type names, and —
+depending on `EmitConfig.Format` — either writes a gradual-disclosure Markdown
+tree (one file per concept) or a single-file Markdown document through
+`IMarkdownWriterFactory`. Every visible member always receives its own dedicated
+detail page in gradual-disclosure mode, making all navigation paths fully
+deterministic.
+
+The implementation is split across seven files in the `ApiMark.DotNet` package:
+
+- **DotNetGenerator.cs** — thin `IApiGenerator` that parses the assembly and
+  returns a `DotNetEmitter`.
+- **DotNetAstModel.cs** — `DotNetAstModel` data class holding all parsed
+  namespace and type data, plus the context records used during page generation.
+  See DotNetAstModel Design for full details.
+- **DotNetEmitter.cs** — `IApiEmitter` dispatcher and shared helper methods
+  (signature builders, visibility filters, XML-doc extractors).
+- **DotNetEmitterGradualDisclosure.cs** — all gradual-disclosure page writers
+  (namespace, type, member, operator, and external-types pages).
+- **DotNetEmitterSingleFile.cs** — all single-file page writers.
+- **TypeLinkResolver.cs** — resolves Mono.Cecil type references to Markdown link
+  text for use in table cells. See TypeLinkResolver Design for full details.
+- **XmlDocReader.cs** — reads and indexes the XML documentation file for O(1)
+  per-member lookups. See XmlDocReader Design for full details.
 
 ### Data Model
 
@@ -41,52 +60,58 @@ reference collected during table cell generation.
 - *Ordering*: implements `IComparable<ExternalTypeInfo>` by `SimplifiedName` so
   `SortedSet<ExternalTypeInfo>` produces alphabetically ordered tables.
 
+**DotNetAstModel** (internal sealed class): Holds all pre-parsed assembly data
+bridging the parse and emit phases. See DotNetAstModel Design for the full
+list of properties and context records.
+
 ### Key Methods
 
 **DotNetGenerator constructor**: Accepts and stores a DotNetGeneratorOptions
-instance for use during Generate.
+instance for use during Parse.
 
 - *Parameters*: `DotNetGeneratorOptions options` — fully populated options object.
 - *Preconditions*: `options` must not be null; `AssemblyPath` and `XmlDocPath` must
   be non-empty strings.
-- *Postconditions*: The generator instance is ready to call Generate.
+- *Postconditions*: The generator instance is ready to call Parse.
 
-**DotNetGenerator.Generate**: Reads the assembly and XML documentation file, then
-writes the full Markdown output tree.
+**DotNetGenerator.Parse**: Reads the assembly and XML documentation file into
+memory and returns a `DotNetEmitter` ready to emit.
+
+- *Parameters*: `IContext context` — output channel for diagnostic and progress
+  messages emitted during parsing.
+- *Returns*: `IApiEmitter` — a `DotNetEmitter` holding all parsed namespace, type,
+  and member data.
+- *Preconditions*: `AssemblyPath` and `XmlDocPath` must exist on disk; `context`
+  must not be null.
+- *Postconditions*: The returned emitter holds the parsed `AssemblyDefinition`,
+  namespace index, and XML documentation reader. No output files have been written.
+
+**DotNetEmitter.Emit** (implements `IApiEmitter`): Writes the full Markdown output
+tree using the format specified by `config.Format`.
 
 - *Parameters*: `IMarkdownWriterFactory factory` — factory used to create each
-  Markdown output file. `IContext context` — output channel for diagnostic and
-  progress messages emitted during generation.
+  Markdown output file; must not be null. `EmitConfig config` — output
+  configuration. `IContext context` — forwarded to the selected sub-emitter.
 - *Returns*: `void`
-- *Preconditions*: `AssemblyPath` and `XmlDocPath` must exist on disk; `factory`
-  and `context` must not be null.
-- *Postconditions*: The factory has produced a complete Markdown tree for the
-  configured assembly. Output file naming follows these conventions:
-  - `factory.CreateMarkdown("", "api")` — assembly entrypoint listing all
-      namespaces (root and child) with a direct type count column and one-line
-      descriptions, giving AI agents a complete navigation map in one read.
-  - `factory.CreateMarkdown(namespaceName, namespaceName)` — namespace summary
-    listing visible types.
-  - `factory.CreateMarkdown(namespaceName, typeSimpleName)` — type page with
-    grouped sub-tables (Constructors / Properties / Methods / Fields / Events),
-    all members linked to their dedicated pages.
+- *Preconditions*: `factory` must not be null.
+- *Postconditions (GradualDisclosure)*: The factory has produced a complete
+  Markdown tree for the configured assembly. Output file naming follows:
+  - `factory.CreateMarkdown("", "api")` — assembly entrypoint.
+  - `factory.CreateMarkdown(namespaceName, namespaceName)` — namespace summary.
+  - `factory.CreateMarkdown(namespaceName, typeSimpleName)` — type page.
   - `factory.CreateMarkdown($"{namespaceName}/{typeSimpleName}", memberName)` —
     dedicated file for every visible member.
+- *Postconditions (SingleFile)*: A single `api.md` is created via
+  `factory.CreateMarkdown("", "api")` containing the full documentation tree
+  at heading levels `HeadingDepth` (assembly), `HeadingDepth+1` (namespace),
+  `HeadingDepth+2` (type), `HeadingDepth+3` (member). Each type section includes
+  a bullet list of members (`- **Name**: summary`) before the H(depth+3) member
+  sections. No group headings (Constructors, Methods, etc.) or convention appendix
+  are emitted.
+- The `AssemblyDefinition` is always disposed in a `finally` block after Emit
+  completes or throws.
 
-Execution steps: call `AssemblyDefinition.ReadAssembly(AssemblyPath)` to open the
-assembly via Mono.Cecil; parse XmlDocPath and index entries by member identifier
-string; filter types by Visibility and IncludeObsolete; write the assembly
-entrypoint via `CreateMarkdown("", "api")`; for each visible namespace write the
-namespace file; for each visible type: group all visible members by the lowercase
-of their sanitized file name; for each group with a single member emit an
-individual detail page; for groups where all members are methods sharing the same
-exact (case-sensitive) file name emit a shared method overload page via
-`WriteMethodOverloadPage`; for all remaining groups (case-insensitive collisions
-between members of different kinds or differently-cased method names) emit a
-single combined page via `WriteCombinedMemberPage`; emit grouped sub-tables with
-links; dispose the AssemblyDefinition.
-
-**DotNetGenerator.BuildTypeSignature** (private): Builds a human-readable C#
+**DotNetEmitter.BuildTypeSignature** (internal static): Builds a human-readable C#
 declaration signature for a type definition, including direct base class and
 interface names when present.
 
@@ -104,7 +129,7 @@ interface names when present.
   directly declared interfaces using TypeNameSimplifier to produce idiomatic C#
   names; appends `: BaseClass, IInterface` when the collected list is non-empty.
 
-**DotNetGenerator.WriteCombinedMemberPage** (private): Writes a single combined
+**DotNetEmitterGradualDisclosure.WriteCombinedMemberPage** (private static): Writes a single combined
 Markdown page for a group of members whose sanitized file names collide on
 case-insensitive filesystems.
 
@@ -115,13 +140,13 @@ case-insensitive filesystems.
   least two elements), `XmlDocReader xmlDocs` — documentation index.
 - *Returns*: `void`
 - *Algorithm*: Creates `{namespaceFolderPath}/{type.Name}/{lowerKey}.md` via the
-  factory; writes an H3 heading using `lowerKey`; for each member writes an H4
+  factory; writes an H1 heading using `lowerKey`; for each member writes an H2
   heading of the form `{displayName} ({kindLabel})`; for `MethodDefinition`
   members delegates to `WriteMethodDocumentation`; for all other member kinds
   writes the signature, summary, returns, exceptions, remarks, and example
   sections directly.
 
-**DotNetGenerator.IsPureMethodOverloadGroup** (private): Returns true when all
+**DotNetEmitterGradualDisclosure.IsPureMethodOverloadGroup** (private static): Returns true when all
 members in a group are methods sharing the same exact case-sensitive sanitized
 file name, indicating a classical method overload group rather than a
 case-insensitive collision.
@@ -136,7 +161,7 @@ case-insensitive collision.
   checks that all remaining elements produce the same value under ordinal
   comparison.
 
-**DotNetGenerator.GetMemberKindLabel** (private): Maps an `IMemberDefinition` to
+**DotNetEmitterGradualDisclosure.GetMemberKindLabel** (private static): Maps an `IMemberDefinition` to
 a short human-readable kind string used in combined page H4 headings.
 
 - *Parameters*: `IMemberDefinition member` — the member to classify.
@@ -151,7 +176,9 @@ a short human-readable kind string used in combined page H4 headings.
 to Markdown link text for use in table cells.
 
 - *Constructor*: Accepts `IReadOnlyList<string> rootNamespaces` — forwarded to
-  `DotNetGenerator.GetNamespaceFolderPath` when computing target page paths.
+  `DotNetEmitter.GetNamespaceFolderPath` when computing target page paths; and
+  optional `bool generateLinks = true` — when `false`, intra-assembly types
+  render as plain text (used by `DotNetEmitterSingleFile`).
 - **Linkify** method: resolves a `TypeReference` to a Markdown link string.
   - *Parameters*: `TypeReference typeRef`, `string currentFolder` (path of the
     containing file), `string contextNamespace`, `ISet<ExternalTypeInfo>
@@ -165,7 +192,7 @@ to Markdown link text for use in table cells.
     added to the accumulator.
   - Intra-assembly detection: `TypeReference.Scope is ModuleDefinition`.
 
-**DotNetGenerator.WriteExternalTypesSection** (private static): Emits the
+**DotNetEmitterGradualDisclosure.WriteExternalTypesSection** (private static): Emits the
 `## External Types` section at the bottom of a page when at least one external
 type was referenced in table cells.
 
@@ -181,22 +208,27 @@ exist on disk (checked before opening the assembly). If AssemblyPath does not ex
 or is not a valid .NET assembly, Mono.Cecil raises an exception that propagates
 unchanged to the caller (ApiMarkTask or Program). Missing XML documentation entries
 for a member produce empty documentation fields rather than an error.
+`ArgumentNullException` is thrown by `DotNetEmitter.Emit` when `factory` is null.
 
 ### Dependencies
 
 - **IApiGenerator** — DotNetGenerator implements this interface from ApiMarkCore.
-- **IMarkdownWriterFactory** — DotNetGenerator receives an IMarkdownWriterFactory
-  through Generate and calls CreateMarkdown to obtain each IMarkdownWriter. It does
+- **IApiEmitter** — DotNetEmitter implements this interface from ApiMarkCore.
+- **EmitConfig** — DotNetEmitter reads `EmitConfig.Format` and
+  `EmitConfig.HeadingDepth` to determine the output structure.
+- **IMarkdownWriterFactory** — DotNetEmitter receives an IMarkdownWriterFactory
+  through Emit and calls CreateMarkdown to obtain each IMarkdownWriter. It does
   not implement IMarkdownWriter itself.
-- **TypeNameSimplifier** — DotNetGenerator calls TypeNameSimplifier to convert
+- **TypeNameSimplifier** — DotNetEmitter calls TypeNameSimplifier to convert
   Mono.Cecil type references to idiomatic C# type names in output.
 - **XmlDocReader** — DotNetGenerator constructs an XmlDocReader from XmlDocPath during
-  Generate to parse and index the XML documentation file for O(1) per-member lookups.
+  Parse to parse and index the XML documentation file for O(1) per-member lookups.
 - **Mono.Cecil** — used to read assembly metadata without loading the assembly into
   the current process — see Mono.Cecil Integration Design.
 
 ### Callers
 
 - **ApiMarkTask** — constructs DotNetGenerator from MSBuild properties and calls
-  Generate.
-- **Program** — constructs DotNetGenerator from CLI options and calls Generate.
+  Parse, then Emit.
+- **Program** — constructs DotNetGenerator from CLI options and calls Parse,
+  then Emit.

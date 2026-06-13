@@ -1,0 +1,21 @@
+---
+# DotNetEmitter unit requirements
+sections:
+  - title: ApiMarkDotNet Requirements
+    sections:
+      - title: DotNetEmitter Requirements
+        requirements:
+          - id: ApiMarkDotNet-DotNetEmitter-DispatchToFormatSpecificEmitter
+            title: DotNetEmitter shall dispatch to the appropriate format-specific sub-emitter based on EmitConfig.Format.
+            justification: |
+              The IApiEmitter contract requires a single Emit entry point. DotNetEmitter
+              reads the requested OutputFormat and forwards the call — along with the
+              factory, config, and context — to DotNetEmitterGradualDisclosure or
+              DotNetEmitterSingleFile so that the format-selection logic is concentrated
+              in one place.
+            tests:
+              - DotNetEmitter_Emit_NullFactory_ThrowsArgumentNullException
+              - DotNetEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
+              - DotNetEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
+              - DotNetEmitter_GetNamespaceFolderPath_RootNamespace_ReturnsDottedName
+              - DotNetEmitter_GetNamespaceFolderPath_ChildNamespace_ReturnsSlashSeparated

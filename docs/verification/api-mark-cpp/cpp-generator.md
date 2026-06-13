@@ -64,9 +64,10 @@ constructor throws `ArgumentNullException` immediately, confirming that misconfi
 fast before any I/O is attempted. This scenario is tested by
 `CppGenerator_Constructor_NullOptions_ThrowsArgumentNullException`.
 
-**Generate rejects null factory**: Verifies that passing a null factory to Generate throws
-`ArgumentNullException`, providing a clear error rather than an unrelated null-reference failure
-during I/O. This scenario is tested by `CppGenerator_Generate_NullFactory_ThrowsArgumentNullException`.
+**Generate rejects null factory**: Verifies that passing a null factory to `CppEmitter.Emit`
+(obtained from `CppGenerator.Parse`) throws `ArgumentNullException`, providing a clear error rather
+than an unrelated null-reference failure during I/O. This scenario is tested by
+`CppGenerator_Generate_NullFactory_ThrowsArgumentNullException`.
 
 **Generate throws for nonexistent include root**: Verifies that Generate throws
 `DirectoryNotFoundException` when a configured PublicIncludeRoot path does not exist on disk,
@@ -273,3 +274,279 @@ returned as plain text (no broken link) and the type is recorded in the external
 set with its namespace and type name. This prevents broken links and enables the External Types
 section to enumerate all referenced-but-undocumented types. This scenario is tested by
 `CppTypeLinkResolver_Linkify_UnknownNamespacedType_TracksExternalType`.
+
+**Single-file output writes a complete api.md tree**: Verifies that when `OutputFormat.SingleFile`
+is configured, the generator produces exactly one writer keyed `api`, containing an H1 library
+name heading, H2 namespace heading, H3 class heading (e.g., `SampleClass`), H4 member headings
+with parentheses, no group headings (`Constructors`, `Methods`), and at least one compact
+bullet-list paragraph (`- **MemberName**: description`) summarizing a class's members.
+This scenario is tested by
+`CppGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown`.
+
+**Deleted copy constructor emits = delete suffix**: Verifies that a copy constructor declared
+`= delete` in the header is documented with a `= delete` suffix in its generated signature,
+making the intentional prohibition visible to readers without requiring them to open the header.
+This scenario is tested by `CppGenerator_Generate_DeletedCopyConstructor_EmitsDeleteSuffix`.
+
+**Deleted copy assignment operator emits = delete suffix**: Verifies that a copy-assignment
+operator declared `= delete` is documented with a `= delete` suffix in its signature,
+confirming that deleted operators carry the prohibition annotation.
+This scenario is tested by
+`CppGenerator_Generate_DeletedCopyAssignmentOperator_EmitsDeleteSuffix`.
+
+**Type alias creates alias pages**: Verifies that `using` type aliases declared in documented
+namespaces receive their own dedicated pages, confirming that aliases are treated as first-class
+documented entities.
+This scenario is tested by `CppGenerator_Generate_TypeAlias_CreatesAliasPages`.
+
+**Type alias page contains declaration and summary**: Verifies that the alias page contains both
+the `using` declaration and the Doxygen summary comment, providing both the type information and
+the documentation.
+This scenario is tested by `CppGenerator_Generate_TypeAliasPage_ContainsDeclarationAndSummary`.
+
+**Namespace page lists type aliases**: Verifies that the namespace summary page lists owned type
+aliases so readers can discover them without visiting each alias page individually.
+This scenario is tested by `CppGenerator_Generate_NamespacePage_ListsTypeAliases`.
+
+**Type alias page simplifies underlying type**: Verifies that verbose underlying type names are
+simplified in the alias page declaration, consistent with how other type names are simplified
+throughout the generated documentation.
+This scenario is tested by `CppGenerator_Generate_TypeAliasPage_SimplifiesUnderlyingType`.
+
+**Default parameter signature contains default value**: Verifies that a function parameter with
+a default value has the default displayed in the generated signature block.
+This scenario is tested by `CppGenerator_Generate_DefaultParameter_SignatureContainsDefault`.
+
+**Bool default parameter signature contains false**: Verifies that a `bool` parameter defaulted
+to `false` shows `false` in the generated signature.
+This scenario is tested by `CppGenerator_Generate_BoolDefaultParameter_SignatureContainsFalse`.
+
+**Negative int default parameter signature contains negative value**: Verifies that an integer
+parameter defaulted to a negative value shows the negative value in the generated signature.
+This scenario is tested by
+`CppGenerator_Generate_NegativeIntDefaultParameter_SignatureContainsNegativeValue`.
+
+**Float default parameter signature contains value**: Verifies that a float parameter with a
+default value shows the value in the generated signature.
+This scenario is tested by `CppGenerator_Generate_FloatDefaultParameter_SignatureContainsValue`.
+
+**Nested class creates a nested class page**: Verifies that a class declared inside another class
+receives its own type page, confirming that nested type declarations are documented independently.
+This scenario is tested by `CppGenerator_Generate_NestedClass_CreatesNestedClassPage`.
+
+**Nested class is listed on outer class page**: Verifies that the outer class type page lists
+its nested class in a Nested Types section, providing navigation from the containing type to
+its nested types.
+This scenario is tested by `CppGenerator_Generate_NestedClass_ListedOnOuterClassPage`.
+
+**Class-scoped type alias creates alias page**: Verifies that a `using` type alias declared
+inside a class receives its own page, confirming that class-scoped aliases are treated as
+first-class documented entities.
+This scenario is tested by `CppGenerator_Generate_ClassScopedTypeAlias_CreatesAliasPage`.
+
+**Class-scoped type alias listed on class page**: Verifies that the class type page lists its
+scoped type aliases, providing navigation from the type page to alias pages.
+This scenario is tested by `CppGenerator_Generate_ClassScopedTypeAlias_ListedOnClassPage`.
+
+**Class-scoped type alias does not collide across classes**: Verifies that same-named type
+aliases in different classes do not collide in the generated output, confirming that
+namespace-and-class-scoped paths are used for alias page keys.
+This scenario is tested by
+`CppGenerator_Generate_ClassScopedTypeAlias_DoesNotCollideAcrossClasses`.
+
+**Method with code example emits code block on member page**: Verifies that a method whose
+Doxygen comment includes a `@code`/`@endcode` block produces a fenced code block on its
+member detail page.
+This scenario is tested by `CppGenerator_Generate_MethodWithCodeExample_EmitsCodeBlockOnMemberPage`.
+
+**Single-file method with code example emits code block**: Verifies that in single-file output
+mode, a method with a Doxygen code example produces a fenced code block in the single api.md file.
+This scenario is tested by `CppGenerator_SingleFile_MethodWithCodeExample_EmitsCodeBlock`.
+
+### Unit Test Scenarios
+
+**CppSourceLocation stores file and line correctly**: Verifies that `CppSourceLocation` records the
+`File` and `Line` values passed at construction, confirming that source location information is
+preserved for use in `#include` directives and diagnostic messages on generated pages. This
+scenario is tested by `CppSourceLocation_Construction_SetsFileAndLine`.
+
+**CppParamDoc stores name and description correctly**: Verifies that `CppParamDoc` records the
+parameter name and description passed at construction, confirming that per-parameter documentation
+extracted from Doxygen `@param` blocks is preserved for rendering in parameter tables. This
+scenario is tested by `CppParamDoc_Construction_SetsNameAndDescription`.
+
+**CppDocComment stores summary and details correctly**: Verifies that `CppDocComment` records the
+summary and details strings passed at construction, confirming that `@brief` and `@details` content
+is preserved for rendering as description and extended-details paragraphs. This scenario is tested
+by `CppDocComment_Construction_SetsSummaryAndDetails`.
+
+**Two identical CppDocComment instances are equal**: Verifies that record equality holds for
+`CppDocComment`, confirming that the record semantics do not require reference identity for
+documentation comparison or deduplication logic. This scenario is tested by
+`CppDocComment_Equality_TwoIdenticalInstances_AreEqual`.
+
+**CppBaseType stores name correctly**: Verifies that `CppBaseType` records the base class name
+passed at construction, confirming that inheritance information is preserved for rendering in type
+signature blocks. This scenario is tested by `CppBaseType_Construction_SetsName`.
+
+**CppTemplateParam stores name correctly**: Verifies that `CppTemplateParam` records the template
+parameter name passed at construction, confirming that template parameter information is preserved
+for rendering in type signature blocks. This scenario is tested by
+`CppTemplateParam_Construction_SetsName`.
+
+**CppEnumValue stores name and documentation correctly**: Verifies that `CppEnumValue` records the
+name and doc comment passed at construction, confirming that enum value names and their
+documentation are preserved for rendering in enum value tables. This scenario is tested by
+`CppEnumValue_Construction_SetsNameAndDoc`.
+
+**CppParameter stores name and type name correctly**: Verifies that `CppParameter` records the
+parameter name and type name passed at construction, confirming that function parameter information
+is preserved for rendering in parameter signature blocks. This scenario is tested by
+`CppParameter_Construction_SetsNameAndTypeName`.
+
+**CppParameter default value is null when not provided**: Verifies that `CppParameter.DefaultValue`
+is null when no default value is passed at construction, confirming that the default-value field is
+optional and correctly absent for parameters without defaults. This scenario is tested by
+`CppParameter_DefaultValue_WhenNotProvided_IsNull`.
+
+**CppField stores core properties correctly**: Verifies that `CppField` records the name, type name,
+accessibility, and static flag passed at construction, confirming that field metadata is preserved
+for use in visibility filtering and field signature rendering. This scenario is tested by
+`CppField_Construction_SetsCoreProperties`.
+
+**CppFunction stores core properties correctly**: Verifies that `CppFunction` records the name,
+return type, accessibility, and constructor flag passed at construction, confirming that function
+metadata is preserved for use in visibility filtering, constructor detection, and signature
+rendering. This scenario is tested by `CppFunction_Construction_SetsCoreProperties`.
+
+**CppClass stores core properties correctly**: Verifies that `CppClass` records the name, base
+types, and final flag passed at construction, confirming that class metadata is preserved for use
+in ownership filtering, inheritance rendering, and page generation. This scenario is tested by
+`CppClass_Construction_SetsCoreProperties`.
+
+**CppEnum stores name and values correctly**: Verifies that `CppEnum` records the name and value
+list passed at construction, confirming that enum type metadata is preserved for rendering in enum
+pages. This scenario is tested by `CppEnum_Construction_SetsNameAndValues`.
+
+**CppTypeAlias stores name and underlying type correctly**: Verifies that `CppTypeAlias` records
+the alias name and underlying type name passed at construction, confirming that type alias metadata
+is preserved for rendering in alias pages. This scenario is tested by
+`CppTypeAlias_Construction_SetsNameAndUnderlyingType`.
+
+**CppNamespaceDecl stores qualified name correctly**: Verifies that `CppNamespaceDecl` records the
+fully qualified namespace name passed at construction, confirming that the namespace key used for
+page naming and dictionary lookups is preserved. This scenario is tested by
+`CppNamespaceDecl_Construction_SetsQualifiedName`.
+
+**CppCompilationResult stores namespaces and errors correctly**: Verifies that
+`CppCompilationResult` records both the namespace declarations and error messages passed at
+construction, confirming that the complete parse output is preserved for consumption by the emitter
+and diagnostic reporting. This scenario is tested by
+`CppCompilationResult_Construction_SetsNamespacesAndErrors`.
+
+**CppAccessibility enum contains Public, Protected, and Private values**: Verifies that the
+`CppAccessibility` enum declares the three expected access specifiers, confirming that all C++
+access levels required by the visibility filter are represented. This scenario is tested by
+`CppAccessibility_Values_ArePublicProtectedPrivate`.
+
+**CppEmitter rejects a null factory with an ArgumentNullException**: Verifies that calling
+`CppEmitter.Emit` with a null factory throws `ArgumentNullException` before any I/O is attempted,
+providing a clear failure rather than a misleading null-reference error from within a file-write
+operation. This scenario is tested by `CppEmitter_Emit_NullFactory_ThrowsArgumentNullException`.
+
+**CppEmitter dispatches GradualDisclosure format to produce multiple files**: Verifies that when
+`OutputFormat.GradualDisclosure` is configured the emitter produces more than one Markdown writer,
+confirming that the dispatch path routes to the gradual-disclosure emitter. This scenario is tested
+by `CppEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles`.
+
+**CppEmitter dispatches SingleFile format to produce exactly one api file**: Verifies that when
+`OutputFormat.SingleFile` is configured the emitter produces exactly one writer keyed `api`,
+confirming that the dispatch path routes to the single-file emitter. This scenario is tested by
+`CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile`.
+
+**CppEmitter SanitizeFileName replaces invalid characters in operator names**: Verifies that
+`CppEmitter.SanitizeFileName` replaces file-system-invalid characters such as `*` when applied to
+C++ operator names, confirming that the sanitized name is safe for use as a file-system path
+component. This scenario is tested by
+`CppEmitter_SanitizeFileName_OperatorName_ReplacesInvalidChars`.
+
+**CppEmitter SanitizeFileName leaves regular names unchanged**: Verifies that
+`CppEmitter.SanitizeFileName` returns the original name unchanged when it contains no
+file-system-invalid characters, confirming that the sanitizer does not corrupt well-formed
+identifiers. This scenario is tested by `CppEmitter_SanitizeFileName_RegularName_IsUnchanged`.
+
+**CppEmitter BuildClassDeclaration returns class name for a non-final class with no bases**:
+Verifies that `CppEmitter.BuildClassDeclaration` returns `class ClassName` for a class that is
+neither final nor derived, confirming that the minimal class declaration is emitted without
+unnecessary keywords. This scenario is tested by
+`CppEmitter_BuildClassDeclaration_NonFinalNoBase_ReturnsJustClassName`.
+
+**CppEmitter BuildClassDeclaration appends final keyword for a final class**: Verifies that
+`CppEmitter.BuildClassDeclaration` appends the `final` specifier to the class declaration when the
+class is marked final, confirming that the non-subclassable constraint is visible in the generated
+signature block. This scenario is tested by
+`CppEmitter_BuildClassDeclaration_FinalClass_AppendsFinalKeyword`.
+
+**CppEmitterGradualDisclosure creates the api index page from minimal data**: Verifies that the
+gradual-disclosure emitter creates the `api` writer key when constructed from a minimal
+namespace-declarations dictionary (without invoking clang), confirming that the entrypoint page is
+emitted correctly for any non-empty namespace set. This scenario is tested by
+`CppEmitterGradualDisclosure_Emit_MinimalData_CreatesApiIndexPage`.
+
+**CppEmitterGradualDisclosure creates a namespace page from minimal data**: Verifies that the
+gradual-disclosure emitter creates a writer whose key contains the `testlib` namespace name,
+confirming that namespace summary pages are emitted for all namespaces in the declarations
+dictionary. This scenario is tested by
+`CppEmitterGradualDisclosure_Emit_MinimalData_CreatesNamespacePage`.
+
+**CppEmitterGradualDisclosure creates a type page for Widget from minimal data**: Verifies that
+the gradual-disclosure emitter creates a writer whose key contains `Widget`, confirming that
+per-type pages are emitted for all classes in each namespace. This scenario is tested by
+`CppEmitterGradualDisclosure_Emit_MinimalData_CreatesTypePage`.
+
+**CppEmitterGradualDisclosure api index page heading contains the library name**: Verifies that
+the api index page includes a heading containing the configured library name, confirming that the
+top-level heading identifies the documented library. This scenario is tested by
+`CppEmitterGradualDisclosure_Emit_MinimalData_ApiIndexContainsLibraryNameHeading`.
+
+**CppEmitterSingleFile creates exactly one writer from minimal data**: Verifies that the
+single-file emitter produces exactly one Markdown writer when constructed from a minimal
+namespace-declarations dictionary (without invoking clang), confirming that all documentation is
+consolidated into a single file. This scenario is tested by
+`CppEmitterSingleFile_Emit_MinimalData_CreatesExactlyOneWriter`.
+
+**CppEmitterSingleFile creates only the api writer from minimal data**: Verifies that the single
+writer produced by the single-file emitter is keyed as `api`, confirming that the output file name
+follows the established convention for single-file mode. This scenario is tested by
+`CppEmitterSingleFile_Emit_MinimalData_CreatesApiFileOnly`.
+
+**CppEmitterSingleFile api file contains a library-name heading**: Verifies that the single output
+file includes a heading containing the configured library name, confirming that the top-level
+section identifies the documented library. This scenario is tested by
+`CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsLibraryNameHeading`.
+
+**CppEmitterSingleFile api file contains a namespace-level heading**: Verifies that the single
+output file includes a heading containing the namespace name, confirming that namespaces are
+represented as sections in the consolidated document. This scenario is tested by
+`CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsNamespaceHeading`.
+
+**ClangAstParser returns non-empty namespaces for fixture headers**: Verifies that parsing the
+fixture header files via clang produces at least one namespace, confirming that the clang
+invocation and JSON AST parsing pipeline successfully extracts namespace declarations. This
+scenario is tested by `ClangAstParser_Parse_FixtureHeaders_ReturnsNonEmptyNamespaces`.
+
+**ClangAstParser produces the fixtures namespace from fixture headers**: Verifies that parsing
+the fixture header files produces a namespace whose qualified name contains `fixtures`, confirming
+that the correct namespace is extracted and its key is correctly formed. This scenario is tested by
+`ClangAstParser_Parse_FixtureHeaders_ContainsFixturesNamespace`.
+
+**ClangAstParser produces a SampleClass in the fixtures namespace**: Verifies that the `fixtures`
+namespace produced by parsing the fixture headers contains a class named `SampleClass`, confirming
+that class declarations in a specific namespace are correctly attributed to that namespace by the
+AST parser. This scenario is tested by
+`ClangAstParser_Parse_FixtureHeaders_FixturesNamespaceContainsSampleClass`.
+
+**ClangAstParser extracts member declarations for SampleClass**: Verifies that the `SampleClass`
+parsed from the fixture headers has non-empty members, confirming that member declarations within a
+class body are correctly extracted and associated with the class. This scenario is tested by
+`ClangAstParser_Parse_FixtureHeaders_SampleClassHasMembers`.
