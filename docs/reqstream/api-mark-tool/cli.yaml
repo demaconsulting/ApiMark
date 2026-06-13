@@ -24,4 +24,5 @@ sections:
               - ApiMarkTool-Cli-Context-TrackErrorsViaWriteError
               - ApiMarkTool-Cli-Context-ParseFormatOption
               - ApiMarkTool-Cli-Context-ParseClangPath
+              - ApiMarkTool-Cli-Context-ParseVhdlSourceOptions
             tests: [Context_Cli_ParsesAllGlobalFlags]

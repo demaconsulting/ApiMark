@@ -1,29 +1,62 @@
-# VhdlEmitterSingleFile
+## VhdlEmitterSingleFile
 
-<!-- All sections below are MANDATORY. -->
+<!-- All sections below are MANDATORY. If a section does not apply, write
+     "N/A - {justification}" rather than removing it. -->
 
-## Responsibility
+### Purpose
 
 VhdlEmitterSingleFile writes all VHDL API documentation into a single `api.md`
 file using heading levels offset by `EmitConfig.HeadingDepth`.
 
-## Output Structure
+### Data Model
 
-Single `api.md` file:
+**VhdlEmitterSingleFile** (internal sealed class):
 
-- H{depth} library name
-- H{depth+1} Entities section (one H{depth+2} per entity, with H{depth+3} Generics/Ports/Architectures sub-sections)
-- H{depth+1} Packages section (one H{depth+2} per package)
+- `_emitter`: `VhdlEmitter` — parent emitter supplying options and shared helpers.
+- `_fileModels`: `IReadOnlyList<VhdlFileModel>` — all parsed file models to emit.
 
-## Algorithm
+**Output file layout** (single `api.md`):
 
-1. Create `factory.CreateMarkdown("", "api")` — the single output file.
-2. Write H{depth} library name heading and optional description.
-3. Write Entities section with nested entity headings, generics/ports tables, and architecture sub-sections.
-4. Write Packages section with nested package headings and summaries.
+- H{depth} library name.
+- H{depth+1} Entities section — one H{depth+2} per entity, with H{depth+3}
+  Generics, Ports, and Architectures sub-sections.
+- H{depth+1} Packages section — one H{depth+2} per package.
 
-## Design Decisions
+### Key Methods
 
-- Only one file is created, so `factory.CreateMarkdown("", "api")` is called exactly once.
-- Heading levels are offset by `config.HeadingDepth` to allow embedding this output
-  as a section inside a larger document.
+**VhdlEmitterSingleFile.Emit** (internal): Produces the single consolidated Markdown
+file.
+
+- *Parameters*: `IMarkdownWriterFactory factory`, `EmitConfig config`,
+  `IContext context`.
+- *Returns*: `void`.
+- *Preconditions*: `factory` is not null (enforced by the calling `VhdlEmitter`).
+- *Postconditions*: a single `api.md` file containing all documented declarations
+  has been written.
+- *Algorithm*:
+  1. Create the output file via `factory.CreateMarkdown("", "api")` — called
+     exactly once.
+  2. Write H{depth} library name heading and optional description.
+  3. Write Entities section: H{depth+1} heading, then for each entity an H{depth+2}
+     heading followed by generics and ports tables and an Architectures sub-section.
+  4. Write Packages section: H{depth+1} heading, then for each package an H{depth+2}
+     heading followed by its summary.
+
+### Error Handling
+
+- Exceptions from `IMarkdownWriterFactory.CreateMarkdown` or from the Markdown writer
+  propagate to the caller (`VhdlEmitter.Emit`) without wrapping.
+- Missing or null doc-comment fields produce the `VhdlEmitter.NoDescriptionPlaceholder`
+  string in output cells rather than throwing.
+
+### Dependencies
+
+- **VhdlEmitter** (internal) — instantiates this class and supplies `Options` and
+  shared helpers (`GetSummary`, `DescriptionColumnHeader`, `NoDescriptionPlaceholder`).
+- **IMarkdownWriterFactory** (ApiMarkCore) — used to create the single Markdown writer.
+- **VhdlAstModel** (internal) — consumes `VhdlFileModel`, `VhdlEntityDecl`,
+  `VhdlArchitectureDecl`, and `VhdlPackageDecl` record types.
+
+### Callers
+
+- **VhdlEmitter** — instantiates and calls `Emit` when `config.Format` is `SingleFile`.

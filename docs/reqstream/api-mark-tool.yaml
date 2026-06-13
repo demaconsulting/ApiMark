@@ -15,6 +15,7 @@ sections:
           - ApiMarkTool-Program-DispatchToGenerator
           - ApiMarkTool-Program-SupportDotNetOptions
           - ApiMarkTool-Program-SupportCppOptions
+          - ApiMarkTool-Program-SupportVhdlOptions
           - ApiMarkTool-Program-SupportVersionOption
           - ApiMarkTool-Program-SupportHelpOption
           - ApiMarkTool-Program-SupportSilentAndLogOptions

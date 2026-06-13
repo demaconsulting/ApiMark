@@ -6,7 +6,11 @@ sections:
       - title: VhdlAstModel Requirements
         requirements:
           - id: ApiMarkVhdl-VhdlAstModel
-            title: VhdlAstModel shall define immutable record types representing VHDL AST declarations.
+            title: VhdlAstModel shall represent the data contract between the VHDL parser and emitters, including entity names, port lists, generics, architectures, packages, and associated doc comments.
             justification: |
-              Immutable records provide a stable data contract between VhdlAstParser and the emitters.
-            tests: []
+              A stable data contract between VhdlAstParser and the emitters allows each
+              component to be developed and tested independently.
+            tests:
+              - VhdlAstParser_Parse_FixtureFile_ReturnsEntity
+              - VhdlAstParser_Parse_FixtureFile_EntityHasGenerics
+              - VhdlAstParser_Parse_FixtureFile_EntityHasPorts

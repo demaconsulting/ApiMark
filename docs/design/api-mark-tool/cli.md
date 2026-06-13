@@ -25,7 +25,7 @@ can be tested independently.
   file cannot be opened.
 - `Context` (IDisposable) — exposes parsed flags and options as typed
   properties (`Version`, `Help`, `Silent`, `Validate`, `Language`,
-  `Assembly`, `XmlDoc`, `Includes`, `ApiHeaders`, `Output`, `Visibility`,
+  `Assembly`, `XmlDoc`, `Includes`, `ApiHeaders`, `Sources`, `Output`, `Visibility`,
   `IncludeObsolete`, `ResultsFile`, `HeadingDepth`, `Format`, `LibraryName`,
   `LibraryDescription`, `Defines`, `CppStandard`, `ClangPath`, `ExitCode`)
   and provides `WriteLine` and `WriteError` for all program output routing.
@@ -44,7 +44,7 @@ flags (`-v`, `--version`, `-?`/`-h`/`--help`, `--silent`, `--validate`, `--log`,
 `--results`/`--result`, `--depth`, `--format`) are recognized anywhere in the argument list. The
 first positional non-flag token (a token that does not start with `-`) is
 captured as the language subcommand. Language-specific options (`--assembly`,
-`--xml-doc`, `--includes`, `--api-headers`, `--output`, `--visibility`,
+`--xml-doc`, `--includes`, `--api-headers`, `--source`, `--output`, `--visibility`,
 `--include-obsolete`, `--library-name`, `--library-description`, `--defines`,
 `--cpp-standard`, `--clang-path`) may appear anywhere in the argument list after the
 language token is recognized.

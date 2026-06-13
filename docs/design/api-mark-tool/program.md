@@ -59,8 +59,9 @@ the generator, and calls `Parse` then `Emit`.
 
 - _Parameters_: `Context context`.
 - Validates `Language` and `Output` for all subcommands; additionally validates `Assembly` and
-  `XmlDoc` for dotnet, and `Includes` for cpp; calls `context.WriteError` and `PrintHelp` if any
-  are missing.
+  `XmlDoc` for dotnet, `Includes` for cpp, and at least one non-exclusion `--source` pattern
+  (i.e. a pattern not prefixed with `!`) for vhdl; calls `context.WriteError` and `PrintHelp`
+  if any are missing.
 - Calls `CreateGenerator(context)`, then `generator.Parse(context)` to get an
   `IApiEmitter`, then `emitter.Emit(factory, emitConfig, context)` where
   `emitConfig` is constructed from `context.Format` and `context.HeadingDepth`.
@@ -80,6 +81,9 @@ the generator, and calls `Parse` then `Emit`.
   `context.ApiHeaders`), and the other cpp-specific options (`LibraryName`,
   `Description`, `Defines`, `CppStandard`, `Visibility`, `IncludeDeprecated`,
   `ClangPath`).
+- For the `vhdl` language, `VhdlGeneratorOptions` is populated with `Sources`
+  (from `context.Sources`), `LibraryName` (from `context.LibraryName`), and
+  `LibraryDescription` (from `context.LibraryDescription`).
 
 **Program.PrintBanner** (private static): Prints the application banner (tool name,
 version, copyright line, and a blank line).
@@ -116,6 +120,8 @@ re-thrown.
   language subcommand — see DotNetGenerator Unit Design.
 - **CppGenerator** (ApiMarkCpp) — instantiated for the `cpp` subcommand — see
   ApiMarkCpp Component Design.
+- **VhdlGenerator** (ApiMarkVhdl) — instantiated for the `vhdl` subcommand — see
+  ApiMarkVhdl Component Design.
 
 ### Callers
 

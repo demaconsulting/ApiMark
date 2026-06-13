@@ -25,6 +25,7 @@ up after itself. No other external files, services, or configuration are require
 - `--results`/`--result` sets `ResultsFile` to the supplied path.
 - `--includes` accepts one directory path per flag; repeated flags accumulate paths into `Includes`.
 - `--api-headers` patterns are accumulated in order; `!`-prefixed exclusion patterns are forwarded verbatim.
+- `--source` patterns are accumulated in order; `!`-prefixed exclusion patterns are forwarded verbatim.
 - C++ named options (`--library-name`, `--library-description`, `--defines`, `--cpp-standard`) set their
   corresponding properties.
 - `--clang-path` sets `ClangPath` to the supplied path.
@@ -66,8 +67,8 @@ up after itself. No other external files, services, or configuration are require
 **`Context_Create_WithIncludesOption_SetsIncludes`**: `--includes path/a` →
 `Includes = ["path/a"]` (one path per flag; no comma splitting).
 
-**`Context_Create_WithRepeatedIncludesFlags_AccumulatesAllPathsInOrder`**:
-`--includes path/a --includes path/b` → `Includes = ["path/a", "path/b"]`.
+**`Context_Create_WithRepeatedIncludes_AccumulatesAllPaths`**:
+`--includes /usr/include --includes /opt/include` → `Includes = ["/usr/include", "/opt/include"]`.
 
 **`Context_Create_WithDepthOption_SetsHeadingDepth`**: `--depth 3` → `HeadingDepth = 3`.
 
@@ -132,3 +133,14 @@ corresponding properties set simultaneously.
 
 **`Context_Create_WithClangPathOption_SetsClangPath`**: `--clang-path /usr/bin/clang` →
 `ClangPath = "/usr/bin/clang"`.
+
+**`Context_Create_WithSourceOption_SetsSources`**: `--source "src/**/*.vhd"` →
+`Sources = ["src/**/*.vhd"]`.
+
+**`Context_Create_WithRepeatedSource_AccumulatesAllPaths`**:
+`--source "src/**/*.vhd" --source "src/**/*.vhdl"` → `Sources = ["src/**/*.vhd", "src/**/*.vhdl"]`.
+
+**`Context_Create_WithSourceExclusionPattern_ForwardsVerbatim`**:
+`--source "src/**/*.vhd" --source "!src/tb/**/*.vhd"` →
+`Sources = ["src/**/*.vhd", "!src/tb/**/*.vhd"]`
+(the `!` prefix is preserved verbatim so `VhdlGenerator` can apply gitignore semantics).
