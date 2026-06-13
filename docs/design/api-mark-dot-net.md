@@ -7,23 +7,38 @@
 
 ApiMarkDotNet provides C#/.NET language support. It reads a compiled .NET assembly
 and its associated XML documentation file, then produces the Markdown output
-defined by the Core interfaces. The system contains two units:
+defined by the Core interfaces. The system contains eight units:
 
 - **DotNetGenerator** — reads the assembly via Mono.Cecil, processes XML doc
-  comments, applies visibility filtering, type-name simplification, and writes
-  Markdown through IMarkdownWriterFactory.
+  comments, applies visibility filtering, and returns a DotNetEmitter ready for emission.
+- **DotNetAstModel** — immutable data class holding all parsed assembly data
+  (namespaces, types, XML docs, resolver, options) produced by DotNetGenerator.Parse.
+- **DotNetEmitter** — IApiEmitter dispatcher; reads EmitConfig.Format and forwards
+  the call to DotNetEmitterGradualDisclosure or DotNetEmitterSingleFile. Also provides
+  shared static helper methods used by both sub-emitters.
+- **DotNetEmitterGradualDisclosure** — writes the multi-file gradual-disclosure tree
+  (one file per namespace, type, and member).
+- **DotNetEmitterSingleFile** — writes all documentation into a single api.md file.
+- **TypeLinkResolver** — resolves Mono.Cecil TypeReference instances to Markdown link
+  text for use in table cells.
 - **TypeNameSimplifier** — applies a deterministic set of simplification rules to
   Mono.Cecil type references to produce idiomatic C# type names in output.
+- **XmlDocReader** — reads and indexes a .NET XML documentation file for fast
+  member-level lookups.
 
 ```mermaid
 flowchart TD
-    DotNetGenerator --> TypeNameSimplifier
+    DotNetGenerator --> DotNetAstModel
+    DotNetGenerator --> XmlDocReader
     DotNetGenerator --> MonoCecil["Mono.Cecil (OTS)"]
-    DotNetGenerator --> IMarkdownWriterFactory
+    DotNetEmitter --> DotNetEmitterGradualDisclosure
+    DotNetEmitter --> DotNetEmitterSingleFile
+    DotNetEmitter --> IMarkdownWriterFactory
+    DotNetEmitterGradualDisclosure --> TypeLinkResolver
+    DotNetEmitterGradualDisclosure --> TypeNameSimplifier
+    DotNetEmitterSingleFile --> TypeNameSimplifier
+    TypeLinkResolver --> TypeNameSimplifier
 ```
-
-DotNetGenerator depends on TypeNameSimplifier, Mono.Cecil, and the ApiMarkCore
-interfaces. TypeNameSimplifier has no dependencies of its own beyond Mono.Cecil.
 
 ## External Interfaces
 
@@ -52,8 +67,8 @@ ApiMarkCore; parsing is separated from emit via the two-stage pipeline.
 - *Constraints*: The assembly file must exist on disk and be a valid .NET assembly
   at call time; see Mono.Cecil Integration Design for details.
 
-**IMarkdownWriterFactory (consumed)**: DotNetGenerator receives an IMarkdownWriterFactory
-from its caller and uses it to create each Markdown output file.
+**IMarkdownWriterFactory (consumed)**: DotNetEmitter receives and uses an IMarkdownWriterFactory
+from its caller to create each Markdown output file.
 
 - *Type*: In-process .NET interface from ApiMarkCore.
 - *Role*: Consumer — DotNetEmitter calls `CreateMarkdown` for each output file
@@ -93,8 +108,9 @@ N/A — not a safety-classified software item.
    namespaceName)` and writes a namespace summary listing all visible types.
 6. For each visible type, DotNetGenerator writes every member to its own dedicated
    file via `factory.CreateMarkdown(namespaceName, typeName)` and links all members
-   from the type page. Every member always gets a dedicated page, making navigation
-   fully deterministic.
+   from the type page. Each member receives its own page, except where case-insensitive
+   filename collisions on a single type require combining colliding members onto one
+   shared page.
 7. TypeNameSimplifier is called for each type reference encountered during output
    generation, producing simplified C# type names relative to the current namespace.
 

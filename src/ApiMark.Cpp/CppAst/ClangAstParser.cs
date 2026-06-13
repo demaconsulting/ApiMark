@@ -16,6 +16,8 @@ namespace ApiMark.Cpp.CppAst;
 ///     falls under a <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry so that the
 ///     hundreds of megabytes of standard-library AST are skipped efficiently. Not thread-safe;
 ///     each <see cref="Parse"/> call constructs a fresh internal parser instance.
+///     A declaration is included only when its source file is both listed in the selected
+///     headers set and under a <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry.
 /// </remarks>
 internal sealed class ClangAstParser
 {

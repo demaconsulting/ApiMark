@@ -34,7 +34,7 @@ internal sealed class DotNetEmitterSingleFile
     /// <summary>Dispatches to <see cref="EmitSingleFile"/>.</summary>
     /// <param name="factory">Factory for creating the single output writer.</param>
     /// <param name="config">Output configuration controlling heading depth.</param>
-    /// <param name="context">Output channel for informational messages.</param>
+    /// <param name="context">Accepted for dispatch symmetry with other emitters; not used by the single-file emitter.</param>
     internal void Emit(IMarkdownWriterFactory factory, EmitConfig config, IContext context)
     {
         EmitSingleFile(factory, config);

@@ -6,7 +6,7 @@ sections:
       - title: IApiEmitter Requirements
         requirements:
           - id: ApiMarkCore-IApiEmitter-DefineEmitMethod
-            title: IApiEmitter shall define an Emit method that accepts an IMarkdownWriterFactory, EmitConfig, and IContext parameter.
+            title: IApiEmitter shall write the Markdown output for the previously parsed component using a caller-supplied output-writer factory, output configuration, and diagnostic channel.
             justification: |
               Callers need one consistent invocation point for writing Markdown output
               after parsing is complete. Accepting IMarkdownWriterFactory decouples the
@@ -16,6 +16,7 @@ sections:
               or redirected by different hosts.
             tests:
               - IApiGenerator_Parse_WithMinimalStub_ExecutesSuccessfully
+              - IApiGenerator_Emit_OutputDirectory_ContainsApiMd
           - id: ApiMarkCore-IApiEmitter-SupportGradualDisclosure
             title: IApiEmitter.Emit shall support writing multi-file gradual-disclosure output when EmitConfig.Format is GradualDisclosure.
             justification: |
@@ -34,3 +35,13 @@ sections:
               module generated the symbol data.
             tests:
               - IApiGenerator_Emit_SingleFile_ProducesSingleApiMd
+          - id: ApiMarkCore-IApiEmitter-ProduceApiMdEntrypoint
+            title: IApiEmitter.Emit shall produce a file named "api.md" as the fixed top-level entrypoint of every generated output tree.
+            justification: |
+              Callers (CLI and MSBuild) need a predictable entry point to reference or
+              present to the user without inspecting output directory contents. A fixed
+              name eliminates language-specific post-processing.
+            tests:
+              - IApiGenerator_Emit_OutputDirectory_ContainsApiMd
+              - IApiEmitter_Emit_WithGradualDisclosure_ProducesMultipleFiles
+              - IApiEmitter_Emit_WithSingleFile_ProducesSingleApiMd

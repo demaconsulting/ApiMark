@@ -56,7 +56,7 @@ implementation, `FileMarkdownWriter`, holds:
 - *Returns*: `void`
 - *Preconditions*: N/A — no constraints on parameter values beyond the interface type.
 - *Postconditions*: A pipe-delimited Markdown table is appended to the current
-  output file.
+  output file. Literal pipe characters (`|`) in cell content are escaped as `\|`.
 
 **IMarkdownWriter.WriteCodeBlock**: Writes a fenced code example block.
 
@@ -65,7 +65,7 @@ implementation, `FileMarkdownWriter`, holds:
 - *Preconditions*: N/A — no constraints on parameter values beyond the interface type.
 - *Postconditions*: A fenced code block is appended to the current output file.
 
-**IMarkdownWriter.WriteLink**: Writes a relative file reference as prose text.
+**IMarkdownWriter.WriteLink**: Writes a relative navigation link to another documentation file.
 
 - *Parameters*: `string text` — display label; `string relativePath` — path to the
   linked file relative to the current output file.
@@ -103,9 +103,9 @@ on other units, OTS items, or shared packages.
 
 - **DotNetGenerator** — calls IMarkdownWriter write methods to emit Markdown content
   for each type and member discovered in the assembly. Writers are obtained from
-  the IMarkdownWriterFactory passed to IApiGenerator.Generate and disposed after
+  the IMarkdownWriterFactory passed to `IApiEmitter.Emit` and disposed after
   each file is complete.
 - **CppGenerator** — calls IMarkdownWriter write methods to emit Markdown content
   for each namespace, type, and member discovered in the public headers. Writers
-  are obtained from the IMarkdownWriterFactory passed to IApiGenerator.Generate
+  are obtained from the IMarkdownWriterFactory passed to `IApiEmitter.Emit`
   and disposed after each file is complete.

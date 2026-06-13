@@ -8,19 +8,21 @@ sections:
           - title: Validation Requirements
             requirements:
               - id: ApiMarkTool-SelfTest-Validation-RunVersionDisplayTest
-                title: Validation shall run a test that invokes apimark --version in a child context and verifies the output contains a version number.
+                title: Validation shall invoke apimark --version and verify output contains the version string.
                 justification: |
                   Version display is the simplest observable behavior of the tool and confirms
                   that the executable is intact and able to run its own dispatch path.
                 tests:
                   - Validation_Run_WritesVersionAndHelpTestResults
+                  - Validation_Run_WithValidContext_ExitsZero
               - id: ApiMarkTool-SelfTest-Validation-RunHelpDisplayTest
-                title: Validation shall run a test that invokes apimark --help in a child context and verifies the output contains "Usage:" and "Options:".
+                title: Validation shall invoke apimark --help and verify output contains "Usage:" and "Options:".
                 justification: |
                   Help display exercises a larger fraction of the dispatch path than --version
                   and confirms that the tool's usage information is intact and readable.
                 tests:
                   - Validation_Run_WritesVersionAndHelpTestResults
+                  - Validation_Run_WithValidContext_ExitsZero
               - id: ApiMarkTool-SelfTest-Validation-WriteResultsFileOnRequest
                 title: Validation shall write test results to the file specified by --results when the extension is .trx or .xml.
                 justification: |
@@ -30,12 +32,19 @@ sections:
                 tests:
                   - Validation_Run_WithResultsTrxFile_CreatesTrxFile
                   - Validation_Run_WithResultsXmlFile_CreatesXmlFile
-              - id: ApiMarkTool-SelfTest-Validation-ReportFailuresViaWriteError
-                title: Validation shall set ExitCode to 1 and write diagnostic messages when any self-test fails or when the results file extension is unsupported.
+              - id: ApiMarkTool-SelfTest-Validation-SetExitCodeOnFailure
+                title: Validation shall set ExitCode to 1 when any self-test fails.
                 justification: |
                   Callers must detect validation failures through the standard exit-code
                   mechanism; routing all failures through WriteError ensures that both
                   console and log-file consumers see the diagnostic and that the exit
                   code reflects the failure.
+                tests: []
+              - id: ApiMarkTool-SelfTest-Validation-RejectUnsupportedExtension
+                title: Validation shall set ExitCode to 1 and write a diagnostic message when the results file extension is not .trx or .xml.
+                justification: |
+                  An unsupported file extension indicates a misconfigured caller; rejecting
+                  it with a non-zero exit code and a clear message lets the caller detect
+                  and correct the configuration error without inspecting partial output.
                 tests:
                   - Validation_Run_WithUnsupportedResultsExtension_SetsExitCodeToOne

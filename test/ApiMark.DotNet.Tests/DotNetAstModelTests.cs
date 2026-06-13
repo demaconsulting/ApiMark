@@ -54,7 +54,7 @@ public class DotNetAstModelTests
         Assert.NotEmpty(emitter.Model.RootNamespaces);
     }
 
-    /// <summary>Validates that <see cref="DotNetAstModel.Options"/> returns the options passed at construction.</summary>
+    /// <summary>Validates that <see cref="DotNetAstModel.Options"/> returns the same options instance passed at construction.</summary>
     [Fact]
     public void DotNetAstModel_Options_ReturnsOptionsPassedAtConstruction()
     {
@@ -63,7 +63,7 @@ public class DotNetAstModelTests
         var emitter = (DotNetEmitter)new DotNetGenerator(options).Parse(new InMemoryContext());
 
         // Act / Assert
-        Assert.Equal(options.AssemblyPath, emitter.Model.Options.AssemblyPath);
+        Assert.Same(options, emitter.Model.Options);
     }
 
     /// <summary>Validates that <see cref="DotNetAstModel.Assembly"/> is non-null with the expected name.</summary>

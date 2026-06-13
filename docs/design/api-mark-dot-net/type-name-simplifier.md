@@ -18,7 +18,8 @@ simplification method and holds no mutable state across calls.
 **Primitives** (`private static readonly Dictionary<string, string>`): maps full
 CLR type names to their C# keyword aliases (e.g. `System.Int32` → `int`,
 `System.String` → `string`, `System.Void` → `void`, and all other standard C#
-keyword aliases). Checked in Rule 1 before any other simplification is applied.
+keyword aliases). Checked in Rule 1, but composite arms (array, nullable, generic)
+are evaluated first; primitive-alias resolution applies to leaf types only.
 
 **WellKnownNamespaces** (`private static readonly HashSet<string>`): contains the
 namespace prefixes that are stripped when displaying generic or plain types.
@@ -50,8 +51,10 @@ Simplification rules applied in order:
 1. **C# primitive aliases** — CLR primitive types are replaced by their C# keyword
    equivalents: `System.Int32` → `int`, `System.String` → `string`,
    `System.Boolean` → `bool`, `System.Void` → `void`, and so on for all standard
-   C# keyword aliases. These aliases apply to the primitive types only; non-aliased
-   types such as `System.Text.Json.JsonSerializer` retain their full name.
+   C# keyword aliases. These aliases apply only to the primitive leaf types reached
+   after composite arms (array, nullable, generic) have been evaluated. Plain
+   (non-generic, non-aliased) types reduce to their simple name; `WellKnownNamespaces`
+   governs namespace stripping for generic type arguments only.
 2. **Array syntax** — `System.ArrayType` with element type `T` is rendered as `T[]`
    using the Mono.Cecil `ArrayType.ElementType` property; the element type is itself
    simplified recursively.
@@ -75,6 +78,26 @@ Simplification rules applied in order:
 7. **Nullable reference type suffix** — reference types annotated as nullable by
    the Mono.Cecil nullable annotation receive a `?` suffix, e.g. `string?`.
 
+**TypeNameSimplifier.StripArity** (internal static): Removes the generic arity
+suffix from a type name.
+
+- *Parameters*: `string name` — raw type name that may contain a backtick arity
+  suffix (e.g. `List\`1`).
+- *Returns*: `string` — the name without the arity suffix (e.g. `List`).
+- *Callers*: TypeLinkResolver (when computing external type display names and
+  type page keys), DotNetEmitterGradualDisclosure (when building type page names
+  and member sanitized file names).
+
+**TypeNameSimplifier.FlattenArity** (internal static): Converts the IL backtick
+arity suffix to a plain numeric suffix, producing a file-system-safe name that
+still distinguishes generic types by parameter count.
+
+- *Parameters*: `string name` — raw IL type name that may contain a backtick arity
+  suffix (e.g. `Foo\`2`).
+- *Returns*: `string` — the name with the backtick removed but the arity count
+  preserved (e.g. `Foo2`). Unchanged when no backtick is present.
+- *Callers*: TypeLinkResolver (when computing type page keys via `GetTypePageKey`).
+
 ### Error Handling
 
 TypeNameSimplifier does not throw exceptions for well-formed Mono.Cecil type
@@ -90,7 +113,11 @@ can rely on always receiving a non-null string.
 
 ### Callers
 
-- **DotNetGenerator** — calls TypeNameSimplifier.Simplify for every type reference
+- **DotNetEmitter** — calls TypeNameSimplifier.Simplify for every type reference
   encountered while building method signatures, property types, field types, and
   parameter lists during Markdown generation, passing the current type's namespace
   as `contextNamespace`.
+- **TypeLinkResolver** — calls TypeNameSimplifier.Simplify to produce the plain-text
+  display name of primitive and System types used as link display text, and calls
+  TypeNameSimplifier.StripArity and FlattenArity when computing type page keys and
+  external type display names.

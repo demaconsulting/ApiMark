@@ -8,6 +8,12 @@ namespace ApiMark.DotNet;
 ///     pages generated for a single type. Used to reduce parameter counts on the
 ///     helper methods that emit individual member pages and table rows.
 /// </summary>
+/// <param name="Factory">Factory for creating per-file Markdown writers.</param>
+/// <param name="NamespaceName">Full namespace name of the type being documented.</param>
+/// <param name="NamespaceFolderPath">Pre-computed file-system folder path for the namespace.</param>
+/// <param name="Type">Type definition whose pages are being generated.</param>
+/// <param name="XmlDocs">Documentation index for member-level lookups.</param>
+/// <param name="Resolver">Type link resolver for table cell generation.</param>
 internal sealed record TypePageWriteContext(
     IMarkdownWriterFactory Factory,
     string NamespaceName,
@@ -21,6 +27,11 @@ internal sealed record TypePageWriteContext(
 ///     <see cref="DotNetEmitterGradualDisclosure"/> so that callers do not need to
 ///     thread five constant parameters through each call site.
 /// </summary>
+/// <param name="NamespaceName">Namespace of the type that owns the method.</param>
+/// <param name="XmlDocs">Documentation index for member-level lookups.</param>
+/// <param name="Resolver">Type link resolver for table cell generation.</param>
+/// <param name="CurrentFolder">Folder path of the containing Markdown file, relative to the documentation output root.</param>
+/// <param name="ExternalTypes">Mutable accumulator for external type references found during table cell generation.</param>
 internal sealed record MethodDocContext(
     string NamespaceName,
     XmlDocReader XmlDocs,
@@ -32,6 +43,12 @@ internal sealed record MethodDocContext(
 ///     Bundles the per-assembly namespace documentation context that is constant
 ///     across all namespace page writes in a single generation run.
 /// </summary>
+/// <param name="AllNamespaces">All namespace names present in the assembly, ordered alphabetically.</param>
+/// <param name="ByNamespace">Visible types grouped by their namespace name.</param>
+/// <param name="RootNamespaces">Root namespaces identified during parse.</param>
+/// <param name="NamespaceDescriptions">Optional namespace summaries sourced from NamespaceDoc carriers.</param>
+/// <param name="XmlDocs">Documentation index for namespace-level lookups.</param>
+/// <param name="Resolver">Type link resolver for namespace page table cells.</param>
 internal sealed record NamespaceDocContext(
     List<string> AllNamespaces,
     Dictionary<string, List<TypeDefinition>> ByNamespace,

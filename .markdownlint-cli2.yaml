@@ -11,6 +11,9 @@ ignores:
   - '**/3rd-party/**'
   - '**/generated/**'
   - '**/.agent-logs/**'
+  - '**/bin/**'
+  - test/ApiMark.Cpp.Fixtures/api-gradual/**
+  - test/ApiMark.Cpp.Fixtures/api-single/**
 config:
   # Require ATX-style headers
   MD003:

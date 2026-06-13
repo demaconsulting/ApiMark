@@ -51,6 +51,7 @@ internal static class PathHelpers
     /// </exception>
     internal static string SafePathCombine(string basePath, params string[] relativePaths)
     {
+        // Reject null arguments before any path work
         ArgumentNullException.ThrowIfNull(basePath);
         ArgumentNullException.ThrowIfNull(relativePaths);
 
@@ -59,12 +60,15 @@ internal static class PathHelpers
             throw new ArgumentNullException(nameof(relativePaths), "Individual path segments must not be null.");
         }
 
+        // Join all segments onto the base path
         var combined = relativePaths.Aggregate(basePath, Path.Join);
 
+        // Normalize the combined result
         var fullBase = Path.GetFullPath(basePath);
         var fullCombined = Path.GetFullPath(combined);
         var relative = Path.GetRelativePath(fullBase, fullCombined);
 
+        // Reject any combination whose normalized result escapes the base directory
         if (relative == ".." ||
             relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
             relative.StartsWith("../", StringComparison.Ordinal) ||

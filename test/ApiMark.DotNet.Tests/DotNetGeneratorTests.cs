@@ -36,7 +36,7 @@ public class DotNetGeneratorTests
         };
     }
 
-    /// <summary>Validates that <see cref="DotNetGenerator.Generate"/> throws <see cref="FileNotFoundException"/> when the XML doc file is missing.</summary>
+    /// <summary>Validates that <see cref="DotNetGenerator.Parse"/> throws <see cref="FileNotFoundException"/> when the XML doc file is missing.</summary>
     [Fact]
     public void DotNetGenerator_Generate_XmlDocMissing_ThrowsFileNotFoundException()
     {

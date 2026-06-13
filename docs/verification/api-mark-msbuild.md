@@ -28,7 +28,9 @@ permission is required.
 - `ApiMarkOutputDir` and `ApiMarkVisibility` are forwarded correctly to the tool.
 - `ApiMarkIncludeObsolete` set to `true` adds the `--include-obsolete` flag to the spawned tool
   command.
-- A non-zero exit code from the spawned tool is surfaced as an MSBuild build failure.
+- A non-zero exit code from the spawned tool is surfaced as an MSBuild build failure. Note:
+  process-failure surfacing (non-zero exit → task returns false + logs error) is a known
+  verification gap; a dedicated test is pending.
 - When `ApiMarkPackDocs` is `true`, the generated `api/` folder is included in the
   NuGet package; when `false` or unset, the `api/` folder is not packaged.
 - For C++ projects, `ApiMarkLibraryName` is forwarded as `--library-name` when set.
@@ -103,8 +105,14 @@ exercises the complete .NET documentation generation path — locates the bundle
 spawns it against a real fixture assembly, and verifies that `api.md` is produced in the output
 directory. This scenario is tested by `ApiMarkTask_Execute_WithDotNetProject_GeneratesDocumentation`.
 
-**C++ project generates documentation via spawned tool**: End-to-end integration test against real
-fixture headers; verifies that a C++ project produces correct documentation output when the task is
-executed with valid include paths. This scenario is tested by
-`ApiMarkTask_Execute_WithCppProject_GeneratesDocumentation` (not yet implemented — tracked as a
-future test).
+**C++ project generates documentation via spawned tool**: Verifies that a C++ project
+referencing the `DemaConsulting.ApiMark.MSBuild` NuGet package generates documentation
+automatically when a `.vcxproj` build is invoked, confirming end-to-end integration from
+package import through task execution to Markdown output. Full C++ NuGet package integration
+is verified by the package test; unit-level CppGenerator invocation test is a known gap.
+This scenario is tested by
+`ApiMarkMsbuild_NuGetPackage_CppVcxprojProject_AutoDocumentsOnBuild`.
+
+**ApiMarkIncludeObsolete flag is forwarded**: Verifies that when `ApiMarkIncludeObsolete` is
+set to `true`, the `--include-obsolete` flag is added to the spawned tool command. This
+scenario is tested by `ApiMarkTask_IncludeObsolete_True_ForwardsIncludeObsoleteFlag`.

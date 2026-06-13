@@ -46,7 +46,7 @@ silently missed. This scenario is tested by
 `DotNetGenerator_ReadAssembly_WithMonoCecil_ReturnsTypesAndMembers`.
 
 **Constructor accepts assembly and XML paths without error**: Verifies that DotNetGenerator can be
-constructed with valid options and that Generate completes without exception, confirming the basic
+constructed with valid options and that `Parse` (followed by `Emit`) completes without exception, confirming the basic
 end-to-end path is functional. This scenario is tested by
 `DotNetGenerator_Constructor_AcceptsAssemblyAndXmlPaths`.
 
@@ -64,8 +64,8 @@ includes private members. This scenario is tested by
 and members are excluded when IncludeObsolete is false and included when it is true. This scenario
 is tested by `DotNetGenerator_IncludeObsolete_Toggle_ControlsObsoleteOutput`.
 
-**Error handling rejects a missing XML documentation file**: Verifies that Generate throws
-FileNotFoundException when the configured XML documentation path does not exist on disk. This
+**Error handling rejects a missing XML documentation file**: Verifies that `Parse` throws
+`FileNotFoundException` when the configured XML documentation path does not exist on disk. This
 scenario is tested by `DotNetGenerator_Generate_XmlDocMissing_ThrowsFileNotFoundException`.
 
 **Type-name simplification renders readable C# signatures**: Verifies that primitive aliases,

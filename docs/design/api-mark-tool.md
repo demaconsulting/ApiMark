@@ -37,15 +37,15 @@ users or CI pipelines.
 - *Contract*: `apimark [options] [language [language-options]]`. Standard options:
   `-v, --version`, `-?, -h, --help`, `--silent`, `--validate`,
   `--results <file>` (alias: `--result <file>`), `--format <format>` (values:
-  `gradual-disclosure` (default), `single-file`), `--depth <#>`, `--log <file>`.
+  `gradual (default)`, `single-file`), `--depth <#>`, `--log <file>`.
   Supported subcommands: `dotnet`, `cpp`.
   Options for `dotnet`: `--assembly <path>`, `--xml-doc <path>`, `--output <dir>`,
   `--visibility <value>`, `--include-obsolete`.
   Options for `cpp`: `--includes <path>` (repeatable), `--api-headers <pattern>`
   (repeatable, ordered, supports `!` exclusion patterns),
   `--library-name <name>`, `--library-description <text>`, `--defines <defs>`,
-  `--cpp-standard <std>`, `--output <dir>`, `--visibility <value>`,
-  `--include-obsolete`.
+  `--cpp-standard <std>`, `--clang-path <path>`, `--output <dir>`,
+  `--visibility <value>`, `--include-obsolete`.
   Standard flags are valid anywhere in the argument list,
   before or after the language subcommand (single-pass parser).
 - *Constraints*: Exits non-zero on error; writes a descriptive message to stderr;
@@ -69,10 +69,13 @@ implementations from ApiMarkCore and dispatches to them using the two-stage pipe
 
 - **ApiMarkDotNet**: Program constructs `DotNetGenerator` for the `dotnet` language
   subcommand — see ApiMarkDotNet System Design.
+- **ApiMarkCpp**: Program constructs `CppGenerator` for the `cpp` subcommand — see
+  ApiMarkCpp System Design.
 - **ApiMarkCore**: Program references `IApiGenerator` from ApiMarkCore — see
   ApiMarkCore System Design.
 - **DemaConsulting.TestResults**: Program uses `TrxSerializer` and `JUnitSerializer`
-  from this package when writing `--validate` results to a file.
+  from this package when writing `--validate` results to a file —
+  see DemaConsulting.TestResults OTS Design.
 
 ## Risk Control Measures
 

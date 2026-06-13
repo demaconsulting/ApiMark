@@ -15,7 +15,7 @@ Usage: apimark [options] [language [language-options]]
 | `--silent` | Suppress console output |
 | `--validate` | Run self-validation tests |
 | `--results <file>` | Write validation results to file (`.trx` or `.xml`) |
-| `--depth <#>` | Set heading depth for validation output (default: `1`) |
+| `--depth <#>` | Set the top-level heading depth for generated Markdown output (default: `1`) |
 | `--log <file>` | Write all output to log file |
 
 ## Languages
@@ -109,7 +109,7 @@ ApiMark locates the clang executable using the following priority order:
 | --- | --- | --- |
 | Windows x64 | ✅ | ✅ |
 | Linux x64 | ✅ | ✅ |
-| macOS (Apple Silicon) | ✅ | ✅ |
+| macOS | ✅ | ✅ |
 
 ## Output Structure
 

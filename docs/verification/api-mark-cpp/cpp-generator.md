@@ -64,9 +64,10 @@ constructor throws `ArgumentNullException` immediately, confirming that misconfi
 fast before any I/O is attempted. This scenario is tested by
 `CppGenerator_Constructor_NullOptions_ThrowsArgumentNullException`.
 
-**Generate rejects null factory**: Verifies that passing a null factory to Generate throws
-`ArgumentNullException`, providing a clear error rather than an unrelated null-reference failure
-during I/O. This scenario is tested by `CppGenerator_Generate_NullFactory_ThrowsArgumentNullException`.
+**Generate rejects null factory**: Verifies that passing a null factory to `CppEmitter.Emit`
+(obtained from `CppGenerator.Parse`) throws `ArgumentNullException`, providing a clear error rather
+than an unrelated null-reference failure during I/O. This scenario is tested by
+`CppGenerator_Generate_NullFactory_ThrowsArgumentNullException`.
 
 **Generate throws for nonexistent include root**: Verifies that Generate throws
 `DirectoryNotFoundException` when a configured PublicIncludeRoot path does not exist on disk,
@@ -282,6 +283,86 @@ bullet-list paragraph (`- **MemberName**: description`) summarizing a class's me
 This scenario is tested by
 `CppGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown`.
 
+**Deleted copy constructor emits = delete suffix**: Verifies that a copy constructor declared
+`= delete` in the header is documented with a `= delete` suffix in its generated signature,
+making the intentional prohibition visible to readers without requiring them to open the header.
+This scenario is tested by `CppGenerator_Generate_DeletedCopyConstructor_EmitsDeleteSuffix`.
+
+**Deleted copy assignment operator emits = delete suffix**: Verifies that a copy-assignment
+operator declared `= delete` is documented with a `= delete` suffix in its signature,
+confirming that deleted operators carry the prohibition annotation.
+This scenario is tested by
+`CppGenerator_Generate_DeletedCopyAssignmentOperator_EmitsDeleteSuffix`.
+
+**Type alias creates alias pages**: Verifies that `using` type aliases declared in documented
+namespaces receive their own dedicated pages, confirming that aliases are treated as first-class
+documented entities.
+This scenario is tested by `CppGenerator_Generate_TypeAlias_CreatesAliasPages`.
+
+**Type alias page contains declaration and summary**: Verifies that the alias page contains both
+the `using` declaration and the Doxygen summary comment, providing both the type information and
+the documentation.
+This scenario is tested by `CppGenerator_Generate_TypeAliasPage_ContainsDeclarationAndSummary`.
+
+**Namespace page lists type aliases**: Verifies that the namespace summary page lists owned type
+aliases so readers can discover them without visiting each alias page individually.
+This scenario is tested by `CppGenerator_Generate_NamespacePage_ListsTypeAliases`.
+
+**Type alias page simplifies underlying type**: Verifies that verbose underlying type names are
+simplified in the alias page declaration, consistent with how other type names are simplified
+throughout the generated documentation.
+This scenario is tested by `CppGenerator_Generate_TypeAliasPage_SimplifiesUnderlyingType`.
+
+**Default parameter signature contains default value**: Verifies that a function parameter with
+a default value has the default displayed in the generated signature block.
+This scenario is tested by `CppGenerator_Generate_DefaultParameter_SignatureContainsDefault`.
+
+**Bool default parameter signature contains false**: Verifies that a `bool` parameter defaulted
+to `false` shows `false` in the generated signature.
+This scenario is tested by `CppGenerator_Generate_BoolDefaultParameter_SignatureContainsFalse`.
+
+**Negative int default parameter signature contains negative value**: Verifies that an integer
+parameter defaulted to a negative value shows the negative value in the generated signature.
+This scenario is tested by
+`CppGenerator_Generate_NegativeIntDefaultParameter_SignatureContainsNegativeValue`.
+
+**Float default parameter signature contains value**: Verifies that a float parameter with a
+default value shows the value in the generated signature.
+This scenario is tested by `CppGenerator_Generate_FloatDefaultParameter_SignatureContainsValue`.
+
+**Nested class creates a nested class page**: Verifies that a class declared inside another class
+receives its own type page, confirming that nested type declarations are documented independently.
+This scenario is tested by `CppGenerator_Generate_NestedClass_CreatesNestedClassPage`.
+
+**Nested class is listed on outer class page**: Verifies that the outer class type page lists
+its nested class in a Nested Types section, providing navigation from the containing type to
+its nested types.
+This scenario is tested by `CppGenerator_Generate_NestedClass_ListedOnOuterClassPage`.
+
+**Class-scoped type alias creates alias page**: Verifies that a `using` type alias declared
+inside a class receives its own page, confirming that class-scoped aliases are treated as
+first-class documented entities.
+This scenario is tested by `CppGenerator_Generate_ClassScopedTypeAlias_CreatesAliasPage`.
+
+**Class-scoped type alias listed on class page**: Verifies that the class type page lists its
+scoped type aliases, providing navigation from the type page to alias pages.
+This scenario is tested by `CppGenerator_Generate_ClassScopedTypeAlias_ListedOnClassPage`.
+
+**Class-scoped type alias does not collide across classes**: Verifies that same-named type
+aliases in different classes do not collide in the generated output, confirming that
+namespace-and-class-scoped paths are used for alias page keys.
+This scenario is tested by
+`CppGenerator_Generate_ClassScopedTypeAlias_DoesNotCollideAcrossClasses`.
+
+**Method with code example emits code block on member page**: Verifies that a method whose
+Doxygen comment includes a `@code`/`@endcode` block produces a fenced code block on its
+member detail page.
+This scenario is tested by `CppGenerator_Generate_MethodWithCodeExample_EmitsCodeBlockOnMemberPage`.
+
+**Single-file method with code example emits code block**: Verifies that in single-file output
+mode, a method with a Doxygen code example produces a fenced code block in the single api.md file.
+This scenario is tested by `CppGenerator_SingleFile_MethodWithCodeExample_EmitsCodeBlock`.
+
 ### Unit Test Scenarios
 
 **CppSourceLocation stores file and line correctly**: Verifies that `CppSourceLocation` records the
@@ -328,20 +409,20 @@ is null when no default value is passed at construction, confirming that the def
 optional and correctly absent for parameters without defaults. This scenario is tested by
 `CppParameter_DefaultValue_WhenNotProvided_IsNull`.
 
-**CppField stores all properties correctly**: Verifies that `CppField` records the name, type name,
+**CppField stores core properties correctly**: Verifies that `CppField` records the name, type name,
 accessibility, and static flag passed at construction, confirming that field metadata is preserved
 for use in visibility filtering and field signature rendering. This scenario is tested by
-`CppField_Construction_SetsAllProperties`.
+`CppField_Construction_SetsCoreProperties`.
 
-**CppFunction stores all properties correctly**: Verifies that `CppFunction` records the name,
+**CppFunction stores core properties correctly**: Verifies that `CppFunction` records the name,
 return type, accessibility, and constructor flag passed at construction, confirming that function
 metadata is preserved for use in visibility filtering, constructor detection, and signature
-rendering. This scenario is tested by `CppFunction_Construction_SetsAllProperties`.
+rendering. This scenario is tested by `CppFunction_Construction_SetsCoreProperties`.
 
-**CppClass stores all properties correctly**: Verifies that `CppClass` records the name, base
+**CppClass stores core properties correctly**: Verifies that `CppClass` records the name, base
 types, and final flag passed at construction, confirming that class metadata is preserved for use
 in ownership filtering, inheritance rendering, and page generation. This scenario is tested by
-`CppClass_Construction_SetsAllProperties`.
+`CppClass_Construction_SetsCoreProperties`.
 
 **CppEnum stores name and values correctly**: Verifies that `CppEnum` records the name and value
 list passed at construction, confirming that enum type metadata is preserved for rendering in enum

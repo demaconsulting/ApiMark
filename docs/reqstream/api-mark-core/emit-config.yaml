@@ -6,7 +6,7 @@ sections:
       - title: EmitConfig Requirements
         requirements:
           - id: ApiMarkCore-EmitConfig-DefineFormat
-            title: EmitConfig shall expose an OutputFormat Format property that defaults to GradualDisclosure.
+            title: EmitConfig shall make the output format selectable, defaulting to gradual-disclosure (multi-file) output.
             justification: |
               The output format must be selectable at emit time rather than at parse time
               so that callers (CLI, MSBuild task) can control the file-layout strategy
@@ -17,7 +17,7 @@ sections:
               - IApiGenerator_Emit_GradualDisclosure_ProducesMultipleFiles
               - IApiGenerator_Emit_SingleFile_ProducesSingleApiMd
           - id: ApiMarkCore-EmitConfig-DefineHeadingDepth
-            title: EmitConfig shall expose an int HeadingDepth property that defaults to 1.
+            title: EmitConfig shall make the top-level heading level selectable, defaulting to level 1.
             justification: |
               When producing single-file output, the caller must be able to embed the
               generated content inside a larger document at any heading level. HeadingDepth

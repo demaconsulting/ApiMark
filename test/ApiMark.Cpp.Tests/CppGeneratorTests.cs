@@ -93,7 +93,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         Assert.Throws<ArgumentException>(() => new CppGenerator(options));
     }
 
-    /// <summary>Validates that passing a null factory to <see cref="CppGenerator.Generate"/> throws <see cref="ArgumentNullException"/>.</summary>
+    /// <summary>Validates that passing a null factory to <see cref="CppGenerator.Parse"/> throws <see cref="ArgumentNullException"/>.</summary>
     [Fact]
     public void CppGenerator_Generate_NullFactory_ThrowsArgumentNullException()
     {

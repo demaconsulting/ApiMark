@@ -142,9 +142,9 @@ public sealed class CppGenerator : IApiGenerator
     /// </returns>
     /// <remarks>
     ///     <para>
-    ///         When <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> is empty the default
-    ///         patterns <c>["**/*.h", "**/*.hpp", "**/*.hxx", "**/*.h++"]</c> are used,
-    ///         preserving the behavior of runs with no configured patterns.
+    ///         When <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> is empty, pattern
+    ///         matching is bypassed and all files with recognized C++ header extensions
+    ///         under each root are included.
     ///     </para>
     ///     <para>
     ///         Gitignore-style evaluation: for each candidate file, start with

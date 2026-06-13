@@ -8,14 +8,15 @@ sections:
           - id: Clang-Executable-Discoverable
             title: >-
               Clang shall be discoverable on the host system via the APIMARK_CLANG_PATH environment
-              variable, PATH search, xcrun on macOS, or vswhere on Windows without requiring an
-              explicit path configuration.
+              variable, PATH search, xcrun on macOS, vswhere on Windows, or the default LLVM install
+              path on Windows without requiring an explicit path configuration.
             justification: |
               ApiMark must run in standard CI environments where clang is installed but its path is
               not known in advance. The APIMARK_CLANG_PATH environment variable allows project-wide
               or CI-wide configuration without repeating the path on every command. Automatic
               discovery via PATH, xcrun, and vswhere covers common installation layouts on all
-              supported platforms.
+              supported platforms. Falling back to `C:\Program Files\LLVM\bin\clang.exe` on Windows
+              handles the default LLVM installer location when vswhere does not locate a bundled clang.
             tests:
               - CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint
           - id: Clang-AstDump-ProducesParseableJson

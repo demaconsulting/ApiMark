@@ -20,6 +20,7 @@ internal sealed class CppEmitterGradualDisclosure
         ["Member", "`{Namespace}/{TypeName}/{MemberName}.md`"],
         ["Free function", "`{Namespace}/{FunctionName}.md`"],
         ["Enum", "`{Namespace}/{EnumName}.md`"],
+        ["Type alias", "`{Namespace}/{AliasName}.md`"],
         ["Operators (class)", "`{Namespace}/{TypeName}/operators.md`"],
         ["Operators (namespace)", "`{Namespace}/operators.md`"],
     ];
@@ -151,7 +152,7 @@ internal sealed class CppEmitterGradualDisclosure
         var rows = namespaces.Select(kv =>
         {
             var nsDecls = kv.Value;
-            var declarationCount = nsDecls.Classes.Count + nsDecls.Enums.Count + nsDecls.TypeAliases.Count + nsDecls.FreeFunctions.Count;
+            var declarationCount = nsDecls.Classes.Count + nsDecls.Enums.Count + nsDecls.FreeFunctions.Count;
             var description = CppEmitter.GetNamespaceDescription(nsDecls);
             return new[] { $"[{nsDecls.DisplayName}]({kv.Key}.md)", declarationCount.ToString(), description };
         });

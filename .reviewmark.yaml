@@ -173,9 +173,9 @@ reviews:
   - id: ApiMark-DotNet-DotNetAstModel
     title: Review that ApiMark DotNet DotNetAstModel Implementation is Correct
     paths:
-      - docs/reqstream/api-mark-dot-net/dot-net-generator.yaml
-      - docs/design/api-mark-dot-net/dot-net-generator.md
-      - docs/verification/api-mark-dot-net/dot-net-generator.md
+      - docs/reqstream/api-mark-dot-net/dot-net-ast-model.yaml
+      - docs/design/api-mark-dot-net/dot-net-ast-model.md
+      - docs/verification/api-mark-dot-net/dot-net-ast-model.md
       - src/ApiMark.DotNet/DotNetAstModel.cs
       - test/ApiMark.DotNet.Tests/DotNetAstModelTests.cs
 
@@ -183,9 +183,9 @@ reviews:
   - id: ApiMark-DotNet-DotNetEmitter
     title: Review that ApiMark DotNet DotNetEmitter Implementation is Correct
     paths:
-      - docs/reqstream/api-mark-dot-net/dot-net-generator.yaml
-      - docs/design/api-mark-dot-net/dot-net-generator.md
-      - docs/verification/api-mark-dot-net/dot-net-generator.md
+      - docs/reqstream/api-mark-dot-net/dot-net-emitter.yaml
+      - docs/design/api-mark-dot-net/dot-net-emitter.md
+      - docs/verification/api-mark-dot-net/dot-net-emitter.md
       - src/ApiMark.DotNet/DotNetEmitter.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterTests.cs
 
@@ -194,9 +194,9 @@ reviews:
     title: Review that ApiMark DotNet DotNetEmitterGradualDisclosure Implementation
       is Correct
     paths:
-      - docs/reqstream/api-mark-dot-net/dot-net-generator.yaml
-      - docs/design/api-mark-dot-net/dot-net-generator.md
-      - docs/verification/api-mark-dot-net/dot-net-generator.md
+      - docs/reqstream/api-mark-dot-net/dot-net-emitter-gradual-disclosure.yaml
+      - docs/design/api-mark-dot-net/dot-net-emitter-gradual-disclosure.md
+      - docs/verification/api-mark-dot-net/dot-net-emitter-gradual-disclosure.md
       - src/ApiMark.DotNet/DotNetEmitterGradualDisclosure.cs
       - test/ApiMark.DotNet.Fixtures/**/*.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterGradualDisclosureTests.cs
@@ -205,9 +205,9 @@ reviews:
   - id: ApiMark-DotNet-DotNetEmitterSingleFile
     title: Review that ApiMark DotNet DotNetEmitterSingleFile Implementation is Correct
     paths:
-      - docs/reqstream/api-mark-dot-net/dot-net-generator.yaml
-      - docs/design/api-mark-dot-net/dot-net-generator.md
-      - docs/verification/api-mark-dot-net/dot-net-generator.md
+      - docs/reqstream/api-mark-dot-net/dot-net-emitter-single-file.yaml
+      - docs/design/api-mark-dot-net/dot-net-emitter-single-file.md
+      - docs/verification/api-mark-dot-net/dot-net-emitter-single-file.md
       - src/ApiMark.DotNet/DotNetEmitterSingleFile.cs
       - test/ApiMark.DotNet.Fixtures/**/*.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterSingleFileTests.cs
@@ -216,9 +216,9 @@ reviews:
   - id: ApiMark-DotNet-XmlDocReader
     title: Review that ApiMark DotNet XmlDocReader Implementation is Correct
     paths:
-      - docs/reqstream/api-mark-dot-net/dot-net-generator.yaml
-      - docs/design/api-mark-dot-net/dot-net-generator.md
-      - docs/verification/api-mark-dot-net/dot-net-generator.md
+      - docs/reqstream/api-mark-dot-net/xml-doc-reader.yaml
+      - docs/design/api-mark-dot-net/xml-doc-reader.md
+      - docs/verification/api-mark-dot-net/xml-doc-reader.md
       - src/ApiMark.DotNet/XmlDocReader.cs
       - test/ApiMark.DotNet.Tests/XmlDocReaderTests.cs
 
@@ -226,9 +226,9 @@ reviews:
   - id: ApiMark-DotNet-TypeLinkResolver
     title: Review that ApiMark DotNet TypeLinkResolver Implementation is Correct
     paths:
-      - docs/reqstream/api-mark-dot-net/dot-net-generator.yaml
-      - docs/design/api-mark-dot-net/dot-net-generator.md
-      - docs/verification/api-mark-dot-net/dot-net-generator.md
+      - docs/reqstream/api-mark-dot-net/type-link-resolver.yaml
+      - docs/design/api-mark-dot-net/type-link-resolver.md
+      - docs/verification/api-mark-dot-net/type-link-resolver.md
       - src/ApiMark.DotNet/TypeLinkResolver.cs
       - test/ApiMark.DotNet.Tests/TypeLinkResolverTests.cs
 
@@ -282,9 +282,9 @@ reviews:
   - id: ApiMark-Cpp-CppAstModel
     title: Review that ApiMark Cpp CppAstModel Implementation is Correct
     paths:
-      - docs/reqstream/api-mark-cpp/cpp-generator.yaml
-      - docs/design/api-mark-cpp/cpp-generator.md
-      - docs/verification/api-mark-cpp/cpp-generator.md
+      - docs/reqstream/api-mark-cpp/cpp-ast-model.yaml
+      - docs/design/api-mark-cpp/cpp-ast-model.md
+      - docs/verification/api-mark-cpp/cpp-ast-model.md
       - src/ApiMark.Cpp/CppAst/CppAstModel.cs
       - test/ApiMark.Cpp.Tests/CppAstModelTests.cs
 
@@ -292,9 +292,9 @@ reviews:
   - id: ApiMark-Cpp-ClangAstParser
     title: Review that ApiMark Cpp ClangAstParser Implementation is Correct
     paths:
-      - docs/reqstream/api-mark-cpp/cpp-generator.yaml
+      - docs/reqstream/api-mark-cpp/clang-ast-parser.yaml
       - docs/design/api-mark-cpp/clang-ast-parser.md
-      - docs/verification/api-mark-cpp/cpp-generator.md
+      - docs/verification/api-mark-cpp/clang-ast-parser.md
       - src/ApiMark.Cpp/CppAst/ClangAstParser.cs
       - test/ApiMark.Cpp.Fixtures/**/*.h
       - test/ApiMark.Cpp.Tests/ClangAstParserTests.cs
@@ -303,9 +303,9 @@ reviews:
   - id: ApiMark-Cpp-CppEmitter
     title: Review that ApiMark Cpp CppEmitter Implementation is Correct
     paths:
-      - docs/reqstream/api-mark-cpp/cpp-generator.yaml
-      - docs/design/api-mark-cpp/cpp-generator.md
-      - docs/verification/api-mark-cpp/cpp-generator.md
+      - docs/reqstream/api-mark-cpp/cpp-emitter.yaml
+      - docs/design/api-mark-cpp/cpp-emitter.md
+      - docs/verification/api-mark-cpp/cpp-emitter.md
       - src/ApiMark.Cpp/CppEmitter.cs
       - test/ApiMark.Cpp.Tests/CppEmitterTests.cs
 
@@ -313,9 +313,9 @@ reviews:
   - id: ApiMark-Cpp-CppEmitterGradualDisclosure
     title: Review that ApiMark Cpp CppEmitterGradualDisclosure Implementation is Correct
     paths:
-      - docs/reqstream/api-mark-cpp/cpp-generator.yaml
-      - docs/design/api-mark-cpp/cpp-generator.md
-      - docs/verification/api-mark-cpp/cpp-generator.md
+      - docs/reqstream/api-mark-cpp/cpp-emitter-gradual-disclosure.yaml
+      - docs/design/api-mark-cpp/cpp-emitter-gradual-disclosure.md
+      - docs/verification/api-mark-cpp/cpp-emitter-gradual-disclosure.md
       - src/ApiMark.Cpp/CppEmitterGradualDisclosure.cs
       - test/ApiMark.Cpp.Fixtures/**/*.h
       - test/ApiMark.Cpp.Tests/CppEmitterGradualDisclosureTests.cs
@@ -324,11 +324,21 @@ reviews:
   - id: ApiMark-Cpp-CppEmitterSingleFile
     title: Review that ApiMark Cpp CppEmitterSingleFile Implementation is Correct
     paths:
-      - docs/reqstream/api-mark-cpp/cpp-generator.yaml
-      - docs/design/api-mark-cpp/cpp-generator.md
-      - docs/verification/api-mark-cpp/cpp-generator.md
+      - docs/reqstream/api-mark-cpp/cpp-emitter-single-file.yaml
+      - docs/design/api-mark-cpp/cpp-emitter-single-file.md
+      - docs/verification/api-mark-cpp/cpp-emitter-single-file.md
       - src/ApiMark.Cpp/CppEmitterSingleFile.cs
       - test/ApiMark.Cpp.Tests/CppEmitterSingleFileTests.cs
+
+  # ApiMarkCpp - CppTypeLinkResolver
+  - id: ApiMark-Cpp-CppTypeLinkResolver
+    title: Review that ApiMark Cpp CppTypeLinkResolver Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-cpp/cpp-type-link-resolver.yaml
+      - docs/design/api-mark-cpp/cpp-type-link-resolver.md
+      - docs/verification/api-mark-cpp/cpp-type-link-resolver.md
+      - src/ApiMark.Cpp/CppTypeLinkResolver.cs
+      - test/ApiMark.Cpp.Tests/CppTypeLinkResolverTests.cs
 
   # ApiMarkMSBuild - Specials
   - id: ApiMark-MSBuild-Architecture
@@ -445,3 +455,15 @@ reviews:
       - docs/reqstream/ots/clang.yaml
       - docs/design/ots/clang.md
       - docs/verification/ots/clang.md
+  - id: OTS-DemaConsultingTestResults
+    title: Review that DemaConsulting.TestResults Provides Required Functionality
+    paths:
+      - docs/reqstream/ots/dema-consulting-test-results.yaml
+      - docs/design/ots/dema-consulting-test-results.md
+      - docs/verification/ots/dema-consulting-test-results.md
+  - id: OTS-CppAstNet
+    title: Review that CppAst.Net Archived OTS Artifacts are Complete
+    paths:
+      - docs/reqstream/ots/cpp-ast-net.yaml
+      - docs/design/ots/cpp-ast-net.md
+      - docs/verification/ots/cpp-ast-net.md

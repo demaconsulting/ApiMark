@@ -1,0 +1,31 @@
+---
+# CppEmitterSingleFile unit requirements
+sections:
+  - title: ApiMarkCpp Requirements
+    sections:
+      - title: CppEmitterSingleFile Requirements
+        requirements:
+          - id: ApiMarkCpp-CppEmitterSingleFile
+            title: >-
+              CppEmitterSingleFile shall write all API documentation into a single
+              api.md file using hierarchical heading levels.
+            justification: |
+              Single-file output is required for consumers who want a compact, linear
+              reference instead of the gradual-disclosure folder tree. Writing all
+              content into one file simplifies indexing and search.
+            children:
+              - ApiMarkCpp-CppEmitterSingleFile-EmitSingleApiFile
+          - id: ApiMarkCpp-CppEmitterSingleFile-EmitSingleApiFile
+            title: >-
+              CppEmitterSingleFile shall create exactly one writer keyed as api,
+              include the library name as a top-level heading, and include a namespace
+              heading.
+            justification: |
+              A single output file with a deterministic key (api) and correct heading
+              structure is required for tool-chain consumers that process the file
+              programmatically and for readers who expect a linear document layout.
+            tests:
+              - CppEmitterSingleFile_Emit_MinimalData_CreatesExactlyOneWriter
+              - CppEmitterSingleFile_Emit_MinimalData_CreatesApiFileOnly
+              - CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsLibraryNameHeading
+              - CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsNamespaceHeading

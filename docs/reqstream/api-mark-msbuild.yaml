@@ -26,8 +26,11 @@ sections:
           - ApiMarkMsbuild-ApiMarkTask-ForwardClangPath
           - ApiMarkMsbuild-ApiMarkTask-AutoPopulateIncludePaths
           - ApiMarkMsbuild-ApiMarkTask-SkipWhenDotNetXmlDocPathNotSet
+          - ApiMarkMsbuild-ApiMarkTask-ForwardFormatProperty
+          - ApiMarkMsbuild-ApiMarkTask-SupportOutputsItemGroup
         tests:
           - ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoDocumentsOnBuild
+          - windows@ApiMarkMsbuild_NuGetPackage_CppVcxprojProject_AutoDocumentsOnBuild
       - id: ApiMarkMsbuild-IncludeDocsInNuGetPackage
         title: ApiMarkMsbuild shall support an opt-in ApiMarkPackDocs property that, when set to true, includes generated documentation in the NuGet package.
         justification: |

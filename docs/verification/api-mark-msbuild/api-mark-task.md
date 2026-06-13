@@ -6,14 +6,19 @@
 language-appropriate arguments. Verification uses unit and integration tests in
 `test/ApiMark.MSBuild.Tests/` that directly instantiate `ApiMarkTask` and set properties on
 the task object, asserting that the correct child-process arguments are constructed and that
-skip conditions are honored. The real process-spawn path is exercised in the integration test
-so the unit is verified as it is shipped.
+skip conditions are honored. End-to-end NuGet package integration tests in
+`test/ApiMark.MSBuild.PackageTests/` verify the complete build path using real `.nupkg` and
+fixture project files.
 
 ### Test Environment
 
-Tests require the .NET SDK and a pre-built `ApiMark.Tool.dll`. The integration test requires a
-writable output directory for generated Markdown. No fixture MSBuild project files, external
-service, network dependency, or elevated permission is required.
+Unit tests (`test/ApiMark.MSBuild.Tests/`) require the .NET SDK and a pre-built
+`ApiMark.Tool.dll`; no fixture MSBuild project files, external service, network dependency,
+or elevated permission is required, and the integration test requires a writable output
+directory for generated Markdown. Package integration tests
+(`test/ApiMark.MSBuild.PackageTests/`) additionally require the pre-built
+`DemaConsulting.ApiMark.MSBuild` `.nupkg`, a `.vcxproj` fixture project, Windows with
+MSBuild and VC++ tools installed; those tests skip gracefully when the package is absent.
 
 ### Acceptance Criteria
 
@@ -29,14 +34,19 @@ service, network dependency, or elevated permission is required.
 - `ApiMarkIncludeObsolete` is forwarded as `--include-obsolete` when true.
 - `DisableApiMark` suppresses tool invocation and returns true with no side effects.
 - A non-zero exit code from the spawned tool causes `Execute` to return false and log a
-  MSBuild error.
+  MSBuild error. Note: process-failure surfacing (non-zero exit → task returns false +
+  logs error) is a known verification gap; a dedicated test is pending.
 - For C++ builds, `ApiMarkLibraryName` is forwarded as `--library-name` when set.
+- For C++ builds, `ApiMarkLibraryDescription` is forwarded as `--library-description` when set.
+- For C++ builds, `ApiMarkClangPath` is forwarded as `--clang-path` when set.
 - For C++ builds, `ApiMarkDefines` semicolons are converted to commas and forwarded as
   `--defines`.
 - For C++ builds, `ApiMarkCppStandard` is forwarded as `--cpp-standard` when set.
 - For C++ builds, each semicolon-delimited entry in `ApiMarkApiHeaders` is forwarded as its own
   `--api-headers` flag in order, with `!`-prefixed exclusion patterns passed verbatim.
 - When `ApiMarkIncludePaths` is not set for a C++ project, the task returns true immediately
+  with no side effects.
+- When `ApiMarkXmlDocPath` is not set for a .NET project, the task returns true immediately
   with no side effects.
 
 ### Test Scenarios
@@ -54,9 +64,9 @@ path from `ApiMarkAssemblyPath` and the XML doc path from `ApiMarkXmlDocPath` ap
 `--assembly` and `--xml-doc` arguments in the spawned command. This scenario is tested by
 `ApiMarkTask_DotNet_SpawnsToolWithCorrectAssemblyAndXmlDocArguments`.
 
-**Cpp tool invocation passes include paths**: Verifies that the semicolon-separated value
-of `ApiMarkIncludePaths` is forwarded as-is to the `--includes` argument of the spawned
-`cpp` subcommand. This scenario is tested by
+**Cpp tool invocation passes include paths**: Verifies that each semicolon-delimited entry in
+`ApiMarkIncludePaths` is forwarded as its own `--includes` flag to the spawned `cpp`
+subcommand; the joined string is never passed directly. This scenario is tested by
 `ApiMarkTask_Cpp_SpawnsToolWithCorrectIncludePathArguments`.
 
 **Output directory is forwarded as --output**: Verifies that the `ApiMarkOutputDir` value
@@ -74,6 +84,15 @@ scenario is tested by `ApiMarkTask_DisableApiMark_True_SkipsToolInvocation`.
 **C++ library name is forwarded as --library-name**: Verifies that the `ApiMarkLibraryName`
 property is passed to the spawned tool as the `--library-name` argument for C++ builds.
 This scenario is tested by `ApiMarkTask_Cpp_LibraryName_ForwardedToTool`.
+
+**C++ library description is forwarded as --library-description**: Verifies that the
+`ApiMarkLibraryDescription` property is passed to the spawned tool as the
+`--library-description` argument for C++ builds. This scenario is tested by
+`ApiMarkTask_Cpp_LibraryDescription_ForwardedToTool`.
+
+**C++ clang path is forwarded as --clang-path**: Verifies that the `ApiMarkClangPath` property
+is passed to the spawned tool as the `--clang-path` argument for C++ builds when set. This
+scenario is tested by `ApiMarkTask_Cpp_ClangPath_ForwardedToTool`.
 
 **C++ defines semicolons are converted to commas**: Verifies that semicolons in the
 `ApiMarkDefines` property are converted to commas before being forwarded as the `--defines`
@@ -96,16 +115,26 @@ last-match-wins gitignore semantics. This scenario is tested by
 spawning any process, providing graceful skip behavior parallel to the dotnet XmlDocPath
 behavior. This scenario is tested by `ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExecution`.
 
+**Empty XmlDocPath skips execution for .NET project**: Verifies that when `ApiMarkXmlDocPath`
+is not set for a .NET project, the task returns true immediately without spawning any process,
+providing graceful skip behavior for projects that do not generate XML documentation. This
+scenario is tested by `ApiMarkTask_DotNet_EmptyXmlDocPath_SkipsExecution`.
+
+**IncludeObsolete flag is forwarded**: Verifies that when `ApiMarkIncludeObsolete` is set to
+`true`, the `--include-obsolete` flag is added to the spawned tool command. This scenario is
+tested by `ApiMarkTask_IncludeObsolete_True_ForwardsIncludeObsoleteFlag`.
+
 **DotNet project executes tool and generates documentation**: End-to-end integration test that
 exercises the complete .NET documentation generation path — locates the bundled `ApiMark.Tool.dll`,
 spawns it against a real fixture assembly, and verifies that `api.md` is produced in the output
 directory. This scenario is tested by `ApiMarkTask_Execute_WithDotNetProject_GeneratesDocumentation`.
 
-**C++ project generates documentation via spawned tool**: End-to-end integration test that
-exercises the complete C++ documentation generation path against real fixture headers. Verifies
-that the spawned tool produces the expected Markdown output files. This scenario is tested by
-`ApiMarkTask_Execute_WithCppProject_GeneratesDocumentation` (not yet implemented — tracked
-as a future test).
+**C++ project generates documentation via spawned tool**: End-to-end package integration test
+that verifies a C++ project referencing the `DemaConsulting.ApiMark.MSBuild` NuGet package
+generates documentation when a `.vcxproj` build is invoked. Full C++ NuGet package
+integration is verified by the package test (in `test/ApiMark.MSBuild.PackageTests/`);
+unit-level CppGenerator invocation test is a known gap. This scenario is tested by
+`ApiMarkMsbuild_NuGetPackage_CppVcxprojProject_AutoDocumentsOnBuild` (Windows-only).
 
 **C++ include paths auto-populated from AdditionalIncludeDirectories**: End-to-end package
 integration test that verifies `ApiMarkIncludePaths` is correctly defaulted from `ClCompile`

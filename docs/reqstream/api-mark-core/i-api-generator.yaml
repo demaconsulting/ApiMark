@@ -6,7 +6,7 @@ sections:
       - title: IApiGenerator Requirements
         requirements:
           - id: ApiMarkCore-IApiGenerator-DefineParseMethod
-            title: IApiGenerator shall define a Parse method that accepts an IContext parameter and returns an IApiEmitter.
+            title: IApiGenerator shall accept a caller-supplied diagnostic channel and return an emitter ready to write the parsed component's documentation.
             justification: |
               The caller needs one consistent invocation point for every language
               generator so symbol parsing can be triggered without knowing the
@@ -17,14 +17,6 @@ sections:
               suppressed, or redirected by the caller.
             tests:
               - IApiGenerator_Parse_WithMinimalStub_ExecutesSuccessfully
-          - id: ApiMarkCore-IApiGenerator-EmitterProducesEntrypointFile
-            title: IApiEmitter implementations shall produce a file named "api.md" as the fixed top-level entrypoint of every generated output tree.
-            justification: |
-              Callers (CLI and MSBuild) need a predictable entry point to reference or
-              present to the user without inspecting output directory contents. A fixed
-              name eliminates language-specific post-processing.
-            tests:
-              - IApiGenerator_Emit_OutputDirectory_ContainsApiMd
           - id: ApiMarkCore-IApiGenerator-AllowConstructionTimeConfiguration
             title: IApiGenerator shall allow language-specific configuration to be supplied when an implementation is constructed before Parse is called.
             justification: |
@@ -33,14 +25,3 @@ sections:
               before parsing starts while keeping the runtime invocation uniform.
             tests:
               - IApiGenerator_Implementation_UsesConstructionConfiguration
-          - id: ApiMarkCore-IApiGenerator-SupportConfigurableOutputFormat
-            title: IApiEmitter.Emit shall support both GradualDisclosure and SingleFile output formats as selected by EmitConfig.Format.
-            justification: |
-              Different consumers need different output layouts: the gradual-disclosure
-              tree is optimized for AI agent navigation (one concept per file), while
-              the single-file format is optimized for direct reading or embedding in
-              larger documents. Driving the choice through EmitConfig keeps the
-              decision at the call site rather than inside the language-specific module.
-            tests:
-              - IApiGenerator_Emit_GradualDisclosure_ProducesMultipleFiles
-              - IApiGenerator_Emit_SingleFile_ProducesSingleApiMd

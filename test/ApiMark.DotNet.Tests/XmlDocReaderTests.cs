@@ -237,6 +237,30 @@ public class XmlDocReaderTests
         }
     }
 
+    /// <summary>Validates that <see cref="XmlDocReader.GetExample"/> returns <c>null</c> when the example element contains only whitespace.</summary>
+    [Fact]
+    public void XmlDocReader_GetExample_WhitespaceOnly_ReturnsNull()
+    {
+        // Arrange: create a member whose <example> element holds only whitespace
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>   </example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+
+            // Assert: whitespace-only content must collapse to null, not an empty string
+            Assert.Null(reader.GetExample("M:Foo.Bar.Sample"));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     /// <summary>
     ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> returns the whole text as a single
     ///     code part when the example has no <c>&lt;code&gt;</c> child element.
@@ -317,6 +341,96 @@ public class XmlDocReaderTests
 
             // Assert
             Assert.Empty(parts);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetExceptionDetails"/> returns formatted type names and descriptions.</summary>
+    [Fact]
+    public void XmlDocReader_GetExceptionDetails_MemberWithExceptions_ReturnsFormattedTypesAndDescriptions()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Open(System.String)">
+              <exception cref="T:System.InvalidOperationException">Already open.</exception>
+              <exception cref="T:System.ArgumentNullException">host is null.</exception>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var details = reader.GetExceptionDetails("M:Foo.Bar.Open(System.String)");
+
+            // Assert
+            Assert.Equal(2, details.Count);
+            Assert.Equal("InvalidOperationException", details[0].Type);
+            Assert.Equal("Already open.", details[0].Description);
+            Assert.Equal("ArgumentNullException", details[1].Type);
+            Assert.Equal("host is null.", details[1].Description);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetRemarks"/> returns null when the member is absent.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_MemberAbsent_ReturnsNull()
+    {
+        // Arrange
+        var path = WriteXmlDoc(string.Empty);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+
+            // Assert
+            Assert.Null(reader.GetRemarks("T:Missing.Type"));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetReturns"/> returns null when the member is absent.</summary>
+    [Fact]
+    public void XmlDocReader_GetReturns_MemberAbsent_ReturnsNull()
+    {
+        // Arrange
+        var path = WriteXmlDoc(string.Empty);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+
+            // Assert
+            Assert.Null(reader.GetReturns("T:Missing.Type"));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetExample"/> returns null when the member is absent.</summary>
+    [Fact]
+    public void XmlDocReader_GetExample_MemberAbsent_ReturnsNull()
+    {
+        // Arrange
+        var path = WriteXmlDoc(string.Empty);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+
+            // Assert
+            Assert.Null(reader.GetExample("T:Missing.Type"));
         }
         finally
         {

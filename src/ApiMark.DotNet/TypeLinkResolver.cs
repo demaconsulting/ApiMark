@@ -131,10 +131,11 @@ internal sealed class TypeLinkResolver
             return string.Empty;
         }
 
-        // Generic type parameters (e.g. T, TKey) are not real types — render as plain text
+        // Generic type parameters (e.g. T, TKey) are not real types — render as plain text,
+        // appending "?" when the annotation indicates the parameter itself is nullable
         if (typeRef is GenericParameter genericParam)
         {
-            return genericParam.Name;
+            return isNullableAnnotated ? genericParam.Name + "?" : genericParam.Name;
         }
 
         // Handle Nullable<T> → T? by recursing on the inner type with the nullable flag set

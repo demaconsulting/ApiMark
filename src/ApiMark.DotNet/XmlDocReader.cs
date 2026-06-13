@@ -10,6 +10,12 @@ public sealed class XmlDocReader
     private readonly Dictionary<string, XElement> _members;
 
     /// <summary>Initializes a new instance of <see cref="XmlDocReader"/> from the given path.</summary>
+    /// <remarks>
+    ///     When duplicate member names appear in the XML doc file, the first occurrence is used
+    ///     and subsequent duplicates are silently discarded. This is a defensive policy for
+    ///     malformed but real-world XML doc files where the compiler emits the same member ID
+    ///     more than once (e.g., due to partial-class splits or tooling bugs).
+    /// </remarks>
     /// <param name="xmlDocPath">Path to the XML documentation file.</param>
     /// <exception cref="FileNotFoundException">Thrown when <paramref name="xmlDocPath"/> does not exist.</exception>
     public XmlDocReader(string xmlDocPath)
@@ -22,11 +28,14 @@ public sealed class XmlDocReader
         }
 
         // Build an index of member elements keyed by their 'name' attribute so
-        // individual lookups are O(1) rather than scanning all descendants each call
+        // individual lookups are O(1) rather than scanning all descendants each call.
+        // GroupBy before ToDictionary provides first-wins duplicate handling so a
+        // malformed XML doc file with repeated name attributes does not throw.
         var doc = XDocument.Load(xmlDocPath);
         _members = doc.Descendants("member")
             .Where(m => m.Attribute("name") != null)
-            .ToDictionary(m => m.Attribute("name")!.Value, m => m);
+            .GroupBy(m => m.Attribute("name")!.Value)
+            .ToDictionary(g => g.Key, g => g.First());
     }
 
     /// <summary>Returns the trimmed summary text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
@@ -131,8 +140,13 @@ public sealed class XmlDocReader
     }
 
     /// <summary>Returns the trimmed example text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
+    /// <remarks>
+    ///     Returns <c>null</c> when the <c>&lt;example&gt;</c> element is absent or contains only
+    ///     whitespace, matching the null-for-missing contract of <see cref="GetSummary"/>,
+    ///     <see cref="GetRemarks"/>, and <see cref="GetReturns"/>.
+    /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
-    /// <returns>Trimmed example text, or <c>null</c>.</returns>
+    /// <returns>Trimmed example text, or <c>null</c> when the element is absent or whitespace-only.</returns>
     public string? GetExample(string memberId)
     {
         if (!_members.TryGetValue(memberId, out var member))
@@ -141,7 +155,12 @@ public sealed class XmlDocReader
         }
 
         var el = member.Element("example");
-        return el?.Value.Trim();
+
+        // Treat whitespace-only content the same as a missing element — callers rely on
+        // null to indicate no example is present, so an empty-after-trim value must not
+        // be returned as an empty string
+        var text = el?.Value.Trim();
+        return string.IsNullOrEmpty(text) ? null : text;
     }
 
     /// <summary>

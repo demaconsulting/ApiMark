@@ -31,24 +31,7 @@ sections:
                     ClangAstParser_Parse_FixtureHeaders_ReturnsNonEmptyNamespaces,
                     ClangAstParser_Parse_FixtureHeaders_ContainsFixturesNamespace,
                     ClangAstParser_Parse_FixtureHeaders_FixturesNamespaceContainsSampleClass,
-                    ClangAstParser_Parse_FixtureHeaders_SampleClassHasMembers,
-                    CppSourceLocation_Construction_SetsFileAndLine,
-                    CppParamDoc_Construction_SetsNameAndDescription,
-                    CppDocComment_Construction_SetsSummaryAndDetails,
-                    CppDocComment_Equality_TwoIdenticalInstances_AreEqual,
-                    CppBaseType_Construction_SetsName,
-                    CppTemplateParam_Construction_SetsName,
-                    CppEnumValue_Construction_SetsNameAndDoc,
-                    CppParameter_Construction_SetsNameAndTypeName,
-                    CppParameter_DefaultValue_WhenNotProvided_IsNull,
-                    CppField_Construction_SetsAllProperties,
-                    CppFunction_Construction_SetsAllProperties,
-                    CppClass_Construction_SetsAllProperties,
-                    CppEnum_Construction_SetsNameAndValues,
-                    CppTypeAlias_Construction_SetsNameAndUnderlyingType,
-                    CppNamespaceDecl_Construction_SetsQualifiedName,
-                    CppCompilationResult_Construction_SetsNamespacesAndErrors,
-                    CppAccessibility_Values_ArePublicProtectedPrivate]
+                    ClangAstParser_Parse_FixtureHeaders_SampleClassHasMembers]
           - id: ApiMarkCpp-CppGenerator-FilterDeclarationsByOwnership
             title: >-
               CppGenerator shall apply a file-provenance filter that documents only
@@ -92,7 +75,7 @@ sections:
               On case-insensitive filesystems (Windows, macOS), two members whose names
               differ only in case would produce colliding filenames. Such members are
               combined onto a single page named after the lower-invariant of the shared key,
-              with each member distinguished by an H4 heading showing its exact name and
+              with each member distinguished by an H2 heading showing its exact name and
               kind label. This replaces the previous _2/_3 suffix mechanism.
             tests:
               - CppGenerator_Generate_CaseCollisionClass_CreatesCombinedPage

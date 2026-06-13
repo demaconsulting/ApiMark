@@ -1,4 +1,4 @@
-## EmitConfig
+## EmitConfig and OutputFormat
 
 ### Verification Approach
 

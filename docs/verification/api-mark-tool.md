@@ -26,6 +26,8 @@ required.
 
 ## Test Scenarios
 
+**cpp subcommand dispatch is verified at the unit level via `ApiMarkTool-Program-SupportCppOptions` tests.**
+
 **DotNet command generates documentation successfully**: Verifies that invoking `apimark dotnet`
 with valid assembly, XML documentation, and output arguments produces the expected Markdown tree
 for a sample assembly, confirming that CLI argument parsing, generator dispatch, and file emission

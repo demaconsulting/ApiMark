@@ -5,8 +5,11 @@
 
 ### Purpose
 
+This document covers the `IMarkdownWriterFactory` interface contract and the
+`FileMarkdownWriterFactory` concrete implementation.
+
 IMarkdownWriterFactory is the factory contract for creating per-file Markdown
-writers. It is injected into IApiGenerator.Generate so that language generators
+writers. It is passed to `IApiEmitter.Emit` so that language generators
 can open individual output files without knowing where or how those files are
 stored. The file-system implementation (`FileMarkdownWriterFactory`) writes to
 disk; test doubles capture writes in memory.
@@ -43,7 +46,7 @@ disk; test doubles capture writes in memory.
 - *Throws*: `ArgumentException` when `outputDirectory` is null, empty, or whitespace.
 
 **FileMarkdownWriterFactory.CreateMarkdown**: Combines `_outputDirectory` with `subFolder`
-(normalizing forward-slash separators to the platform separator), calls
+using `Path.Join` (platform separator inserted between segments), calls
 `Directory.CreateDirectory` on the resulting target path, then opens a UTF-8
 `StreamWriter` at `{targetDirectory}/{name}.md` and wraps it in a `FileMarkdownWriter`.
 
@@ -56,23 +59,30 @@ interface. `FileMarkdownWriterFactory` handles errors as follows:
   empty, or whitespace so that callers receive a clear diagnostic rather than an
   obscure I/O failure at file-creation time.
 - **CreateMarkdown**: throws `ArgumentException` when `name` is null, empty, or
-  whitespace. I/O exceptions from `Directory.CreateDirectory` or the `StreamWriter`
-  constructor (for example, `UnauthorizedAccessException` when the output root is
-  not writable) are propagated to the caller unchanged.
+  whitespace. Path segments are combined via `PathHelpers.SafePathCombine`; if
+  `subFolder` or `name` resolves outside the output root (e.g. via `../` traversal
+  or a rooted path), an `ArgumentException` is thrown. I/O exceptions from
+  `Directory.CreateDirectory` or the `StreamWriter` constructor (for example,
+  `UnauthorizedAccessException` when the output root is not writable) are propagated
+  to the caller unchanged.
 
 ### Dependencies
 
-N/A — IMarkdownWriterFactory is an interface defined in ApiMarkCore; it has no
-dependencies on other units, OTS items, or shared packages.
+The `IMarkdownWriterFactory` interface itself has no dependencies; the following apply to `FileMarkdownWriterFactory`:
+
+| Dependency | Role |
+| --- | --- |
+| `PathHelpers` | Used via `SafePathCombine` to safely resolve the output file path |
+| `FileMarkdownWriter` | Constructed and returned as the concrete writer for each output file |
 
 ### Callers
 
-- **DotNetGenerator** — receives an IMarkdownWriterFactory via IApiGenerator.Generate
+- **DotNetGenerator** — receives an IMarkdownWriterFactory passed to `IApiEmitter.Emit`
   and calls CreateMarkdown once per output file produced during generation.
-- **CppGenerator** — receives an IMarkdownWriterFactory via IApiGenerator.Generate
+- **CppGenerator** — receives an IMarkdownWriterFactory passed to `IApiEmitter.Emit`
   and calls CreateMarkdown once per output file produced during generation.
 - **ApiMarkTask** — spawns ApiMark.Tool as a child process, within which Program
   creates the `FileMarkdownWriterFactory`. ApiMarkTask does not use IMarkdownWriterFactory
   directly.
 - **Program** — constructs a `FileMarkdownWriterFactory(outputDirectory)` from CLI
-  options and passes it to the generator's Generate method.
+  options and passes it to `IApiEmitter.Emit`.

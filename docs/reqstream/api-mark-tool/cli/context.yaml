@@ -29,7 +29,7 @@ sections:
                 tests:
                   - Context_Create_WithLanguageSubcommand_SetsLanguage
               - id: ApiMarkTool-Cli-Context-ParseLanguageOptions
-                title: Context shall parse the language-specific options --assembly, --xml-doc, --output, --visibility, --include-obsolete, --includes, and --api-headers.
+                title: Context shall parse the language-specific options --assembly, --xml-doc, --output, --visibility, and --include-obsolete.
                 justification: |
                   Language-specific options must be available to callers as typed properties so
                   that generators can be configured without re-parsing the command line.
@@ -39,8 +39,6 @@ sections:
                   - Context_Create_WithOutputOption_SetsOutputPath
                   - Context_Create_WithVisibilityOption_SetsVisibility
                   - Context_Create_WithIncludeObsoleteFlag_SetsIncludeObsoleteTrue
-                  - Context_Create_WithIncludesOption_SetsIncludes
-                  - Context_Create_WithRepeatedApiHeaders_AccumulatesAllPatternsInOrder
               - id: ApiMarkTool-Cli-Context-ParseIncludes
                 title: Context shall parse repeated --includes flags and accumulate each plain directory path into the Includes array in order.
                 justification: |
@@ -151,3 +149,10 @@ sections:
                   - Context_Create_WithFormatSingleFile_SetsSingleFileFormat
                   - Context_Create_WithNoFormatOption_DefaultsToGradualDisclosure
                   - Context_Create_WithInvalidFormat_ThrowsArgumentException
+              - id: ApiMarkTool-Cli-Context-ParseClangPath
+                title: Context shall parse the --clang-path <path> option and expose the value for use by the cpp subcommand.
+                justification: |
+                  The cpp subcommand passes ClangPath to the CppGenerator to override the default
+                  clang binary location discovered via PATH, xcrun (macOS), or vswhere (Windows).
+                tests:
+                  - Context_Create_WithClangPathOption_SetsClangPath

@@ -15,7 +15,7 @@ tree through IMarkdownWriterFactory. The output structure mirrors
 DotNetGenerator: a library-level entrypoint, per-namespace summaries, per-type
 pages, and per-member detail pages for every visible member.
 
-The implementation is split across four files in the `ApiMark.Cpp` package:
+The implementation is split across six files in the `ApiMark.Cpp` package:
 
 - **CppGenerator.cs** — thin `IApiGenerator` that collects headers, invokes
   clang, and returns a `CppEmitter`.
@@ -25,6 +25,10 @@ The implementation is split across four files in the `ApiMark.Cpp` package:
 - **CppEmitterGradualDisclosure.cs** — all gradual-disclosure page writers
   (API index, namespace, type, member, operator, enum, type-alias pages).
 - **CppEmitterSingleFile.cs** — all single-file page writers.
+- **CppTypeLinkResolver.cs** — resolves C++ type strings to Markdown link text
+  for table cells and tracks non-std external type references.
+- **CppExternalTypeInfo.cs** — holds external type documentation records
+  (`CppExternalTypeInfo`).
 
 ### Data Model
 
@@ -246,10 +250,10 @@ filesystems.
   file name and H3 heading, `IReadOnlyList<member> members` — the ordered collision
   group (at least two elements; elements are functions or fields).
 - *Returns*: `void`
-- *Algorithm*: Creates `{nsKey}/{cls.Name}/{lowerKey}.md` via the factory; writes an H3
-  heading using `lowerKey`; for each function member writes an H4 heading of the form
+- *Algorithm*: Creates `{nsKey}/{cls.Name}/{lowerKey}.md` via the factory; writes an H1
+  heading using `lowerKey`; for each function member writes an H2 heading of the form
   `{fn.Name} (Constructor)` or `{fn.Name} (Method)` and delegates to
-  `WriteFunctionContent`; for each field member writes an H4 heading of the form
+  `WriteFunctionContent`; for each field member writes an H2 heading of the form
   `{field.Name} (Field)` and delegates to `WriteFieldContent`.
 
 **CppEmitterGradualDisclosure.WriteClassOperatorsPage** (private): Writes the combined operator
@@ -296,7 +300,7 @@ for use in table cells.
 
 - *Constructor*: Accepts `IReadOnlyDictionary<string, string> knownTypes` — maps
   fully-qualified C++ type names (e.g. `"fixtures::SampleClass"`) to documentation
-  page keys (e.g. `"fixtures/SampleClass"`). Built in `CppGenerator.Generate` from
+  page keys (e.g. `"fixtures/SampleClass"`). Built in `CppGenerator.Parse` from
   the `namespaceDecls` dictionary.
 - **Linkify** method: resolves a simplified C++ type string to a Markdown link or plain text.
   - *Parameters*: `string cppTypeString`, `string currentFolder`, `ISet<CppExternalTypeInfo>
@@ -365,6 +369,9 @@ DotNetGenerator behavior.
 - **IApiEmitter** — CppEmitter implements this interface from ApiMarkCore.
 - **IMarkdownWriterFactory** — CppEmitter receives an IMarkdownWriterFactory
   through Emit and calls CreateMarkdown to obtain each IMarkdownWriter.
+- **ClangAstParser** — internal parser invoked by `CppGenerator.Parse` via
+  `ClangAstParser.Parse(headers, options)` to obtain the parsed C++ AST as a
+  `CppCompilationResult`.
 - **clang** — the system clang executable (resolved via `CppGeneratorOptions.ClangPath`,
   `APIMARK_CLANG_PATH` environment variable, `clang` on PATH, `xcrun clang` on macOS, or
   vswhere-located clang on Windows) is invoked as a subprocess to parse C++ headers and
@@ -373,4 +380,4 @@ DotNetGenerator behavior.
 ### Callers
 
 - **Program** — constructs CppGenerator from CLI options for the `cpp`
-  subcommand and calls Generate.
+  subcommand and calls `Parse` and then `IApiEmitter.Emit`.

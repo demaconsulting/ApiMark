@@ -35,15 +35,19 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
     ///     Writes a Markdown heading at the specified depth.
     /// </summary>
     /// <param name="level">
-    ///     Heading depth 1–4 (# through ####). Out-of-range values produce a
-    ///     syntactically incorrect heading but do not throw.
+    ///     Positive values produce valid Markdown headings; zero or negative values throw
+    ///     <see cref="ArgumentOutOfRangeException"/>.
     /// </param>
     /// <param name="text">Heading text to display. Must not be null.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="level"/> is zero or negative.</exception>
     /// <exception cref="ObjectDisposedException">Thrown if this writer has been disposed.</exception>
     public void WriteHeading(int level, string text)
     {
         // Guard against use-after-dispose to honour the IDisposable contract
         ObjectDisposedException.ThrowIf(_disposed, this);
+
+        // Reject zero or negative levels before any string work
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(level);
 
         // Emit the ATX heading prefix followed by the text and a blank line to
         // separate the heading from the next block element
@@ -137,7 +141,9 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
         // Guard against use-after-dispose
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // The fenced code block format is identical to WriteSignature; delegate to avoid duplication
+        // Both WriteSignature and WriteCodeBlock produce identical fenced code block output;
+        // WriteCodeBlock delegates here to avoid duplication. The methods are distinct at the
+        // API level only; post-processors may differentiate them in future.
         WriteSignature(language, code);
     }
 

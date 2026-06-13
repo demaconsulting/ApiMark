@@ -132,8 +132,9 @@ public sealed class InMemoryMarkdownWriter : IMarkdownWriter
     /// </summary>
     /// <param name="headers">Column header labels.</param>
     /// <param name="rows">
-    ///     Data rows. The sequence is materialized into a read-only list so that
-    ///     lazy sequences evaluated after the call still produce correct results.
+    ///     Data rows. The sequence is deep-copied (both the outer list and each inner
+    ///     row array are snapshotted) so that post-call mutation of the source arrays
+    ///     does not affect the recorded operation.
     /// </param>
     /// <exception cref="ObjectDisposedException">Thrown if this writer has been disposed.</exception>
     public void WriteTable(string[] headers, IEnumerable<string[]> rows)
@@ -142,10 +143,10 @@ public sealed class InMemoryMarkdownWriter : IMarkdownWriter
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
         // Snapshot both collections so that the recorded operation is immune to
-        // post-call mutation: rows are materialized from any deferred-execution
-        // sequence, and headers are copied defensively because the caller owns
-        // the original array and may reuse or modify it after this call
-        _operations.Add(new TableOperation(headers.ToArray(), rows.ToList()));
+        // post-call mutation: headers are copied defensively; rows are deep-copied
+        // (both the outer list and each inner row array) so that callers cannot
+        // mutate previously recorded row data by modifying the arrays after the call
+        _operations.Add(new TableOperation(headers.ToArray(), rows.Select(r => (string[])r.Clone()).ToList()));
     }
 
     /// <summary>

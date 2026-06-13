@@ -23,28 +23,30 @@ language-specific generator options.
 the emitted Markdown. Default: `OutputFormat.GradualDisclosure`. Values:
 
 - `GradualDisclosure` — one file per concept (library index, namespace pages,
-  type pages, member detail pages). The output structure is identical to the
-  pre-Phase-1 output.
+  type pages, member detail pages). This is the multi-file tree format.
 - `SingleFile` — all content written into a single `api.md` file using offset
   heading levels.
 
 **EmitConfig.HeadingDepth**: `int` — the absolute heading level used for the
-top-level section in single-file output. Default: `1`. Valid range: 1–6.
-Ignored by `GradualDisclosure` emitters. At depth 1, the top-level assembly
-(or library) heading is H1, namespaces are H2, types are H3, and members are
-H4.
+top-level section in single-file output. Default: `1`. Valid range: 1–2 (a
+documented guideline; no runtime enforcement is performed by `EmitConfig`
+itself — enforcement is the caller's responsibility). Ignored by
+`GradualDisclosure` emitters. At depth 1, the top-level assembly (or library)
+heading is H1, namespaces are H2, types are H3, and members are H4 (effective
+member heading level is `HeadingDepth + 3`, capped at the range supported by
+`IMarkdownWriter.WriteHeading`).
 
 **OutputFormat**: `enum` — discriminates between the two supported output
 strategies.
 
-- `GradualDisclosure` (value 0) — existing multi-file tree format.
-- `SingleFile` (value 1) — new single-file format.
+- `GradualDisclosure` (value 0) — multi-file tree format.
+- `SingleFile` (value 1) — single-file format.
 
 ### Key Methods
 
-N/A — EmitConfig is a data object; it has no significant methods. The default
-C# record-style equality derived from `sealed class` with `init` properties
-applies.
+N/A — EmitConfig is a data object; it has no significant methods. `EmitConfig`
+uses reference equality (standard `sealed class` behavior); `init` properties
+do not affect equality semantics.
 
 ### Error Handling
 

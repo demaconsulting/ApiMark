@@ -1,0 +1,19 @@
+---
+# DotNetEmitterSingleFile unit requirements
+sections:
+  - title: ApiMarkDotNet Requirements
+    sections:
+      - title: DotNetEmitterSingleFile Requirements
+        requirements:
+          - id: ApiMarkDotNet-DotNetEmitterSingleFile-ProduceSingleApiMd
+            title: DotNetEmitterSingleFile shall emit all API documentation into a single api.md file using heading levels offset by HeadingDepth.
+            justification: |
+              Single-file output provides a compact, linear reference that is easier
+              to consume in contexts where a hierarchical file tree is unwanted, such
+              as embedding documentation in a pull request or a chatbot context window.
+            tests:
+              - DotNetEmitterSingleFile_Emit_ValidModel_CreatesExactlyOneWriter
+              - DotNetEmitterSingleFile_Emit_ValidModel_CreatesApiFileOnly
+              - DotNetEmitterSingleFile_Emit_ValidModel_ApiFileContainsAssemblyHeading
+              - DotNetEmitterSingleFile_Emit_ValidModel_ApiFileContainsNamespaceHeading
+              - DotNetEmitterSingleFile_Emit_ValidModel_ApiFileContainsTypeHeading

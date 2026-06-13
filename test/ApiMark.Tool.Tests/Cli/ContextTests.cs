@@ -610,7 +610,7 @@ public sealed class ContextTests
     }
 
     /// <summary>
-    ///     Validates that an unrecognized <c>--format</c> value throws
+    ///     Validates that <c>--format</c> with an unrecognized value throws
     ///     <see cref="ArgumentException"/>.
     /// </summary>
     [Fact]
@@ -621,5 +621,22 @@ public sealed class ContextTests
 
         // Act / Assert
         Assert.Throws<ArgumentException>(() => Context.Create(args));
+    }
+
+    /// <summary>
+    ///     Validates that <c>--clang-path</c> sets the <see cref="Context.ClangPath"/> property
+    ///     to the supplied path.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithClangPathOption_SetsClangPath()
+    {
+        // Arrange: supply an explicit clang binary path
+        var args = new[] { "--clang-path", "/usr/bin/clang" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: ClangPath property must match the supplied path
+        Assert.Equal("/usr/bin/clang", context.ClangPath);
     }
 }

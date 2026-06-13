@@ -36,8 +36,12 @@ to `WriteError` appears in `InMemoryContext.Errors` immediately after the call,
 confirming the error channel is correctly implemented. This scenario is tested
 by `IContext_WriteError_CapturesMessage_InErrors`.
 
-**Written messages are routed to the correct channel without cross-contamination**:
+**InMemoryContext routes messages to separate channels without cross-contamination**:
 Verifies that informational messages appear only in `Lines` and error messages
 appear only in `Errors` when both channels are exercised on the same instance,
 confirming channel isolation. This scenario is tested by
-`ApiMarkCore_ContextContract_WrittenMessages_AreAccessibleForAssertion`.
+`InMemoryContext_WriteLineAndWriteError_RouteToSeparateChannels`.
+
+> **Note on null-message boundary**: No boundary scenario is included for null `message`
+> — the `IContext` interface contract defines no error path for null input;
+> `InMemoryContext` performs no null validation.

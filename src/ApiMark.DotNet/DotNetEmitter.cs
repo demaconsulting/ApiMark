@@ -223,7 +223,7 @@ internal sealed class DotNetEmitter : IApiEmitter
         MethodDefinition m => m.IsPublic || m.IsFamily || m.IsFamilyOrAssembly,
         PropertyDefinition p => IsPropertyPublicOrProtected(p),
         FieldDefinition f => f.IsPublic || f.IsFamily || f.IsFamilyOrAssembly,
-        EventDefinition e => (e.AddMethod?.IsPublic ?? false) || (e.AddMethod?.IsFamily ?? false),
+        EventDefinition e => (e.AddMethod?.IsPublic ?? false) || (e.AddMethod?.IsFamily ?? false) || (e.AddMethod?.IsFamilyOrAssembly ?? false),
         _ => false,
     };
 
@@ -232,8 +232,8 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns><c>true</c> when at least one accessor is publicly or protected-family accessible.</returns>
     internal static bool IsPropertyPublicOrProtected(PropertyDefinition p)
     {
-        var getterVisible = p.GetMethod != null && (p.GetMethod.IsPublic || p.GetMethod.IsFamily);
-        var setterVisible = p.SetMethod != null && (p.SetMethod.IsPublic || p.SetMethod.IsFamily);
+        var getterVisible = p.GetMethod != null && (p.GetMethod.IsPublic || p.GetMethod.IsFamily || p.GetMethod.IsFamilyOrAssembly);
+        var setterVisible = p.SetMethod != null && (p.SetMethod.IsPublic || p.SetMethod.IsFamily || p.SetMethod.IsFamilyOrAssembly);
         return getterVisible || setterVisible;
     }
 
@@ -670,7 +670,7 @@ internal sealed class DotNetEmitter : IApiEmitter
         };
 
         var gap = modifiers.Length > 0 ? " " : string.Empty;
-        return $"public {modifiers}{gap}{typeName} {field.Name}";
+        return $"{GetAccessibilityKeyword(field)} {modifiers}{gap}{typeName} {field.Name}";
     }
 
     /// <summary>Builds a human-readable C# event declaration signature.</summary>
@@ -683,7 +683,7 @@ internal sealed class DotNetEmitter : IApiEmitter
             evt.EventType,
             contextNamespace,
             HasNullableAnnotation(evt.CustomAttributes));
-        return $"public event {typeName} {evt.Name}";
+        return $"{GetAccessibilityKeyword(evt)} event {typeName} {evt.Name}";
     }
 
     /// <summary>Returns the C# accessibility keyword for a method (e.g. <c>"public"</c> or <c>"protected"</c>).</summary>
@@ -697,6 +697,35 @@ internal sealed class DotNetEmitter : IApiEmitter
         { IsAssembly: true } => "internal",
         _ => "private",
     };
+
+    /// <summary>Returns the C# accessibility keyword for a field (e.g. <c>"public"</c> or <c>"protected"</c>).</summary>
+    /// <remarks>
+    ///     Mirrors <see cref="GetAccessibilityKeyword(MethodDefinition)"/> for fields so that
+    ///     <see cref="BuildFieldSignature"/> can render the correct modifier rather than always
+    ///     hard-coding <c>"public"</c>.
+    /// </remarks>
+    /// <param name="field">The field whose accessibility to report.</param>
+    /// <returns>The lowercase C# accessibility keyword string.</returns>
+    internal static string GetAccessibilityKeyword(FieldDefinition field) => field switch
+    {
+        { IsPublic: true } => "public",
+        { IsFamilyOrAssembly: true } => "protected internal",
+        { IsFamily: true } => "protected",
+        { IsAssembly: true } => "internal",
+        _ => "private",
+    };
+
+    /// <summary>Returns the C# accessibility keyword for an event, derived from its add-accessor (e.g. <c>"public"</c> or <c>"protected"</c>).</summary>
+    /// <remarks>
+    ///     Mirrors <see cref="GetAccessibilityKeyword(MethodDefinition)"/> for events so that
+    ///     <see cref="BuildEventSignature"/> can render the correct modifier rather than always
+    ///     hard-coding <c>"public"</c>. The add-accessor's accessibility governs the event's
+    ///     declared visibility.
+    /// </remarks>
+    /// <param name="evt">The event whose accessibility to report.</param>
+    /// <returns>The lowercase C# accessibility keyword string, or <c>"private"</c> when no add-accessor is present.</returns>
+    internal static string GetAccessibilityKeyword(EventDefinition evt) =>
+        evt.AddMethod != null ? GetAccessibilityKeyword(evt.AddMethod) : "private";
 
     internal static string BuildMethodDisplayName(MethodDefinition method)
     {

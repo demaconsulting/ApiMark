@@ -7,7 +7,7 @@ exercise the full .NET generation pipeline using real compiled assemblies, XML d
 and Markdown output directories. Mono.Cecil and XML documentation parsing are used as-is so
 verification proves the interaction between assembly metadata discovery, type-name simplification,
 and file emission. Only incidental infrastructure — such as disposable
-output locations — is test-controlled; no internal production component is mocked or stubbed.
+output locations — is test-controlled; The output-writer factory (IMarkdownWriterFactory) is replaced by an in-memory double for unit-level tests; no other production component is mocked.
 
 ## Test Environment
 
@@ -46,7 +46,7 @@ includes XML documentation content in the generated output and correctly handles
 documentation data during the generation pipeline. This scenario is tested by
 `DotNetGenerator_ReadXmlComments_SummaryAndRemarks_AppearInMarkdown`.
 
-**Obsolete member toggle controls whether deprecated APIs appear in output**: Verifies that setting
-IncludeObsolete to false excludes obsolete types from generated output while setting it to true
-includes them, confirming the option is correctly honoured end-to-end. This scenario is tested by
-`DotNetGenerator_IncludeObsolete_Toggle_ControlsObsoleteOutput`.
+**Type names are simplified into readable C# form across common signatures**: Verifies that the
+system renders primitive aliases, nullable forms, generic arguments, and common collection types
+into concise C#-friendly display text across a representative set of method signatures. This
+scenario is tested by `ApiMarkDotNet_TypeNames_CommonSignatures_RenderReadably`.

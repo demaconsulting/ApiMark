@@ -74,3 +74,8 @@ enforces the required subcommand positional argument. This scenario is tested by
 descriptive error message, confirming that required option validation is enforced for the cpp
 language. This scenario is tested by
 `Program_Main_WithCppSubcommand_MissingIncludes_ReturnsNonZeroExitCode`.
+
+**cpp subcommand with --api-headers flag is accepted**: Verifies that invoking the `cpp` subcommand
+with `--includes path/a --api-headers MyApi.h --output out/` exits with code 0, confirming that
+the `--api-headers` flag is recognized and forwarded to the generator without error. This scenario
+is tested by `Program_Main_CppWithApiHeadersFlag_FlagIsAccepted`.

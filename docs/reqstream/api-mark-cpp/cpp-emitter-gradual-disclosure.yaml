@@ -1,0 +1,43 @@
+---
+# CppEmitterGradualDisclosure unit requirements
+sections:
+  - title: ApiMarkCpp Requirements
+    sections:
+      - title: CppEmitterGradualDisclosure Requirements
+        requirements:
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure
+            title: >-
+              CppEmitterGradualDisclosure shall write one Markdown file per namespace,
+              type, and member in the gradual-disclosure multi-file format.
+            justification: |
+              The gradual-disclosure format allows AI agents and human readers to
+              navigate from the API index to a namespace, then to a type, and finally
+              to a member page without loading all content at once. Each unit of
+              documentation receiving its own file makes path-based navigation
+              deterministic.
+            children:
+              - ApiMarkCpp-CppEmitterGradualDisclosure-EmitApiIndexPage
+              - ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceAndTypePages
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitApiIndexPage
+            title: >-
+              CppEmitterGradualDisclosure shall produce an api index page listing all
+              namespaces with the library name as the top-level heading.
+            justification: |
+              The api index is the single entry point from which all other pages are
+              reachable. Its existence and correct library-name heading are required for
+              the navigation graph to be complete and for AI agents to identify the
+              library being documented.
+            tests:
+              - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesApiIndexPage
+              - CppEmitterGradualDisclosure_Emit_MinimalData_ApiIndexContainsLibraryNameHeading
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceAndTypePages
+            title: >-
+              CppEmitterGradualDisclosure shall produce a namespace summary page for
+              each namespace and a type page for each documented class.
+            justification: |
+              Per-namespace and per-type pages form the middle layers of the
+              gradual-disclosure hierarchy. Without them an agent reading the api index
+              would have no route to individual member pages.
+            tests:
+              - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesNamespacePage
+              - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesTypePage

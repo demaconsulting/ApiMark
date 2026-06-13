@@ -31,10 +31,12 @@ coupling to the documented assembly.
 
 ### Integration Pattern
 
-Mono.Cecil is consumed via direct API calls in the DotNetGenerator and TypeNameSimplifier units. No wrapper class
-is introduced.
+Mono.Cecil is consumed via direct API calls. It is consumed principally by `DotNetAstModel`
+(holds the `AssemblyDefinition`), `TypeLinkResolver` (resolves type references),
+`DotNetEmitter`/sub-emitters (reads member metadata), and `TypeNameSimplifier`
+(simplifies type names). No wrapper class is introduced.
 
-1. At the start of `DotNetGenerator.Generate`, call
+1. At the start of `DotNetGenerator.Parse`, call
    `AssemblyDefinition.ReadAssembly(options.AssemblyPath)` to open the assembly
    file as a Cecil object graph.
 2. Iterate `AssemblyDefinition.MainModule.Types` to discover all type definitions.
@@ -42,5 +44,6 @@ is introduced.
    before proceeding.
 4. For each visible type, iterate its members and read signature metadata to build
    the output.
-5. The `AssemblyDefinition` implements `IDisposable`; it is disposed at the end of
-   Generate to release the file handle promptly.
+5. The `AssemblyDefinition` implements `IDisposable`; it remains open after `Parse`
+   and is disposed during `IApiEmitter.Emit` (in `DotNetEmitter.Emit`) to release
+   the file handle promptly.

@@ -53,8 +53,8 @@ returns structured results.
   CppGeneratorOptions.ClangPath).
 - *Postconditions*: The temporary combined header file is deleted from the
   system temp directory. The returned `CppCompilationResult.Namespaces` contains
-  only declarations whose normalized source file path matches an entry in
-  `headers`.
+  only declarations whose source file is both listed in the selected headers set
+  and under one of the `PublicIncludeRoots` entries.
 - *Exceptions*: `InvalidOperationException` — thrown when the clang executable
   cannot be located, when clang exits non-zero and produces no usable JSON, or
   when the JSON output cannot be parsed.
@@ -72,13 +72,13 @@ Returns `(fileName, prefix)` where `prefix` is an empty list for direct clang
 invocations and `["clang"]` for `xcrun`-wrapped invocations.
 
 **BuildArguments** (private static): Assembles the full argument list passed to
-the clang process from structured options: C++ standard (`-std`), include roots
-(`-I`), system include paths (`-I`), defines (`-D`), additional compiler
-arguments, and the AST-dump flags
-(`-Xclang -ast-dump=json -fparse-all-comments -fsyntax-only`).
+the clang process from structured options: AST-dump/syntax flags
+(`-Xclang -ast-dump=json -fparse-all-comments -fsyntax-only -x c++`) are emitted
+first, then `-std`, `-I` include roots, `-isystem` system paths, `-D` defines,
+extra args, then header file paths.
 
-**CollectStderrErrors** (private static): Filters stderr output for lines that
-start with `"error:"` or contain `": error:"` and returns them as an immutable
+**CollectStderrErrors** (private static): filters stderr lines containing
+`": error:"` or `": fatal error:"` and returns them as an immutable
 list for the caller to evaluate.
 
 ### External Interfaces
@@ -103,3 +103,22 @@ communicates with it via its standard streams.
 N/A - ClangAstParser has no injected dependencies. All configuration is
 supplied via the `options` parameter to `Parse`. The only external runtime
 dependency is the clang executable resolved at call time.
+
+### Error Handling
+
+- `InvalidOperationException` — thrown by `FindClangExecutable` when no clang
+  executable can be located via any discovery step.
+- `InvalidOperationException` — thrown when clang exits non-zero and stdout is
+  empty or whitespace (clang is unavailable or catastrophically broken), using
+  the stderr output as the diagnostic message.
+- `InvalidOperationException` — thrown when the stdout cannot be parsed as a
+  valid JSON `TranslationUnitDecl` object (e.g. clang version is too old or
+  output is corrupt).
+- The temporary combined header file is always deleted in a `finally` block
+  regardless of whether an exception is thrown.
+
+### Callers
+
+- **CppGenerator** — the sole caller of `ClangAstParser.Parse`; invokes it
+  during `CppGenerator.Parse(context)` with the collected candidate header list
+  and the configured `CppGeneratorOptions`.

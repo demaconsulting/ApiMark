@@ -93,9 +93,8 @@ internal sealed class CppEmitterSingleFile
                 WriteSingleFileClassSection(writer, depth, nsDisplay, cls);
             }
 
-            // Emit each non-operator free function as an H{depth+2} section
+            // Emit each free function (including namespace-level operators) as an H{depth+2} section
             foreach (var fn in nsDecls.FreeFunctions
-                .Where(fn => !fn.Name.StartsWith("operator", StringComparison.Ordinal))
                 .OrderBy(fn => fn.Name, StringComparer.Ordinal))
             {
                 WriteSingleFileFreeFunctionSection(writer, depth, nsDisplay, fn);
@@ -114,6 +113,11 @@ internal sealed class CppEmitterSingleFile
     ///     bullet list and H{depth+3} sections for each visible member, followed by
     ///     peer H{depth+2} sections for any nested classes.
     /// </summary>
+    /// <param name="writer">Markdown writer to write to.</param>
+    /// <param name="depth">Heading depth offset from the library-level heading.</param>
+    /// <param name="nsDisplay">Display name of the enclosing namespace (e.g. <c>"mylib"</c>).</param>
+    /// <param name="cls">The class to emit.</param>
+    /// <param name="parentClassName">When non-null, a parent-context note is emitted for nested types.</param>
     private void WriteSingleFileClassSection(
         IMarkdownWriter writer,
         int depth,
@@ -208,6 +212,10 @@ internal sealed class CppEmitterSingleFile
     /// <summary>
     ///     Emits an H{depth+2} section for a single free function.
     /// </summary>
+    /// <param name="writer">Markdown writer to write to.</param>
+    /// <param name="depth">Heading depth offset from the library-level heading.</param>
+    /// <param name="nsDisplay">Display name of the enclosing namespace.</param>
+    /// <param name="fn">The free function to emit.</param>
     private static void WriteSingleFileFreeFunctionSection(
         IMarkdownWriter writer,
         int depth,
@@ -241,6 +249,9 @@ internal sealed class CppEmitterSingleFile
     /// <summary>
     ///     Emits an H{depth+2} section for a single C++ enum.
     /// </summary>
+    /// <param name="writer">Markdown writer to write to.</param>
+    /// <param name="depth">Heading depth offset from the library-level heading.</param>
+    /// <param name="en">The enum to emit.</param>
     private static void WriteSingleFileEnumSection(IMarkdownWriter writer, int depth, CppEnum en)
     {
         writer.WriteHeading(depth + 2, en.Name);
@@ -263,6 +274,11 @@ internal sealed class CppEmitterSingleFile
     /// <summary>
     ///     Emits an H{depth+3} section for a single class member (constructor, method, or field).
     /// </summary>
+    /// <param name="writer">Markdown writer to write to.</param>
+    /// <param name="depth">Heading depth offset from the library-level heading.</param>
+    /// <param name="nsDisplay">Display name of the enclosing namespace.</param>
+    /// <param name="member">The member to emit; either <see cref="CppFunction"/> or <see cref="CppField"/>.</param>
+    /// <param name="className">The declaring class name, used to build qualified names.</param>
     private static void WriteSingleFileMemberSection(
         IMarkdownWriter writer,
         int depth,
@@ -339,6 +355,8 @@ internal sealed class CppEmitterSingleFile
     /// <summary>
     ///     Writes a parameters table for a function when it has at least one parameter.
     /// </summary>
+    /// <param name="writer">Markdown writer to write to.</param>
+    /// <param name="fn">The function whose parameters to tabulate.</param>
     private static void WriteSingleFileParametersTable(IMarkdownWriter writer, CppFunction fn)
     {
         var paramHeaders = new[] { "Parameter", "Type", CppEmitter.DescriptionColumnHeader };
@@ -353,6 +371,9 @@ internal sealed class CppEmitterSingleFile
     /// <summary>
     ///     Returns a one-line function signature string suitable for a fenced code block.
     /// </summary>
+    /// <param name="fn">The function for which to build a signature.</param>
+    /// <param name="nsDisplay">Display name of the enclosing namespace.</param>
+    /// <returns>A one-line C++ function signature string.</returns>
     private static string BuildFunctionSignature(CppFunction fn, string nsDisplay)
     {
         var paramList = string.Join(", ", fn.Parameters.Select(p =>
@@ -366,6 +387,9 @@ internal sealed class CppEmitterSingleFile
     /// <summary>
     ///     Returns the display name and one-line summary for a class member.
     /// </summary>
+    /// <param name="member">The member object; either <see cref="CppFunction"/> or <see cref="CppField"/>.</param>
+    /// <param name="className">The declaring class name, used to format constructor display names.</param>
+    /// <returns>A tuple of (DisplayName, Summary) for use in headings and bullet lists.</returns>
     private static (string DisplayName, string Summary) GetMemberDisplayAndSummary(object member, string className)
     {
         switch (member)

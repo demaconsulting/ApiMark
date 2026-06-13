@@ -197,7 +197,7 @@ internal static class Program
     ///     Constructs and returns an <see cref="IApiGenerator"/> configured from the parsed context.
     /// </summary>
     /// <param name="context">Fully parsed CLI context.</param>
-    /// <returns>A configured generator ready for <c>Generate</c> to be called.</returns>
+    /// <returns>A configured generator ready for <c>Parse</c> to be called.</returns>
     /// <exception cref="ArgumentException">
     ///     Thrown when <see cref="Context.Visibility"/> is not a recognized
     ///     <see cref="DotNetApiVisibility"/> value.
@@ -290,7 +290,7 @@ internal static class Program
         context.WriteLine("  --silent                   Suppress console output");
         context.WriteLine("  --validate                 Run self-validation tests");
         context.WriteLine("  --results <file>           Write validation results to file (.trx or .xml)");
-        context.WriteLine("  --depth <#>                Set heading depth for validation output (default: 1)");
+        context.WriteLine("  --depth <#>                Set the top-level heading depth for generated Markdown output (default: 1)");
         context.WriteLine("  --format <value>           Output format: gradual (default) or single-file");
         context.WriteLine("  --log <file>               Write all output to log file");
         context.WriteLine("");

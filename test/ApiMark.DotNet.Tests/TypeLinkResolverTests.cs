@@ -100,4 +100,21 @@ public class TypeLinkResolverTests : IDisposable
         // Assert
         Assert.DoesNotContain("[", result, StringComparison.Ordinal);
     }
+
+    /// <summary>Validates that a nullable generic type parameter (<c>T?</c>) appends a <c>?</c> suffix.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_NullableGenericParameter_AppendsQuestionMark()
+    {
+        // Arrange: obtain the T generic parameter from SampleGenericClass<T>
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"]);
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+        var genericClass = _assembly.MainModule.Types.First(t => t.Name == "SampleGenericClass`1");
+        var typeParam = genericClass.GenericParameters[0]; // T
+
+        // Act: linkify with isNullableAnnotated = true to simulate T?
+        var result = resolver.Linkify(typeParam, "", "ApiMark.DotNet.Fixtures", externalTypes, isNullableAnnotated: true);
+
+        // Assert: the result must be "T?" — the plain parameter name plus the nullability marker
+        Assert.Equal("T?", result);
+    }
 }

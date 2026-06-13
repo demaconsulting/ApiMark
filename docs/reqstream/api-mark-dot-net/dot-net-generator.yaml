@@ -21,12 +21,6 @@ sections:
               build outputs and dependency graphs.
             tests:
               - DotNetGenerator_ReadAssembly_WithMonoCecil_ReturnsTypesAndMembers
-              - DotNetAstModel_AllNamespaces_ReturnsAlphabeticallySorted
-              - DotNetAstModel_ByNamespace_ContainsFixtureNamespace
-              - DotNetAstModel_RootNamespaces_ContainsFixtureNamespace
-              - DotNetAstModel_Options_ReturnsOptionsPassedAtConstruction
-              - DotNetAstModel_Assembly_ReturnsLoadedAssembly
-              - DotNetAstModel_Resolver_IsNotNull
           - id: ApiMarkDotNet-DotNetGenerator-ReadXmlDocumentationComments
             title: DotNetGenerator shall read XML documentation comments from the configured XML documentation file and include that content in generated markdown.
             justification: |
@@ -72,7 +66,7 @@ sections:
               names differ only in case (e.g. a field 'name' and a property 'Name') would
               produce colliding filenames. To avoid data loss and maintain predictable link
               targets, such members are combined onto a single page named after the
-              lower-invariant of the shared key, with each member distinguished by an H4
+              lower-invariant of the shared key,               with each member distinguished by an H2
               heading showing its exact name and kind label.
             tests:
               - DotNetGenerator_Generate_CaseCollisionClass_CreatesCombinedPage
@@ -86,11 +80,6 @@ sections:
               a separate path-resolution helper.
             tests:
               - DotNetGenerator_OutputFiles_FollowNamingConvention
-              - DotNetEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
-              - DotNetEmitter_GetNamespaceFolderPath_RootNamespace_ReturnsDottedName
-              - DotNetEmitter_GetNamespaceFolderPath_ChildNamespace_ReturnsSlashSeparated
-              - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesNamespacePage
-              - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesTypePage
           - id: ApiMarkDotNet-DotNetGenerator-ApiMdListsAllNamespacesWithTypeCount
             title: DotNetGenerator shall list all namespaces in api.md with a direct type count column.
             justification: |
@@ -101,8 +90,6 @@ sections:
               opening it first.
             tests:
               - DotNetGenerator_Generate_ApiMd_ListsAllNamespacesWithTypeCount
-              - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesApiIndexPage
-              - DotNetEmitterGradualDisclosure_Emit_ValidModel_ApiIndexContainsAssemblyNameHeading
           - id: ApiMarkDotNet-DotNetGenerator-ShowDirectInheritanceInTypeSignature
             title: >-
               DotNetGenerator shall include the direct base class and directly declared
@@ -125,10 +112,6 @@ sections:
               inside fences.
             tests:
               - DotNetGenerator_Generate_IntraAssemblyReturnType_EmitsMarkdownLinkInReturnsCell
-              - TypeLinkResolver_Linkify_Int32_ReturnsCSharpAlias
-              - TypeLinkResolver_Linkify_StringType_ReturnsCSharpAlias
-              - TypeLinkResolver_Linkify_GenerateLinksTrue_IntraAssemblyType_ReturnsMarkdownLink
-              - TypeLinkResolver_Linkify_GenerateLinksFalse_IntraAssemblyType_ReturnsPlainText
           - id: ApiMarkDotNet-DotNetGenerator-EmitExternalTypesSection
             title: DotNetGenerator shall emit an "External Types" section at the bottom of each generated page that references at least one non-System external type.
             justification: |
@@ -140,21 +123,12 @@ sections:
               - DotNetGenerator_Generate_ExternalNonSystemParameterType_EmitsExternalTypesSection
           - id: ApiMarkDotNet-DotNetGenerator-DocumentOperatorOverloads
             title: >-
-              DotNetGenerator shall document visible operator overload methods on a single
-              dedicated operators.md page per type, using C# operator symbols as headings
-              and resolving conversion operator XML doc keys with their ~ReturnType suffix.
+              DotNetGenerator shall emit operator overload methods for a type on its dedicated operators.md page, using C# operator symbols as headings and including conversion operator documentation with summary and parameters.
             justification: |
               C# types frequently expose arithmetic, comparison, and conversion operators
-              as part of their public API. Operators cannot be given individual pages using
-              their IL names (op_Addition, op_Subtraction, etc.) without ambiguity on
-              case-insensitive file systems, and their IL names are not readable to consumers.
-              Grouping all operators for a type onto a single operators.md page with C#
-              symbol headings (operator +, operator -) makes the operator API surface
-              discoverable and navigable without file-name collisions.
-              Conversion operators (op_Implicit, op_Explicit) carry a ~ReturnType suffix in
-              their XML doc member ID (e.g. M:Type.op_Implicit(SourceType)~TargetType); the
-              generator must append this suffix when resolving XML documentation for them so
-              their summaries and parameter descriptions are not silently dropped.
+              as part of their public API. Grouping all operators for a type onto a single
+              operators.md page with C# symbol headings (operator +, operator -) makes the
+              operator API surface discoverable and navigable without file-name collisions.
             tests:
               - DotNetGenerator_Generate_TypeWithOperators_CreatesOperatorsPage
               - DotNetGenerator_Generate_TypeWithOperators_TypePageHasOperatorsSection
@@ -185,9 +159,3 @@ sections:
             tests:
               - DotNetGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown
               - DotNetGenerator_SingleFile_MethodWithExample_EmitsCodeBlock
-              - DotNetEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
-              - DotNetEmitterSingleFile_Emit_ValidModel_CreatesExactlyOneWriter
-              - DotNetEmitterSingleFile_Emit_ValidModel_CreatesApiFileOnly
-              - DotNetEmitterSingleFile_Emit_ValidModel_ApiFileContainsAssemblyHeading
-              - DotNetEmitterSingleFile_Emit_ValidModel_ApiFileContainsNamespaceHeading
-              - DotNetEmitterSingleFile_Emit_ValidModel_ApiFileContainsTypeHeading

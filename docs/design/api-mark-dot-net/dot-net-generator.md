@@ -15,17 +15,22 @@ tree (one file per concept) or a single-file Markdown document through
 detail page in gradual-disclosure mode, making all navigation paths fully
 deterministic.
 
-The implementation is split across five files in the `ApiMark.DotNet` package:
+The implementation is split across seven files in the `ApiMark.DotNet` package:
 
 - **DotNetGenerator.cs** — thin `IApiGenerator` that parses the assembly and
   returns a `DotNetEmitter`.
 - **DotNetAstModel.cs** — `DotNetAstModel` data class holding all parsed
   namespace and type data, plus the context records used during page generation.
+  See DotNetAstModel Design for full details.
 - **DotNetEmitter.cs** — `IApiEmitter` dispatcher and shared helper methods
   (signature builders, visibility filters, XML-doc extractors).
 - **DotNetEmitterGradualDisclosure.cs** — all gradual-disclosure page writers
   (namespace, type, member, operator, and external-types pages).
 - **DotNetEmitterSingleFile.cs** — all single-file page writers.
+- **TypeLinkResolver.cs** — resolves Mono.Cecil type references to Markdown link
+  text for use in table cells. See TypeLinkResolver Design for full details.
+- **XmlDocReader.cs** — reads and indexes the XML documentation file for O(1)
+  per-member lookups. See XmlDocReader Design for full details.
 
 ### Data Model
 
@@ -55,6 +60,10 @@ reference collected during table cell generation.
 - *Ordering*: implements `IComparable<ExternalTypeInfo>` by `SimplifiedName` so
   `SortedSet<ExternalTypeInfo>` produces alphabetically ordered tables.
 
+**DotNetAstModel** (internal sealed class): Holds all pre-parsed assembly data
+bridging the parse and emit phases. See DotNetAstModel Design for the full
+list of properties and context records.
+
 ### Key Methods
 
 **DotNetGenerator constructor**: Accepts and stores a DotNetGeneratorOptions
@@ -82,8 +91,7 @@ tree using the format specified by `config.Format`.
 
 - *Parameters*: `IMarkdownWriterFactory factory` — factory used to create each
   Markdown output file; must not be null. `EmitConfig config` — output
-  configuration. `IContext context` — not used by the emitter but satisfies the
-  interface contract.
+  configuration. `IContext context` — forwarded to the selected sub-emitter.
 - *Returns*: `void`
 - *Preconditions*: `factory` must not be null.
 - *Postconditions (GradualDisclosure)*: The factory has produced a complete
@@ -121,7 +129,7 @@ interface names when present.
   directly declared interfaces using TypeNameSimplifier to produce idiomatic C#
   names; appends `: BaseClass, IInterface` when the collected list is non-empty.
 
-**DotNetEmitter.WriteCombinedMemberPage** (internal static): Writes a single combined
+**DotNetEmitterGradualDisclosure.WriteCombinedMemberPage** (private static): Writes a single combined
 Markdown page for a group of members whose sanitized file names collide on
 case-insensitive filesystems.
 
@@ -132,13 +140,13 @@ case-insensitive filesystems.
   least two elements), `XmlDocReader xmlDocs` — documentation index.
 - *Returns*: `void`
 - *Algorithm*: Creates `{namespaceFolderPath}/{type.Name}/{lowerKey}.md` via the
-  factory; writes an H3 heading using `lowerKey`; for each member writes an H4
+  factory; writes an H1 heading using `lowerKey`; for each member writes an H2
   heading of the form `{displayName} ({kindLabel})`; for `MethodDefinition`
   members delegates to `WriteMethodDocumentation`; for all other member kinds
   writes the signature, summary, returns, exceptions, remarks, and example
   sections directly.
 
-**DotNetEmitter.IsPureMethodOverloadGroup** (internal static): Returns true when all
+**DotNetEmitterGradualDisclosure.IsPureMethodOverloadGroup** (private static): Returns true when all
 members in a group are methods sharing the same exact case-sensitive sanitized
 file name, indicating a classical method overload group rather than a
 case-insensitive collision.
@@ -153,7 +161,7 @@ case-insensitive collision.
   checks that all remaining elements produce the same value under ordinal
   comparison.
 
-**DotNetEmitter.GetMemberKindLabel** (internal static): Maps an `IMemberDefinition` to
+**DotNetEmitterGradualDisclosure.GetMemberKindLabel** (private static): Maps an `IMemberDefinition` to
 a short human-readable kind string used in combined page H4 headings.
 
 - *Parameters*: `IMemberDefinition member` — the member to classify.
@@ -168,7 +176,9 @@ a short human-readable kind string used in combined page H4 headings.
 to Markdown link text for use in table cells.
 
 - *Constructor*: Accepts `IReadOnlyList<string> rootNamespaces` — forwarded to
-  `DotNetEmitter.GetNamespaceFolderPath` when computing target page paths.
+  `DotNetEmitter.GetNamespaceFolderPath` when computing target page paths; and
+  optional `bool generateLinks = true` — when `false`, intra-assembly types
+  render as plain text (used by `DotNetEmitterSingleFile`).
 - **Linkify** method: resolves a `TypeReference` to a Markdown link string.
   - *Parameters*: `TypeReference typeRef`, `string currentFolder` (path of the
     containing file), `string contextNamespace`, `ISet<ExternalTypeInfo>
@@ -182,7 +192,7 @@ to Markdown link text for use in table cells.
     added to the accumulator.
   - Intra-assembly detection: `TypeReference.Scope is ModuleDefinition`.
 
-**DotNetEmitter.WriteExternalTypesSection** (internal static): Emits the
+**DotNetEmitterGradualDisclosure.WriteExternalTypesSection** (private static): Emits the
 `## External Types` section at the bottom of a page when at least one external
 type was referenced in table cells.
 

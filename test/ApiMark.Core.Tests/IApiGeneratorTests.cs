@@ -87,6 +87,7 @@ public sealed class IApiGeneratorTests
 
         // Assert: more than one file must be created — GradualDisclosure is multi-file
         Assert.True(factory.Writers.Count > 1, "GradualDisclosure format must produce more than one file.");
+        Assert.True(factory.HasWriter("", "api"), "GradualDisclosure format must include the root api.md entrypoint.");
     }
 
     /// <summary>

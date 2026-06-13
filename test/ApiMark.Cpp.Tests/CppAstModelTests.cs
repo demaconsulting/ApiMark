@@ -33,7 +33,7 @@ public class CppAstModelTests
         Assert.Equal("Number of items.", paramDoc.Description);
     }
 
-    /// <summary>Validates that <see cref="CppDocComment"/> stores Summary and Params correctly.</summary>
+    /// <summary>Validates that <see cref="CppDocComment"/> stores Summary and Details correctly.</summary>
     [Fact]
     public void CppDocComment_Construction_SetsSummaryAndDetails()
     {
@@ -117,9 +117,9 @@ public class CppAstModelTests
         Assert.Null(param.DefaultValue);
     }
 
-    /// <summary>Validates that <see cref="CppField"/> stores all properties correctly.</summary>
+    /// <summary>Validates that <see cref="CppField"/> stores core properties correctly.</summary>
     [Fact]
-    public void CppField_Construction_SetsAllProperties()
+    public void CppField_Construction_SetsCoreProperties()
     {
         // Arrange
         var location = new CppSourceLocation("widget.h", 10);
@@ -134,9 +134,9 @@ public class CppAstModelTests
         Assert.False(field.IsStatic);
     }
 
-    /// <summary>Validates that <see cref="CppFunction"/> stores all properties correctly.</summary>
+    /// <summary>Validates that <see cref="CppFunction"/> stores core properties correctly.</summary>
     [Fact]
-    public void CppFunction_Construction_SetsAllProperties()
+    public void CppFunction_Construction_SetsCoreProperties()
     {
         // Arrange / Act
         var fn = new CppFunction(
@@ -150,9 +150,9 @@ public class CppAstModelTests
         Assert.False(fn.IsConstructor);
     }
 
-    /// <summary>Validates that <see cref="CppClass"/> stores all properties correctly.</summary>
+    /// <summary>Validates that <see cref="CppClass"/> stores core properties correctly.</summary>
     [Fact]
-    public void CppClass_Construction_SetsAllProperties()
+    public void CppClass_Construction_SetsCoreProperties()
     {
         // Arrange / Act
         var cls = new CppClass("Widget", [], [], [], [], [], [], false, false, null, null);

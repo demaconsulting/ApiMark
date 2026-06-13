@@ -14,8 +14,6 @@ sections:
         children:
           - ApiMarkCore-IApiGenerator-DefineParseMethod
           - ApiMarkCore-IApiGenerator-AllowConstructionTimeConfiguration
-          - ApiMarkCore-IApiGenerator-EmitterProducesEntrypointFile
-          - ApiMarkCore-IApiGenerator-SupportConfigurableOutputFormat
         tests:
           - ApiMarkCore_GeneratorContract_SupportedLanguage_CanBeInvoked
       - id: ApiMarkCore-IContext-ProvideOutputChannel
@@ -29,7 +27,7 @@ sections:
           - ApiMarkCore-IContext-DefineWriteLineMethod
           - ApiMarkCore-IContext-DefineWriteErrorMethod
         tests:
-          - ApiMarkCore_ContextContract_WrittenMessages_AreAccessibleForAssertion
+          - InMemoryContext_WriteLineAndWriteError_RouteToSeparateChannels
       - id: ApiMarkCore-IMarkdownWriterFactory-ProvideMarkdownWriterFactoryInterface
         title: ApiMarkCore shall provide a factory interface for creating per-file Markdown writers so that language generators are decoupled from the file-system.
         justification: |
@@ -73,3 +71,24 @@ sections:
           - PathHelpers_SafePathCombine_PathTraversalWithDoubleDots_ThrowsArgumentException
           - PathHelpers_SafePathCombine_AbsoluteSegment_WithinBase_CombinesCorrectly
           - PathHelpers_SafePathCombine_NullBasePath_ThrowsArgumentNullException
+      - id: ApiMarkCore-ProvideEmitterContract
+        title: ApiMark Core shall provide a well-defined emitter contract.
+        justification: |
+          ApiMark needs a contract interface for the Emit stage so that language
+          generators can produce Markdown output without depending on a concrete
+          output implementation. Separating the emitter contract allows callers to
+          select the output format at emit time without re-parsing source.
+        children:
+          - ApiMarkCore-IApiEmitter-DefineEmitMethod
+          - ApiMarkCore-IApiEmitter-ProduceApiMdEntrypoint
+          - ApiMarkCore-IApiEmitter-SupportGradualDisclosure
+          - ApiMarkCore-IApiEmitter-SupportSingleFile
+      - id: ApiMarkCore-ProvideEmitConfiguration
+        title: ApiMark Core shall provide an emit configuration contract.
+        justification: |
+          Callers (CLI, MSBuild task) need to communicate the desired output format
+          and heading depth to the emitter at emit time without coupling those choices
+          to language-specific generator options.
+        children:
+          - ApiMarkCore-EmitConfig-DefineFormat
+          - ApiMarkCore-EmitConfig-DefineHeadingDepth

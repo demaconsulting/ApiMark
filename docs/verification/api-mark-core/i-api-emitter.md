@@ -27,15 +27,23 @@ verification. Interface contract compliance is enforced at compile time.
 **IApiEmitter.Emit is callable through the interface reference**: Verifies that a minimal
 inline stub of `IApiEmitter` can be implemented and its `Emit` method called with a
 factory, config, and context argument. This scenario is tested by
-`IApiGenerator_Parse_WithMinimalStub_ExecutesSuccessfully`.
+`IApiGenerator_Parse_WithMinimalStub_ExecutesSuccessfully` and
+`IApiEmitter_Emit_WithGradualDisclosure_ProducesMultipleFiles`.
 
 **GradualDisclosure format produces multiple files**: Verifies that when `EmitConfig.Format`
 is `GradualDisclosure`, calling `Emit` causes the factory to receive more than one
 `CreateMarkdown` call, confirming that the gradual-disclosure multi-file contract is
-honored. This scenario is tested by `IApiGenerator_Emit_GradualDisclosure_ProducesMultipleFiles`.
+honored. This scenario is tested by `IApiGenerator_Emit_GradualDisclosure_ProducesMultipleFiles`
+and `IApiEmitter_Emit_WithGradualDisclosure_ProducesMultipleFiles`.
 
 **SingleFile format produces only api.md**: Verifies that when `EmitConfig.Format` is
 `SingleFile`, calling `Emit` causes the factory to receive exactly one `CreateMarkdown`
 call writing only `api.md` at the root, confirming that the single-file consolidation
-contract is honored. This scenario is tested by
-`IApiGenerator_Emit_SingleFile_ProducesSingleApiMd`.
+contract is honored. This scenario is tested by `IApiGenerator_Emit_SingleFile_ProducesSingleApiMd` and
+`IApiEmitter_Emit_WithSingleFile_ProducesSingleApiMd`.
+
+**api.md entrypoint is always produced**: Verifies that every conformant `IApiEmitter`
+implementation calls `factory.CreateMarkdown("", "api")` to produce the fixed top-level
+entrypoint required by all callers. This scenario is tested by
+`IApiGenerator_Emit_OutputDirectory_ContainsApiMd`, `IApiEmitter_Emit_WithGradualDisclosure_ProducesMultipleFiles`,
+and `IApiEmitter_Emit_WithSingleFile_ProducesSingleApiMd`.

@@ -45,8 +45,17 @@ public sealed class InMemoryMarkdownWriterFactory : IMarkdownWriterFactory
     ///     A new <see cref="InMemoryMarkdownWriter"/> ready for write calls. The caller
     ///     is responsible for disposing the returned writer.
     /// </returns>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="name"/> is null, empty, or whitespace.
+    /// </exception>
     public IMarkdownWriter CreateMarkdown(string subFolder, string name)
     {
+        // Validate the file name so callers get a clear error rather than a silent wrong-path key
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("File name must not be null or whitespace.", nameof(name));
+        }
+
         // Normalize the key so that both HasWriter and GetWriter use consistent addressing
         var key = NormalizePath(subFolder, name);
 

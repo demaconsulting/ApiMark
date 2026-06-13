@@ -49,17 +49,18 @@ are written to `Console.Error` and re-thrown.
 
 - _Parameters_: `Context context` — fully initialized context.
 - Priority 1: `--version` — writes version string, returns immediately (no banner).
-- Priority 2: banner printed for all subsequent paths.
-- Priority 3: `--help` — prints help text.
-- Priority 4: `--validate` — calls `Validation.Run`.
-- Priority 5: main tool logic via `RunToolLogic`.
+- Banner is printed for all paths that do not return at Priority 1.
+- Priority 2: `--help` — prints help text.
+- Priority 3: `--validate` — calls `Validation.Run`.
+- Priority 4: main tool logic via `RunToolLogic`.
 
 **Program.RunToolLogic** (private static): Validates required options, constructs
 the generator, and calls `Parse` then `Emit`.
 
 - _Parameters_: `Context context`.
-- Validates `Language`, `Output`, and (for `dotnet`) `Assembly`; calls
-  `context.WriteError` and `PrintHelp` if any are missing.
+- Validates `Language` and `Output` for all subcommands; additionally validates `Assembly` and
+  `XmlDoc` for dotnet, and `Includes` for cpp; calls `context.WriteError` and `PrintHelp` if any
+  are missing.
 - Calls `CreateGenerator(context)`, then `generator.Parse(context)` to get an
   `IApiEmitter`, then `emitter.Emit(factory, emitConfig, context)` where
   `emitConfig` is constructed from `context.Format` and `context.HeadingDepth`.
@@ -113,6 +114,8 @@ re-thrown.
   `Context.HeadingDepth` before calling `IApiEmitter.Emit` — see EmitConfig Unit Design.
 - **DotNetGenerator** — Program constructs `DotNetGenerator` for the `dotnet`
   language subcommand — see DotNetGenerator Unit Design.
+- **CppGenerator** (ApiMarkCpp) — instantiated for the `cpp` subcommand — see
+  ApiMarkCpp Component Design.
 
 ### Callers
 

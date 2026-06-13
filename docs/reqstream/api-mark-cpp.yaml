@@ -27,5 +27,12 @@ sections:
           - ApiMarkCpp-CppGenerator-EmitExternalTypesSection
           - ApiMarkCpp-CppGenerator-ShowDeletedFunctionsWithDeletedNotation
           - ApiMarkCpp-CppGenerator-DocumentTypeAliases
+          - ApiMarkCpp-CppGenerator-EmitSingleFileOutput
+          - ApiMarkCpp-CppAstModel
+          - ApiMarkCpp-ClangAstParser
+          - ApiMarkCpp-CppEmitter
+          - ApiMarkCpp-CppEmitterGradualDisclosure
+          - ApiMarkCpp-CppEmitterSingleFile
+          - ApiMarkCpp-CppTypeLinkResolver
         tests:
           - CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint
