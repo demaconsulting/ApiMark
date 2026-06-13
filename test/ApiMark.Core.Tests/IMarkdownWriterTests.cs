@@ -308,7 +308,7 @@ public sealed class IMarkdownWriterTests
             {
                 Directory.Delete(tempDir, recursive: true);
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 // Ignore
             }

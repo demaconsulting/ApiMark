@@ -40,7 +40,7 @@ public sealed class InMemoryMarkdownWriterFactory : IMarkdownWriterFactory
     ///     Subfolder relative to the output root. Pass an empty string or whitespace
     ///     to target the root level.
     /// </param>
-    /// <param name="name">File name without extension. Must not be null or empty.</param>
+    /// <param name="name">File name without extension. Must not be null, empty, or whitespace.</param>
     /// <returns>
     ///     A new <see cref="InMemoryMarkdownWriter"/> ready for write calls. The caller
     ///     is responsible for disposing the returned writer.
