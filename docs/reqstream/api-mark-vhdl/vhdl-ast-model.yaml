@@ -1,0 +1,12 @@
+---
+# VhdlAstModel unit requirements
+sections:
+  - title: ApiMarkVhdl Requirements
+    sections:
+      - title: VhdlAstModel Requirements
+        requirements:
+          - id: ApiMarkVhdl-VhdlAstModel
+            title: VhdlAstModel shall define immutable record types representing VHDL AST declarations.
+            justification: |
+              Immutable records provide a stable data contract between VhdlAstParser and the emitters.
+            tests: []

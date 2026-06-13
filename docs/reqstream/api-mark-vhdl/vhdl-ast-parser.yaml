@@ -1,0 +1,17 @@
+---
+# VhdlAstParser unit requirements
+sections:
+  - title: ApiMarkVhdl Requirements
+    sections:
+      - title: VhdlAstParser Requirements
+        requirements:
+          - id: ApiMarkVhdl-VhdlAstParser
+            title: VhdlAstParser shall parse a .vhd file into a VhdlFileModel.
+            justification: |
+              A dedicated parser unit isolates ANTLR4 runtime concerns from the emitters.
+            tests:
+              - VhdlAstParser_Parse_FixtureFile_ReturnsEntity
+              - VhdlAstParser_Parse_FixtureFile_EntityHasGenerics
+              - VhdlAstParser_Parse_FixtureFile_EntityHasPorts
+              - VhdlAstParser_Parse_FixtureFile_EntityDocCommentParsed
+              - VhdlAstParser_Parse_FixtureFile_PortsHaveInlineDocComments

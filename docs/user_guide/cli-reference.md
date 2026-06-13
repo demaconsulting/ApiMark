@@ -103,13 +103,62 @@ ApiMark locates the clang executable using the following priority order:
 4. `xcrun clang` — macOS only, selects the active Xcode SDK automatically.
 5. vswhere-located LLVM clang / `C:\Program Files\LLVM\bin\clang.exe` — Windows only.
 
+### `vhdl` — Generate API Documentation from VHDL Sources
+
+```text
+apimark vhdl [options]
+```
+
+| Option | Description |
+| --- | --- |
+| `--source <glob>` | Source glob pattern — repeatable, prefix with `!` to exclude (required) |
+| `--output <dir>` | Output directory for Markdown files (required) |
+| `--format <value>` | Output format: `gradual` (file-per-entity) or `single-file` (single `api.md`) (default: `gradual`) |
+| `--library-name <name>` | Library name used as the top-level heading (default: output directory name) |
+| `--library-description <d>` | Optional description for the library `api.md` introduction |
+
+At least one `--source` pattern must be provided. Patterns use gitignore-style last-match-wins
+semantics: the last pattern that matches a file determines whether it is included or excluded.
+Prefix a pattern with `!` to exclude files matching it. Patterns are matched against paths
+relative to the current working directory.
+
+```text
+# Include all .vhd files under src/
+apimark vhdl --source "src/**/*.vhd" --output docs/api
+
+# Include all .vhd files but exclude testbenches
+apimark vhdl \
+  --source "src/**/*.vhd" \
+  --source "!src/tb/**/*.vhd" \
+  --output docs/api
+```
+
+VHDL documentation requires no external tool — parsing is done in-process using
+the ANTLR4 vhdl2008 grammar. Doc comments use the `--!` prefix (Doxygen style):
+
+```vhdl
+--! @brief Synchronous binary counter entity.
+--!
+--! Note that changes to maxcount_in should only be performed
+--! when the counter is cleared.
+ENTITY counter IS
+    GENERIC (
+        width : natural := 1 --! Width of the counter
+    );
+    PORT (
+        clk_in : IN std_logic; --! Module clock
+        rst_in : IN std_logic  --! Asynchronous reset
+    );
+END ENTITY counter;
+```
+
 ## Platform Support
 
-| Platform | `dotnet` | `cpp` |
-| --- | --- | --- |
-| Windows x64 | ✅ | ✅ |
-| Linux x64 | ✅ | ✅ |
-| macOS | ✅ | ✅ |
+| Platform | `dotnet` | `cpp` | `vhdl` |
+| --- | --- | --- | --- |
+| Windows x64 | ✅ | ✅ | ✅ |
+| Linux x64 | ✅ | ✅ | ✅ |
+| macOS | ✅ | ✅ | ✅ |
 
 ## Output Structure
 
@@ -117,7 +166,9 @@ ApiMark supports two output formats selectable via `--format`.
 
 ### Gradual Disclosure (default: `--format gradual`)
 
-A four-tier hierarchy of Markdown files designed for incremental context loading:
+A hierarchy of Markdown files designed for incremental context loading.
+
+#### .NET and C++ output structure
 
 | File | Description |
 | --- | --- |
@@ -129,9 +180,17 @@ A four-tier hierarchy of Markdown files designed for incremental context loading
 | `{namespace}/{type}/{nested-type}.md` | Nested type page — same structure as a top-level type page |
 | `{namespace}/{type}/{alias}.md` | Class-scoped type alias page — alias declared inside a class body |
 
-An AI agent can read the root index first, drill into the relevant namespace
-summary, and then load a specific type or member page — consuming only as much
-context as the task requires.
+#### VHDL output structure
+
+| File | Description |
+| --- | --- |
+| `api.md` | Root index — lists all entities, architectures, and packages with one-line summaries |
+| `{entity-name}.md` | Entity page — generics table, ports table, and doc comment details |
+| `{package-name}.md` | Package page — package summary and doc comment |
+
+An AI agent can read the root index first, drill into the relevant entity or
+package page, and then read the detail — consuming only as much context as the
+task requires.
 
 ### Single File (`--format single-file`)
 

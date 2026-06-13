@@ -13,8 +13,7 @@ sections:
               Single-file output is required for consumers who want a compact, linear
               reference instead of the gradual-disclosure folder tree. Writing all
               content into one file simplifies indexing and search.
-            children:
-              - ApiMarkCpp-CppEmitterSingleFile-EmitSingleApiFile
+            children: [ApiMarkCpp-CppEmitterSingleFile-EmitSingleApiFile]
           - id: ApiMarkCpp-CppEmitterSingleFile-EmitSingleApiFile
             title: >-
               CppEmitterSingleFile shall create exactly one writer keyed as api,

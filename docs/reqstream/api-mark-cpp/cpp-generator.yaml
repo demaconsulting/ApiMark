@@ -27,11 +27,12 @@ sections:
               inheritance relationships across headers are available for accurate documentation
               generation; invoking clang directly produces a complete, standards-compliant AST
               without requiring a bundled parser library.
-            tests: [CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint,
-                    ClangAstParser_Parse_FixtureHeaders_ReturnsNonEmptyNamespaces,
-                    ClangAstParser_Parse_FixtureHeaders_ContainsFixturesNamespace,
-                    ClangAstParser_Parse_FixtureHeaders_FixturesNamespaceContainsSampleClass,
-                    ClangAstParser_Parse_FixtureHeaders_SampleClassHasMembers]
+            tests:
+              - CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint
+              - ClangAstParser_Parse_FixtureHeaders_ReturnsNonEmptyNamespaces
+              - ClangAstParser_Parse_FixtureHeaders_ContainsFixturesNamespace
+              - ClangAstParser_Parse_FixtureHeaders_FixturesNamespaceContainsSampleClass
+              - ClangAstParser_Parse_FixtureHeaders_SampleClassHasMembers
           - id: ApiMarkCpp-CppGenerator-FilterDeclarationsByOwnership
             title: >-
               CppGenerator shall apply a file-provenance filter that documents only
@@ -106,7 +107,8 @@ sections:
               - CppGenerator_Generate_IncludeDeprecatedFalse_ExcludesDeprecatedClass
               - CppGenerator_Generate_IncludeDeprecatedTrue_IncludesDeprecatedClass
           - id: ApiMarkCpp-CppGenerator-RenderDoxygenDocComments
-            title: CppGenerator shall extract and render Doxygen doc comments from parsed declarations.
+            title: CppGenerator shall extract and render Doxygen doc comments from
+              parsed declarations.
             justification: |
               Developer-authored Doxygen comments contain the descriptions, parameter explanations,
               return-value documentation, and example code that belong in the published API reference.
@@ -166,8 +168,10 @@ sections:
               - CppGenerator_Generate_NamespaceFreeOperator_CreatesNamespaceOperatorsPage
           - id: ApiMarkCpp-CppGenerator-ShowDirectInheritanceInTypeSignature
             title: >-
-              CppGenerator shall include a class declaration line in the signature block showing
-              direct base class names and the final specifier for classes that have direct base
+              CppGenerator shall include a class declaration line in the signature
+              block showing
+              direct base class names and the final specifier for classes that have
+              direct base
               classes or are marked final.
             justification: |
               The direct base class list tells AI agents the contract a type satisfies and
@@ -252,7 +256,8 @@ sections:
               - CppGenerator_Generate_TypeAliasPage_ContainsDeclarationAndSummary
               - CppGenerator_Generate_NamespacePage_ListsTypeAliases
           - id: ApiMarkCpp-CppGenerator-EmitSingleFileOutput
-            title: CppGenerator shall emit a single api.md file when OutputFormat.SingleFile is selected.
+            title: CppGenerator shall emit a single api.md file when OutputFormat.SingleFile
+              is selected.
             justification: |
               Single-file output is required for consumers who want a compact, linear reference
               instead of the gradual-disclosure folder tree.

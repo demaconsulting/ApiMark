@@ -8,7 +8,8 @@ sections:
           - title: Validation Requirements
             requirements:
               - id: ApiMarkTool-SelfTest-Validation-RunVersionDisplayTest
-                title: Validation shall invoke apimark --version and verify output contains the version string.
+                title: Validation shall invoke apimark --version and verify output
+                  contains the version string.
                 justification: |
                   Version display is the simplest observable behavior of the tool and confirms
                   that the executable is intact and able to run its own dispatch path.
@@ -16,7 +17,8 @@ sections:
                   - Validation_Run_WritesVersionAndHelpTestResults
                   - Validation_Run_WithValidContext_ExitsZero
               - id: ApiMarkTool-SelfTest-Validation-RunHelpDisplayTest
-                title: Validation shall invoke apimark --help and verify output contains "Usage:" and "Options:".
+                title: Validation shall invoke apimark --help and verify output contains
+                  "Usage:" and "Options:".
                 justification: |
                   Help display exercises a larger fraction of the dispatch path than --version
                   and confirms that the tool's usage information is intact and readable.
@@ -24,7 +26,8 @@ sections:
                   - Validation_Run_WritesVersionAndHelpTestResults
                   - Validation_Run_WithValidContext_ExitsZero
               - id: ApiMarkTool-SelfTest-Validation-WriteResultsFileOnRequest
-                title: Validation shall write test results to the file specified by --results when the extension is .trx or .xml.
+                title: Validation shall write test results to the file specified by
+                  --results when the extension is .trx or .xml.
                 justification: |
                   CI systems need machine-readable test results for automated pass/fail
                   reporting and traceability; .trx is the native Visual Studio format and
@@ -39,13 +42,12 @@ sections:
                   mechanism; routing all failures through WriteError ensures that both
                   console and log-file consumers see the diagnostic and that the exit
                   code reflects the failure.
-                tests:
-                  - Validation_Run_WithUnsupportedResultsExtension_SetsExitCodeToOne
+                tests: [Validation_Run_WithUnsupportedResultsExtension_SetsExitCodeToOne]
               - id: ApiMarkTool-SelfTest-Validation-RejectUnsupportedExtension
-                title: Validation shall set ExitCode to 1 and write a diagnostic message when the results file extension is not .trx or .xml.
+                title: Validation shall set ExitCode to 1 and write a diagnostic message
+                  when the results file extension is not .trx or .xml.
                 justification: |
                   An unsupported file extension indicates a misconfigured caller; rejecting
                   it with a non-zero exit code and a clear message lets the caller detect
                   and correct the configuration error without inspecting partial output.
-                tests:
-                  - Validation_Run_WithUnsupportedResultsExtension_SetsExitCodeToOne
+                tests: [Validation_Run_WithUnsupportedResultsExtension_SetsExitCodeToOne]

@@ -35,6 +35,13 @@ includes:
   - docs/reqstream/api-mark-cpp/cpp-emitter-gradual-disclosure.yaml
   - docs/reqstream/api-mark-cpp/cpp-emitter-single-file.yaml
   - docs/reqstream/api-mark-cpp/cpp-type-link-resolver.yaml
+  - docs/reqstream/api-mark-vhdl.yaml
+  - docs/reqstream/api-mark-vhdl/vhdl-generator.yaml
+  - docs/reqstream/api-mark-vhdl/vhdl-ast-model.yaml
+  - docs/reqstream/api-mark-vhdl/vhdl-ast-parser.yaml
+  - docs/reqstream/api-mark-vhdl/vhdl-emitter.yaml
+  - docs/reqstream/api-mark-vhdl/vhdl-emitter-gradual-disclosure.yaml
+  - docs/reqstream/api-mark-vhdl/vhdl-emitter-single-file.yaml
   - docs/reqstream/ots/clang.yaml
   - docs/reqstream/ots/cpp-ast-net.yaml
   - docs/reqstream/ots/dema-consulting-test-results.yaml

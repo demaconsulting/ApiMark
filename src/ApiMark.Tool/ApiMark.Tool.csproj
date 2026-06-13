@@ -40,6 +40,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ApiMark.Cpp\ApiMark.Cpp.csproj" />
     <ProjectReference Include="..\ApiMark.DotNet\ApiMark.DotNet.csproj" />
+    <ProjectReference Include="..\ApiMark.Vhdl\ApiMark.Vhdl.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="DemaConsulting.TestResults" Version="1.7.0" />

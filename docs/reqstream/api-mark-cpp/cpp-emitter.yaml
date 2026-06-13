@@ -15,8 +15,7 @@ sections:
               format-specific logic allows each format emitter to be tested in isolation
               while keeping shared utilities (visibility filters, signature builders,
               include-path resolution) in one place.
-            children:
-              - ApiMarkCpp-CppEmitter-WriteCombinedMemberPage
+            children: [ApiMarkCpp-CppEmitter-WriteCombinedMemberPage]
             tests:
               - CppEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
               - CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile

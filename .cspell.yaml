@@ -97,4 +97,5 @@ ignorePaths:
   - '**/obj/**'
   - '**/generated/**'
   - '**/packages/**'
+  - '**/VhdlAst/Antlr/**'
   - package-lock.json

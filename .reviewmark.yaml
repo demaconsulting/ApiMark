@@ -340,6 +340,75 @@ reviews:
       - src/ApiMark.Cpp/CppTypeLinkResolver.cs
       - test/ApiMark.Cpp.Tests/CppTypeLinkResolverTests.cs
 
+  # ApiMarkVhdl - Specials
+  - id: ApiMark-Vhdl-Architecture
+  title: Review that ApiMark Vhdl Architecture Satisfies Requirements
+  paths:
+    - docs/reqstream/api-mark-vhdl.yaml
+    - docs/design/introduction.md
+    - docs/design/api-mark-vhdl.md
+    - docs/verification/introduction.md
+    - docs/verification/api-mark-vhdl.md
+  - id: ApiMark-Vhdl-AllRequirements
+  title: Review that All ApiMark Vhdl Requirements are Complete
+  paths:
+    - docs/reqstream/api-mark-vhdl.yaml
+    - docs/reqstream/api-mark-vhdl/**/*.yaml
+  - id: ApiMark-Vhdl-Design
+  title: Review that ApiMark Vhdl Design is Consistent and Complete
+  paths: [docs/design/api-mark-vhdl.md, docs/design/api-mark-vhdl/**/*.md]
+  - id: ApiMark-Vhdl-Verification
+  title: Review that ApiMark Vhdl Verification is Consistent and Complete
+  paths: [docs/verification/api-mark-vhdl.md, docs/verification/api-mark-vhdl/**/*.md]
+  - id: ApiMark-Vhdl-VhdlGenerator
+  title: Review that ApiMark Vhdl VhdlGenerator Implementation is Correct
+  paths:
+    - docs/reqstream/api-mark-vhdl/vhdl-generator.yaml
+    - docs/design/api-mark-vhdl/vhdl-generator.md
+    - docs/verification/api-mark-vhdl/vhdl-generator.md
+    - src/ApiMark.Vhdl/VhdlGenerator.cs
+    - src/ApiMark.Vhdl/VhdlGeneratorOptions.cs
+    - test/ApiMark.Vhdl.Tests/VhdlGeneratorTests.cs
+  - id: ApiMark-Vhdl-VhdlAstModel
+  title: Review that ApiMark Vhdl VhdlAstModel Implementation is Correct
+  paths:
+    - docs/reqstream/api-mark-vhdl/vhdl-ast-model.yaml
+    - docs/design/api-mark-vhdl/vhdl-ast-model.md
+    - docs/verification/api-mark-vhdl/vhdl-ast-model.md
+    - src/ApiMark.Vhdl/VhdlAst/VhdlAstModel.cs
+  - id: ApiMark-Vhdl-VhdlAstParser
+  title: Review that ApiMark Vhdl VhdlAstParser Implementation is Correct
+  paths:
+    - docs/reqstream/api-mark-vhdl/vhdl-ast-parser.yaml
+    - docs/design/api-mark-vhdl/vhdl-ast-parser.md
+    - docs/verification/api-mark-vhdl/vhdl-ast-parser.md
+    - src/ApiMark.Vhdl/VhdlAst/VhdlAstParser.cs
+    - test/ApiMark.Vhdl.Tests/VhdlAstParserTests.cs
+  - id: ApiMark-Vhdl-VhdlEmitter
+  title: Review that ApiMark Vhdl VhdlEmitter Implementation is Correct
+  paths:
+    - docs/reqstream/api-mark-vhdl/vhdl-emitter.yaml
+    - docs/design/api-mark-vhdl/vhdl-emitter.md
+    - docs/verification/api-mark-vhdl/vhdl-emitter.md
+    - src/ApiMark.Vhdl/VhdlEmitter.cs
+    - test/ApiMark.Vhdl.Tests/VhdlEmitterTests.cs
+  - id: ApiMark-Vhdl-VhdlEmitterGradualDisclosure
+  title: Review that ApiMark Vhdl VhdlEmitterGradualDisclosure Implementation is Correct
+  paths:
+    - docs/reqstream/api-mark-vhdl/vhdl-emitter-gradual-disclosure.yaml
+    - docs/design/api-mark-vhdl/vhdl-emitter-gradual-disclosure.md
+    - docs/verification/api-mark-vhdl/vhdl-emitter-gradual-disclosure.md
+    - src/ApiMark.Vhdl/VhdlEmitterGradualDisclosure.cs
+    - test/ApiMark.Vhdl.Tests/VhdlEmitterGradualDisclosureTests.cs
+  - id: ApiMark-Vhdl-VhdlEmitterSingleFile
+  title: Review that ApiMark Vhdl VhdlEmitterSingleFile Implementation is Correct
+  paths:
+    - docs/reqstream/api-mark-vhdl/vhdl-emitter-single-file.yaml
+    - docs/design/api-mark-vhdl/vhdl-emitter-single-file.md
+    - docs/verification/api-mark-vhdl/vhdl-emitter-single-file.md
+    - src/ApiMark.Vhdl/VhdlEmitterSingleFile.cs
+    - test/ApiMark.Vhdl.Tests/VhdlEmitterSingleFileTests.cs
+
   # ApiMarkMSBuild - Specials
   - id: ApiMark-MSBuild-Architecture
     title: Review that ApiMark MSBuild Architecture Satisfies Requirements

@@ -4,6 +4,7 @@ using ApiMark.Cpp;
 using ApiMark.DotNet;
 using ApiMark.Tool.Cli;
 using ApiMark.Tool.SelfTest;
+using ApiMark.Vhdl;
 using CppApiVisibility = ApiMark.Cpp.ApiVisibility;
 using DotNetApiVisibility = ApiMark.DotNet.ApiVisibility;
 
@@ -173,6 +174,15 @@ internal static class Program
             return;
         }
 
+        // Validate vhdl-specific required options before constructing the generator.
+        if (context.Language == "vhdl" &&
+            !context.Sources.Any(s => !string.IsNullOrWhiteSpace(s)))
+        {
+            context.WriteError("Error: --source is required for the vhdl subcommand.");
+            PrintHelp(context);
+            return;
+        }
+
         try
         {
             // Construct the generator, parse symbols, then emit using the configured format
@@ -259,6 +269,14 @@ internal static class Program
                 ClangPath = context.ClangPath,
             }),
 
+            // Construct a VhdlGenerator from the vhdl-specific options
+            "vhdl" => new VhdlGenerator(new VhdlGeneratorOptions
+            {
+                LibraryName = !string.IsNullOrEmpty(context.LibraryName) ? context.LibraryName : defaultLibraryName,
+                Description = context.LibraryDescription ?? string.Empty,
+                Sources = context.Sources,
+            }),
+
             // Any other token is an unrecognized subcommand
             _ => throw new NotSupportedException(
                 $"Unrecognized language subcommand '{context.Language}'."),
@@ -297,6 +315,7 @@ internal static class Program
         context.WriteLine("Languages:");
         context.WriteLine("  dotnet    Generate API documentation from a .NET assembly");
         context.WriteLine("  cpp       Generate API documentation from C++ headers");
+        context.WriteLine("  vhdl      Generate API documentation from VHDL source files");
         context.WriteLine("");
         context.WriteLine("dotnet options:");
         context.WriteLine("  --assembly <path>          Path to the .NET assembly (required)");
@@ -316,6 +335,12 @@ internal static class Program
         context.WriteLine("  --clang-path <path>        Path to clang executable (default: auto-discovered via PATH / xcrun / vswhere)");
         context.WriteLine("  --visibility <value>       Visibility filter: Public, PublicAndProtected, All (default: Public)");
         context.WriteLine("  --include-obsolete         Include deprecated members in generated output");
+        context.WriteLine("");
+        context.WriteLine("vhdl options:");
+        context.WriteLine("  --source <glob>            VHDL source glob pattern (repeatable; prefix with ! to exclude)");
+        context.WriteLine("  --output <dir>             Output directory for Markdown files (required)");
+        context.WriteLine("  --library-name <name>      Library name used as the top-level heading (default: output directory name)");
+        context.WriteLine("  --library-description <d>  Optional description for the library api.md introduction");
     }
 }
 

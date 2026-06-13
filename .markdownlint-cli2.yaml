@@ -10,6 +10,7 @@ ignores:
   - '**/third-party/**'
   - '**/3rd-party/**'
   - '**/generated/**'
+  - '**/VhdlAst/Antlr/**'
   - '**/.agent-logs/**'
   - '**/bin/**'
   - test/ApiMark.Cpp.Fixtures/api-gradual/**

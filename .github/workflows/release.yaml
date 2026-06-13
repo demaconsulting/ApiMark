@@ -1,22 +1,17 @@
 ---
 name: Release
-
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (1.0.0)'
+        description: Release version (1.0.0)
         required: true
         type: string
       publish:
-        description: 'Publish type'
+        description: Publish type
         required: true
         type: choice
-        options:
-          - none
-          - release
-          - publish
-
+        options: [none, release, publish]
 jobs:
   # Calls the reusable build workflow to build, test, and generate documentation
   # for the release version.
@@ -41,7 +36,6 @@ jobs:
     needs: build
     permissions:
       contents: write
-
     steps:
       - name: Setup dotnet
         uses: actions/setup-dotnet@v5
@@ -50,19 +44,16 @@ jobs:
             8.x
             9.x
             10.x
-
       - name: Download package artifacts
         uses: actions/download-artifact@v8
         with:
           name: packages-ubuntu-latest
           path: artifacts
-
       - name: Download documents artifact
         uses: actions/download-artifact@v8
         with:
           name: documents
           path: artifacts
-
       - name: Create GitHub Release
         if: inputs.publish == 'release' || inputs.publish == 'publish'
         uses: ncipollo/release-action@v1
@@ -71,7 +62,6 @@ jobs:
           artifacts: artifacts/*
           bodyFile: artifacts/build_notes.md
           generateReleaseNotes: false
-
       - name: Publish to NuGet.org
         if: inputs.publish == 'publish'
         run: |-

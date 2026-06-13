@@ -6,7 +6,9 @@ sections:
       - title: IApiEmitter Requirements
         requirements:
           - id: ApiMarkCore-IApiEmitter-DefineEmitMethod
-            title: IApiEmitter shall write the Markdown output for the previously parsed component using a caller-supplied output-writer factory, output configuration, and diagnostic channel.
+            title: IApiEmitter shall write the Markdown output for the previously
+              parsed component using a caller-supplied output-writer factory, output
+              configuration, and diagnostic channel.
             justification: |
               Callers need one consistent invocation point for writing Markdown output
               after parsing is complete. Accepting IMarkdownWriterFactory decouples the
@@ -18,25 +20,26 @@ sections:
               - IApiGenerator_Parse_WithMinimalStub_ExecutesSuccessfully
               - IApiGenerator_Emit_OutputDirectory_ContainsApiMd
           - id: ApiMarkCore-IApiEmitter-SupportGradualDisclosure
-            title: IApiEmitter.Emit shall support writing multi-file gradual-disclosure output when EmitConfig.Format is GradualDisclosure.
+            title: IApiEmitter.Emit shall support writing multi-file gradual-disclosure
+              output when EmitConfig.Format is GradualDisclosure.
             justification: |
               The gradual-disclosure tree (one file per concept) is the primary output
               format optimized for AI agent navigation. An emitter must honor this
               format when selected so callers can produce the expected multi-file layout
               without knowing which language module generated the symbol data.
-            tests:
-              - IApiGenerator_Emit_GradualDisclosure_ProducesMultipleFiles
+            tests: [IApiGenerator_Emit_GradualDisclosure_ProducesMultipleFiles]
           - id: ApiMarkCore-IApiEmitter-SupportSingleFile
-            title: IApiEmitter.Emit shall support writing all content into a single api.md file when EmitConfig.Format is SingleFile.
+            title: IApiEmitter.Emit shall support writing all content into a single
+              api.md file when EmitConfig.Format is SingleFile.
             justification: |
               The single-file format is optimized for direct reading or embedding in a
               larger document. An emitter must honor this format when selected so callers
               can produce a single consolidated Markdown file without knowing which language
               module generated the symbol data.
-            tests:
-              - IApiGenerator_Emit_SingleFile_ProducesSingleApiMd
+            tests: [IApiGenerator_Emit_SingleFile_ProducesSingleApiMd]
           - id: ApiMarkCore-IApiEmitter-ProduceApiMdEntrypoint
-            title: IApiEmitter.Emit shall produce a file named "api.md" as the fixed top-level entrypoint of every generated output tree.
+            title: IApiEmitter.Emit shall produce a file named "api.md" as the fixed
+              top-level entrypoint of every generated output tree.
             justification: |
               Callers (CLI and MSBuild) need a predictable entry point to reference or
               present to the user without inspecting output directory contents. A fixed

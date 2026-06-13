@@ -639,4 +639,52 @@ public sealed class ContextTests
         // Assert: ClangPath property must match the supplied path
         Assert.Equal("/usr/bin/clang", context.ClangPath);
     }
+
+    /// <summary>
+    ///     Validates that a single --source flag sets the Sources array.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithSourceOption_SetsSources()
+    {
+        // Arrange
+        var args = new[] { "--source", "src/**/*.vhd" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert
+        Assert.Equal(["src/**/*.vhd"], context.Sources);
+    }
+
+    /// <summary>
+    ///     Validates that repeated --source flags accumulate all patterns in order.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithRepeatedSource_AccumulatesAllPaths()
+    {
+        // Arrange
+        var args = new[] { "--source", "src/**/*.vhd", "--source", "src/**/*.vhdl" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert
+        Assert.Equal(["src/**/*.vhd", "src/**/*.vhdl"], context.Sources);
+    }
+
+    /// <summary>
+    ///     Validates that a --source flag with a ! exclusion prefix is forwarded verbatim.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithSourceExclusionPattern_ForwardsVerbatim()
+    {
+        // Arrange
+        var args = new[] { "--source", "src/**/*.vhd", "--source", "!src/tb/**/*.vhd" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert
+        Assert.Equal(["src/**/*.vhd", "!src/tb/**/*.vhd"], context.Sources);
+    }
 }

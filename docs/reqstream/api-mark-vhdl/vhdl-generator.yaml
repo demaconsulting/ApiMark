@@ -1,0 +1,15 @@
+---
+# VhdlGenerator unit requirements
+sections:
+  - title: ApiMarkVhdl Requirements
+    sections:
+      - title: VhdlGenerator Requirements
+        requirements:
+          - id: ApiMarkVhdl-VhdlGenerator-AcceptSourceFilesAndDirectories
+            title: VhdlGenerator shall accept source files and source directories.
+            justification: |
+              VHDL projects organize IP cores as individual files or directories of .vhd files.
+            tests:
+              - VhdlGenerator_Constructor_NullOptions_ThrowsArgumentNullException
+              - VhdlGenerator_Generate_FixtureFile_CreatesApiEntrypoint
+              - VhdlGenerator_Generate_FixtureFile_CreatesEntityPage

@@ -4,7 +4,9 @@ sections:
   - title: ApiMarkCore Requirements
     requirements:
       - id: ApiMarkCore-IApiGenerator-ProvideLanguageGeneratorContract
-        title: ApiMarkCore shall provide a two-stage language-generator contract (Parse + Emit) that callers can use to invoke any supported language module with a configurable output format.
+        title: ApiMarkCore shall provide a two-stage language-generator contract (Parse
+          + Emit) that callers can use to invoke any supported language module with
+          a configurable output format.
         justification: |
           ApiMark needs a common contract so the CLI and any build integration can
           trigger documentation generation without knowing the implementation details
@@ -14,10 +16,11 @@ sections:
         children:
           - ApiMarkCore-IApiGenerator-DefineParseMethod
           - ApiMarkCore-IApiGenerator-AllowConstructionTimeConfiguration
-        tests:
-          - ApiMarkCore_GeneratorContract_SupportedLanguage_CanBeInvoked
+        tests: [ApiMarkCore_GeneratorContract_SupportedLanguage_CanBeInvoked]
       - id: ApiMarkCore-IContext-ProvideOutputChannel
-        title: ApiMarkCore shall provide a minimal output channel interface that language generators can use to emit informational and error messages without depending on Console.
+        title: ApiMarkCore shall provide a minimal output channel interface that language
+          generators can use to emit informational and error messages without depending
+          on Console.
         justification: |
           ApiMark generators need to emit diagnostic output without depending on
           Console directly, so the channel can be captured, suppressed, or
@@ -26,10 +29,10 @@ sections:
         children:
           - ApiMarkCore-IContext-DefineWriteLineMethod
           - ApiMarkCore-IContext-DefineWriteErrorMethod
-        tests:
-          - InMemoryContext_WriteLineAndWriteError_RouteToSeparateChannels
+        tests: [InMemoryContext_WriteLineAndWriteError_RouteToSeparateChannels]
       - id: ApiMarkCore-IMarkdownWriterFactory-ProvideMarkdownWriterFactoryInterface
-        title: ApiMarkCore shall provide a factory interface for creating per-file Markdown writers so that language generators are decoupled from the file-system.
+        title: ApiMarkCore shall provide a factory interface for creating per-file
+          Markdown writers so that language generators are decoupled from the file-system.
         justification: |
           Decoupling generators from the file-system via a factory contract allows
           the same generator code to write to disk in production and to memory in
@@ -39,10 +42,10 @@ sections:
           - ApiMarkCore-IMarkdownWriterFactory-SupportRootLevelFiles
           - ApiMarkCore-IMarkdownWriterFactory-RejectInvalidOutputDirectory
           - ApiMarkCore-IMarkdownWriterFactory-EnsureOutputDirectory
-        tests:
-          - ApiMarkCore_WriterFactory_CanCreate_RootAndSubfolderWriters
+        tests: [ApiMarkCore_WriterFactory_CanCreate_RootAndSubfolderWriters]
       - id: ApiMarkCore-IMarkdownWriter-ProvideMarkdownOutputInterface
-        title: ApiMarkCore shall provide a markdown output interface for writing individual documentation files.
+        title: ApiMarkCore shall provide a markdown output interface for writing individual
+          documentation files.
         justification: |
           A shared markdown-writing abstraction keeps the generated document shape
           consistent while allowing output helpers to evolve without changing each
@@ -55,10 +58,10 @@ sections:
           - ApiMarkCore-IMarkdownWriter-DefineWriteTable
           - ApiMarkCore-IMarkdownWriter-DefineWriteCodeBlock
           - ApiMarkCore-IMarkdownWriter-DefineWriteLink
-        tests:
-          - InMemoryMarkdownWriter_Write_AllOperations_RecordsInOrder
+        tests: [InMemoryMarkdownWriter_Write_AllOperations_RecordsInOrder]
       - id: ApiMarkCore-PathHelpers-ProvideSafePathCombinationHelper
-        title: ApiMarkCore shall provide an internal helper for safely combining caller-supplied relative path segments with a trusted base path.
+        title: ApiMarkCore shall provide an internal helper for safely combining caller-supplied
+          relative path segments with a trusted base path.
         justification: |
           ApiMark needs one auditable place to enforce path-safety rules so file-based
           helpers do not each implement their own traversal checks inconsistently.
