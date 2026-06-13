@@ -1668,10 +1668,15 @@ internal sealed class ClangAstParser
                     break;
 
                 case "VerbatimBlockComment":
-                    var blockText = CollectVerbatimBlockText(child);
-                    if (!string.IsNullOrEmpty(blockText))
+                    // Only capture @code/@endcode blocks as examples; other verbatim
+                    // commands (e.g. @verbatim) are not code examples.
+                    if (string.Equals(GetName(child), "code", StringComparison.OrdinalIgnoreCase))
                     {
-                        example = blockText;
+                        var blockText = CollectVerbatimBlockText(child);
+                        if (!string.IsNullOrEmpty(blockText))
+                        {
+                            example = blockText;
+                        }
                     }
 
                     break;

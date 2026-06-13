@@ -303,8 +303,15 @@ public sealed class IMarkdownWriterTests
         }
         finally
         {
-            // Best-effort cleanup
-            Directory.Delete(tempDir, recursive: true);
+            // Best-effort cleanup — swallow errors to avoid masking a real test failure
+            try
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+            catch (IOException)
+            {
+                // Ignore
+            }
         }
     }
 }
