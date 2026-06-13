@@ -7,7 +7,7 @@ exercise the full .NET generation pipeline using real compiled assemblies, XML d
 and Markdown output directories. Mono.Cecil and XML documentation parsing are used as-is so
 verification proves the interaction between assembly metadata discovery, type-name simplification,
 and file emission. Only incidental infrastructure — such as disposable
-output locations — is test-controlled; The output-writer factory (IMarkdownWriterFactory) is replaced by an in-memory double for unit-level tests; no other production component is mocked.
+output locations — is test-controlled. The output-writer factory (`IMarkdownWriterFactory`) is replaced by an in-memory double for unit-level tests; no other production component is mocked.
 
 ## Test Environment
 
