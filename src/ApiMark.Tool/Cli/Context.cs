@@ -456,9 +456,12 @@ internal sealed class Context : IContext, IDisposable
                 case "--depth":
                     HeadingDepth = GetRequiredIntArgument(arg, args, index, "a heading depth argument", 1, 6);
                     if (Format == OutputFormat.SingleFile && HeadingDepth > 3)
+                    {
                         throw new ArgumentException(
                             $"'--depth' value must be 1–3 when '--format single-file' is used (member headings are at depth+3); got {HeadingDepth}.",
                             nameof(args));
+                    }
+
                     return index + 1;
 
                 case "--format":
@@ -473,9 +476,12 @@ internal sealed class Context : IContext, IDisposable
                                 nameof(args)),
                         };
                         if (Format == OutputFormat.SingleFile && HeadingDepth > 3)
+                        {
                             throw new ArgumentException(
                                 $"'--depth' value must be 1–3 when '--format single-file' is used (member headings are at depth+3); got {HeadingDepth}.",
                                 nameof(args));
+                        }
+
                         return index + 1;
                     }
 

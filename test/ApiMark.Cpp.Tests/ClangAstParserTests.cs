@@ -25,7 +25,10 @@ public class ClangAstParserTests
             };
             using var process = Process.Start(psi);
             if (process == null)
+            {
                 return false;
+            }
+
             if (!process.WaitForExit(5000))
             {
                 // Timeout — kill the process tree and treat as unavailable
