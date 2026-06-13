@@ -66,7 +66,7 @@ sections:
               names differ only in case (e.g. a field 'name' and a property 'Name') would
               produce colliding filenames. To avoid data loss and maintain predictable link
               targets, such members are combined onto a single page named after the
-              lower-invariant of the shared key,               with each member distinguished by an H2
+              lower-invariant of the shared key, with each member distinguished by an H2
               heading showing its exact name and kind label.
             tests:
               - DotNetGenerator_Generate_CaseCollisionClass_CreatesCombinedPage

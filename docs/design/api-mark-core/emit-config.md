@@ -28,13 +28,13 @@ the emitted Markdown. Default: `OutputFormat.GradualDisclosure`. Values:
   heading levels.
 
 **EmitConfig.HeadingDepth**: `int` — the absolute heading level used for the
-top-level section in single-file output. Default: `1`. Valid range: 1–2 (a
+top-level section in single-file output. Default: `1`. Valid range: 1–3 (a
 documented guideline; no runtime enforcement is performed by `EmitConfig`
 itself — enforcement is the caller's responsibility). Ignored by
-`GradualDisclosure` emitters. At depth 1, the top-level assembly (or library)
-heading is H1, namespaces are H2, types are H3, and members are H4 (effective
-member heading level is `HeadingDepth + 3`, capped at the range supported by
-`IMarkdownWriter.WriteHeading`).
+`GradualDisclosure` emitters. The effective member heading level is
+`HeadingDepth + 3`; at depth 3 members are at H6, which is the maximum heading
+level supported by Markdown. The CLI rejects depth values above 3 when
+`--format single-file` is used.
 
 **OutputFormat**: `enum` — discriminates between the two supported output
 strategies.

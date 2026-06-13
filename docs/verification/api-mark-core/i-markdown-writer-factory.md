@@ -25,7 +25,7 @@ in `ApiMark.Core.TestHelpers`.
 - The interface exposes `CreateMarkdown(string subFolder, string name)` returning
   an `IMarkdownWriter`.
 - An in-memory test double that implements `IMarkdownWriterFactory` compiles
-  without errors and can be instantiated and injected into `IApiGenerator.Generate`.
+  without errors and can be instantiated and injected into `IApiEmitter.Emit`.
 - `FileMarkdownWriterFactory` creates actual files and directories on disk when
   `CreateMarkdown` is called, including creating a non-existent output root on demand.
 - `FileMarkdownWriterFactory` rejects null or whitespace constructor arguments and
