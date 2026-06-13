@@ -58,7 +58,7 @@ reviews:
     paths:
       - test/ApiMark.Core.TestHelpers/**/*.cs
 
-  # ApiMarkCore - IApiGenerator
+  # ApiMarkCore - Units
   - id: ApiMark-Core-IApiGenerator
     title: Review that ApiMark Core IApiGenerator Implementation is Correct
     paths:
@@ -67,8 +67,6 @@ reviews:
       - docs/verification/api-mark-core/i-api-generator.md
       - src/ApiMark.Core/IApiGenerator.cs
       - test/ApiMark.Core.Tests/IApiGeneratorTests.cs
-
-  # ApiMarkCore - IApiEmitter
   - id: ApiMark-Core-IApiEmitter
     title: Review that ApiMark Core IApiEmitter Implementation is Correct
     paths:
@@ -77,8 +75,6 @@ reviews:
       - docs/verification/api-mark-core/i-api-emitter.md
       - src/ApiMark.Core/IApiEmitter.cs
       - test/ApiMark.Core.Tests/IApiGeneratorTests.cs
-
-  # ApiMarkCore - EmitConfig
   - id: ApiMark-Core-EmitConfig
     title: Review that ApiMark Core EmitConfig Implementation is Correct
     paths:
@@ -87,8 +83,6 @@ reviews:
       - docs/verification/api-mark-core/emit-config.md
       - src/ApiMark.Core/EmitConfig.cs
       - src/ApiMark.Core/OutputFormat.cs
-
-  # ApiMarkCore - IContext
   - id: ApiMark-Core-IContext
     title: Review that ApiMark Core IContext Implementation is Correct
     paths:
@@ -98,8 +92,6 @@ reviews:
       - src/ApiMark.Core/IContext.cs
       - test/ApiMark.Core.TestHelpers/InMemoryContext.cs
       - test/ApiMark.Core.Tests/IContextTests.cs
-
-  # ApiMarkCore - MarkdownWriter
   - id: ApiMark-Core-MarkdownWriter
     title: Review that ApiMark Core IMarkdownWriter Implementation is Correct
     paths:
@@ -110,8 +102,6 @@ reviews:
       - src/ApiMark.Core/FileMarkdownWriter.cs
       - test/ApiMark.Core.Tests/IMarkdownWriterTests.cs
       - test/ApiMark.Core.Tests/FileMarkdownWriterTests.cs
-
-  # ApiMarkCore - MarkdownWriterFactory
   - id: ApiMark-Core-MarkdownWriterFactory
     title: Review that ApiMark Core IMarkdownWriterFactory Implementation is Correct
     paths:
@@ -122,8 +112,6 @@ reviews:
       - src/ApiMark.Core/FileMarkdownWriterFactory.cs
       - test/ApiMark.Core.Tests/IMarkdownWriterFactoryTests.cs
       - test/ApiMark.Core.Tests/FileMarkdownWriterFactoryTests.cs
-
-  # ApiMarkCore - PathHelpers
   - id: ApiMark-Core-PathHelpers
     title: Review that ApiMark Core PathHelpers Implementation is Correct
     paths:
@@ -158,7 +146,7 @@ reviews:
       - docs/verification/api-mark-dot-net.md
       - docs/verification/api-mark-dot-net/**/*.md
 
-  # ApiMarkDotNet - DotNetGenerator
+  # ApiMarkDotNet - Units
   - id: ApiMark-DotNet-DotNetGenerator
     title: Review that ApiMark DotNet DotNetGenerator Implementation is Correct
     paths:
@@ -170,8 +158,6 @@ reviews:
       - src/ApiMark.DotNet/DotNetGeneratorOptions.cs
       - test/ApiMark.DotNet.Tests/DotNetGeneratorTests.cs
       - test/ApiMark.DotNet.Tests/FixturePaths.cs
-
-  # ApiMarkDotNet - DotNetAstModel
   - id: ApiMark-DotNet-DotNetAstModel
     title: Review that ApiMark DotNet DotNetAstModel Implementation is Correct
     paths:
@@ -180,8 +166,6 @@ reviews:
       - docs/verification/api-mark-dot-net/dot-net-ast-model.md
       - src/ApiMark.DotNet/DotNetAstModel.cs
       - test/ApiMark.DotNet.Tests/DotNetAstModelTests.cs
-
-  # ApiMarkDotNet - DotNetEmitter
   - id: ApiMark-DotNet-DotNetEmitter
     title: Review that ApiMark DotNet DotNetEmitter Implementation is Correct
     paths:
@@ -190,8 +174,6 @@ reviews:
       - docs/verification/api-mark-dot-net/dot-net-emitter.md
       - src/ApiMark.DotNet/DotNetEmitter.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterTests.cs
-
-  # ApiMarkDotNet - DotNetEmitterGradualDisclosure
   - id: ApiMark-DotNet-DotNetEmitterGradualDisclosure
     title: Review that ApiMark DotNet DotNetEmitterGradualDisclosure Implementation
       is Correct
@@ -202,8 +184,6 @@ reviews:
       - src/ApiMark.DotNet/DotNetEmitterGradualDisclosure.cs
       - test/ApiMark.DotNet.Fixtures/**/*.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterGradualDisclosureTests.cs
-
-  # ApiMarkDotNet - DotNetEmitterSingleFile
   - id: ApiMark-DotNet-DotNetEmitterSingleFile
     title: Review that ApiMark DotNet DotNetEmitterSingleFile Implementation is Correct
     paths:
@@ -213,8 +193,6 @@ reviews:
       - src/ApiMark.DotNet/DotNetEmitterSingleFile.cs
       - test/ApiMark.DotNet.Fixtures/**/*.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterSingleFileTests.cs
-
-  # ApiMarkDotNet - XmlDocReader
   - id: ApiMark-DotNet-XmlDocReader
     title: Review that ApiMark DotNet XmlDocReader Implementation is Correct
     paths:
@@ -223,8 +201,6 @@ reviews:
       - docs/verification/api-mark-dot-net/xml-doc-reader.md
       - src/ApiMark.DotNet/XmlDocReader.cs
       - test/ApiMark.DotNet.Tests/XmlDocReaderTests.cs
-
-  # ApiMarkDotNet - TypeLinkResolver
   - id: ApiMark-DotNet-TypeLinkResolver
     title: Review that ApiMark DotNet TypeLinkResolver Implementation is Correct
     paths:
@@ -233,8 +209,6 @@ reviews:
       - docs/verification/api-mark-dot-net/type-link-resolver.md
       - src/ApiMark.DotNet/TypeLinkResolver.cs
       - test/ApiMark.DotNet.Tests/TypeLinkResolverTests.cs
-
-  # ApiMarkDotNet - TypeNameSimplifier
   - id: ApiMark-DotNet-TypeNameSimplifier
     title: Review that ApiMark DotNet TypeNameSimplifier Implementation is Correct
     paths:
@@ -269,7 +243,7 @@ reviews:
       - docs/verification/api-mark-cpp.md
       - docs/verification/api-mark-cpp/**/*.md
 
-  # ApiMarkCpp - CppGenerator
+  # ApiMarkCpp - Units
   - id: ApiMark-Cpp-CppGenerator
     title: Review that ApiMark Cpp CppGenerator Implementation is Correct
     paths:
@@ -281,29 +255,6 @@ reviews:
       - src/ApiMark.Cpp/CppGeneratorOptions.cs
       - test/ApiMark.Cpp.Tests/CppGeneratorTests.cs
       - test/ApiMark.Cpp.Tests/FixturePaths.cs
-
-  # ApiMarkCpp - CppAstModel
-  - id: ApiMark-Cpp-CppAstModel
-    title: Review that ApiMark Cpp CppAstModel Implementation is Correct
-    paths:
-      - docs/reqstream/api-mark-cpp/cpp-ast-model.yaml
-      - docs/design/api-mark-cpp/cpp-ast-model.md
-      - docs/verification/api-mark-cpp/cpp-ast-model.md
-      - src/ApiMark.Cpp/CppAst/CppAstModel.cs
-      - test/ApiMark.Cpp.Tests/CppAstModelTests.cs
-
-  # ApiMarkCpp - ClangAstParser
-  - id: ApiMark-Cpp-ClangAstParser
-    title: Review that ApiMark Cpp ClangAstParser Implementation is Correct
-    paths:
-      - docs/reqstream/api-mark-cpp/clang-ast-parser.yaml
-      - docs/design/api-mark-cpp/clang-ast-parser.md
-      - docs/verification/api-mark-cpp/clang-ast-parser.md
-      - src/ApiMark.Cpp/CppAst/ClangAstParser.cs
-      - test/ApiMark.Cpp.Fixtures/**/*.h
-      - test/ApiMark.Cpp.Tests/ClangAstParserTests.cs
-
-  # ApiMarkCpp - CppEmitter
   - id: ApiMark-Cpp-CppEmitter
     title: Review that ApiMark Cpp CppEmitter Implementation is Correct
     paths:
@@ -312,8 +263,6 @@ reviews:
       - docs/verification/api-mark-cpp/cpp-emitter.md
       - src/ApiMark.Cpp/CppEmitter.cs
       - test/ApiMark.Cpp.Tests/CppEmitterTests.cs
-
-  # ApiMarkCpp - CppEmitterGradualDisclosure
   - id: ApiMark-Cpp-CppEmitterGradualDisclosure
     title: Review that ApiMark Cpp CppEmitterGradualDisclosure Implementation is Correct
     paths:
@@ -323,8 +272,6 @@ reviews:
       - src/ApiMark.Cpp/CppEmitterGradualDisclosure.cs
       - test/ApiMark.Cpp.Fixtures/**/*.h
       - test/ApiMark.Cpp.Tests/CppEmitterGradualDisclosureTests.cs
-
-  # ApiMarkCpp - CppEmitterSingleFile
   - id: ApiMark-Cpp-CppEmitterSingleFile
     title: Review that ApiMark Cpp CppEmitterSingleFile Implementation is Correct
     paths:
@@ -333,8 +280,6 @@ reviews:
       - docs/verification/api-mark-cpp/cpp-emitter-single-file.md
       - src/ApiMark.Cpp/CppEmitterSingleFile.cs
       - test/ApiMark.Cpp.Tests/CppEmitterSingleFileTests.cs
-
-  # ApiMarkCpp - CppTypeLinkResolver
   - id: ApiMark-Cpp-CppTypeLinkResolver
     title: Review that ApiMark Cpp CppTypeLinkResolver Implementation is Correct
     paths:
@@ -343,6 +288,25 @@ reviews:
       - docs/verification/api-mark-cpp/cpp-type-link-resolver.md
       - src/ApiMark.Cpp/CppTypeLinkResolver.cs
       - test/ApiMark.Cpp.Tests/CppTypeLinkResolverTests.cs
+
+  # ApiMarkCpp.CppAst - Units
+  - id: ApiMark-Cpp-CppAstModel
+    title: Review that ApiMark Cpp CppAstModel Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-cpp/cpp-ast-model.yaml
+      - docs/design/api-mark-cpp/cpp-ast-model.md
+      - docs/verification/api-mark-cpp/cpp-ast-model.md
+      - src/ApiMark.Cpp/CppAst/CppAstModel.cs
+      - test/ApiMark.Cpp.Tests/CppAstModelTests.cs
+  - id: ApiMark-Cpp-ClangAstParser
+    title: Review that ApiMark Cpp ClangAstParser Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-cpp/clang-ast-parser.yaml
+      - docs/design/api-mark-cpp/clang-ast-parser.md
+      - docs/verification/api-mark-cpp/clang-ast-parser.md
+      - src/ApiMark.Cpp/CppAst/ClangAstParser.cs
+      - test/ApiMark.Cpp.Fixtures/**/*.h
+      - test/ApiMark.Cpp.Tests/ClangAstParserTests.cs
 
   # ApiMarkVhdl - Specials
   - id: ApiMark-Vhdl-Architecture
@@ -380,22 +344,6 @@ reviews:
       - src/ApiMark.Vhdl/VhdlGeneratorOptions.cs
       - test/ApiMark.Vhdl.Tests/VhdlGeneratorTests.cs
       - test/ApiMark.Vhdl.Tests/FixturePaths.cs
-  - id: ApiMark-Vhdl-VhdlAstModel
-    title: Review that ApiMark Vhdl VhdlAstModel Implementation is Correct
-    paths:
-      - docs/reqstream/api-mark-vhdl/vhdl-ast-model.yaml
-      - docs/design/api-mark-vhdl/vhdl-ast-model.md
-      - docs/verification/api-mark-vhdl/vhdl-ast-model.md
-      - src/ApiMark.Vhdl/VhdlAst/VhdlAstModel.cs
-  - id: ApiMark-Vhdl-VhdlAstParser
-    title: Review that ApiMark Vhdl VhdlAstParser Implementation is Correct
-    paths:
-      - docs/reqstream/api-mark-vhdl/vhdl-ast-parser.yaml
-      - docs/design/api-mark-vhdl/vhdl-ast-parser.md
-      - docs/verification/api-mark-vhdl/vhdl-ast-parser.md
-      - src/ApiMark.Vhdl/VhdlAst/VhdlAstParser.cs
-      - test/ApiMark.Vhdl.Tests/Fixtures/counter.vhd
-      - test/ApiMark.Vhdl.Tests/VhdlAstParserTests.cs
   - id: ApiMark-Vhdl-VhdlEmitter
     title: Review that ApiMark Vhdl VhdlEmitter Implementation is Correct
     paths:
@@ -423,6 +371,24 @@ reviews:
       - test/ApiMark.Vhdl.Tests/Fixtures/counter.vhd
       - test/ApiMark.Vhdl.Tests/VhdlEmitterSingleFileTests.cs
 
+  # ApiMarkVhdl.VhdlAst - Units
+  - id: ApiMark-Vhdl-VhdlAstModel
+    title: Review that ApiMark Vhdl VhdlAstModel Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-vhdl/vhdl-ast-model.yaml
+      - docs/design/api-mark-vhdl/vhdl-ast-model.md
+      - docs/verification/api-mark-vhdl/vhdl-ast-model.md
+      - src/ApiMark.Vhdl/VhdlAst/VhdlAstModel.cs
+  - id: ApiMark-Vhdl-VhdlAstParser
+    title: Review that ApiMark Vhdl VhdlAstParser Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-vhdl/vhdl-ast-parser.yaml
+      - docs/design/api-mark-vhdl/vhdl-ast-parser.md
+      - docs/verification/api-mark-vhdl/vhdl-ast-parser.md
+      - src/ApiMark.Vhdl/VhdlAst/VhdlAstParser.cs
+      - test/ApiMark.Vhdl.Tests/Fixtures/counter.vhd
+      - test/ApiMark.Vhdl.Tests/VhdlAstParserTests.cs
+
   # ApiMarkMSBuild - Specials
   - id: ApiMark-MSBuild-Architecture
     title: Review that ApiMark MSBuild Architecture Satisfies Requirements
@@ -448,7 +414,7 @@ reviews:
       - docs/verification/api-mark-msbuild.md
       - docs/verification/api-mark-msbuild/**/*.md
 
-  # ApiMarkMSBuild - ApiMarkTask
+  # ApiMarkMSBuild - Units
   - id: ApiMark-MSBuild-Task
     title: Review that ApiMark MSBuild ApiMarkTask Implementation is Correct
     paths:
@@ -485,7 +451,7 @@ reviews:
       - docs/verification/api-mark-tool.md
       - docs/verification/api-mark-tool/**/*.md
 
-  # ApiMarkTool - Program
+  # ApiMarkTool - Units
   - id: ApiMark-Tool-Program
     title: Review that ApiMark Tool Program Implementation is Correct
     paths:
@@ -495,7 +461,7 @@ reviews:
       - src/ApiMark.Tool/Program.cs
       - test/ApiMark.Tool.Tests/ProgramTests.cs
 
-  # ApiMarkTool - Cli
+  # ApiMarkTool.Cli - Units
   - id: ApiMark-Tool-Cli
     title: Review that ApiMark Tool Cli Satisfies Subsystem Requirements
     paths:
@@ -511,7 +477,7 @@ reviews:
       - src/ApiMark.Tool/Cli/Context.cs
       - test/ApiMark.Tool.Tests/Cli/ContextTests.cs
 
-  # ApiMarkTool - SelfTest
+  # ApiMarkTool.SelfTest - Units
   - id: ApiMark-Tool-SelfTest
     title: Review that ApiMark Tool SelfTest Satisfies Subsystem Requirements
     paths:
