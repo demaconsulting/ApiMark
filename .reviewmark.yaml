@@ -369,7 +369,7 @@ reviews:
       - docs/verification/api-mark-vhdl.md
       - docs/verification/api-mark-vhdl/**/*.md
 
-  # ApiMarkVhdl - VhdlGenerator
+  # ApiMarkVhdl - Units
   - id: ApiMark-Vhdl-VhdlGenerator
     title: Review that ApiMark Vhdl VhdlGenerator Implementation is Correct
     paths:
@@ -380,8 +380,6 @@ reviews:
       - src/ApiMark.Vhdl/VhdlGeneratorOptions.cs
       - test/ApiMark.Vhdl.Tests/VhdlGeneratorTests.cs
       - test/ApiMark.Vhdl.Tests/FixturePaths.cs
-
-  # ApiMarkVhdl - VhdlAstModel
   - id: ApiMark-Vhdl-VhdlAstModel
     title: Review that ApiMark Vhdl VhdlAstModel Implementation is Correct
     paths:
@@ -389,8 +387,6 @@ reviews:
       - docs/design/api-mark-vhdl/vhdl-ast-model.md
       - docs/verification/api-mark-vhdl/vhdl-ast-model.md
       - src/ApiMark.Vhdl/VhdlAst/VhdlAstModel.cs
-
-  # ApiMarkVhdl - VhdlAstParser
   - id: ApiMark-Vhdl-VhdlAstParser
     title: Review that ApiMark Vhdl VhdlAstParser Implementation is Correct
     paths:
@@ -400,8 +396,6 @@ reviews:
       - src/ApiMark.Vhdl/VhdlAst/VhdlAstParser.cs
       - test/ApiMark.Vhdl.Tests/Fixtures/counter.vhd
       - test/ApiMark.Vhdl.Tests/VhdlAstParserTests.cs
-
-  # ApiMarkVhdl - VhdlEmitter
   - id: ApiMark-Vhdl-VhdlEmitter
     title: Review that ApiMark Vhdl VhdlEmitter Implementation is Correct
     paths:
@@ -410,8 +404,6 @@ reviews:
       - docs/verification/api-mark-vhdl/vhdl-emitter.md
       - src/ApiMark.Vhdl/VhdlEmitter.cs
       - test/ApiMark.Vhdl.Tests/VhdlEmitterTests.cs
-
-  # ApiMarkVhdl - VhdlEmitterGradualDisclosure
   - id: ApiMark-Vhdl-VhdlEmitterGradualDisclosure
     title: Review that ApiMark Vhdl VhdlEmitterGradualDisclosure Implementation is Correct
     paths:
@@ -421,8 +413,6 @@ reviews:
       - src/ApiMark.Vhdl/VhdlEmitterGradualDisclosure.cs
       - test/ApiMark.Vhdl.Tests/Fixtures/counter.vhd
       - test/ApiMark.Vhdl.Tests/VhdlEmitterGradualDisclosureTests.cs
-
-  # ApiMarkVhdl - VhdlEmitterSingleFile
   - id: ApiMark-Vhdl-VhdlEmitterSingleFile
     title: Review that ApiMark Vhdl VhdlEmitterSingleFile Implementation is Correct
     paths:
