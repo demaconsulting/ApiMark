@@ -80,10 +80,12 @@ the generator, and calls `Parse` then `Emit`.
   `PublicIncludeRoots` (from `context.Includes`), `ApiHeaderPatterns` (from
   `context.ApiHeaders`), and the other cpp-specific options (`LibraryName`,
   `Description`, `Defines`, `CppStandard`, `Visibility`, `IncludeDeprecated`,
-  `ClangPath`).
+  `ClangPath`). The `LibraryName` is resolved from `context.LibraryName` when
+  set; otherwise it falls back to the last segment of `context.Output`, or
+  `"Library"` if the output path is also absent.
 - For the `vhdl` language, `VhdlGeneratorOptions` is populated with `Sources`
-  (from `context.Sources`), `LibraryName` (from `context.LibraryName`), and
-  `Description` (from `context.LibraryDescription`).
+  (from `context.Sources`), `LibraryName` (from `context.LibraryName`, same
+  fallback as C++), and `Description` (from `context.LibraryDescription`).
 
 **Program.PrintBanner** (private static): Prints the application banner (tool name,
 version, copyright line, and a blank line).

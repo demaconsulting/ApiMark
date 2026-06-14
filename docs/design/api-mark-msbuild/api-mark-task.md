@@ -22,7 +22,8 @@ when true, the task returns success immediately with no side effects, allowing
 projects to opt out of documentation generation without removing the package.
 
 **ApiMarkTask.ApiMarkLanguage**: `string` — MSBuild property `$(ApiMarkLanguage)`;
-selects the generation language. Accepted values: `dotnet`, `cpp`. When not set,
+selects the generation language. Accepted values: `dotnet`, `cpp`. Any other value
+causes `Execute` to log an error and return `false`. When not set,
 the task infers the language: `.vcxproj` project → `cpp`, all others → `dotnet`.
 
 **ApiMarkTask.ProjectExtension**: `string` — MSBuild property
@@ -36,7 +37,8 @@ the directory where Markdown output is written.
 
 **ApiMarkTask.ApiMarkVisibility**: `string` — MSBuild property
 `$(ApiMarkVisibility)`; the visibility filter forwarded to the tool. Accepted
-values: `Public`, `PublicAndProtected`, `All`. Defaults to `Public` when not set.
+values: `Public`, `PublicAndProtected`, `All`. When not set, the `--visibility`
+flag is omitted and the tool applies its own default of `Public`.
 
 **ApiMarkTask.ApiMarkIncludeObsolete**: `bool` — MSBuild property
 `$(ApiMarkIncludeObsolete)`; when true, the tool includes members marked
@@ -149,6 +151,7 @@ argument list, spawns the tool process, and pipes its output to the MSBuild log.
 
 Execution steps: check `DisableApiMark` — if true, return true immediately; resolve
 language from `ApiMarkLanguage` or project extension inference; if language is
+not `dotnet` or `cpp`, log an error and return false; if language is
 `dotnet` and `ApiMarkXmlDocPath` is not set, return true (skip generation); if
 language is `cpp` and `ApiMarkIncludePaths` is not set, return true (skip
 generation with an informational log message); resolve the `dotnet` executable

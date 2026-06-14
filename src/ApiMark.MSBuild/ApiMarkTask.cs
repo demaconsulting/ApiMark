@@ -22,6 +22,8 @@ public sealed class ApiMarkTask : Task
 {
     /// <summary>Language identifier for .NET documentation generation.</summary>
     private const string DotNetLanguage = "dotnet";
+    /// <summary>Language identifier for C++ documentation generation.</summary>
+    private const string CppLanguage = "cpp";
     /// <summary>
     ///     Gets or sets a value indicating whether documentation generation is suppressed.
     /// </summary>
@@ -227,7 +229,8 @@ public sealed class ApiMarkTask : Task
     ///     and the current property values.
     /// </summary>
     /// <param name="language">
-    ///     The resolved language; either <c>"dotnet"</c> or <c>"cpp"</c>. Must not be null or empty.
+    ///     The resolved language; <c>"dotnet"</c> or <c>"cpp"</c>. Must not be null or empty.
+    ///     Throws <see cref="InvalidOperationException"/> for any other value.
     /// </param>
     /// <returns>
     ///     An ordered list of individual arguments to pass to <c>dotnet ApiMark.Tool.dll</c>,
@@ -243,9 +246,13 @@ public sealed class ApiMarkTask : Task
         {
             AppendDotNetArguments(args);
         }
-        else
+        else if (language == CppLanguage)
         {
             AppendCppArguments(args);
+        }
+        else
+        {
+            throw new InvalidOperationException($"Unsupported language: '{language}'.");
         }
 
         AppendCommonArguments(args);
@@ -461,13 +468,23 @@ public sealed class ApiMarkTask : Task
         }
 
         // For C++ projects, skip gracefully when no include paths are configured
-        if (language == "cpp" && string.IsNullOrWhiteSpace(ApiMarkIncludePaths))
+        if (language == CppLanguage && string.IsNullOrWhiteSpace(ApiMarkIncludePaths))
         {
             Log.LogMessage(MessageImportance.Normal,
                 "Skipping ApiMark: no include paths resolved for C++ documentation generation. " +
                 "Ensure ClCompile items have AdditionalIncludeDirectories set, " +
                 "or set $(ApiMarkIncludePaths) explicitly in your .vcxproj.");
             return true;
+        }
+
+        // Reject unrecognized language values early to prevent silent argument mis-routing
+        if (language != DotNetLanguage && language != CppLanguage)
+        {
+            Log.LogError(
+                $"ApiMark: language '{language}' is not supported by the MSBuild task. " +
+                "Supported values are 'dotnet' and 'cpp'. " +
+                "Use the ApiMark.Tool CLI directly for other languages.");
+            return false;
         }
 
         // Verify the bundled tool DLL exists before attempting to spawn it
