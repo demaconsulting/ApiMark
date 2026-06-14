@@ -30,6 +30,7 @@ node_modules/
 **/generated/
 
 # Generated API documentation output (written by ApiMark; never committed)
+output/
 **/api-gradual/
 **/api-single/
 **/api/
