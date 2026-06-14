@@ -1,5 +1,7 @@
 # C++ Documentation
 
+<!-- cspell:ignore nullptr -->
+
 ## Prerequisites
 
 C++ documentation generation requires `clang` to be installed.
