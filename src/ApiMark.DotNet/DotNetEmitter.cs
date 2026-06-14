@@ -18,7 +18,7 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <summary>Placeholder emitted in description cells and paragraphs when no XML doc summary is available.</summary>
     internal const string NoDescriptionPlaceholder = "*No description provided.*";
 
-    /// <summary>The .NET metadata method name used for all instance and static constructors.</summary>
+    /// <summary>The .NET metadata method name used for all instance constructors.</summary>
     internal const string ConstructorMethodName = ".ctor";
 
     /// <summary>Gets the pre-parsed assembly data used during emit.</summary>

@@ -15,7 +15,7 @@ tree (one file per concept) or a single-file Markdown document through
 detail page in gradual-disclosure mode, making all navigation paths fully
 deterministic.
 
-The implementation is split across seven files in the `ApiMark.DotNet` package:
+The implementation is split across eight files in the `ApiMark.DotNet` package:
 
 - **DotNetGenerator.cs** — thin `IApiGenerator` that parses the assembly and
   returns a `DotNetEmitter`.
@@ -29,6 +29,8 @@ The implementation is split across seven files in the `ApiMark.DotNet` package:
 - **DotNetEmitterSingleFile.cs** — all single-file page writers.
 - **TypeLinkResolver.cs** — resolves Mono.Cecil type references to Markdown link
   text for use in table cells. See TypeLinkResolver Design for full details.
+- **TypeNameSimplifier.cs** — simplifies CLR type names into idiomatic C# display
+  text. See TypeNameSimplifier Design for full details.
 - **XmlDocReader.cs** — reads and indexes the XML documentation file for O(1)
   per-member lookups. See XmlDocReader Design for full details.
 
@@ -77,8 +79,9 @@ instance for use during Parse.
 **DotNetGenerator.Parse**: Reads the assembly and XML documentation file into
 memory and returns a `DotNetEmitter` ready to emit.
 
-- *Parameters*: `IContext context` — output channel for diagnostic and progress
-  messages emitted during parsing.
+- *Parameters*: `IContext context` — output channel reserved for future diagnostic
+  and progress messages; DotNetGenerator does not currently emit any messages
+  through this channel during parsing.
 - *Returns*: `IApiEmitter` — a `DotNetEmitter` holding all parsed namespace, type,
   and member data.
 - *Preconditions*: `AssemblyPath` and `XmlDocPath` must exist on disk; `context`
@@ -97,9 +100,9 @@ tree using the format specified by `config.Format`.
 - *Postconditions (GradualDisclosure)*: The factory has produced a complete
   Markdown tree for the configured assembly. Output file naming follows:
   - `factory.CreateMarkdown("", "api")` — assembly entrypoint.
-  - `factory.CreateMarkdown(namespaceName, namespaceName)` — namespace summary.
-  - `factory.CreateMarkdown(namespaceName, typeSimpleName)` — type page.
-  - `factory.CreateMarkdown($"{namespaceName}/{typeSimpleName}", memberName)` —
+  - `factory.CreateMarkdown(namespaceFolderPath, namespaceName)` — namespace summary.
+  - `factory.CreateMarkdown(namespaceFolderPath, typeSimpleName)` — type page.
+  - `factory.CreateMarkdown($"{namespaceFolderPath}/{typeSimpleName}", memberName)` —
     dedicated file for every visible member.
 - *Postconditions (SingleFile)*: A single `api.md` is created via
   `factory.CreateMarkdown("", "api")` containing the full documentation tree
@@ -162,7 +165,7 @@ case-insensitive collision.
   comparison.
 
 **DotNetEmitterGradualDisclosure.GetMemberKindLabel** (private static): Maps an `IMemberDefinition` to
-a short human-readable kind string used in combined page H4 headings.
+a short human-readable kind string used in combined page H2 headings.
 
 - *Parameters*: `IMemberDefinition member` — the member to classify.
 - *Returns*: `string` — one of `"Field"`, `"Property"`, `"Event"`,

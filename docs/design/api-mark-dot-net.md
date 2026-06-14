@@ -106,10 +106,10 @@ N/A — not a safety-classified software item.
    or DotNetEmitterSingleFile) based on EmitConfig.Format. For gradual-disclosure output,
    DotNetEmitterGradualDisclosure calls `factory.CreateMarkdown("", "api")` and writes the
    assembly-level entrypoint file listing all namespaces.
-5. For each namespace, DotNetEmitterGradualDisclosure calls `factory.CreateMarkdown(namespaceName,
+5. For each namespace, DotNetEmitterGradualDisclosure calls `factory.CreateMarkdown(namespaceFolderPath,
    namespaceName)` and writes a namespace summary listing all visible types.
 6. For each visible type, DotNetEmitterGradualDisclosure writes every member to its own dedicated
-   file via `factory.CreateMarkdown(namespaceName, typeName)` and links all members
+   file via `factory.CreateMarkdown(namespaceFolderPath, typeName)` and links all members
    from the type page. Each member receives its own page, except where case-insensitive
    filename collisions on a single type require combining colliding members onto one
    shared page.

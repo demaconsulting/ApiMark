@@ -62,6 +62,29 @@ C# declaration signature for a type definition.
 - *Returns*: `string` — e.g. `public class Name`, `public interface Name<T>`,
   or `public class Name : BaseClass, IInterface`.
 
+**Shared Helper Methods** (internal static): DotNetEmitter exposes shared helper
+methods consumed by DotNetEmitterGradualDisclosure and DotNetEmitterSingleFile.
+These helpers are grouped by concern:
+
+- *Visibility filters* — `IsTypeVisible`, `IsMemberVisible`, `GetVisibleMembers`,
+  `ShouldIncludeMember`: determine which types and members are included based on
+  the configured visibility level and `IncludeObsolete` flag.
+- *ID and file-name builders* — `BuildMemberId`, `BuildMethodId`,
+  `BuildMemberFileName`, `BuildMethodFileName`, `GetMethodGroupName`: produce the
+  XML-doc member IDs and sanitized file-name segments used by both emitters.
+- *Signature builders* — `BuildMemberSignature`, `BuildMethodSignature`,
+  `BuildPropertySignature`, `BuildFieldSignature`, `BuildEventSignature`: produce
+  the human-readable C# declaration strings written into code-fence blocks.
+- *Type predicates* — `IsOperator`, `IsDelegate`, `IsSpecialNameNonConstructor`,
+  `IsExtensionMethod`, `IsBackingField`, `IsNamespaceDocCarrier`: categorize
+  members to drive conditional rendering paths.
+- *Accessibility helpers* — `GetAccessibilityKeyword` (overloads for
+  `TypeDefinition`, `MethodDefinition`, `FieldDefinition`, `PropertyDefinition`,
+  `EventDefinition`): map Mono.Cecil access flags to C# keywords.
+- *Type utilities* — `GetMemberTypeRef`, `IsMemberTypeNullableAnnotated`,
+  `StripArity`, `SanitizeFileName`: extract type references, detect nullable
+  annotations, and produce filesystem-safe name segments.
+
 ### Error Handling
 
 `DotNetEmitter.Emit` throws `ArgumentNullException` when `factory` is null.
