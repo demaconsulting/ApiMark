@@ -49,7 +49,8 @@ format-specific emitter.
 an optional doc comment.
 
 - *Parameters*: `VhdlDocComment? doc` — may be null.
-- *Returns*: `string?` — `doc.Summary` when `doc` is non-null; otherwise `null`.
+- *Returns*: `string?` — `doc.Summary` when `doc` is non-null and `Summary` is
+  non-empty; otherwise `null`.
 
 ### Error Handling
 

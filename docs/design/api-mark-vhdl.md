@@ -10,12 +10,15 @@ files, parses them using the ANTLR4 vhdl2008 grammar, pre-processes source
 lines to extract --! doc comments, and produces the Markdown output defined
 by the Core interfaces. The system contains the following units:
 
-- **VhdlGenerator** — accepts `VhdlGeneratorOptions` specifying source files
-  and directories, invokes `VhdlAstParser` to obtain parsed VHDL file models,
-  and returns a `VhdlEmitter` that writes the complete Markdown documentation.
+- **VhdlGenerator** — accepts `VhdlGeneratorOptions` specifying source file glob
+  patterns, invokes `GlobFileCollector` to enumerate VHDL source files, delegates
+  parsing to `VhdlAstParser`, and returns a `VhdlEmitter` that writes the complete
+  Markdown documentation.
 - **VhdlAstModel** — group of immutable record types (`VhdlEntityDecl`,
-  `VhdlArchitectureDecl`, `VhdlPackageDecl`, `VhdlPortDoc`, `VhdlGenericDoc`,
-  `VhdlDocComment`, `VhdlParamDoc`) that represent the parsed VHDL AST.
+  `VhdlArchitectureDecl`, `VhdlPackageDecl`, `VhdlTypeDecl`, `VhdlConstantDecl`,
+  `VhdlComponentDecl`, `VhdlSubprogramDecl`, `VhdlParamDecl`, `VhdlParamDoc`,
+  `VhdlPortDoc`, `VhdlGenericDoc`, `VhdlDocComment`, and the `VhdlSubprogramKind`
+  enum) that represent the parsed VHDL AST.
 - **VhdlAstParser** — internal parser that pre-processes source lines to
   extract --! doc comments, invokes the ANTLR4 vhdl2008 grammar to parse the
   file, walks the parse tree to collect entity, architecture, and package
@@ -57,7 +60,8 @@ from ApiMarkCore; parsing is separated from emit via the two-stage pipeline.
   writes the full Markdown tree using the supplied factory and the format selected
   by `config`.
 - *Constraints*: VhdlGeneratorOptions.LibraryName must be non-empty before calling
-  Parse; at least one SourceFile or SourceDirectory must be configured.
+  Parse; Sources glob patterns must match at least one `.vhd` or `.vhdl` file at
+  parse time — if no files are matched, an error is emitted via `context.WriteError`.
 
 **ANTLR4 vhdl2008 grammar (consumed)**: VhdlAstParser uses the pre-generated
 ANTLR4 parser to parse VHDL-2008 source files.
@@ -83,12 +87,13 @@ N/A — not a safety-classified software item.
 ## Data Flow
 
 1. The caller (ApiMarkTool) constructs `VhdlGeneratorOptions` with
-   LibraryName, SourceFiles, SourceDirectories, and Description, then calls
+   LibraryName, Sources (glob patterns), and Description, then calls
    `VhdlGenerator.Parse(context)` to obtain a `VhdlEmitter`. The caller then
    passes an IMarkdownWriterFactory and an EmitConfig to
    `VhdlEmitter.Emit(factory, config, context)`.
-2. VhdlGenerator enumerates all configured source files and resolves \*.vhd
-   files from all configured source directories.
+2. VhdlGenerator calls `GlobFileCollector.Collect(_options.Sources, vhdlExtensions, cwd)`
+   to build the selected-file set. If no files are matched, an error is emitted via
+   `context.WriteError` and an empty `VhdlEmitter` is returned.
 3. VhdlGenerator calls `VhdlAstParser.Parse(filePath)` for each file.
    `VhdlAstParser` reads the file as text, pre-processes source lines to build
    a line-number-to-comment mapping, creates an ANTLR4 pipeline, parses the
@@ -101,9 +106,9 @@ N/A — not a safety-classified software item.
 6. When Emit is called, VhdlEmitter dispatches to `VhdlEmitterGradualDisclosure`
    or `VhdlEmitterSingleFile` based on `config.Format`.
 7. For gradual disclosure: `factory.CreateMarkdown("", "api")` creates the index
-   page; `factory.CreateMarkdown("", entityName)` creates each entity page;
-   `factory.CreateMarkdown("", archName_entityName_arch)` creates each architecture
-   page; `factory.CreateMarkdown("", packageName)` creates each package page.
+   page; `factory.CreateMarkdown("", entityName)` creates each entity page (with
+   architectures rendered inline); `factory.CreateMarkdown("", packageName)` creates
+   each package page.
 8. For single-file: `factory.CreateMarkdown("", "api")` is the only file created.
 
 ## Design Constraints

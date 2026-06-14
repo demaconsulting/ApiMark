@@ -34,12 +34,14 @@ file.
 - *Postconditions*: a single `api.md` file containing all documented declarations
   has been written.
 - *Algorithm*:
-  1. Create the output file via `factory.CreateMarkdown("", "api")` — called
+  1. Write `<!-- markdownlint-disable MD024 -->` as the first output to suppress
+     duplicate-heading lint warnings caused by entities and packages sharing names.
+  2. Create the output file via `factory.CreateMarkdown("", "api")` — called
      exactly once.
-  2. Write H{depth} library name heading and optional description.
-  3. Write Entities section: H{depth+1} heading, then for each entity an H{depth+2}
+  3. Write H{depth} library name heading and optional description.
+  4. Write Entities section: H{depth+1} heading, then for each entity an H{depth+2}
      heading followed by generics and ports tables and an Architectures sub-section.
-  4. Write Packages section: H{depth+1} heading, then for each package an H{depth+2}
+  5. Write Packages section: H{depth+1} heading, then for each package an H{depth+2}
      heading followed by its summary.
 
 ### Error Handling

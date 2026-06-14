@@ -17,8 +17,8 @@ configured glob patterns to enumerate VHDL source files, delegates parsing to
 - `LibraryName`: `string` — the name of the VHDL library to document; must be non-empty.
 - `Sources`: `IList<string>` — glob patterns that identify source files to include.
   Patterns prefixed with `!` are exclusion patterns. Evaluated with gitignore-style
-  last-match-wins semantics using `Microsoft.Extensions.FileSystemGlobbing`. An empty
-  list produces no documented files.
+  last-match-wins semantics by `GlobFileCollector` from ApiMarkCore. An empty list
+  produces no matched files.
 - `WorkingDirectory`: `string?` — the base directory for glob evaluation. When `null`,
   defaults to `Directory.GetCurrentDirectory()`.
 - Additional display and format options are forwarded to `VhdlEmitter` unchanged.
@@ -43,15 +43,12 @@ returns a ready-to-emit `VhdlEmitter`.
 - *Algorithm*:
   1. Resolve the working directory: use `options.WorkingDirectory` when non-null,
      otherwise `Directory.GetCurrentDirectory()`.
-  2. Evaluate `options.Sources` glob patterns via `Microsoft.Extensions.FileSystemGlobbing`
-     `Matcher`, using last-match-wins semantics: iterate patterns in order; patterns
-     without a `!` prefix are added as include patterns; patterns with a `!` prefix
-     (stripped of `!`) are added as exclude patterns.
-  3. When no non-exclusion patterns are present, return a `VhdlEmitter` with an empty
-     file list immediately.
-  4. Execute the matcher against the resolved working directory to obtain matched paths.
-  5. Call `VhdlAstParser.Parse(filePath)` for each matched file path.
-  6. Construct and return `new VhdlEmitter(options, fileModels)`.
+  2. Call `GlobFileCollector.Collect(_options.Sources, vhdlExtensions, cwd)` to build
+     the sorted, deduplicated list of matched `.vhd` and `.vhdl` files.
+  3. When no files are matched, emit `"Error: no .vhd or .vhdl files matched the
+     --source patterns."` via `context.WriteError` and return an empty `VhdlEmitter`.
+  4. Call `VhdlAstParser.Parse(filePath)` for each matched file path.
+  5. Construct and return `new VhdlEmitter(options, fileModels)`.
 
 ### Error Handling
 
@@ -68,8 +65,8 @@ returns a ready-to-emit `VhdlEmitter`.
 - **VhdlAstParser** (internal) — called once per matched source file.
 - **VhdlEmitter** (internal) — constructed and returned from `Parse`.
 - **IApiGenerator** (ApiMarkCore) — the interface this class implements.
-- **Microsoft.Extensions.FileSystemGlobbing** (NuGet OTS) — used to evaluate
-  `Sources` glob patterns against the resolved working directory.
+- **GlobFileCollector** (ApiMarkCore) — used to evaluate `Sources` glob patterns
+  and return sorted, deduplicated file paths.
 
 ### Callers
 

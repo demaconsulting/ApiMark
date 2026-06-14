@@ -28,7 +28,30 @@ IReadOnlyList<VhdlPortDoc> Ports, VhdlDocComment? Doc)` — an entity declaratio
 **VhdlArchitectureDecl**: `(string Name, string EntityName, VhdlDocComment? Doc)` —
 an architecture body declaration.
 
-**VhdlPackageDecl**: `(string Name, VhdlDocComment? Doc)` — a package declaration.
+**VhdlPackageDecl**: `(string Name, VhdlDocComment? Doc, IReadOnlyList<VhdlTypeDecl> Types,
+IReadOnlyList<VhdlConstantDecl> Constants, IReadOnlyList<VhdlComponentDecl> Components,
+IReadOnlyList<VhdlSubprogramDecl> Subprograms)` — a package declaration with all its
+contained members.
+
+**VhdlTypeDecl**: `(string Name, string Definition, VhdlDocComment? Doc)` — a type
+declaration within a package.
+
+**VhdlConstantDecl**: `(string Name, string TypeName, string? Value, VhdlDocComment? Doc)` —
+a constant declaration within a package.
+
+**VhdlComponentDecl**: `(string Name, VhdlDocComment? Doc)` — a component declaration
+within a package.
+
+**VhdlSubprogramKind**: enum with values `Procedure` and `Function` — distinguishes
+procedures from functions in a package.
+
+**VhdlParamDecl**: `(string Name, string Mode, string TypeName)` — a parameter in a
+subprogram; `Mode` is the VHDL port mode (`IN`, `OUT`, `INOUT`, `BUFFER`) or the
+object-class keyword for subprogram parameters.
+
+**VhdlSubprogramDecl**: `(string Name, VhdlSubprogramKind Kind, string Signature,
+IReadOnlyList<VhdlParamDecl> Parameters, string? ReturnType, VhdlDocComment? Doc)` —
+a subprogram (procedure or function) declaration within a package.
 
 **VhdlFileModel**: `(string FilePath, IReadOnlyList<VhdlEntityDecl> Entities,
 IReadOnlyList<VhdlArchitectureDecl> Architectures,
