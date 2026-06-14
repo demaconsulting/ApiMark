@@ -13,7 +13,9 @@ sections:
         children:
           - ApiMarkVhdl-VhdlGenerator-AcceptSourceGlobPatterns
           - ApiMarkVhdl-VhdlAstModel
-          - ApiMarkVhdl-VhdlAstParser
+          - ApiMarkVhdl-VhdlAstParser-ParseEntity
+          - ApiMarkVhdl-VhdlAstParser-ParseArchitecture
+          - ApiMarkVhdl-VhdlAstParser-ParsePackage
           - ApiMarkVhdl-VhdlEmitter
           - ApiMarkVhdl-VhdlEmitterGradualDisclosure
           - ApiMarkVhdl-VhdlEmitterSingleFile

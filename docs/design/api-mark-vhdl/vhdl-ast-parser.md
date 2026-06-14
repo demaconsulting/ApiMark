@@ -36,7 +36,18 @@ returns its declaration model.
      extract preceding doc comment; parse generics and ports from `entity_header()`.
   6. **VisitArchitecture_body**: extract arch name via `context.identifier(0).GetText()`;
      extract entity name via `context.name().GetText()`; extract preceding doc comment.
-  7. **VisitPackage_declaration**: extract name and preceding doc comment.
+  7. **VisitPackage_declaration**: extract name via `context.identifier(0).GetText()`
+     and preceding doc comment. Iterates every `package_declarative_item` and
+     dispatches by declaration type:
+     - `full_type_declaration` / `subtype_declaration` → `VhdlTypeDecl(name, definition, doc)`.
+     - `constant_declaration` → `VhdlConstantDecl(name, typeName, value?, doc)`.
+     - `component_declaration` → `VhdlComponentDecl(name, doc)`.
+     - `subprogram_declaration` — resolves the spec as a function or procedure
+       designator, extracts name, kind (`VhdlSubprogramKind.Function` or
+       `.Procedure`), formal parameters via `ExtractFormalParameters`, return type
+       (function only), source-range signature text, and preceding doc comment, then
+       appends a `VhdlSubprogramDecl`. Does not recurse into child contexts (returns
+       null).
   8. **Preceding doc comment extraction**: walk backward from `declarationLine - 1`,
      collecting consecutive lines that begin with `--!` after trimming; reverse and
      parse with `ParseDocCommentLines`.
@@ -50,7 +61,30 @@ returns its declaration model.
       full type text including whitespace (which ANTLR's skip rules strip from
       `ctx.GetText()`).
 
-**Doc comment tag parsing** (`ParseDocCommentLines`): Converts raw `--!` lines into
+**VhdlAstParser.ExtractFormalParameters** (private): Converts a
+`Formal_parameter_listContext` into a list of `VhdlParamDecl` records.
+
+- *Parameters*: `Formal_parameter_listContext? formalParams` — may be null.
+- *Returns*: `IReadOnlyList<VhdlParamDecl>` — empty list when `formalParams` is null
+  or contains no interface declarations.
+- *Algorithm*: iterates each `interface_object_declaration`; tries three variants in
+  order:
+  1. `interface_signal_declaration` — class keyword `SIGNAL` (optional) + direction
+     from `mode_rule`; one `VhdlParamDecl` per identifier.
+  2. `interface_variable_declaration` — class keyword `VARIABLE` (optional) +
+     direction from `mode_rule`; one `VhdlParamDecl` per identifier.
+  3. `interface_constant_declaration` — class keyword `CONSTANT` (optional) +
+     direction `IN` (optional); one `VhdlParamDecl` per identifier. This variant
+     also matches undecorated parameters (`v : STD_LOGIC_VECTOR`).
+  The `Mode` field is built by joining the non-empty class keyword and direction
+  strings with a single space.
+
+**VhdlAstParser.ExtractModeText** (private static): Converts a `Mode_ruleContext`
+into an upper-case direction string.
+
+- *Parameters*: `Mode_ruleContext? modeCtx` — may be null.
+- *Returns*: `string` — one of `"OUT"`, `"INOUT"`, `"BUFFER"`, `"IN"`, or `""` when
+  the context is null or specifies no explicit mode.
 a `VhdlDocComment`.
 
 - `@brief <text>` → `Summary`

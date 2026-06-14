@@ -5,13 +5,39 @@ sections:
     sections:
       - title: VhdlAstParser Requirements
         requirements:
-          - id: ApiMarkVhdl-VhdlAstParser
-            title: VhdlAstParser shall parse a .vhd file into a VhdlFileModel.
+          - id: ApiMarkVhdl-VhdlAstParser-ParseEntity
+            title: VhdlAstParser shall parse entity declarations from a .vhd file.
             justification: |
-              A dedicated parser unit isolates ANTLR4 runtime concerns from the emitters.
+              Entity declarations are the primary design unit in VHDL.
             tests:
               - VhdlAstParser_Parse_FixtureFile_ReturnsEntity
               - VhdlAstParser_Parse_FixtureFile_EntityHasGenerics
               - VhdlAstParser_Parse_FixtureFile_EntityHasPorts
               - VhdlAstParser_Parse_FixtureFile_EntityDocCommentParsed
               - VhdlAstParser_Parse_FixtureFile_PortsHaveInlineDocComments
+          - id: ApiMarkVhdl-VhdlAstParser-ParseArchitecture
+            title: VhdlAstParser shall parse architecture bodies from a .vhd file.
+            justification: |
+              A file may contain multiple architectures for the same entity.
+            tests:
+              - VhdlAstParser_Parse_MuxFixture_ParsesTwoArchitectures
+              - VhdlAstParser_Parse_MuxFixture_HasMuxEntity
+          - id: ApiMarkVhdl-VhdlAstParser-ParsePackage
+            title: VhdlAstParser shall parse package declarations including types, constants, components, and subprograms.
+            justification: |
+              Packages are the primary reuse mechanism in VHDL and may contain all four declaration kinds.
+            tests:
+              - VhdlAstParser_Parse_CommonTypesFixture_ReturnsPackage
+              - VhdlAstParser_Parse_CommonTypesFixture_PackageHasTwoTypes
+              - VhdlAstParser_Parse_CommonTypesFixture_PackageHasTwoConstants
+              - VhdlAstParser_Parse_CommonTypesFixture_ConstantsHaveDocComments
+              - VhdlAstParser_Parse_CommonTypesFixture_PackageHasOneComponent
+              - VhdlAstParser_Parse_CommonTypesFixture_PackageHasTwoSubprograms
+              - VhdlAstParser_Parse_CommonTypesFixture_ToNaturalIsFunction
+              - VhdlAstParser_Parse_CommonTypesFixture_ClearVectorIsProcedure
+              - VhdlAstParser_Parse_CommonTypesFixture_ToNaturalHasOneParameter
+              - VhdlAstParser_Parse_CommonTypesFixture_ToNaturalHasReturnTypeNatural
+              - VhdlAstParser_Parse_CommonTypesFixture_ClearVectorHasOneParameter
+              - VhdlAstParser_Parse_CommonTypesFixture_ClearVectorHasNullReturnType
+              - VhdlAstParser_Parse_CommonTypesFixture_ToNaturalDocHasParamEntry
+              - VhdlAstParser_Parse_CommonTypesFixture_ToNaturalDocHasReturnEntry
