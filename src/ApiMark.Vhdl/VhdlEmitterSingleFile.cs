@@ -219,12 +219,11 @@ internal sealed class VhdlEmitterSingleFile
                     if (s.Parameters.Count > 0)
                     {
                         writer.WriteHeading(depth + 4, "Parameters");
-                        var headers = new[] { "Name", "Mode", "Type", VhdlEmitter.DescriptionColumnHeader };
+                        var headers = new[] { "Name", "Type", VhdlEmitter.DescriptionColumnHeader };
                         var rows = s.Parameters.Select(p => new[]
                         {
                             p.Name,
-                            p.Mode,
-                            p.TypeName,
+                            VhdlEmitter.FormatParamType(p),
                             s.Doc?.Params.FirstOrDefault(pd => pd.Name == p.Name)?.Description ?? VhdlEmitter.NoDescriptionPlaceholder,
                         });
                         writer.WriteTable(headers, rows);

@@ -53,6 +53,27 @@ internal sealed class VhdlEmitter : IApiEmitter
         string.IsNullOrEmpty(doc?.Summary) ? null : doc!.Summary;
 
     /// <summary>
+    ///     Formats a subprogram parameter type for display, combining direction and type name
+    ///     while stripping object class keywords (SIGNAL, VARIABLE, CONSTANT, FILE) that are
+    ///     implementation details not relevant to API consumers.
+    /// </summary>
+    /// <param name="param">The parameter declaration to format.</param>
+    /// <returns>
+    ///     The direction-prefixed type string (e.g. <c>OUT STD_LOGIC_VECTOR</c>), or just the
+    ///     type name when no explicit direction is present.
+    /// </returns>
+    internal static string FormatParamType(VhdlParamDecl param)
+    {
+        var classKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "SIGNAL", "VARIABLE", "CONSTANT", "FILE" };
+        var direction = string.Join(
+            " ",
+            param.Mode.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(t => !classKeywords.Contains(t)));
+        return string.IsNullOrEmpty(direction) ? param.TypeName : $"{direction} {param.TypeName}";
+    }
+
+    /// <summary>
     ///     Returns a copy of <paramref name="name"/> with every character that is invalid
     ///     in a file name replaced by <c>_</c>.
     /// </summary>
