@@ -155,6 +155,24 @@ public class VhdlAstParserTests
         Assert.Equal(2, pkg.Constants.Count);
     }
 
+    /// <summary>Validates that package constants have their preceding doc comments parsed.</summary>
+    [Fact]
+    public void VhdlAstParser_Parse_CommonTypesFixture_ConstantsHaveDocComments()
+    {
+        // Arrange
+        var path = FixturePaths.CommonTypesVhd;
+
+        // Act
+        var model = VhdlAstParser.Parse(path);
+
+        // Assert
+        var pkg = Assert.Single(model.Packages);
+        var dataWidth = pkg.Constants.FirstOrDefault(c => c.Name == "DATA_WIDTH");
+        Assert.NotNull(dataWidth);
+        Assert.NotNull(dataWidth.Doc);
+        Assert.False(string.IsNullOrEmpty(dataWidth.Doc.Summary));
+    }
+
     /// <summary>Validates that common_types.vhd package has 1 component.</summary>
     [Fact]
     public void VhdlAstParser_Parse_CommonTypesFixture_PackageHasOneComponent()
