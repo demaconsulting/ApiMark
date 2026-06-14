@@ -4,7 +4,7 @@ using Xunit;
 namespace ApiMark.Core.Tests;
 
 /// <summary>
-///     Verifies the file-collection behaviour of <see cref="GlobFileCollector"/>.
+///     Verifies the file-collection behavior of <see cref="GlobFileCollector"/>.
 /// </summary>
 public sealed class GlobFileCollectorTests
 {

@@ -1,5 +1,7 @@
 # VHDL Documentation
 
+<!-- cspell:ignore INOUT -->
+
 ## Prerequisites
 
 VHDL documentation generation has no additional prerequisites beyond the .NET SDK.

@@ -1,5 +1,7 @@
 # ApiMark Roadmap
 
+<!-- cspell:ignore Verilog rustdoc -->
+
 This document captures ideas for future features.
 
 ---

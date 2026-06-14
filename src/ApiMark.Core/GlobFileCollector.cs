@@ -1,3 +1,4 @@
+// cspell:ignore Metacharacters metacharacter metacharacters
 using Microsoft.Extensions.FileSystemGlobbing;
 
 namespace ApiMark.Core;

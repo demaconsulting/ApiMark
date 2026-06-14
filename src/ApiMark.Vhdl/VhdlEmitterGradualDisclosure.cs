@@ -194,18 +194,15 @@ internal sealed class VhdlEmitterGradualDisclosure
                 }
             }
 
-            // Emit components in paragraph-per-component format: bold name, then summary
+            // Emit components in paragraph-per-component format: bold name followed by summary on same line
             if (pkg.Components.Count > 0)
             {
                 writer.WriteHeading(2, "Components");
                 foreach (var c in pkg.Components)
                 {
-                    // First paragraph: bold component name
-                    writer.WriteParagraph($"**{c.Name}**");
-
-                    // Second paragraph: summary or placeholder
+                    // Single paragraph: bold component name em-dashed with summary to avoid standalone-bold MD036
                     var compSummary = VhdlEmitter.GetSummary(c.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder;
-                    writer.WriteParagraph(compSummary);
+                    writer.WriteParagraph($"**{c.Name}** — {compSummary}");
 
                     // Optional extended details paragraph
                     var compDetails = c.Doc?.Details;

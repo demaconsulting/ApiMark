@@ -34,6 +34,12 @@ internal sealed class VhdlEmitterSingleFile
         var allPackages = _fileModels.SelectMany(f => f.Packages).ToList();
 
         using var writer = factory.CreateMarkdown("", "api");
+
+        // Emit a markdownlint disable directive for MD024 (duplicate headings) because
+        // API documentation legitimately repeats section names such as "Ports", "Architectures",
+        // "Parameters", and "Signature" under each entity and subprogram respectively.
+        writer.WriteParagraph("<!-- markdownlint-disable MD024 -->");
+
         writer.WriteHeading(depth, $"{_emitter.Options.LibraryName} API Reference");
 
         if (!string.IsNullOrWhiteSpace(_emitter.Options.Description))
@@ -177,18 +183,15 @@ internal sealed class VhdlEmitterSingleFile
                     }
                 }
 
-                // Emit components in paragraph-per-component format: bold name, then summary
+                // Emit components in paragraph-per-component format: bold name followed by summary on same line
                 if (pkg.Components.Count > 0)
                 {
                     writer.WriteHeading(depth + 3, "Components");
                     foreach (var c in pkg.Components)
                     {
-                        // First paragraph: bold component name
-                        writer.WriteParagraph($"**{c.Name}**");
-
-                        // Second paragraph: summary or placeholder
+                        // Single paragraph: bold component name em-dashed with summary to avoid standalone-bold MD036
                         var compSummary = VhdlEmitter.GetSummary(c.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder;
-                        writer.WriteParagraph(compSummary);
+                        writer.WriteParagraph($"**{c.Name}** — {compSummary}");
 
                         // Optional extended details paragraph
                         var compDetails = c.Doc?.Details;
