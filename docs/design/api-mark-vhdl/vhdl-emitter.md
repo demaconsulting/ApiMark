@@ -39,8 +39,9 @@ format-specific emitter.
 - *Returns*: `void`.
 - *Preconditions*: `factory` is not null.
 - *Postconditions*: all Markdown output files have been written via `factory`.
-- *Algorithm*: validates `factory` is not null (throws `ArgumentNullException`); when
-  `config.Format == OutputFormat.SingleFile`, delegates to
+- *Algorithm*: validates `factory` is not null (throws `ArgumentNullException`);
+  returns immediately without writing any output when `_fileModels.Count == 0`;
+  when `config.Format == OutputFormat.SingleFile`, delegates to
   `new VhdlEmitterSingleFile(this, _fileModels).Emit(factory, config, context)`;
   otherwise delegates to
   `new VhdlEmitterGradualDisclosure(this, _fileModels).Emit(factory, config, context)`.
@@ -51,6 +52,21 @@ an optional doc comment.
 - *Parameters*: `VhdlDocComment? doc` — may be null.
 - *Returns*: `string?` — `doc.Summary` when `doc` is non-null and `Summary` is
   non-empty; otherwise `null`.
+
+**VhdlEmitter.FormatParamType** (internal static): Formats a subprogram parameter's
+type string for display in the parameters table.
+
+- *Parameters*: `VhdlParamDecl param`.
+- *Returns*: `string` — object-class keywords (`SIGNAL`, `VARIABLE`, `CONSTANT`,
+  `FILE`) are stripped; direction keywords (`IN`, `OUT`, `INOUT`, `BUFFER`) are
+  prepended to the type name (e.g. `OUT STD_LOGIC`); bare type names are returned
+  as-is.
+
+**VhdlEmitter.SanitizeFileName** (internal static): Replaces characters that are
+invalid in file-system names with underscores.
+
+- *Parameters*: `string name` — the raw declaration name.
+- *Returns*: `string` — safe for use as a file-system file name segment.
 
 ### Error Handling
 

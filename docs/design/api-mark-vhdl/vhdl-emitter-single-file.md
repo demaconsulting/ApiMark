@@ -20,7 +20,12 @@ file using heading levels offset by `EmitConfig.HeadingDepth`.
 - H{depth} library name.
 - H{depth+1} Entities section — one H{depth+2} per entity, with H{depth+3}
   Generics, Ports, and Architectures sub-sections.
-- H{depth+1} Packages section — one H{depth+2} per package.
+- H{depth+1} Packages section — one H{depth+2} per package, with:
+  - H{depth+3} Types — one paragraph per type declaration.
+  - H{depth+3} Constants — one paragraph per constant declaration.
+  - H{depth+3} Components — one paragraph per component declaration.
+  - H{depth+3} per subprogram, each containing H{depth+4} Parameters (table),
+    H{depth+4} Returns (functions only), and H{depth+4} Signature sub-sections.
 
 ### Key Methods
 
@@ -42,7 +47,11 @@ file.
   4. Write Entities section: H{depth+1} heading, then for each entity an H{depth+2}
      heading followed by generics and ports tables and an Architectures sub-section.
   5. Write Packages section: H{depth+1} heading, then for each package an H{depth+2}
-     heading followed by its summary.
+     heading followed by summary, Types (H{depth+3}, one paragraph per type),
+     Constants (H{depth+3}, one paragraph per constant), Components (H{depth+3},
+     one paragraph per component), and one H{depth+3} heading per subprogram
+     containing Parameters table, Returns section (functions only), and Signature
+     sub-sections at H{depth+4}.
 
 ### Error Handling
 

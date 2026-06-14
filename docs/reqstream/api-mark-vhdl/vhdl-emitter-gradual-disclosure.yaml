@@ -6,7 +6,7 @@ sections:
       - title: VhdlEmitterGradualDisclosure Requirements
         requirements:
           - id: ApiMarkVhdl-VhdlEmitterGradualDisclosure
-            title: VhdlEmitterGradualDisclosure shall write one file per entity/architecture/package plus an api index.
+            title: VhdlEmitterGradualDisclosure shall write one file per entity/package plus an api index, with architectures rendered inline on entity detail pages.
             justification: |
               Separate files per declaration enable gradual disclosure navigation.
             tests:

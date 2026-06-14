@@ -374,6 +374,7 @@ reviews:
       - docs/design/api-mark-vhdl/vhdl-ast-model.md
       - docs/verification/api-mark-vhdl/vhdl-ast-model.md
       - src/ApiMark.Vhdl/VhdlAst/VhdlAstModel.cs
+      - test/ApiMark.Vhdl.Tests/VhdlAstParserTests.cs
   - id: ApiMark-Vhdl-VhdlAstParser
     title: Review that ApiMark Vhdl VhdlAstParser Implementation is Correct
     paths:

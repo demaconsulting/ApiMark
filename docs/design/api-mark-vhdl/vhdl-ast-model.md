@@ -46,8 +46,10 @@ within a package.
 procedures from functions in a package.
 
 **VhdlParamDecl**: `(string Name, string Mode, string TypeName)` — a parameter in a
-subprogram; `Mode` is the VHDL port mode (`IN`, `OUT`, `INOUT`, `BUFFER`) or the
-object-class keyword for subprogram parameters.
+subprogram; `Mode` contains the raw token(s) from the parameter declaration: one of
+the direction keywords (`IN`, `OUT`, `INOUT`, `BUFFER`), one of the object-class
+keywords (`SIGNAL`, `VARIABLE`, `CONSTANT`, `FILE`), a combination of both (e.g.
+`SIGNAL IN`), or an empty string when no explicit mode is specified.
 
 **VhdlSubprogramDecl**: `(string Name, VhdlSubprogramKind Kind, string Signature,
 IReadOnlyList<VhdlParamDecl> Parameters, string? ReturnType, VhdlDocComment? Doc)` —

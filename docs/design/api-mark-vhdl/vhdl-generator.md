@@ -33,7 +33,8 @@ configured glob patterns to enumerate VHDL source files, delegates parsing to
 - *Preconditions*: `options` is not null; `options.LibraryName` is not null or whitespace.
 - *Postconditions*: the instance is ready to call `Parse`.
 - *Algorithm*: throws `ArgumentNullException` when `options` is null; throws
-  `ArgumentException` when `options.LibraryName` is null or whitespace.
+  `ArgumentException` when `options.LibraryName` is null or whitespace; normalizes
+  a null `options.Sources` to an empty list.
 
 **VhdlGenerator.Parse** (implements `IApiGenerator`): Enumerates source files and
 returns a ready-to-emit `VhdlEmitter`.
@@ -47,7 +48,8 @@ returns a ready-to-emit `VhdlEmitter`.
      the sorted, deduplicated list of matched `.vhd` and `.vhdl` files.
   3. When no files are matched, emit `"Error: no .vhd or .vhdl files matched the
      --source patterns."` via `context.WriteError` and return an empty `VhdlEmitter`.
-  4. Call `VhdlAstParser.Parse(filePath)` for each matched file path.
+  4. Call `VhdlAstParser.Parse(filePath)` for each matched file path, emitting
+     `context.WriteLine($"Parsing {file}")` before each parse call.
   5. Construct and return `new VhdlEmitter(options, fileModels)`.
 
 ### Error Handling
