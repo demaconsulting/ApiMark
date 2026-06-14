@@ -87,6 +87,17 @@ public class CppEmitterTests
         Assert.Equal("MyClass", result);
     }
 
+    /// <summary>Validates that <see cref="CppEmitter.SanitizeFileName"/> replaces invalid file-name characters in operator names.</summary>
+    [Fact]
+    public void CppEmitter_SanitizeFileName_OperatorName_ReplacesInvalidChars()
+    {
+        // Arrange / Act
+        var result = CppEmitter.SanitizeFileName("operator*");
+
+        // Assert: asterisk is invalid in Windows file names and must be replaced
+        Assert.DoesNotContain('*', result);
+    }
+
     /// <summary>Validates that <see cref="CppEmitter.BuildClassDeclaration"/> returns the class name for a non-final class with no bases.</summary>
     [Fact]
     public void CppEmitter_BuildClassDeclaration_NonFinalNoBase_ReturnsJustClassName()
