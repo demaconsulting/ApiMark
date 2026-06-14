@@ -46,7 +46,7 @@ disk; test doubles capture writes in memory.
 - *Throws*: `ArgumentException` when `outputDirectory` is null, empty, or whitespace.
 
 **FileMarkdownWriterFactory.CreateMarkdown**: Combines `_outputDirectory` with `subFolder`
-using `Path.Join` (platform separator inserted between segments), calls
+using `PathHelpers.SafePathCombine` (path-traversal checked), calls
 `Directory.CreateDirectory` on the resulting target path, then opens a UTF-8
 `StreamWriter` at `{targetDirectory}/{name}.md` and wraps it in a `FileMarkdownWriter`.
 

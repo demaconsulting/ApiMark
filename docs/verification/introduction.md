@@ -18,7 +18,11 @@ Local items:
 - **ApiMarkCore**: system-level verification of the core output-contract interfaces.
 - **IApiGenerator**: unit verification of the language-generator contract interface.
 - **IMarkdownWriterFactory**: unit verification of the Markdown writer factory interface.
+- **FileMarkdownWriterFactory**: unit verification that the file-backed factory creates
+  writer instances rooted at the configured output directory and rejects path traversal.
 - **IMarkdownWriter**: unit verification of the Markdown output interface.
+- **FileMarkdownWriter**: unit verification that the file-backed writer produces correct
+  Markdown syntax for all write operations.
 - **IContext**: unit verification of the output-channel contract interface.
 - **PathHelpers**: unit verification of the safe path-combination utility.
 - **IApiEmitter**: unit verification of the language-emitter contract interface.
