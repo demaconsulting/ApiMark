@@ -45,4 +45,25 @@ internal sealed class VhdlEmitter : IApiEmitter
     /// <param name="doc">The doc comment to extract from, or null.</param>
     /// <returns>The summary text, or null if doc is null.</returns>
     internal static string? GetSummary(VhdlDocComment? doc) => doc?.Summary;
+
+    /// <summary>
+    ///     Returns a copy of <paramref name="name"/> with every character that is invalid
+    ///     in a file name replaced by <c>_</c>.
+    /// </summary>
+    /// <param name="name">The raw declaration name to sanitize.</param>
+    /// <returns>A filesystem-safe file name string.</returns>
+    internal static string SanitizeFileName(string name)
+    {
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var chars = name.ToCharArray();
+        for (var i = 0; i < chars.Length; i++)
+        {
+            if (Array.IndexOf(invalidChars, chars[i]) >= 0)
+            {
+                chars[i] = '_';
+            }
+        }
+
+        return new string(chars);
+    }
 }

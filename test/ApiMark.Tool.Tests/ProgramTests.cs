@@ -440,13 +440,13 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Validates that the vhdl subcommand returns a non-zero exit code when neither
-    ///     --source-file nor --source-dir is provided.
+    ///     Validates that the vhdl subcommand returns a non-zero exit code when no
+    ///     --source pattern is provided.
     /// </summary>
     [Fact]
     public void Program_Main_WithVhdlSubcommand_MissingSourceFiles_ReturnsNonZeroExitCode()
     {
-        // Arrange: provide --output but omit --source-file and --source-dir
+        // Arrange: provide --output but omit --source
         var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
         var originalError = Console.Error;
         using var errorWriter = new StringWriter();
@@ -458,7 +458,7 @@ public class ProgramTests
             // Act
             var exitCode = Program.Main(["vhdl", "--output", outputDir]);
 
-            // Assert: at least one source file or directory is required
+            // Assert: at least one non-exclusion source pattern is required
             Assert.NotEqual(0, exitCode);
         }
         finally

@@ -247,7 +247,7 @@ internal static class VhdlAstParser
             }
 
             var rawLine = _lines[portLine - 1];
-            var idx = rawLine.IndexOf("--!", StringComparison.Ordinal);
+            var idx = rawLine.LastIndexOf("--!", StringComparison.Ordinal);
             if (idx < 0)
             {
                 return null;

@@ -48,7 +48,19 @@ internal sealed class VhdlEmitterGradualDisclosure
                 writer.WriteHeading(2, "Entities");
                 var headers = new[] { "Name", VhdlEmitter.DescriptionColumnHeader };
                 var rows = allEntities.Select(e =>
-                    new[] { $"[{e.Name}]({e.Name}.md)", VhdlEmitter.GetSummary(e.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder });
+                    new[] { $"[{e.Name}]({VhdlEmitter.SanitizeFileName(e.Name)}.md)", VhdlEmitter.GetSummary(e.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder });
+                writer.WriteTable(headers, rows);
+            }
+
+            if (allArchitectures.Count > 0)
+            {
+                writer.WriteHeading(2, "Architectures");
+                var headers = new[] { "Name", "Entity", VhdlEmitter.DescriptionColumnHeader };
+                var rows = allArchitectures.Select(a =>
+                {
+                    var fileName = $"{VhdlEmitter.SanitizeFileName(a.Name)}_{VhdlEmitter.SanitizeFileName(a.EntityName)}_arch";
+                    return new[] { $"[{a.Name}]({fileName}.md)", a.EntityName, VhdlEmitter.GetSummary(a.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder };
+                });
                 writer.WriteTable(headers, rows);
             }
 
@@ -57,7 +69,7 @@ internal sealed class VhdlEmitterGradualDisclosure
                 writer.WriteHeading(2, "Packages");
                 var headers = new[] { "Name", VhdlEmitter.DescriptionColumnHeader };
                 var rows = allPackages.Select(p =>
-                    new[] { $"[{p.Name}]({p.Name}.md)", VhdlEmitter.GetSummary(p.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder });
+                    new[] { $"[{p.Name}]({VhdlEmitter.SanitizeFileName(p.Name)}.md)", VhdlEmitter.GetSummary(p.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder });
                 writer.WriteTable(headers, rows);
             }
         }
@@ -65,7 +77,7 @@ internal sealed class VhdlEmitterGradualDisclosure
         // Emit entity detail pages
         foreach (var entity in allEntities)
         {
-            using var writer = factory.CreateMarkdown("", entity.Name);
+            using var writer = factory.CreateMarkdown("", VhdlEmitter.SanitizeFileName(entity.Name));
             writer.WriteHeading(1, entity.Name);
 
             var summary = VhdlEmitter.GetSummary(entity.Doc);
@@ -128,7 +140,8 @@ internal sealed class VhdlEmitterGradualDisclosure
         // Emit architecture detail pages
         foreach (var arch in allArchitectures)
         {
-            using var writer = factory.CreateMarkdown("", $"{arch.Name}_{arch.EntityName}_arch");
+            var archFileName = $"{VhdlEmitter.SanitizeFileName(arch.Name)}_{VhdlEmitter.SanitizeFileName(arch.EntityName)}_arch";
+            using var writer = factory.CreateMarkdown("", archFileName);
             writer.WriteHeading(1, arch.Name);
             writer.WriteParagraph($"Architecture of entity `{arch.EntityName}`.");
 
@@ -142,7 +155,7 @@ internal sealed class VhdlEmitterGradualDisclosure
         // Emit package detail pages
         foreach (var pkg in allPackages)
         {
-            using var writer = factory.CreateMarkdown("", pkg.Name);
+            using var writer = factory.CreateMarkdown("", VhdlEmitter.SanitizeFileName(pkg.Name));
             writer.WriteHeading(1, pkg.Name);
 
             var summary = VhdlEmitter.GetSummary(pkg.Doc);

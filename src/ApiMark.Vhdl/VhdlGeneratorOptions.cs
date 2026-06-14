@@ -16,7 +16,7 @@ public sealed class VhdlGeneratorOptions
     ///     prefix are exclusion patterns (the <c>!</c> is stripped before glob matching).
     ///     Patterns are evaluated relative to <see cref="WorkingDirectory"/> (or the process
     ///     working directory when <see cref="WorkingDirectory"/> is <see langword="null"/>).
-    ///     Must contain at least one entry.
+    ///     An empty list or a list containing only exclusion patterns produces no output files.
     /// </summary>
     public IList<string> Sources { get; set; } = new List<string>();
 

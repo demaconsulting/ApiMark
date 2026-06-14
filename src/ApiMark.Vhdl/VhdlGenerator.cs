@@ -35,7 +35,14 @@ public sealed class VhdlGenerator : IApiGenerator
         foreach (var file in allFiles)
         {
             context.WriteLine($"Parsing {file}");
-            fileModels.Add(VhdlAstParser.Parse(file));
+            try
+            {
+                fileModels.Add(VhdlAstParser.Parse(file));
+            }
+            catch (Exception ex)
+            {
+                context.WriteError($"Warning: skipping {file} — {ex.Message}");
+            }
         }
 
         return new VhdlEmitter(_options, fileModels);
