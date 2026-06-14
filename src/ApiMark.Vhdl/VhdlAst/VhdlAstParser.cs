@@ -248,7 +248,7 @@ internal static class VhdlAstParser
                     {
                         var constTypeName = GetSourceRange(constDecl.subtype_indication());
                         var value = constDecl.expression() != null ? GetSourceRange(constDecl.expression()) : null;
-                        var constDoc = ExtractInlineTrailingComment(constDecl.Stop.Line);
+                        var constDoc = ExtractPrecedingDocComment(item.Start.Line);
                         var identifiers = constDecl.identifier_list()?.identifier();
                         if (identifiers != null)
                         {
