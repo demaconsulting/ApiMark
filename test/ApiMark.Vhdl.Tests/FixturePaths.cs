@@ -11,6 +11,12 @@ internal static class FixturePaths
     /// <summary>Gets the absolute path to the Fixtures directory.</summary>
     public static string FixturesDirectory => FixturesDir;
 
+    /// <summary>Gets the absolute path to the mux.vhd fixture file.</summary>
+    public static string MuxVhd => GetFixtureFilePath("mux.vhd");
+
+    /// <summary>Gets the absolute path to the common_types.vhd fixture file.</summary>
+    public static string CommonTypesVhd => GetFixtureFilePath("common_types.vhd");
+
     /// <summary>Returns the absolute path to a named fixture file.</summary>
     /// <param name="fileName">File name within the Fixtures directory.</param>
     /// <returns>Absolute path to the fixture file.</returns>

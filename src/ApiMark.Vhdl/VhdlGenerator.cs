@@ -21,6 +21,8 @@ public sealed class VhdlGenerator : IApiGenerator
             throw new ArgumentException("LibraryName must not be null or whitespace.", nameof(options));
         }
 
+        // Normalize null Sources to empty list to prevent NullReferenceException
+        options.Sources ??= new List<string>();
         _options = options;
     }
 
@@ -30,6 +32,12 @@ public sealed class VhdlGenerator : IApiGenerator
         ArgumentNullException.ThrowIfNull(context);
 
         var allFiles = CollectSourceFiles();
+
+        if (allFiles.Count == 0)
+        {
+            context.WriteError("Error: no .vhd or .vhdl files matched the --source patterns.");
+            return new VhdlEmitter(_options, []);
+        }
 
         var fileModels = new List<VhdlFileModel>();
         foreach (var file in allFiles)
@@ -60,16 +68,11 @@ public sealed class VhdlGenerator : IApiGenerator
     /// <returns>Sorted, deduplicated list of absolute file paths selected for documentation.</returns>
     private List<string> CollectSourceFiles()
     {
-        var vhdlExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ".vhd", ".vhdl",
-        };
-
         var cwdAbsolute = Path.GetFullPath(_options.WorkingDirectory ?? Directory.GetCurrentDirectory());
         var compiledPatterns = CompileSourcePatterns();
 
-        var allFiles = Directory.GetFiles(cwdAbsolute, "*", SearchOption.AllDirectories)
-            .Where(f => vhdlExtensions.Contains(Path.GetExtension(f)))
+        var allFiles = Directory.GetFiles(cwdAbsolute, "*.vhd", SearchOption.AllDirectories)
+            .Concat(Directory.GetFiles(cwdAbsolute, "*.vhdl", SearchOption.AllDirectories))
             .Select(Path.GetFullPath)
             .ToList();
 

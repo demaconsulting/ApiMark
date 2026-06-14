@@ -116,48 +116,74 @@ internal static class VhdlAstParser
                 foreach (var iface in portDecls)
                 {
                     var signalDecl = iface.interface_object_declaration()?.interface_signal_declaration();
-                    if (signalDecl == null)
+                    string typeName;
+                    string direction;
+                    int stopLine;
+
+                    if (signalDecl != null)
                     {
-                        continue;
+                        var identifiers = signalDecl.identifier_list()?.identifier();
+                        if (identifiers == null)
+                        {
+                            continue;
+                        }
+
+                        // Extract direction
+                        var modeCtx = signalDecl.mode_rule();
+                        direction = "in"; // default per VHDL-2008 §6.5.2
+                        if (modeCtx != null)
+                        {
+                            if (modeCtx.OUT() != null)
+                            {
+                                direction = "out";
+                            }
+                            else if (modeCtx.INOUT() != null)
+                            {
+                                direction = "inout";
+                            }
+                            else if (modeCtx.BUFFER() != null)
+                            {
+                                direction = "buffer";
+                            }
+                            else
+                            {
+                                direction = "in";
+                            }
+                        }
+
+                        typeName = GetSourceRange(signalDecl.subtype_indication());
+                        stopLine = signalDecl.Stop.Line;
+
+                        var inlineDoc = ExtractInlineTrailingComment(stopLine);
+                        foreach (var ident in identifiers)
+                        {
+                            ports.Add(new VhdlPortDoc(ident.GetText(), direction, typeName, inlineDoc));
+                        }
                     }
-
-                    var identifiers = signalDecl.identifier_list()?.identifier();
-                    if (identifiers == null)
+                    else
                     {
-                        continue;
-                    }
-
-                    // Extract direction
-                    var modeCtx = signalDecl.mode_rule();
-                    var direction = "in"; // default per VHDL-2008 §6.5.2
-                    if (modeCtx != null)
-                    {
-                        if (modeCtx.OUT() != null)
+                        // Fallback: ANTLR may parse `name : IN type` as interface_constant_declaration
+                        var constDecl = iface.interface_object_declaration()?.interface_constant_declaration();
+                        if (constDecl == null)
                         {
-                            direction = "out";
+                            continue;
                         }
-                        else if (modeCtx.INOUT() != null)
-                        {
-                            direction = "inout";
-                        }
-                        else if (modeCtx.BUFFER() != null)
-                        {
-                            direction = "buffer";
-                        }
-                        else
-                        {
-                            direction = "in";
-                        }
-                    }
 
-                    var typeName = GetSourceRange(signalDecl.subtype_indication());
+                        var identifiers = constDecl.identifier_list()?.identifier();
+                        if (identifiers == null)
+                        {
+                            continue;
+                        }
 
-                    // Extract inline trailing comment from the line of the last token of this declaration
-                    var inlineDoc = ExtractInlineTrailingComment(signalDecl.Stop.Line);
+                        typeName = GetSourceRange(constDecl.subtype_indication());
+                        direction = "in";
+                        stopLine = constDecl.Stop.Line;
 
-                    foreach (var ident in identifiers)
-                    {
-                        ports.Add(new VhdlPortDoc(ident.GetText(), direction, typeName, inlineDoc));
+                        var inlineDoc = ExtractInlineTrailingComment(stopLine);
+                        foreach (var ident in identifiers)
+                        {
+                            ports.Add(new VhdlPortDoc(ident.GetText(), direction, typeName, inlineDoc));
+                        }
                     }
                 }
             }
@@ -187,7 +213,96 @@ internal static class VhdlAstParser
             var pkgName = context.identifier(0).GetText();
             var doc = ExtractPrecedingDocComment(context.Start.Line);
 
-            Packages.Add(new VhdlPackageDecl(pkgName, doc));
+            var types = new List<VhdlTypeDecl>();
+            var constants = new List<VhdlConstantDecl>();
+            var components = new List<VhdlComponentDecl>();
+            var subprograms = new List<VhdlSubprogramDecl>();
+
+            var items = context.package_declarative_part()?.package_declarative_item();
+            if (items != null)
+            {
+                foreach (var item in items)
+                {
+                    var fullTypeDecl = item.type_declaration()?.full_type_declaration();
+                    if (fullTypeDecl != null)
+                    {
+                        var typeName = fullTypeDecl.identifier().GetText();
+                        var definition = GetSourceRange(fullTypeDecl.type_definition());
+                        var typeDoc = ExtractPrecedingDocComment(item.Start.Line);
+                        types.Add(new VhdlTypeDecl(typeName, definition, typeDoc));
+                        continue;
+                    }
+
+                    var subtypeDecl = item.subtype_declaration();
+                    if (subtypeDecl != null)
+                    {
+                        var typeName = subtypeDecl.identifier().GetText();
+                        var definition = GetSourceRange(subtypeDecl.subtype_indication());
+                        var typeDoc = ExtractPrecedingDocComment(item.Start.Line);
+                        types.Add(new VhdlTypeDecl(typeName, definition, typeDoc));
+                        continue;
+                    }
+
+                    var constDecl = item.constant_declaration();
+                    if (constDecl != null)
+                    {
+                        var constTypeName = GetSourceRange(constDecl.subtype_indication());
+                        var value = constDecl.expression() != null ? GetSourceRange(constDecl.expression()) : null;
+                        var constDoc = ExtractInlineTrailingComment(constDecl.Stop.Line);
+                        var identifiers = constDecl.identifier_list()?.identifier();
+                        if (identifiers != null)
+                        {
+                            foreach (var ident in identifiers)
+                            {
+                                constants.Add(new VhdlConstantDecl(ident.GetText(), constTypeName, value, constDoc));
+                            }
+                        }
+                        continue;
+                    }
+
+                    var compDecl = item.component_declaration();
+                    if (compDecl != null)
+                    {
+                        var compName = compDecl.identifier(0).GetText();
+                        var compDoc = ExtractPrecedingDocComment(item.Start.Line);
+                        components.Add(new VhdlComponentDecl(compName, compDoc));
+                        continue;
+                    }
+
+                    var subprogramDecl = item.subprogram_declaration();
+                    if (subprogramDecl != null)
+                    {
+                        var spec = subprogramDecl.subprogram_specification();
+                        if (spec != null)
+                        {
+                            var funcSpec = spec.function_specification();
+                            var procSpec = spec.procedure_specification();
+                            string subprogramName;
+                            VhdlSubprogramKind kind;
+                            if (funcSpec != null)
+                            {
+                                subprogramName = funcSpec.designator().identifier()?.GetText() ?? funcSpec.designator().GetText();
+                                kind = VhdlSubprogramKind.Function;
+                            }
+                            else if (procSpec != null)
+                            {
+                                subprogramName = procSpec.designator().identifier()?.GetText() ?? procSpec.designator().GetText();
+                                kind = VhdlSubprogramKind.Procedure;
+                            }
+                            else
+                            {
+                                continue;
+                            }
+
+                            var signature = GetSourceRange(spec);
+                            var subprogramDoc = ExtractPrecedingDocComment(item.Start.Line);
+                            subprograms.Add(new VhdlSubprogramDecl(subprogramName, kind, signature, subprogramDoc));
+                        }
+                    }
+                }
+            }
+
+            Packages.Add(new VhdlPackageDecl(pkgName, doc, types, constants, components, subprograms));
 
             // Do not visit children of package_declaration
             return null;

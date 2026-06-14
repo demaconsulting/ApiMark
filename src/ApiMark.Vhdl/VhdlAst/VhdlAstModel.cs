@@ -39,10 +39,55 @@ public record VhdlEntityDecl(string Name, IReadOnlyList<VhdlGenericDoc> Generics
 /// <param name="Doc">Documentation from preceding --! block comment, or null.</param>
 public record VhdlArchitectureDecl(string Name, string EntityName, VhdlDocComment? Doc);
 
+/// <summary>Represents a type or subtype declaration in a VHDL package.</summary>
+/// <param name="Name">Type name.</param>
+/// <param name="Definition">Type definition text as declared in source.</param>
+/// <param name="Doc">Documentation from preceding --! block comment, or null.</param>
+public record VhdlTypeDecl(string Name, string Definition, VhdlDocComment? Doc);
+
+/// <summary>Represents a constant declaration in a VHDL package.</summary>
+/// <param name="Name">Constant name.</param>
+/// <param name="TypeName">Constant type as declared in source.</param>
+/// <param name="Value">Default value expression text, or null.</param>
+/// <param name="Doc">Documentation from inline --! comment, or null.</param>
+public record VhdlConstantDecl(string Name, string TypeName, string? Value, VhdlDocComment? Doc);
+
+/// <summary>Represents a component declaration in a VHDL package.</summary>
+/// <param name="Name">Component name.</param>
+/// <param name="Doc">Documentation from preceding --! block comment, or null.</param>
+public record VhdlComponentDecl(string Name, VhdlDocComment? Doc);
+
+/// <summary>Specifies whether a subprogram declaration is a function or procedure.</summary>
+public enum VhdlSubprogramKind
+{
+    /// <summary>Indicates a function subprogram.</summary>
+    Function,
+
+    /// <summary>Indicates a procedure subprogram.</summary>
+    Procedure,
+}
+
+/// <summary>Represents a subprogram (function or procedure) declaration in a VHDL package.</summary>
+/// <param name="Name">Subprogram name.</param>
+/// <param name="Kind">Whether this is a function or procedure.</param>
+/// <param name="Signature">Full signature text as declared in source.</param>
+/// <param name="Doc">Documentation from preceding --! block comment, or null.</param>
+public record VhdlSubprogramDecl(string Name, VhdlSubprogramKind Kind, string Signature, VhdlDocComment? Doc);
+
 /// <summary>Represents a VHDL package declaration.</summary>
 /// <param name="Name">Package name.</param>
 /// <param name="Doc">Documentation from preceding --! block comment, or null.</param>
-public record VhdlPackageDecl(string Name, VhdlDocComment? Doc);
+/// <param name="Types">Type and subtype declarations in the package.</param>
+/// <param name="Constants">Constant declarations in the package.</param>
+/// <param name="Components">Component declarations in the package.</param>
+/// <param name="Subprograms">Subprogram (function/procedure) declarations in the package.</param>
+public record VhdlPackageDecl(
+    string Name,
+    VhdlDocComment? Doc,
+    IReadOnlyList<VhdlTypeDecl> Types,
+    IReadOnlyList<VhdlConstantDecl> Constants,
+    IReadOnlyList<VhdlComponentDecl> Components,
+    IReadOnlyList<VhdlSubprogramDecl> Subprograms);
 
 /// <summary>Represents all VHDL declarations parsed from a single source file.</summary>
 /// <param name="FilePath">Absolute path to the source file.</param>

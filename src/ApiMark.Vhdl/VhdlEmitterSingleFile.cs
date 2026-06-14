@@ -112,6 +112,59 @@ internal sealed class VhdlEmitterSingleFile
                 writer.WriteHeading(depth + 2, pkg.Name);
                 var summary = VhdlEmitter.GetSummary(pkg.Doc);
                 writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : VhdlEmitter.NoDescriptionPlaceholder);
+
+                if (pkg.Types.Count > 0)
+                {
+                    writer.WriteHeading(depth + 3, "Types");
+                    var headers = new[] { "Name", "Definition", VhdlEmitter.DescriptionColumnHeader };
+                    var rows = pkg.Types.Select(t => new[]
+                    {
+                        t.Name,
+                        t.Definition,
+                        VhdlEmitter.GetSummary(t.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder,
+                    });
+                    writer.WriteTable(headers, rows);
+                }
+
+                if (pkg.Constants.Count > 0)
+                {
+                    writer.WriteHeading(depth + 3, "Constants");
+                    var headers = new[] { "Name", "Type", "Value", VhdlEmitter.DescriptionColumnHeader };
+                    var rows = pkg.Constants.Select(c => new[]
+                    {
+                        c.Name,
+                        c.TypeName,
+                        c.Value ?? string.Empty,
+                        VhdlEmitter.GetSummary(c.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder,
+                    });
+                    writer.WriteTable(headers, rows);
+                }
+
+                if (pkg.Components.Count > 0)
+                {
+                    writer.WriteHeading(depth + 3, "Components");
+                    var headers = new[] { "Name", VhdlEmitter.DescriptionColumnHeader };
+                    var rows = pkg.Components.Select(c => new[]
+                    {
+                        c.Name,
+                        VhdlEmitter.GetSummary(c.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder,
+                    });
+                    writer.WriteTable(headers, rows);
+                }
+
+                if (pkg.Subprograms.Count > 0)
+                {
+                    writer.WriteHeading(depth + 3, "Subprograms");
+                    var headers = new[] { "Name", "Kind", "Signature", VhdlEmitter.DescriptionColumnHeader };
+                    var rows = pkg.Subprograms.Select(s => new[]
+                    {
+                        s.Name,
+                        s.Kind.ToString(),
+                        s.Signature,
+                        VhdlEmitter.GetSummary(s.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder,
+                    });
+                    writer.WriteTable(headers, rows);
+                }
             }
         }
     }

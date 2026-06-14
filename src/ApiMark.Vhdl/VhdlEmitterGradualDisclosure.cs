@@ -52,18 +52,6 @@ internal sealed class VhdlEmitterGradualDisclosure
                 writer.WriteTable(headers, rows);
             }
 
-            if (allArchitectures.Count > 0)
-            {
-                writer.WriteHeading(2, "Architectures");
-                var headers = new[] { "Name", "Entity", VhdlEmitter.DescriptionColumnHeader };
-                var rows = allArchitectures.Select(a =>
-                {
-                    var fileName = $"{VhdlEmitter.SanitizeFileName(a.Name)}_{VhdlEmitter.SanitizeFileName(a.EntityName)}_arch";
-                    return new[] { $"[{a.Name}]({fileName}.md)", a.EntityName, VhdlEmitter.GetSummary(a.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder };
-                });
-                writer.WriteTable(headers, rows);
-            }
-
             if (allPackages.Count > 0)
             {
                 writer.WriteHeading(2, "Packages");
@@ -134,21 +122,6 @@ internal sealed class VhdlEmitterGradualDisclosure
             }
         }
 
-        // Emit architecture detail pages
-        foreach (var arch in allArchitectures)
-        {
-            var archFileName = $"{VhdlEmitter.SanitizeFileName(arch.Name)}_{VhdlEmitter.SanitizeFileName(arch.EntityName)}_arch";
-            using var writer = factory.CreateMarkdown("", archFileName);
-            writer.WriteHeading(1, arch.Name);
-            writer.WriteParagraph($"Architecture of entity `{arch.EntityName}`.");
-
-            var summary = VhdlEmitter.GetSummary(arch.Doc);
-            if (!string.IsNullOrEmpty(summary))
-            {
-                writer.WriteParagraph(summary);
-            }
-        }
-
         // Emit package detail pages
         foreach (var pkg in allPackages)
         {
@@ -157,6 +130,59 @@ internal sealed class VhdlEmitterGradualDisclosure
 
             var summary = VhdlEmitter.GetSummary(pkg.Doc);
             writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : VhdlEmitter.NoDescriptionPlaceholder);
+
+            if (pkg.Types.Count > 0)
+            {
+                writer.WriteHeading(2, "Types");
+                var headers = new[] { "Name", "Definition", VhdlEmitter.DescriptionColumnHeader };
+                var rows = pkg.Types.Select(t => new[]
+                {
+                    t.Name,
+                    t.Definition,
+                    VhdlEmitter.GetSummary(t.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder,
+                });
+                writer.WriteTable(headers, rows);
+            }
+
+            if (pkg.Constants.Count > 0)
+            {
+                writer.WriteHeading(2, "Constants");
+                var headers = new[] { "Name", "Type", "Value", VhdlEmitter.DescriptionColumnHeader };
+                var rows = pkg.Constants.Select(c => new[]
+                {
+                    c.Name,
+                    c.TypeName,
+                    c.Value ?? string.Empty,
+                    VhdlEmitter.GetSummary(c.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder,
+                });
+                writer.WriteTable(headers, rows);
+            }
+
+            if (pkg.Components.Count > 0)
+            {
+                writer.WriteHeading(2, "Components");
+                var headers = new[] { "Name", VhdlEmitter.DescriptionColumnHeader };
+                var rows = pkg.Components.Select(c => new[]
+                {
+                    c.Name,
+                    VhdlEmitter.GetSummary(c.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder,
+                });
+                writer.WriteTable(headers, rows);
+            }
+
+            if (pkg.Subprograms.Count > 0)
+            {
+                writer.WriteHeading(2, "Subprograms");
+                var headers = new[] { "Name", "Kind", "Signature", VhdlEmitter.DescriptionColumnHeader };
+                var rows = pkg.Subprograms.Select(s => new[]
+                {
+                    s.Name,
+                    s.Kind.ToString(),
+                    s.Signature,
+                    VhdlEmitter.GetSummary(s.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder,
+                });
+                writer.WriteTable(headers, rows);
+            }
         }
     }
 }

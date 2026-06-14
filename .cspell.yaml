@@ -82,6 +82,7 @@ words:
   - unparseable
   - versionmark
   - writability
+  - DOWNTO
   - VHDL
   - vswhere
   - Weasyprint
