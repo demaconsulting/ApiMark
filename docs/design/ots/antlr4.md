@@ -24,10 +24,11 @@ available.
 
 ### Features Used
 
-- **Code generation (one-time)** — ANTLR4 tool (`antlr-4.13.1-complete.jar`)
-  was invoked once to generate `vhdl2008Lexer.cs`, `vhdl2008Parser.cs`,
-  `vhdl2008Visitor.cs`, `vhdl2008BaseVisitor.cs`, and associated `.interp` and
-  `.tokens` data files from `vhdl2008.g4`.
+- **Code generation (one-time)** — ANTLR4 tool was invoked once to generate
+  `vhdl2008Lexer.cs`, `vhdl2008Parser.cs`, `vhdl2008Visitor.cs`,
+  `vhdl2008BaseVisitor.cs`, and associated `.interp` and `.tokens` data files
+  from `vhdl2008.g4`. Regeneration instructions (including the specific jar
+  version) are in `src/ApiMark.Vhdl/VhdlAst/Antlr/README.md`.
 - **Runtime support** — `Antlr4.Runtime.Standard` NuGet package provides the
   base classes and token-stream infrastructure that the generated code depends
   on at runtime.

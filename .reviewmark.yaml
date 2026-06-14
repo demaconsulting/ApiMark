@@ -512,3 +512,15 @@ reviews:
       - docs/reqstream/ots/cpp-ast-net.yaml
       - docs/design/ots/cpp-ast-net.md
       - docs/verification/ots/cpp-ast-net.md
+  - id: OTS-Antlr4
+    title: Review that ANTLR4 Provides Required Functionality
+    paths:
+      - docs/reqstream/ots/antlr4.yaml
+      - docs/design/ots/antlr4.md
+      - docs/verification/ots/antlr4.md
+  - id: OTS-FileSystemGlobbing
+    title: Review that Microsoft.Extensions.FileSystemGlobbing Provides Required Functionality
+    paths:
+      - docs/reqstream/ots/file-system-globbing.yaml
+      - docs/design/ots/file-system-globbing.md
+      - docs/verification/ots/file-system-globbing.md

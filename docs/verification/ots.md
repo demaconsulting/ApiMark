@@ -5,9 +5,12 @@
 ApiMark verifies OTS software items by testing the exact externally supplied behavior that the
 repository depends on rather than attempting to re-validate the full third-party product. For the
 current scope, Mono.Cecil is exercised through ApiMark.DotNet integration tests that open fixture
-assemblies, enumerate metadata, and feed that metadata into Markdown generation. This local evidence
-is preferred because ApiMark depends on a specific subset of Mono.Cecil features that must remain
-stable across package upgrades.
+assemblies, enumerate metadata, and feed that metadata into Markdown generation.
+`Microsoft.Extensions.FileSystemGlobbing` is exercised through `GlobFileCollector` unit tests
+that match patterns against real temporary directories. The ANTLR4 runtime
+(`Antlr4.Runtime.Standard`) is exercised indirectly by every `VhdlAstParser` test.
+Local evidence is preferred because ApiMark depends on a specific subset of each OTS library's
+features that must remain stable across package upgrades.
 
 ## Qualification Evidence
 
@@ -43,3 +46,18 @@ Whenever the minimum supported clang version changes, the repository re-runs all
 integration tests against the same fixture headers used for baseline qualification. Any change in
 discovered types, rendered signatures, doc comment availability, or generated file layout is treated
 as a regression candidate and must be reviewed before the version change is accepted.
+
+## ANTLR4
+
+The ANTLR4 runtime (`Antlr4.Runtime.Standard`) is verified indirectly through `VhdlAstParser` unit
+tests in `test/ApiMark.Vhdl.Tests/`. Because ANTLR4 was used once to generate committed C# source
+files, there is no ongoing tool dependency to verify. The runtime is exercised by every test that
+invokes the parser. See `docs/verification/ots/antlr4.md` for detailed test scenarios.
+
+## Microsoft.Extensions.FileSystemGlobbing
+
+`Microsoft.Extensions.FileSystemGlobbing` is verified through `GlobFileCollector` unit tests in
+`test/ApiMark.Core.Tests/GlobFileCollectorTests.cs`. These tests operate against real temporary
+directories and confirm that the `Matcher` API correctly handles include patterns, exclude patterns,
+and non-existent roots. See `docs/verification/ots/file-system-globbing.md` for detailed test
+scenarios.

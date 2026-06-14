@@ -47,3 +47,4 @@ includes:
   - docs/reqstream/ots/antlr4.yaml
   - docs/reqstream/ots/cpp-ast-net.yaml
   - docs/reqstream/ots/dema-consulting-test-results.yaml
+  - docs/reqstream/ots/file-system-globbing.yaml
