@@ -121,10 +121,70 @@ public class VhdlEmitterSingleFileTests
         // Act
         new VhdlEmitterSingleFile(emitter, fileModels).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
 
-        // Assert
+        // Assert: Types heading still present (paragraph format, not table)
         var apiWriter = factory.GetWriter("", "api");
         var headings = apiWriter.Operations.OfType<HeadingOperation>().ToList();
         Assert.Contains(headings, h => h.Text.Equals("Types", StringComparison.Ordinal));
+
+        // Verify paragraph-per-type format: type name appears in a paragraph (not a table)
+        var paragraphs = apiWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Contains("my_type", StringComparison.Ordinal));
+    }
+
+    /// <summary>Builds data with a package containing a function subprogram for subprogram rendering tests.</summary>
+    private static (VhdlEmitter emitter, IReadOnlyList<VhdlFileModel> fileModels) BuildPackageWithSubprogramsData()
+    {
+        var options = new VhdlGeneratorOptions { LibraryName = "TestLib" };
+        var subprogramDecl = new VhdlSubprogramDecl(
+            "my_func",
+            VhdlSubprogramKind.Function,
+            "FUNCTION my_func RETURN INTEGER",
+            new VhdlDocComment("A function.", null, []));
+        var pkg = new VhdlPackageDecl(
+            "my_pkg",
+            new VhdlDocComment("A test package.", null, []),
+            [],
+            [],
+            [],
+            [subprogramDecl]);
+        var fileModel = new VhdlFileModel("test.vhd", [], [], [pkg]);
+        var fileModels = new List<VhdlFileModel> { fileModel };
+        var emitter = new VhdlEmitter(options, fileModels);
+        return (emitter, fileModels);
+    }
+
+    /// <summary>Validates that subprogram sections contain a kind attribution paragraph in single-file output.</summary>
+    [Fact]
+    public void VhdlEmitterSingleFile_Emit_PackageWithSubprograms_SubprogramSectionContainsKindAttribution()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildPackageWithSubprogramsData();
+
+        // Act
+        new VhdlEmitterSingleFile(emitter, fileModels).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: attribution paragraph (*Function* or *Procedure*) is present
+        var apiWriter = factory.GetWriter("", "api");
+        var paragraphs = apiWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Contains("Function", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that subprogram sections contain a Signature heading in single-file output.</summary>
+    [Fact]
+    public void VhdlEmitterSingleFile_Emit_PackageWithSubprograms_SubprogramSectionContainsSignatureHeading()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildPackageWithSubprogramsData();
+
+        // Act
+        new VhdlEmitterSingleFile(emitter, fileModels).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: Signature heading must appear in the api output for the subprogram
+        var apiWriter = factory.GetWriter("", "api");
+        var headings = apiWriter.Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(headings, h => h.Text.Equals("Signature", StringComparison.Ordinal));
     }
 
     /// <summary>Validates that architecture sections appear inside entity sections in single-file output.</summary>

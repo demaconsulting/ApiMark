@@ -94,10 +94,18 @@ internal sealed class VhdlEmitterSingleFile
                     writer.WriteHeading(depth + 3, "Architectures");
                     foreach (var arch in archsForEntity)
                     {
+                        // Emit architecture summary as bold-name paragraph
                         var archSummary = VhdlEmitter.GetSummary(arch.Doc);
                         writer.WriteParagraph(!string.IsNullOrEmpty(archSummary)
                             ? $"**{arch.Name}**: {archSummary}"
                             : $"**{arch.Name}**");
+
+                        // Emit extended architecture details as a follow-on paragraph if present
+                        var archDetails = arch.Doc?.Details;
+                        if (!string.IsNullOrEmpty(archDetails))
+                        {
+                            writer.WriteParagraph(archDetails);
+                        }
                     }
                 }
             }
@@ -110,60 +118,127 @@ internal sealed class VhdlEmitterSingleFile
             foreach (var pkg in allPackages)
             {
                 writer.WriteHeading(depth + 2, pkg.Name);
+
+                // Emit package summary paragraph
                 var summary = VhdlEmitter.GetSummary(pkg.Doc);
                 writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : VhdlEmitter.NoDescriptionPlaceholder);
 
+                // Emit extended package details as a second paragraph if present
+                var pkgDetails = pkg.Doc?.Details;
+                if (!string.IsNullOrEmpty(pkgDetails))
+                {
+                    writer.WriteParagraph(pkgDetails);
+                }
+
+                // Emit types in paragraph-per-type format: bold name, em-dash, definition, then summary
                 if (pkg.Types.Count > 0)
                 {
                     writer.WriteHeading(depth + 3, "Types");
-                    var headers = new[] { "Name", "Definition", VhdlEmitter.DescriptionColumnHeader };
-                    var rows = pkg.Types.Select(t => new[]
+                    foreach (var t in pkg.Types)
                     {
-                        t.Name,
-                        t.Definition,
-                        VhdlEmitter.GetSummary(t.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder,
-                    });
-                    writer.WriteTable(headers, rows);
+                        // First paragraph: bold name, em-dash, backtick-wrapped definition
+                        writer.WriteParagraph($"**{t.Name}** — `{t.Definition}`");
+
+                        // Second paragraph: summary or placeholder
+                        var typeSummary = VhdlEmitter.GetSummary(t.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder;
+                        writer.WriteParagraph(typeSummary);
+
+                        // Optional extended details paragraph
+                        var typeDetails = t.Doc?.Details;
+                        if (!string.IsNullOrEmpty(typeDetails))
+                        {
+                            writer.WriteParagraph(typeDetails);
+                        }
+                    }
                 }
 
+                // Emit constants in paragraph-per-constant format: bold name, colon, type, optional value, then summary
                 if (pkg.Constants.Count > 0)
                 {
                     writer.WriteHeading(depth + 3, "Constants");
-                    var headers = new[] { "Name", "Type", "Value", VhdlEmitter.DescriptionColumnHeader };
-                    var rows = pkg.Constants.Select(c => new[]
+                    foreach (var c in pkg.Constants)
                     {
-                        c.Name,
-                        c.TypeName,
-                        c.Value ?? string.Empty,
-                        VhdlEmitter.GetSummary(c.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder,
-                    });
-                    writer.WriteTable(headers, rows);
+                        // First paragraph: bold name, colon, backtick-wrapped type, equals and backtick-wrapped value if present
+                        var constHeader = string.IsNullOrEmpty(c.Value)
+                            ? $"**{c.Name}** : `{c.TypeName}`"
+                            : $"**{c.Name}** : `{c.TypeName}` = `{c.Value}`";
+                        writer.WriteParagraph(constHeader);
+
+                        // Second paragraph: summary or placeholder
+                        var constSummary = VhdlEmitter.GetSummary(c.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder;
+                        writer.WriteParagraph(constSummary);
+
+                        // Optional extended details paragraph
+                        var constDetails = c.Doc?.Details;
+                        if (!string.IsNullOrEmpty(constDetails))
+                        {
+                            writer.WriteParagraph(constDetails);
+                        }
+                    }
                 }
 
+                // Emit components in paragraph-per-component format: bold name, then summary
                 if (pkg.Components.Count > 0)
                 {
                     writer.WriteHeading(depth + 3, "Components");
-                    var headers = new[] { "Name", VhdlEmitter.DescriptionColumnHeader };
-                    var rows = pkg.Components.Select(c => new[]
+                    foreach (var c in pkg.Components)
                     {
-                        c.Name,
-                        VhdlEmitter.GetSummary(c.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder,
-                    });
-                    writer.WriteTable(headers, rows);
+                        // First paragraph: bold component name
+                        writer.WriteParagraph($"**{c.Name}**");
+
+                        // Second paragraph: summary or placeholder
+                        var compSummary = VhdlEmitter.GetSummary(c.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder;
+                        writer.WriteParagraph(compSummary);
+
+                        // Optional extended details paragraph
+                        var compDetails = c.Doc?.Details;
+                        if (!string.IsNullOrEmpty(compDetails))
+                        {
+                            writer.WriteParagraph(compDetails);
+                        }
+                    }
                 }
 
-                if (pkg.Subprograms.Count > 0)
+                // Emit subprograms as individual sub-sections at depth+3 — each subprogram replaces the old table row
+                foreach (var s in pkg.Subprograms)
                 {
-                    writer.WriteHeading(depth + 3, "Subprograms");
-                    var headers = new[] { "Name", "Kind", "Signature", VhdlEmitter.DescriptionColumnHeader };
-                    var rows = pkg.Subprograms.Select(s => new[]
+                    writer.WriteHeading(depth + 3, s.Name);
+
+                    // Attribution paragraph: kind label
+                    var kindText = s.Kind == VhdlSubprogramKind.Function ? "Function" : "Procedure";
+                    writer.WriteParagraph($"*{kindText}*");
+
+                    // Summary paragraph
+                    var subSummary = VhdlEmitter.GetSummary(s.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder;
+                    writer.WriteParagraph(subSummary);
+
+                    // Optional extended details paragraph
+                    var subDetails = s.Doc?.Details;
+                    if (!string.IsNullOrEmpty(subDetails))
                     {
-                        s.Name,
-                        s.Kind.ToString(),
-                        s.Signature,
-                        VhdlEmitter.GetSummary(s.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder,
-                    });
-                    writer.WriteTable(headers, rows);
+                        writer.WriteParagraph(subDetails);
+                    }
+
+                    // Parameters table at depth+4 if doc params are present
+                    if (s.Doc?.Params is { Count: > 0 } subParams)
+                    {
+                        writer.WriteHeading(depth + 4, "Parameters");
+                        var headers = new[] { "Name", "Description" };
+                        var rows = subParams.Select(p => new[] { p.Name, p.Description });
+                        writer.WriteTable(headers, rows);
+                    }
+
+                    // Returns paragraph at depth+4 if doc returns text is present
+                    var returns = s.Doc?.Returns;
+                    if (!string.IsNullOrEmpty(returns))
+                    {
+                        writer.WriteHeading(depth + 4, "Returns");
+                        writer.WriteParagraph(returns);
+                    }
+
+                    // Signature section at depth+4 is always emitted as a code-span paragraph
+                    writer.WriteHeading(depth + 4, "Signature");
+                    writer.WriteParagraph($"`{s.Signature}`");
                 }
             }
         }

@@ -181,6 +181,10 @@ public class VhdlEmitterGradualDisclosureTests
         Assert.NotNull(pkgWriter);
         var headings = pkgWriter.Operations.OfType<HeadingOperation>().ToList();
         Assert.Contains(headings, h => h.Text.Equals("Types", StringComparison.Ordinal));
+
+        // Verify paragraph-per-type format: type name appears in a paragraph (not a table)
+        var paragraphs = pkgWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Contains("my_type", StringComparison.Ordinal));
     }
 
     /// <summary>Validates that package with members emits Constants section on its detail page.</summary>
@@ -200,6 +204,10 @@ public class VhdlEmitterGradualDisclosureTests
         Assert.NotNull(pkgWriter);
         var headings = pkgWriter.Operations.OfType<HeadingOperation>().ToList();
         Assert.Contains(headings, h => h.Text.Equals("Constants", StringComparison.Ordinal));
+
+        // Verify paragraph-per-constant format: constant name appears in a paragraph (not a table)
+        var paragraphs = pkgWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Contains("MY_CONST", StringComparison.Ordinal));
     }
 
     /// <summary>Validates that package with members emits Components section on its detail page.</summary>
@@ -219,9 +227,13 @@ public class VhdlEmitterGradualDisclosureTests
         Assert.NotNull(pkgWriter);
         var headings = pkgWriter.Operations.OfType<HeadingOperation>().ToList();
         Assert.Contains(headings, h => h.Text.Equals("Components", StringComparison.Ordinal));
+
+        // Verify paragraph-per-component format: component name appears in a paragraph (not a table)
+        var paragraphs = pkgWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Contains("my_comp", StringComparison.Ordinal));
     }
 
-    /// <summary>Validates that package with members emits Subprograms section on its detail page.</summary>
+    /// <summary>Validates that package with members emits Subprograms section on its detail page in paragraph-link format.</summary>
     [Fact]
     public void VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_EmitsSubprogramsSection()
     {
@@ -238,5 +250,41 @@ public class VhdlEmitterGradualDisclosureTests
         Assert.NotNull(pkgWriter);
         var headings = pkgWriter.Operations.OfType<HeadingOperation>().ToList();
         Assert.Contains(headings, h => h.Text.Equals("Subprograms", StringComparison.Ordinal));
+
+        // Verify paragraph-link format: subprogram name appears in a paragraph (not a table)
+        var paragraphs = pkgWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Contains("my_func", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that a subprogram detail file is created for each subprogram in a package.</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_CreatesSubprogramDetailFile()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildDataWithPackageMembers();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: detail file named {pkg}_{subprogram} must exist
+        Assert.True(factory.HasWriter("", "my_pkg_my_func"), "Expected subprogram detail file 'my_pkg_my_func' to be created");
+    }
+
+    /// <summary>Validates that the subprogram detail file contains a Signature heading.</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_SubprogramDetailFileHasSignatureHeading()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildDataWithPackageMembers();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: Signature heading must appear in the subprogram detail file
+        var subWriter = factory.GetWriter("", "my_pkg_my_func");
+        var headings = subWriter.Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(headings, h => h.Text.Equals("Signature", StringComparison.Ordinal));
     }
 }
