@@ -236,4 +236,121 @@ public class VhdlAstParserTests
         Assert.NotNull(subprogram);
         Assert.Equal(VhdlSubprogramKind.Procedure, subprogram.Kind);
     }
+
+    /// <summary>Validates that to_natural has exactly one formal parameter named v of type STD_LOGIC_VECTOR.</summary>
+    [Fact]
+    public void VhdlAstParser_Parse_CommonTypesFixture_ToNaturalHasOneParameter()
+    {
+        // Arrange
+        var path = FixturePaths.CommonTypesVhd;
+
+        // Act
+        var model = VhdlAstParser.Parse(path);
+
+        // Assert
+        var pkg = Assert.Single(model.Packages);
+        var subprogram = pkg.Subprograms.FirstOrDefault(s => s.Name == "to_natural");
+        Assert.NotNull(subprogram);
+        var param = Assert.Single(subprogram.Parameters);
+        Assert.Equal("v", param.Name);
+        Assert.Equal("STD_LOGIC_VECTOR", param.TypeName);
+
+        // Mode is empty because no class keyword or direction is written for a plain function parameter
+        Assert.Equal(string.Empty, param.Mode);
+    }
+
+    /// <summary>Validates that to_natural has a return type of NATURAL.</summary>
+    [Fact]
+    public void VhdlAstParser_Parse_CommonTypesFixture_ToNaturalHasReturnTypeNatural()
+    {
+        // Arrange
+        var path = FixturePaths.CommonTypesVhd;
+
+        // Act
+        var model = VhdlAstParser.Parse(path);
+
+        // Assert
+        var pkg = Assert.Single(model.Packages);
+        var subprogram = pkg.Subprograms.FirstOrDefault(s => s.Name == "to_natural");
+        Assert.NotNull(subprogram);
+        Assert.Equal("NATURAL", subprogram.ReturnType);
+    }
+
+    /// <summary>Validates that clear_vector has exactly one formal parameter named v of type STD_LOGIC_VECTOR.</summary>
+    [Fact]
+    public void VhdlAstParser_Parse_CommonTypesFixture_ClearVectorHasOneParameter()
+    {
+        // Arrange
+        var path = FixturePaths.CommonTypesVhd;
+
+        // Act
+        var model = VhdlAstParser.Parse(path);
+
+        // Assert
+        var pkg = Assert.Single(model.Packages);
+        var subprogram = pkg.Subprograms.FirstOrDefault(s => s.Name == "clear_vector");
+        Assert.NotNull(subprogram);
+        var param = Assert.Single(subprogram.Parameters);
+        Assert.Equal("v", param.Name);
+        Assert.Equal("STD_LOGIC_VECTOR", param.TypeName);
+
+        // Mode contains SIGNAL (class keyword) and/or OUT (direction) from `SIGNAL v : OUT STD_LOGIC_VECTOR`
+        Assert.True(
+            param.Mode.Contains("SIGNAL", StringComparison.Ordinal) ||
+            param.Mode.Contains("OUT", StringComparison.Ordinal),
+            $"Expected mode to contain 'SIGNAL' or 'OUT', got '{param.Mode}'");
+    }
+
+    /// <summary>Validates that clear_vector has a null return type because it is a procedure.</summary>
+    [Fact]
+    public void VhdlAstParser_Parse_CommonTypesFixture_ClearVectorHasNullReturnType()
+    {
+        // Arrange
+        var path = FixturePaths.CommonTypesVhd;
+
+        // Act
+        var model = VhdlAstParser.Parse(path);
+
+        // Assert
+        var pkg = Assert.Single(model.Packages);
+        var subprogram = pkg.Subprograms.FirstOrDefault(s => s.Name == "clear_vector");
+        Assert.NotNull(subprogram);
+        Assert.Null(subprogram.ReturnType);
+    }
+
+    /// <summary>Validates that to_natural doc comment has a @param entry for parameter v.</summary>
+    [Fact]
+    public void VhdlAstParser_Parse_CommonTypesFixture_ToNaturalDocHasParamEntry()
+    {
+        // Arrange
+        var path = FixturePaths.CommonTypesVhd;
+
+        // Act
+        var model = VhdlAstParser.Parse(path);
+
+        // Assert
+        var pkg = Assert.Single(model.Packages);
+        var subprogram = pkg.Subprograms.FirstOrDefault(s => s.Name == "to_natural");
+        Assert.NotNull(subprogram);
+        Assert.NotNull(subprogram.Doc);
+        Assert.Contains(subprogram.Doc.Params, p => p.Name == "v");
+    }
+
+    /// <summary>Validates that to_natural doc comment has a @return entry.</summary>
+    [Fact]
+    public void VhdlAstParser_Parse_CommonTypesFixture_ToNaturalDocHasReturnEntry()
+    {
+        // Arrange
+        var path = FixturePaths.CommonTypesVhd;
+
+        // Act
+        var model = VhdlAstParser.Parse(path);
+
+        // Assert
+        var pkg = Assert.Single(model.Packages);
+        var subprogram = pkg.Subprograms.FirstOrDefault(s => s.Name == "to_natural");
+        Assert.NotNull(subprogram);
+        Assert.NotNull(subprogram.Doc);
+        Assert.False(string.IsNullOrEmpty(subprogram.Doc.Returns));
+    }
 }

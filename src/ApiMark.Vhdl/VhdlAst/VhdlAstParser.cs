@@ -279,15 +279,23 @@ internal static class VhdlAstParser
                             var procSpec = spec.procedure_specification();
                             string subprogramName;
                             VhdlSubprogramKind kind;
+                            IReadOnlyList<VhdlParamDecl> parameters;
+                            string? returnType;
                             if (funcSpec != null)
                             {
                                 subprogramName = funcSpec.designator().identifier()?.GetText() ?? funcSpec.designator().GetText();
                                 kind = VhdlSubprogramKind.Function;
+                                parameters = ExtractFormalParameters(funcSpec.formal_parameter_list());
+
+                                // Extract return type: the name() rule holds the type_mark after RETURN
+                                returnType = funcSpec.name()?.GetText();
                             }
                             else if (procSpec != null)
                             {
                                 subprogramName = procSpec.designator().identifier()?.GetText() ?? procSpec.designator().GetText();
                                 kind = VhdlSubprogramKind.Procedure;
+                                parameters = ExtractFormalParameters(procSpec.formal_parameter_list());
+                                returnType = null;
                             }
                             else
                             {
@@ -296,7 +304,7 @@ internal static class VhdlAstParser
 
                             var signature = GetSourceRange(spec);
                             var subprogramDoc = ExtractPrecedingDocComment(item.Start.Line);
-                            subprograms.Add(new VhdlSubprogramDecl(subprogramName, kind, signature, subprogramDoc));
+                            subprograms.Add(new VhdlSubprogramDecl(subprogramName, kind, signature, parameters, returnType, subprogramDoc));
                         }
                     }
                 }
@@ -316,6 +324,147 @@ internal static class VhdlAstParser
         /// <returns>The raw source text spanning from the context's first to last token.</returns>
         private string GetSourceRange(Antlr4.Runtime.ParserRuleContext ctx) =>
             _sourceText[ctx.Start.StartIndex..(ctx.Stop.StopIndex + 1)];
+
+        /// <summary>
+        ///     Extracts structured parameter declarations from a formal parameter list context,
+        ///     covering interface_signal_declaration, interface_variable_declaration, and
+        ///     interface_constant_declaration (the last also matches undecorated parameters).
+        /// </summary>
+        /// <param name="formalParams">The formal_parameter_list context, or null when there are no parameters.</param>
+        /// <returns>A read-only list of <see cref="VhdlParamDecl"/> records, one per identifier.</returns>
+        private IReadOnlyList<VhdlParamDecl> ExtractFormalParameters(
+            vhdl2008Parser.Formal_parameter_listContext? formalParams)
+        {
+            var parameters = new List<VhdlParamDecl>();
+            if (formalParams == null)
+            {
+                return parameters;
+            }
+
+            var ifaceDecls = formalParams.interface_list()?.interface_declaration();
+            if (ifaceDecls == null)
+            {
+                return parameters;
+            }
+
+            foreach (var iface in ifaceDecls)
+            {
+                var objDecl = iface.interface_object_declaration();
+                if (objDecl == null)
+                {
+                    continue;
+                }
+
+                // Try interface_signal_declaration first: `[SIGNAL] identifiers : [mode] subtype`
+                var signalDecl = objDecl.interface_signal_declaration();
+                if (signalDecl != null)
+                {
+                    var identifiers = signalDecl.identifier_list()?.identifier();
+                    if (identifiers == null)
+                    {
+                        continue;
+                    }
+
+                    // Collect class keyword and direction into a combined mode string
+                    var classKeyword = signalDecl.SIGNAL() != null ? "SIGNAL" : string.Empty;
+                    var direction = ExtractModeText(signalDecl.mode_rule());
+                    var mode = string.Join(" ", new[] { classKeyword, direction }.Where(s => !string.IsNullOrEmpty(s)));
+                    var typeName = GetSourceRange(signalDecl.subtype_indication());
+
+                    foreach (var ident in identifiers)
+                    {
+                        parameters.Add(new VhdlParamDecl(ident.GetText(), mode, typeName));
+                    }
+
+                    continue;
+                }
+
+                // Try interface_variable_declaration: `[VARIABLE] identifiers : [mode] subtype`
+                var varDecl = objDecl.interface_variable_declaration();
+                if (varDecl != null)
+                {
+                    var identifiers = varDecl.identifier_list()?.identifier();
+                    if (identifiers == null)
+                    {
+                        continue;
+                    }
+
+                    var classKeyword = varDecl.VARIABLE() != null ? "VARIABLE" : string.Empty;
+                    var direction = ExtractModeText(varDecl.mode_rule());
+                    var mode = string.Join(" ", new[] { classKeyword, direction }.Where(s => !string.IsNullOrEmpty(s)));
+                    var typeName = GetSourceRange(varDecl.subtype_indication());
+
+                    foreach (var ident in identifiers)
+                    {
+                        parameters.Add(new VhdlParamDecl(ident.GetText(), mode, typeName));
+                    }
+
+                    continue;
+                }
+
+                // Fall back to interface_constant_declaration: `[CONSTANT] identifiers : [IN] subtype`
+                // This also matches undecorated parameters such as `v : STD_LOGIC_VECTOR`
+                var constDecl = objDecl.interface_constant_declaration();
+                if (constDecl != null)
+                {
+                    var identifiers = constDecl.identifier_list()?.identifier();
+                    if (identifiers == null)
+                    {
+                        continue;
+                    }
+
+                    // CONSTANT keyword is optional; direction for constants is always IN when explicit
+                    var classKeyword = constDecl.CONSTANT() != null ? "CONSTANT" : string.Empty;
+                    var direction = constDecl.IN() != null ? "IN" : string.Empty;
+                    var mode = string.Join(" ", new[] { classKeyword, direction }.Where(s => !string.IsNullOrEmpty(s)));
+                    var typeName = GetSourceRange(constDecl.subtype_indication());
+
+                    foreach (var ident in identifiers)
+                    {
+                        parameters.Add(new VhdlParamDecl(ident.GetText(), mode, typeName));
+                    }
+                }
+            }
+
+            return parameters;
+        }
+
+        /// <summary>
+        ///     Converts a mode_rule context into a direction string (IN, OUT, INOUT, or BUFFER),
+        ///     returning an empty string when the context is null.
+        /// </summary>
+        /// <param name="modeCtx">The mode_rule context, or null when no direction is specified.</param>
+        /// <returns>Upper-case direction text, or an empty string.</returns>
+        private static string ExtractModeText(vhdl2008Parser.Mode_ruleContext? modeCtx)
+        {
+            if (modeCtx == null)
+            {
+                return string.Empty;
+            }
+
+            if (modeCtx.OUT() != null)
+            {
+                return "OUT";
+            }
+
+            if (modeCtx.INOUT() != null)
+            {
+                return "INOUT";
+            }
+
+            if (modeCtx.BUFFER() != null)
+            {
+                return "BUFFER";
+            }
+
+            // IN is the default and seldom written explicitly; include it when present
+            if (modeCtx.IN() != null)
+            {
+                return "IN";
+            }
+
+            return string.Empty;
+        }
 
         /// <summary>
         ///     Walks backward from the line immediately preceding <paramref name="declarationLine"/>,

@@ -204,10 +204,6 @@ internal sealed class VhdlEmitterSingleFile
                 {
                     writer.WriteHeading(depth + 3, s.Name);
 
-                    // Attribution paragraph: kind label
-                    var kindText = s.Kind == VhdlSubprogramKind.Function ? "Function" : "Procedure";
-                    writer.WriteParagraph($"*{kindText}*");
-
                     // Summary paragraph
                     var subSummary = VhdlEmitter.GetSummary(s.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder;
                     writer.WriteParagraph(subSummary);
@@ -219,21 +215,26 @@ internal sealed class VhdlEmitterSingleFile
                         writer.WriteParagraph(subDetails);
                     }
 
-                    // Parameters table at depth+4 if doc params are present
-                    if (s.Doc?.Params is { Count: > 0 } subParams)
+                    // Parameters table at depth+4 if the subprogram has parsed formal parameters
+                    if (s.Parameters.Count > 0)
                     {
                         writer.WriteHeading(depth + 4, "Parameters");
-                        var headers = new[] { "Name", "Description" };
-                        var rows = subParams.Select(p => new[] { p.Name, p.Description });
+                        var headers = new[] { "Name", "Mode", "Type", VhdlEmitter.DescriptionColumnHeader };
+                        var rows = s.Parameters.Select(p => new[]
+                        {
+                            p.Name,
+                            p.Mode,
+                            p.TypeName,
+                            s.Doc?.Params.FirstOrDefault(pd => pd.Name == p.Name)?.Description ?? VhdlEmitter.NoDescriptionPlaceholder,
+                        });
                         writer.WriteTable(headers, rows);
                     }
 
-                    // Returns paragraph at depth+4 if doc returns text is present
-                    var returns = s.Doc?.Returns;
-                    if (!string.IsNullOrEmpty(returns))
+                    // Returns section at depth+4 if this is a function (ReturnType is non-null)
+                    if (s.ReturnType != null)
                     {
                         writer.WriteHeading(depth + 4, "Returns");
-                        writer.WriteParagraph(returns);
+                        writer.WriteParagraph(s.Doc?.Returns ?? VhdlEmitter.NoDescriptionPlaceholder);
                     }
 
                     // Signature section at depth+4 is always emitted as a code-span paragraph

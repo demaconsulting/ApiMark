@@ -99,7 +99,7 @@ public class VhdlEmitterGradualDisclosureTests
         var typeDecl = new VhdlTypeDecl("my_type", "STD_LOGIC_VECTOR(7 DOWNTO 0)", new VhdlDocComment("An 8-bit type.", null, []));
         var constDecl = new VhdlConstantDecl("MY_CONST", "INTEGER", "42", new VhdlDocComment("A constant.", null, []));
         var compDecl = new VhdlComponentDecl("my_comp", new VhdlDocComment("A component.", null, []));
-        var subprogramDecl = new VhdlSubprogramDecl("my_func", VhdlSubprogramKind.Function, "FUNCTION my_func RETURN INTEGER", new VhdlDocComment("A function.", null, []));
+        var subprogramDecl = new VhdlSubprogramDecl("my_func", VhdlSubprogramKind.Function, "FUNCTION my_func RETURN INTEGER", [], "INTEGER", new VhdlDocComment("A function.", null, []));
         var pkg = new VhdlPackageDecl(
             "my_pkg",
             new VhdlDocComment("A test package.", null, []),
@@ -267,8 +267,8 @@ public class VhdlEmitterGradualDisclosureTests
         // Act
         new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-        // Assert: detail file named {pkg}_{subprogram} must exist
-        Assert.True(factory.HasWriter("", "my_pkg_my_func"), "Expected subprogram detail file 'my_pkg_my_func' to be created");
+        // Assert: detail file placed in per-package subfolder {pkg}/{subprogram} must exist
+        Assert.True(factory.HasWriter("my_pkg", "my_func"), "Expected subprogram detail file 'my_pkg/my_func' to be created");
     }
 
     /// <summary>Validates that the subprogram detail file contains a Signature heading.</summary>
@@ -283,8 +283,87 @@ public class VhdlEmitterGradualDisclosureTests
         new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert: Signature heading must appear in the subprogram detail file
-        var subWriter = factory.GetWriter("", "my_pkg_my_func");
+        var subWriter = factory.GetWriter("my_pkg", "my_func");
         var headings = subWriter.Operations.OfType<HeadingOperation>().ToList();
         Assert.Contains(headings, h => h.Text.Equals("Signature", StringComparison.Ordinal));
+    }
+
+    /// <summary>Builds data with a subprogram that has formal parameters for Parameters-section tests.</summary>
+    private static (VhdlEmitter emitter, IReadOnlyList<VhdlFileModel> fileModels) BuildDataWithParameterizedSubprogram()
+    {
+        var options = new VhdlGeneratorOptions { LibraryName = "TestLib" };
+        var paramDoc = new VhdlParamDoc("v", "The input vector.");
+        var param = new VhdlParamDecl("v", "", "STD_LOGIC_VECTOR");
+        var subprogramDecl = new VhdlSubprogramDecl(
+            "to_natural",
+            VhdlSubprogramKind.Function,
+            "FUNCTION to_natural(v : STD_LOGIC_VECTOR) RETURN NATURAL",
+            [param],
+            "NATURAL",
+            new VhdlDocComment("Converts a vector.", null, [paramDoc], "The natural value."));
+        var pkg = new VhdlPackageDecl(
+            "my_pkg",
+            new VhdlDocComment("A test package.", null, []),
+            [],
+            [],
+            [],
+            [subprogramDecl]);
+        var fileModel = new VhdlFileModel("test.vhd", [], [], [pkg]);
+        var fileModels = new List<VhdlFileModel> { fileModel };
+        var emitter = new VhdlEmitter(options, fileModels);
+        return (emitter, fileModels);
+    }
+
+    /// <summary>Validates that the subprogram detail file contains a Parameters heading when formal parameters are present.</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_SubprogramWithParameters_DetailFileHasParametersHeading()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildDataWithParameterizedSubprogram();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: Parameters heading must appear in the subprogram detail file
+        var subWriter = factory.GetWriter("my_pkg", "to_natural");
+        var headings = subWriter.Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(headings, h => h.Text.Equals("Parameters", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that the subprogram detail file contains a Returns heading for functions.</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_FunctionSubprogram_DetailFileHasReturnsHeading()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildDataWithParameterizedSubprogram();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: Returns heading must appear in the subprogram detail file because ReturnType is set
+        var subWriter = factory.GetWriter("my_pkg", "to_natural");
+        var headings = subWriter.Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(headings, h => h.Text.Equals("Returns", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that the package page link for a subprogram uses the subfolder path format.</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_PackagePageLinkUsesSubfolderPath()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildDataWithPackageMembers();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the package page paragraph linking to the subprogram must use the subfolder path
+        var pkgWriter = factory.Writers.Values.FirstOrDefault(w =>
+            w.Operations.OfType<HeadingOperation>().Any(h => h.Text.Equals("my_pkg", StringComparison.Ordinal)));
+        Assert.NotNull(pkgWriter);
+        var paragraphs = pkgWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Contains("my_pkg/my_func.md", StringComparison.Ordinal));
     }
 }

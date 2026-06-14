@@ -244,7 +244,7 @@ internal sealed class DotNetEmitterSingleFile
             var externalTypes = new SortedSet<ExternalTypeInfo>();
             var paramRows = method.Parameters.Select(p =>
             {
-                var desc = paramDocs.FirstOrDefault(pd => pd.Name == p.Name).Description ?? string.Empty;
+                var desc = paramDocs.FirstOrDefault(pd => pd.Name == p.Name).Description ?? NoDescriptionPlaceholder;
                 var typeName = resolver.Linkify(p.ParameterType, namespaceFolderPath, namespaceName, externalTypes);
                 return new[] { p.Name, typeName, desc };
             });

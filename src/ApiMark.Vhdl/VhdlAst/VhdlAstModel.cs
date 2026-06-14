@@ -67,12 +67,20 @@ public enum VhdlSubprogramKind
     Procedure,
 }
 
+/// <summary>Represents a parameter in a VHDL subprogram declaration.</summary>
+/// <param name="Name">Parameter name.</param>
+/// <param name="Mode">Parameter mode: IN, OUT, INOUT, BUFFER, SIGNAL, VARIABLE, CONSTANT, or empty.</param>
+/// <param name="TypeName">Parameter type as declared in source.</param>
+public record VhdlParamDecl(string Name, string Mode, string TypeName);
+
 /// <summary>Represents a subprogram (function or procedure) declaration in a VHDL package.</summary>
 /// <param name="Name">Subprogram name.</param>
 /// <param name="Kind">Whether this is a function or procedure.</param>
 /// <param name="Signature">Full signature text as declared in source.</param>
+/// <param name="Parameters">List of formal parameters.</param>
+/// <param name="ReturnType">Return type for functions, or null for procedures.</param>
 /// <param name="Doc">Documentation from preceding --! block comment, or null.</param>
-public record VhdlSubprogramDecl(string Name, VhdlSubprogramKind Kind, string Signature, VhdlDocComment? Doc);
+public record VhdlSubprogramDecl(string Name, VhdlSubprogramKind Kind, string Signature, IReadOnlyList<VhdlParamDecl> Parameters, string? ReturnType, VhdlDocComment? Doc);
 
 /// <summary>Represents a VHDL package declaration.</summary>
 /// <param name="Name">Package name.</param>

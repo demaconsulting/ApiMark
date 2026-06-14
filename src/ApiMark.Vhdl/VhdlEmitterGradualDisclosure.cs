@@ -222,8 +222,8 @@ internal sealed class VhdlEmitterGradualDisclosure
                 writer.WriteHeading(2, "Subprograms");
                 foreach (var s in pkg.Subprograms)
                 {
-                    // Paragraph: linked name and kind label
-                    var detailFile = $"{VhdlEmitter.SanitizeFileName(pkg.Name)}_{VhdlEmitter.SanitizeFileName(s.Name)}.md";
+                    // Paragraph: linked name and kind label — subfolder path so the reader can navigate
+                    var detailFile = $"{VhdlEmitter.SanitizeFileName(pkg.Name)}/{VhdlEmitter.SanitizeFileName(s.Name)}.md";
                     var kindText = s.Kind == VhdlSubprogramKind.Function ? "Function" : "Procedure";
                     writer.WriteParagraph($"**[{s.Name}]({detailFile})** — *{kindText}*");
 
@@ -233,11 +233,12 @@ internal sealed class VhdlEmitterGradualDisclosure
                 }
             }
 
-            // Emit one detail file per subprogram with full documentation
+            // Emit one detail file per subprogram with full documentation — placed in a per-package subfolder
             foreach (var s in pkg.Subprograms)
             {
-                var detailFileName = $"{VhdlEmitter.SanitizeFileName(pkg.Name)}_{VhdlEmitter.SanitizeFileName(s.Name)}";
-                using var subWriter = factory.CreateMarkdown("", detailFileName);
+                var pkgFolder = VhdlEmitter.SanitizeFileName(pkg.Name);
+                var subFileName = VhdlEmitter.SanitizeFileName(s.Name);
+                using var subWriter = factory.CreateMarkdown(pkgFolder, subFileName);
                 subWriter.WriteHeading(1, s.Name);
 
                 // Attribution: kind and owning package name
@@ -255,21 +256,26 @@ internal sealed class VhdlEmitterGradualDisclosure
                     subWriter.WriteParagraph(subDetails);
                 }
 
-                // Parameters table if doc params are present
-                if (s.Doc?.Params is { Count: > 0 } subParams)
+                // Parameters table if the subprogram has parsed formal parameters
+                if (s.Parameters.Count > 0)
                 {
                     subWriter.WriteHeading(2, "Parameters");
-                    var headers = new[] { "Name", "Description" };
-                    var rows = subParams.Select(p => new[] { p.Name, p.Description });
+                    var headers = new[] { "Name", "Mode", "Type", VhdlEmitter.DescriptionColumnHeader };
+                    var rows = s.Parameters.Select(p => new[]
+                    {
+                        p.Name,
+                        p.Mode,
+                        p.TypeName,
+                        s.Doc?.Params.FirstOrDefault(pd => pd.Name == p.Name)?.Description ?? VhdlEmitter.NoDescriptionPlaceholder,
+                    });
                     subWriter.WriteTable(headers, rows);
                 }
 
-                // Returns paragraph if doc returns text is present
-                var returns = s.Doc?.Returns;
-                if (!string.IsNullOrEmpty(returns))
+                // Returns section if this is a function (ReturnType is non-null)
+                if (s.ReturnType != null)
                 {
                     subWriter.WriteHeading(2, "Returns");
-                    subWriter.WriteParagraph(returns);
+                    subWriter.WriteParagraph(s.Doc?.Returns ?? VhdlEmitter.NoDescriptionPlaceholder);
                 }
 
                 // Signature section is always emitted as a code-span paragraph

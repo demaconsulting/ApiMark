@@ -716,7 +716,7 @@ internal sealed class CppEmitterGradualDisclosure
 
             // Linkify parameter type cells; resolver tracks external types encountered
             var paramRows = fn.Parameters.Select(p =>
-                new[] { p.Name, cppResolver.Linkify(CppEmitter.SimplifyTypeName(p.TypeName), currentFolder, externalTypes), CppEmitter.GetParamDescription(fn.Doc, p.Name) ?? string.Empty });
+                new[] { p.Name, cppResolver.Linkify(CppEmitter.SimplifyTypeName(p.TypeName), currentFolder, externalTypes), CppEmitter.GetParamDescription(fn.Doc, p.Name) ?? CppEmitter.NoDescriptionPlaceholder });
             writer.WriteTable(paramHeaders, paramRows);
         }
 

@@ -30,10 +30,13 @@ PACKAGE common_types IS
         );
     END COMPONENT counter;
 
-    --! Converts a std_logic_vector to a natural integer.
+    --! @brief Converts a std_logic_vector to a natural integer.
+    --! @param v The std_logic_vector value to convert.
+    --! @return The natural integer representation.
     FUNCTION to_natural(v : STD_LOGIC_VECTOR) RETURN NATURAL;
 
-    --! Resets all bits of a std_logic_vector output to zero.
+    --! @brief Resets all bits of a std_logic_vector output to zero.
+    --! @param v The output std_logic_vector to clear.
     PROCEDURE clear_vector(SIGNAL v : OUT STD_LOGIC_VECTOR);
 
 END PACKAGE common_types;
