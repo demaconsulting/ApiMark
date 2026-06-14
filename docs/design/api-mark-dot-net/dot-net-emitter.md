@@ -26,7 +26,8 @@ sub-emitters:
 - *DescriptionColumnHeader*: `"Description"` — column header for all generated
   Markdown tables.
 - *NoDescriptionPlaceholder*: `"*No description provided.*"` — placeholder
-  emitted when no XML doc summary is available.
+  emitted when no XML doc summary is available, and also used as the fallback
+  cell value in parameter tables when a `<param>` tag carries no description text.
 - *ConstructorMethodName*: `".ctor"` — the .NET metadata method name used for
   all instance constructors.
 

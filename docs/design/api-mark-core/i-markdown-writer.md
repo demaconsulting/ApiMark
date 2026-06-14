@@ -26,10 +26,10 @@ implementation, `FileMarkdownWriter`, holds:
 
 **IMarkdownWriter.WriteHeading**: Writes a Markdown heading at the specified depth.
 
-- *Parameters*: `int level` — heading depth (1–4); `string text` — heading text.
+- *Parameters*: `int level` — heading depth (1–6); `string text` — heading text.
 - *Returns*: `void`
-- *Preconditions*: `level` must be between 1 and 4 inclusive.
-- *Postconditions*: A Markdown heading line (`# text` through `#### text`) is
+- *Preconditions*: `level` must be between 1 and 6 inclusive.
+- *Postconditions*: A Markdown heading line (`# text` through `###### text`) is
   appended to the current output file.
 
 **IMarkdownWriter.WriteSignature**: Writes a code-fenced API signature block.

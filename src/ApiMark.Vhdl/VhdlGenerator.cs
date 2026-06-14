@@ -1,6 +1,5 @@
 using ApiMark.Core;
 using ApiMark.Vhdl.VhdlAst;
-using Microsoft.Extensions.FileSystemGlobbing;
 
 namespace ApiMark.Vhdl;
 
@@ -61,79 +60,15 @@ public sealed class VhdlGenerator : IApiGenerator
     // =========================================================================
 
     /// <summary>
-    ///     Enumerates <c>.vhd</c> and <c>.vhdl</c> files from the current working directory
-    ///     using <see cref="VhdlGeneratorOptions.Sources"/> with gitignore-style last-match-wins
-    ///     semantics to determine which files are documented.
+    ///     Enumerates <c>.vhd</c> and <c>.vhdl</c> files using <see cref="GlobFileCollector"/>
+    ///     and returns a sorted, deduplicated list of absolute file paths.
     /// </summary>
     /// <returns>Sorted, deduplicated list of absolute file paths selected for documentation.</returns>
     private List<string> CollectSourceFiles()
     {
-        var cwdAbsolute = Path.GetFullPath(_options.WorkingDirectory ?? Directory.GetCurrentDirectory());
-        var compiledPatterns = CompileSourcePatterns();
+        var vhdlExtensions = new[] { ".vhd", ".vhdl" };
+        var cwd = Path.GetFullPath(_options.WorkingDirectory ?? Directory.GetCurrentDirectory());
 
-        var allFiles = Directory.GetFiles(cwdAbsolute, "*.vhd", SearchOption.AllDirectories)
-            .Concat(Directory.GetFiles(cwdAbsolute, "*.vhdl", SearchOption.AllDirectories))
-            .Select(Path.GetFullPath)
-            .ToList();
-
-        if (compiledPatterns.Count == 0)
-        {
-            return [];
-        }
-
-        var result = new List<string>();
-        foreach (var absoluteFile in allFiles)
-        {
-            var relFromCwd = Path.GetRelativePath(cwdAbsolute, absoluteFile).Replace('\\', '/');
-
-            var included = false;
-            foreach (var (isExclusion, matcher) in compiledPatterns)
-            {
-                if (matcher.Match(relFromCwd).HasMatches)
-                {
-                    included = !isExclusion;
-                }
-            }
-
-            if (included)
-            {
-                result.Add(absoluteFile);
-            }
-        }
-
-        return result
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(f => f, StringComparer.Ordinal)
-            .ToList();
-    }
-
-    /// <summary>
-    ///     Compiles <see cref="VhdlGeneratorOptions.Sources"/> patterns into precompiled
-    ///     (isExclusion, matcher) pairs for reuse across every file evaluation.
-    /// </summary>
-    private List<(bool IsExclusion, Matcher Matcher)> CompileSourcePatterns()
-    {
-        var compiled = new List<(bool IsExclusion, Matcher Matcher)>();
-        foreach (var pattern in _options.Sources)
-        {
-            if (pattern.StartsWith('!'))
-            {
-                var exclusionGlob = pattern.Substring(1).Trim();
-                if (exclusionGlob.Length > 0)
-                {
-                    var m = new Matcher();
-                    m.AddInclude(exclusionGlob);
-                    compiled.Add((true, m));
-                }
-            }
-            else
-            {
-                var m = new Matcher();
-                m.AddInclude(pattern);
-                compiled.Add((false, m));
-            }
-        }
-
-        return compiled;
+        return GlobFileCollector.Collect(_options.Sources, vhdlExtensions, cwd).ToList();
     }
 }

@@ -40,20 +40,28 @@ public sealed class CppGeneratorOptions
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         Gitignore-style semantics apply: patterns are evaluated in order; the last
-    ///         matching pattern wins. Entries without a <c>!</c> prefix are include patterns;
-    ///         entries with a <c>!</c> prefix are exclusion patterns (the <c>!</c> is stripped
-    ///         before glob matching).
+    ///         Both absolute and relative glob patterns are supported. Relative patterns are
+    ///         resolved against the process working directory. Absolute patterns determine their
+    ///         own root from the non-glob path prefix, allowing headers outside the working
+    ///         directory or on other drives to be included directly.
+    ///     </para>
+    ///     <para>
+    ///         Patterns whose final segment is a bare <c>*</c> (e.g. <c>include/**/*</c>,
+    ///         <c>C:\sdk\include\**\*</c>) automatically discover recognized C++ header
+    ///         extensions (<c>.h</c>, <c>.hpp</c>, <c>.hxx</c>, <c>.h++</c>).
+    ///         Patterns with an explicit extension (e.g. <c>**/*.hpp</c>) select only files
+    ///         matching that extension.
+    ///     </para>
+    ///     <para>
+    ///         Entries prefixed with <c>!</c> are exclusion patterns (the <c>!</c> is stripped
+    ///         before glob matching). Inclusion patterns build the result set; exclusion patterns
+    ///         subtract from it. Example — include all headers except a detail subtree with a
+    ///         re-include: <c>["**/*", "!**/detail/**/*", "**/detail/public.h"]</c>.
     ///     </para>
     ///     <para>
     ///         When this list is empty, all headers under <see cref="PublicIncludeRoots"/> with
-    ///         recognized C++ header extensions (<c>.h</c>, <c>.hpp</c>, <c>.hxx</c>, <c>.h++</c>)
-    ///         are included — equivalent to specifying
-    ///         <c>["**/*.h", "**/*.hpp", "**/*.hxx", "**/*.h++"]</c>.
-    ///     </para>
-    ///     <para>
-    ///         Example — document all headers except a <c>detail/</c> subtree with re-include:
-    ///         <c>["**/*", "!**/detail/**", "**/detail/public.h"]</c>.
+    ///         recognized C++ header extensions are included — equivalent to specifying a
+    ///         <c>/**/*</c> pattern for each configured root.
     ///     </para>
     /// </remarks>
     public IList<string> ApiHeaderPatterns { get; set; } = new List<string>();

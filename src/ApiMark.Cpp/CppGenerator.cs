@@ -1,6 +1,5 @@
 using ApiMark.Core;
 using ApiMark.Cpp.CppAst;
-using Microsoft.Extensions.FileSystemGlobbing;
 
 namespace ApiMark.Cpp;
 
@@ -74,7 +73,8 @@ public sealed class CppGenerator : IApiGenerator
     ///     messages from clang are emitted here via <see cref="IContext.WriteLine"/>.
     /// </param>
     /// <exception cref="DirectoryNotFoundException">
-    ///     Thrown when a path in <see cref="CppGeneratorOptions.PublicIncludeRoots"/> does not exist on disk.
+    ///     Thrown when <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> is empty and a
+    ///     path in <see cref="CppGeneratorOptions.PublicIncludeRoots"/> does not exist on disk.
     /// </exception>
     /// <exception cref="InvalidOperationException">
     ///     Thrown when clang cannot be located or exits with an error and produces no JSON output.
@@ -131,203 +131,86 @@ public sealed class CppGenerator : IApiGenerator
     // =========================================================================
 
     /// <summary>
-    ///     Enumerates candidate header files under each configured public include root,
-    ///     applying <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> with gitignore-style
-    ///     semantics to determine which headers appear in the generated documentation.
+    ///     Enumerates candidate header files using <see cref="GlobFileCollector"/> and returns
+    ///     a sorted, deduplicated list ready for clang processing.
     /// </summary>
     /// <returns>
-    ///     A list of absolute header file paths with recognized C++ header extensions
-    ///     (<c>.h</c>, <c>.hpp</c>, <c>.hxx</c>, <c>.h++</c>) that are selected for
-    ///     documentation by the configured pattern list.
+    ///     A sorted, deduplicated list of absolute header file paths with recognized C++
+    ///     header extensions (<c>.h</c>, <c>.hpp</c>, <c>.hxx</c>, <c>.h++</c>) selected
+    ///     by the configured pattern list.
     /// </returns>
     /// <remarks>
     ///     <para>
-    ///         When <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> is empty, pattern
-    ///         matching is bypassed and all files with recognized C++ header extensions
-    ///         under each root are included.
+    ///         When <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> is empty, each
+    ///         <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry is validated to
+    ///         exist and a <c>/**/*</c> pattern is synthesized for it. The bare-star final
+    ///         segment triggers extension inference in <see cref="GlobFileCollector"/>,
+    ///         which restricts results to files with recognized C++ header extensions.
     ///     </para>
     ///     <para>
-    ///         Gitignore-style evaluation: for each candidate file, start with
-    ///         <c>included = false</c> and walk the pattern list in order. If a pattern
-    ///         starts with <c>!</c>, strip the prefix and if the file matches set
-    ///         <c>included = false</c>; otherwise if the file matches set
-    ///         <c>included = true</c>. The final value of <c>included</c> determines
-    ///         whether the header is forwarded to clang. This allows include/exclude/re-include
-    ///         sequences that are not possible with separate include and exclude lists.
-    ///     </para>
-    ///     <para>
-    ///         All patterns (both caller-supplied and the per-root defaults) are evaluated
-    ///         relative to the current working directory so that paths like
-    ///         <c>"src/include/**"</c> are unambiguous across multiple <c>--includes</c>
-    ///         roots. Pattern compilation is delegated to <see cref="CompileHeaderPatterns"/>;
-    ///         per-root file enumeration and matching is delegated to <see cref="CollectMatchingFiles"/>.
+    ///         When patterns are provided, absolute patterns are forwarded to
+    ///         <see cref="GlobFileCollector"/> unchanged. Relative patterns are expanded
+    ///         against each <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry so
+    ///         that callers can write root-agnostic patterns such as <c>**/MyHeader.h</c>
+    ///         and have them resolved under every configured include root.
     ///     </para>
     /// </remarks>
     /// <exception cref="DirectoryNotFoundException">
-    ///     Thrown when a configured public include root does not exist on disk.
+    ///     Thrown when <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> is empty and a
+    ///     configured public include root does not exist on disk.
     /// </exception>
     private List<string> CollectHeaderFiles()
     {
-        var headerExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        var headerExtensions = new[] { ".h", ".hpp", ".hxx", ".h++" };
+        var cwd = Path.GetFullPath(Directory.GetCurrentDirectory());
+
+        List<string> patterns;
+
+        if (_options.ApiHeaderPatterns.Count == 0)
         {
-            ".h", ".hpp", ".hxx", ".h++",
-        };
-
-        var cwdAbsolute = Path.GetFullPath(Directory.GetCurrentDirectory());
-        var compiledPatterns = CompileHeaderPatterns();
-
-        var headers = new List<string>();
-        foreach (var root in _options.PublicIncludeRoots)
-        {
-            headers.AddRange(CollectMatchingFiles(root, headerExtensions, compiledPatterns, cwdAbsolute));
-        }
-
-        // De-duplicate and sort to produce a stable, deterministic header list.
-        // Overlapping PublicIncludeRoots can otherwise produce duplicate entries that
-        // cause declarations to appear multiple times in the generated output.
-        return headers
-            .Select(Path.GetFullPath)
-            .Distinct(CppEmitter.FileSystemPathComparer)
-            .OrderBy(h => h, StringComparer.Ordinal)
-            .ToList();
-    }
-
-    /// <summary>
-    ///     Compiles the configured API header patterns into a list of
-    ///     (isExclusion, compiledMatcher) pairs that can be reused for every file evaluation.
-    /// </summary>
-    /// <remarks>
-    ///     Empty exclusion globs (those whose pattern body is whitespace after stripping the
-    ///     leading <c>!</c>) are dropped because they would match nothing and only add overhead.
-    ///     Matchers are precompiled here so the per-file evaluation loop does not construct
-    ///     short-lived <see cref="Matcher"/> objects on every (file × pattern) pair.
-    /// </remarks>
-    /// <returns>
-    ///     An ordered list of (IsExclusion, Matcher) pairs in the same order as
-    ///     <see cref="CppGeneratorOptions.ApiHeaderPatterns"/>; exclusion entries have
-    ///     <c>IsExclusion = true</c>.
-    /// </returns>
-    private List<(bool IsExclusion, Matcher Matcher)> CompileHeaderPatterns()
-    {
-        var compiledPatterns = new List<(bool IsExclusion, Matcher Matcher)>();
-        foreach (var pattern in _options.ApiHeaderPatterns)
-        {
-            if (pattern.StartsWith('!'))
+            // Default mode: validate each root exists, then synthesize per-root wildcard patterns.
+            // The bare-star final segment causes GlobFileCollector to filter by language extensions.
+            var missingRoot = _options.PublicIncludeRoots.FirstOrDefault(r => !Directory.Exists(r));
+            if (missingRoot is not null)
             {
-                var exclusionGlob = pattern.Substring(1).Trim();
-                if (exclusionGlob.Length > 0)
+                throw new DirectoryNotFoundException(
+                    $"Public include root not found: '{missingRoot}'");
+            }
+
+            patterns = _options.PublicIncludeRoots
+                .Select(r => Path.GetFullPath(r) + "/**/*")
+                .ToList();
+        }
+        else
+        {
+            // Explicit patterns: forward absolute patterns unchanged; expand relative patterns
+            // against each include root so root-agnostic globs like "**/MyHeader.h" resolve
+            // correctly under every configured root without requiring callers to know the roots.
+            patterns = [];
+            foreach (var pattern in _options.ApiHeaderPatterns)
+            {
+                var isExclusion = pattern.StartsWith('!');
+                var body = isExclusion ? pattern.Substring(1).Trim() : pattern.Trim();
+
+                if (Path.IsPathRooted(body))
                 {
-                    var m = new Matcher();
-                    m.AddInclude(exclusionGlob);
-                    compiledPatterns.Add((true, m));
+                    // Absolute pattern — pass through unchanged
+                    patterns.Add(pattern);
+                }
+                else
+                {
+                    // Relative pattern — expand against each include root
+                    foreach (var root in _options.PublicIncludeRoots)
+                    {
+                        var expanded = Path.Combine(Path.GetFullPath(root), body);
+                        patterns.Add(isExclusion ? "!" + expanded : expanded);
+                    }
                 }
             }
-            else
-            {
-                var m = new Matcher();
-                m.AddInclude(pattern);
-                compiledPatterns.Add((false, m));
-            }
         }
 
-        return compiledPatterns;
+        return GlobFileCollector.Collect(patterns, headerExtensions, cwd).ToList();
     }
-
-    /// <summary>
-    ///     Enumerates all recognized header files under <paramref name="root"/> and applies
-    ///     the precompiled pattern list to select files that match at least one include
-    ///     pattern and are not subsequently overridden by an exclusion pattern.
-    /// </summary>
-    /// <remarks>
-    ///     When <paramref name="compiledPatterns"/> is empty every recognized header file
-    ///     under <paramref name="root"/> is included (default behavior). Pattern evaluation
-    ///     uses gitignore semantics: the last matching rule wins, and files start as excluded.
-    ///     Paths are CWD-relative when the file is under the working directory; otherwise
-    ///     root-relative paths are used to support absolute include roots and test environments.
-    /// </remarks>
-    /// <param name="root">The public include root directory to enumerate.</param>
-    /// <param name="headerExtensions">The set of recognized header file extensions.</param>
-    /// <param name="compiledPatterns">Precompiled inclusion and exclusion patterns.</param>
-    /// <param name="cwdAbsolute">The normalized absolute path of the current working directory.</param>
-    /// <returns>
-    ///     A list of absolute file paths that passed pattern matching; may be empty when no
-    ///     files under <paramref name="root"/> satisfy the configured patterns.
-    /// </returns>
-    /// <exception cref="DirectoryNotFoundException">
-    ///     Thrown when <paramref name="root"/> does not exist on disk.
-    /// </exception>
-    private static List<string> CollectMatchingFiles(
-        string root,
-        HashSet<string> headerExtensions,
-        List<(bool IsExclusion, Matcher Matcher)> compiledPatterns,
-        string cwdAbsolute)
-    {
-        if (!Directory.Exists(root))
-        {
-            throw new DirectoryNotFoundException(
-                $"Public include root not found: '{root}'");
-        }
-
-        var rootAbsolute = Path.GetFullPath(root);
-
-        var allFiles = Directory.GetFiles(root, "*", SearchOption.AllDirectories)
-            .Where(f => headerExtensions.Contains(Path.GetExtension(f)))
-            .Select(Path.GetFullPath)
-            .ToList();
-
-        if (compiledPatterns.Count == 0)
-        {
-            return allFiles;
-        }
-
-        var result = new List<string>();
-        foreach (var absoluteFile in allFiles)
-        {
-            var relFromCwd = Path.GetRelativePath(cwdAbsolute, absoluteFile).Replace('\\', '/');
-
-            var relPath = IsOutsideCwd(relFromCwd)
-                ? Path.GetRelativePath(rootAbsolute, absoluteFile).Replace('\\', '/')
-                : relFromCwd;
-
-            var included = false;
-
-            foreach (var (isExclusion, matcher) in compiledPatterns)
-            {
-                if (matcher.Match(relPath).HasMatches)
-                {
-                    included = !isExclusion;
-                }
-            }
-
-            if (included)
-            {
-                result.Add(absoluteFile);
-            }
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    ///     Returns <see langword="true"/> when the path returned by
-    ///     <see cref="Path.GetRelativePath"/> indicates the file lies outside the base directory.
-    /// </summary>
-    /// <remarks>
-    ///     <see cref="Path.GetRelativePath"/> returns <c>".."</c> or a <c>"../"</c>-prefixed
-    ///     path when the file is above the base, and returns the original absolute path unchanged
-    ///     when the base and the file are on different drives (Windows). Both cases mean the file
-    ///     is outside the base directory. Checking for the exact two-dot segment avoids
-    ///     misclassifying filenames that legitimately start with two dots (e.g. <c>..hidden.h</c>).
-    /// </remarks>
-    /// <param name="relativeFromBase">The forward-slash-normalized relative path to test.</param>
-    /// <returns>
-    ///     <see langword="true"/> when <paramref name="relativeFromBase"/> indicates the file is
-    ///     outside the base directory.
-    /// </returns>
-    private static bool IsOutsideCwd(string relativeFromBase) =>
-        relativeFromBase == ".."
-        || relativeFromBase.StartsWith("../", StringComparison.Ordinal)
-        || Path.IsPathRooted(relativeFromBase);
 
     // =========================================================================
     // Error checking

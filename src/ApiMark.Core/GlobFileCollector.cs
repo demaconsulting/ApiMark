@@ -1,0 +1,219 @@
+using Microsoft.Extensions.FileSystemGlobbing;
+
+namespace ApiMark.Core;
+
+/// <summary>Collects files from the filesystem using gitignore-style glob patterns.</summary>
+/// <remarks>
+///     Supports absolute and relative patterns, exclusions via <c>!</c> prefixes, and
+///     automatic extension filtering when a pattern's final segment is a bare <c>*</c>.
+///     This utility is shared across all ApiMark language generators that require
+///     flexible, filesystem-based file discovery. All members are stateless and thread-safe.
+/// </remarks>
+public static class GlobFileCollector
+{
+    private static readonly char[] GlobMetacharacters = ['*', '?', '[', '{'];
+
+    /// <summary>
+    ///     Collects files from the filesystem matching the specified glob patterns,
+    ///     filtered to files with extensions in <paramref name="languageExtensions"/>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Each pattern is evaluated directly against the filesystem. Patterns prefixed
+    ///         with <c>!</c> are exclusion patterns — they remove matching files from the
+    ///         accumulated result set. All other patterns are inclusion patterns that add
+    ///         matching files to the result set. Patterns are processed in order: inclusions
+    ///         build the set, then exclusions subtract from it.
+    ///     </para>
+    ///     <para>
+    ///         Relative patterns are resolved against <paramref name="workingDirectory"/>.
+    ///         Absolute patterns determine their own filesystem root from the longest
+    ///         non-glob path prefix; the remainder becomes the glob tail passed to
+    ///         <see cref="Matcher"/>.
+    ///     </para>
+    ///     <para>
+    ///         When the final path segment of the glob tail is exactly <c>*</c> (a bare
+    ///         wildcard with no extension), results are filtered to files whose extension
+    ///         (case-insensitive) appears in <paramref name="languageExtensions"/>. When the
+    ///         final segment specifies an explicit extension (e.g. <c>*.vhd</c>,
+    ///         <c>**/*.h</c>), all results are taken as-is without additional filtering.
+    ///     </para>
+    ///     <para>
+    ///         Non-existent pattern roots are silently skipped and contribute no files.
+    ///         The method never throws for missing directories.
+    ///     </para>
+    /// </remarks>
+    /// <param name="patterns">
+    ///     Ordered list of glob patterns. Entries prefixed with <c>!</c> are exclusion patterns.
+    ///     Relative patterns are resolved against <paramref name="workingDirectory"/>.
+    /// </param>
+    /// <param name="languageExtensions">
+    ///     File extensions — including the leading dot (e.g. <c>.vhd</c>, <c>.h</c>) — used
+    ///     to filter results when a pattern's final segment is a bare <c>*</c>.
+    /// </param>
+    /// <param name="workingDirectory">
+    ///     Absolute path used as the root for relative patterns. Must be an absolute path.
+    /// </param>
+    /// <returns>
+    ///     Sorted, deduplicated list of absolute file paths that match the accumulated
+    ///     inclusion patterns and are not removed by any exclusion pattern.
+    /// </returns>
+    public static IReadOnlyList<string> Collect(
+        IEnumerable<string> patterns,
+        IEnumerable<string> languageExtensions,
+        string workingDirectory)
+    {
+        var extensions = new HashSet<string>(languageExtensions, StringComparer.OrdinalIgnoreCase);
+        var collected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var pattern in patterns)
+        {
+            // Parse the exclusion prefix and trim the pattern body
+            var isExclusion = pattern.StartsWith('!');
+            var patternBody = isExclusion ? pattern.Substring(1).Trim() : pattern.Trim();
+
+            if (patternBody.Length == 0)
+            {
+                continue;
+            }
+
+            // Determine the filesystem root and the glob tail for this pattern
+            var (root, globTail) = ParsePattern(patternBody, workingDirectory);
+
+            if (globTail.Length == 0 || !Directory.Exists(root))
+            {
+                // No glob portion, or the root directory does not exist — skip silently
+                continue;
+            }
+
+            // Determine whether extension inference is needed (bare-star final segment)
+            var needsExtensionFilter = HasBareStarFinalSegment(globTail);
+
+            // Run the glob matcher against the resolved filesystem root
+            var matcher = new Matcher(StringComparison.OrdinalIgnoreCase);
+            matcher.AddInclude(globTail.Replace('\\', '/'));
+            var results = matcher.GetResultsInFullPath(root);
+
+            // Apply language-extension filter when the final segment is a bare wildcard
+            if (needsExtensionFilter)
+            {
+                results = results.Where(f => extensions.Contains(Path.GetExtension(f)));
+            }
+
+            // Accumulate: include patterns add files; exclusion patterns remove them
+            if (isExclusion)
+            {
+                foreach (var file in results)
+                {
+                    collected.Remove(Path.GetFullPath(file));
+                }
+            }
+            else
+            {
+                foreach (var file in results)
+                {
+                    collected.Add(Path.GetFullPath(file));
+                }
+            }
+        }
+
+        return collected.OrderBy(f => f, StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>
+    ///     Returns <see langword="true"/> when the final path segment of the glob tail
+    ///     is exactly <c>*</c>, indicating that language-extension filtering should apply.
+    /// </summary>
+    /// <remarks>
+    ///     The final segment is determined by splitting the glob tail on both forward and
+    ///     backward slashes. A segment of <c>**</c> or <c>*.ext</c> does not trigger
+    ///     extension inference; only the bare single-star <c>*</c> does.
+    /// </remarks>
+    /// <param name="globTail">The glob tail string to inspect (may use any directory separator).</param>
+    /// <returns><see langword="true"/> when the final path segment is exactly <c>*</c>.</returns>
+    private static bool HasBareStarFinalSegment(string globTail)
+    {
+        // Split on both separators to find the final path segment
+        var lastSeparator = globTail.LastIndexOfAny(['/', '\\']);
+        var lastSegment = lastSeparator >= 0
+            ? globTail.Substring(lastSeparator + 1)
+            : globTail;
+        return lastSegment == "*";
+    }
+
+    /// <summary>
+    ///     Splits a pattern body into a filesystem root and a glob tail to pass to
+    ///     <see cref="Matcher"/>.
+    /// </summary>
+    /// <remarks>
+    ///     For absolute patterns the root is the longest non-glob path prefix — segments
+    ///     are included until the first one containing a glob metacharacter (<c>*</c>,
+    ///     <c>?</c>, <c>[</c>, <c>{</c>). The remainder from the last directory separator
+    ///     before the first glob metacharacter to the end is the glob tail.
+    ///     For relative patterns the root is <paramref name="workingDirectory"/> and the
+    ///     entire pattern body is the glob tail.
+    /// </remarks>
+    /// <param name="patternBody">The pattern with any leading <c>!</c> prefix already stripped.</param>
+    /// <param name="workingDirectory">Absolute path used as the root for relative patterns.</param>
+    /// <returns>
+    ///     A tuple of (root, globTail) where root is an absolute filesystem path and
+    ///     globTail is the pattern string to pass to <see cref="Matcher"/>.
+    /// </returns>
+    private static (string Root, string GlobTail) ParsePattern(string patternBody, string workingDirectory)
+    {
+        if (Path.IsPathRooted(patternBody))
+        {
+            // Normalize backslashes to forward slashes for uniform metacharacter scanning
+            return SplitAbsolutePattern(patternBody.Replace('\\', '/'));
+        }
+
+        // Relative pattern — root is the configured working directory; tail is the full pattern body
+        return (workingDirectory, patternBody);
+    }
+
+    /// <summary>
+    ///     Splits a normalized (forward-slash) absolute pattern into a static root prefix
+    ///     and a glob tail by locating the first glob metacharacter.
+    /// </summary>
+    /// <remarks>
+    ///     The root is everything up to (but not including) the last <c>/</c> before the
+    ///     first glob metacharacter. The tail is everything after that separator. When
+    ///     there is no <c>/</c> before the first glob, the root is empty and the tail is
+    ///     the entire pattern. A leading <c>/</c> at position zero is preserved as the
+    ///     root for Unix absolute paths such as <c>/opt/sdk/include/**/*.h</c>.
+    /// </remarks>
+    /// <param name="normalizedPattern">
+    ///     Absolute pattern with all backslashes replaced by forward slashes.
+    /// </param>
+    /// <returns>
+    ///     A (root, globTail) tuple where root is the longest static directory prefix and
+    ///     globTail is the portion to pass to <see cref="Matcher.AddInclude"/>.
+    /// </returns>
+    private static (string Root, string GlobTail) SplitAbsolutePattern(string normalizedPattern)
+    {
+        // Find the index of the first glob metacharacter in the pattern
+        var firstGlob = normalizedPattern.IndexOfAny(GlobMetacharacters);
+
+        if (firstGlob < 0)
+        {
+            // No glob metacharacters — the entire pattern is a static path; nothing to glob
+            return (normalizedPattern, string.Empty);
+        }
+
+        // Locate the last '/' strictly before the first glob metacharacter
+        var prefix = normalizedPattern.Substring(0, firstGlob);
+        var lastSlash = prefix.LastIndexOf('/');
+
+        if (lastSlash < 0)
+        {
+            // No separator precedes the first glob — cannot derive a static root
+            return (string.Empty, normalizedPattern);
+        }
+
+        // lastSlash == 0 means the leading '/' of a Unix absolute path is the boundary
+        var root = lastSlash == 0 ? "/" : normalizedPattern.Substring(0, lastSlash);
+        var tail = normalizedPattern.Substring(lastSlash + 1);
+
+        return (root, tail);
+    }
+}
