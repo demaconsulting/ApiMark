@@ -41,9 +41,11 @@ public sealed class CppGeneratorOptions
     /// <remarks>
     ///     <para>
     ///         Both absolute and relative glob patterns are supported. Relative patterns are
-    ///         resolved against the process working directory. Absolute patterns determine their
-    ///         own root from the non-glob path prefix, allowing headers outside the working
-    ///         directory or on other drives to be included directly.
+    ///         expanded against each <see cref="PublicIncludeRoots"/> entry so that callers
+    ///         can write root-agnostic patterns such as <c>**/MyHeader.h</c> and have them
+    ///         resolved under every configured include root. Absolute patterns determine their
+    ///         own root from the non-glob path prefix, allowing headers outside any include
+    ///         root or on other drives to be included directly.
     ///     </para>
     ///     <para>
     ///         Patterns whose final segment is a bare <c>*</c> (e.g. <c>include/**/*</c>,

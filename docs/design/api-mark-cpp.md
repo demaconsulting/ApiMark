@@ -121,10 +121,10 @@ N/A — not a safety-classified software item.
    include root, avoiding processing of system and third-party headers.
 4. `ClangAstParser` returns a `CppCompilationResult` containing all declarations
    physically located in the public headers, already filtered by ownership.
-5. CppGenerator applies the IsOwnedDeclaration filter to each declaration:
-   only declarations whose source file normalizes to a path under a
-   PublicIncludeRoot that was selected by ApiHeaderPatterns are documented.
-   System and third-party declarations are used for type resolution only.
+5. `ClangAstParser` rejects declarations whose source file is not in the
+   pre-selected header set (built by `CollectHeaderFiles()` via `GlobFileCollector`).
+   Only declarations from selected headers are documented; system and third-party
+   declarations are used for type resolution only.
 6. For each owned declaration, CppGenerator derives the canonical #include path
    as the source file path relative to its matching PublicIncludeRoot, expressed
    with forward slashes.
