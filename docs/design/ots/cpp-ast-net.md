@@ -1,6 +1,6 @@
 ## CppAst.Net
 
-> **Archived**: ApiMarkCpp no longer uses CppAst.Net. The C++ backend was rewritten
+> **Archived**: ApiMark.Cpp no longer uses CppAst.Net. The C++ backend was rewritten
 > to invoke `clang -ast-dump=json` directly. This document is retained for historical
 > reference. See `docs/design/ots/clang.md` for the current integration design.
 

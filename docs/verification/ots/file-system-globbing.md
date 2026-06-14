@@ -22,8 +22,10 @@ requiring a separate working directory. This scenario is tested by
 
 **Exclusion pattern removes matched files**: Verifies that a `!`-prefixed exclusion
 pattern correctly removes files that would otherwise be matched by a preceding include
-pattern, confirming that `AddExclude` semantics are honored. This scenario is tested
-by `GlobFileCollector_Collect_ExclusionPattern_RemovesMatchedFiles`.
+pattern. `GlobFileCollector` runs `GetResultsInFullPath` for the exclusion pattern and
+calls `collected.Remove()` for each result, ensuring that excluded files never appear
+in the output. This scenario is tested by
+`GlobFileCollector_Collect_ExclusionPattern_RemovesMatchedFiles`.
 
 **Non-existent root returns empty without throwing**: Verifies that a pattern whose
 root directory does not exist produces an empty result rather than throwing an

@@ -16,34 +16,26 @@ integration risk compared to third-party glob libraries.
 
 ### Features Used
 
-- **`Matcher` class** — accumulates include and exclude glob patterns via
-  `AddInclude` / `AddExclude`, then executes them against a directory root using
-  `Execute(DirectoryInfoWrapper)` to return the matched relative paths.
-- **`DirectoryInfoWrapper`** — adapts a `DirectoryInfo` to the `IDirectoryInfo`
-  interface expected by `Matcher.Execute`, allowing the library to traverse the
-  physical file system.
-- **Include/exclude semantics** — patterns registered with `AddExclude` remove files
-  from the accumulated match set. `GlobFileCollector` maps its `!`-prefixed patterns
-  to `AddExclude` calls and all other patterns to `AddInclude` calls.
+- **`Matcher` class** — accumulates include glob patterns via `AddInclude`, then
+  executes them against a directory root using `GetResultsInFullPath(root)` to
+  return matching absolute file paths as `IEnumerable<string>`.
+- **Include-only matching** — `GlobFileCollector` always calls `AddInclude` for
+  every pattern. Exclusion semantics are implemented in `GlobFileCollector` itself
+  by calling `collected.Remove()` on paths returned for `!`-prefixed patterns,
+  rather than relying on `Matcher.AddExclude`.
 
 ### Integration Pattern
 
-`GlobFileCollector.Collect` uses `Matcher` in a per-root loop:
+`GlobFileCollector.Collect` uses one `Matcher` instance per pattern:
 
-1. For each pattern group sharing the same filesystem root, create a new `Matcher`
-   instance.
-2. Call `matcher.AddInclude` or `matcher.AddExclude` for each pattern's glob tail.
-3. Call `matcher.Execute(new DirectoryInfoWrapper(new DirectoryInfo(root)))` to
-   obtain a `PatternMatchingResult`.
-4. Iterate `result.Files` to collect matched absolute paths.
+1. For each pattern, strip the optional `!` exclusion prefix and resolve the
+   filesystem root and glob tail via `ParsePattern`.
+2. Create a new `Matcher(StringComparison.OrdinalIgnoreCase)` instance.
+3. Call `matcher.AddInclude(globTail)` with the pattern's glob portion.
+4. Call `matcher.GetResultsInFullPath(root)` to obtain an `IEnumerable<string>`
+   of absolute paths.
+5. For inclusion patterns, add results to the `collected` hash set. For exclusion
+   patterns, call `collected.Remove()` for each result.
 
-Non-existent roots are skipped before calling `Execute` so the library is never
-asked to traverse a missing directory.
-
-### Known Constraints
-
-- The library evaluates patterns relative to a single root per `Execute` call.
-  `GlobFileCollector` handles multi-root scenarios by grouping patterns by root and
-  making one `Execute` call per root.
-- Pattern matching is case-sensitive on case-sensitive file systems (Linux/macOS)
-  and case-insensitive on Windows, consistent with OS file-system semantics.
+Non-existent roots are skipped before calling `GetResultsInFullPath` so the
+library is never asked to traverse a missing directory.

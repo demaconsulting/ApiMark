@@ -59,8 +59,14 @@ integration follows these steps:
    -fsyntax-only -x c++` followed by include path flags (`-I`, `-isystem`), preprocessor defines (`-D`),
    and the combined header file.
 4. Clang is launched via `Process.Start`; stdout is read and deserialized as a `JsonDocument`.
-5. `ClangAstParser` walks the JSON AST, collecting only nodes whose `"loc.file"` falls under a
-   configured public include root. The `"loc.file"` field is inherited by child nodes when not
-   explicitly present (sticky-file semantics from the clang AST format).
+5. `ClangAstParser` walks the JSON AST, collecting only nodes that satisfy both
+   ownership conditions: (a) the node's `"loc.file"` falls under a configured
+   public include root, and (b) the file path is present in `_selectedHeaders` —
+   the set of header files resolved by `GlobFileCollector` from the
+   `ApiHeaderPatterns` glob list. This two-condition filter ensures that headers
+   transitively included from dependency libraries are excluded even when they
+   reside under a public include root. The `"loc.file"` field is inherited by
+   child nodes when not explicitly present (sticky-file semantics from the clang
+   AST format).
 6. The collected declarations are assembled into a `CppCompilationResult` and returned to
    `CppGenerator` for output generation.
