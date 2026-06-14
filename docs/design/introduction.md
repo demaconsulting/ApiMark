@@ -55,7 +55,8 @@ ApiMarkCore (System)
 ├── FileMarkdownWriterFactory (Unit)
 ├── IMarkdownWriter (Unit)
 ├── FileMarkdownWriter (Unit)
-└── PathHelpers (Unit)
+├── PathHelpers (Unit)
+└── GlobFileCollector (Unit)
 
 ApiMarkDotNet (System)
 ├── DotNetGenerator (Unit)
@@ -115,6 +116,7 @@ src/
 │   ├── IMarkdownWriterFactory.cs       - factory interface for creating per-file markdown writers
 │   ├── IMarkdownWriter.cs              - per-file markdown writing interface (IDisposable)
 │   ├── PathHelpers.cs                  - shared path-safety helper for combining validated relative paths
+│   ├── GlobFileCollector.cs            - shared glob-based file discovery utility (absolute/relative patterns, extension inference)
 │   ├── FileMarkdownWriterFactory.cs    - file-system implementation of IMarkdownWriterFactory
 │   └── FileMarkdownWriter.cs           - file-system implementation of IMarkdownWriter
 ├── ApiMark.DotNet/
@@ -176,8 +178,7 @@ test/
 
 Each local software item has corresponding artifacts in parallel directory trees:
 
-- Requirements: `docs/reqstream/api-mark-core.yaml`, `docs/reqstream/api-mark-core/{item}.yaml`,
-  `docs/reqstream/api-mark-dot-net.yaml`,
+- Requirements: `docs/reqstream/api-mark-core.yaml`, `docs/reqstream/api-mark-core/{item}.yaml`,  `docs/reqstream/api-mark-dot-net.yaml`,
   `docs/reqstream/api-mark-dot-net/dot-net-generator.yaml`,
   `docs/reqstream/api-mark-dot-net/type-name-simplifier.yaml`,
   `docs/reqstream/api-mark-dot-net/dot-net-ast-model.yaml`,

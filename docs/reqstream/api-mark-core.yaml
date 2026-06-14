@@ -95,3 +95,26 @@ sections:
         children:
           - ApiMarkCore-EmitConfig-DefineFormat
           - ApiMarkCore-EmitConfig-DefineHeadingDepth
+      - id: ApiMarkCore-GlobFileCollector-ProvideGlobFileCollector
+        title: ApiMark Core shall provide a shared utility for discovering files from
+          the filesystem using gitignore-style glob patterns.
+        justification: |
+          Multiple language generators (C++ and VHDL) need to discover source files
+          based on caller-supplied glob patterns. Providing a shared, tested utility
+          in ApiMarkCore avoids duplicated pattern-evaluation logic and ensures
+          consistent behavior (absolute/relative patterns, bare-star extension
+          inference, exclusion semantics, deduplication) across all generators.
+        children:
+          - ApiMarkCore-GlobFileCollector-CollectFilesViaGlobPatterns
+          - ApiMarkCore-GlobFileCollector-SupportAbsolutePatterns
+          - ApiMarkCore-GlobFileCollector-InferExtensionsFromBareStar
+          - ApiMarkCore-GlobFileCollector-SupportExclusionPatterns
+          - ApiMarkCore-GlobFileCollector-SkipNonExistentRoots
+        tests:
+          - GlobFileCollector_Collect_EmptyPatterns_ReturnsEmptyList
+          - GlobFileCollector_Collect_RelativeVhdPattern_FindsVhdFiles
+          - GlobFileCollector_Collect_BareStarWithVhdlExtensions_FiltersToVhdlOnly
+          - GlobFileCollector_Collect_AbsolutePattern_FindsFiles
+          - GlobFileCollector_Collect_ExclusionPattern_RemovesMatchedFiles
+          - GlobFileCollector_Collect_NonExistentRoot_ReturnsEmptyWithoutThrowing
+          - GlobFileCollector_Collect_OverlappingPatterns_ReturnsSortedDeduplicated

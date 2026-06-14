@@ -180,7 +180,7 @@ ApiMark documents the following VHDL constructs when they carry `--!` doc commen
 
 - **Entities** — entity name, generic parameters, port declarations
 - **Architectures** — architecture name and doc comment (listed inline on the entity page)
-- **Packages** — package name, types, subtypes, constants, components, and subprograms
+- **Packages** — package name, types, constants, components, and subprograms
 
 `--!` doc comments are single-line comments prefixed with `--!` placed
 immediately before the construct they describe.

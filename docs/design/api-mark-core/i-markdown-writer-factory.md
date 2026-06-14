@@ -81,6 +81,8 @@ The `IMarkdownWriterFactory` interface itself has no dependencies; the following
   and calls CreateMarkdown once per output file produced during generation.
 - **CppGenerator** — receives an IMarkdownWriterFactory passed to `IApiEmitter.Emit`
   and calls CreateMarkdown once per output file produced during generation.
+- **VhdlGenerator** — receives an IMarkdownWriterFactory passed to `IApiEmitter.Emit`
+  and calls CreateMarkdown once per output file produced during generation.
 - **ApiMarkTask** — spawns ApiMark.Tool as a child process, within which Program
   creates the `FileMarkdownWriterFactory`. ApiMarkTask does not use IMarkdownWriterFactory
   directly.

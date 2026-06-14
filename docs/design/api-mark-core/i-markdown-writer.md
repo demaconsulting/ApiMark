@@ -109,3 +109,7 @@ on other units, OTS items, or shared packages.
   for each namespace, type, and member discovered in the public headers. Writers
   are obtained from the IMarkdownWriterFactory passed to `IApiEmitter.Emit`
   and disposed after each file is complete.
+- **VhdlGenerator** — calls IMarkdownWriter write methods to emit Markdown content
+  for each entity and package discovered in the VHDL source files. Writers are
+  obtained from the IMarkdownWriterFactory passed to `IApiEmitter.Emit` and
+  disposed after each file is complete.

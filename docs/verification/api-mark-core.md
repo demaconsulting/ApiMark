@@ -28,6 +28,10 @@ unit tests.
   links) are forwarded with the correct values and sequence.
 - `PathHelpers` combines valid relative paths and rejects traversal, rooted, and null
   path input.
+- `GlobFileCollector` collects files matching glob patterns: empty patterns return
+  empty; bare-star segments apply language-extension filtering; absolute patterns work
+  independently of working directory; exclusions remove files; non-existent roots
+  return empty without throwing; results are sorted and deduplicated.
 
 ## Test Scenarios
 
@@ -60,3 +64,10 @@ structure. This scenario is tested by
 relative segments while rejecting traversal attempts, rooted paths, and null input.
 This scenario is tested by the `PathHelpers_SafePathCombine_*` test cases in
 `PathHelpersTests`.
+
+**GlobFileCollector discovers files via glob patterns**: Verifies that GlobFileCollector
+correctly collects files matching inclusion patterns, applies language-extension filtering
+for bare-star segments, supports absolute path patterns, removes files matched by
+exclusion patterns, returns empty results for non-existent roots without throwing, and
+returns a sorted, deduplicated list. These scenarios are tested by the
+`GlobFileCollector_Collect_*` test cases in `GlobFileCollectorTests`.

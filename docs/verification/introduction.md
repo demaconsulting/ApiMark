@@ -23,6 +23,9 @@ Local items:
 - **PathHelpers**: unit verification of the safe path-combination utility.
 - **IApiEmitter**: unit verification of the language-emitter contract interface.
 - **EmitConfig**: unit verification of the emit-configuration value object and output-format enum.
+- **GlobFileCollector**: unit verification of glob-based file discovery — inclusion and exclusion
+  patterns, absolute and relative path support, bare-star extension inference, non-existent root
+  tolerance, and sorted deduplicated output.
 - **ApiMarkCpp**: system-level verification of the C++ documentation generation pipeline.
 - **CppGenerator**: unit verification of header discovery, visibility filtering, Doxygen comment
   rendering, and Markdown output generation.
@@ -100,6 +103,7 @@ Local items have parallel artifacts in:
   `docs/reqstream/api-mark-core/i-markdown-writer-factory.yaml`,
   `docs/reqstream/api-mark-core/i-markdown-writer.yaml`,
   `docs/reqstream/api-mark-core/path-helpers.yaml`,
+  `docs/reqstream/api-mark-core/glob-file-collector.yaml`,
   `docs/reqstream/api-mark-cpp.yaml`,
   `docs/reqstream/api-mark-cpp/cpp-generator.yaml`,
   `docs/reqstream/api-mark-cpp/cpp-ast-model.yaml`,
@@ -139,6 +143,7 @@ Local items have parallel artifacts in:
   `docs/design/api-mark-core/i-markdown-writer-factory.md`,
   `docs/design/api-mark-core/i-markdown-writer.md`,
   `docs/design/api-mark-core/path-helpers.md`,
+  `docs/design/api-mark-core/glob-file-collector.md`,
   `docs/design/api-mark-cpp.md`, `docs/design/api-mark-cpp/cpp-generator.md`,
   `docs/design/api-mark-cpp/cpp-ast-model.md`,
   `docs/design/api-mark-cpp/clang-ast-parser.md`,
@@ -174,6 +179,7 @@ Local items have parallel artifacts in:
   `docs/verification/api-mark-core/i-markdown-writer-factory.md`,
   `docs/verification/api-mark-core/i-markdown-writer.md`,
   `docs/verification/api-mark-core/path-helpers.md`,
+  `docs/verification/api-mark-core/glob-file-collector.md`,
   `docs/verification/api-mark-cpp.md`,
   `docs/verification/api-mark-cpp/cpp-generator.md`,
   `docs/verification/api-mark-cpp/cpp-ast-model.md`,
