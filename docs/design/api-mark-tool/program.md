@@ -83,7 +83,7 @@ the generator, and calls `Parse` then `Emit`.
   `ClangPath`).
 - For the `vhdl` language, `VhdlGeneratorOptions` is populated with `Sources`
   (from `context.Sources`), `LibraryName` (from `context.LibraryName`), and
-  `LibraryDescription` (from `context.LibraryDescription`).
+  `Description` (from `context.LibraryDescription`).
 
 **Program.PrintBanner** (private static): Prints the application banner (tool name,
 version, copyright line, and a blank line).

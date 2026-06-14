@@ -176,7 +176,7 @@ internal static class Program
 
         // Validate vhdl-specific required options before constructing the generator.
         if (context.Language == "vhdl" &&
-            !context.Sources.Any(s => !s.StartsWith('!')))
+            !context.Sources.Any(s => !string.IsNullOrWhiteSpace(s) && !s.StartsWith('!')))
         {
             context.WriteError("Error: --source is required for the vhdl subcommand.");
             PrintHelp(context);

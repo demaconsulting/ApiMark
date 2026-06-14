@@ -80,11 +80,8 @@ internal sealed class VhdlEmitterGradualDisclosure
             using var writer = factory.CreateMarkdown("", VhdlEmitter.SanitizeFileName(entity.Name));
             writer.WriteHeading(1, entity.Name);
 
-            var summary = VhdlEmitter.GetSummary(entity.Doc);
-            if (!string.IsNullOrEmpty(summary))
-            {
-                writer.WriteParagraph(summary);
-            }
+            var summary = VhdlEmitter.GetSummary(entity.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder;
+            writer.WriteParagraph(summary);
 
             var details = entity.Doc?.Details;
             if (!string.IsNullOrEmpty(details))

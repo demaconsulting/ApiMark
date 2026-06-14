@@ -44,7 +44,8 @@ internal sealed class VhdlEmitter : IApiEmitter
     /// <summary>Gets the summary from a VhdlDocComment, or null.</summary>
     /// <param name="doc">The doc comment to extract from, or null.</param>
     /// <returns>The summary text, or null if doc is null.</returns>
-    internal static string? GetSummary(VhdlDocComment? doc) => doc?.Summary;
+    internal static string? GetSummary(VhdlDocComment? doc) =>
+        string.IsNullOrEmpty(doc?.Summary) ? null : doc!.Summary;
 
     /// <summary>
     ///     Returns a copy of <paramref name="name"/> with every character that is invalid
