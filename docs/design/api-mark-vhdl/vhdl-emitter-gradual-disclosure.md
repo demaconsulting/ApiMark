@@ -47,11 +47,13 @@ their own detail page under a per-package subfolder.
      (Name/Type/Default/Description), Ports table (Name/Direction/Type/Description),
      Architectures section (inline — one bold entry per architecture).
   4. For each package: write H1 package name, summary, details, Types paragraphs,
-     Constants paragraphs, Components paragraphs, Subprograms section with links
-     to per-subprogram detail pages.
+     Constants paragraphs, Components as `**name** — summary` paragraphs, Subprograms
+     section with links to per-subprogram detail pages.
   5. For each package subprogram: write `{packageName}/{subprogramName}.md` with
-     H1 subprogram name, kind attribution, summary, Parameters table
-     (Name/Mode/Type/Description), optional Returns paragraph, Signature code block.
+     H1 subprogram name, summary, Parameters table
+     (Name/Type/Description — type is formatted by `VhdlEmitter.FormatParamType`:
+     object-class keywords stripped, direction keyword prefixed to type name),
+     optional Returns paragraph, Signature code block.
 
 ### Error Handling
 

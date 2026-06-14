@@ -15,7 +15,7 @@ Usage: apimark [options] [language [language-options]]
 | `--silent` | Suppress console output |
 | `--validate` | Run self-validation tests |
 | `--results <file>` | Write validation results to file (`.trx` or `.xml`) |
-| `--depth <#>` | Set the top-level heading depth for generated Markdown output (default: `1`) |
+| `--depth <#>` | Set the top-level heading depth for generated Markdown output (default: `1`); restricted to `1`–`3` when `--format single-file` is used |
 | `--log <file>` | Write all output to log file |
 
 ## Languages

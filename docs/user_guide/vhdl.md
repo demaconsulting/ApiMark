@@ -55,6 +55,9 @@ apimark vhdl \
   --output docs/api
 ```
 
+If the evaluated patterns match no `.vhd` or `.vhdl` files, ApiMark writes a diagnostic
+error to standard error and produces no output files.
+
 ## Documented Constructs
 
 ApiMark parses VHDL source files and produces documentation for the following
