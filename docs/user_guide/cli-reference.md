@@ -184,10 +184,10 @@ A hierarchy of Markdown files designed for incremental context loading.
 
 | File | Description |
 | --- | --- |
-| `api.md` | Root index — lists all entities, architectures, and packages with one-line summaries |
-| `{entity-name}.md` | Entity page — generics table, ports table, and doc comment details |
-| `{arch-name}_{entity-name}_arch.md` | Architecture page — architecture name, entity reference, and doc comment |
-| `{package-name}.md` | Package page — package summary and doc comment |
+| `api.md` | Root index — lists all entities and packages with one-line summaries |
+| `{entity-name}.md` | Entity page — generics table, ports table, and inline architecture list |
+| `{package-name}.md` | Package page — types, constants, components, and subprogram index |
+| `{package-name}/{subprogram-name}.md` | Subprogram detail page — parameters table, optional returns, and signature |
 
 An AI agent can read the root index first, drill into the relevant entity or
 package page, and then read the detail — consuming only as much context as the

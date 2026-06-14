@@ -16,6 +16,9 @@ If `clang` is not on your PATH, set the `APIMARK_CLANG_PATH` environment variabl
 use the `--clang-path` CLI option, or set the `ApiMarkClangPath` MSBuild property
 to specify the full path to the clang executable.
 
+VHDL documentation generation has no additional prerequisites. Parsing is done
+in-process using the ANTLR4 vhdl2008 grammar — no external tools required.
+
 ## CLI Tool
 
 Install the ApiMark CLI as a global .NET tool:

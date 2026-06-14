@@ -5,9 +5,10 @@
 
 ### Purpose
 
-VhdlEmitterGradualDisclosure writes one Markdown file per VHDL declaration
-(entity, architecture, package) plus an `api.md` index page, enabling gradual
-disclosure navigation from the index to individual declaration pages.
+VhdlEmitterGradualDisclosure writes one Markdown file per VHDL entity and
+package plus an `api.md` index page, enabling gradual disclosure navigation
+from the index to individual declaration pages. Package subprograms each get
+their own detail page under a per-package subfolder.
 
 ### Data Model
 
@@ -21,10 +22,11 @@ disclosure navigation from the index to individual declaration pages.
 - `api.md` — library index listing all entities and packages with descriptions and
   relative Markdown links.
 - `{entityName}.md` — entity detail page with generics table, ports table, and
-  architecture list.
-- `{archName}_{entityName}_arch.md` — architecture detail page (combined name avoids
-  collision with entity pages of the same name).
-- `{packageName}.md` — package detail page.
+  inline architecture list.
+- `{packageName}.md` — package detail page with types, constants, components, and
+  subprogram index.
+- `{packageName}/{subprogramName}.md` — subprogram detail page with parameters
+  table, optional returns section, and signature.
 
 ### Key Methods
 
@@ -43,9 +45,13 @@ disclosure navigation from the index to individual declaration pages.
      (Name/Description with relative links).
   3. For each entity: write H1 entity name, summary, details, Generics table
      (Name/Type/Default/Description), Ports table (Name/Direction/Type/Description),
-     Architectures section.
-  4. For each architecture: write H1 arch name, entity reference paragraph, summary.
-  5. For each package: write H1 package name, summary.
+     Architectures section (inline — one bold entry per architecture).
+  4. For each package: write H1 package name, summary, details, Types paragraphs,
+     Constants paragraphs, Components paragraphs, Subprograms section with links
+     to per-subprogram detail pages.
+  5. For each package subprogram: write `{packageName}/{subprogramName}.md` with
+     H1 subprogram name, kind attribution, summary, Parameters table
+     (Name/Mode/Type/Description), optional Returns paragraph, Signature code block.
 
 ### Error Handling
 
@@ -61,7 +67,8 @@ disclosure navigation from the index to individual declaration pages.
 - **IMarkdownWriterFactory** (ApiMarkCore) — used to create each per-file Markdown
   writer.
 - **VhdlAstModel** (internal) — consumes `VhdlFileModel`, `VhdlEntityDecl`,
-  `VhdlArchitectureDecl`, and `VhdlPackageDecl` record types.
+  `VhdlArchitectureDecl`, `VhdlPackageDecl`, `VhdlSubprogramDecl`, and
+  `VhdlParamDecl` record types.
 
 ### Callers
 

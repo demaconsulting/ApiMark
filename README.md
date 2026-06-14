@@ -28,7 +28,7 @@ type page — consuming only as much context as the task requires.
 - 💡 **Example Code Blocks** - `<example><code>` (C#) and `@code`/`@endcode` (Doxygen) blocks rendered in output
 - 🔷 **C#/.NET Support** - Mono.Cecil + XML documentation comments
 - ➕ **C++ Support** - `clang -ast-dump=json` + Doxygen-style comments
-- 🔷 **VHDL Support** - ANTLR4 vhdl2008 grammar + `--!` doc comments
+- 🔶 **VHDL Support** - Entities, packages, and subprograms from ANTLR4 vhdl2008 grammar + `--!` doc comments
 - 🔧 **MSBuild Integration** - Auto-documents `.csproj` and `.vcxproj` builds
 - 🖥️ **CLI Tool** - `apimark` dotnet tool covering all languages
 - 🤖 **AI-Optimized** - Minimal noise, explicit navigation links

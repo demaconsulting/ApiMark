@@ -174,6 +174,16 @@ internal static class Program
             return;
         }
 
+        // Validate vhdl-specific required options: at least one non-exclusion --source pattern
+        // must be provided so the generator has something to scan.
+        if (context.Language == "vhdl" &&
+            (context.Sources == null || !context.Sources.Any(s => !s.StartsWith('!'))))
+        {
+            context.WriteError("Error: at least one non-exclusion --source pattern is required for the vhdl subcommand.");
+            PrintHelp(context);
+            return;
+        }
+
         try
         {
             // Construct the generator, parse symbols, then emit using the configured format

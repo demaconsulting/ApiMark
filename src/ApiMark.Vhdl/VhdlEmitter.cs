@@ -31,6 +31,11 @@ internal sealed class VhdlEmitter : IApiEmitter
     public void Emit(IMarkdownWriterFactory factory, EmitConfig config, IContext context)
     {
         ArgumentNullException.ThrowIfNull(factory);
+        if (_fileModels.Count == 0)
+        {
+            return;
+        }
+
         if (config.Format == OutputFormat.SingleFile)
         {
             new VhdlEmitterSingleFile(this, _fileModels).Emit(factory, config, context);
