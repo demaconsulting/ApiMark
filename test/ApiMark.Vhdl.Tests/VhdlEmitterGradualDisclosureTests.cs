@@ -348,6 +348,73 @@ public class VhdlEmitterGradualDisclosureTests
         Assert.Contains(headings, h => h.Text.Equals("Returns", StringComparison.Ordinal));
     }
 
+    /// <summary>Validates that the Parameters table headers are Name, Type, Description (no Mode column).</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_SubprogramWithParameters_ParametersTableHasCorrectHeaders()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildDataWithParameterizedSubprogram();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: Parameters table headers must be Name | Type | Description (no Mode column)
+        var subWriter = factory.GetWriter("my_pkg", "to_natural");
+        var table = subWriter.Operations.OfType<TableOperation>().First();
+        Assert.Equal(["Name", "Type", "Description"], table.Headers);
+    }
+
+    /// <summary>Validates that a parameter with no direction shows the bare type name in the Type cell.</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_SubprogramWithPlainParameter_TypeCellIsBareTypeName()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildDataWithParameterizedSubprogram();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: parameter with empty Mode emits bare type name without direction prefix
+        var subWriter = factory.GetWriter("my_pkg", "to_natural");
+        var table = subWriter.Operations.OfType<TableOperation>().First();
+        var row = Assert.Single(table.Rows);
+        Assert.Equal("v", row[0]);
+        Assert.Equal("STD_LOGIC_VECTOR", row[1]);
+        Assert.Equal("The input vector.", row[2]);
+    }
+
+    /// <summary>Validates that a parameter with a direction and class keyword shows direction-prefixed type, class stripped.</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_SubprogramWithDirectedParameter_TypeCellPrefixedWithDirection()
+    {
+        // Arrange — procedure parameter with SIGNAL class and OUT direction
+        var factory = new InMemoryMarkdownWriterFactory();
+        var options = new VhdlGeneratorOptions { LibraryName = "TestLib" };
+        var paramDoc = new VhdlParamDoc("v", "The output vector.");
+        var param = new VhdlParamDecl("v", "SIGNAL OUT", "STD_LOGIC_VECTOR");
+        var subprogramDecl = new VhdlSubprogramDecl(
+            "clear_vec",
+            VhdlSubprogramKind.Procedure,
+            "PROCEDURE clear_vec(SIGNAL v : OUT STD_LOGIC_VECTOR)",
+            [param],
+            null,
+            new VhdlDocComment("Clears a vector.", null, [paramDoc]));
+        var pkg = new VhdlPackageDecl("my_pkg", new VhdlDocComment("Pkg.", null, []), [], [], [], [subprogramDecl]);
+        var fileModels = new List<VhdlFileModel> { new VhdlFileModel("test.vhd", [], [], [pkg]) };
+        var emitter = new VhdlEmitter(options, fileModels);
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: SIGNAL is stripped, OUT is prefixed to the type name
+        var subWriter = factory.GetWriter("my_pkg", "clear_vec");
+        var table = subWriter.Operations.OfType<TableOperation>().First();
+        var row = Assert.Single(table.Rows);
+        Assert.Equal("OUT STD_LOGIC_VECTOR", row[1]);
+    }
+
     /// <summary>Validates that the package page link for a subprogram uses the subfolder path format.</summary>
     [Fact]
     public void VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_PackagePageLinkUsesSubfolderPath()

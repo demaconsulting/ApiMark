@@ -271,4 +271,74 @@ public class VhdlEmitterSingleFileTests
         var headings = apiWriter.Operations.OfType<HeadingOperation>().ToList();
         Assert.Contains(headings, h => h.Text.Equals("Returns", StringComparison.Ordinal));
     }
+
+    /// <summary>Validates that the Parameters table headers are Name, Type, Description (no Mode column).</summary>
+    [Fact]
+    public void VhdlEmitterSingleFile_Emit_SubprogramWithParameters_ParametersTableHasCorrectHeaders()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildPackageWithParameterizedSubprogramData();
+
+        // Act
+        new VhdlEmitterSingleFile(emitter, fileModels).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: Parameters table headers must be Name | Type | Description (no Mode column)
+        var apiWriter = factory.GetWriter("", "api");
+        var table = apiWriter.Operations.OfType<TableOperation>()
+            .First(t => t.Headers.Length == 3 && t.Headers[0] == "Name" && t.Headers[1] == "Type");
+        Assert.Equal(["Name", "Type", "Description"], table.Headers);
+    }
+
+    /// <summary>Validates that a parameter with no direction shows the bare type name in the Type cell.</summary>
+    [Fact]
+    public void VhdlEmitterSingleFile_Emit_SubprogramWithPlainParameter_TypeCellIsBareTypeName()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildPackageWithParameterizedSubprogramData();
+
+        // Act
+        new VhdlEmitterSingleFile(emitter, fileModels).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: parameter with empty Mode emits bare type name without direction prefix
+        var apiWriter = factory.GetWriter("", "api");
+        var table = apiWriter.Operations.OfType<TableOperation>()
+            .First(t => t.Headers.Length == 3 && t.Headers[0] == "Name" && t.Headers[1] == "Type");
+        var row = Assert.Single(table.Rows);
+        Assert.Equal("v", row[0]);
+        Assert.Equal("STD_LOGIC_VECTOR", row[1]);
+        Assert.Equal("The input vector.", row[2]);
+    }
+
+    /// <summary>Validates that a parameter with a direction and class keyword shows direction-prefixed type, class stripped.</summary>
+    [Fact]
+    public void VhdlEmitterSingleFile_Emit_SubprogramWithDirectedParameter_TypeCellPrefixedWithDirection()
+    {
+        // Arrange — procedure parameter with SIGNAL class and OUT direction
+        var factory = new InMemoryMarkdownWriterFactory();
+        var options = new VhdlGeneratorOptions { LibraryName = "TestLib" };
+        var paramDoc = new VhdlParamDoc("v", "The output vector.");
+        var param = new VhdlParamDecl("v", "SIGNAL OUT", "STD_LOGIC_VECTOR");
+        var subprogramDecl = new VhdlSubprogramDecl(
+            "clear_vec",
+            VhdlSubprogramKind.Procedure,
+            "PROCEDURE clear_vec(SIGNAL v : OUT STD_LOGIC_VECTOR)",
+            [param],
+            null,
+            new VhdlDocComment("Clears a vector.", null, [paramDoc]));
+        var pkg = new VhdlPackageDecl("my_pkg", new VhdlDocComment("Pkg.", null, []), [], [], [], [subprogramDecl]);
+        var fileModels = new List<VhdlFileModel> { new VhdlFileModel("test.vhd", [], [], [pkg]) };
+        var emitter = new VhdlEmitter(options, fileModels);
+
+        // Act
+        new VhdlEmitterSingleFile(emitter, fileModels).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: SIGNAL is stripped, OUT is prefixed to the type name
+        var apiWriter = factory.GetWriter("", "api");
+        var table = apiWriter.Operations.OfType<TableOperation>()
+            .First(t => t.Headers.Length == 3 && t.Headers[0] == "Name" && t.Headers[1] == "Type");
+        var row = Assert.Single(table.Rows);
+        Assert.Equal("OUT STD_LOGIC_VECTOR", row[1]);
+    }
 }
