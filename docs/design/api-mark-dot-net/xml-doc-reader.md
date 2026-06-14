@@ -42,7 +42,8 @@ absent. May contain multiple lines.
 
 **GetParams**: Returns parameter names and descriptions for `memberId` as
 `IReadOnlyList<(string Name, string? Description)>`. Returns an empty list
-when the member is absent.
+when the member is absent. `<param>` elements without a `name` attribute are
+silently filtered out.
 
 **GetReturns**: Returns trimmed returns text for `memberId`, or `null` if
 absent.

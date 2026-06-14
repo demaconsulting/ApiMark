@@ -10,9 +10,10 @@ rules do not produce unexpected output. No dependencies are injected; no mocking
 
 ### Test Environment
 
-N/A — standard test environment using the .NET test runner is sufficient for TypeNameSimplifier
-unit tests. Tests exercise pure string-transformation logic with no file system, network, or process
-dependencies.
+The compiled fixture assembly (`ApiMark.DotNet.Fixtures.dll`) must be present at
+test execution time. Tests are invoked via `dotnet test` in the standard .NET
+test environment. No network or process dependencies are required beyond file
+access to the fixture DLL.
 
 ### Acceptance Criteria
 
