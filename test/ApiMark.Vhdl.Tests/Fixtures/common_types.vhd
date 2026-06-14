@@ -1,12 +1,10 @@
 LIBRARY ieee;
-USE ieee.std_logic_1164.ALL;
-USE ieee.numeric_std.ALL;
 
 --! @brief Common type definitions and utilities for the design.
 PACKAGE common_types IS
 
     --! 32-bit data bus type.
-    TYPE data_bus_t IS STD_LOGIC_VECTOR(31 DOWNTO 0);
+    SUBTYPE data_bus_t IS STD_LOGIC_VECTOR(31 DOWNTO 0);
 
     --! 4-bit nibble type.
     SUBTYPE nibble_t IS STD_LOGIC_VECTOR(3 DOWNTO 0);

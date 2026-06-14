@@ -16,6 +16,9 @@ configurable maximum count value.
 
 | Name | Direction | Type | Description |
 | --- | --- | --- | --- |
+| clk | in | STD_LOGIC | Rising-edge clock input |
+| rst | in | STD_LOGIC | Synchronous reset, active high |
+| en | in | STD_LOGIC | Count enable |
 | count | out | STD_LOGIC_VECTOR(DATA_WIDTH - 1 DOWNTO 0) | Current count value |
 | wrap | out | STD_LOGIC | Asserted when counter wraps to zero |
 

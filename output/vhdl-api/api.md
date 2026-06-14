@@ -5,9 +5,10 @@
 | Name | Description |
 | --- | --- |
 | [counter](counter.md) | Configurable synchronous counter entity. |
+| [mux](mux.md) | 2-input multiplexer entity. |
 
-## Architectures
+## Packages
 
-| Name | Entity | Description |
-| --- | --- | --- |
-| [behavioral](behavioral_counter_arch.md) | counter | Behavioral architecture for the counter entity. |
+| Name | Description |
+| --- | --- |
+| [common_types](common_types.md) | Common type definitions and utilities for the design. |
