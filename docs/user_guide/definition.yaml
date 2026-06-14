@@ -4,8 +4,11 @@ input-files:
   - docs/user_guide/title.txt
   - docs/user_guide/introduction.md
   - docs/user_guide/installation.md
-  - docs/user_guide/cli-reference.md
-  - docs/user_guide/msbuild-integration.md
+  - docs/user_guide/cli.md
+  - docs/user_guide/msbuild.md
+  - docs/user_guide/dotnet.md
+  - docs/user_guide/cpp.md
+  - docs/user_guide/vhdl.md
   - docs/user_guide/faq.md
 template: template.html
 table-of-contents: true
