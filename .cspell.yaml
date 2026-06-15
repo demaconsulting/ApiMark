@@ -83,6 +83,9 @@ words:
   - versionmark
   - writability
   - DOWNTO
+  - INOUT
+  - metacharacter
+  - metacharacters
   - VHDL
   - vswhere
   - Weasyprint
