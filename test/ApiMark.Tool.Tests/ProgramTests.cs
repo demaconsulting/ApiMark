@@ -396,6 +396,7 @@ public class ProgramTests
 
             // Assert: at least one non-exclusion source pattern is required
             Assert.NotEqual(0, exitCode);
+            Assert.Contains("--source", errorWriter.ToString(), StringComparison.Ordinal);
         }
         finally
         {

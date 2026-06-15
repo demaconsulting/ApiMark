@@ -239,9 +239,9 @@ internal sealed class VhdlEmitterSingleFile
                         writer.WriteParagraph(s.Doc?.Returns ?? VhdlEmitter.NoDescriptionPlaceholder);
                     }
 
-                    // Signature section at depth+4 is always emitted as a code-span paragraph
+                    // Signature section at depth+4 is always emitted as a fenced vhdl code block
                     writer.WriteHeading(depth + 4, "Signature");
-                    writer.WriteParagraph($"`{s.Signature}`");
+                    writer.WriteSignature("vhdl", s.Signature);
                 }
             }
         }

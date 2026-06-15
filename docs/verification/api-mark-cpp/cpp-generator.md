@@ -464,12 +464,6 @@ by `CppEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles`.
 confirming that the dispatch path routes to the single-file emitter. This scenario is tested by
 `CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile`.
 
-**CppEmitter SanitizeFileName replaces invalid characters in operator names**: Verifies that
-`CppEmitter.SanitizeFileName` replaces file-system-invalid characters such as `*` when applied to
-C++ operator names, confirming that the sanitized name is safe for use as a file-system path
-component. This scenario is tested by
-`CppEmitter_SanitizeFileName_OperatorName_ReplacesInvalidChars`.
-
 **CppEmitter SanitizeFileName leaves regular names unchanged**: Verifies that
 `CppEmitter.SanitizeFileName` returns the original name unchanged when it contains no
 file-system-invalid characters, confirming that the sanitizer does not corrupt well-formed

@@ -68,7 +68,7 @@ constructs when they carry `--!` doc comments.
 Each entity gets its own page containing:
 
 - A generics table (name, type, default value, description)
-- A ports table (name, direction + type, description)
+- A ports table (name, direction, type, description)
 - An inline list of all architectures declared for that entity
 
 ### Packages
@@ -96,9 +96,10 @@ component ports.
 If `@brief` is absent, the first non-empty line of the doc comment block becomes the
 summary. Missing descriptions render as *No description provided.* in the output.
 
-For ports and generics, object-class keywords (`SIGNAL`, `VARIABLE`, `CONSTANT`,
-`FILE`) are not shown in the output. Direction keywords (`IN`, `OUT`, `INOUT`,
-`BUFFER`) are prefixed to the type name in the ports table.
+For subprogram parameters, object-class keywords (`SIGNAL`, `VARIABLE`, `CONSTANT`,
+`FILE`) are stripped from display and direction keywords (`IN`, `OUT`, `INOUT`,
+`BUFFER`) are prepended to the type name in the parameters table. Entity ports are
+shown with separate Direction and Type columns.
 
 ### Entity Example
 

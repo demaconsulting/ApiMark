@@ -130,24 +130,24 @@ internal static class VhdlAstParser
 
                         // Extract direction
                         var modeCtx = signalDecl.mode_rule();
-                        direction = "in"; // default per VHDL-2008 §6.5.2
+                        direction = "IN"; // default per VHDL-2008 §6.5.2
                         if (modeCtx != null)
                         {
                             if (modeCtx.OUT() != null)
                             {
-                                direction = "out";
+                                direction = "OUT";
                             }
                             else if (modeCtx.INOUT() != null)
                             {
-                                direction = "inout";
+                                direction = "INOUT";
                             }
                             else if (modeCtx.BUFFER() != null)
                             {
-                                direction = "buffer";
+                                direction = "BUFFER";
                             }
                             else
                             {
-                                direction = "in";
+                                direction = "IN";
                             }
                         }
 
@@ -176,7 +176,7 @@ internal static class VhdlAstParser
                         }
 
                         typeName = GetSourceRange(constDecl.subtype_indication());
-                        direction = "in";
+                        direction = "IN";
                         stopLine = constDecl.Stop.Line;
 
                         var inlineDoc = ExtractInlineTrailingComment(stopLine);

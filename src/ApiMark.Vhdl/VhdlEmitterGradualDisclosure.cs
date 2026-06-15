@@ -18,7 +18,7 @@ internal sealed class VhdlEmitterGradualDisclosure
         _fileModels = fileModels;
     }
 
-    /// <summary>Emits gradual-disclosure Markdown output: one file per entity/architecture/package plus an api index.</summary>
+    /// <summary>Emits gradual-disclosure Markdown output: one file per entity/package plus an api index, with architectures rendered inline on entity pages.</summary>
     /// <param name="factory">Factory for creating per-file Markdown writers.</param>
     /// <param name="config">Emit configuration (format and heading depth).</param>
     /// <param name="context">Output channel for progress and error messages.</param>
@@ -274,9 +274,9 @@ internal sealed class VhdlEmitterGradualDisclosure
                     subWriter.WriteParagraph(s.Doc?.Returns ?? VhdlEmitter.NoDescriptionPlaceholder);
                 }
 
-                // Signature section is always emitted as a code-span paragraph
+                // Signature section is always emitted as a fenced vhdl code block
                 subWriter.WriteHeading(2, "Signature");
-                subWriter.WriteParagraph($"`{s.Signature}`");
+                subWriter.WriteSignature("vhdl", s.Signature);
             }
         }
     }

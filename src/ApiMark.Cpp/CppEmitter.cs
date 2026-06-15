@@ -111,10 +111,15 @@ internal sealed class CppEmitter : IApiEmitter
     ///     characters that are invalid in file names on Windows or Unix with an underscore.
     /// </summary>
     /// <remarks>
-    ///     C++ operator names (e.g. <c>operator*</c>, <c>operator&lt;&lt;</c>) and conversion
-    ///     operators can contain characters such as <c>*</c>, <c>&lt;</c>, <c>&gt;</c>, and
-    ///     <c>:</c> that are forbidden in Windows file names. Replacing them with <c>_</c> produces
-    ///     a stable, platform-safe file name while retaining human readability for non-operator names.
+    ///     Non-operator C++ declaration names — class names, type aliases, free function names,
+    ///     and field names — may contain characters such as <c>&lt;</c>, <c>&gt;</c>, and <c>:</c>
+    ///     (from template specializations or qualified names) that are forbidden in Windows file
+    ///     names. Operator names (e.g. <c>operator*</c>, <c>operator&lt;&lt;</c>) are
+    ///     <em>never</em> passed to this method — they are partitioned upstream and written to a
+    ///     shared <c>operators.md</c> page, so file-name collisions between operators never arise.
+    ///     Note: <see cref="Path.GetInvalidFileNameChars"/> is OS-dependent; on Linux it returns
+    ///     only <c>\0</c> and <c>/</c>, so this method has no effect on most characters on that
+    ///     platform.
     /// </remarks>
     /// <param name="name">The C++ declaration name to sanitize. Must not be null.</param>
     /// <returns>
