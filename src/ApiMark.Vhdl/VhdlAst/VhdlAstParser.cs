@@ -76,132 +76,183 @@ internal static class VhdlAstParser
             // Extract preceding doc comment
             var entityDoc = ExtractPrecedingDocComment(context.Start.Line);
 
-            // Parse generics
+            // Parse generics and ports via focused helpers to limit nesting depth
+            var generics = ParseEntityGenerics(context);
+            var ports = ParseEntityPorts(context);
+
+            Entities.Add(new VhdlEntityDecl(entityName, generics, ports, entityDoc));
+
+            // Do not visit children of entity_declaration to avoid collecting nested declarations
+            return null;
+        }
+
+        /// <summary>
+        ///     Parses all generic interface declarations from an entity header into a list of
+        ///     <see cref="VhdlGenericDoc"/> records, one per identifier.
+        /// </summary>
+        /// <param name="context">The entity declaration context whose generic clause to examine.</param>
+        /// <returns>
+        ///     A list of <see cref="VhdlGenericDoc"/> records extracted from the generic clause,
+        ///     or an empty list when no generic clause is present.
+        /// </returns>
+        private List<VhdlGenericDoc> ParseEntityGenerics(vhdl2008Parser.Entity_declarationContext context)
+        {
             var generics = new List<VhdlGenericDoc>();
             var genericDecls = context.entity_header()
                 ?.generic_clause()
                 ?.generic_list()
                 ?.interface_list()
                 ?.interface_declaration();
-            if (genericDecls != null)
+            if (genericDecls == null)
             {
-                foreach (var iface in genericDecls)
+                return generics;
+            }
+
+            foreach (var iface in genericDecls)
+            {
+                var constDecl = iface.interface_object_declaration()?.interface_constant_declaration();
+                if (constDecl == null)
                 {
-                    var constDecl = iface.interface_object_declaration()?.interface_constant_declaration();
-                    if (constDecl == null)
-                    {
-                        continue;
-                    }
+                    continue;
+                }
 
-                    var identifiers = constDecl.identifier_list()?.identifier();
-                    if (identifiers == null)
-                    {
-                        continue;
-                    }
+                var identifiers = constDecl.identifier_list()?.identifier();
+                if (identifiers == null)
+                {
+                    continue;
+                }
 
-                    var typeName = GetSourceRange(constDecl.subtype_indication());
-                    var defaultValue = constDecl.expression() != null
-                        ? GetSourceRange(constDecl.expression())
-                        : null;
+                var typeName = GetSourceRange(constDecl.subtype_indication());
+                var defaultValue = constDecl.expression() != null
+                    ? GetSourceRange(constDecl.expression())
+                    : null;
 
-                    // Extract inline trailing comment from the line of the last token of this declaration
-                    var inlineDoc = ExtractInlineTrailingComment(constDecl.Stop.Line);
+                // Extract inline trailing comment from the line of the last token of this declaration
+                var inlineDoc = ExtractInlineTrailingComment(constDecl.Stop.Line);
 
-                    foreach (var ident in identifiers)
-                    {
-                        generics.Add(new VhdlGenericDoc(ident.GetText(), typeName, defaultValue, inlineDoc));
-                    }
+                foreach (var ident in identifiers)
+                {
+                    generics.Add(new VhdlGenericDoc(ident.GetText(), typeName, defaultValue, inlineDoc));
                 }
             }
 
-            // Parse ports
+            return generics;
+        }
+
+        /// <summary>
+        ///     Parses all port interface declarations from an entity header into a list of
+        ///     <see cref="VhdlPortDoc"/> records, one per identifier.
+        /// </summary>
+        /// <param name="context">The entity declaration context whose port clause to examine.</param>
+        /// <returns>
+        ///     A list of <see cref="VhdlPortDoc"/> records extracted from the port clause,
+        ///     or an empty list when no port clause is present.
+        /// </returns>
+        private List<VhdlPortDoc> ParseEntityPorts(vhdl2008Parser.Entity_declarationContext context)
+        {
             var ports = new List<VhdlPortDoc>();
             var portDecls = context.entity_header()
                 ?.port_clause()
                 ?.port_list()
                 ?.interface_list()
                 ?.interface_declaration();
-            if (portDecls != null)
+            if (portDecls == null)
             {
-                foreach (var iface in portDecls)
+                return ports;
+            }
+
+            foreach (var iface in portDecls)
+            {
+                ports.AddRange(ParsePortInterfaceDeclaration(iface));
+            }
+
+            return ports;
+        }
+
+        /// <summary>
+        ///     Parses a single interface declaration from a port clause into zero or more
+        ///     <see cref="VhdlPortDoc"/> records, handling both the signal and the constant
+        ///     (fallback) declaration forms.
+        /// </summary>
+        /// <remarks>
+        ///     ANTLR may parse a plain <c>name : IN type</c> port as an
+        ///     <c>interface_constant_declaration</c> rather than an
+        ///     <c>interface_signal_declaration</c>; the fallback branch handles that case and
+        ///     always assigns direction <c>IN</c>.
+        /// </remarks>
+        /// <param name="iface">The interface declaration context to parse.</param>
+        /// <returns>
+        ///     A sequence of <see cref="VhdlPortDoc"/> records — one per identifier — or an
+        ///     empty sequence when the declaration form is not recognized.
+        /// </returns>
+        private IEnumerable<VhdlPortDoc> ParsePortInterfaceDeclaration(
+            vhdl2008Parser.Interface_declarationContext iface)
+        {
+            var result = new List<VhdlPortDoc>();
+            var signalDecl = iface.interface_object_declaration()?.interface_signal_declaration();
+
+            if (signalDecl != null)
+            {
+                var identifiers = signalDecl.identifier_list()?.identifier();
+                if (identifiers == null)
                 {
-                    var signalDecl = iface.interface_object_declaration()?.interface_signal_declaration();
-                    string typeName;
-                    string direction;
-                    int stopLine;
+                    return result;
+                }
 
-                    if (signalDecl != null)
+                // Extract direction — default is IN per VHDL-2008 §6.5.2
+                var modeCtx = signalDecl.mode_rule();
+                var direction = "IN";
+                if (modeCtx != null)
+                {
+                    if (modeCtx.OUT() != null)
                     {
-                        var identifiers = signalDecl.identifier_list()?.identifier();
-                        if (identifiers == null)
-                        {
-                            continue;
-                        }
-
-                        // Extract direction
-                        var modeCtx = signalDecl.mode_rule();
-                        direction = "IN"; // default per VHDL-2008 §6.5.2
-                        if (modeCtx != null)
-                        {
-                            if (modeCtx.OUT() != null)
-                            {
-                                direction = "OUT";
-                            }
-                            else if (modeCtx.INOUT() != null)
-                            {
-                                direction = "INOUT";
-                            }
-                            else if (modeCtx.BUFFER() != null)
-                            {
-                                direction = "BUFFER";
-                            }
-                            else
-                            {
-                                direction = "IN";
-                            }
-                        }
-
-                        typeName = GetSourceRange(signalDecl.subtype_indication());
-                        stopLine = signalDecl.Stop.Line;
-
-                        var inlineDoc = ExtractInlineTrailingComment(stopLine);
-                        foreach (var ident in identifiers)
-                        {
-                            ports.Add(new VhdlPortDoc(ident.GetText(), direction, typeName, inlineDoc));
-                        }
+                        direction = "OUT";
+                    }
+                    else if (modeCtx.INOUT() != null)
+                    {
+                        direction = "INOUT";
+                    }
+                    else if (modeCtx.BUFFER() != null)
+                    {
+                        direction = "BUFFER";
                     }
                     else
                     {
-                        // Fallback: ANTLR may parse `name : IN type` as interface_constant_declaration
-                        var constDecl = iface.interface_object_declaration()?.interface_constant_declaration();
-                        if (constDecl == null)
-                        {
-                            continue;
-                        }
-
-                        var identifiers = constDecl.identifier_list()?.identifier();
-                        if (identifiers == null)
-                        {
-                            continue;
-                        }
-
-                        typeName = GetSourceRange(constDecl.subtype_indication());
                         direction = "IN";
-                        stopLine = constDecl.Stop.Line;
-
-                        var inlineDoc = ExtractInlineTrailingComment(stopLine);
-                        foreach (var ident in identifiers)
-                        {
-                            ports.Add(new VhdlPortDoc(ident.GetText(), direction, typeName, inlineDoc));
-                        }
                     }
                 }
+
+                var typeName = GetSourceRange(signalDecl.subtype_indication());
+                var inlineDoc = ExtractInlineTrailingComment(signalDecl.Stop.Line);
+                foreach (var ident in identifiers)
+                {
+                    result.Add(new VhdlPortDoc(ident.GetText(), direction, typeName, inlineDoc));
+                }
+
+                return result;
             }
 
-            Entities.Add(new VhdlEntityDecl(entityName, generics, ports, entityDoc));
+            // Fallback: ANTLR may parse `name : IN type` as interface_constant_declaration
+            var constDecl = iface.interface_object_declaration()?.interface_constant_declaration();
+            if (constDecl == null)
+            {
+                return result;
+            }
 
-            // Do not visit children of entity_declaration to avoid collecting nested declarations
-            return null;
+            var constIdentifiers = constDecl.identifier_list()?.identifier();
+            if (constIdentifiers == null)
+            {
+                return result;
+            }
+
+            var constTypeName = GetSourceRange(constDecl.subtype_indication());
+            var constInlineDoc = ExtractInlineTrailingComment(constDecl.Stop.Line);
+            foreach (var ident in constIdentifiers)
+            {
+                result.Add(new VhdlPortDoc(ident.GetText(), "IN", constTypeName, constInlineDoc));
+            }
+
+            return result;
         }
 
         /// <inheritdoc/>
@@ -285,36 +336,11 @@ internal static class VhdlAstParser
                         var spec = subprogramDecl.subprogram_specification();
                         if (spec != null)
                         {
-                            var funcSpec = spec.function_specification();
-                            var procSpec = spec.procedure_specification();
-                            string subprogramName;
-                            VhdlSubprogramKind kind;
-                            IReadOnlyList<VhdlParamDecl> parameters;
-                            string? returnType;
-                            if (funcSpec != null)
+                            var decl = ParseSubprogramDecl(item, spec);
+                            if (decl != null)
                             {
-                                subprogramName = funcSpec.designator().identifier()?.GetText() ?? funcSpec.designator().GetText();
-                                kind = VhdlSubprogramKind.Function;
-                                parameters = ExtractFormalParameters(funcSpec.formal_parameter_list());
-
-                                // Extract return type: the name() rule holds the type_mark after RETURN
-                                returnType = funcSpec.name()?.GetText();
+                                subprograms.Add(decl);
                             }
-                            else if (procSpec != null)
-                            {
-                                subprogramName = procSpec.designator().identifier()?.GetText() ?? procSpec.designator().GetText();
-                                kind = VhdlSubprogramKind.Procedure;
-                                parameters = ExtractFormalParameters(procSpec.formal_parameter_list());
-                                returnType = null;
-                            }
-                            else
-                            {
-                                continue;
-                            }
-
-                            var signature = GetSourceRange(spec);
-                            var subprogramDoc = ExtractPrecedingDocComment(item.Start.Line);
-                            subprograms.Add(new VhdlSubprogramDecl(subprogramName, kind, signature, parameters, returnType, subprogramDoc));
                         }
                     }
                 }
@@ -324,6 +350,62 @@ internal static class VhdlAstParser
 
             // Do not visit children of package_declaration
             return null;
+        }
+
+        /// <summary>
+        ///     Parses a subprogram specification context into a <see cref="VhdlSubprogramDecl"/>,
+        ///     handling both function and procedure forms.
+        /// </summary>
+        /// <remarks>
+        ///     Returns <see langword="null"/> when the specification context contains neither a
+        ///     function nor a procedure specification, which can occur with unusual grammar
+        ///     productions that do not map to either recognized form.
+        /// </remarks>
+        /// <param name="item">
+        ///     The package declarative item that owns the subprogram; used to extract the
+        ///     preceding doc comment from the source line preceding the declaration.
+        /// </param>
+        /// <param name="spec">The subprogram specification context to parse.</param>
+        /// <returns>
+        ///     A <see cref="VhdlSubprogramDecl"/> when the spec is a function or procedure;
+        ///     <see langword="null"/> otherwise.
+        /// </returns>
+        private VhdlSubprogramDecl? ParseSubprogramDecl(
+            vhdl2008Parser.Package_declarative_itemContext item,
+            vhdl2008Parser.Subprogram_specificationContext spec)
+        {
+            var funcSpec = spec.function_specification();
+            var procSpec = spec.procedure_specification();
+
+            string subprogramName;
+            VhdlSubprogramKind kind;
+            IReadOnlyList<VhdlParamDecl> parameters;
+            string? returnType;
+
+            if (funcSpec != null)
+            {
+                subprogramName = funcSpec.designator().identifier()?.GetText() ?? funcSpec.designator().GetText();
+                kind = VhdlSubprogramKind.Function;
+                parameters = ExtractFormalParameters(funcSpec.formal_parameter_list());
+
+                // Extract return type: the name() rule holds the type_mark after RETURN
+                returnType = funcSpec.name()?.GetText();
+            }
+            else if (procSpec != null)
+            {
+                subprogramName = procSpec.designator().identifier()?.GetText() ?? procSpec.designator().GetText();
+                kind = VhdlSubprogramKind.Procedure;
+                parameters = ExtractFormalParameters(procSpec.formal_parameter_list());
+                returnType = null;
+            }
+            else
+            {
+                return null;
+            }
+
+            var signature = GetSourceRange(spec);
+            var subprogramDoc = ExtractPrecedingDocComment(item.Start.Line);
+            return new VhdlSubprogramDecl(subprogramName, kind, signature, parameters, returnType, subprogramDoc);
         }
 
         /// <summary>
@@ -369,23 +451,7 @@ internal static class VhdlAstParser
                 var signalDecl = objDecl.interface_signal_declaration();
                 if (signalDecl != null)
                 {
-                    var identifiers = signalDecl.identifier_list()?.identifier();
-                    if (identifiers == null)
-                    {
-                        continue;
-                    }
-
-                    // Collect class keyword and direction into a combined mode string
-                    var classKeyword = signalDecl.SIGNAL() != null ? "SIGNAL" : string.Empty;
-                    var direction = ExtractModeText(signalDecl.mode_rule());
-                    var mode = string.Join(" ", new[] { classKeyword, direction }.Where(s => !string.IsNullOrEmpty(s)));
-                    var typeName = GetSourceRange(signalDecl.subtype_indication());
-
-                    foreach (var ident in identifiers)
-                    {
-                        parameters.Add(new VhdlParamDecl(ident.GetText(), mode, typeName));
-                    }
-
+                    parameters.AddRange(ExtractSignalParams(signalDecl));
                     continue;
                 }
 
@@ -393,22 +459,7 @@ internal static class VhdlAstParser
                 var varDecl = objDecl.interface_variable_declaration();
                 if (varDecl != null)
                 {
-                    var identifiers = varDecl.identifier_list()?.identifier();
-                    if (identifiers == null)
-                    {
-                        continue;
-                    }
-
-                    var classKeyword = varDecl.VARIABLE() != null ? "VARIABLE" : string.Empty;
-                    var direction = ExtractModeText(varDecl.mode_rule());
-                    var mode = string.Join(" ", new[] { classKeyword, direction }.Where(s => !string.IsNullOrEmpty(s)));
-                    var typeName = GetSourceRange(varDecl.subtype_indication());
-
-                    foreach (var ident in identifiers)
-                    {
-                        parameters.Add(new VhdlParamDecl(ident.GetText(), mode, typeName));
-                    }
-
+                    parameters.AddRange(ExtractVariableParams(varDecl));
                     continue;
                 }
 
@@ -417,26 +468,111 @@ internal static class VhdlAstParser
                 var constDecl = objDecl.interface_constant_declaration();
                 if (constDecl != null)
                 {
-                    var identifiers = constDecl.identifier_list()?.identifier();
-                    if (identifiers == null)
-                    {
-                        continue;
-                    }
-
-                    // CONSTANT keyword is optional; direction for constants is always IN when explicit
-                    var classKeyword = constDecl.CONSTANT() != null ? "CONSTANT" : string.Empty;
-                    var direction = constDecl.IN() != null ? "IN" : string.Empty;
-                    var mode = string.Join(" ", new[] { classKeyword, direction }.Where(s => !string.IsNullOrEmpty(s)));
-                    var typeName = GetSourceRange(constDecl.subtype_indication());
-
-                    foreach (var ident in identifiers)
-                    {
-                        parameters.Add(new VhdlParamDecl(ident.GetText(), mode, typeName));
-                    }
+                    parameters.AddRange(ExtractConstantParams(constDecl));
                 }
             }
 
             return parameters;
+        }
+
+        /// <summary>
+        ///     Extracts <see cref="VhdlParamDecl"/> records from an interface signal declaration,
+        ///     preserving the optional SIGNAL class keyword and the port direction in the mode string.
+        /// </summary>
+        /// <param name="signalDecl">The interface signal declaration context to extract from.</param>
+        /// <returns>
+        ///     A sequence of <see cref="VhdlParamDecl"/> records — one per identifier — or an
+        ///     empty sequence when the identifier list is absent.
+        /// </returns>
+        private IEnumerable<VhdlParamDecl> ExtractSignalParams(
+            vhdl2008Parser.Interface_signal_declarationContext signalDecl)
+        {
+            var result = new List<VhdlParamDecl>();
+            var identifiers = signalDecl.identifier_list()?.identifier();
+            if (identifiers == null)
+            {
+                return result;
+            }
+
+            // Collect class keyword and direction into a combined mode string
+            var classKeyword = signalDecl.SIGNAL() != null ? "SIGNAL" : string.Empty;
+            var direction = ExtractModeText(signalDecl.mode_rule());
+            var mode = string.Join(" ", new[] { classKeyword, direction }.Where(s => !string.IsNullOrEmpty(s)));
+            var typeName = GetSourceRange(signalDecl.subtype_indication());
+
+            foreach (var ident in identifiers)
+            {
+                result.Add(new VhdlParamDecl(ident.GetText(), mode, typeName));
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        ///     Extracts <see cref="VhdlParamDecl"/> records from an interface variable declaration,
+        ///     preserving the optional VARIABLE class keyword and the port direction in the mode string.
+        /// </summary>
+        /// <param name="varDecl">The interface variable declaration context to extract from.</param>
+        /// <returns>
+        ///     A sequence of <see cref="VhdlParamDecl"/> records — one per identifier — or an
+        ///     empty sequence when the identifier list is absent.
+        /// </returns>
+        private IEnumerable<VhdlParamDecl> ExtractVariableParams(
+            vhdl2008Parser.Interface_variable_declarationContext varDecl)
+        {
+            var result = new List<VhdlParamDecl>();
+            var identifiers = varDecl.identifier_list()?.identifier();
+            if (identifiers == null)
+            {
+                return result;
+            }
+
+            var classKeyword = varDecl.VARIABLE() != null ? "VARIABLE" : string.Empty;
+            var direction = ExtractModeText(varDecl.mode_rule());
+            var mode = string.Join(" ", new[] { classKeyword, direction }.Where(s => !string.IsNullOrEmpty(s)));
+            var typeName = GetSourceRange(varDecl.subtype_indication());
+
+            foreach (var ident in identifiers)
+            {
+                result.Add(new VhdlParamDecl(ident.GetText(), mode, typeName));
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        ///     Extracts <see cref="VhdlParamDecl"/> records from an interface constant declaration,
+        ///     preserving the optional CONSTANT class keyword and the explicit IN direction when
+        ///     present. This form also matches undecorated parameters such as
+        ///     <c>v : STD_LOGIC_VECTOR</c>.
+        /// </summary>
+        /// <param name="constDecl">The interface constant declaration context to extract from.</param>
+        /// <returns>
+        ///     A sequence of <see cref="VhdlParamDecl"/> records — one per identifier — or an
+        ///     empty sequence when the identifier list is absent.
+        /// </returns>
+        private IEnumerable<VhdlParamDecl> ExtractConstantParams(
+            vhdl2008Parser.Interface_constant_declarationContext constDecl)
+        {
+            var result = new List<VhdlParamDecl>();
+            var identifiers = constDecl.identifier_list()?.identifier();
+            if (identifiers == null)
+            {
+                return result;
+            }
+
+            // CONSTANT keyword is optional; direction for constants is always IN when explicit
+            var classKeyword = constDecl.CONSTANT() != null ? "CONSTANT" : string.Empty;
+            var direction = constDecl.IN() != null ? "IN" : string.Empty;
+            var mode = string.Join(" ", new[] { classKeyword, direction }.Where(s => !string.IsNullOrEmpty(s)));
+            var typeName = GetSourceRange(constDecl.subtype_indication());
+
+            foreach (var ident in identifiers)
+            {
+                result.Add(new VhdlParamDecl(ident.GetText(), mode, typeName));
+            }
+
+            return result;
         }
 
         /// <summary>

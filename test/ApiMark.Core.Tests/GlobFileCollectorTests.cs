@@ -21,7 +21,7 @@ public sealed class GlobFileCollectorTests
     /// </summary>
     private static string CreateTempDirectory()
     {
-        var dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        var dir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(dir);
         return dir;
     }
@@ -61,8 +61,8 @@ public sealed class GlobFileCollectorTests
         var tempDir = CreateTempDirectory();
         try
         {
-            var vhdFile = Path.Combine(tempDir, "design.vhd");
-            var txtFile = Path.Combine(tempDir, "readme.txt");
+            var vhdFile = Path.Join(tempDir, "design.vhd");
+            var txtFile = Path.Join(tempDir, "readme.txt");
             File.WriteAllText(vhdFile, string.Empty);
             File.WriteAllText(txtFile, string.Empty);
 
@@ -90,9 +90,9 @@ public sealed class GlobFileCollectorTests
         var tempDir = CreateTempDirectory();
         try
         {
-            var vhdFile = Path.Combine(tempDir, "top.vhd");
-            var vhdlFile = Path.Combine(tempDir, "pkg.vhdl");
-            var txtFile = Path.Combine(tempDir, "notes.txt");
+            var vhdFile = Path.Join(tempDir, "top.vhd");
+            var vhdlFile = Path.Join(tempDir, "pkg.vhdl");
+            var txtFile = Path.Join(tempDir, "notes.txt");
             File.WriteAllText(vhdFile, string.Empty);
             File.WriteAllText(vhdlFile, string.Empty);
             File.WriteAllText(txtFile, string.Empty);
@@ -125,11 +125,11 @@ public sealed class GlobFileCollectorTests
         var tempDir = CreateTempDirectory();
         try
         {
-            var vhdFile = Path.Combine(tempDir, "entity.vhd");
+            var vhdFile = Path.Join(tempDir, "entity.vhd");
             File.WriteAllText(vhdFile, string.Empty);
 
             // Absolute pattern: {tempDir}/**/*.vhd (using native separator)
-            var absolutePattern = Path.Combine(tempDir, "**", "*.vhd");
+            var absolutePattern = Path.Join(tempDir, "**", "*.vhd");
 
             // Act: collect using an absolute pattern; workingDirectory is irrelevant here
             var result = GlobFileCollector.Collect(
@@ -161,13 +161,13 @@ public sealed class GlobFileCollectorTests
         var tempDir = CreateTempDirectory();
         try
         {
-            var srcDir = Path.Combine(tempDir, "src");
-            var testDir = Path.Combine(tempDir, "test");
+            var srcDir = Path.Join(tempDir, "src");
+            var testDir = Path.Join(tempDir, "test");
             Directory.CreateDirectory(srcDir);
             Directory.CreateDirectory(testDir);
 
-            var srcFile = Path.Combine(srcDir, "design.vhd");
-            var testFile = Path.Combine(testDir, "tb.vhd");
+            var srcFile = Path.Join(srcDir, "design.vhd");
+            var testFile = Path.Join(testDir, "tb.vhd");
             File.WriteAllText(srcFile, string.Empty);
             File.WriteAllText(testFile, string.Empty);
 
@@ -199,8 +199,8 @@ public sealed class GlobFileCollectorTests
     public void GlobFileCollector_Collect_NonExistentRoot_ReturnsEmptyWithoutThrowing()
     {
         // Arrange: build a pattern pointing to a directory guaranteed not to exist
-        var missingRoot = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName(), "nonexistent");
-        var pattern = Path.Combine(missingRoot, "**", "*.vhd");
+        var missingRoot = Path.Join(Path.GetTempPath(), Path.GetRandomFileName(), "nonexistent");
+        var pattern = Path.Join(missingRoot, "**", "*.vhd");
 
         // Act / Assert: collecting from a missing root must not throw
         var result = GlobFileCollector.Collect([pattern], VhdlExtensions, Path.GetTempPath());
@@ -223,8 +223,8 @@ public sealed class GlobFileCollectorTests
         var tempDir = CreateTempDirectory();
         try
         {
-            var fileA = Path.Combine(tempDir, "aaa.vhd");
-            var fileB = Path.Combine(tempDir, "bbb.vhd");
+            var fileA = Path.Join(tempDir, "aaa.vhd");
+            var fileB = Path.Join(tempDir, "bbb.vhd");
             File.WriteAllText(fileA, string.Empty);
             File.WriteAllText(fileB, string.Empty);
 

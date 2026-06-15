@@ -53,9 +53,17 @@ filesystem matching the specified patterns.
      from the resolved root.
   6. If extension inference applies, filter results to files whose extension
      (case-insensitive) is in `languageExtensions`.
-  7. Inclusion patterns add matching paths to the result set; exclusion patterns
-     remove matching paths from the result set.
+  7. Delegate to `AccumulateResults`: inclusion patterns add matching paths to the
+     result set; exclusion patterns remove matching paths from the result set.
   8. Return results sorted by ordinal string order.
+
+**GlobFileCollector.AccumulateResults** (private static): Adds or removes a set of
+matched file paths from the collected set.
+
+- *Parameters*: `HashSet<string> collected`, `IEnumerable<string> results`,
+  `bool isExclusion`.
+- *Algorithm*: when `isExclusion` is true, calls `collected.Remove` for each
+  full path; otherwise calls `collected.Add`.
 
 **GlobFileCollector.ParsePattern** (private static): Splits a pattern body into
 a filesystem root and a glob tail.

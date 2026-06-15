@@ -44,14 +44,31 @@ file.
   2. Create the output file via `factory.CreateMarkdown("", "api")` — called
      exactly once.
   3. Write H{depth} library name heading and optional description.
-  4. Write Entities section: H{depth+1} heading, then for each entity an H{depth+2}
-     heading followed by generics and ports tables and an Architectures sub-section.
-  5. Write Packages section: H{depth+1} heading, then for each package an H{depth+2}
-     heading followed by summary, Types (H{depth+3}, one paragraph per type),
-     Constants (H{depth+3}, one paragraph per constant), Components (H{depth+3},
-     one paragraph per component), and one H{depth+3} heading per subprogram
-     containing Parameters table, Returns section (functions only), and Signature
-     sub-sections at H{depth+4}.
+  4. Write Entities section: H{depth+1} heading, then for each entity delegate to
+     `EmitEntitySection`.
+  5. Write Packages section: H{depth+1} heading, then for each package delegate to
+     `EmitPackageSection`, which calls `EmitSubprogramSection` for each subprogram.
+
+**VhdlEmitterSingleFile.EmitEntitySection** (private static): Writes the per-entity
+block within the single-file output.
+
+- H{depth+2} entity name, summary, details, optional Generics table (H{depth+3}),
+  optional Ports table (H{depth+3}), optional Architectures sub-section (H{depth+3},
+  one bold paragraph per architecture with optional details).
+
+**VhdlEmitterSingleFile.EmitPackageSection** (private static): Writes the
+per-package block within the single-file output.
+
+- H{depth+2} package name, summary, details, optional Types section (H{depth+3}),
+  optional Constants section (H{depth+3}), optional Components section (H{depth+3}),
+  then calls `EmitSubprogramSection` for each subprogram.
+
+**VhdlEmitterSingleFile.EmitSubprogramSection** (private static): Writes the
+per-subprogram block within the single-file output.
+
+- H{depth+3} subprogram name, summary, details, optional Parameters table
+  (H{depth+4}), optional Returns section (H{depth+4}, functions only), Signature
+  fenced code block (H{depth+4}).
 
 ### Error Handling
 

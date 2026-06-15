@@ -1384,9 +1384,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
 
         // Assert: exactly one writer, keyed "api"
         Assert.Single(factory.Writers);
-        Assert.True(factory.Writers.ContainsKey("api"), "Expected a single api writer for single-file output");
-
-        var writer = factory.Writers["api"];
+        Assert.True(factory.Writers.TryGetValue("api", out var writer), "Expected a single api writer for single-file output");
         var headings = writer.Operations.OfType<HeadingOperation>().ToList();
 
         // Assert: H1 is the library-level title containing the library name

@@ -508,21 +508,42 @@ public sealed class ApiMarkTask : Task
         // When ApiMarkOutputs is populated, spawn one child process per output item
         if (ApiMarkOutputs != null && ApiMarkOutputs.Length > 0)
         {
-            var allSucceeded = true;
-            foreach (var outputItem in ApiMarkOutputs)
-            {
-                var itemArgs = BuildArgumentsForOutput(language, outputItem);
-                if (!RunToolProcess(dotnetExe, itemArgs))
-                {
-                    allSucceeded = false;
-                }
-            }
-
-            return allSucceeded;
+            return ExecuteAllOutputs(dotnetExe, language);
         }
 
         // Single-invocation path: use scalar properties as before
         return RunToolProcess(dotnetExe, BuildArguments(language));
+    }
+
+    /// <summary>
+    ///     Spawns one ApiMark.Tool child process per configured output item and returns whether
+    ///     all invocations succeeded.
+    /// </summary>
+    /// <remarks>
+    ///     Each item may override the scalar <see cref="ApiMarkOutputDir"/>,
+    ///     <see cref="ApiMarkVisibility"/>, and <see cref="ApiMarkFormat"/> properties for its
+    ///     own invocation via item metadata. When any child process fails, the method continues
+    ///     processing the remaining items so that all failures are reported in a single build
+    ///     rather than stopping at the first error.
+    /// </remarks>
+    /// <param name="dotnetExe">Full path to the <c>dotnet</c> executable used to spawn each tool process.</param>
+    /// <param name="language">Resolved language string (<c>"dotnet"</c> or <c>"cpp"</c>).</param>
+    /// <returns>
+    ///     <c>true</c> when every child process exits with code zero; <c>false</c> if any
+    ///     invocation fails, causing MSBuild to mark the build as failed.
+    /// </returns>
+    private bool ExecuteAllOutputs(string dotnetExe, string language)
+    {
+        var allSucceeded = true;
+        foreach (var outputItem in ApiMarkOutputs!)
+        {
+            if (!RunToolProcess(dotnetExe, BuildArgumentsForOutput(language, outputItem)))
+            {
+                allSucceeded = false;
+            }
+        }
+
+        return allSucceeded;
     }
 
     /// <summary>

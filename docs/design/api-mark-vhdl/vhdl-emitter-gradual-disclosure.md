@@ -40,20 +40,38 @@ their own detail page under a per-package subfolder.
 - *Algorithm*:
   1. Collect all entities, architectures, and packages from all `VhdlFileModel`
      instances.
-  2. Write `api.md`: H1 library name heading, optional description paragraph,
-     entities table (Name/Description with relative links), packages table
-     (Name/Description with relative links).
-  3. For each entity: write H1 entity name, summary, details, Generics table
-     (Name/Type/Default/Description), Ports table (Name/Direction/Type/Description),
-     Architectures section (inline — one bold entry per architecture).
-  4. For each package: write H1 package name, summary, details, Types paragraphs,
-     Constants paragraphs, Components as `**name** — summary` paragraphs, Subprograms
-     section with links to per-subprogram detail pages.
-  5. For each package subprogram: write `{packageName}/{subprogramName}.md` with
-     H1 subprogram name, summary, Parameters table
-     (Name/Type/Description — type is formatted by `VhdlEmitter.FormatParamType`:
-     object-class keywords stripped, direction keyword prefixed to type name),
-     optional Returns paragraph, Signature code block.
+  2. Delegate to `EmitApiIndexPage` to write `api.md`.
+  3. For each entity delegate to `EmitEntityPage`.
+  4. For each package delegate to `EmitPackagePage`, which calls
+     `EmitSubprogramDetailPage` for each subprogram.
+
+**VhdlEmitterGradualDisclosure.EmitApiIndexPage** (private): Writes the `api.md`
+index page.
+
+- H1 library name heading, optional description paragraph, entities table
+  (Name/Description with relative links), packages table (Name/Description with
+  relative links).
+
+**VhdlEmitterGradualDisclosure.EmitEntityPage** (private static): Writes a single
+entity detail page.
+
+- H1 entity name, summary, details, Generics table (Name/Type/Default/Description),
+  Ports table (Name/Direction/Type/Description), Architectures section (inline —
+  one bold entry per architecture with optional details paragraph).
+
+**VhdlEmitterGradualDisclosure.EmitPackagePage** (private static): Writes a single
+package detail page and calls `EmitSubprogramDetailPage` for each subprogram.
+
+- H1 package name, summary, details, Types paragraphs, Constants paragraphs,
+  Components as `**name** — summary` paragraphs, Subprograms section with links
+  to per-subprogram detail pages.
+
+**VhdlEmitterGradualDisclosure.EmitSubprogramDetailPage** (private static): Writes
+one `{packageName}/{subprogramName}.md` detail file.
+
+- H1 subprogram name, kind attribution, summary, details, Parameters table
+  (Name/Type/Description — type formatted by `VhdlEmitter.FormatParamType`),
+  optional Returns paragraph (functions only), Signature fenced code block.
 
 ### Error Handling
 

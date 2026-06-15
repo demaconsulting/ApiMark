@@ -30,10 +30,15 @@ returns its declaration model.
   1. Read the file content as `string sourceText`; split into `string[] lines`.
   2. Create the ANTLR4 pipeline: `AntlrInputStream` → `vhdl2008Lexer` →
      `CommonTokenStream` → `vhdl2008Parser`.
+  2a. Replace the default `ConsoleErrorListener` on both the lexer and the parser
+      with a `CollectingErrorListener`; call `ThrowIfErrors(filePath)` after
+      `parser.design_file()` returns so that any syntax error throws an
+      `InvalidOperationException` instead of silently producing a corrupt parse tree.
   3. Call `parser.design_file()` to obtain the root `Design_fileContext`.
   4. Walk the tree using a `private sealed class VhdlVisitor : vhdl2008BaseVisitor<object?>`.
   5. **VisitEntity_declaration**: extract name via `context.identifier(0).GetText()`;
-     extract preceding doc comment; parse generics and ports from `entity_header()`.
+     extract preceding doc comment; delegate generic parsing to `ParseEntityGenerics`
+     and port parsing to `ParseEntityPorts`.
   6. **VisitArchitecture_body**: extract arch name via `context.identifier(0).GetText()`;
      extract entity name via `context.name().GetText()`; extract preceding doc comment.
   7. **VisitPackage_declaration**: extract name via `context.identifier(0).GetText()`
@@ -42,12 +47,10 @@ returns its declaration model.
      - `full_type_declaration` / `subtype_declaration` → `VhdlTypeDecl(name, definition, doc)`.
      - `constant_declaration` → `VhdlConstantDecl(name, typeName, value?, doc)`.
      - `component_declaration` → `VhdlComponentDecl(name, doc)`.
-     - `subprogram_declaration` — resolves the spec as a function or procedure
-       designator, extracts name, kind (`VhdlSubprogramKind.Function` or
-       `.Procedure`), formal parameters via `ExtractFormalParameters`, return type
-       (function only), source-range signature text, and preceding doc comment, then
-       appends a `VhdlSubprogramDecl`. Does not recurse into child contexts (returns
-       null).
+     - `subprogram_declaration` — delegates to `ParseSubprogramDecl` to resolve
+       the spec as a function or procedure, extract name, kind, formal parameters,
+       return type, and signature, then appends a `VhdlSubprogramDecl`. Does not
+       recurse into child contexts (returns null).
   8. **Preceding doc comment extraction**: walk backward from `declarationLine - 1`,
      collecting consecutive lines that begin with `--!` after trimming; reverse and
      parse with `ParseDocCommentLines`.
@@ -61,23 +64,73 @@ returns its declaration model.
       full type text including whitespace (which ANTLR's skip rules strip from
       `ctx.GetText()`).
 
+**VhdlAstParser.ParseEntityGenerics** (private): Extracts generic declarations
+from an entity header context into a list of `VhdlGenericDoc` records.
+
+- *Parameters*: `Entity_declarationContext context`.
+- *Returns*: `List<VhdlGenericDoc>` — empty when no generic clause is present.
+- *Algorithm*: navigates `entity_header → generic_clause → generic_list →
+  interface_list → interface_declaration`; for each `interface_constant_declaration`
+  expands the identifier list and records name, type, optional default value, and
+  inline trailing doc comment.
+
+**VhdlAstParser.ParseEntityPorts** (private): Extracts port declarations from an
+entity header context into a list of `VhdlPortDoc` records.
+
+- *Parameters*: `Entity_declarationContext context`.
+- *Returns*: `List<VhdlPortDoc>` — empty when no port clause is present.
+- *Algorithm*: navigates `entity_header → port_clause → port_list →
+  interface_list → interface_declaration`; for each declaration delegates to
+  `ParsePortInterfaceDeclaration` and appends the results.
+
+**VhdlAstParser.ParsePortInterfaceDeclaration** (private): Converts a single
+`Interface_declarationContext` into zero or more `VhdlPortDoc` records.
+
+- *Parameters*: `Interface_declarationContext iface`.
+- *Returns*: `IEnumerable<VhdlPortDoc>`.
+- *Algorithm*: tries `interface_signal_declaration` first (explicit port); falls
+  back to `interface_constant_declaration` (ANTLR may parse bare `name : IN type`
+  as a constant). Both branches expand the identifier list and emit one record per
+  identifier with direction (uppercase `IN`/`OUT`/`INOUT`/`BUFFER`) and type name.
+
+**VhdlAstParser.ParseSubprogramDecl** (private): Resolves a
+`Subprogram_declarationContext` into a `VhdlSubprogramDecl` record or returns null.
+
+- *Parameters*: `Subprogram_declarationContext subprogDecl`, `int declarationLine`.
+- *Returns*: `VhdlSubprogramDecl?` — null when the spec cannot be resolved.
+- *Algorithm*: checks `subprogram_specification` for either a
+  `function_specification` or `procedure_specification`; extracts name, kind,
+  formal parameters via `ExtractFormalParameters`, return type (functions only),
+  source-range signature text, and preceding doc comment.
+
 **VhdlAstParser.ExtractFormalParameters** (private): Converts a
 `Formal_parameter_listContext` into a list of `VhdlParamDecl` records.
 
 - *Parameters*: `Formal_parameter_listContext? formalParams` — may be null.
-- *Returns*: `IReadOnlyList<VhdlParamDecl>` — empty list when `formalParams` is null
+- *Returns*: `List<VhdlParamDecl>` — empty list when `formalParams` is null
   or contains no interface declarations.
-- *Algorithm*: iterates each `interface_object_declaration`; tries three variants in
-  order:
-  1. `interface_signal_declaration` — class keyword `SIGNAL` (optional) + direction
-     from `mode_rule`; one `VhdlParamDecl` per identifier.
-  2. `interface_variable_declaration` — class keyword `VARIABLE` (optional) +
-     direction from `mode_rule`; one `VhdlParamDecl` per identifier.
-  3. `interface_constant_declaration` — class keyword `CONSTANT` (optional) +
-     direction `IN` (optional); one `VhdlParamDecl` per identifier. This variant
-     also matches undecorated parameters (`v : STD_LOGIC_VECTOR`).
-  The `Mode` field is built by joining the non-empty class keyword and direction
-  strings with a single space.
+- *Algorithm*: iterates each `interface_object_declaration` (via LINQ
+  `Select`/`Where` to skip nulls); tries three variants in order by delegating
+  to extraction helpers:
+  1. `ExtractSignalParams` — `interface_signal_declaration`.
+  2. `ExtractVariableParams` — `interface_variable_declaration`.
+  3. `ExtractConstantParams` — `interface_constant_declaration` (also matches
+     undecorated parameters).
+
+**VhdlAstParser.ExtractSignalParams** (private): Extracts `VhdlParamDecl` records
+from an `Interface_signal_declarationContext`.
+
+- Class keyword `SIGNAL` (optional) + direction from `mode_rule`; one record per identifier.
+
+**VhdlAstParser.ExtractVariableParams** (private): Extracts `VhdlParamDecl` records
+from an `Interface_variable_declarationContext`.
+
+- Class keyword `VARIABLE` (optional) + direction from `mode_rule`; one record per identifier.
+
+**VhdlAstParser.ExtractConstantParams** (private): Extracts `VhdlParamDecl` records
+from an `Interface_constant_declarationContext`.
+
+- Class keyword `CONSTANT` (optional) + direction `IN` when explicitly present; one record per identifier.
 
 **VhdlAstParser.ExtractModeText** (private static): Converts a `Mode_ruleContext`
 into an upper-case direction string.
@@ -85,6 +138,16 @@ into an upper-case direction string.
 - *Parameters*: `Mode_ruleContext? modeCtx` — may be null.
 - *Returns*: `string` — one of `"OUT"`, `"INOUT"`, `"BUFFER"`, `"IN"`, or `""` when
   the context is null or specifies no explicit mode.
+
+**VhdlAstParser.CollectingErrorListener** (private sealed class): ANTLR4 error
+listener that accumulates syntax errors and throws rather than writing to
+`Console.Error`.
+
+- Implements both `IAntlrErrorListener<int>` (lexer) and `IAntlrErrorListener<IToken>`
+  (parser).
+- **ThrowIfErrors**: throws `InvalidOperationException` with all collected messages
+  when at least one error was recorded; no-op otherwise.
+
 a `VhdlDocComment`.
 
 - `@brief <text>` → `Summary`
@@ -94,9 +157,10 @@ a `VhdlDocComment`.
 
 ### Error Handling
 
-- Parse errors from the ANTLR4 lexer or parser surface through the default ANTLR4
-  error listener; callers should replace this listener when integration into the
-  `IContext` logging channel is required.
+- Parse errors from the ANTLR4 lexer or parser are collected by
+  `CollectingErrorListener` and thrown as `InvalidOperationException` via
+  `ThrowIfErrors` after `parser.design_file()` returns. This prevents silently
+  producing corrupt output from partially recovered parse trees.
 - File I/O exceptions (e.g., `FileNotFoundException`, `IOException`) are not caught
   by `VhdlAstParser` and propagate to `VhdlGenerator`, which logs them via
   `context.WriteError` and skips the file.

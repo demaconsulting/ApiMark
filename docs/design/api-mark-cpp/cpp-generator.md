@@ -139,13 +139,23 @@ a `CppEmitter` holding all parsed data.
 
 Execution steps: call `CollectHeaderFiles()` which uses `GlobFileCollector.Collect()`
 to build the selected-header set from `ApiHeaderPatterns` and `PublicIncludeRoots`;
-build Clang options from all configured paths, defines, standard, and additional
-arguments; write a temporary combined header that `#include`s all selected headers;
-invoke `clang -Xclang -ast-dump=json -fparse-all-comments -fsyntax-only` on it, parse
-the resulting JSON AST; `ClangAstParser` rejects non-selected declarations during
-AST walking using the pre-built selected-header set; apply `Visibility` and
+when `ApiHeaderPatterns` is empty all headers under all roots are used directly;
+when `ApiHeaderPatterns` is non-empty relative patterns are expanded against each
+include root via `ExpandExplicitPatterns`; build Clang options from all configured
+paths, defines, standard, and additional arguments; write a temporary combined
+header that `#include`s all selected headers; invoke
+`clang -Xclang -ast-dump=json -fparse-all-comments -fsyntax-only` on it, parse the
+resulting JSON AST; `ClangAstParser` rejects non-selected declarations during AST
+walking using the pre-built selected-header set; apply `Visibility` and
 `IncludeDeprecated` filters; delete the temporary combined header file; return a
 `CppEmitter` holding all parsed data.
+
+**CppGenerator.ExpandExplicitPatterns** (private): Expands relative
+`ApiHeaderPatterns` entries against each configured include root.
+
+- *Returns*: `List<string>` — all patterns with relative entries resolved to
+  absolute paths under each root; absolute patterns passed through unchanged;
+  exclusion prefix `!` preserved.
 
 **CppEmitter.Emit** (implements `IApiEmitter`): Writes the full Markdown output tree using the
 format specified by `config.Format`.

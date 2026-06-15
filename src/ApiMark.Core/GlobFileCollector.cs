@@ -102,23 +102,39 @@ public static class GlobFileCollector
             }
 
             // Accumulate: include patterns add files; exclusion patterns remove them
-            if (isExclusion)
-            {
-                foreach (var file in results)
-                {
-                    collected.Remove(Path.GetFullPath(file));
-                }
-            }
-            else
-            {
-                foreach (var file in results)
-                {
-                    collected.Add(Path.GetFullPath(file));
-                }
-            }
+            AccumulateResults(collected, results, isExclusion);
         }
 
         return collected.OrderBy(f => f, StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>
+    ///     Adds or removes the fully-qualified paths from <paramref name="results"/> in
+    ///     <paramref name="collected"/> depending on whether the originating pattern was
+    ///     an exclusion.
+    /// </summary>
+    /// <param name="collected">The mutable set of collected file paths to update in-place.</param>
+    /// <param name="results">Glob result paths to incorporate or remove.</param>
+    /// <param name="isExclusion">
+    ///     When <see langword="true"/>, each matching file is removed from
+    ///     <paramref name="collected"/>; when <see langword="false"/>, it is added.
+    /// </param>
+    private static void AccumulateResults(HashSet<string> collected, IEnumerable<string> results, bool isExclusion)
+    {
+        if (isExclusion)
+        {
+            foreach (var file in results)
+            {
+                collected.Remove(Path.GetFullPath(file));
+            }
+        }
+        else
+        {
+            foreach (var file in results)
+            {
+                collected.Add(Path.GetFullPath(file));
+            }
+        }
     }
 
     /// <summary>

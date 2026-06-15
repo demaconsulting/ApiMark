@@ -186,30 +186,54 @@ public sealed class CppGenerator : IApiGenerator
             // Explicit patterns: forward absolute patterns unchanged; expand relative patterns
             // against each include root so root-agnostic globs like "**/MyHeader.h" resolve
             // correctly under every configured root without requiring callers to know the roots.
-            patterns = [];
-            foreach (var pattern in _options.ApiHeaderPatterns)
-            {
-                var isExclusion = pattern.StartsWith('!');
-                var body = isExclusion ? pattern.Substring(1).Trim() : pattern.Trim();
-
-                if (Path.IsPathRooted(body))
-                {
-                    // Absolute pattern — pass through unchanged
-                    patterns.Add(pattern);
-                }
-                else
-                {
-                    // Relative pattern — expand against each include root
-                    foreach (var root in _options.PublicIncludeRoots)
-                    {
-                        var expanded = Path.Combine(Path.GetFullPath(root), body);
-                        patterns.Add(isExclusion ? "!" + expanded : expanded);
-                    }
-                }
-            }
+            patterns = ExpandExplicitPatterns();
         }
 
         return GlobFileCollector.Collect(patterns, headerExtensions, cwd).ToList();
+    }
+
+    /// <summary>
+    ///     Expands the explicit <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> into absolute
+    ///     glob patterns ready for <see cref="GlobFileCollector.Collect"/>.
+    /// </summary>
+    /// <remarks>
+    ///     Absolute patterns are forwarded unchanged. Relative patterns are resolved against
+    ///     every entry in <see cref="CppGeneratorOptions.PublicIncludeRoots"/> so that
+    ///     root-agnostic globs such as <c>**/MyHeader.h</c> match under all configured roots
+    ///     without requiring callers to hard-code root paths. Exclusion prefixes (<c>!</c>)
+    ///     are preserved on the expanded output entries.
+    /// </remarks>
+    /// <returns>
+    ///     An ordered list of absolute-path glob patterns with exclusion prefixes preserved,
+    ///     ready to pass directly to <see cref="GlobFileCollector.Collect"/>.
+    /// </returns>
+    private List<string> ExpandExplicitPatterns()
+    {
+        var patterns = new List<string>();
+        foreach (var pattern in _options.ApiHeaderPatterns)
+        {
+            var isExclusion = pattern.StartsWith('!');
+            var body = isExclusion ? pattern.Substring(1).Trim() : pattern.Trim();
+
+            if (Path.IsPathRooted(body))
+            {
+                // Absolute pattern — pass through unchanged
+                patterns.Add(pattern);
+            }
+            else
+            {
+                // Relative pattern — expand against each include root so callers can write
+                // root-agnostic patterns without knowing the configured include paths
+                patterns.AddRange(
+                    _options.PublicIncludeRoots.Select(root =>
+                    {
+                        var expanded = Path.Join(Path.GetFullPath(root), body);
+                        return isExclusion ? "!" + expanded : expanded;
+                    }));
+            }
+        }
+
+        return patterns;
     }
 
     // =========================================================================

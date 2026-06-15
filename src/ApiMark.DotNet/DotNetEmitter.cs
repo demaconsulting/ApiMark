@@ -223,9 +223,17 @@ internal sealed class DotNetEmitter : IApiEmitter
         MethodDefinition m => m.IsPublic || m.IsFamily || m.IsFamilyOrAssembly,
         PropertyDefinition p => IsPropertyPublicOrProtected(p),
         FieldDefinition f => f.IsPublic || f.IsFamily || f.IsFamilyOrAssembly,
-        EventDefinition e => (e.AddMethod?.IsPublic ?? false) || (e.AddMethod?.IsFamily ?? false) || (e.AddMethod?.IsFamilyOrAssembly ?? false),
+        EventDefinition e => IsEventAddMethodPublicOrProtected(e),
         _ => false,
     };
+
+    /// <summary>Returns <c>true</c> when <paramref name="e"/>'s add-accessor is public or protected.</summary>
+    /// <param name="e">The event to inspect.</param>
+    /// <returns><c>true</c> when the add-accessor is public, family, or family-or-assembly accessible.</returns>
+    private static bool IsEventAddMethodPublicOrProtected(EventDefinition e) =>
+        (e.AddMethod?.IsPublic ?? false) ||
+        (e.AddMethod?.IsFamily ?? false) ||
+        (e.AddMethod?.IsFamilyOrAssembly ?? false);
 
     /// <summary>Returns <c>true</c> when <paramref name="p"/> has a public or protected getter or setter.</summary>
     /// <param name="p">The property to inspect.</param>
