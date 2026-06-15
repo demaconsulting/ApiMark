@@ -12,6 +12,9 @@ internal sealed class VhdlEmitter : IApiEmitter
     /// <summary>Placeholder text for members without documentation.</summary>
     internal const string NoDescriptionPlaceholder = "*No description provided.*";
 
+    /// <summary>Placeholder text for sections that have no items.</summary>
+    internal const string NoItemsPlaceholder = "*None.*";
+
     /// <summary>Object-class keywords stripped from subprogram parameter types before display.</summary>
     private static readonly HashSet<string> ObjectClassKeywords =
         new(StringComparer.OrdinalIgnoreCase) { "SIGNAL", "VARIABLE", "CONSTANT", "FILE" };

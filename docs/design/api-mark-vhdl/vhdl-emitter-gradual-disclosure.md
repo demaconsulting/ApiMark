@@ -55,14 +55,18 @@ index page.
 **VhdlEmitterGradualDisclosure.EmitEntityPage** (private static): Writes a single
 entity detail page.
 
-- H1 entity name, summary, details, Generics table (Name/Type/Default/Description),
-  Ports table (Name/Direction/Type/Description), Architectures section (inline —
-  one bold entry per architecture with optional details paragraph).
+- H1 entity name, `*Entity declared in \`{fileName}\`*` attribution paragraph,
+  summary, details, Generics section (H2 — table when generics are present,
+  `NoItemsPlaceholder` paragraph when empty), Ports table
+  (Name/Direction/Type/Description), Architectures section (inline — one bold
+  entry per architecture formatted as `**{name}** (\`{fileName}\`): {summary}`
+  with optional details paragraph).
 
 **VhdlEmitterGradualDisclosure.EmitPackagePage** (private static): Writes a single
 package detail page and calls `EmitSubprogramDetailPage` for each subprogram.
 
-- H1 package name, summary, details, Types paragraphs, Constants paragraphs,
+- H1 package name, `*Package declared in \`{fileName}\`*` attribution paragraph,
+  summary, details, Types paragraphs, Constants paragraphs,
   Components as `**name** — summary` paragraphs, Subprograms section with links
   to per-subprogram detail pages.
 
@@ -83,7 +87,8 @@ one `{packageName}/{subprogramName}.md` detail file.
 ### Dependencies
 
 - **VhdlEmitter** (internal) — instantiates this class and supplies `Options` and
-  shared helpers (`GetSummary`, `DescriptionColumnHeader`, `NoDescriptionPlaceholder`).
+  shared helpers (`GetSummary`, `DescriptionColumnHeader`, `NoDescriptionPlaceholder`,
+  `NoItemsPlaceholder`).
 - **IMarkdownWriterFactory** (ApiMarkCore) — used to create each per-file Markdown
   writer.
 - **VhdlAstModel** (internal) — consumes `VhdlFileModel`, `VhdlEntityDecl`,

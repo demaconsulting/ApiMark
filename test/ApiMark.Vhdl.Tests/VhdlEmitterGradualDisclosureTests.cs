@@ -164,6 +164,108 @@ public class VhdlEmitterGradualDisclosureTests
         Assert.Contains(headings, h => h.Text.Equals("Architectures", StringComparison.Ordinal));
     }
 
+    /// <summary>Validates that the architecture paragraph on an entity page includes the source filename.</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_WithArchitecture_ArchitectureParagraphContainsFilename()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildDataWithArchitecture();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: an architecture paragraph must contain both the bold architecture name and the source filename,
+        // distinguishing it from the entity attribution paragraph which also contains the filename
+        var entityWriter = factory.Writers.Values.FirstOrDefault(w =>
+            w.Operations.OfType<HeadingOperation>().Any(h => h.Text.Equals("MyEntity", StringComparison.Ordinal)));
+        Assert.NotNull(entityWriter);
+        var paragraphs = entityWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p =>
+            p.Text.Contains("**behavioral**", StringComparison.Ordinal) &&
+            p.Text.Contains("`test.vhd`", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that an entity with no generics still emits a Generics section heading.</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_EntityWithNoGenerics_EmitsGenericsHeading()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildMinimalData();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: Generics heading must appear on the entity page even when the entity has no generics
+        var entityWriter = factory.Writers.Values.FirstOrDefault(w =>
+            w.Operations.OfType<HeadingOperation>().Any(h => h.Text.Equals("MyEntity", StringComparison.Ordinal)));
+        Assert.NotNull(entityWriter);
+        var headings = entityWriter.Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(headings, h => h.Text.Equals("Generics", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that an entity with no generics emits a none-placeholder paragraph in the Generics section.</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_EntityWithNoGenerics_EmitsNonePlaceholderInGenericsSection()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildMinimalData();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: none-placeholder paragraph must appear on the entity page
+        var entityWriter = factory.Writers.Values.FirstOrDefault(w =>
+            w.Operations.OfType<HeadingOperation>().Any(h => h.Text.Equals("MyEntity", StringComparison.Ordinal)));
+        Assert.NotNull(entityWriter);
+        var paragraphs = entityWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Equals(VhdlEmitter.NoItemsPlaceholder, StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that the entity page includes an attribution paragraph naming the source file.</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_Entity_PageContainsEntityAttributionParagraph()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildMinimalData();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: attribution paragraph must identify kind and source filename
+        var entityWriter = factory.Writers.Values.FirstOrDefault(w =>
+            w.Operations.OfType<HeadingOperation>().Any(h => h.Text.Equals("MyEntity", StringComparison.Ordinal)));
+        Assert.NotNull(entityWriter);
+        var paragraphs = entityWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p =>
+            p.Text.Contains("Entity", StringComparison.Ordinal) &&
+            p.Text.Contains("`test.vhd`", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that the package page includes an attribution paragraph naming the source file.</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_Package_PageContainsPackageAttributionParagraph()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildDataWithPackageMembers();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: attribution paragraph must identify kind and source filename
+        var pkgWriter = factory.Writers.Values.FirstOrDefault(w =>
+            w.Operations.OfType<HeadingOperation>().Any(h => h.Text.Equals("my_pkg", StringComparison.Ordinal)));
+        Assert.NotNull(pkgWriter);
+        var paragraphs = pkgWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p =>
+            p.Text.Contains("Package", StringComparison.Ordinal) &&
+            p.Text.Contains("`test.vhd`", StringComparison.Ordinal));
+    }
+
     /// <summary>Validates that package with members emits Types section on its detail page.</summary>
     [Fact]
     public void VhdlEmitterGradualDisclosure_Emit_PackageWithTypes_EmitsTypesSection()
