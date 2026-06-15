@@ -96,7 +96,7 @@ entity header context into a list of `VhdlPortDoc` records.
 **VhdlAstParser.ParseSubprogramDecl** (private): Resolves a
 `Subprogram_declarationContext` into a `VhdlSubprogramDecl` record or returns null.
 
-- *Parameters*: `Subprogram_declarationContext subprogDecl`, `int declarationLine`.
+- *Parameters*: `Package_declarative_itemContext item`, `Subprogram_specificationContext spec`.
 - *Returns*: `VhdlSubprogramDecl?` — null when the spec cannot be resolved.
 - *Algorithm*: checks `subprogram_specification` for either a
   `function_specification` or `procedure_specification`; extracts name, kind,

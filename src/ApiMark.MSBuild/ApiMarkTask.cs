@@ -534,16 +534,12 @@ public sealed class ApiMarkTask : Task
     /// </returns>
     private bool ExecuteAllOutputs(string dotnetExe, string language)
     {
-        var allSucceeded = true;
-        foreach (var outputItem in ApiMarkOutputs!)
-        {
-            if (!RunToolProcess(dotnetExe, BuildArgumentsForOutput(language, outputItem)))
-            {
-                allSucceeded = false;
-            }
-        }
-
-        return allSucceeded;
+        // ToList forces all child processes to run before any result is inspected,
+        // ensuring failures in one output do not suppress execution of the others.
+        var results = ApiMarkOutputs!
+            .Select(o => RunToolProcess(dotnetExe, BuildArgumentsForOutput(language, o)))
+            .ToList();
+        return results.All(r => r);
     }
 
     /// <summary>
