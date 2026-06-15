@@ -46,7 +46,10 @@ reviews:
       - docs/reqstream/api-mark-core/**/*.yaml
   - id: ApiMark-Core-Design
     title: Review that ApiMark Core Design is Consistent and Complete
-    paths: [docs/design/ots.md, docs/design/api-mark-core.md, docs/design/api-mark-core/**/*.md]
+    paths:
+      - docs/design/ots.md
+      - docs/design/api-mark-core.md
+      - docs/design/api-mark-core/**/*.md
   - id: ApiMark-Core-Verification
     title: Review that ApiMark Core Verification is Consistent and Complete
     paths:
@@ -245,7 +248,10 @@ reviews:
       - docs/reqstream/api-mark-cpp/**/*.yaml
   - id: ApiMark-Cpp-Design
     title: Review that ApiMark Cpp Design is Consistent and Complete
-    paths: [docs/design/ots.md, docs/design/api-mark-cpp.md, docs/design/api-mark-cpp/**/*.md]
+    paths:
+      - docs/design/ots.md
+      - docs/design/api-mark-cpp.md
+      - docs/design/api-mark-cpp/**/*.md
   - id: ApiMark-Cpp-Verification
     title: Review that ApiMark Cpp Verification is Consistent and Complete
     paths:
@@ -336,7 +342,10 @@ reviews:
       - docs/reqstream/api-mark-vhdl/**/*.yaml
   - id: ApiMark-Vhdl-Design
     title: Review that ApiMark Vhdl Design is Consistent and Complete
-    paths: [docs/design/ots.md, docs/design/api-mark-vhdl.md, docs/design/api-mark-vhdl/**/*.md]
+    paths:
+      - docs/design/ots.md
+      - docs/design/api-mark-vhdl.md
+      - docs/design/api-mark-vhdl/**/*.md
   - id: ApiMark-Vhdl-Verification
     title: Review that ApiMark Vhdl Verification is Consistent and Complete
     paths:
@@ -458,7 +467,10 @@ reviews:
       - docs/reqstream/api-mark-tool/**/*.yaml
   - id: ApiMark-Tool-Design
     title: Review that ApiMark Tool Design is Consistent and Complete
-    paths: [docs/design/ots.md, docs/design/api-mark-tool.md, docs/design/api-mark-tool/**/*.md]
+    paths:
+      - docs/design/ots.md
+      - docs/design/api-mark-tool.md
+      - docs/design/api-mark-tool/**/*.md
   - id: ApiMark-Tool-Verification
     title: Review that ApiMark Tool Verification is Consistent and Complete
     paths:

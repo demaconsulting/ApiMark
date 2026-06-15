@@ -152,6 +152,61 @@ public sealed class GlobFileCollectorTests
     // =========================================================================
 
     /// <summary>
+    ///     Verifies that an absolute pattern whose glob segment is directly under the
+    ///     drive root (e.g. <c>C:\*.vhd</c>) produces the drive root (<c>C:/</c>) as
+    ///     the filesystem root rather than the drive-relative path <c>C:</c>.
+    ///     This guards against the Windows drive-root path truncation bug where
+    ///     <c>Substring(0, lastSlash)</c> would strip the trailing slash and yield
+    ///     <c>C:</c> instead of <c>C:/</c>.
+    /// </summary>
+    [Fact]
+    public void GlobFileCollector_Collect_AbsoluteDriveRootPattern_FindsFiles()
+    {
+        // This test is only meaningful on Windows where drive-rooted paths exist
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        // Arrange: create a temp directory directly under the system temp root and
+        // build a drive-root-style absolute pattern (e.g. C:\*.vhd is the canonical
+        // failing case, but we use a real temp subdirectory so the test is self-contained).
+        // The key scenario: pattern root resolves to "C:/" not "C:".
+        var tempDir = CreateTempDirectory();
+        try
+        {
+            var vhdFile = Path.Join(tempDir, "top.vhd");
+            File.WriteAllText(vhdFile, string.Empty);
+
+            // Construct a pattern rooted directly under the drive root, e.g. C:\TEMP\xyz\*.vhd
+            // This puts the glob segment (*) immediately after a path whose last static
+            // directory segment sits two levels above the first glob metacharacter,
+            // exercising the drive-root boundary when tempDir is on a drive like C:\.
+            var driveRoot = Path.GetPathRoot(tempDir)!; // e.g. "C:\"
+            var relToRoot = Path.GetRelativePath(driveRoot, tempDir);
+            var drivePattern = Path.Join(driveRoot, relToRoot, "*.vhd");
+
+            // Act
+            var result = GlobFileCollector.Collect(
+                [drivePattern],
+                VhdlExtensions,
+                workingDirectory: Path.GetTempPath());
+
+            // Assert: the file is found via the drive-rooted absolute pattern
+            Assert.Single(result);
+            Assert.Equal(Path.GetFullPath(vhdFile), result[0]);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    // =========================================================================
+    // Exclusion pattern tests
+    // =========================================================================
+
+    /// <summary>
     ///     Verifies that a <c>!</c>-prefixed exclusion pattern removes matching files from the result.
     /// </summary>
     [Fact]

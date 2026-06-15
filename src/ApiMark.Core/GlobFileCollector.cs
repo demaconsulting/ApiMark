@@ -197,7 +197,10 @@ public static class GlobFileCollector
     ///     first glob metacharacter. The tail is everything after that separator. When
     ///     there is no <c>/</c> before the first glob, the root is empty and the tail is
     ///     the entire pattern. A leading <c>/</c> at position zero is preserved as the
-    ///     root for Unix absolute paths such as <c>/opt/sdk/include/**/*.h</c>.
+    ///     root for Unix absolute paths such as <c>/opt/sdk/include/**/*.h</c>. The
+    ///     trailing slash of a Windows drive root (<c>C:/</c>) is likewise preserved so
+    ///     that <c>C:/*.vhd</c> resolves to the drive root rather than the
+    ///     drive-relative path <c>C:</c>.
     /// </remarks>
     /// <param name="normalizedPattern">
     ///     Absolute pattern with all backslashes replaced by forward slashes.
@@ -227,8 +230,12 @@ public static class GlobFileCollector
             return (string.Empty, normalizedPattern);
         }
 
-        // lastSlash == 0 means the leading '/' of a Unix absolute path is the boundary
-        var root = lastSlash == 0 ? "/" : normalizedPattern.Substring(0, lastSlash);
+        // Preserve the trailing slash when the slash is a filesystem root boundary:
+        //   lastSlash == 0 → Unix absolute root '/'  (e.g. "/*.vhd" → root "/")
+        //   lastSlash == 2 && [1] == ':' → Windows drive root 'C:/' (e.g. "C:/*.vhd" → root "C:/")
+        // Without the slash the result would be "" or "C:" — both are drive-relative, not absolute.
+        var isRootBoundary = lastSlash == 0 || (lastSlash == 2 && normalizedPattern[1] == ':');
+        var root = isRootBoundary ? normalizedPattern.Substring(0, lastSlash + 1) : normalizedPattern.Substring(0, lastSlash);
         var tail = normalizedPattern.Substring(lastSlash + 1);
 
         return (root, tail);
