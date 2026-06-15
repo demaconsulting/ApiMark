@@ -23,7 +23,17 @@ internal static class VhdlAstParser
         var lexer = new vhdl2008Lexer(input);
         var stream = new CommonTokenStream(lexer);
         var parser = new vhdl2008Parser(stream);
+
+        // Replace default ConsoleErrorListener with a collecting listener so that
+        // syntax errors are thrown as exceptions rather than written to Console.Error.
+        var errorListener = new CollectingErrorListener();
+        lexer.RemoveErrorListeners();
+        lexer.AddErrorListener(errorListener);
+        parser.RemoveErrorListeners();
+        parser.AddErrorListener(errorListener);
+
         var tree = parser.design_file();
+        errorListener.ThrowIfErrors(filePath);
 
         var visitor = new VhdlVisitor(sourceText, lines);
         visitor.Visit(tree);
@@ -560,6 +570,11 @@ internal static class VhdlAstParser
                         var paramDesc = rest[(spaceIdx + 1)..].Trim();
                         paramDocs.Add(new VhdlParamDoc(paramName, paramDesc));
                     }
+                    else if (rest.Length > 0)
+                    {
+                        // @param with name but no description — preserve the name with empty description
+                        paramDocs.Add(new VhdlParamDoc(rest, string.Empty));
+                    }
                 }
                 else if (line.StartsWith("@return ", StringComparison.Ordinal))
                 {
@@ -587,6 +602,50 @@ internal static class VhdlAstParser
             string? details = !string.IsNullOrEmpty(detailText) ? detailText : null;
 
             return new VhdlDocComment(summary, details, paramDocs, returns);
+        }
+    }
+
+    /// <summary>
+    ///     ANTLR4 error listener that collects syntax errors and can throw them as an
+    ///     <see cref="InvalidOperationException"/>, preventing silent error recovery from
+    ///     producing corrupt parse trees.
+    /// </summary>
+    private sealed class CollectingErrorListener : IAntlrErrorListener<int>, IAntlrErrorListener<IToken>
+    {
+        private readonly List<string> _errors = [];
+
+        // Called by the lexer (offending symbol is an int token type)
+        public void SyntaxError(
+            TextWriter output,
+            IRecognizer recognizer,
+            int offendingSymbol,
+            int line,
+            int charPositionInLine,
+            string msg,
+            RecognitionException e) =>
+            _errors.Add($"line {line}:{charPositionInLine} {msg}");
+
+        // Called by the parser (offending symbol is an IToken)
+        public void SyntaxError(
+            TextWriter output,
+            IRecognizer recognizer,
+            IToken offendingSymbol,
+            int line,
+            int charPositionInLine,
+            string msg,
+            RecognitionException e) =>
+            _errors.Add($"line {line}:{charPositionInLine} {msg}");
+
+        /// <summary>Throws if any syntax errors were collected.</summary>
+        /// <param name="filePath">Source file path included in the exception message.</param>
+        /// <exception cref="InvalidOperationException">Thrown when the file has syntax errors.</exception>
+        public void ThrowIfErrors(string filePath)
+        {
+            if (_errors.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"VHDL syntax errors in '{filePath}': {string.Join("; ", _errors)}");
+            }
         }
     }
 }

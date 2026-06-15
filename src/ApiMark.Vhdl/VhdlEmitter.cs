@@ -12,6 +12,10 @@ internal sealed class VhdlEmitter : IApiEmitter
     /// <summary>Placeholder text for members without documentation.</summary>
     internal const string NoDescriptionPlaceholder = "*No description provided.*";
 
+    /// <summary>Object-class keywords stripped from subprogram parameter types before display.</summary>
+    private static readonly HashSet<string> ObjectClassKeywords =
+        new(StringComparer.OrdinalIgnoreCase) { "SIGNAL", "VARIABLE", "CONSTANT", "FILE" };
+
     private readonly VhdlGeneratorOptions _options;
     private readonly IReadOnlyList<VhdlFileModel> _fileModels;
 
@@ -64,12 +68,10 @@ internal sealed class VhdlEmitter : IApiEmitter
     /// </returns>
     internal static string FormatParamType(VhdlParamDecl param)
     {
-        var classKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            { "SIGNAL", "VARIABLE", "CONSTANT", "FILE" };
         var direction = string.Join(
             " ",
             param.Mode.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Where(t => !classKeywords.Contains(t)));
+                .Where(t => !ObjectClassKeywords.Contains(t)));
         return string.IsNullOrEmpty(direction) ? param.TypeName : $"{direction} {param.TypeName}";
     }
 

@@ -48,7 +48,7 @@ public sealed class VhdlGenerator : IApiGenerator
             }
             catch (Exception ex)
             {
-                context.WriteError($"Warning: skipping {file} — {ex.Message}");
+                context.WriteError($"Error: failed to parse {file} — {ex.Message}");
             }
         }
 

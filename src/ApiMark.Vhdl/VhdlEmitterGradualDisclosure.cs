@@ -262,7 +262,7 @@ internal sealed class VhdlEmitterGradualDisclosure
                     {
                         p.Name,
                         VhdlEmitter.FormatParamType(p),
-                        s.Doc?.Params.FirstOrDefault(pd => pd.Name == p.Name)?.Description ?? VhdlEmitter.NoDescriptionPlaceholder,
+                        s.Doc?.Params.FirstOrDefault(pd => string.Equals(pd.Name, p.Name, StringComparison.OrdinalIgnoreCase))?.Description ?? VhdlEmitter.NoDescriptionPlaceholder,
                     });
                     subWriter.WriteTable(headers, rows);
                 }

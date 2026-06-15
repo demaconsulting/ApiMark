@@ -174,10 +174,10 @@ internal static class Program
             return;
         }
 
-        // Validate vhdl-specific required options: at least one non-exclusion --source pattern
-        // must be provided so the generator has something to scan.
+        // Validate vhdl-specific required options: at least one non-empty, non-exclusion --source
+        // pattern must be provided so the generator has something to scan.
         if (context.Language == "vhdl" &&
-            (context.Sources == null || !context.Sources.Any(s => !s.StartsWith('!'))))
+            !context.Sources.Any(s => !s.StartsWith('!') && !string.IsNullOrWhiteSpace(s)))
         {
             context.WriteError("Error: at least one non-exclusion --source pattern is required for the vhdl subcommand.");
             PrintHelp(context);
@@ -275,7 +275,7 @@ internal static class Program
             {
                 LibraryName = !string.IsNullOrEmpty(context.LibraryName) ? context.LibraryName : defaultLibraryName,
                 Description = context.LibraryDescription ?? string.Empty,
-                Sources = context.Sources,
+                Sources = new List<string>(context.Sources),
             }),
 
             // Any other token is an unrecognized subcommand
