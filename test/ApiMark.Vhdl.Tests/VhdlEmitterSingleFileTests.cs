@@ -223,10 +223,13 @@ public class VhdlEmitterSingleFileTests
         // Act
         new VhdlEmitterSingleFile(emitter, fileModels).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
 
-        // Assert: the architecture paragraph must contain the source filename in backticks
+        // Assert: an architecture paragraph must contain both the bold architecture name and the source filename,
+        // distinguishing it from the entity attribution paragraph which also contains the filename
         var apiWriter = factory.GetWriter("", "api");
         var paragraphs = apiWriter.Operations.OfType<ParagraphOperation>().ToList();
-        Assert.Contains(paragraphs, p => p.Text.Contains("`test.vhd`", StringComparison.Ordinal));
+        Assert.Contains(paragraphs, p =>
+            p.Text.Contains("**behavioral**", StringComparison.Ordinal) &&
+            p.Text.Contains("`test.vhd`", StringComparison.Ordinal));
     }
 
     /// <summary>Validates that an entity with no generics still emits a Generics section heading in single-file output.</summary>

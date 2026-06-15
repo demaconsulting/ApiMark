@@ -175,12 +175,15 @@ public class VhdlEmitterGradualDisclosureTests
         // Act
         new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-        // Assert: the architecture paragraph must contain the source filename in backticks
+        // Assert: an architecture paragraph must contain both the bold architecture name and the source filename,
+        // distinguishing it from the entity attribution paragraph which also contains the filename
         var entityWriter = factory.Writers.Values.FirstOrDefault(w =>
             w.Operations.OfType<HeadingOperation>().Any(h => h.Text.Equals("MyEntity", StringComparison.Ordinal)));
         Assert.NotNull(entityWriter);
         var paragraphs = entityWriter.Operations.OfType<ParagraphOperation>().ToList();
-        Assert.Contains(paragraphs, p => p.Text.Contains("`test.vhd`", StringComparison.Ordinal));
+        Assert.Contains(paragraphs, p =>
+            p.Text.Contains("**behavioral**", StringComparison.Ordinal) &&
+            p.Text.Contains("`test.vhd`", StringComparison.Ordinal));
     }
 
     /// <summary>Validates that an entity with no generics still emits a Generics section heading.</summary>
