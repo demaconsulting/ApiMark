@@ -212,6 +212,95 @@ public class VhdlEmitterSingleFileTests
         Assert.Contains(headings, h => h.Text.Equals("Architectures", StringComparison.Ordinal));
     }
 
+    /// <summary>Validates that the architecture paragraph in single-file output includes the source filename.</summary>
+    [Fact]
+    public void VhdlEmitterSingleFile_Emit_EntityWithArchitecture_ArchitectureParagraphContainsFilename()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildEntityWithArchData();
+
+        // Act
+        new VhdlEmitterSingleFile(emitter, fileModels).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: the architecture paragraph must contain the source filename in backticks
+        var apiWriter = factory.GetWriter("", "api");
+        var paragraphs = apiWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Contains("`test.vhd`", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that an entity with no generics still emits a Generics section heading in single-file output.</summary>
+    [Fact]
+    public void VhdlEmitterSingleFile_Emit_EntityWithNoGenerics_EmitsGenericsHeading()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildMinimalData();
+
+        // Act
+        new VhdlEmitterSingleFile(emitter, fileModels).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: Generics heading must appear even when the entity has no generics
+        var apiWriter = factory.GetWriter("", "api");
+        var headings = apiWriter.Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(headings, h => h.Text.Equals("Generics", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that an entity with no generics emits a none-placeholder paragraph in single-file output.</summary>
+    [Fact]
+    public void VhdlEmitterSingleFile_Emit_EntityWithNoGenerics_EmitsNonePlaceholderInGenericsSection()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildMinimalData();
+
+        // Act
+        new VhdlEmitterSingleFile(emitter, fileModels).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: none-placeholder paragraph must appear in the api output
+        var apiWriter = factory.GetWriter("", "api");
+        var paragraphs = apiWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Equals(VhdlEmitter.NoItemsPlaceholder, StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that an entity section includes an attribution paragraph naming the source file in single-file output.</summary>
+    [Fact]
+    public void VhdlEmitterSingleFile_Emit_Entity_SectionContainsEntityAttributionParagraph()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildMinimalData();
+
+        // Act
+        new VhdlEmitterSingleFile(emitter, fileModels).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: attribution paragraph must identify kind and source filename
+        var apiWriter = factory.GetWriter("", "api");
+        var paragraphs = apiWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p =>
+            p.Text.Contains("Entity", StringComparison.Ordinal) &&
+            p.Text.Contains("`test.vhd`", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that a package section includes an attribution paragraph naming the source file in single-file output.</summary>
+    [Fact]
+    public void VhdlEmitterSingleFile_Emit_Package_SectionContainsPackageAttributionParagraph()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, fileModels) = BuildPackageWithTypesData();
+
+        // Act
+        new VhdlEmitterSingleFile(emitter, fileModels).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: attribution paragraph must identify kind and source filename
+        var apiWriter = factory.GetWriter("", "api");
+        var paragraphs = apiWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p =>
+            p.Text.Contains("Package", StringComparison.Ordinal) &&
+            p.Text.Contains("`test.vhd`", StringComparison.Ordinal));
+    }
+
     /// <summary>Builds data with a subprogram that has formal parameters for Parameters-section tests.</summary>
     private static (VhdlEmitter emitter, IReadOnlyList<VhdlFileModel> fileModels) BuildPackageWithParameterizedSubprogramData()
     {

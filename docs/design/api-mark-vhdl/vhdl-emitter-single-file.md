@@ -52,14 +52,18 @@ file.
 **VhdlEmitterSingleFile.EmitEntitySection** (private static): Writes the per-entity
 block within the single-file output.
 
-- H{depth+2} entity name, summary, details, optional Generics table (H{depth+3}),
-  optional Ports table (H{depth+3}), optional Architectures sub-section (H{depth+3},
-  one bold paragraph per architecture with optional details).
+- H{depth+2} entity name, `*Entity declared in \`{fileName}\`*` attribution
+  paragraph, summary, details, Generics section (H{depth+3} — table when generics
+  are present, `NoItemsPlaceholder` paragraph when empty), optional Ports table
+  (H{depth+3}), optional Architectures sub-section (H{depth+3}, one bold paragraph
+  per architecture formatted as `**{name}** (\`{fileName}\`): {summary}` with
+  optional details).
 
 **VhdlEmitterSingleFile.EmitPackageSection** (private static): Writes the
 per-package block within the single-file output.
 
-- H{depth+2} package name, summary, details, optional Types section (H{depth+3}),
+- H{depth+2} package name, `*Package declared in \`{fileName}\`*` attribution
+  paragraph, summary, details, optional Types section (H{depth+3}),
   optional Constants section (H{depth+3}), optional Components section (H{depth+3}),
   then calls `EmitSubprogramSection` for each subprogram.
 
@@ -80,7 +84,8 @@ per-subprogram block within the single-file output.
 ### Dependencies
 
 - **VhdlEmitter** (internal) — instantiates this class and supplies `Options` and
-  shared helpers (`GetSummary`, `DescriptionColumnHeader`, `NoDescriptionPlaceholder`).
+  shared helpers (`GetSummary`, `DescriptionColumnHeader`, `NoDescriptionPlaceholder`,
+  `NoItemsPlaceholder`).
 - **IMarkdownWriterFactory** (ApiMarkCore) — used to create the single Markdown writer.
 - **VhdlAstModel** (internal) — consumes `VhdlFileModel`, `VhdlEntityDecl`,
   `VhdlArchitectureDecl`, and `VhdlPackageDecl` record types.

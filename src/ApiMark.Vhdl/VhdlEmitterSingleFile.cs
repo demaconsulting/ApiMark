@@ -29,9 +29,15 @@ internal sealed class VhdlEmitterSingleFile
 
         var depth = config.HeadingDepth;
 
-        var allEntities = _fileModels.SelectMany(f => f.Entities).ToList();
-        var allArchitectures = _fileModels.SelectMany(f => f.Architectures).ToList();
-        var allPackages = _fileModels.SelectMany(f => f.Packages).ToList();
+        var allEntities = _fileModels
+            .SelectMany(f => f.Entities.Select(e => (Entity: e, FileName: Path.GetFileName(f.FilePath))))
+            .ToList();
+        var allArchitectures = _fileModels
+            .SelectMany(f => f.Architectures.Select(a => (Arch: a, FileName: Path.GetFileName(f.FilePath))))
+            .ToList();
+        var allPackages = _fileModels
+            .SelectMany(f => f.Packages.Select(p => (Package: p, FileName: Path.GetFileName(f.FilePath))))
+            .ToList();
 
         using var writer = factory.CreateMarkdown("", "api");
 
@@ -51,9 +57,9 @@ internal sealed class VhdlEmitterSingleFile
         if (allEntities.Count > 0)
         {
             writer.WriteHeading(depth + 1, "Entities");
-            foreach (var entity in allEntities)
+            foreach (var (entity, fileName) in allEntities)
             {
-                EmitEntitySection(writer, entity, allArchitectures, depth);
+                EmitEntitySection(writer, entity, fileName, allArchitectures, depth);
             }
         }
 
@@ -61,9 +67,9 @@ internal sealed class VhdlEmitterSingleFile
         if (allPackages.Count > 0)
         {
             writer.WriteHeading(depth + 1, "Packages");
-            foreach (var pkg in allPackages)
+            foreach (var (pkg, fileName) in allPackages)
             {
-                EmitPackageSection(writer, pkg, depth);
+                EmitPackageSection(writer, pkg, fileName, depth);
             }
         }
     }
@@ -74,6 +80,7 @@ internal sealed class VhdlEmitterSingleFile
     /// </summary>
     /// <param name="writer">Markdown writer to emit into.</param>
     /// <param name="entity">The entity declaration to emit.</param>
+    /// <param name="fileName">Base filename of the source file containing this entity declaration.</param>
     /// <param name="allArchitectures">
     ///     All architecture declarations across all parsed files; filtered to those
     ///     whose entity name matches <paramref name="entity"/>.
@@ -82,10 +89,14 @@ internal sealed class VhdlEmitterSingleFile
     private static void EmitEntitySection(
         IMarkdownWriter writer,
         VhdlEntityDecl entity,
-        List<VhdlArchitectureDecl> allArchitectures,
+        string fileName,
+        List<(VhdlArchitectureDecl Arch, string FileName)> allArchitectures,
         int depth)
     {
         writer.WriteHeading(depth + 2, entity.Name);
+
+        // Attribution: kind and source file
+        writer.WriteParagraph($"*Entity declared in `{fileName}`*");
 
         var summary = VhdlEmitter.GetSummary(entity.Doc);
         writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : VhdlEmitter.NoDescriptionPlaceholder);
@@ -96,9 +107,9 @@ internal sealed class VhdlEmitterSingleFile
             writer.WriteParagraph(details);
         }
 
+        writer.WriteHeading(depth + 3, "Generics");
         if (entity.Generics.Count > 0)
         {
-            writer.WriteHeading(depth + 3, "Generics");
             var headers = new[] { "Name", "Type", "Default", VhdlEmitter.DescriptionColumnHeader };
             var rows = entity.Generics.Select(g => new[]
             {
@@ -108,6 +119,10 @@ internal sealed class VhdlEmitterSingleFile
                 VhdlEmitter.GetSummary(g.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder,
             });
             writer.WriteTable(headers, rows);
+        }
+        else
+        {
+            writer.WriteParagraph(VhdlEmitter.NoItemsPlaceholder);
         }
 
         if (entity.Ports.Count > 0)
@@ -125,18 +140,18 @@ internal sealed class VhdlEmitterSingleFile
         }
 
         var archsForEntity = allArchitectures
-            .Where(a => string.Equals(a.EntityName, entity.Name, StringComparison.OrdinalIgnoreCase))
+            .Where(t => string.Equals(t.Arch.EntityName, entity.Name, StringComparison.OrdinalIgnoreCase))
             .ToList();
         if (archsForEntity.Count > 0)
         {
             writer.WriteHeading(depth + 3, "Architectures");
-            foreach (var arch in archsForEntity)
+            foreach (var (arch, archFileName) in archsForEntity)
             {
-                // Emit architecture summary as bold-name paragraph
+                // Emit architecture as: **name** (`filename`): summary  or  **name** (`filename`)
                 var archSummary = VhdlEmitter.GetSummary(arch.Doc);
                 writer.WriteParagraph(!string.IsNullOrEmpty(archSummary)
-                    ? $"**{arch.Name}**: {archSummary}"
-                    : $"**{arch.Name}**");
+                    ? $"**{arch.Name}** (`{archFileName}`): {archSummary}"
+                    : $"**{arch.Name}** (`{archFileName}`)");
 
                 // Emit extended architecture details as a follow-on paragraph if present
                 var archDetails = arch.Doc?.Details;
@@ -154,10 +169,14 @@ internal sealed class VhdlEmitterSingleFile
     /// </summary>
     /// <param name="writer">Markdown writer to emit into.</param>
     /// <param name="pkg">The package declaration to emit.</param>
+    /// <param name="fileName">Base filename of the source file containing this package declaration.</param>
     /// <param name="depth">Base heading depth for the library root; package heading uses depth+2.</param>
-    private static void EmitPackageSection(IMarkdownWriter writer, VhdlPackageDecl pkg, int depth)
+    private static void EmitPackageSection(IMarkdownWriter writer, VhdlPackageDecl pkg, string fileName, int depth)
     {
         writer.WriteHeading(depth + 2, pkg.Name);
+
+        // Attribution: kind and source file
+        writer.WriteParagraph($"*Package declared in `{fileName}`*");
 
         // Emit package summary paragraph
         var summary = VhdlEmitter.GetSummary(pkg.Doc);

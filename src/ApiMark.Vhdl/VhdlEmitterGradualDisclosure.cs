@@ -28,24 +28,30 @@ internal sealed class VhdlEmitterGradualDisclosure
         _ = config;
         _ = context;
 
-        // Collect all entities, architectures, packages across all files
-        var allEntities = _fileModels.SelectMany(f => f.Entities).ToList();
-        var allArchitectures = _fileModels.SelectMany(f => f.Architectures).ToList();
-        var allPackages = _fileModels.SelectMany(f => f.Packages).ToList();
+        // Collect all entities, architectures (with source filename), packages across all files
+        var allEntities = _fileModels
+            .SelectMany(f => f.Entities.Select(e => (Entity: e, FileName: Path.GetFileName(f.FilePath))))
+            .ToList();
+        var allArchitectures = _fileModels
+            .SelectMany(f => f.Architectures.Select(a => (Arch: a, FileName: Path.GetFileName(f.FilePath))))
+            .ToList();
+        var allPackages = _fileModels
+            .SelectMany(f => f.Packages.Select(p => (Package: p, FileName: Path.GetFileName(f.FilePath))))
+            .ToList();
 
         // Emit api.md index page
-        EmitApiIndexPage(factory, allEntities, allPackages);
+        EmitApiIndexPage(factory, allEntities.Select(t => t.Entity).ToList(), allPackages.Select(t => t.Package).ToList());
 
         // Emit entity detail pages
-        foreach (var entity in allEntities)
+        foreach (var (entity, fileName) in allEntities)
         {
-            EmitEntityPage(factory, entity, allArchitectures);
+            EmitEntityPage(factory, entity, fileName, allArchitectures);
         }
 
         // Emit package detail pages and per-subprogram detail files
-        foreach (var pkg in allPackages)
+        foreach (var (pkg, fileName) in allPackages)
         {
-            EmitPackagePage(factory, pkg);
+            EmitPackagePage(factory, pkg, fileName);
         }
     }
 
@@ -94,6 +100,7 @@ internal sealed class VhdlEmitterGradualDisclosure
     /// </summary>
     /// <param name="factory">Factory for creating the per-entity Markdown writer.</param>
     /// <param name="entity">The entity declaration to emit.</param>
+    /// <param name="fileName">Base filename of the source file containing this entity declaration.</param>
     /// <param name="allArchitectures">
     ///     All architecture declarations across all parsed files; filtered to those
     ///     whose entity name matches <paramref name="entity"/>.
@@ -101,10 +108,14 @@ internal sealed class VhdlEmitterGradualDisclosure
     private static void EmitEntityPage(
         IMarkdownWriterFactory factory,
         VhdlEntityDecl entity,
-        List<VhdlArchitectureDecl> allArchitectures)
+        string fileName,
+        List<(VhdlArchitectureDecl Arch, string FileName)> allArchitectures)
     {
         using var writer = factory.CreateMarkdown("", VhdlEmitter.SanitizeFileName(entity.Name));
         writer.WriteHeading(1, entity.Name);
+
+        // Attribution: kind and source file
+        writer.WriteParagraph($"*Entity declared in `{fileName}`*");
 
         var summary = VhdlEmitter.GetSummary(entity.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder;
         writer.WriteParagraph(summary);
@@ -115,9 +126,9 @@ internal sealed class VhdlEmitterGradualDisclosure
             writer.WriteParagraph(details);
         }
 
+        writer.WriteHeading(2, "Generics");
         if (entity.Generics.Count > 0)
         {
-            writer.WriteHeading(2, "Generics");
             var headers = new[] { "Name", "Type", "Default", VhdlEmitter.DescriptionColumnHeader };
             var rows = entity.Generics.Select(g => new[]
             {
@@ -127,6 +138,10 @@ internal sealed class VhdlEmitterGradualDisclosure
                 VhdlEmitter.GetSummary(g.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder,
             });
             writer.WriteTable(headers, rows);
+        }
+        else
+        {
+            writer.WriteParagraph(VhdlEmitter.NoItemsPlaceholder);
         }
 
         if (entity.Ports.Count > 0)
@@ -145,18 +160,18 @@ internal sealed class VhdlEmitterGradualDisclosure
 
         // List architectures that implement this entity
         var archsForEntity = allArchitectures
-            .Where(a => string.Equals(a.EntityName, entity.Name, StringComparison.OrdinalIgnoreCase))
+            .Where(t => string.Equals(t.Arch.EntityName, entity.Name, StringComparison.OrdinalIgnoreCase))
             .ToList();
         if (archsForEntity.Count > 0)
         {
             writer.WriteHeading(2, "Architectures");
-            foreach (var arch in archsForEntity)
+            foreach (var (arch, archFileName) in archsForEntity)
             {
-                // Emit architecture summary as bold-name paragraph
+                // Emit architecture as: **name** (`filename`): summary  or  **name** (`filename`)
                 var archSummary = VhdlEmitter.GetSummary(arch.Doc);
                 writer.WriteParagraph(!string.IsNullOrEmpty(archSummary)
-                    ? $"**{arch.Name}**: {archSummary}"
-                    : $"**{arch.Name}**");
+                    ? $"**{arch.Name}** (`{archFileName}`): {archSummary}"
+                    : $"**{arch.Name}** (`{archFileName}`)");
 
                 // Emit extended architecture details as a follow-on paragraph if present
                 var archDetails = arch.Doc?.Details;
@@ -174,10 +189,14 @@ internal sealed class VhdlEmitterGradualDisclosure
     /// </summary>
     /// <param name="factory">Factory for creating Markdown writers for the package page and subprogram pages.</param>
     /// <param name="pkg">The package declaration to emit.</param>
-    private static void EmitPackagePage(IMarkdownWriterFactory factory, VhdlPackageDecl pkg)
+    /// <param name="fileName">Base filename of the source file containing this package declaration.</param>
+    private static void EmitPackagePage(IMarkdownWriterFactory factory, VhdlPackageDecl pkg, string fileName)
     {
         using var writer = factory.CreateMarkdown("", VhdlEmitter.SanitizeFileName(pkg.Name));
         writer.WriteHeading(1, pkg.Name);
+
+        // Attribution: kind and source file
+        writer.WriteParagraph($"*Package declared in `{fileName}`*");
 
         // Emit package summary paragraph
         var summary = VhdlEmitter.GetSummary(pkg.Doc);
