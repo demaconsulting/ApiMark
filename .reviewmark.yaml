@@ -16,6 +16,7 @@ needs-review:
   - '!**/obj/**'  # Exclude build output
   - '!**/bin/**'  # Exclude build output
   - '!**/generated/**'  # Exclude generated output
+  - '!**/VhdlAst/Antlr/**'  # Exclude ANTLR4-generated lexer/parser files
 evidence-source:
   type: none
 reviews:
@@ -45,10 +46,11 @@ reviews:
       - docs/reqstream/api-mark-core/**/*.yaml
   - id: ApiMark-Core-Design
     title: Review that ApiMark Core Design is Consistent and Complete
-    paths: [docs/design/api-mark-core.md, docs/design/api-mark-core/**/*.md]
+    paths: [docs/design/ots.md, docs/design/api-mark-core.md, docs/design/api-mark-core/**/*.md]
   - id: ApiMark-Core-Verification
     title: Review that ApiMark Core Verification is Consistent and Complete
     paths:
+      - docs/verification/ots.md
       - docs/verification/api-mark-core.md
       - docs/verification/api-mark-core/**/*.md
   - id: ApiMark-Core-TestHelpers
@@ -118,6 +120,14 @@ reviews:
       - docs/verification/api-mark-core/path-helpers.md
       - src/ApiMark.Core/PathHelpers.cs
       - test/ApiMark.Core.Tests/PathHelpersTests.cs
+  - id: ApiMark-Core-GlobFileCollector
+    title: Review that ApiMark Core GlobFileCollector Implementation is Correct
+    paths:
+      - docs/reqstream/api-mark-core/glob-file-collector.yaml
+      - docs/design/api-mark-core/glob-file-collector.md
+      - docs/verification/api-mark-core/glob-file-collector.md
+      - src/ApiMark.Core/GlobFileCollector.cs
+      - test/ApiMark.Core.Tests/GlobFileCollectorTests.cs
 
   # ApiMarkDotNet - Specials
   - id: ApiMark-DotNet-Architecture
@@ -136,11 +146,13 @@ reviews:
   - id: ApiMark-DotNet-Design
     title: Review that ApiMark DotNet Design is Consistent and Complete
     paths:
+      - docs/design/ots.md
       - docs/design/api-mark-dot-net.md
       - docs/design/api-mark-dot-net/**/*.md
   - id: ApiMark-DotNet-Verification
     title: Review that ApiMark DotNet Verification is Consistent and Complete
     paths:
+      - docs/verification/ots.md
       - docs/verification/api-mark-dot-net.md
       - docs/verification/api-mark-dot-net/**/*.md
 
@@ -171,6 +183,7 @@ reviews:
       - docs/design/api-mark-dot-net/dot-net-emitter.md
       - docs/verification/api-mark-dot-net/dot-net-emitter.md
       - src/ApiMark.DotNet/DotNetEmitter.cs
+      - src/ApiMark.DotNet/ExternalTypeInfo.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterTests.cs
   - id: ApiMark-DotNet-DotNetEmitterGradualDisclosure
     title: Review that ApiMark DotNet DotNetEmitterGradualDisclosure Implementation
@@ -232,10 +245,11 @@ reviews:
       - docs/reqstream/api-mark-cpp/**/*.yaml
   - id: ApiMark-Cpp-Design
     title: Review that ApiMark Cpp Design is Consistent and Complete
-    paths: [docs/design/api-mark-cpp.md, docs/design/api-mark-cpp/**/*.md]
+    paths: [docs/design/ots.md, docs/design/api-mark-cpp.md, docs/design/api-mark-cpp/**/*.md]
   - id: ApiMark-Cpp-Verification
     title: Review that ApiMark Cpp Verification is Consistent and Complete
     paths:
+      - docs/verification/ots.md
       - docs/verification/api-mark-cpp.md
       - docs/verification/api-mark-cpp/**/*.md
 
@@ -249,6 +263,7 @@ reviews:
       - src/ApiMark.Cpp/ApiVisibility.cs
       - src/ApiMark.Cpp/CppGenerator.cs
       - src/ApiMark.Cpp/CppGeneratorOptions.cs
+      - test/ApiMark.Cpp.Tests/CppGeneratorFixture.cs
       - test/ApiMark.Cpp.Tests/CppGeneratorTests.cs
       - test/ApiMark.Cpp.Tests/FixturePaths.cs
   - id: ApiMark-Cpp-CppEmitter
@@ -258,6 +273,7 @@ reviews:
       - docs/design/api-mark-cpp/cpp-emitter.md
       - docs/verification/api-mark-cpp/cpp-emitter.md
       - src/ApiMark.Cpp/CppEmitter.cs
+      - src/ApiMark.Cpp/CppExternalTypeInfo.cs
       - test/ApiMark.Cpp.Tests/CppEmitterTests.cs
   - id: ApiMark-Cpp-CppEmitterGradualDisclosure
     title: Review that ApiMark Cpp CppEmitterGradualDisclosure Implementation is Correct
@@ -320,10 +336,11 @@ reviews:
       - docs/reqstream/api-mark-vhdl/**/*.yaml
   - id: ApiMark-Vhdl-Design
     title: Review that ApiMark Vhdl Design is Consistent and Complete
-    paths: [docs/design/api-mark-vhdl.md, docs/design/api-mark-vhdl/**/*.md]
+    paths: [docs/design/ots.md, docs/design/api-mark-vhdl.md, docs/design/api-mark-vhdl/**/*.md]
   - id: ApiMark-Vhdl-Verification
     title: Review that ApiMark Vhdl Verification is Consistent and Complete
     paths:
+      - docs/verification/ots.md
       - docs/verification/api-mark-vhdl.md
       - docs/verification/api-mark-vhdl/**/*.md
 
@@ -402,11 +419,13 @@ reviews:
   - id: ApiMark-MSBuild-Design
     title: Review that ApiMark MSBuild Design is Consistent and Complete
     paths:
+      - docs/design/ots.md
       - docs/design/api-mark-msbuild.md
       - docs/design/api-mark-msbuild/**/*.md
   - id: ApiMark-MSBuild-Verification
     title: Review that ApiMark MSBuild Verification is Consistent and Complete
     paths:
+      - docs/verification/ots.md
       - docs/verification/api-mark-msbuild.md
       - docs/verification/api-mark-msbuild/**/*.md
 
@@ -420,6 +439,7 @@ reviews:
       - src/ApiMark.MSBuild/ApiMarkTask.cs
       - src/ApiMark.MSBuild/build/DemaConsulting.ApiMark.MSBuild.targets
       - test/ApiMark.MSBuild.Tests/ApiMarkTaskTests.cs
+      - test/ApiMark.MSBuild.Tests/FixturePaths.cs
       - test/ApiMark.MSBuild.PackageTests/**/*.cs
 
   # ApiMarkTool - Specials
@@ -438,10 +458,11 @@ reviews:
       - docs/reqstream/api-mark-tool/**/*.yaml
   - id: ApiMark-Tool-Design
     title: Review that ApiMark Tool Design is Consistent and Complete
-    paths: [docs/design/api-mark-tool.md, docs/design/api-mark-tool/**/*.md]
+    paths: [docs/design/ots.md, docs/design/api-mark-tool.md, docs/design/api-mark-tool/**/*.md]
   - id: ApiMark-Tool-Verification
     title: Review that ApiMark Tool Verification is Consistent and Complete
     paths:
+      - docs/verification/ots.md
       - docs/verification/api-mark-tool.md
       - docs/verification/api-mark-tool/**/*.md
 

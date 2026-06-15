@@ -185,7 +185,7 @@ internal static class VhdlAstParser
         ///     A sequence of <see cref="VhdlPortDoc"/> records — one per identifier — or an
         ///     empty sequence when the declaration form is not recognized.
         /// </returns>
-        private IEnumerable<VhdlPortDoc> ParsePortInterfaceDeclaration(
+        private List<VhdlPortDoc> ParsePortInterfaceDeclaration(
             vhdl2008Parser.Interface_declarationContext iface)
         {
             var result = new List<VhdlPortDoc>();
@@ -424,7 +424,7 @@ internal static class VhdlAstParser
         /// </summary>
         /// <param name="formalParams">The formal_parameter_list context, or null when there are no parameters.</param>
         /// <returns>A read-only list of <see cref="VhdlParamDecl"/> records, one per identifier.</returns>
-        private IReadOnlyList<VhdlParamDecl> ExtractFormalParameters(
+        private List<VhdlParamDecl> ExtractFormalParameters(
             vhdl2008Parser.Formal_parameter_listContext? formalParams)
         {
             var parameters = new List<VhdlParamDecl>();
@@ -484,7 +484,7 @@ internal static class VhdlAstParser
         ///     A sequence of <see cref="VhdlParamDecl"/> records — one per identifier — or an
         ///     empty sequence when the identifier list is absent.
         /// </returns>
-        private IEnumerable<VhdlParamDecl> ExtractSignalParams(
+        private List<VhdlParamDecl> ExtractSignalParams(
             vhdl2008Parser.Interface_signal_declarationContext signalDecl)
         {
             var result = new List<VhdlParamDecl>();
@@ -517,7 +517,7 @@ internal static class VhdlAstParser
         ///     A sequence of <see cref="VhdlParamDecl"/> records — one per identifier — or an
         ///     empty sequence when the identifier list is absent.
         /// </returns>
-        private IEnumerable<VhdlParamDecl> ExtractVariableParams(
+        private List<VhdlParamDecl> ExtractVariableParams(
             vhdl2008Parser.Interface_variable_declarationContext varDecl)
         {
             var result = new List<VhdlParamDecl>();
@@ -551,7 +551,7 @@ internal static class VhdlAstParser
         ///     A sequence of <see cref="VhdlParamDecl"/> records — one per identifier — or an
         ///     empty sequence when the identifier list is absent.
         /// </returns>
-        private IEnumerable<VhdlParamDecl> ExtractConstantParams(
+        private List<VhdlParamDecl> ExtractConstantParams(
             vhdl2008Parser.Interface_constant_declarationContext constDecl)
         {
             var result = new List<VhdlParamDecl>();
