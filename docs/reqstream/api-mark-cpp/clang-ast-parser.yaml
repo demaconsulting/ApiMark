@@ -14,8 +14,7 @@ sections:
               resolved C++ AST. Delegating parse to ClangAstParser keeps the I/O and
               JSON-deserialization logic isolated from the higher-level generation
               logic, making each unit independently testable.
-            children:
-              - ApiMarkCpp-ClangAstParser-ParseHeaders
+            children: [ApiMarkCpp-ClangAstParser-ParseHeaders]
           - id: ApiMarkCpp-ClangAstParser-ParseHeaders
             title: >-
               ClangAstParser.Parse shall write a temporary combined header, invoke

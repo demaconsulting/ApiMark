@@ -7,8 +7,10 @@ sections:
         requirements:
           - id: Clang-Executable-Discoverable
             title: >-
-              Clang shall be discoverable on the host system via the APIMARK_CLANG_PATH environment
-              variable, PATH search, xcrun on macOS, vswhere on Windows, or the default LLVM install
+              Clang shall be discoverable on the host system via the APIMARK_CLANG_PATH
+              environment
+              variable, PATH search, xcrun on macOS, vswhere on Windows, or the default
+              LLVM install
               path on Windows without requiring an explicit path configuration.
             justification: |
               ApiMark must run in standard CI environments where clang is installed but its path is
@@ -17,8 +19,7 @@ sections:
               discovery via PATH, xcrun, and vswhere covers common installation layouts on all
               supported platforms. Falling back to `C:\Program Files\LLVM\bin\clang.exe` on Windows
               handles the default LLVM installer location when vswhere does not locate a bundled clang.
-            tests:
-              - CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint
+            tests: [CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint]
           - id: Clang-AstDump-ProducesParseableJson
             title: >-
               Clang shall produce a parseable JSON AST when invoked with -Xclang -ast-dump=json
@@ -32,28 +33,31 @@ sections:
               - CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass
           - id: Clang-AstDump-ExposesDeclarationProvenance
             title: >-
-              Clang shall include the source file path of every declaration in the JSON AST so
-              ClangAstParser can determine which declarations belong to the documented public API.
+              Clang shall include the source file path of every declaration in the
+              JSON AST so
+              ClangAstParser can determine which declarations belong to the documented
+              public API.
             justification: |
               The ownership filter in CppGenerator is the primary mechanism for excluding system and
               third-party declarations from the documented surface. Without per-declaration source
               file information this filter cannot be implemented correctly.
-            tests:
-              - CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass
+            tests: [CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass]
           - id: Clang-AstDump-ExposesDocComments
             title: >-
-              Clang shall include structured Doxygen documentation comment nodes in the JSON AST
+              Clang shall include structured Doxygen documentation comment nodes in
+              the JSON AST
               when invoked with -fparse-all-comments.
             justification: |
               Doxygen @brief, @param, and @return comments are the primary source of
               developer-authored descriptions in C++ code. Clang must expose these so ClangAstParser
               can render them as human-readable paragraphs in the markdown output.
-            tests:
-              - CppGenerator_Generate_TypeWithDocComment_WritesSummaryToParagraph
+            tests: [CppGenerator_Generate_TypeWithDocComment_WritesSummaryToParagraph]
           - id: Clang-AstDump-ExposesTypesAndMembers
             title: >-
-              Clang shall expose classes, enums, functions, and their members with enough metadata
-              (name, type, parameters, access specifier, template parameters) for ClangAstParser to
+              Clang shall expose classes, enums, functions, and their members with
+              enough metadata
+              (name, type, parameters, access specifier, template parameters) for
+              ClangAstParser to
               produce accurate API documentation.
             justification: |
               Complete type and member metadata is required so that generated type pages, member

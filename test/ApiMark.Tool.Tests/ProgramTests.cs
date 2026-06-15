@@ -345,36 +345,6 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Validates that the removed <c>--search-paths</c> flag is no longer recognized and
-    ///     produces an "Unsupported argument" diagnostic on stderr.
-    /// </summary>
-    [Fact]
-    public void Program_Main_CppWithSearchPathsFlag_ReturnsNonZeroExitCode()
-    {
-        // Arrange: provide --search-paths which was removed in the redesign
-        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
-        var originalError = Console.Error;
-        using var errorWriter = new StringWriter();
-
-        try
-        {
-            Console.SetError(errorWriter);
-
-            // Act
-            var exitCode = Program.Main(["cpp", "--search-paths", "/sdk", "--output", outputDir]);
-
-            // Assert: must fail with the unsupported-argument diagnostic so the test
-            // confirms the specific flag was rejected rather than some other failure
-            Assert.NotEqual(0, exitCode);
-            Assert.Contains("--search-paths", errorWriter.ToString(), StringComparison.Ordinal);
-        }
-        finally
-        {
-            Console.SetError(originalError);
-        }
-    }
-
-    /// <summary>
     ///     Validates that the <c>--api-headers</c> flag is recognized by the parser and
     ///     does not cause an argument exception; when <c>--includes</c> is absent the tool
     ///     still fails with the expected includes-required diagnostic.
@@ -406,13 +376,13 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Validates that the removed <c>--include-patterns</c> flag is no longer recognized
-    ///     and produces an "Unsupported argument" diagnostic on stderr.
+    ///     Validates that the vhdl subcommand returns a non-zero exit code when no
+    ///     --source pattern is provided.
     /// </summary>
     [Fact]
-    public void Program_Main_CppWithIncludePatternsFlag_ReturnsNonZeroExitCode()
+    public void Program_Main_WithVhdlSubcommand_MissingSourceFiles_ReturnsNonZeroExitCode()
     {
-        // Arrange: provide --include-patterns which was removed in the redesign
+        // Arrange: provide --output but omit --source
         var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
         var originalError = Console.Error;
         using var errorWriter = new StringWriter();
@@ -422,16 +392,11 @@ public class ProgramTests
             Console.SetError(errorWriter);
 
             // Act
-            var exitCode = Program.Main([
-                "cpp",
-                "--include-patterns", "*.h",
-                "--output", outputDir,
-            ]);
+            var exitCode = Program.Main(["vhdl", "--output", outputDir]);
 
-            // Assert: must fail with the unsupported-argument diagnostic so the test
-            // confirms the specific flag was rejected rather than some other failure
+            // Assert: at least one non-exclusion source pattern is required
             Assert.NotEqual(0, exitCode);
-            Assert.Contains("--include-patterns", errorWriter.ToString(), StringComparison.Ordinal);
+            Assert.Contains("--source", errorWriter.ToString(), StringComparison.Ordinal);
         }
         finally
         {

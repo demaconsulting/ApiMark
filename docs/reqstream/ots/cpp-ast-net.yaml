@@ -1,5 +1,3 @@
-# Archived: ApiMark.Cpp no longer uses CppAst.Net. These requirements are retained for
-# historical reference. See docs/reqstream/ots/clang.yaml for current OTS requirements.
 ---
 # CppAst.Net OTS requirements
 sections:
@@ -9,28 +7,31 @@ sections:
         requirements:
           - id: CppAstNet-Headers-ParseWithoutBuild
             title: >-
-              CppAst.Net shall parse C++ header files and return a complete AST without requiring
-              a C++ compiler installation or build step beyond the bundled libclang binary.
+              CppAst.Net shall parse C++ header files and return a complete AST without
+              requiring
+              a C++ compiler installation or build step beyond the bundled libclang
+              binary.
             justification: |
               ApiMark must run in CI environments where a full C++ toolchain is not installed.
               CppAst.Net ships with a bundled libclang binary so parsing is available wherever
               the .NET runtime is present, removing the toolchain installation requirement.
-            tests:
-              - CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint
+            tests: [CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint]
           - id: CppAstNet-Headers-ExposeDeclarationProvenance
             title: >-
-              CppAst.Net shall expose the source file path of every declaration so CppGenerator
+              CppAst.Net shall expose the source file path of every declaration so
+              CppGenerator
               can determine which declarations belong to the documented public API.
             justification: |
               The ownership filter in CppGenerator is the primary mechanism for excluding system
               and third-party declarations from the documented surface. Without per-declaration
               source file information this filter cannot be implemented correctly.
-            tests:
-              - CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass
+            tests: [CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass]
           - id: CppAstNet-Headers-ExposeTypesAndMembers
             title: >-
-              CppAst.Net shall expose classes, enums, functions, and their members with enough
-              metadata (name, type, parameters, visibility, template parameters) for CppGenerator
+              CppAst.Net shall expose classes, enums, functions, and their members
+              with enough
+              metadata (name, type, parameters, visibility, template parameters) for
+              CppGenerator
               to produce accurate API documentation.
             justification: |
               Complete type and member metadata is required so that generated type pages, member
@@ -42,14 +43,14 @@ sections:
               - CppGenerator_Generate_TemplateClass_CreatesTypePage
           - id: CppAstNet-Headers-ExposeDocComments
             title: >-
-              CppAst.Net shall expose structured Doxygen documentation comment trees for
+              CppAst.Net shall expose structured Doxygen documentation comment trees
+              for
               declarations that have them.
             justification: |
               Doxygen @brief, @param, and @return comments are the primary source of
               developer-authored descriptions in C++ code. CppAst.Net must expose these so
               CppGenerator can render them as human-readable paragraphs in the markdown output.
-            tests:
-              - CppGenerator_Generate_TypeWithDocComment_WritesSummaryToParagraph
+            tests: [CppGenerator_Generate_TypeWithDocComment_WritesSummaryToParagraph]
           - id: CppAstNet-Headers-AcceptParseOptions
             title: >-
               CppAst.Net shall accept system include paths, additional include paths,
@@ -58,5 +59,4 @@ sections:
               Real-world C++ libraries depend on platform SDK headers, third-party libraries,
               and export macros. CppAst.Net must accept these as parse-time configuration so
               CppGenerator can document headers that include them without incurring parse errors.
-            tests:
-              - CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint
+            tests: [CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint]

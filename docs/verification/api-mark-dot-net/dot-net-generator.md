@@ -73,11 +73,10 @@ nullable forms, generic arguments, and common collection types are simplified in
 C#-friendly display text. This scenario is tested by
 `ApiMarkDotNet_TypeNames_CommonSignatures_RenderReadably`.
 
-**All members receive dedicated detail pages**: Verifies that every visible member —
-regardless of parameters or documentation content — is emitted as a separate file and linked
-from its parent type page, making all navigation paths deterministic without requiring callers
-to know member content or shape. This scenario is tested by
-`DotNetGenerator_AllMembers_GetSeparateFiles`.
+**All members receive dedicated detail pages**: Verifies that every visible member
+is emitted as a separate file and linked from its parent type page, making all
+navigation paths deterministic without requiring callers to know member content or
+shape. This scenario is tested by `DotNetGenerator_AllMembers_GetSeparateFiles`.
 
 **Markdown generation writes expected files and content**: Verifies that generator output includes
 expected headings, signatures, and file names for a representative assembly so downstream tools can

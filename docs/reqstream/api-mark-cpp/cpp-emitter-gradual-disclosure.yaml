@@ -20,7 +20,8 @@ sections:
               - ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceAndTypePages
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitApiIndexPage
             title: >-
-              CppEmitterGradualDisclosure shall produce an api index page listing all
+              CppEmitterGradualDisclosure shall produce an api index page listing
+              all
               namespaces with the library name as the top-level heading.
             justification: |
               The api index is the single entry point from which all other pages are

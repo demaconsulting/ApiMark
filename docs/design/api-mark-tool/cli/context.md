@@ -29,6 +29,7 @@ argument array.
 | `XmlDoc` | `string?` | `null` | Path from `--xml-doc` |
 | `Includes` | `string[]` | `[]` | Plain directory paths accumulated from repeated `--includes` invocations |
 | `ApiHeaders` | `string[]` | `[]` | Ordered patterns from repeated `--api-headers` invocations (may start with `!`) |
+| `Sources` | `string[]` | `[]` | Ordered glob patterns accumulated from repeated `--source` invocations; `!`-prefixed patterns are exclusions |
 | `Output` | `string?` | `null` | Directory from `--output` |
 | `Visibility` | `string` | `"Public"` | Value from `--visibility` |
 | `IncludeObsolete` | `bool` | `false` | `--include-obsolete` flag |
@@ -62,7 +63,9 @@ construction path.
   optionally opens the log file. Each `--includes` flag appends a single
   directory path to the `Includes` list; each `--api-headers` flag appends
   a single pattern string (which may start with `!`) to the `ApiHeaders`
-  list, preserving order for gitignore-style evaluation.
+  list, preserving order for gitignore-style evaluation; each `--source` flag
+  appends a single glob pattern string (which may start with `!`) to the
+  `Sources` list, preserving order for gitignore-style evaluation.
 - *Preconditions*: `args` must be non-null.
 - *Postconditions*: All properties reflect the parsed argument values;
   log file is open if `--log` was specified.

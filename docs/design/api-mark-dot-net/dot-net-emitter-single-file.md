@@ -36,6 +36,20 @@ into that writer at heading levels `HeadingDepth` (assembly title),
   type cells contain plain text rather than relative file links that are
   meaningless inside a single document.
 
+**WriteSingleFileTypeSections** (private): Writes all content for a single type —
+type heading, signature code block, summary, remarks, example, compact member
+bullet list, and then dispatches to `WriteSingleFileMemberSection` for each
+visible member. Recursively calls `WriteSingleFileNestedTypes` when the type
+contains nested types.
+
+**WriteSingleFileMemberSection** (private): Writes the full per-member block for
+one member — member heading, signature code block, summary, parameter table,
+returns documentation, exception table, and example block.
+
+**WriteSingleFileNestedTypes** (private): Recursively emits documentation for
+nested types within a type section by calling `WriteSingleFileTypeSections` for
+each visible nested type at the appropriate heading level.
+
 ### Error Handling
 
 Exceptions from `IMarkdownWriterFactory.CreateMarkdown` or from writer methods

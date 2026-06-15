@@ -6,19 +6,19 @@ sections:
       - title: IContext Requirements
         requirements:
           - id: ApiMarkCore-IContext-DefineWriteLineMethod
-            title: IContext shall define a WriteLine method that accepts a string message parameter for informational output.
+            title: IContext shall define a WriteLine method that accepts a string
+              message parameter for informational output.
             justification: |
               Generators need a consistent way to emit informational messages
               without depending on Console so output can be captured, suppressed,
               or redirected by different hosts (CLI, test doubles, MSBuild tasks).
-            tests:
-              - IContext_WriteLine_CapturesMessage_InLines
+            tests: [IContext_WriteLine_CapturesMessage_InLines]
           - id: ApiMarkCore-IContext-DefineWriteErrorMethod
-            title: IContext shall define a WriteError method that accepts a string message parameter for error and warning output.
+            title: IContext shall define a WriteError method that accepts a string
+              message parameter for error and warning output.
             justification: |
               Generators need to distinguish error and warning messages from
               informational output so hosts can route them to the appropriate
               channel (for example stderr or a build-system error log) without
               parsing message content.
-            tests:
-              - IContext_WriteError_CapturesMessage_InErrors
+            tests: [IContext_WriteError_CapturesMessage_InErrors]

@@ -1,0 +1,9 @@
+# This folder contains ANTLR4 auto-generated C# source files.
+# They are committed to the repository so that Java is not required to build.
+# Do not hand-edit these files; regenerate them from vhdl2008.g4 instead.
+# See README.md for regeneration instructions.
+
+root = false
+
+[*.cs]
+generated_code = true

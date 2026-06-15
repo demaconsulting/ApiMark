@@ -1,0 +1,14 @@
+---
+# VhdlEmitterSingleFile unit requirements
+sections:
+  - title: ApiMarkVhdl Requirements
+    sections:
+      - title: VhdlEmitterSingleFile Requirements
+        requirements:
+          - id: ApiMarkVhdl-VhdlEmitterSingleFile
+            title: VhdlEmitterSingleFile shall write all VHDL documentation into a single api.md file.
+            justification: |
+              Single-file output is required for linear document consumers.
+            tests:
+              - VhdlEmitterSingleFile_Emit_MinimalData_CreatesExactlyOneWriter
+              - VhdlEmitterSingleFile_Emit_MinimalData_CreatesApiFileOnly

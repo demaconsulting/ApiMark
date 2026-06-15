@@ -20,6 +20,7 @@ flowchart TD
     IContext
     IMarkdownWriterFactory
     IMarkdownWriter
+    GlobFileCollector
     FileMarkdownWriterFactory --> |implements| IMarkdownWriterFactory
     FileMarkdownWriter --> |implements| IMarkdownWriter
     IMarkdownWriterFactory --> |creates| IMarkdownWriter
@@ -29,14 +30,15 @@ flowchart TD
     IApiEmitter --> |Emit uses| IContext
 ```
 
-ApiMarkDotNet and ApiMarkCpp each implement IApiGenerator. The `Parse` method
-returns an `IApiEmitter` (a private nested class) that holds the parsed symbol
+ApiMarkDotNet, ApiMarkCpp, and ApiMarkVhdl each implement IApiGenerator. The `Parse`
+method returns an `IApiEmitter` (a private nested class) that holds the parsed symbol
 model. The caller then calls `IApiEmitter.Emit` with an `EmitConfig` and
 `IMarkdownWriterFactory` to write the documentation tree. ApiMarkTool directly
 consumes IApiGenerator; ApiMarkMsbuild spawns ApiMarkTool as a child process
 and never calls IApiGenerator in-process. PathHelpers remains an internal
 utility used by ApiMarkCore implementations rather than a public dependency
-surface.
+surface. GlobFileCollector is a public static utility consumed by ApiMarkCpp
+and ApiMarkVhdl to discover source files using glob patterns.
 
 ## External Interfaces
 
@@ -129,6 +131,19 @@ supplied relative path segments with a trusted base path.
 - *Constraints*: Rejects combinations that resolve outside the base directory, and rejects
   null arguments.
 
+**GlobFileCollector (public utility)**: Stateless public static utility for discovering
+files on the filesystem using gitignore-style glob patterns.
+
+- *Type*: In-process .NET public API.
+- *Role*: Shared utility — ApiMarkCpp and ApiMarkVhdl call it to convert caller-supplied
+  `--api-headers` and `--source` patterns into a sorted, deduplicated list of absolute
+  file paths.
+- *Contract*: `IReadOnlyList<string> Collect(IEnumerable<string> patterns,
+  IEnumerable<string> languageExtensions, string workingDirectory)` — evaluates inclusion
+  and exclusion patterns against the filesystem and returns matching absolute paths.
+- *Constraints*: Non-existent roots are silently skipped; `!`-prefixed patterns remove
+  matching files; bare `*` final segments trigger language-extension filtering.
+
 ## Dependencies
 
 N/A — ApiMarkCore has no dependencies on other systems, OTS items, or shared
@@ -144,7 +159,8 @@ ApiMarkCore does not process data at runtime. Its contribution to the overall da
 flow is:
 
 1. Language generators parse symbol data by reading assembly or header files during
-   `IApiGenerator.Parse`.
+   `IApiGenerator.Parse`. CppGenerator and VhdlGenerator use GlobFileCollector to
+   discover which source files to parse based on caller-supplied glob patterns.
 2. Language emitters write Markdown content by calling IMarkdownWriter methods in
    document order inside `IApiEmitter.Emit`.
 3. ApiMarkTool invokes `IApiGenerator.Parse` then `IApiEmitter.Emit` to trigger the

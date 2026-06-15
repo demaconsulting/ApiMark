@@ -6,7 +6,8 @@ sections:
       - title: DotNetEmitterSingleFile Requirements
         requirements:
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-ProduceSingleApiMd
-            title: DotNetEmitterSingleFile shall emit all API documentation into a single api.md file using heading levels offset by HeadingDepth.
+            title: DotNetEmitterSingleFile shall emit all API documentation into a
+              single api.md file using heading levels offset by HeadingDepth.
             justification: |
               Single-file output provides a compact, linear reference that is easier
               to consume in contexts where a hierarchical file tree is unwanted, such

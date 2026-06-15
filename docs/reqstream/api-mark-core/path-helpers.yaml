@@ -6,7 +6,9 @@ sections:
       - title: PathHelpers Requirements
         requirements:
           - id: ApiMarkCore-PathHelpers-CombineValidRelativeSegments
-            title: PathHelpers shall combine a trusted base path with one or more caller-supplied path segments in order, provided the result resolves within the base.
+            title: PathHelpers shall combine a trusted base path with one or more
+              caller-supplied path segments in order, provided the result resolves
+              within the base.
             justification: |
               ApiMark callers need one reusable helper that can build derived file-system
               paths without duplicating path-joining logic at every call site. Segments
@@ -22,7 +24,8 @@ sections:
               - PathHelpers_SafePathCombine_FilenameWithDoubleDots_CombinesCorrectly
               - PathHelpers_SafePathCombine_AbsoluteSegment_WithinBase_CombinesCorrectly
           - id: ApiMarkCore-PathHelpers-RejectTraversalSegments
-            title: PathHelpers shall reject any caller-supplied path combination that resolves outside the base directory.
+            title: PathHelpers shall reject any caller-supplied path combination that
+              resolves outside the base directory.
             justification: |
               Caller-supplied path fragments must never be allowed to escape the intended
               output root because traversal would create a directory-traversal vulnerability.

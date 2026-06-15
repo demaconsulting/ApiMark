@@ -6,14 +6,12 @@
 ### Purpose
 
 CppGenerator implements IApiGenerator for C++ libraries. It accepts a
-configured set of public include roots and parse-environment options, invokes
-`clang -Xclang -ast-dump=json` to obtain a fully resolved C++ AST, applies a file-provenance filter
-to identify declarations that belong to the documented public API, derives the
-canonical `#include` path for each owned type from its source file relative to
-its matching include root, and writes the complete gradual-disclosure Markdown
-tree through IMarkdownWriterFactory. The output structure mirrors
-DotNetGenerator: a library-level entrypoint, per-namespace summaries, per-type
-pages, and per-member detail pages for every visible member.
+configured set of public include roots and parse-environment options, collects
+the selected header files via `GlobFileCollector`, invokes
+`clang -Xclang -ast-dump=json` on a temporary combined header, and returns a
+`CppEmitter` ready to write the complete Markdown output tree. The output
+structure mirrors DotNetGenerator: a library-level entrypoint, per-namespace
+summaries, per-type pages, and per-member detail pages for every visible member.
 
 The implementation is split across six files in the `ApiMark.Cpp` package:
 
@@ -119,84 +117,45 @@ for use during Generate.
 - *Parameters*: `CppGeneratorOptions options` — fully populated options object.
 - *Preconditions*: `options` must not be null; `LibraryName` must be
   non-empty; `PublicIncludeRoots` must contain at least one entry.
-- *Postconditions*: The generator instance is ready to call Generate.
+- *Postconditions*: The generator instance is ready to call Parse.
 
-**CppGenerator.Generate**: Parses the public headers, applies the ownership
-filter, and writes the full Markdown output tree.
+**CppGenerator.Parse**: Collects candidate header files, invokes clang to obtain
+a fully resolved C++ AST, applies visibility and deprecation filters, and returns
+a `CppEmitter` holding all parsed data.
 
-- *Parameters*: `IMarkdownWriterFactory factory` — factory used to create each
-  Markdown output file. `IContext context` — output channel for diagnostic and
-  progress messages emitted during parsing and generation.
-- *Returns*: `void`
-- *Preconditions*: Each path in `PublicIncludeRoots` must exist on disk
-  (`DirectoryNotFoundException` is thrown if any path is missing); system
-  headers must be resolvable via `SystemIncludePaths`; `factory` and `context`
-  must not be null. Public headers are required to be self-contained — each
-  header must parse successfully on its own under the configured options.
-- *Postconditions*: The factory has produced a complete Markdown tree. Output
-  file naming follows these conventions:
-  - `factory.CreateMarkdown("", "api")` — library entrypoint listing all
-    namespaces with a declaration count column (classes + enums + free
-    functions per namespace) and one-line descriptions, giving AI agents a
-    complete navigation map and scope signal in one read. The entrypoint also
-    includes a File Naming and Path Convention table with these entries:
+- *Parameters*: `IContext context` — output channel for diagnostic and progress
+  messages emitted during parsing. Must not be null.
+- *Returns*: `IApiEmitter` — a `CppEmitter` instance holding the parsed
+  namespace, type, and member data ready for emission.
+- *Preconditions*: Each path in `PublicIncludeRoots` must exist on disk when
+  `ApiHeaderPatterns` is empty (`DirectoryNotFoundException` is thrown if any
+  path is missing); system headers must be resolvable via `SystemIncludePaths`;
+  `context` must not be null. Public headers are required to be self-contained —
+  each header must parse successfully on its own under the configured options.
+- *Postconditions*: The returned `CppEmitter` contains all namespaces, types,
+  and members parsed from the selected headers, filtered by `Visibility` and
+  `IncludeDeprecated`. The caller must subsequently invoke `IApiEmitter.Emit` to
+  write Markdown output.
 
-    | Symbol kind | Path pattern |
-    | ----------- | ------------ |
-    | Namespace | `{Namespace}.md` |
-    | Type | `{Namespace}/{TypeName}.md` |
-    | Type alias | `{Namespace}/{AliasName}.md` |
-    | Member | `{Namespace}/{TypeName}/{MemberName}.md` |
-    | Free function | `{Namespace}/{FunctionName}.md` |
-    | Enum | `{Namespace}/{EnumName}.md` |
-    | Operators (class) | `{Namespace}/{TypeName}/operators.md` |
-    | Operators (namespace) | `{Namespace}/operators.md` |
+Execution steps: call `CollectHeaderFiles()` which uses `GlobFileCollector.Collect()`
+to build the selected-header set from `ApiHeaderPatterns` and `PublicIncludeRoots`;
+when `ApiHeaderPatterns` is empty all headers under all roots are used directly;
+when `ApiHeaderPatterns` is non-empty relative patterns are expanded against each
+include root via `ExpandExplicitPatterns`; build Clang options from all configured
+paths, defines, standard, and additional arguments; write a temporary combined
+header that `#include`s all selected headers; invoke
+`clang -Xclang -ast-dump=json -fparse-all-comments -fsyntax-only` on it, parse the
+resulting JSON AST; `ClangAstParser` rejects non-selected declarations during AST
+walking using the pre-built selected-header set; apply `Visibility` and
+`IncludeDeprecated` filters; delete the temporary combined header file; return a
+`CppEmitter` holding all parsed data.
 
-  - `factory.CreateMarkdown(qualifiedNamespace, qualifiedNamespace)` —
-    namespace summary listing owned types and free functions, grouped by source
-    header. `qualifiedNamespace` is the C++ qualified name with `::` replaced
-    by `.` for file-path compatibility (e.g. `mylib.rendering`).
-  - `factory.CreateMarkdown(qualifiedNamespace, typeName)` — type page with
-    the canonical `#include <path>` at the top, followed by the class
-    declaration, inheritance information, template parameters (for primary
-    templates), and grouped sub-tables with links to all member detail pages.
-    When the class is marked `final` or has direct base classes, a class
-    declaration line (e.g. `class FinalClass final`, `class Circle : public Shape`)
-    is appended to the signature block so consumers can see the constraint and
-    inheritance chain without opening the header.
-  - `factory.CreateMarkdown($"{qualifiedNamespace}/{typeName}", memberName)` —
-    dedicated page for every visible non-operator member. All non-operator members
-    always receive their own page, making navigation fully deterministic.
-  - `factory.CreateMarkdown($"{qualifiedNamespace}/{typeName}", "operators")` —
-    single combined page for all operator overloads declared in a class (e.g.
-    `operator+`, `operator==`). Grouping prevents file-name collisions caused by
-    sanitizing multiple operator names to the same safe file name.
-  - `factory.CreateMarkdown(qualifiedNamespace, "operators")` —
-    single combined page for all namespace-level operator free functions (e.g.
-    `operator<<` for a type). Same grouping rationale as the class operators page.
-  - Global-namespace declarations are collected under the reserved namespace
-    name `"global"`.
+**CppGenerator.ExpandExplicitPatterns** (private): Expands relative
+`ApiHeaderPatterns` entries against each configured include root.
 
-Execution steps: enumerate candidate header files under each PublicIncludeRoot
-applying ApiHeaderPatterns with gitignore-style last-match-wins semantics; build
-Clang options from all configured paths, defines, standard, and additional arguments;
-write a temporary combined header that `#include`s all candidate headers, invoke
-`clang -Xclang -ast-dump=json -fparse-all-comments -fsyntax-only` on it, parse the resulting
-JSON AST; walk the AST and apply IsOwnedDeclaration to each declaration; apply
-Visibility and IncludeDeprecated filters; write the library entrypoint; for
-each namespace write the namespace summary; for each owned type: collect all
-visible constructors, methods, and fields; partition methods into operator
-overloads (names starting with `"operator"`) and regular methods; build a
-case-insensitive map keyed by the lowercase of each regular member's base name
-(see `GetMemberBaseName`); for each key with a single regular member emit an
-individual detail page via `WriteMemberPage`; for each key with multiple regular
-members (case-insensitive collision) emit a single combined page via
-`WriteCombinedMemberPage`; if operator overloads are present emit a single
-`operators.md` page via `WriteClassOperatorsPage`; emit grouped sub-tables with
-links; for each namespace with operator free functions emit a single
-`operators.md` page via `WriteNamespaceOperatorsPage` instead of individual
-pages; for each owned type alias emit a type alias page via `WriteTypeAliasPage`;
-delete the temporary combined header file.
+- *Returns*: `List<string>` — all patterns with relative entries resolved to
+  absolute paths under each root; absolute patterns passed through unchanged;
+  exclusion prefix `!` preserved.
 
 **CppEmitter.Emit** (implements `IApiEmitter`): Writes the full Markdown output tree using the
 format specified by `config.Format`.
@@ -210,36 +169,12 @@ format specified by `config.Format`.
   is passed.
 - *Postconditions (GradualDisclosure)*: Delegates all page writing to a new
   `CppEmitterGradualDisclosure` instance, producing one file per namespace, type, member, and
-  operator group as described in `CppGenerator.Generate`.
+  operator group as described in `CppGenerator.Parse`.
 - *Postconditions (SingleFile)*: Delegates all page writing to a new `CppEmitterSingleFile`
   instance, producing a single `api.md` file with an H{depth} library title, H{depth+1} namespace
   heading, H{depth+2} type/function/enum heading (with signature and member bullet list), and
   H{depth+3} individual member headings. Type links are omitted to prevent anchor collisions in the
   single-file layout. The convention appendix is not included in single-file output.
-
-**IsOwnedDeclaration** (internal): Determines whether a declaration belongs to
-the documented public API.
-
-- *Parameters*: declaration source file (absolute, normalized path).
-- *Returns*: `(bool owned, string includeRoot, string relativePath)` — owned
-  is true when the file falls under a PublicIncludeRoot and is selected by
-  ApiHeaderPatterns; includeRoot and relativePath are set when owned is true.
-- *Algorithm*:
-  1. Normalize the declaration source file path: resolve to absolute path,
-     normalize directory separators to the OS separator, resolve `..` and
-     symbolic links.
-  2. For each PublicIncludeRoot (normalized to absolute path), test whether the
-     declaration file starts with the root path. Collect all matching roots.
-  3. Select the longest matching root (most specific path wins when roots
-     overlap).
-  4. Compute relative path: strip the root prefix and normalize separators to
-     forward slashes.
-  5. When ApiHeaderPatterns is non-empty, test whether the file is selected using
-     gitignore-style last-match-wins evaluation. Patterns are first evaluated
-     CWD-relative (when the file falls within the current working directory); when
-     the root is outside the CWD the file path relative to the root is used instead.
-     Return owned=true only when the final evaluated state is included. When
-     ApiHeaderPatterns is empty, all files under the matched root are owned.
 
 **CppEmitter.WriteCombinedMemberPage** (internal static): Writes a single combined
 Markdown page for a group of members whose base names collide on case-insensitive

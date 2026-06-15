@@ -22,7 +22,8 @@ when true, the task returns success immediately with no side effects, allowing
 projects to opt out of documentation generation without removing the package.
 
 **ApiMarkTask.ApiMarkLanguage**: `string` — MSBuild property `$(ApiMarkLanguage)`;
-selects the generation language. Accepted values: `dotnet`, `cpp`. When not set,
+selects the generation language. Accepted values: `dotnet`, `cpp`. Any other value
+causes `Execute` to log an error and return `false`. When not set,
 the task infers the language: `.vcxproj` project → `cpp`, all others → `dotnet`.
 
 **ApiMarkTask.ProjectExtension**: `string` — MSBuild property
@@ -36,7 +37,8 @@ the directory where Markdown output is written.
 
 **ApiMarkTask.ApiMarkVisibility**: `string` — MSBuild property
 `$(ApiMarkVisibility)`; the visibility filter forwarded to the tool. Accepted
-values: `Public`, `PublicAndProtected`, `All`. Defaults to `Public` when not set.
+values: `Public`, `PublicAndProtected`, `All`. When not set, the `--visibility`
+flag is omitted and the tool applies its own default of `Public`.
 
 **ApiMarkTask.ApiMarkIncludeObsolete**: `bool` — MSBuild property
 `$(ApiMarkIncludeObsolete)`; when true, the tool includes members marked
@@ -149,23 +151,33 @@ argument list, spawns the tool process, and pipes its output to the MSBuild log.
 
 Execution steps: check `DisableApiMark` — if true, return true immediately; resolve
 language from `ApiMarkLanguage` or project extension inference; if language is
+not `dotnet` or `cpp`, log an error and return false; if language is
 `dotnet` and `ApiMarkXmlDocPath` is not set, return true (skip generation); if
 language is `cpp` and `ApiMarkIncludePaths` is not set, return true (skip
 generation with an informational log message); resolve the `dotnet` executable
 path (check `DOTNET_HOST_PATH` environment variable first, then search `PATH`);
-if `ApiMarkOutputs` is non-empty, spawn one child process per item using metadata
-overrides for `OutputDir`, `Format`, and `Visibility`; otherwise build the
-argument list from scalar MSBuild properties according to language-specific
-mapping (for `cpp`, split `ApiMarkIncludePaths` on `;` and emit one `--includes`
-flag per entry; split `ApiMarkApiHeaders` on `;` and emit one `--api-headers`
-flag per entry, order-preserved including `!` exclusion patterns; if `ApiMarkLibraryName`
-is set, append `--library-name`; if `ApiMarkLibraryDescription` is set, append
-`--library-description`; if `ApiMarkDefines` is set, convert semicolons to commas
-and append `--defines`; if `ApiMarkCppStandard` is set, append `--cpp-standard`;
-if `ApiMarkClangPath` is set, append `--clang-path`; if `ApiMarkFormat` is set,
-append `--format`); start the child process and pipe stdout lines as MSBuild
-messages and stderr lines as MSBuild errors; wait for exit; return true if exit
-code is zero, otherwise log an error with the exit code and return false.
+if `ApiMarkOutputs` is non-empty, delegate to `ExecuteAllOutputs` which spawns one
+child process per item using metadata overrides for `OutputDir`, `Format`, and
+`Visibility`; otherwise build the argument list from scalar MSBuild properties
+according to language-specific mapping (for `cpp`, split `ApiMarkIncludePaths` on
+`;` and emit one `--includes` flag per entry; split `ApiMarkApiHeaders` on `;` and
+emit one `--api-headers` flag per entry, order-preserved including `!` exclusion
+patterns; if `ApiMarkLibraryName` is set, append `--library-name`; if
+`ApiMarkLibraryDescription` is set, append `--library-description`; if
+`ApiMarkDefines` is set, convert semicolons to commas and append `--defines`; if
+`ApiMarkCppStandard` is set, append `--cpp-standard`; if `ApiMarkClangPath` is set,
+append `--clang-path`; if `ApiMarkFormat` is set, append `--format`); start the
+child process and pipe stdout lines as MSBuild messages and stderr lines as MSBuild
+errors; wait for exit; return true if exit code is zero, otherwise log an error
+with the exit code and return false.
+
+**ApiMarkTask.ExecuteAllOutputs** (private): Iterates `ApiMarkOutputs` and spawns
+one child process per item.
+
+- *Parameters*: `string dotnetExe`, `string language`.
+- *Returns*: `bool` — true only when every child process exits with code zero.
+- *Algorithm*: for each `ApiMarkOutputs` item calls `BuildArgumentsForOutput` then
+  `RunToolProcess`; accumulates failures; returns false if any process failed.
 
 ### Error Handling
 

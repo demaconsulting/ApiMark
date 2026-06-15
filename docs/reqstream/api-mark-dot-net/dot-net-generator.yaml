@@ -6,23 +6,25 @@ sections:
       - title: DotNetGenerator Requirements
         requirements:
           - id: ApiMarkDotNet-DotNetGenerator-AcceptAssemblyAndXmlInputs
-            title: DotNetGenerator shall accept an assembly path and an XML documentation path as generator inputs.
+            title: DotNetGenerator shall accept an assembly path and an XML documentation
+              path as generator inputs.
             justification: |
               The generator cannot produce complete .NET documentation unless it can
               locate both the compiled API surface and the compiler-produced XML
               documentation that describes it.
-            tests:
-              - DotNetGenerator_Constructor_AcceptsAssemblyAndXmlPaths
+            tests: [DotNetGenerator_Constructor_AcceptsAssemblyAndXmlPaths]
           - id: ApiMarkDotNet-DotNetGenerator-ReadAssemblyMetadataWithoutLoading
-            title: DotNetGenerator shall read type and member information from .NET assemblies without loading them into the current process.
+            title: DotNetGenerator shall read type and member information from .NET
+              assemblies without loading them into the current process.
             justification: |
               Assembly inspection must avoid loading the target library into the current
               process so documentation generation can run reliably against arbitrary
               build outputs and dependency graphs.
-            tests:
-              - DotNetGenerator_ReadAssembly_WithMonoCecil_ReturnsTypesAndMembers
+            tests: [DotNetGenerator_ReadAssembly_WithMonoCecil_ReturnsTypesAndMembers]
           - id: ApiMarkDotNet-DotNetGenerator-ReadXmlDocumentationComments
-            title: DotNetGenerator shall read XML documentation comments from the configured XML documentation file and include that content in generated markdown.
+            title: DotNetGenerator shall read XML documentation comments from the
+              configured XML documentation file and include that content in generated
+              markdown.
             justification: |
               Developer-authored summaries, remarks, parameter descriptions, returns,
               exceptions, examples, and example code blocks belong in the published API
@@ -35,21 +37,23 @@ sections:
               - DotNetGenerator_Generate_ConstructorWithXmlParams_WritesParamDescriptionsToMemberPage
               - DotNetGenerator_Generate_MethodWithExample_EmitsCodeBlockOnMemberPage
           - id: ApiMarkDotNet-DotNetGenerator-FilterByVisibility
-            title: DotNetGenerator shall support ApiVisibility filtering for Public, PublicAndProtected, and All.
+            title: DotNetGenerator shall support ApiVisibility filtering for Public,
+              PublicAndProtected, and All.
             justification: |
               Different consumers need different views of the same assembly, ranging from
               a public API reference to broader internal documentation for development.
             tests:
               - DotNetGenerator_Visibility_PublicPublicAndProtectedAll_FilterExpectedApis
           - id: ApiMarkDotNet-DotNetGenerator-IncludeObsoleteApisWhenRequested
-            title: DotNetGenerator shall control obsolete API inclusion via the IncludeObsolete flag, including them when enabled and omitting them when disabled.
+            title: DotNetGenerator shall control obsolete API inclusion via the IncludeObsolete
+              flag, including them when enabled and omitting them when disabled.
             justification: |
               Teams sometimes need complete historical reference output and sometimes need
               only the actively supported API surface, so obsolete items must be controllable.
-            tests:
-              - DotNetGenerator_IncludeObsolete_Toggle_ControlsObsoleteOutput
+            tests: [DotNetGenerator_IncludeObsolete_Toggle_ControlsObsoleteOutput]
           - id: ApiMarkDotNet-DotNetGenerator-EmitDetailPageForEveryMember
-            title: DotNetGenerator shall emit a dedicated detail page for every visible member.
+            title: DotNetGenerator shall emit a dedicated detail page for every visible
+              member.
             justification: |
               All members always receive their own dedicated file so that navigation is
               fully deterministic. An AI or tool can always resolve
@@ -57,10 +61,10 @@ sections:
               or shape. Exception: members whose sanitized names collide on a
               case-insensitive filesystem are combined onto a single shared page (see
               ApiMarkDotNet-DotNetGenerator-EmitCombinedMemberPageForCaseInsensitiveCollisions).
-            tests:
-              - DotNetGenerator_AllMembers_GetSeparateFiles
+            tests: [DotNetGenerator_AllMembers_GetSeparateFiles]
           - id: ApiMarkDotNet-DotNetGenerator-EmitCombinedMemberPageForCaseInsensitiveCollisions
-            title: DotNetGenerator shall emit a combined member page for case-insensitive filename collisions.
+            title: DotNetGenerator shall emit a combined member page for case-insensitive
+              filename collisions.
             justification: |
               On case-insensitive filesystems (Windows, macOS), two members whose sanitized
               names differ only in case (e.g. a field 'name' and a property 'Name') would
@@ -73,27 +77,28 @@ sections:
               - DotNetGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPage
               - DotNetGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers
           - id: ApiMarkDotNet-DotNetGenerator-ProduceConsistentOutputFileStructure
-            title: DotNetGenerator shall produce output files following the established naming convention.
+            title: DotNetGenerator shall produce output files following the established
+              naming convention.
             justification: |
               Consistent file and folder naming allows navigation between the entrypoint,
               namespace summaries, type pages, and member detail pages without relying on
               a separate path-resolution helper.
-            tests:
-              - DotNetGenerator_OutputFiles_FollowNamingConvention
+            tests: [DotNetGenerator_OutputFiles_FollowNamingConvention]
           - id: ApiMarkDotNet-DotNetGenerator-ApiMdListsAllNamespacesWithTypeCount
-            title: DotNetGenerator shall list all namespaces in api.md with a direct type count column.
+            title: DotNetGenerator shall list all namespaces in api.md with a direct
+              type count column.
             justification: |
               Listing every namespace (root and child) in api.md gives AI agents a complete
               navigation map in a single read, avoiding an extra round-trip through parent
               namespace pages to discover children. The type count column provides scope
               signal so an AI can calibrate how deeply to explore each namespace without
               opening it first.
-            tests:
-              - DotNetGenerator_Generate_ApiMd_ListsAllNamespacesWithTypeCount
+            tests: [DotNetGenerator_Generate_ApiMd_ListsAllNamespacesWithTypeCount]
           - id: ApiMarkDotNet-DotNetGenerator-ShowDirectInheritanceInTypeSignature
             title: >-
               DotNetGenerator shall include the direct base class and directly declared
-              interfaces in the type signature, omitting well-known implicit bases such as
+              interfaces in the type signature, omitting well-known implicit bases
+              such as
               System.Object, System.ValueType, System.Enum, and System.MulticastDelegate.
             justification: |
               The direct inheritance list tells AI agents the contract a type satisfies and
@@ -103,7 +108,9 @@ sections:
               - DotNetGenerator_Generate_SampleImplementation_TypeSignatureShowsInterface
               - DotNetGenerator_Generate_EnumTypeSignature_HasNoBaseClass
           - id: ApiMarkDotNet-DotNetGenerator-EmitIntraDocLinksInTableCells
-            title: DotNetGenerator shall emit Markdown links in type and parameter type table cells when the referenced type is documented in the same assembly.
+            title: DotNetGenerator shall emit Markdown links in type and parameter
+              type table cells when the referenced type is documented in the same
+              assembly.
             justification: |
               AI agents and human readers navigating API documentation benefit from
               clickable links that jump directly to the referenced type page rather
@@ -113,7 +120,9 @@ sections:
             tests:
               - DotNetGenerator_Generate_IntraAssemblyReturnType_EmitsMarkdownLinkInReturnsCell
           - id: ApiMarkDotNet-DotNetGenerator-EmitExternalTypesSection
-            title: DotNetGenerator shall emit an "External Types" section at the bottom of each generated page that references at least one non-System external type.
+            title: DotNetGenerator shall emit an "External Types" section at the bottom
+              of each generated page that references at least one non-System external
+              type.
             justification: |
               Readers using an external library type documented on a page need to know
               which package or namespace to import. Collecting all external type
@@ -123,7 +132,9 @@ sections:
               - DotNetGenerator_Generate_ExternalNonSystemParameterType_EmitsExternalTypesSection
           - id: ApiMarkDotNet-DotNetGenerator-DocumentOperatorOverloads
             title: >-
-              DotNetGenerator shall emit operator overload methods for a type on its dedicated operators.md page, using C# operator symbols as headings and including conversion operator documentation with summary and parameters.
+              DotNetGenerator shall emit operator overload methods for a type on its
+              dedicated operators.md page, using C# operator symbols as headings and
+              including conversion operator documentation with summary and parameters.
             justification: |
               C# types frequently expose arithmetic, comparison, and conversion operators
               as part of their public API. Grouping all operators for a type onto a single
@@ -139,8 +150,10 @@ sections:
               - DotNetGenerator_Generate_ConversionOperatorReturningNestedType_OperatorsPageContainsSummary
           - id: ApiMarkDotNet-DotNetGenerator-DocumentNestedTypes
             title: >-
-              DotNetGenerator shall document public nested types within their containing type's page and
-              generate a dedicated page for each nested type under the containing type's folder.
+              DotNetGenerator shall document public nested types within their containing
+              type's page and
+              generate a dedicated page for each nested type under the containing
+              type's folder.
             justification: |
               C# types commonly nest supporting types (builders, enumerators, result types, configuration
               records) within their declaring type as part of the public API. Omitting nested types from
@@ -152,7 +165,8 @@ sections:
               - DotNetGenerator_Generate_NestedClass_ListedOnOuterClassPage
               - DotNetGenerator_Generate_NestedClass_PageContainsSummary
           - id: ApiMarkDotNet-DotNetGenerator-EmitSingleFileOutput
-            title: DotNetGenerator shall emit a single api.md file when OutputFormat.SingleFile is selected.
+            title: DotNetGenerator shall emit a single api.md file when OutputFormat.SingleFile
+              is selected.
             justification: |
               Single-file output is required for consumers who want a compact, linear reference
               instead of the gradual-disclosure folder tree.

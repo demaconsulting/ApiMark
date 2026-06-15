@@ -6,7 +6,9 @@ sections:
       - title: XmlDocReader Requirements
         requirements:
           - id: ApiMarkDotNet-XmlDocReader-ParseAndIndexXmlDocumentation
-            title: XmlDocReader shall parse a .NET XML documentation file and provide O(1) per-member lookups for summary, remarks, parameters, returns, exceptions, and example content.
+            title: XmlDocReader shall parse a .NET XML documentation file and provide
+              O(1) per-member lookups for summary, remarks, parameters, returns, exceptions,
+              and example content.
             justification: |
               Assembly documentation comes from compiler-produced XML files that can
               contain thousands of member entries. Indexing on construction ensures

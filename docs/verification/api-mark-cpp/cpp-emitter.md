@@ -43,11 +43,6 @@ This scenario is tested by `CppEmitter_Emit_GradualDisclosureFormat_ProducesMult
 dispatch to `CppEmitterSingleFile`.
 This scenario is tested by `CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile`.
 
-**SanitizeFileName replaces invalid chars in operator names**: Verifies that
-`SanitizeFileName("operator*")` produces a string that does not contain `*`,
-because asterisk is invalid in Windows file names.
-This scenario is tested by `CppEmitter_SanitizeFileName_OperatorName_ReplacesInvalidChars`.
-
 **SanitizeFileName leaves regular names unchanged**: Verifies that
 `SanitizeFileName("MyClass")` returns `"MyClass"` unchanged when the input contains
 no invalid file-name characters.

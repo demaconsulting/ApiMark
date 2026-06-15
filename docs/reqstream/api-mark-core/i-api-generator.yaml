@@ -6,7 +6,8 @@ sections:
       - title: IApiGenerator Requirements
         requirements:
           - id: ApiMarkCore-IApiGenerator-DefineParseMethod
-            title: IApiGenerator shall accept a caller-supplied diagnostic channel and return an emitter ready to write the parsed component's documentation.
+            title: IApiGenerator shall accept a caller-supplied diagnostic channel
+              and return an emitter ready to write the parsed component's documentation.
             justification: |
               The caller needs one consistent invocation point for every language
               generator so symbol parsing can be triggered without knowing the
@@ -15,13 +16,12 @@ sections:
               caller to choose the output format at emit time rather than at parse time.
               IContext decouples generators from Console so output can be captured,
               suppressed, or redirected by the caller.
-            tests:
-              - IApiGenerator_Parse_WithMinimalStub_ExecutesSuccessfully
+            tests: [IApiGenerator_Parse_WithMinimalStub_ExecutesSuccessfully]
           - id: ApiMarkCore-IApiGenerator-AllowConstructionTimeConfiguration
-            title: IApiGenerator shall allow language-specific configuration to be supplied when an implementation is constructed before Parse is called.
+            title: IApiGenerator shall allow language-specific configuration to be
+              supplied when an implementation is constructed before Parse is called.
             justification: |
               Language modules require different inputs and policies, such as input
               file paths or visibility settings, so configuration must be captured
               before parsing starts while keeping the runtime invocation uniform.
-            tests:
-              - IApiGenerator_Implementation_UsesConstructionConfiguration
+            tests: [IApiGenerator_Implementation_UsesConstructionConfiguration]

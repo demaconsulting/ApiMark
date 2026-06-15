@@ -87,6 +87,7 @@ public class CppEmitterTests
         Assert.Equal("MyClass", result);
     }
 
+
     /// <summary>Validates that <see cref="CppEmitter.BuildClassDeclaration"/> returns the class name for a non-final class with no bases.</summary>
     [Fact]
     public void CppEmitter_BuildClassDeclaration_NonFinalNoBase_ReturnsJustClassName()

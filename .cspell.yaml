@@ -28,7 +28,10 @@ words:
   - frontmatter
   - ANTLR
   - GHDL
+  - archs
   - hrefs
+  - iface
+  - interp
   - invocability
   - isysroot
   - isystem
@@ -42,6 +45,7 @@ words:
   - Linkify
   - linkify
   - Linq
+  - maxcount
   - misattributed
   - msbuild
   - MSBuild
@@ -49,6 +53,7 @@ words:
   - mylib
   - MYLIB
   - nameof
+  - testbenches
   - testlib
   - NDEBUG
   - netstandard
@@ -77,6 +82,10 @@ words:
   - unparseable
   - versionmark
   - writability
+  - DOWNTO
+  - INOUT
+  - metacharacter
+  - metacharacters
   - VHDL
   - vswhere
   - Weasyprint
@@ -97,4 +106,5 @@ ignorePaths:
   - '**/obj/**'
   - '**/generated/**'
   - '**/packages/**'
+  - '**/VhdlAst/Antlr/**'
   - package-lock.json

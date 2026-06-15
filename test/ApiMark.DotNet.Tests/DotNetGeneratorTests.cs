@@ -1717,9 +1717,7 @@ public class DotNetGeneratorTests
 
         // Assert: exactly one writer, keyed "api"
         Assert.Single(factory.Writers);
-        Assert.True(factory.Writers.ContainsKey("api"), "Expected a single api writer for single-file output");
-
-        var writer = factory.Writers["api"];
+        Assert.True(factory.Writers.TryGetValue("api", out var writer), "Expected a single api writer for single-file output");
         var headings = writer.Operations.OfType<HeadingOperation>().ToList();
 
         // Assert: H1 is the assembly-level title ending with "API Reference"
@@ -1764,10 +1762,8 @@ public class DotNetGeneratorTests
 
         // Assert: GetGreeting has a parameter so it gets its own member page
         Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ExampleDocClass/GetGreeting"),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ExampleDocClass/GetGreeting", out var writer),
             "Expected member page for ExampleDocClass.GetGreeting");
-
-        var writer = factory.Writers["ApiMark.DotNet.Fixtures/ExampleDocClass/GetGreeting"];
         var codeBlocks = writer.Operations.OfType<CodeBlockOperation>().ToList();
 
         // Assert: at least one csharp code block is emitted from the <example><code> content
@@ -1790,9 +1786,7 @@ public class DotNetGeneratorTests
         generator.Parse(new InMemoryContext()).Emit(factory, config, new InMemoryContext());
 
         // Assert: single-file writes exactly one "api" file
-        Assert.True(factory.Writers.ContainsKey("api"), "Expected single-file api writer");
-
-        var writer = factory.Writers["api"];
+        Assert.True(factory.Writers.TryGetValue("api", out var writer), "Expected single-file api writer");
         var codeBlocks = writer.Operations.OfType<CodeBlockOperation>().ToList();
 
         // Assert: at least one csharp code block from the ExampleDocClass.GetGreeting example

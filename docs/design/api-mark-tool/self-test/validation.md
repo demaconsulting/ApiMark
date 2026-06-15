@@ -103,6 +103,7 @@ created via `CreateTestResult(testName)` and collected in a
 
 #### Error Handling
 
+- Throws `ArgumentNullException` when `context` is null.
 - Failed self-tests call `context.WriteError` for each failure, setting
   `context.ExitCode` to `1`.
 - Unsupported results file extension calls `context.WriteError` and returns
@@ -125,4 +126,4 @@ created via `CreateTestResult(testName)` and collected in a
 #### Callers
 
 - **Program.Run** — calls `Validation.Run(context)` when `context.Validate`
-  is `true` (priority 4 in the dispatch chain).
+  is `true` (priority 3 in the dispatch chain).

@@ -23,10 +23,13 @@ required.
 - Visibility option values are forwarded to the generator; invalid values are rejected with a non-zero exit
   code and an actionable error message.
 - The `apimark dotnet` subcommand generates the expected Markdown tree for a sample assembly.
+- The `vhdl` subcommand is verified at the Program unit level; see the *ApiMarkTool Program* section.
 
 ## Test Scenarios
 
 **cpp subcommand dispatch is verified at the unit level via `ApiMarkTool-Program-SupportCppOptions` tests.**
+
+**vhdl subcommand validation is verified at the Program unit level via `ApiMarkTool-Program` tests.**
 
 **DotNet command generates documentation successfully**: Verifies that invoking `apimark dotnet`
 with valid assembly, XML documentation, and output arguments produces the expected Markdown tree

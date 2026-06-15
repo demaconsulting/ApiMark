@@ -133,6 +133,14 @@ internal sealed class Context : IContext, IDisposable
     public string? ClangPath { get; private init; }
 
     /// <summary>
+    ///     Gets the ordered list of glob and exclusion pattern strings for the VHDL language subcommand.
+    ///     Collected from repeated <c>--source</c> invocations; entries with a <c>!</c>
+    ///     prefix are exclusion patterns. Order is significant — gitignore semantics apply
+    ///     (last matching pattern wins).
+    /// </summary>
+    public string[] Sources { get; private init; } = [];
+
+    /// <summary>
     ///     Gets the proposed exit code for the application (0 for success, 1 for errors).
     /// </summary>
     public int ExitCode => _hasErrors ? 1 : 0;
@@ -181,6 +189,7 @@ internal sealed class Context : IContext, IDisposable
             Defines = parser.Defines,
             CppStandard = parser.CppStandard,
             ClangPath = parser.ClangPath,
+            Sources = [.. parser.Sources],
         };
 
         // Open log file if specified
@@ -393,6 +402,11 @@ internal sealed class Context : IContext, IDisposable
         public string? ClangPath { get; private set; }
 
         /// <summary>
+        ///     Gets the VHDL source glob patterns from repeated --source flags.
+        /// </summary>
+        public List<string> Sources { get; } = new List<string>();
+
+        /// <summary>
         ///     Parses command-line arguments using a single-pass strategy.
         /// </summary>
         /// <param name="args">Command-line arguments.</param>
@@ -544,6 +558,13 @@ internal sealed class Context : IContext, IDisposable
                 case "--clang-path":
                     ClangPath = GetRequiredStringArgument(arg, args, index, "a clang executable path argument");
                     return index + 1;
+
+                case "--source":
+                    {
+                        var pattern = GetRequiredStringArgument(arg, args, index, "a glob pattern argument");
+                        Sources.Add(pattern);
+                        return index + 1;
+                    }
 
                 default:
                     // First positional non-flag token is the language subcommand

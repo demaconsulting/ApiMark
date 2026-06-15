@@ -28,6 +28,7 @@ type page — consuming only as much context as the task requires.
 - 💡 **Example Code Blocks** - `<example><code>` (C#) and `@code`/`@endcode` (Doxygen) blocks rendered in output
 - 🔷 **C#/.NET Support** - Mono.Cecil + XML documentation comments
 - ➕ **C++ Support** - `clang -ast-dump=json` + Doxygen-style comments
+- 🔶 **VHDL Support** - Entities, packages, and subprograms from ANTLR4 vhdl2008 grammar + `--!` doc comments
 - 🔧 **MSBuild Integration** - Auto-documents `.csproj` and `.vcxproj` builds
 - 🖥️ **CLI Tool** - `apimark` dotnet tool covering all languages
 - 🤖 **AI-Optimized** - Minimal noise, explicit navigation links
@@ -36,11 +37,11 @@ type page — consuming only as much context as the task requires.
 
 ## Platform Support
 
-| Platform | .NET | C++ |
-| --- | --- | --- |
-| Windows | ✅ | ✅ |
-| Linux | ✅ | ✅ |
-| macOS | ✅ | ✅ |
+| Platform | .NET | C++ | VHDL |
+| --- | --- | --- | --- |
+| Windows | ✅ | ✅ | ✅ |
+| Linux | ✅ | ✅ | ✅ |
+| macOS | ✅ | ✅ | ✅ |
 
 ## Prerequisites
 
@@ -53,6 +54,11 @@ C++ documentation generation requires `clang` to be installed and available:
   CLI option can point to a specific installation.
 - **macOS**: Xcode Command Line Tools (`xcode-select --install`) — `clang` is included.
 - **Linux**: Install via the system package manager (e.g. `apt install clang` or `dnf install clang`).
+
+### VHDL Support
+
+VHDL documentation generation has no additional prerequisites. Parsing is done
+in-process using the ANTLR4 vhdl2008 grammar — no external tools required.
 
 .NET support has no additional prerequisites beyond the .NET SDK.
 
@@ -119,9 +125,15 @@ apimark cpp \
   --api-headers "!include/detail/**" \
   --api-headers "include/detail/public_api.h" \
   --output docs/api
+
+# Generate API documentation from all .vhd files in the src directory
+apimark vhdl --source "src/**/*.vhd" --output docs/api
+
+# Generate with exclusions (gitignore-style)
+apimark vhdl --source "src/**/*.vhd" --source "!src/tb/**/*.vhd" --output docs/api
 ```
 
-Run `apimark --help` for all options. Run `apimark dotnet --help` or `apimark cpp --help` for language-specific options.
+Run `apimark --help` for all options. Run `apimark dotnet --help`, `apimark cpp --help`, or `apimark vhdl --help` for language-specific options.
 
 ### MSBuild Usage
 

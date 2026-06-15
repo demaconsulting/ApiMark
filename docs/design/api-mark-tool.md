@@ -38,7 +38,7 @@ users or CI pipelines.
   `-v, --version`, `-?, -h, --help`, `--silent`, `--validate`,
   `--results <file>` (alias: `--result <file>`), `--format <format>` (values:
   `gradual (default)`, `single-file`), `--depth <#>`, `--log <file>`.
-  Supported subcommands: `dotnet`, `cpp`.
+  Supported subcommands: `dotnet`, `cpp`, `vhdl`.
   Options for `dotnet`: `--assembly <path>`, `--xml-doc <path>`, `--output <dir>`,
   `--visibility <value>`, `--include-obsolete`.
   Options for `cpp`: `--includes <path>` (repeatable), `--api-headers <pattern>`
@@ -46,6 +46,8 @@ users or CI pipelines.
   `--library-name <name>`, `--library-description <text>`, `--defines <defs>`,
   `--cpp-standard <std>`, `--clang-path <path>`, `--output <dir>`,
   `--visibility <value>`, `--include-obsolete`.
+  Options for `vhdl`: `--source <glob>` (repeatable, ordered, supports `!` exclusion patterns),
+  `--output <dir>`, `--library-name <name>`, `--library-description <text>`.
   Standard flags are valid anywhere in the argument list,
   before or after the language subcommand (single-pass parser).
 - *Constraints*: Exits non-zero on error; writes a descriptive message to stderr;
@@ -71,6 +73,8 @@ implementations from ApiMarkCore and dispatches to them using the two-stage pipe
   subcommand — see ApiMarkDotNet System Design.
 - **ApiMarkCpp**: Program constructs `CppGenerator` for the `cpp` subcommand — see
   ApiMarkCpp System Design.
+- **ApiMarkVhdl**: Program constructs `VhdlGenerator` for the `vhdl` subcommand — see
+  ApiMarkVhdl System Design.
 - **ApiMarkCore**: Program references `IApiGenerator` from ApiMarkCore — see
   ApiMarkCore System Design.
 - **DemaConsulting.TestResults**: Program uses `TrxSerializer` and `JUnitSerializer`
@@ -91,7 +95,8 @@ N/A — not a safety-classified software item.
 3. Program validates that all required options for the requested language are
    present; exits non-zero with a usage message if any are missing.
 4. Program constructs the appropriate `IApiGenerator` implementation based on the
-   language subcommand (`DotNetGenerator` for `dotnet`; `CppGenerator` for `cpp`).
+   language subcommand (`DotNetGenerator` for `dotnet`; `CppGenerator` for `cpp`;
+   `VhdlGenerator` for `vhdl`).
 5. Program creates a `FileMarkdownWriterFactory` for the output directory, builds an
    `EmitConfig` from the parsed context (using `--format` and `--depth`), calls
    `IApiGenerator.Parse(context)` to obtain an `IApiEmitter`, and then calls

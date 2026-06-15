@@ -6,23 +6,24 @@ sections:
       - title: IMarkdownWriterFactory Requirements
         requirements:
           - id: ApiMarkCore-IMarkdownWriterFactory-DefineCreateMarkdownMethod
-            title: IMarkdownWriterFactory shall define a CreateMarkdown operation that accepts a subFolder string and a name string and returns an IMarkdownWriter.
+            title: IMarkdownWriterFactory shall define a CreateMarkdown operation
+              that accepts a subFolder string and a name string and returns an IMarkdownWriter.
             justification: |
               Language generators need to open individual output files without knowing
               the storage mechanism so that the same generator code can write to disk
               in production and to memory in tests.
-            tests:
-              - IMarkdownWriterFactory_HasCreateMarkdown_Method
+            tests: [IMarkdownWriterFactory_HasCreateMarkdown_Method]
           - id: ApiMarkCore-IMarkdownWriterFactory-SupportRootLevelFiles
-            title: IMarkdownWriterFactory shall support creating root-level files when subFolder is an empty string.
+            title: IMarkdownWriterFactory shall support creating root-level files
+              when subFolder is an empty string.
             justification: |
               The api.md entrypoint file is always at the root of the output tree, so
               the factory must accept an empty subFolder without error to allow
               generators to create that fixed entrypoint.
-            tests:
-              - IMarkdownWriterFactory_CreateMarkdown_EmptySubFolder_IsRootLevel
+            tests: [IMarkdownWriterFactory_CreateMarkdown_EmptySubFolder_IsRootLevel]
           - id: ApiMarkCore-IMarkdownWriterFactory-RejectInvalidOutputDirectory
-            title: IMarkdownWriterFactory shall reject a null, empty, or whitespace output directory path at construction time.
+            title: IMarkdownWriterFactory shall reject a null, empty, or whitespace
+              output directory path at construction time.
             justification: |
               Failing fast at construction with a clear ArgumentException prevents
               obscure I/O failures later when the first file is created, making
@@ -31,7 +32,9 @@ sections:
               - FileMarkdownWriterFactory_Constructor_NullDirectory_ThrowsArgumentException
               - FileMarkdownWriterFactory_Constructor_WhitespaceDirectory_ThrowsArgumentException
           - id: ApiMarkCore-IMarkdownWriterFactory-EnsureOutputDirectory
-            title: IMarkdownWriterFactory shall create the output directory and any required subdirectory before returning the writer, so that callers do not need to pre-create the directory structure.
+            title: IMarkdownWriterFactory shall create the output directory and any
+              required subdirectory before returning the writer, so that callers do
+              not need to pre-create the directory structure.
             justification: |
               Language generators work with logical paths and must not be responsible
               for managing the physical directory tree; delegating directory creation

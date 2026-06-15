@@ -362,7 +362,7 @@ internal sealed class CppEmitterSingleFile
         var paramHeaders = new[] { "Parameter", "Type", CppEmitter.DescriptionColumnHeader };
         var paramRows = fn.Parameters.Select(p =>
         {
-            var paramSummary = CppEmitter.GetParamDescription(fn.Doc, p.Name) ?? string.Empty;
+            var paramSummary = CppEmitter.GetParamDescription(fn.Doc, p.Name) ?? CppEmitter.NoDescriptionPlaceholder;
             return new[] { p.Name, CppEmitter.SimplifyTypeName(p.TypeName), paramSummary };
         });
         writer.WriteTable(paramHeaders, paramRows);

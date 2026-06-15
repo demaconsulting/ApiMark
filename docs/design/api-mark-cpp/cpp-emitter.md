@@ -63,8 +63,10 @@ declaration shown in the signature block.
 **CppEmitter.WriteCombinedMemberPage** (internal): Writes a single combined page for
 members whose base names collide on case-insensitive filesystems.
 
-- *Parameters*: factory, nsKey, nsDisplayName, cls, lowerKey (the shared lowercase
-  key), members list (at least two; functions or fields).
+- *Parameters*: `IMarkdownWriterFactory factory`, `string nsKey`, `string nsDisplayName`,
+  `CppClass cls`, `string lowerKey` (the shared lowercase key), members list (at
+  least two; functions or fields), `CppTypeLinkResolver cppResolver` — type link
+  resolver used to linkify parameter type cells.
 - *Returns*: `void`
 - *Algorithm*: Creates `{nsKey}/{cls.Name}/{lowerKey}.md`; writes H1 heading using
   `lowerKey`; for each function member writes an H2 heading and delegates to

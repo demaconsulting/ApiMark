@@ -1,0 +1,23 @@
+---
+# ApiMarkVhdl system-level requirements
+sections:
+  - title: ApiMarkVhdl Requirements
+    requirements:
+      - id: ApiMarkVhdl-VhdlGenerator-GenerateDocumentationFromVhdlSources
+        title: ApiMarkVhdl shall generate API documentation from VHDL source files and their --! doc comments.
+        justification: |
+          ApiMark needs to document VHDL IP cores from .vhd source files so that AI agents
+          and developers can browse entity interfaces, generics, ports, and architectures
+          without opening the source files. The --! doc comment convention is the standard
+          VHDL Doxygen-compatible annotation format supported by HDL documentation toolchains.
+        children:
+          - ApiMarkVhdl-VhdlGenerator-AcceptSourceGlobPatterns
+          - ApiMarkVhdl-VhdlAstModel
+          - ApiMarkVhdl-VhdlAstParser-ParseEntity
+          - ApiMarkVhdl-VhdlAstParser-ParseArchitecture
+          - ApiMarkVhdl-VhdlAstParser-ParsePackage
+          - ApiMarkVhdl-VhdlEmitter
+          - ApiMarkVhdl-VhdlEmitterGradualDisclosure
+          - ApiMarkVhdl-VhdlEmitterSingleFile
+        tests:
+          - VhdlGenerator_Generate_FixtureFile_CreatesApiEntrypoint

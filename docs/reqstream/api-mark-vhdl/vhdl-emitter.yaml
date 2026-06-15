@@ -1,0 +1,13 @@
+---
+# VhdlEmitter unit requirements
+sections:
+  - title: ApiMarkVhdl Requirements
+    sections:
+      - title: VhdlEmitter Requirements
+        requirements:
+          - id: ApiMarkVhdl-VhdlEmitter
+            title: VhdlEmitter shall implement IApiEmitter and dispatch to format-specific emitters.
+            justification: |
+              The dispatcher separates format selection from emission logic.
+            tests:
+              - VhdlEmitter_Emit_NullFactory_ThrowsArgumentNullException

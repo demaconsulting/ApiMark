@@ -1,0 +1,16 @@
+---
+# VhdlAstModel unit requirements
+sections:
+  - title: ApiMarkVhdl Requirements
+    sections:
+      - title: VhdlAstModel Requirements
+        requirements:
+          - id: ApiMarkVhdl-VhdlAstModel
+            title: VhdlAstModel shall represent the data contract between the VHDL parser and emitters, including entity names, port lists, generics, architectures, packages (with types, constants, components, and subprograms), and associated doc comments.
+            justification: |
+              A stable data contract between VhdlAstParser and the emitters allows each
+              component to be developed and tested independently.
+            tests:
+              - VhdlAstParser_Parse_FixtureFile_ReturnsEntity
+              - VhdlAstParser_Parse_FixtureFile_EntityHasGenerics
+              - VhdlAstParser_Parse_FixtureFile_EntityHasPorts

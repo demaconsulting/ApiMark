@@ -1,0 +1,18 @@
+---
+# VhdlGenerator unit requirements
+sections:
+  - title: ApiMarkVhdl Requirements
+    sections:
+      - title: VhdlGenerator Requirements
+        requirements:
+          - id: ApiMarkVhdl-VhdlGenerator-AcceptSourceGlobPatterns
+            title: VhdlGenerator shall accept one or more glob patterns that select which .vhd source files to document.
+            justification: |
+              VHDL projects organize IP cores as individual files or as directories of .vhd
+              files. Glob patterns with gitignore-style last-match-wins semantics and ! prefix
+              exclusion allow callers to specify and refine the source file set without
+              requiring project reorganization.
+            tests:
+              - VhdlGenerator_Constructor_NullOptions_ThrowsArgumentNullException
+              - VhdlGenerator_Generate_FixtureFile_CreatesApiEntrypoint
+              - VhdlGenerator_Generate_FixtureFile_CreatesEntityPage

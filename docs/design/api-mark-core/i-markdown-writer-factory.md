@@ -46,7 +46,7 @@ disk; test doubles capture writes in memory.
 - *Throws*: `ArgumentException` when `outputDirectory` is null, empty, or whitespace.
 
 **FileMarkdownWriterFactory.CreateMarkdown**: Combines `_outputDirectory` with `subFolder`
-using `Path.Join` (platform separator inserted between segments), calls
+using `PathHelpers.SafePathCombine` (path-traversal checked), calls
 `Directory.CreateDirectory` on the resulting target path, then opens a UTF-8
 `StreamWriter` at `{targetDirectory}/{name}.md` and wraps it in a `FileMarkdownWriter`.
 
@@ -80,6 +80,8 @@ The `IMarkdownWriterFactory` interface itself has no dependencies; the following
 - **DotNetGenerator** — receives an IMarkdownWriterFactory passed to `IApiEmitter.Emit`
   and calls CreateMarkdown once per output file produced during generation.
 - **CppGenerator** — receives an IMarkdownWriterFactory passed to `IApiEmitter.Emit`
+  and calls CreateMarkdown once per output file produced during generation.
+- **VhdlGenerator** — receives an IMarkdownWriterFactory passed to `IApiEmitter.Emit`
   and calls CreateMarkdown once per output file produced during generation.
 - **ApiMarkTask** — spawns ApiMark.Tool as a child process, within which Program
   creates the `FileMarkdownWriterFactory`. ApiMarkTask does not use IMarkdownWriterFactory

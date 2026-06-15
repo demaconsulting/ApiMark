@@ -1,12 +1,10 @@
 ---
 name: Build on Push
-
 on:
   push:
   workflow_dispatch:
   schedule:
-    - cron: '0 17 * * 1'  # 5PM UTC every Monday
-
+    - cron: 0 17 * * 1  # 5PM UTC every Monday
 jobs:
   build:
     name: Build

@@ -4,7 +4,8 @@ sections:
   - title: ApiMarkDotNet Requirements
     requirements:
       - id: ApiMarkDotNet-DotNetGenerator-GenerateDocumentationFromAssembliesAndXml
-        title: ApiMarkDotNet shall generate API documentation from .NET assemblies and XML documentation files.
+        title: ApiMarkDotNet shall generate API documentation from .NET assemblies
+          and XML documentation files.
         justification: |
           ApiMark needs to document compiled .NET libraries without requiring source
           code access, using the assembly for API structure and the XML file for the
@@ -31,10 +32,10 @@ sections:
           - ApiMarkDotNet-DotNetEmitterSingleFile-ProduceSingleApiMd
           - ApiMarkDotNet-TypeLinkResolver-ResolveTypeReferencesToMarkdownLinks
           - ApiMarkDotNet-XmlDocReader-ParseAndIndexXmlDocumentation
-        tests:
-          - ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown
+        tests: [ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown]
       - id: ApiMarkDotNet-TypeNameSimplifier-ProduceReadableTypeNames
-        title: ApiMarkDotNet shall render .NET type names in a concise C#-style form that is readable in generated documentation.
+        title: ApiMarkDotNet shall render .NET type names in a concise C#-style form
+          that is readable in generated documentation.
         justification: |
           Raw CLR type names are noisy and difficult to read, so the .NET system needs
           a consistent simplification policy that keeps signatures compact for both
@@ -47,5 +48,4 @@ sections:
           - ApiMarkDotNet-TypeNameSimplifier-SimplifyContextNamespaceTypes
           - ApiMarkDotNet-TypeNameSimplifier-SimplifyGenericArgumentsRecursively
           - ApiMarkDotNet-TypeNameSimplifier-AppendNullableReferenceSuffix
-        tests:
-          - ApiMarkDotNet_TypeNames_CommonSignatures_RenderReadably
+        tests: [ApiMarkDotNet_TypeNames_CommonSignatures_RenderReadably]

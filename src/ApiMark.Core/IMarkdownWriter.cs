@@ -16,9 +16,9 @@ public interface IMarkdownWriter : IDisposable
     ///     Writes a Markdown heading at the specified depth.
     /// </summary>
     /// <param name="level">
-    ///     Heading depth. Valid values are 1–4 (corresponding to # through ####).
-    ///     Callers must pass a value in this range; behavior for out-of-range
-    ///     values is implementation-defined.
+    ///     Heading depth. Valid values are 1–6 (corresponding to # through ######).
+    ///     Callers must pass a value in this range; implementations throw
+    ///     <see cref="ArgumentOutOfRangeException"/> for out-of-range values.
     /// </param>
     /// <param name="text">
     ///     Heading text. Must not be null or empty. Inline Markdown within the

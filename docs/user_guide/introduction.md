@@ -11,9 +11,12 @@ comments, header files, docstrings, etc.).
 
 ## Scope
 
-Covers the apimark CLI tool and MSBuild package integration. Excludes internal
-architecture and design details. This guide includes installation instructions,
-a CLI reference, and usage examples.
+Covers the `apimark` CLI tool and the `DemaConsulting.ApiMark.MSBuild` NuGet package
+integration. Excludes internal architecture and design details. This guide includes
+installation instructions, a global CLI reference, MSBuild integration concepts, and
+dedicated language sections for .NET, C++, and VHDL — each covering CLI options, file
+discovery, documented constructs, doc comment format, output structure, and
+language-specific MSBuild configuration.
 
 ## References
 

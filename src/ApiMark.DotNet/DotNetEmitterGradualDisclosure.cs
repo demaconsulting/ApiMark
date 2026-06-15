@@ -956,7 +956,7 @@ internal sealed class DotNetEmitterGradualDisclosure
             // Linkify parameter types — resolver tracks external types and emits links for intra-assembly types
             var paramRows = method.Parameters.Select(p =>
             {
-                var desc = paramDocs.FirstOrDefault(pd => pd.Name == p.Name).Description ?? string.Empty;
+                var desc = paramDocs.FirstOrDefault(pd => pd.Name == p.Name).Description ?? NoDescriptionPlaceholder;
                 var typeName = ctx.Resolver.Linkify(p.ParameterType, ctx.CurrentFolder, ctx.NamespaceName, ctx.ExternalTypes);
                 return new[] { p.Name, typeName, desc };
             });

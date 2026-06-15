@@ -6,7 +6,8 @@ sections:
       - title: DotNetAstModel Requirements
         requirements:
           - id: ApiMarkDotNet-DotNetAstModel-HoldParsedAssemblyData
-            title: DotNetAstModel shall hold all parsed assembly data required during the emit phase.
+            title: DotNetAstModel shall hold all parsed assembly data required during
+              the emit phase.
             justification: |
               The parse and emit phases are separated by the IApiGenerator / IApiEmitter
               contract. DotNetAstModel bridges these phases by holding the assembly

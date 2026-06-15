@@ -25,6 +25,7 @@ output directory. No external service, privileged configuration, or network acce
 - `--help` before and after a subcommand both display usage information and return exit code zero.
 - `--silent` suppresses console output; `--log <file>` captures output to a file.
 - `--validate` runs self-validation tests and returns exit code zero when all pass.
+- The `vhdl` subcommand rejects invocations without at least one non-exclusion `--source` pattern.
 
 ### Test Scenarios
 
@@ -75,7 +76,16 @@ descriptive error message, confirming that required option validation is enforce
 language. This scenario is tested by
 `Program_Main_WithCppSubcommand_MissingIncludes_ReturnsNonZeroExitCode`.
 
-**cpp subcommand with --api-headers flag is accepted**: Verifies that invoking the `cpp` subcommand
-with `--includes path/a --api-headers MyApi.h --output out/` exits with code 0, confirming that
-the `--api-headers` flag is recognized and forwarded to the generator without error. This scenario
-is tested by `Program_Main_CppWithApiHeadersFlag_FlagIsAccepted`.
+**cpp subcommand with --api-headers flag is accepted**: Verifies that the `cpp`
+subcommand accepts `--api-headers` without raising an unknown-flag error. The test
+invokes `cpp --api-headers **/*.h --output out/` without `--includes`, expects a
+non-zero exit code due to the missing `--includes` requirement, and confirms the
+error message references `--includes` (not an unknown-flag error), proving the flag
+was parsed successfully. This scenario is tested by
+`Program_Main_CppWithApiHeadersFlag_FlagIsAccepted`.
+
+**vhdl subcommand without --source returns non-zero exit code**: Verifies that invoking the `vhdl`
+subcommand without any `--source` arguments returns a non-zero exit code and a descriptive error
+message, confirming that the subcommand enforces the requirement for at least one non-exclusion
+source pattern before attempting generation. This scenario is tested by
+`Program_Main_WithVhdlSubcommand_MissingSourceFiles_ReturnsNonZeroExitCode`.

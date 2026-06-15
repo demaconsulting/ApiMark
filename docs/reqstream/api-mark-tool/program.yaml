@@ -6,21 +6,22 @@ sections:
       - title: Program Requirements
         requirements:
           - id: ApiMarkTool-Program-AcceptLanguageArgument
-            title: Program shall accept the language name as the first positional argument.
+            title: Program shall accept the language name as the first positional
+              argument.
             justification: |
               The CLI needs a predictable routing key so one executable can expose the
               appropriate option set and generator behavior for each supported language.
-            tests:
-              - Program_Main_WithNoArguments_ReturnsNonZeroExitCode
+            tests: [Program_Main_WithNoArguments_ReturnsNonZeroExitCode]
           - id: ApiMarkTool-Program-DispatchToGenerator
-            title: Program shall dispatch to the appropriate IApiGenerator implementation for the selected language.
+            title: Program shall dispatch to the appropriate IApiGenerator implementation
+              for the selected language.
             justification: |
               The CLI must connect user input to the correct language module so generation
               behavior matches the requested documentation target.
-            tests:
-              - Program_Main_DotNetCommand_GeneratesExpectedOutput
+            tests: [Program_Main_DotNetCommand_GeneratesExpectedOutput]
           - id: ApiMarkTool-Program-SupportDotNetOptions
-            title: Program shall support the dotnet language with --assembly, --xml-doc, --output, --visibility, and --include-obsolete options.
+            title: Program shall support the dotnet language with --assembly, --xml-doc,
+              --output, --visibility, and --include-obsolete options.
             justification: |
               The .NET workflow requires explicit control over the compiled assembly,
               XML documentation file, output location, visible API surface, and whether
@@ -30,7 +31,9 @@ sections:
               - Program_Main_WithInvalidVisibility_ReturnsNonZeroExitCode
               - Program_Main_WithMissingAssembly_PrintsErrorAndFails
           - id: ApiMarkTool-Program-SupportCppOptions
-            title: Program shall support the cpp language with --includes, --output, --visibility, --include-obsolete, --library-name, --library-description, --defines, --cpp-standard, --api-headers, and --clang-path options.
+            title: Program shall support the cpp language with --includes, --output,
+              --visibility, --include-obsolete, --library-name, --library-description,
+              --defines, --cpp-standard, --api-headers, and --clang-path options.
             justification: |
               C++ documentation generation requires at minimum the public include root(s) and
               output directory. The --includes option is required; the tool validates its
@@ -44,8 +47,19 @@ sections:
             tests:
               - Program_Main_WithCppSubcommand_MissingIncludes_ReturnsNonZeroExitCode
               - Program_Main_CppWithApiHeadersFlag_FlagIsAccepted
+          - id: ApiMarkTool-Program-SupportVhdlOptions
+            title: Program shall support the vhdl language with --source, --output,
+              --library-name, --library-description, and --format options.
+            justification: |
+              VHDL documentation generation requires at least one --source glob pattern.
+              The tool validates that at least one --source is provided and returns a non-zero
+              exit code with a descriptive error message when none is present, ensuring users
+              receive actionable feedback before any generation is attempted.
+            tests:
+              - Program_Main_WithVhdlSubcommand_MissingSourceFiles_ReturnsNonZeroExitCode
           - id: ApiMarkTool-Program-SupportHelpOption
-            title: Program shall support -?, -h, and --help options that display usage information and exit zero.
+            title: Program shall support -?, -h, and --help options that display usage
+              information and exit zero.
             justification: |
               Users and CI pipelines need discoverable, in-tool documentation of the available
               commands and options without consulting external documentation.
@@ -53,28 +67,29 @@ sections:
               - Program_Main_WithHelpFlag_PrintsHelpAndExitsZero
               - Program_Main_WithHelpAfterSubcommand_PrintsHelpAndExitsZero
           - id: ApiMarkTool-Program-SupportSilentAndLogOptions
-            title: Program shall support --silent to suppress console output and --log <file> to capture all output.
+            title: Program shall support --silent to suppress console output and --log
+              <file> to capture all output.
             justification: |
               ApiMarkTask invokes the tool out-of-process and must capture output to MSBuild
               log channels; --silent + --log <file> enables clean capture without console noise.
-            tests:
-              - Program_Main_WithSilentAndLog_DotNetCommand_ExitsZero
+            tests: [Program_Main_WithSilentAndLog_DotNetCommand_ExitsZero]
           - id: ApiMarkTool-Program-SupportValidateOption
-            title: Program shall support --validate to run self-validation tests and optionally write results to a file.
+            title: Program shall support --validate to run self-validation tests and
+              optionally write results to a file.
             justification: |
               Self-validation confirms tool integrity in deployment environments without
               requiring external test infrastructure or the full source tree.
-            tests:
-              - Program_Main_WithValidateFlag_ExitsZero
+            tests: [Program_Main_WithValidateFlag_ExitsZero]
           - id: ApiMarkTool-Program-SupportVersionOption
             title: Program shall support a global --version option.
             justification: |
               Operators and CI pipelines need a simple way to confirm which ApiMark tool
               build is installed before generating documentation.
-            tests:
-              - Program_Main_WithVersionFlag_PrintsVersionAndExitsZero
+            tests: [Program_Main_WithVersionFlag_PrintsVersionAndExitsZero]
           - id: ApiMarkTool-Program-ReportInvalidArguments
-            title: Program shall return a non-zero exit code and write a descriptive error message when an invalid argument or missing required option is encountered.
+            title: Program shall return a non-zero exit code and write a descriptive
+              error message when an invalid argument or missing required option is
+              encountered.
             justification: |
               Users and CI pipelines must be able to detect argument errors through
               the standard exit-code mechanism; printing a clear message rather than

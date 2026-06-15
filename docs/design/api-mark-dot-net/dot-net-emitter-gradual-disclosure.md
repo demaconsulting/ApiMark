@@ -34,10 +34,11 @@ iterates all namespaces and types, writing namespace summary and type pages.
 page for a group of members whose sanitized file names collide on
 case-insensitive file systems.
 
-- *Algorithm*: Creates `{namespaceFolderPath}/{type.Name}/{lowerKey}.md` via the
+- *Algorithm*: Creates `{namespaceFolderPath}/{FlattenArity(type.Name)}/{lowerKey}.md` via the
   factory; writes an H1 heading using `lowerKey`; for each member writes an H2
   heading of the form `{displayName} ({kindLabel})`; delegates to
-  `WriteMethodDocumentation` for `MethodDefinition` members.
+  `WriteMethodDocumentation` for `MethodDefinition` members and to
+  `WriteNonMethodMemberContent` for all other member kinds.
 
 **IsPureMethodOverloadGroup** (private static): Returns true when all members
 in a collision group are `MethodDefinition` instances sharing the same exact
@@ -55,7 +56,9 @@ in table cells.
 ### Path Conventions
 
 - Assembly index: `factory.CreateMarkdown("", "api")`
-- Namespace summary: `factory.CreateMarkdown(namespaceFolderPath, namespaceFolderPath)`
+- Namespace summary: `factory.CreateMarkdown(subFolder, shortName)` where `subFolder`
+  and `shortName` are produced by splitting `namespaceFolderPath` at the last separator
+  (e.g. for `ApiMark.DotNet.Fixtures`, `subFolder=""` and `shortName="ApiMark.DotNet.Fixtures"`)
 - Type page: `factory.CreateMarkdown(namespaceFolderPath, typeSimpleName)`
 - Member detail: `factory.CreateMarkdown("{namespaceFolderPath}/{typeSimpleName}", memberName)`
 - Operators page: `factory.CreateMarkdown("{namespaceFolderPath}/{typeSimpleName}", "operators")`

@@ -4,9 +4,10 @@ ApiMark generates compact, AI-friendly API reference documentation in Markdown f
 source code and its associated metadata (XML doc comments, header files, docstrings,
 etc.). The output is designed for gradual disclosure: an AI can read a lightweight
 index, drill into a namespace summary, and then read a full type page — consuming only
-as much context as the task requires. The project is structured as five independent
+as much context as the task requires. The project is structured as six independent
 systems: ApiMark.Core (shared contracts and file-path helpers), ApiMark.DotNet
-(C#/.NET language generator), ApiMark.Cpp (C++ language generator), ApiMark.MSBuild
+(C#/.NET language generator), ApiMark.Cpp (C++ language generator), ApiMark.Vhdl
+(VHDL language generator), ApiMark.MSBuild
 (unified MSBuild task that spawns ApiMark.Tool out-of-process), and ApiMark.Tool (the
 .NET executable invoked by ApiMarkTask and directly by users or CI pipelines).
 Three OTS items provide library support: Mono.Cecil for the DotNet system, clang (via
@@ -27,6 +28,7 @@ Local items:
 - **ApiMarkCore**: system and unit design.
 - **ApiMarkDotNet**: system and unit design.
 - **ApiMarkCpp**: system and unit design.
+- **ApiMarkVhdl**: system and unit design.
 - **ApiMarkMsbuild**: system and unit design.
 - **ApiMarkTool**: system and unit design.
 
@@ -35,6 +37,7 @@ OTS items:
 - **Mono.Cecil**: integration and usage design.
 - **clang**: integration and usage design (via `clang -ast-dump=json`).
 - **DemaConsulting.TestResults**: integration and usage design.
+- **Antlr4.Runtime.Standard / ANTLR4 vhdl2008 grammar**: integration and usage design.
 - **cpp-ast-net**: integration and usage design (archived; retained for historical reference).
 
 Out of scope: test projects, build pipeline CI configuration, and the internal design
@@ -52,7 +55,8 @@ ApiMarkCore (System)
 ├── FileMarkdownWriterFactory (Unit)
 ├── IMarkdownWriter (Unit)
 ├── FileMarkdownWriter (Unit)
-└── PathHelpers (Unit)
+├── PathHelpers (Unit)
+└── GlobFileCollector (Unit)
 
 ApiMarkDotNet (System)
 ├── DotNetGenerator (Unit)
@@ -73,6 +77,14 @@ ApiMarkCpp (System)
 ├── CppEmitterSingleFile (Unit)
 └── CppTypeLinkResolver (Unit)
 
+ApiMarkVhdl (System)
+├── VhdlGenerator (Unit)
+├── VhdlAstModel (Unit)
+├── VhdlAstParser (Unit)
+├── VhdlEmitter (Unit)
+├── VhdlEmitterGradualDisclosure (Unit)
+└── VhdlEmitterSingleFile (Unit)
+
 ApiMarkMsbuild (System)
 └── ApiMarkTask (Unit)
 
@@ -87,6 +99,7 @@ OTS Dependencies:
 ├── Mono.Cecil (OTS)
 ├── DemaConsulting.TestResults (OTS)
 ├── clang -ast-dump=json (OTS)
+├── Antlr4.Runtime.Standard / ANTLR4 vhdl2008 grammar (OTS)
 └── cpp-ast-net (OTS) [archived]
 ```
 
@@ -103,6 +116,7 @@ src/
 │   ├── IMarkdownWriterFactory.cs       - factory interface for creating per-file markdown writers
 │   ├── IMarkdownWriter.cs              - per-file markdown writing interface (IDisposable)
 │   ├── PathHelpers.cs                  - shared path-safety helper for combining validated relative paths
+│   ├── GlobFileCollector.cs            - shared glob-based file discovery utility (absolute/relative patterns, extension inference)
 │   ├── FileMarkdownWriterFactory.cs    - file-system implementation of IMarkdownWriterFactory
 │   └── FileMarkdownWriter.cs           - file-system implementation of IMarkdownWriter
 ├── ApiMark.DotNet/
@@ -127,6 +141,15 @@ src/
 │   └── CppAst/
 │       ├── CppAstModel.cs         - C++ AST data model (types, functions, namespaces)
 │       └── ClangAstParser.cs      - invokes clang -ast-dump=json and parses the AST
+├── ApiMark.Vhdl/
+│   ├── VhdlGenerator.cs           - VHDL IApiGenerator implementation
+│   ├── VhdlGeneratorOptions.cs    - configuration options for the VHDL generator
+│   ├── VhdlEmitter.cs             - dispatches to single-file or gradual-disclosure VHDL emitter
+│   ├── VhdlEmitterGradualDisclosure.cs - writes multiple-file gradual-disclosure VHDL output
+│   ├── VhdlEmitterSingleFile.cs   - writes single-file VHDL output
+│   └── VhdlAst/
+│       ├── VhdlAstModel.cs        - VHDL AST data model (entities, architectures, packages)
+│       └── VhdlAstParser.cs       - parses .vhd files using ANTLR4 vhdl2008 grammar
 ├── ApiMark.MSBuild/
 │   └── ApiMarkTask.cs             - MSBuild task that spawns ApiMark.Tool out-of-process
 └── ApiMark.Tool/
@@ -146,6 +169,7 @@ test/
 ├── ApiMark.DotNet.Tests/          - unit tests for DotNetGenerator and TypeNameSimplifier
 ├── ApiMark.Cpp.Fixtures/          - C++ fixture headers for CppGenerator integration tests
 ├── ApiMark.Cpp.Tests/             - unit tests for CppGenerator
+├── ApiMark.Vhdl.Tests/            - unit tests for VhdlGenerator
 ├── ApiMark.MSBuild.Tests/         - unit tests for ApiMarkTask
 └── ApiMark.Tool.Tests/            - integration tests for the CLI tool
 ```
@@ -154,8 +178,7 @@ test/
 
 Each local software item has corresponding artifacts in parallel directory trees:
 
-- Requirements: `docs/reqstream/api-mark-core.yaml`, `docs/reqstream/api-mark-core/{item}.yaml`,
-  `docs/reqstream/api-mark-dot-net.yaml`,
+- Requirements: `docs/reqstream/api-mark-core.yaml`, `docs/reqstream/api-mark-core/{item}.yaml`,  `docs/reqstream/api-mark-dot-net.yaml`,
   `docs/reqstream/api-mark-dot-net/dot-net-generator.yaml`,
   `docs/reqstream/api-mark-dot-net/type-name-simplifier.yaml`,
   `docs/reqstream/api-mark-dot-net/dot-net-ast-model.yaml`,
@@ -172,6 +195,13 @@ Each local software item has corresponding artifacts in parallel directory trees
   `docs/reqstream/api-mark-cpp/cpp-emitter-gradual-disclosure.yaml`,
   `docs/reqstream/api-mark-cpp/cpp-emitter-single-file.yaml`,
   `docs/reqstream/api-mark-cpp/cpp-type-link-resolver.yaml`,
+  `docs/reqstream/api-mark-vhdl.yaml`,
+  `docs/reqstream/api-mark-vhdl/vhdl-generator.yaml`,
+  `docs/reqstream/api-mark-vhdl/vhdl-ast-model.yaml`,
+  `docs/reqstream/api-mark-vhdl/vhdl-ast-parser.yaml`,
+  `docs/reqstream/api-mark-vhdl/vhdl-emitter.yaml`,
+  `docs/reqstream/api-mark-vhdl/vhdl-emitter-gradual-disclosure.yaml`,
+  `docs/reqstream/api-mark-vhdl/vhdl-emitter-single-file.yaml`,
   `docs/reqstream/api-mark-msbuild.yaml`, `docs/reqstream/api-mark-msbuild/{item}.yaml`,
   `docs/reqstream/api-mark-tool.yaml`, `docs/reqstream/api-mark-tool/{item}.yaml`
 - Design: `docs/design/api-mark-core.md`, `docs/design/api-mark-core/{item}.md`,
@@ -192,6 +222,13 @@ Each local software item has corresponding artifacts in parallel directory trees
   `docs/design/api-mark-cpp/cpp-emitter-gradual-disclosure.md`,
   `docs/design/api-mark-cpp/cpp-emitter-single-file.md`,
   `docs/design/api-mark-cpp/cpp-type-link-resolver.md`,
+  `docs/design/api-mark-vhdl.md`,
+  `docs/design/api-mark-vhdl/vhdl-generator.md`,
+  `docs/design/api-mark-vhdl/vhdl-ast-model.md`,
+  `docs/design/api-mark-vhdl/vhdl-ast-parser.md`,
+  `docs/design/api-mark-vhdl/vhdl-emitter.md`,
+  `docs/design/api-mark-vhdl/vhdl-emitter-gradual-disclosure.md`,
+  `docs/design/api-mark-vhdl/vhdl-emitter-single-file.md`,
   `docs/design/api-mark-msbuild.md`, `docs/design/api-mark-msbuild/{item}.md`,
   `docs/design/api-mark-tool.md`, `docs/design/api-mark-tool/{item}.md`
 - Verification: `docs/verification/api-mark-core.md`, `docs/verification/api-mark-core/{item}.md`,
@@ -212,11 +249,20 @@ Each local software item has corresponding artifacts in parallel directory trees
   `docs/verification/api-mark-cpp/cpp-emitter-gradual-disclosure.md`,
   `docs/verification/api-mark-cpp/cpp-emitter-single-file.md`,
   `docs/verification/api-mark-cpp/cpp-type-link-resolver.md`,
+  `docs/verification/api-mark-vhdl.md`,
+  `docs/verification/api-mark-vhdl/vhdl-generator.md`,
+  `docs/verification/api-mark-vhdl/vhdl-ast-model.md`,
+  `docs/verification/api-mark-vhdl/vhdl-ast-parser.md`,
+  `docs/verification/api-mark-vhdl/vhdl-emitter.md`,
+  `docs/verification/api-mark-vhdl/vhdl-emitter-gradual-disclosure.md`,
+  `docs/verification/api-mark-vhdl/vhdl-emitter-single-file.md`,
   `docs/verification/api-mark-msbuild.md`, `docs/verification/api-mark-msbuild/{item}.md`,
   `docs/verification/api-mark-tool.md`, `docs/verification/api-mark-tool/{item}.md`
-- Source: `src/ApiMark.Core/`, `src/ApiMark.DotNet/`, `src/ApiMark.Cpp/`, `src/ApiMark.MSBuild/`, `src/ApiMark.Tool/`
+- Source: `src/ApiMark.Core/`, `src/ApiMark.DotNet/`, `src/ApiMark.Cpp/`, `src/ApiMark.Vhdl/`,
+  `src/ApiMark.MSBuild/`, `src/ApiMark.Tool/`
 - Tests: `test/ApiMark.Core.TestHelpers/`, `test/ApiMark.Core.Tests/`, `test/ApiMark.DotNet.Tests/`,
-  `test/ApiMark.Cpp.Fixtures/`, `test/ApiMark.Cpp.Tests/`, `test/ApiMark.MSBuild.Tests/`, `test/ApiMark.Tool.Tests/`
+  `test/ApiMark.Cpp.Fixtures/`, `test/ApiMark.Cpp.Tests/`, `test/ApiMark.Vhdl.Tests/`,
+  `test/ApiMark.MSBuild.Tests/`, `test/ApiMark.Tool.Tests/`
 
 OTS items have integration/usage design documentation parallel to system folders:
 
@@ -235,6 +281,12 @@ And for DemaConsulting.TestResults:
 - Requirements: `docs/reqstream/ots/dema-consulting-test-results.yaml`
 - Design: `docs/design/ots/dema-consulting-test-results.md`
 - Verification: `docs/verification/ots/dema-consulting-test-results.md`
+
+And for ANTLR4:
+
+- Requirements: `docs/reqstream/ots/antlr4.yaml`
+- Design: `docs/design/ots/antlr4.md`
+- Verification: `docs/verification/ots/antlr4.md`
 
 And for cpp-ast-net (archived):
 
