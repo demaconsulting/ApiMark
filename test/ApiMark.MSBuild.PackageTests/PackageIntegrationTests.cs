@@ -93,6 +93,61 @@ public class PackageIntegrationTests
     }
 
     /// <summary>
+    ///     Validates that a multi-targeted .NET project can pack with
+    ///     <c>ApiMarkPackDocs=true</c> without duplicate <c>api/</c> entries.
+    /// </summary>
+    [Fact]
+    public void ApiMarkMsbuild_NuGetPackage_DotNetProject_MultiTarget_PacksDocsWithoutDuplicateApiEntries()
+    {
+        var packagesDir = SkipIfPackageAbsent();
+
+        RunInIsolation(packagesDir, "DotNet/SampleLib", "SampleLib.MultiTarget.csproj", workDir =>
+        {
+            var outputDir = Path.Join(workDir, "api");
+            var packOutputDir = Path.Join(workDir, "pkg");
+            Directory.CreateDirectory(packOutputDir);
+
+            var buildResult = RunProcess(
+                "dotnet",
+                $"build SampleLib.MultiTarget.csproj --configuration Release " +
+                $"-p:ApiMarkOutputDir=\"{outputDir}\" " +
+                "--disable-build-servers",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                buildResult.ExitCode == 0,
+                $"dotnet build failed (exit {buildResult.ExitCode}).\nstdout:\n{buildResult.Output}\nstderr:\n{buildResult.Error}");
+
+            var packResult = RunProcess(
+                "dotnet",
+                $"pack SampleLib.MultiTarget.csproj --configuration Release --no-build " +
+                $"-p:ApiMarkOutputDir=\"{outputDir}\" " +
+                "--disable-build-servers " +
+                $"--output \"{packOutputDir}\"",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                packResult.ExitCode == 0,
+                $"dotnet pack failed (exit {packResult.ExitCode}).\nstdout:\n{packResult.Output}\nstderr:\n{packResult.Error}");
+
+            var nupkg = Directory.GetFiles(packOutputDir, "*.nupkg").FirstOrDefault();
+            Assert.NotNull(nupkg);
+
+            using var zip = ZipFile.OpenRead(nupkg);
+            var duplicateApiEntries = zip.Entries
+                .Where(e => e.FullName.StartsWith("api/", StringComparison.Ordinal))
+                .GroupBy(e => e.FullName)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToList();
+            Assert.Empty(duplicateApiEntries);
+            Assert.Contains(zip.Entries, e => e.FullName == "api/api.md");
+        });
+    }
+
+    /// <summary>
     ///     Validates that the <c>api/</c> documentation folder is <em>not</em> included in the
     ///     <c>.nupkg</c> when <c>ApiMarkPackDocs</c> is not set (opt-in behavior).
     /// </summary>
