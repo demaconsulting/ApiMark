@@ -21,7 +21,7 @@
       - -no-build (docs included if they exist on disk from a prior build).
     -->
     <TargetsForTfmSpecificContentInPackage Condition="'$(ApiMarkPackDocs)' == 'true'">$(TargetsForTfmSpecificContentInPackage);_ApiMarkIncludeDocsInPackage</TargetsForTfmSpecificContentInPackage>
-    <_ApiMarkPackDocsTargetFramework Condition="'$(TargetFrameworks)' != ''">$([System.String]::Copy('$(TargetFrameworks)').Split(';')[0])</_ApiMarkPackDocsTargetFramework>
+    <_ApiMarkPackDocsTargetFramework Condition="'$(TargetFrameworks)' != ''">$([System.String]::Copy('$(TargetFrameworks)').Split(';')[0].Trim())</_ApiMarkPackDocsTargetFramework>
     <_ApiMarkPackDocsTargetFramework Condition="'$(_ApiMarkPackDocsTargetFramework)' == ''">$(TargetFramework)</_ApiMarkPackDocsTargetFramework>
   </PropertyGroup>
 
