@@ -21,6 +21,8 @@
       - -no-build (docs included if they exist on disk from a prior build).
     -->
     <TargetsForTfmSpecificContentInPackage Condition="'$(ApiMarkPackDocs)' == 'true'">$(TargetsForTfmSpecificContentInPackage);_ApiMarkIncludeDocsInPackage</TargetsForTfmSpecificContentInPackage>
+    <_ApiMarkPackDocsTargetFramework Condition="'$(TargetFrameworks)' != ''">$([System.String]::Copy('$(TargetFrameworks)').Split(';')[0])</_ApiMarkPackDocsTargetFramework>
+    <_ApiMarkPackDocsTargetFramework Condition="'$(_ApiMarkPackDocsTargetFramework)' == ''">$(TargetFramework)</_ApiMarkPackDocsTargetFramework>
   </PropertyGroup>
 
   <Target Name="GenerateApiMarkDocumentation"
@@ -71,7 +73,8 @@
 
   <!-- Adds the generated api/ folder to the NuGet package when ApiMarkPackDocs=true -->
   <Target Name="_ApiMarkIncludeDocsInPackage"
-          Condition="Exists('$(ApiMarkOutputDir)')">
+          Condition="Exists('$(ApiMarkOutputDir)')
+                     and ('$(TargetFramework)' == '' or '$(TargetFramework)' == '$(_ApiMarkPackDocsTargetFramework)')">
     <ItemGroup>
       <TfmSpecificPackageFile Include="$(ApiMarkOutputDir)\**\*"
                               PackagePath="api/%(RecursiveDir)%(Filename)%(Extension)" />
