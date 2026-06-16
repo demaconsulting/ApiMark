@@ -110,7 +110,8 @@ public class PackageIntegrationTests
             var buildResult = RunProcess(
                 "dotnet",
                 $"build SampleLib.MultiTarget.csproj --configuration Release " +
-                $"-p:ApiMarkOutputDir=\"{outputDir}\"",
+                $"-p:ApiMarkOutputDir=\"{outputDir}\" " +
+                "--disable-build-servers",
                 workDir,
                 IsolatedNuGetEnv(workDir));
 
@@ -122,6 +123,7 @@ public class PackageIntegrationTests
                 "dotnet",
                 $"pack SampleLib.MultiTarget.csproj --configuration Release --no-build " +
                 $"-p:ApiMarkOutputDir=\"{outputDir}\" " +
+                "--disable-build-servers " +
                 $"--output \"{packOutputDir}\"",
                 workDir,
                 IsolatedNuGetEnv(workDir));
