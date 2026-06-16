@@ -137,7 +137,7 @@ public class PackageIntegrationTests
 
             using var zip = ZipFile.OpenRead(nupkg);
             var duplicateApiEntries = zip.Entries
-                .Where(e => e.FullName.StartsWith("api/"))
+                .Where(e => e.FullName.StartsWith("api/", StringComparison.Ordinal))
                 .GroupBy(e => e.FullName)
                 .Where(g => g.Count() > 1)
                 .Select(g => g.Key)
