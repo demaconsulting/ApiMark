@@ -368,16 +368,27 @@ public sealed class XmlDocReader
             return null;
         }
 
-        if (path == null)
+        if (string.IsNullOrWhiteSpace(path))
         {
-            // No path filter — return the full resolved source element
+            // Absent or whitespace path — treat as no filter and return the full resolved source
             return source;
         }
 
         // Apply the XPath path filter to the resolved source element and wrap matching nodes
         // in a synthetic <member> element so callers can use the same child-extraction logic
-        // regardless of whether a path filter was applied
-        var matched = source.XPathSelectElements(path).ToList();
+        // regardless of whether a path filter was applied.
+        // Guard against invalid XPath expressions in the XML doc file — degrade gracefully to null
+        // rather than crashing documentation generation.
+        List<XElement> matched;
+        try
+        {
+            matched = source.XPathSelectElements(path).ToList();
+        }
+        catch (Exception ex) when (ex is System.Xml.XPath.XPathException or ArgumentException)
+        {
+            return null;
+        }
+
         if (matched.Count == 0)
         {
             return null;

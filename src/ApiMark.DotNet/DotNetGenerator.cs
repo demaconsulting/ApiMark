@@ -457,7 +457,6 @@ public sealed class DotNetGenerator : IApiGenerator
 
     /// <summary>
     ///     Builds an XML doc method identifier string from a <see cref="MethodReference"/>.
-    ///     Returns an empty string when the reference cannot be represented.
     /// </summary>
     /// <param name="methodRef">The method reference to convert.</param>
     /// <returns>The XML doc member identifier (e.g. <c>M:Namespace.Type.Method(ParamType)</c>).</returns>
