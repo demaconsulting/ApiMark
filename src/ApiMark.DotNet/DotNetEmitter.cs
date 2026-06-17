@@ -1,3 +1,4 @@
+using System.Text;
 using ApiMark.Core;
 using Mono.Cecil;
 
@@ -376,6 +377,57 @@ internal sealed class DotNetEmitter : IApiEmitter
     internal static string BuildTypeId(TypeDefinition type) =>
         $"T:{type.FullName.Replace('/', '.')}";
 
+    /// <summary>
+    ///     Converts a Mono.Cecil fully-qualified type name to the XML doc member ID encoding.
+    /// </summary>
+    /// <remarks>
+    ///     Cecil encodes generic instantiations as <c>TypeName`N&lt;Arg1,Arg2&gt;</c>.
+    ///     XML doc IDs require <c>TypeName{Arg1,Arg2}</c> — the arity backtick suffix is
+    ///     removed and angle brackets are replaced with curly braces. Nested-type separators
+    ///     (<c>/</c>) are also normalized to <c>.</c>.
+    /// </remarks>
+    /// <param name="cecilFullName">The <see cref="Mono.Cecil.TypeReference.FullName"/> value to convert.</param>
+    /// <returns>The XML doc parameter type encoding.</returns>
+    internal static string ToXmlDocTypeName(string cecilFullName)
+    {
+        var sb = new StringBuilder(cecilFullName.Length);
+        var pos = 0;
+        while (pos < cecilFullName.Length)
+        {
+            var c = cecilFullName[pos];
+            switch (c)
+            {
+                case '/':
+                    sb.Append('.');
+                    pos++;
+                    break;
+                case '`':
+                    // Skip the backtick and any following arity digits — not part of the XML doc type name
+                    pos++;
+                    while (pos < cecilFullName.Length && char.IsDigit(cecilFullName[pos]))
+                    {
+                        pos++;
+                    }
+
+                    break;
+                case '<':
+                    sb.Append('{');
+                    pos++;
+                    break;
+                case '>':
+                    sb.Append('}');
+                    pos++;
+                    break;
+                default:
+                    sb.Append(c);
+                    pos++;
+                    break;
+            }
+        }
+
+        return sb.ToString();
+    }
+
     /// <summary>Builds the XML doc member identifier for an arbitrary member.</summary>
     /// <param name="member">The member definition.</param>
     /// <returns>The XML doc member identifier string.</returns>
@@ -405,8 +457,10 @@ internal sealed class DotNetEmitter : IApiEmitter
         }
 
         // Normalize nested-type separators: Cecil uses '/' in FullName (e.g. Outer/Inner)
-        // but XML doc IDs always use '.' (e.g. Outer.Inner)
-        var paramList = string.Join(",", method.Parameters.Select(p => p.ParameterType.FullName.Replace('/', '.')));
+        // but XML doc IDs always use '.' (e.g. Outer.Inner). Generic instantiations use
+        // angle brackets in Cecil (e.g. IEnumerable`1<T>) but curly braces in XML doc IDs
+        // (e.g. IEnumerable{T}) — ToXmlDocTypeName handles both transformations.
+        var paramList = string.Join(",", method.Parameters.Select(p => ToXmlDocTypeName(p.ParameterType.FullName)));
 
         // Conversion operators carry a ~ReturnType suffix in the XML doc member ID
         // (e.g. M:Type.op_Implicit(SourceType)~TargetType) that distinguishes overloads
@@ -415,7 +469,7 @@ internal sealed class DotNetEmitter : IApiEmitter
         {
             // Normalize nested-type separators: Cecil uses '/' in FullName (e.g. OuterClass/Inner)
             // but XML doc IDs always use '.' (e.g. OuterClass.Inner)
-            return $"M:{typeName}.{methodName}({paramList})~{method.ReturnType.FullName.Replace('/', '.')}";
+            return $"M:{typeName}.{methodName}({paramList})~{ToXmlDocTypeName(method.ReturnType.FullName)}";
         }
 
         return $"M:{typeName}.{methodName}({paramList})";

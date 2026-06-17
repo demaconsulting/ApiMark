@@ -472,11 +472,11 @@ public sealed class DotNetGenerator : IApiGenerator
             return $"M:{typeName}.{methodName}";
         }
 
-        var paramList = string.Join(",", methodRef.Parameters.Select(p => p.ParameterType.FullName.Replace('/', '.')));
+        var paramList = string.Join(",", methodRef.Parameters.Select(p => DotNetEmitter.ToXmlDocTypeName(p.ParameterType.FullName)));
 
         if (methodRef.Name is "op_Implicit" or "op_Explicit")
         {
-            return $"M:{typeName}.{methodName}({paramList})~{methodRef.ReturnType.FullName.Replace('/', '.')}";
+            return $"M:{typeName}.{methodName}({paramList})~{DotNetEmitter.ToXmlDocTypeName(methodRef.ReturnType.FullName)}";
         }
 
         return $"M:{typeName}.{methodName}({paramList})";

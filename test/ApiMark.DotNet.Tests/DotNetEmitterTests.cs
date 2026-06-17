@@ -82,4 +82,26 @@ public class DotNetEmitterTests
         // Assert
         Assert.Equal("A.B/C", result);
     }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.ToXmlDocTypeName"/> converts a Cecil-encoded
+    ///     generic instantiation to the XML doc ID encoding.
+    /// </summary>
+    [Theory]
+    [InlineData("System.String", "System.String")]
+    [InlineData("System.String[]", "System.String[]")]
+    [InlineData("System.Collections.Generic.IEnumerable`1<System.String>",
+                "System.Collections.Generic.IEnumerable{System.String}")]
+    [InlineData("System.Collections.Generic.IReadOnlyDictionary`2<System.String,System.Object>",
+                "System.Collections.Generic.IReadOnlyDictionary{System.String,System.Object}")]
+    [InlineData("System.Action`1<System.String>", "System.Action{System.String}")]
+    [InlineData("Outer/Inner", "Outer.Inner")]
+    public void DotNetEmitter_ToXmlDocTypeName_ConvertsGenericNotation(string cecilFullName, string expected)
+    {
+        // Act
+        var result = DotNetEmitter.ToXmlDocTypeName(cecilFullName);
+
+        // Assert
+        Assert.Equal(expected, result);
+    }
 }
