@@ -37,6 +37,10 @@ network dependency, or privileged configuration is needed.
   `{Namespace}/{TypeName}/{MemberName}.md` member detail pages.
 - Obsolete member filtering correctly excludes or includes types and members based on the
   IncludeObsolete option.
+- Members implemented with a bare `<inheritdoc />` tag inherit interface-authored summaries
+  and parameter descriptions on their generated member detail pages; the full pipeline from
+  Mono.Cecil inheritance mapping through XmlDocReader resolution to emitted Markdown is
+  exercised end-to-end.
 
 ### Test Scenarios
 
@@ -94,6 +98,21 @@ documentation file and emitted onto the constructor's member detail page, confir
 `#ctor` doc ID mapping is applied correctly. This scenario is tested by
 `DotNetGenerator_Generate_ConstructorWithXmlSummary_WritesSummaryToMemberPage` and
 `DotNetGenerator_Generate_ConstructorWithXmlParams_WritesParamDescriptionsToMemberPage`.
+
+**Inherited property documentation appears on the member detail page**: Verifies that the
+`SampleImplementation.Name` property detail page contains the summary text `Gets the name.`
+inherited from `ISampleInterface.Name` via a bare `<inheritdoc />` tag, proving that the full
+pipeline from Mono.Cecil inheritance mapping through XmlDocReader resolution to emitted Markdown
+works correctly for properties. This scenario is tested by
+`DotNetGenerator_Generate_SampleImplementationNameMemberPage_UsesInheritedSummary`.
+
+**Inherited method documentation appears on the member detail page**: Verifies that the
+`SampleImplementation.Execute` method detail page contains both the summary text
+`Executes the specified input.` and the `input` parameter description `The input to execute.`
+inherited from `ISampleInterface.Execute(string)` via a bare `<inheritdoc />` tag, proving
+end-to-end inheritance resolution for both summary and parameter documentation. This scenario is
+tested by
+`DotNetGenerator_Generate_SampleImplementationExecuteMemberPage_UsesInheritedSummaryAndParamDescription`.
 
 **Operator overloads produce a shared operators.md page**: Verifies that all operator
 overload methods defined on a type are grouped onto a single `operators.md` page named with

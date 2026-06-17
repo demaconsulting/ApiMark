@@ -520,12 +520,12 @@ public class XmlDocReaderTests
         {
             // Act
             var reader = new XmlDocReader(path);
-            var parms = reader.GetParams("M:MyNamespace.MyClass.MyMethod(System.String)");
+            var parameters = reader.GetParams("M:MyNamespace.MyClass.MyMethod(System.String)");
 
             // Assert
-            Assert.Single(parms);
-            Assert.Equal("input", parms[0].Name);
-            Assert.Equal("The input value.", parms[0].Description);
+            Assert.Single(parameters);
+            Assert.Equal("input", parameters[0].Name);
+            Assert.Equal("The input value.", parameters[0].Description);
         }
         finally
         {

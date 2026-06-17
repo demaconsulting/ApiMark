@@ -1166,6 +1166,64 @@ public class DotNetGeneratorTests
     }
 
     /// <summary>
+    ///     Validates that the <c>SampleImplementation.Name</c> property detail page contains the
+    ///     summary text inherited from <c>ISampleInterface.Name</c> via a bare <c>&lt;inheritdoc /&gt;</c>
+    ///     tag, proving the full pipeline from Mono.Cecil inheritance mapping through XmlDocReader
+    ///     resolution to emitted Markdown.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_SampleImplementationNameMemberPage_UsesInheritedSummary()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: SampleImplementation.Name member detail page must exist
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/SampleImplementation/Name", out var writer),
+            "Expected member detail page for SampleImplementation.Name");
+        var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Gets the name."));
+    }
+
+    /// <summary>
+    ///     Validates that the <c>SampleImplementation.Execute</c> method detail page contains both
+    ///     the summary text and the <c>input</c> parameter description inherited from
+    ///     <c>ISampleInterface.Execute</c> via a bare <c>&lt;inheritdoc /&gt;</c> tag.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_SampleImplementationExecuteMemberPage_UsesInheritedSummaryAndParamDescription()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: SampleImplementation.Execute member detail page must exist
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/SampleImplementation/Execute", out var writer),
+            "Expected member detail page for SampleImplementation.Execute");
+
+        // Assert: inherited summary paragraph is present
+        var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Executes the specified input."));
+
+        // Assert: inherited parameter description appears in the parameter table
+        var paramTable = writer.Operations
+            .OfType<TableOperation>()
+            .FirstOrDefault(t => t.Headers.Contains("Parameter", StringComparer.Ordinal));
+        Assert.NotNull(paramTable);
+        Assert.Contains(
+            paramTable!.Rows,
+            row => row[0] == "input" && row[2].Contains("The input to execute."));
+    }
+
+    /// <summary>
     ///     Validates that an enum type signature does not include a base class (such as
     ///     <c>System.Enum</c>) so that well-known implicit bases are suppressed and the
     ///     signature remains clean and readable.

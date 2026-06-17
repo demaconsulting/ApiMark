@@ -87,7 +87,9 @@ memory and returns a `DotNetEmitter` ready to emit.
 - *Preconditions*: `AssemblyPath` and `XmlDocPath` must exist on disk; `context`
   must not be null.
 - *Postconditions*: The returned emitter holds the parsed `AssemblyDefinition`,
-  namespace index, and XML documentation reader. No output files have been written.
+  namespace index, an XML documentation reader, and the inheritance-chain map built
+  from Mono.Cecil metadata and passed to `XmlDocReader` for bare `<inheritdoc />`
+  resolution. No output files have been written.
 
 **DotNetEmitter.Emit** (implements `IApiEmitter`): Writes the full Markdown output
 tree using the format specified by `config.Format`.
@@ -113,6 +115,29 @@ tree using the format specified by `config.Format`.
   are emitted.
 - The `AssemblyDefinition` is always disposed in a `finally` block after Emit
   completes or throws.
+
+**DotNetGenerator.BuildInheritanceChain** (private static): Builds a member-ID to ordered
+base-member-ID map from Mono.Cecil metadata for use during `<inheritdoc />` resolution.
+
+- *Parameters*: `AssemblyDefinition assembly` — the parsed assembly whose types are traversed.
+- *Returns*: `IReadOnlyDictionary<string, IReadOnlyList<string>>` — a map from each
+  member's XML-doc ID to an ordered list of XML-doc IDs of base/interface members that
+  should be checked (in priority order) when resolving a bare `<inheritdoc />`.
+- *When it runs*: During `Parse`, before constructing `XmlDocReader`; the resulting map
+  is passed directly to the `XmlDocReader` constructor.
+- *Algorithm*:
+  - Iterates every `TypeDefinition` in the assembly and delegates to `BuildTypeInheritanceEntries`.
+  - `BuildTypeInheritanceEntries` calls `CollectMethodInheritanceTargets`,
+    `CollectPropertyInheritanceTargets`, and `CollectEventInheritanceTargets`.
+  - Method targets are resolved using `FindMatchingMethodDefinition` (matches by parameter
+    count and type name) and `BuildMethodIdFromReference` (reconstructs the XML-doc ID).
+  - Property accessor→property mapping uses `MapAccessorReferenceToPropertyId`; event
+    accessor→event mapping uses `MapAccessorReferenceToEventId`.
+  - The ordering rule places the direct base-class override first, followed by each
+    explicit or implicit interface target in declaration order.
+- *Known limitation*: Complex generic signatures may not always map perfectly to XML-doc
+  IDs because Mono.Cecil `FullName` uses `/` for nested-type separators whereas XML-doc
+  format uses `.`; callers should treat resolution failures as a no-op rather than an error.
 
 **DotNetEmitter.BuildTypeSignature** (internal static): Builds a human-readable C#
 declaration signature for a type definition, including direct base class and
