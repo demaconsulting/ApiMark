@@ -337,6 +337,10 @@ public sealed class XmlDocReader
         }
 
         var cref = inheritdoc.Attribute("cref")?.Value;
+        if (string.IsNullOrWhiteSpace(cref))
+        {
+            cref = null;
+        }
         var path = inheritdoc.Attribute("path")?.Value;
 
         // Determine the source member: explicit cref takes priority over bare chain lookup

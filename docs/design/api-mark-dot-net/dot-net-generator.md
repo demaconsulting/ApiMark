@@ -178,10 +178,10 @@ case-insensitive filesystems.
   `IReadOnlyList<IMemberDefinition> members` — the ordered collision group (at
   least two elements), `XmlDocReader xmlDocs` — documentation index.
 - *Returns*: `void`
-- *Algorithm*: Creates `{namespaceFolderPath}/{flatTypeName}/{lowerKey}.md` via the
-  factory, where `flatTypeName` is the type's simple name with any nested-type `/`
-  separators replaced by `.`; writes an H1 heading using `lowerKey`; for each member
-  writes an H2 heading of the form `{displayName} ({kindLabel})`; for
+- *Algorithm*: Creates `{namespaceFolderPath}/{FlattenArity(type.Name)}/{lowerKey}.md`
+  via the factory, where `FlattenArity` strips any generic arity backtick suffix
+  (e.g. `List\`1` → `List`); writes an H1 heading using`lowerKey`; for each member
+  writes an H2 heading of the form`{displayName} ({kindLabel})`; for
   `MethodDefinition` members delegates to `WriteMethodDocumentation`; for all other
   member kinds writes the signature, summary, returns, exceptions, remarks, and
   example sections directly.
