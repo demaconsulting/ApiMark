@@ -63,6 +63,7 @@ words:
   - paramref
   - pasteable
   - postconditions
+  - renderable
   - repoint
   - reqstream
   - reviewmark
