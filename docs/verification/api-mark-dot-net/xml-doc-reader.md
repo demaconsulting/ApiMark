@@ -43,6 +43,7 @@ assembly is needed.
 - Bare `<inheritdoc />` without a chain returns `null`.
 - Bare `<inheritdoc />` with a chain entry pointing to an absent member returns `null`.
 - Multi-hop `cref` chains resolve transitively (A → B → C yields C's docs).
+- A failed first-candidate traversal does not poison the visited set for subsequent candidates in a bare `<inheritdoc />` chain.
 
 ### Test Scenarios
 
@@ -178,3 +179,32 @@ a chain entry pointing to a member not present in the XML doc file degrades to
 **GetSummary resolves a multi-hop cref chain transitively**: Verifies that
 A → B → C chains resolve C's summary for a query on A. This scenario is tested
 by `XmlDocReader_GetSummary_InheritDocChained_ResolvesTransitively`.
+
+**GetExceptions follows a cref inheritdoc reference**: Verifies that exception
+cref values are inherited from the explicitly named cref target member. This
+scenario is tested by
+`XmlDocReader_GetExceptions_InheritDocWithCref_ReturnsExceptionsFromTarget`.
+
+**GetExceptionDetails follows a cref inheritdoc reference**: Verifies that
+exception type names and descriptions are inherited from the explicitly named
+cref target member. This scenario is tested by
+`XmlDocReader_GetExceptionDetails_InheritDocWithCref_ReturnsExceptionDetailsFromTarget`.
+
+**GetExample follows a cref inheritdoc reference**: Verifies that example text
+is inherited from the explicitly named cref target member. This scenario is
+tested by `XmlDocReader_GetExample_InheritDocWithCref_ReturnsExampleFromTarget`.
+
+**GetExampleParts follows a cref inheritdoc reference**: Verifies that structured
+example parts (prose and code blocks) are inherited from the explicitly named
+cref target member. This scenario is tested by
+`XmlDocReader_GetExampleParts_InheritDocWithCref_ReturnsExamplePartsFromTarget`.
+
+**Branch-local visited set prevents first candidate from blocking second candidate**:
+Regression test for the branch-local visited-set fix. Verifies that when a bare
+`<inheritdoc />` has multiple chain candidates and the first candidate traverses a
+shared ancestor but fails (via a non-matching `path` filter), the second candidate
+can independently resolve that same ancestor and return its documentation. Without
+the branch-local fix, the shared ancestor would be marked as visited during the
+first candidate's traversal, causing the second candidate to be blocked by the cycle
+guard and returning `null` instead of the correct summary. This scenario is tested by
+`XmlDocReader_GetSummary_InheritDocBare_MultipleChainCandidates_SecondCandidateNotBlockedByFirstsVisited`.

@@ -6,8 +6,9 @@ ApiMark.DotNet is verified with integration-style tests in `test/ApiMark.DotNet.
 exercise the full .NET generation pipeline using real compiled assemblies, XML documentation files,
 and Markdown output directories. Mono.Cecil and XML documentation parsing are used as-is so
 verification proves the interaction between assembly metadata discovery, type-name simplification,
-and file emission. Only incidental infrastructure — such as disposable
-output locations — is test-controlled. The output-writer factory (`IMarkdownWriterFactory`) is replaced by an in-memory double for unit-level tests; no other production component is mocked.
+and file emission. Only incidental infrastructure — such as disposable output locations — is
+test-controlled. The output-writer factory (`IMarkdownWriterFactory`) is replaced by an in-memory
+double for unit-level tests; no other production component is mocked.
 
 ## Test Environment
 
@@ -34,17 +35,15 @@ file is wired correctly. This scenario is tested by
 
 **All members receive dedicated detail pages**: Verifies that every visible member —
 regardless of parameters or documentation content — is emitted as a separate file and linked
-from its parent type page, making navigation fully deterministic. This scenario is tested by
-`DotNetGenerator_AllMembers_GetSeparateFiles`.
+from its parent type page, making navigation fully deterministic.
 
 **Visibility filters constrain the published API surface**: Verifies that the system honors the
 selected visibility mode so generated output matches the intended audience and excludes hidden
-members. This scenario is tested by `DotNetGenerator_Visibility_PublicPublicAndProtectedAll_FilterExpectedApis`.
+members.
 
 **XML documentation content appears correctly in generated Markdown**: Verifies that the system
 includes XML documentation content in the generated output and correctly handles assembly
-documentation data during the generation pipeline. This scenario is tested by
-`DotNetGenerator_ReadXmlComments_SummaryAndRemarks_AppearInMarkdown`.
+documentation data during the generation pipeline.
 
 **Type names are simplified into readable C# form across common signatures**: Verifies that the
 system renders primitive aliases, nullable forms, generic arguments, and common collection types

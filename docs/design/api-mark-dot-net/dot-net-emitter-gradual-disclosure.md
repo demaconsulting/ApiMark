@@ -30,6 +30,21 @@ DotNetEmitterGradualDisclosure holds references to:
 **EmitGradualDisclosure** (private): Writes the assembly index page, then
 iterates all namespaces and types, writing namespace summary and type pages.
 
+**WriteMethodOverloadPage** (private static): Writes a single shared Markdown page for a
+pure method overload group (all methods sharing the same exact case-sensitive sanitized file name).
+
+- *Parameters*: `IMarkdownWriterFactory factory`, `string namespaceName`,
+  `string namespaceFolderPath`, `TypeDefinition type`, `IReadOnlyList<MethodDefinition>
+  overloads` — ordered list of overload methods (at least one element),
+  `XmlDocReader xmlDocs`, `TypeLinkResolver resolver`.
+- *Returns*: `void`
+- *Algorithm*: Computes `sanitizedName = BuildMethodFileName(overloads[0], type)`;
+  creates `{namespaceFolderPath}/{FlattenArity(type.Name)}/{sanitizedName}.md` via the
+  factory; writes an H1 heading using `GetMethodGroupName(overloads[0])`; for each overload
+  writes an H2 heading using `BuildMethodDisplayName(overload)` and delegates to
+  `WriteMethodDocumentation`; accumulates external type references across all overloads and
+  emits them via `WriteExternalTypesSection`.
+
 **WriteCombinedMemberPage** (private static): Writes a single combined Markdown
 page for a group of members whose sanitized file names collide on
 case-insensitive file systems.
@@ -54,6 +69,13 @@ section at the bottom of a page when at least one external type was referenced
 in table cells.
 
 ### Path Conventions
+
+The assembly index page (`api.md`) also writes a `## File Naming and Path Convention`
+appendix section containing a two-column table (`Symbol kind`, `Path pattern`) that
+documents all path rules in human-readable form. This appendix is written at the end
+of `api.md` after the all-namespaces table so the namespace table is the first visible
+content. The convention table covers root namespace, child namespace, type, nested type,
+member, and operators page patterns.
 
 - Assembly index: `factory.CreateMarkdown("", "api")`
 - Namespace summary: `factory.CreateMarkdown(subFolder, shortName)` where `subFolder`

@@ -983,23 +983,30 @@ public class XmlDocReaderTests
     ///     of the first candidate does not poison the visited set seen by the second candidate.
     ///     <para>
     ///         Setup: <c>A.Method</c> has a bare inheritdoc with chain <c>[B.Method, C.Method]</c>.
-    ///         <c>B.Method</c> has <c>&lt;inheritdoc cref="C.Method" /&gt;</c> (explicit cref to C).
-    ///         <c>C.Method</c> has a direct <c>&lt;summary&gt;</c>.
-    ///         When A tries B, B resolves to C and succeeds; A returns C's summary via B.
-    ///         The fix ensures that even if B's traversal had visited C and failed, A's fresh
-    ///         branch-local visited set would still allow A to try C directly.
+    ///         <c>B.Method</c> has <c>&lt;inheritdoc cref="M:C.Method" path="//remarks" /&gt;</c>
+    ///         — it visits <c>C.Method</c> via the explicit cref, but the <c>path</c> filter
+    ///         returns nothing because <c>C.Method</c> has no <c>&lt;remarks&gt;</c> element,
+    ///         so candidate 1 (B) fails.  <c>C.Method</c> has only a <c>&lt;summary&gt;</c>.
+    ///         Candidate 2 (C) must then resolve independently and return C's summary.
+    ///     </para>
+    ///     <para>
+    ///         Without the branch-local fix a shared visited set would contain <c>C.Method</c>
+    ///         after B's failed traversal, causing A's attempt to try C directly to be blocked
+    ///         by the cycle guard and returning <c>null</c> instead of the summary.
     ///     </para>
     /// </summary>
     [Fact]
     public void XmlDocReader_GetSummary_InheritDocBare_MultipleChainCandidates_SecondCandidateNotBlockedByFirstsVisited()
     {
-        // Arrange: A bare inheritdoc, chain [B, C]; B crefs to C; C has direct summary
+        // Arrange: A bare inheritdoc, chain [B, C]; B crefs to C with a path filter that
+        // selects //remarks — C has no remarks, so B's candidate fails after visiting C.
+        // A's second candidate C must still succeed independently via a fresh branch copy.
         var path = WriteXmlDoc("""
             <member name="M:A.Method">
                 <inheritdoc />
             </member>
             <member name="M:B.Method">
-                <inheritdoc cref="M:C.Method" />
+                <inheritdoc cref="M:C.Method" path="//remarks" />
             </member>
             <member name="M:C.Method">
                 <summary>C direct summary.</summary>
@@ -1011,13 +1018,13 @@ public class XmlDocReaderTests
         };
         try
         {
-            // Act
+            // Act: candidate 1 (B) visits C but fails (no remarks); candidate 2 (C) must succeed
             var reader = new XmlDocReader(path, chain);
             var summary = reader.GetSummary("M:A.Method");
 
-            // Assert: A must resolve to C's summary (either directly through B's cref, or
-            // through A's own second candidate C) — the visited set from B's traversal
-            // must not block A from trying C independently
+            // Assert: without the branch-local fix C would be blocked by B's visited traversal
+            // and summary would be null; with the fix each candidate gets its own visited copy
+            // so A's second candidate C resolves independently and returns C's summary
             Assert.Equal("C direct summary.", summary);
         }
         finally

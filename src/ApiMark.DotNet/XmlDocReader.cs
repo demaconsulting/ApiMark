@@ -392,6 +392,12 @@ public sealed class XmlDocReader
         return synthetic;
     }
 
+    /// <summary>
+    ///     Extracts the full (potentially multi-line) text content from <paramref name="element"/>,
+    ///     normalizes whitespace, and returns <c>null</c> when the result is empty.
+    /// </summary>
+    /// <param name="element">The XML element whose text content to extract, or <c>null</c>.</param>
+    /// <returns>Normalized text, or <c>null</c> when the element is absent or empty.</returns>
     private static string? GetDocumentationText(XElement? element)
     {
         if (element == null)
@@ -424,6 +430,13 @@ public sealed class XmlDocReader
         return text.Length == 0 ? null : text;
     }
 
+    /// <summary>
+    ///     Iterates <paramref name="nodes"/> and appends each node's text representation
+    ///     to <paramref name="builder"/>, dispatching XML elements to
+    ///     <see cref="AppendElementText"/>.
+    /// </summary>
+    /// <param name="builder">The string builder that accumulates the output text.</param>
+    /// <param name="nodes">The sequence of XML nodes to process.</param>
     private static void AppendNodeText(StringBuilder builder, IEnumerable<XNode> nodes)
     {
         foreach (var node in nodes)
@@ -440,6 +453,13 @@ public sealed class XmlDocReader
         }
     }
 
+    /// <summary>
+    ///     Appends the text representation of a single XML element to <paramref name="builder"/>,
+    ///     applying element-specific rendering rules for inline references, parameter references,
+    ///     paragraphs, and generic XML elements.
+    /// </summary>
+    /// <param name="builder">The string builder that accumulates the output text.</param>
+    /// <param name="element">The XML element to render.</param>
     private static void AppendElementText(StringBuilder builder, XElement element)
     {
         switch (element.Name.LocalName)
@@ -462,6 +482,13 @@ public sealed class XmlDocReader
         }
     }
 
+    /// <summary>
+    ///     Returns the display text for a <c>&lt;see&gt;</c> or <c>&lt;seealso&gt;</c> inline reference
+    ///     element, preferring the <c>langword</c> attribute, then explicit element text, then a
+    ///     formatted <c>cref</c> attribute, and finally an empty string when none are present.
+    /// </summary>
+    /// <param name="element">The inline reference element to render.</param>
+    /// <returns>A non-null display string; may be empty when no renderable content is found.</returns>
     private static string GetInlineReferenceText(XElement element)
     {
         var langword = element.Attribute("langword")?.Value;
@@ -486,6 +513,12 @@ public sealed class XmlDocReader
         return string.Empty;
     }
 
+    /// <summary>
+    ///     Converts a raw XML-doc <c>cref</c> attribute value into a short, readable display string
+    ///     by stripping the type-kind prefix and simplifying the qualified member name.
+    /// </summary>
+    /// <param name="cref">Raw cref string, e.g. <c>T:System.ArgumentNullException</c> or <c>M:Foo.Bar.Go(System.Int32)</c>.</param>
+    /// <returns>A concise display name, e.g. <c>ArgumentNullException</c> or <c>Bar.Go()</c>.</returns>
     private static string FormatCref(string cref)
     {
         var separatorIndex = cref.IndexOf(':');
@@ -504,6 +537,15 @@ public sealed class XmlDocReader
         };
     }
 
+    /// <summary>
+    ///     Formats a fully-qualified member reference (method, property, field, or event) into a
+    ///     concise display string by splitting on the last dot separator and simplifying the
+    ///     type and member names. Constructors (<c>#ctor</c>) are collapsed to the type name only.
+    /// </summary>
+    /// <param name="kind">The member kind character from the cref prefix: <c>M</c>, <c>P</c>, <c>F</c>, or <c>E</c>.</param>
+    /// <param name="target">Fully-qualified member path without the kind prefix or parameter list.</param>
+    /// <param name="parameters">The raw parameter list substring (e.g. <c>(System.Int32)</c>), or empty.</param>
+    /// <returns>A concise display string suitable for inline documentation text.</returns>
     private static string FormatMemberReference(char kind, string target, string parameters)
     {
         var lastDot = target.LastIndexOf('.');
@@ -532,6 +574,12 @@ public sealed class XmlDocReader
             : memberDisplay;
     }
 
+    /// <summary>
+    ///     Returns a short C# display name for a fully-qualified type name, applying primitive
+    ///     aliases for well-known <c>System.*</c> types and stripping the namespace from all others.
+    /// </summary>
+    /// <param name="typeName">Fully-qualified CLR type name, e.g. <c>System.Int32</c> or <c>My.Namespace.Foo</c>.</param>
+    /// <returns>A C# keyword alias (e.g. <c>int</c>) or the unqualified simple name (e.g. <c>Foo</c>).</returns>
     private static string FormatTypeName(string typeName)
     {
         return typeName switch
@@ -556,14 +604,29 @@ public sealed class XmlDocReader
         };
     }
 
+    /// <summary>Returns <see langword="true"/> when <paramref name="typeName"/> is a well-known primitive <c>System.*</c> type name.</summary>
+    /// <param name="typeName">Fully-qualified type name to classify.</param>
+    /// <returns><see langword="true"/> when the name starts with <c>System.</c>; <see langword="false"/> otherwise.</returns>
     private static bool IsPrimitiveTypeName(string typeName) => typeName.StartsWith("System.", StringComparison.Ordinal);
 
+    /// <summary>
+    ///     Removes the generic arity backtick suffix from a type name, e.g. converting <c>List`1</c>
+    ///     to <c>List</c>. Returns the original string unchanged when no backtick is present.
+    /// </summary>
+    /// <param name="typeName">Raw type name that may contain a backtick arity suffix.</param>
+    /// <returns>The name without the backtick and trailing digit(s).</returns>
     private static string StripArity(string typeName)
     {
         var tickIndex = typeName.IndexOf('`');
         return tickIndex >= 0 ? typeName[..tickIndex] : typeName;
     }
 
+    /// <summary>
+    ///     Normalizes raw documentation text by collapsing runs of internal whitespace on each
+    ///     line, trimming every line, and preserving non-empty lines separated by newlines.
+    /// </summary>
+    /// <param name="text">Raw text extracted from an XML documentation element.</param>
+    /// <returns>Normalized multi-line text with no leading/trailing whitespace.</returns>
     private static string NormalizeDocumentationText(string text)
     {
         return string.Join(
@@ -594,6 +657,12 @@ public sealed class XmlDocReader
                 .Where(line => line.Length > 0));
     }
 
+    /// <summary>
+    ///     Collapses consecutive whitespace characters in <paramref name="text"/> to a single space,
+    ///     preserving non-whitespace characters unchanged.
+    /// </summary>
+    /// <param name="text">The input text in which to collapse whitespace runs.</param>
+    /// <returns>A string where every run of whitespace is replaced by a single space character.</returns>
     private static string CollapseWhitespace(string text)
     {
         var builder = new StringBuilder(text.Length);

@@ -15,10 +15,13 @@ tree (one file per concept) or a single-file Markdown document through
 detail page in gradual-disclosure mode; members whose names collide on
 case-insensitive filesystems are combined onto a single shared page.
 
-The implementation is split across eight files in the `ApiMark.DotNet` package:
+The implementation is split across eleven files in the `ApiMark.DotNet` package:
 
+- **ApiVisibility.cs** — `ApiVisibility` enum controlling which members are included in output.
 - **DotNetGenerator.cs** — thin `IApiGenerator` that parses the assembly and
   returns a `DotNetEmitter`.
+- **DotNetGeneratorOptions.cs** — `DotNetGeneratorOptions` configuration value object
+  passed to the `DotNetGenerator` constructor.
 - **DotNetAstModel.cs** — `DotNetAstModel` data class holding all parsed
   namespace and type data, plus the context records used during page generation.
   See DotNetAstModel Design for full details.
@@ -27,6 +30,8 @@ The implementation is split across eight files in the `ApiMark.DotNet` package:
 - **DotNetEmitterGradualDisclosure.cs** — all gradual-disclosure page writers
   (namespace, type, member, operator, and external-types pages).
 - **DotNetEmitterSingleFile.cs** — all single-file page writers.
+- **ExternalTypeInfo.cs** — `ExternalTypeInfo` internal record representing a
+  non-standard external type reference collected during table cell generation.
 - **TypeLinkResolver.cs** — resolves Mono.Cecil type references to Markdown link
   text for use in table cells. See TypeLinkResolver Design for full details.
 - **TypeNameSimplifier.cs** — simplifies CLR type names into idiomatic C# display
