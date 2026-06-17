@@ -27,7 +27,8 @@
 
   <Target Name="GenerateApiMarkDocumentation"
           AfterTargets="Build"
-          Condition="'$(DisableApiMark)' != 'true'">
+          Condition="'$(DisableApiMark)' != 'true'
+                 and ('$(TargetFrameworks)' == '' or '$(TargetFramework)' == '$(_ApiMarkPackDocsTargetFramework)')">
 
     <!--
       For C++ projects, default ApiMarkIncludePaths to the resolved AdditionalIncludeDirectories
