@@ -1850,6 +1850,44 @@ public class DotNetGeneratorTests
         // Assert: at least one csharp code block from the ExampleDocClass.GetGreeting example
         Assert.Contains(codeBlocks, cb => cb.Language == "csharp" && cb.Code.Contains("GetGreeting", StringComparison.Ordinal));
     }
+
+    /// <summary>
+    ///     Regression test: methods whose parameter types include generic instantiations
+    ///     (e.g. <c>IEnumerable&lt;string&gt;</c>, <c>IReadOnlyDictionary&lt;string,object&gt;</c>,
+    ///     <c>Action&lt;string&gt;</c>) must resolve their XML documentation and render the
+    ///     authored <c>&lt;summary&gt;</c> text on the member detail page rather than
+    ///     <c>No description provided.</c>
+    ///     Root cause: Cecil's <c>TypeReference.FullName</c> encodes generics as
+    ///     <c>TypeName`N&lt;Arg1,Arg2&gt;</c> but XML doc IDs require <c>TypeName{Arg1,Arg2}</c>.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_MethodWithGenericParameterTypes_RendersXmlDocSummary()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: GenericParameterClass.Process has parameters with generic types → gets its own page
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/GenericParameterClass/Process", out var processWriter),
+            "Expected member page for GenericParameterClass.Process");
+
+        var processParagraphs = processWriter!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(processParagraphs, p => p.Contains("Processes a sequence of names"));
+        Assert.DoesNotContain(processParagraphs, p => p.Contains("No description provided"));
+
+        // Assert: GenericParameterClass.Configure has an Action<string> parameter → gets its own page
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/GenericParameterClass/Configure", out var configureWriter),
+            "Expected member page for GenericParameterClass.Configure");
+
+        var configureParagraphs = configureWriter!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(configureParagraphs, p => p.Contains("Applies an action to a configured value"));
+        Assert.DoesNotContain(configureParagraphs, p => p.Contains("No description provided"));
+    }
 }
 
 
