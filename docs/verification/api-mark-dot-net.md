@@ -33,9 +33,10 @@ skipping discoverable items, confirming that the full generation path from metad
 file is wired correctly. This scenario is tested by
 `ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown`.
 
-**All members receive dedicated detail pages**: Verifies that every visible member —
-regardless of parameters or documentation content — is emitted as a separate file and linked
-from its parent type page, making navigation fully deterministic.
+**All members receive deterministic detail pages**: Verifies that every visible member —
+regardless of parameters or documentation content — is emitted with a deterministic file path and
+linked from its parent type page. Simple members get their own dedicated file; pure overload groups
+and case-insensitive filename collisions are intentionally combined onto a shared page.
 
 **Visibility filters constrain the published API surface**: Verifies that the system honors the
 selected visibility mode so generated output matches the intended audience and excludes hidden

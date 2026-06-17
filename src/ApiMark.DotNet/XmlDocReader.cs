@@ -604,7 +604,12 @@ public sealed class XmlDocReader
         };
     }
 
-    /// <summary>Returns <see langword="true"/> when <paramref name="typeName"/> is a well-known primitive <c>System.*</c> type name.</summary>
+    /// <summary>Returns <see langword="true"/> when <paramref name="typeName"/> is a <c>System.*</c> type name.</summary>
+    /// <remarks>
+    ///     Used to decide whether to include the declaring type name in a formatted member reference.
+    ///     Any <c>System.*</c> type qualifies, not only the language primitives mapped by
+    ///     <see cref="FormatTypeName"/>.
+    /// </remarks>
     /// <param name="typeName">Fully-qualified type name to classify.</param>
     /// <returns><see langword="true"/> when the name starts with <c>System.</c>; <see langword="false"/> otherwise.</returns>
     private static bool IsPrimitiveTypeName(string typeName) => typeName.StartsWith("System.", StringComparison.Ordinal);
