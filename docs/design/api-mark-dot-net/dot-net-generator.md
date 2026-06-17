@@ -11,9 +11,9 @@ documentation from the associated XML documentation file. It applies visibility
 filtering, uses TypeNameSimplifier to produce idiomatic C# type names, and —
 depending on `EmitConfig.Format` — either writes a gradual-disclosure Markdown
 tree (one file per concept) or a single-file Markdown document through
-`IMarkdownWriterFactory`. Every visible member always receives its own dedicated
-detail page in gradual-disclosure mode, making all navigation paths fully
-deterministic.
+`IMarkdownWriterFactory`. Every visible member normally gets its own dedicated
+detail page in gradual-disclosure mode; members whose names collide on
+case-insensitive filesystems are combined onto a single shared page.
 
 The implementation is split across eight files in the `ApiMark.DotNet` package:
 
@@ -90,6 +90,9 @@ memory and returns a `DotNetEmitter` ready to emit.
   namespace index, an XML documentation reader, and the inheritance-chain map built
   from Mono.Cecil metadata and passed to `XmlDocReader` for bare `<inheritdoc />`
   resolution. No output files have been written.
+ If `BuildInheritanceChain` or `XmlDocReader` construction throws, the
+ `AssemblyDefinition` is disposed before the exception propagates (resource leak
+ prevention via try/catch).
 
 **DotNetEmitter.Emit** (implements `IApiEmitter`): Writes the full Markdown output
 tree using the format specified by `config.Format`.
@@ -105,7 +108,8 @@ tree using the format specified by `config.Format`.
   - `factory.CreateMarkdown(namespaceFolderPath, namespaceName)` — namespace summary.
   - `factory.CreateMarkdown(namespaceFolderPath, typeSimpleName)` — type page.
   - `factory.CreateMarkdown($"{namespaceFolderPath}/{typeSimpleName}", memberName)` —
-    dedicated file for every visible member.
+    dedicated file for every visible member; case-insensitive name collisions on a
+    single type are combined onto one shared page instead of separate pages.
 - *Postconditions (SingleFile)*: A single `api.md` is created via
   `factory.CreateMarkdown("", "api")` containing the full documentation tree
   at heading levels `HeadingDepth` (assembly), `HeadingDepth+1` (namespace),
@@ -126,14 +130,16 @@ base-member-ID map from Mono.Cecil metadata for use during `<inheritdoc />` reso
 - *When it runs*: During `Parse`, before constructing `XmlDocReader`; the resulting map
   is passed directly to the `XmlDocReader` constructor.
 - *Algorithm*:
-  - Iterates every `TypeDefinition` in the assembly and delegates to `BuildTypeInheritanceEntries`.
-  - `BuildTypeInheritanceEntries` calls `CollectMethodInheritanceTargets`,
+- Iterates every `TypeDefinition` in the assembly — including nested types — using
+   `assembly.MainModule.GetTypes()` (which returns all types recursively) and delegates
+   to `BuildTypeInheritanceEntries`.
+- `BuildTypeInheritanceEntries` calls `CollectMethodInheritanceTargets`,
     `CollectPropertyInheritanceTargets`, and `CollectEventInheritanceTargets`.
-  - Method targets are resolved using `FindMatchingMethodDefinition` (matches by parameter
+- Method targets are resolved using `FindMatchingMethodDefinition` (matches by parameter
     count and type name) and `BuildMethodIdFromReference` (reconstructs the XML-doc ID).
-  - Property accessor→property mapping uses `MapAccessorReferenceToPropertyId`; event
+- Property accessor→property mapping uses `MapAccessorReferenceToPropertyId`; event
     accessor→event mapping uses `MapAccessorReferenceToEventId`.
-  - The ordering rule places the direct base-class override first, followed by each
+- The ordering rule places the direct base-class override first, followed by each
     explicit or implicit interface target in declaration order.
 - *Known limitation*: Complex generic signatures may not always map perfectly to XML-doc
   IDs because Mono.Cecil `FullName` uses `/` for nested-type separators whereas XML-doc
@@ -163,16 +169,17 @@ case-insensitive filesystems.
 
 - *Parameters*: `IMarkdownWriterFactory factory`, `string namespaceName`,
   `string namespaceFolderPath`, `TypeDefinition type`, `string lowerKey` — the
-  shared lowercase file name key used as the page file name and H3 heading,
+  shared lowercase file name key used as the page file name and H1 heading,
   `IReadOnlyList<IMemberDefinition> members` — the ordered collision group (at
   least two elements), `XmlDocReader xmlDocs` — documentation index.
 - *Returns*: `void`
-- *Algorithm*: Creates `{namespaceFolderPath}/{type.Name}/{lowerKey}.md` via the
-  factory; writes an H1 heading using `lowerKey`; for each member writes an H2
-  heading of the form `{displayName} ({kindLabel})`; for `MethodDefinition`
-  members delegates to `WriteMethodDocumentation`; for all other member kinds
-  writes the signature, summary, returns, exceptions, remarks, and example
-  sections directly.
+- *Algorithm*: Creates `{namespaceFolderPath}/{flatTypeName}/{lowerKey}.md` via the
+  factory, where `flatTypeName` is the type's simple name with any nested-type `/`
+  separators replaced by `.`; writes an H1 heading using `lowerKey`; for each member
+  writes an H2 heading of the form `{displayName} ({kindLabel})`; for
+  `MethodDefinition` members delegates to `WriteMethodDocumentation`; for all other
+  member kinds writes the signature, summary, returns, exceptions, remarks, and
+  example sections directly.
 
 **DotNetEmitterGradualDisclosure.IsPureMethodOverloadGroup** (private static): Returns true when all
 members in a group are methods sharing the same exact case-sensitive sanitized

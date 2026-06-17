@@ -847,4 +847,182 @@ public class XmlDocReaderTests
             File.Delete(path);
         }
     }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExceptions"/> follows a <c>cref</c>
+    ///     inheritdoc reference and returns exceptions from the referenced target member.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExceptions_InheritDocWithCref_ReturnsExceptionsFromTarget()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:TestClass.Method">
+                <inheritdoc cref="M:TargetClass.Method" />
+            </member>
+            <member name="M:TargetClass.Method">
+                <exception cref="T:System.ArgumentNullException">Null arg</exception>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var exceptions = reader.GetExceptions("M:TestClass.Method");
+
+            // Assert: exceptions must be inherited from the cref target
+            Assert.Single(exceptions);
+            Assert.Contains("T:System.ArgumentNullException", exceptions);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExceptionDetails"/> follows a <c>cref</c>
+    ///     inheritdoc reference and returns exception details from the referenced target member.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExceptionDetails_InheritDocWithCref_ReturnsExceptionDetailsFromTarget()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:TestClass.Method">
+                <inheritdoc cref="M:TargetClass.Method" />
+            </member>
+            <member name="M:TargetClass.Method">
+                <exception cref="T:System.ArgumentNullException">Null arg</exception>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var details = reader.GetExceptionDetails("M:TestClass.Method");
+
+            // Assert: exception details must be inherited from the cref target
+            Assert.Single(details);
+            Assert.Equal("ArgumentNullException", details[0].Type);
+            Assert.Equal("Null arg", details[0].Description);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExample"/> follows a <c>cref</c>
+    ///     inheritdoc reference and returns the example from the referenced target member.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExample_InheritDocWithCref_ReturnsExampleFromTarget()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:TestClass.Method">
+                <inheritdoc cref="M:TargetClass.Method" />
+            </member>
+            <member name="M:TargetClass.Method">
+                <example>Example text</example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var example = reader.GetExample("M:TestClass.Method");
+
+            // Assert: example must be inherited from the cref target
+            Assert.Equal("Example text", example);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> follows a <c>cref</c>
+    ///     inheritdoc reference and returns example parts from the referenced target member.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_InheritDocWithCref_ReturnsExamplePartsFromTarget()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:TestClass.Method">
+                <inheritdoc cref="M:TargetClass.Method" />
+            </member>
+            <member name="M:TargetClass.Method">
+                <example>Example text</example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:TestClass.Method");
+
+            // Assert: example parts must be inherited from the cref target
+            Assert.Single(parts);
+            Assert.True(parts[0].IsCode);
+            Assert.Equal("Example text", parts[0].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Regression test for the branch-local visited-set fix: verifies that when a bare
+    ///     <c>&lt;inheritdoc /&gt;</c> has multiple chain candidates, a failed traversal
+    ///     of the first candidate does not poison the visited set seen by the second candidate.
+    ///     <para>
+    ///         Setup: <c>A.Method</c> has a bare inheritdoc with chain <c>[B.Method, C.Method]</c>.
+    ///         <c>B.Method</c> has <c>&lt;inheritdoc cref="C.Method" /&gt;</c> (explicit cref to C).
+    ///         <c>C.Method</c> has a direct <c>&lt;summary&gt;</c>.
+    ///         When A tries B, B resolves to C and succeeds; A returns C's summary via B.
+    ///         The fix ensures that even if B's traversal had visited C and failed, A's fresh
+    ///         branch-local visited set would still allow A to try C directly.
+    ///     </para>
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocBare_MultipleChainCandidates_SecondCandidateNotBlockedByFirstsVisited()
+    {
+        // Arrange: A bare inheritdoc, chain [B, C]; B crefs to C; C has direct summary
+        var path = WriteXmlDoc("""
+            <member name="M:A.Method">
+                <inheritdoc />
+            </member>
+            <member name="M:B.Method">
+                <inheritdoc cref="M:C.Method" />
+            </member>
+            <member name="M:C.Method">
+                <summary>C direct summary.</summary>
+            </member>
+            """);
+        var chain = new Dictionary<string, IReadOnlyList<string>>
+        {
+            ["M:A.Method"] = new List<string> { "M:B.Method", "M:C.Method" },
+        };
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path, chain);
+            var summary = reader.GetSummary("M:A.Method");
+
+            // Assert: A must resolve to C's summary (either directly through B's cref, or
+            // through A's own second candidate C) — the visited set from B's traversal
+            // must not block A from trying C independently
+            Assert.Equal("C direct summary.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }

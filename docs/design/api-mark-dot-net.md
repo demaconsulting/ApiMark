@@ -7,10 +7,11 @@
 
 ApiMarkDotNet provides C#/.NET language support. It reads a compiled .NET assembly
 and its associated XML documentation file, then produces the Markdown output
-defined by the Core interfaces. The system contains eight units:
+defined by the Core interfaces. The system contains eleven units:
 
 - **DotNetGenerator** — reads the assembly via Mono.Cecil, processes XML doc
-  comments, applies visibility filtering, and returns a DotNetEmitter ready for emission.
+  comments, applies visibility filtering, builds an inheritance chain map from
+  assembly metadata, and returns a DotNetEmitter ready for emission.
 - **DotNetAstModel** — immutable data class holding all parsed assembly data
   (namespaces, types, XML docs, resolver, options) produced by DotNetGenerator.Parse.
 - **DotNetEmitter** — IApiEmitter dispatcher; reads EmitConfig.Format and forwards
@@ -24,7 +25,14 @@ defined by the Core interfaces. The system contains eight units:
 - **TypeNameSimplifier** — applies a deterministic set of simplification rules to
   Mono.Cecil type references to produce idiomatic C# type names in output.
 - **XmlDocReader** — reads and indexes a .NET XML documentation file for fast
-  member-level lookups.
+  member-level lookups; resolves `<inheritdoc />` references using the inheritance
+  chain map supplied by DotNetGenerator.
+- **ApiVisibility** — enum controlling which members are included in the output
+  (`Public`, `PublicAndProtected`, `All`).
+- **DotNetGeneratorOptions** — configuration value object passed to the
+  DotNetGenerator constructor.
+- **ExternalTypeInfo** — internal record representing a non-standard external type
+  reference collected during table cell generation.
 
 ```mermaid
 flowchart TD
@@ -75,11 +83,14 @@ from its caller to create each Markdown output file.
   path it needs to write.
 - *Constraints*: Must not be null at Emit call time.
 
-**IContext (consumed)**: DotNetGenerator receives an IContext from its caller and uses
-it to emit informational and diagnostic messages during generation.
+**IContext (consumed)**: DotNetGenerator accepts an IContext from its caller but does
+not currently write any messages through it during generation. The parameter is
+accepted for interface compliance and reserved for future diagnostic and progress
+messages.
 
 - *Type*: In-process .NET interface from ApiMarkCore.
-- *Role*: Consumer — DotNetGenerator calls `WriteLine` for progress messages.
+- *Role*: Consumer (reserved) — DotNetGenerator accepts the context but does not
+  currently call any methods on it.
 - *Constraints*: Must not be null at Parse and Emit call time.
 
 ## Dependencies

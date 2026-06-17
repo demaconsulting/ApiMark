@@ -53,3 +53,8 @@ sections:
               - XmlDocReader_GetSummary_InheritDocBare_NoChain_ReturnsNull
               - XmlDocReader_GetSummary_InheritDocBare_ChainMemberAbsent_ReturnsNull
               - XmlDocReader_GetSummary_InheritDocChained_ResolvesTransitively
+              - XmlDocReader_GetExceptions_InheritDocWithCref_ReturnsExceptionsFromTarget
+              - XmlDocReader_GetExceptionDetails_InheritDocWithCref_ReturnsExceptionDetailsFromTarget
+              - XmlDocReader_GetExample_InheritDocWithCref_ReturnsExampleFromTarget
+              - XmlDocReader_GetExampleParts_InheritDocWithCref_ReturnsExamplePartsFromTarget
+              - XmlDocReader_GetSummary_InheritDocBare_MultipleChainCandidates_SecondCandidateNotBlockedByFirstsVisited

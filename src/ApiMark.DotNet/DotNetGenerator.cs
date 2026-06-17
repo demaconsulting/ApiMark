@@ -64,71 +64,78 @@ public sealed class DotNetGenerator : IApiGenerator
         }
 
         var assembly = AssemblyDefinition.ReadAssembly(_options.AssemblyPath);
+        try
+        {
+            // Build the inheritance chain from assembly metadata so that bare <inheritdoc />
+            // elements in the XML doc file can be resolved to their base members.
+            // This must be done before constructing XmlDocReader.
+            var inheritanceChain = BuildInheritanceChain(assembly);
+            var xmlDocs = new XmlDocReader(_options.XmlDocPath, inheritanceChain);
 
-        // Build the inheritance chain from assembly metadata so that bare <inheritdoc />
-        // elements in the XML doc file can be resolved to their base members.
-        // This must be done before constructing XmlDocReader.
-        var inheritanceChain = BuildInheritanceChain(assembly);
-        var xmlDocs = new XmlDocReader(_options.XmlDocPath, inheritanceChain);
+            // Build namespace descriptions from the NamespaceDoc convention before filtering
+            // visible types so that NamespaceDoc types are available for summary extraction
+            // even though they are excluded from the public type listing
+            var namespaceDocTypes = assembly.MainModule.Types
+                .Where(DotNetEmitter.IsNamespaceDocCarrier)
+                .ToList();
+            var namespaceDocTypeSet = namespaceDocTypes.ToHashSet();
 
-        // Build namespace descriptions from the NamespaceDoc convention before filtering
-        // visible types so that NamespaceDoc types are available for summary extraction
-        // even though they are excluded from the public type listing
-        var namespaceDocTypes = assembly.MainModule.Types
-            .Where(DotNetEmitter.IsNamespaceDocCarrier)
-            .ToList();
-        var namespaceDocTypeSet = namespaceDocTypes.ToHashSet();
+            var namespaceDescriptions = namespaceDocTypes
+                .GroupBy(t => t.Namespace, StringComparer.Ordinal)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(t => xmlDocs.GetSummary(DotNetEmitter.BuildTypeId(t)))
+                        .FirstOrDefault(summary => !string.IsNullOrEmpty(summary)),
+                    StringComparer.Ordinal);
 
-        var namespaceDescriptions = namespaceDocTypes
-            .GroupBy(t => t.Namespace, StringComparer.Ordinal)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Select(t => xmlDocs.GetSummary(DotNetEmitter.BuildTypeId(t)))
-                    .FirstOrDefault(summary => !string.IsNullOrEmpty(summary)),
-                StringComparer.Ordinal);
+            // Collect all types that pass the visibility, obsolete, and compiler-generated filters.
+            // Exclude NamespaceDoc types — they are documentation carriers, not user-facing types.
+            var visibleTypes = assembly.MainModule.Types
+                .Where(t => !DotNetEmitter.IsCompilerGenerated(t))
+                .Where(t => !namespaceDocTypeSet.Contains(t))
+                .Where(t => !t.IsNested && _options.Visibility switch
+                {
+                    ApiVisibility.Public => t.IsPublic,
+                    ApiVisibility.PublicAndProtected => t.IsPublic || t.IsNestedFamily || t.IsNestedFamilyOrAssembly,
+                    ApiVisibility.All => true,
+                    _ => t.IsPublic,
+                })
+                .Where(t => _options.IncludeObsolete || !DotNetEmitter.IsObsolete(t))
+                .ToList();
 
-        // Collect all types that pass the visibility, obsolete, and compiler-generated filters.
-        // Exclude NamespaceDoc types — they are documentation carriers, not user-facing types.
-        var visibleTypes = assembly.MainModule.Types
-            .Where(t => !DotNetEmitter.IsCompilerGenerated(t))
-            .Where(t => !namespaceDocTypeSet.Contains(t))
-            .Where(t => !t.IsNested && _options.Visibility switch
-            {
-                ApiVisibility.Public => t.IsPublic,
-                ApiVisibility.PublicAndProtected => t.IsPublic || t.IsNestedFamily || t.IsNestedFamilyOrAssembly,
-                ApiVisibility.All => true,
-                _ => t.IsPublic,
-            })
-            .Where(t => _options.IncludeObsolete || !DotNetEmitter.IsObsolete(t))
-            .ToList();
+            // Group by namespace and sort for deterministic output
+            var byNamespace = visibleTypes
+                .GroupBy(t => t.Namespace)
+                .OrderBy(g => g.Key)
+                .ToDictionary(g => g.Key, g => g.OrderBy(t => t.Name).ToList());
 
-        // Group by namespace and sort for deterministic output
-        var byNamespace = visibleTypes
-            .GroupBy(t => t.Namespace)
-            .OrderBy(g => g.Key)
-            .ToDictionary(g => g.Key, g => g.OrderBy(t => t.Name).ToList());
+            var allNamespaces = byNamespace.Keys.OrderBy(n => n).ToList();
 
-        var allNamespaces = byNamespace.Keys.OrderBy(n => n).ToList();
+            // Root namespaces: those not prefixed by any other namespace present in the assembly
+            var rootNamespaces = allNamespaces
+                .Where(n => !allNamespaces.Any(
+                    other => !string.Equals(other, n, StringComparison.Ordinal) &&
+                             n.StartsWith(other + ".", StringComparison.Ordinal)))
+                .OrderBy(n => n)
+                .ToList();
 
-        // Root namespaces: those not prefixed by any other namespace present in the assembly
-        var rootNamespaces = allNamespaces
-            .Where(n => !allNamespaces.Any(
-                other => !string.Equals(other, n, StringComparison.Ordinal) &&
-                         n.StartsWith(other + ".", StringComparison.Ordinal)))
-            .OrderBy(n => n)
-            .ToList();
+            var resolver = new TypeLinkResolver(rootNamespaces);
 
-        var resolver = new TypeLinkResolver(rootNamespaces);
-
-        return new DotNetEmitter(new DotNetAstModel(
-            assembly,
-            xmlDocs,
-            allNamespaces,
-            byNamespace,
-            rootNamespaces,
-            namespaceDescriptions,
-            resolver,
-            _options));
+            return new DotNetEmitter(new DotNetAstModel(
+                assembly,
+                xmlDocs,
+                allNamespaces,
+                byNamespace,
+                rootNamespaces,
+                namespaceDescriptions,
+                resolver,
+                _options));
+        }
+        catch
+        {
+            assembly.Dispose();
+            throw;
+        }
     }
 
     /// <summary>
@@ -152,7 +159,7 @@ public sealed class DotNetGenerator : IApiGenerator
     {
         var chain = new Dictionary<string, List<string>>(StringComparer.Ordinal);
 
-        foreach (var type in assembly.MainModule.Types)
+        foreach (var type in assembly.MainModule.GetTypes())
         {
             BuildTypeInheritanceEntries(type, chain);
         }

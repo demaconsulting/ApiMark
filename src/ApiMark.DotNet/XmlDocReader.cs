@@ -348,10 +348,14 @@ public sealed class XmlDocReader
         }
         else if (_inheritanceChain != null && _inheritanceChain.TryGetValue(memberId, out var targets))
         {
-            // Bare inheritdoc — try each candidate in priority order, stop at first hit
+            // Bare inheritdoc — try each candidate in priority order, stop at first hit.
+            // Use a branch-local copy of visited for each candidate so that failed
+            // traversals in one branch do not poison the visited set seen by sibling
+            // candidates in the same priority list.
             foreach (var target in targets)
             {
-                source = ResolveMemberElement(target, visited);
+                var branchVisited = new HashSet<string>(visited, StringComparer.Ordinal);
+                source = ResolveMemberElement(target, branchVisited);
                 if (source != null)
                 {
                     break;

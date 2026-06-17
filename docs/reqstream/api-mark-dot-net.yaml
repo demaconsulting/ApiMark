@@ -32,6 +32,7 @@ sections:
           - ApiMarkDotNet-DotNetEmitterSingleFile-ProduceSingleApiMd
           - ApiMarkDotNet-TypeLinkResolver-ResolveTypeReferencesToMarkdownLinks
           - ApiMarkDotNet-XmlDocReader-ParseAndIndexXmlDocumentation
+          - ApiMarkDotNet-XmlDocReader-InheritDoc
         tests: [ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown]
       - id: ApiMarkDotNet-TypeNameSimplifier-ProduceReadableTypeNames
         title: ApiMarkDotNet shall render .NET type names in a concise C#-style form
