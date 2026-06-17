@@ -28,36 +28,18 @@ The state-transitions include retrying a limited number of times:
 
 ## PLANNING State (start)
 
-Call the **explore** agent as a sub-agent (built-in agent type) with:
+Call the **planning** agent as a sub-agent (custom agent from `.github/agents/`) with:
 
 - **context**: the user's request + any previous quality findings + retry context
-- **goal**: produce a verified implementation plan through these steps:
+- **goal**: produce a verified implementation plan, or a targeted plan to address
+  the identified quality issues if this is a retry
 
-  1. Investigate the codebase and develop a concrete implementation plan that
-     addresses the request
-  2. **Identify companion artifact deliverables**: for every code change in the
-     plan, list the requirements files, design documents, and review-set entries
-     that must be created or updated - traceability must flow requirements →
-     design → code, so these are mandatory deliverables, not optional extras
-  3. Review the plan for assumptions, weaknesses, and gaps - identify up to 5
-     key assumptions and rate each as:
-     - **VERIFIED**: confirmed by codebase evidence
-     - **LIKELY**: consistent with codebase patterns but not directly confirmed
-     - **UNVERIFIED**: not confirmed by any evidence
-  4. For any assumption rated UNVERIFIED or LIKELY, attempt to resolve it
-     through additional investigation and revise the plan to address identified
-     weaknesses - repeat the critique-and-strengthen cycle up to 2 additional
-     times if unresolved issues remain, but stop as soon as the plan is stable
-  5. List up to 5 risks to the implementation
-  6. Assess feasibility: can this be implemented in a single development pass?
-  7. State a **recommendation**: GO or INCOMPLETE - GO if the plan is sound, or
-     INCOMPLETE if critical unknowns remain that only the user can resolve
+Once the planning sub-agent finishes:
 
-Once the explore sub-agent finishes:
-
-- IF recommendation is INCOMPLETE: Transition to REPORT with Result: INCOMPLETE,
+- IF Result is FAILED: Transition to REPORT with Result: FAILED
+- IF Result is INCOMPLETE: Transition to REPORT with Result: INCOMPLETE,
   listing the unknowns and what CAN be implemented once they are resolved
-- OTHERWISE (GO): Transition to DEVELOPMENT
+- OTHERWISE (SUCCEEDED): Transition to DEVELOPMENT
 
 ## DEVELOPMENT State
 
@@ -76,7 +58,8 @@ Once the developer sub-agent finishes:
 
 Call the **quality** agent as a sub-agent (custom agent from `.github/agents/`) with:
 
-- **context**: the user's request + development summary + files changed + previous issues (if any)
+- **context**: the user's request + development summary + files changed + planning companion artifact table +
+  previous issues (if any)
 - **goal**: check the quality of the work performed for any issues
 
 Once the quality sub-agent finishes:
@@ -92,6 +75,9 @@ Once the quality sub-agent finishes:
 this agent may report INCOMPLETE when the request cannot be implemented without
 information only the user can provide.
 
+For full planning details (assumptions, risks, feasibility), read the planning
+report file referenced in the planning agent's response.
+
 Generate the completion report using the template below, then save it to
 `.agent-logs/{agent-name}-{subject}-{unique-id}.md` per the AGENTS.md reporting
 requirements, and return the summary to the caller.
@@ -102,19 +88,20 @@ requirements, and return the summary to the caller.
 # Implementation Orchestration Report
 
 **Result**: (SUCCEEDED|FAILED|INCOMPLETE)
-**Final State**: (PLANNING|DEVELOPMENT|QUALITY|REPORT)
+**Report**: `.agent-logs/implementation-{subject}-{unique-id}.md`
+**Last Active State**: (PLANNING|DEVELOPMENT|QUALITY)
 **Retry Count**: <Number of quality retry cycles>
 
 ## State Machine Execution
 
-- **Planning Results**: {Implementation plan, assumption ratings, risks, and recommendation}
+- **Planning Results**: {Planning report path; plan summary and SUCCEEDED/INCOMPLETE/FAILED result}
 - **Development Results**: {Summary of developer agent results}
 - **Quality Results**: {Summary of quality agent results}
 - **State Transitions**: {Log of state changes and decisions}
 
 ## Sub-Agent Coordination
 
-- **Explore Agent (Planning)**: {Plan, assumption verdicts, top risks, GO/INCOMPLETE recommendation}
+- **Planning Agent**: {Report file path, SUCCEEDED/INCOMPLETE/FAILED result, plan summary}
 - **Developer Agent**: {Development status and files modified}
 - **Quality Agent**: {Validation results and compliance status}
 
@@ -123,4 +110,9 @@ requirements, and return the summary to the caller.
 - **Implementation Success**: {Overall completion status}
 - **Quality Compliance**: {Final quality validation status}
 - **Issues Resolved**: {Problems encountered and resolution attempts}
+
+## Unknowns (only when Result is INCOMPLETE)
+
+- **Unresolved Questions**: {List each question the user must answer}
+- **What Can Proceed**: {Work that can be done without the missing information}
 ```

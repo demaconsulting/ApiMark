@@ -19,7 +19,7 @@ Perform software development tasks by determining and applying appropriate stand
      If one exists, fetch it as the starting point; adjust placeholder names and heading
      depth to match the target path before writing the file
    - For each modified file, identify which companion artifacts need updating
-     (requirements, design docs, tests, review-sets)
+     (requirements, design docs, verification docs, tests, review-sets, README.md, user guides)
    - Include companion artifact updates in the work plan
 4. **Execute work** following standards requirements and quality checks
 5. **Formatting**: Run `pwsh ./fix.ps1` to silently apply all
@@ -35,8 +35,7 @@ Perform software development tasks by determining and applying appropriate stand
 # Developer Agent Report
 
 **Result**: (SUCCEEDED|FAILED)
-
-## Work Summary
+**Report**: `.agent-logs/developer-{subject}-{unique-id}.md`
 
 - **Files Modified**: {List of files created/modified/deleted}
 - **Languages Detected**: {Languages identified}
