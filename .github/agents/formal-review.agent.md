@@ -44,6 +44,7 @@ standards from the selection matrix in AGENTS.md.
 # Formal Review Report
 
 **Result**: (SUCCEEDED|FAILED)
+**Report**: `.agent-logs/formal-review-{subject}-{unique-id}.md`
 
 ## Review Summary
 

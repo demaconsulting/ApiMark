@@ -96,7 +96,11 @@ still distinguishes generic types by parameter count.
   suffix (e.g. `Foo\`2`).
 - *Returns*: `string` — the name with the backtick removed but the arity count
   preserved (e.g. `Foo2`). Unchanged when no backtick is present.
-- *Callers*: TypeLinkResolver (when computing type page keys via `GetTypePageKey`).
+- *Callers*: TypeLinkResolver (when computing type page keys via `GetTypePageKey`),
+  and DotNetEmitterGradualDisclosure (via the `DotNetEmitter.FlattenArity` delegate
+  wrapper) when building namespace page links, type page names, member page subfolder
+  paths, and operator page paths. This list is non-exhaustive — any code in the
+  DotNet system that constructs file-system paths for types may call this method.
 
 ### Error Handling
 

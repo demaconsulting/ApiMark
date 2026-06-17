@@ -37,6 +37,10 @@ network dependency, or privileged configuration is needed.
   `{Namespace}/{TypeName}/{MemberName}.md` member detail pages.
 - Obsolete member filtering correctly excludes or includes types and members based on the
   IncludeObsolete option.
+- Members implemented with a bare `<inheritdoc />` tag inherit interface-authored summaries
+  and parameter descriptions on their generated member detail pages; the full pipeline from
+  Mono.Cecil inheritance mapping through XmlDocReader resolution to emitted Markdown is
+  exercised end-to-end.
 
 ### Test Scenarios
 
@@ -94,6 +98,21 @@ documentation file and emitted onto the constructor's member detail page, confir
 `#ctor` doc ID mapping is applied correctly. This scenario is tested by
 `DotNetGenerator_Generate_ConstructorWithXmlSummary_WritesSummaryToMemberPage` and
 `DotNetGenerator_Generate_ConstructorWithXmlParams_WritesParamDescriptionsToMemberPage`.
+
+**Inherited property documentation appears on the member detail page**: Verifies that the
+`SampleImplementation.Name` property detail page contains the summary text `Gets the name.`
+inherited from `ISampleInterface.Name` via a bare `<inheritdoc />` tag, proving that the full
+pipeline from Mono.Cecil inheritance mapping through XmlDocReader resolution to emitted Markdown
+works correctly for properties. This scenario is tested by
+`DotNetGenerator_Generate_SampleImplementationNameMemberPage_UsesInheritedSummary`.
+
+**Inherited method documentation appears on the member detail page**: Verifies that the
+`SampleImplementation.Execute` method detail page contains both the summary text
+`Executes the specified input.` and the `input` parameter description `The input to execute.`
+inherited from `ISampleInterface.Execute(string)` via a bare `<inheritdoc />` tag, proving
+end-to-end inheritance resolution for both summary and parameter documentation. This scenario is
+tested by
+`DotNetGenerator_Generate_SampleImplementationExecuteMemberPage_UsesInheritedSummaryAndParamDescription`.
 
 **Operator overloads produce a shared operators.md page**: Verifies that all operator
 overload methods defined on a type are grouped onto a single `operators.md` page named with
@@ -281,3 +300,40 @@ Verifies that an intra-assembly type resolves to plain text when `generateLinks`
 confirming that the no-link mode suppresses markup for contexts where links would not render. This
 scenario is tested by
 `TypeLinkResolver_Linkify_GenerateLinksFalse_IntraAssemblyType_ReturnsPlainText`.
+
+**Enum type signature omits System.Enum base class**: Verifies that the type signature for an
+enum does not include `System.Enum` or the `:` inheritance separator, confirming that
+well-known implicit base types are suppressed and the signature remains clean and readable. This
+scenario is tested by `DotNetGenerator_Generate_EnumTypeSignature_HasNoBaseClass`.
+
+**SampleImplementation type signature shows its implemented interface**: Verifies that the type
+page for `SampleImplementation` includes `: ISampleInterface` in its signature block,
+confirming that explicitly declared interface implementations appear in the generated type
+signature. This scenario is tested by
+`DotNetGenerator_Generate_SampleImplementation_TypeSignatureShowsInterface`.
+
+**Method with example emits a code block on its member detail page**: Verifies that a method
+whose XML documentation contains an `<example><code>` element causes a `csharp` code block to
+appear on the member's gradual-disclosure detail page, confirming that example content is
+rendered for AI and developer consumers. This scenario is tested by
+`DotNetGenerator_Generate_MethodWithExample_EmitsCodeBlockOnMemberPage`.
+
+**Method with example emits a code block in single-file output**: Verifies that the same
+`<example><code>` block renders a `csharp` code block in the consolidated `api.md` produced
+by the single-file emitter, confirming that example sections are not silently dropped in
+single-file mode. This scenario is tested by
+`DotNetGenerator_SingleFile_MethodWithExample_EmitsCodeBlock`.
+
+**Intra-assembly return type emits a Markdown link in the Returns table cell**: Verifies that
+when a method returns a type defined in the same assembly, the Returns column of the Methods
+table on the type page contains a Markdown link (e.g., `[SampleClass](SampleClass.md)`) rather
+than plain text, confirming that the TypeLinkResolver emits intra-document navigation links in
+gradual-disclosure mode. This scenario is tested by
+`DotNetGenerator_Generate_IntraAssemblyReturnType_EmitsMarkdownLinkInReturnsCell`.
+
+**Method with an external non-System parameter type emits an External Types section**: Verifies
+that when a method accepts a parameter whose type comes from an external non-System assembly,
+the member detail page includes an `External Types` H2 section with a two-column table listing
+the type name and its namespace, confirming that external type references are surfaced for
+readers. This scenario is tested by
+`DotNetGenerator_Generate_ExternalNonSystemParameterType_EmitsExternalTypesSection`.

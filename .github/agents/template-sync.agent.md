@@ -22,12 +22,18 @@ Delegate each group to a sub-agent.
 
 - **Root config files** - all non-collection files at the repository root
 - **One group per flat `docs/` folder** - e.g. `docs/build_notes/`, `docs/user_guide/`
+- **One group for root files in each of `docs/design/`, `docs/verification/`,
+  `docs/reqstream/`** - e.g. `docs/design/introduction.md` — separate from the
+  system subtrees beneath them
 - **One group per system subtree** in `docs/design/`, `docs/verification/`, `docs/reqstream/` -
   each subtree and all its descendants is one group
 
 # Orchestration
 
-For each group intersecting the requested scope, call a sub-agent with:
+For Audit mode, call an **explore** sub-agent (built-in) per group.
+For Sync, Scaffold, and Recreate modes, call a **general-purpose** sub-agent (built-in) per group.
+
+For each group intersecting the requested scope, call the appropriate sub-agent with:
 
 - **context**:
   - Group scope and template URL from the `# Reference Template` section in `AGENTS.md`
@@ -40,7 +46,10 @@ For each group intersecting the requested scope, call a sub-agent with:
     each item is a subsystem or unit, then select the appropriate template
     (`subsystem-name.*` or `unit-name.*`) regardless of the item's folder depth —
     do not infer item type from path depth alone
-  - If a template counterpart cannot be fetched, skip the file and report it
+  - If a file has no template counterpart, skip it and report it as
+    "No template found" — this is not a failure
+  - If a file appears in `repository-map.md` but its template cannot be fetched,
+    report Result: FAILED and list the affected files
 - **goal**:
   - Based on the given mode:
     - **Audit** - fetch each template counterpart; compare headings; report missing
@@ -78,9 +87,25 @@ For each group intersecting the requested scope, call a sub-agent with:
     `TODO:` placeholders in YAML string values (e.g. `title:`, `justification:`)
     are content placeholders — always resolve them to real content; infer from
     README, related files, sibling docs, and path; if confident write directly;
-    if ambiguous offer 2–3 concrete options and ask the user; keep asking until
-    they answer - never leave a TODO or TEMPLATE-DIRECTIVE in the output unless
-    the user explicitly requests it
+    if ambiguous, **do not ask interactively** — return the unresolved questions
+    in the result so the orchestrator can ask the user and re-invoke; never leave
+    a TODO or TEMPLATE-DIRECTIVE in the output unless the user explicitly requests it
+  - Return results in this format for each file in the group:
+
+    ```markdown
+    ### {file-path}
+
+    - **Template**: {template path or "not found"}
+    - **Missing sections**: {list or "none"}
+    - **Heading depth issues**: {list or "none"}
+    - **Content format issues**: {list or "none"} *(Recreate only)*
+    - **Action**: (Reported | Sections added | Created | Rebuilt | No template found)
+    - **Unresolved Questions**: {list or "none"}
+    ```
+
+If any sub-agent returns unresolved questions, collect them, ask the user, then
+re-invoke the affected sub-agent(s) with the answers before assembling the final report.
+If questions remain unresolved after asking the user, report Result: INCOMPLETE.
 
 Collect sub-agent results and assemble the final report.
 
@@ -89,7 +114,8 @@ Collect sub-agent results and assemble the final report.
 ```markdown
 # Template Sync Report
 
-**Result**: (SUCCEEDED|FAILED)
+**Result**: (SUCCEEDED|FAILED|INCOMPLETE)
+**Report**: `.agent-logs/template-sync-{subject}-{unique-id}.md`
 **Mode**: (Audit|Sync|Scaffold|Recreate)
 
 ## Files
@@ -102,8 +128,13 @@ Collect sub-agent results and assemble the final report.
 - **Content format issues**: {list of sections where intra-section content did not
   match the template comment's prescribed format, or "none"} *(Recreate only)*
 - **Action**: (Reported | Sections added | Created | Rebuilt | No template found)
+- **Unresolved Questions**: {list or "none"}
 
 ## Summary
 
 - **Conformant**: {count} | **Deviations**: {count} | **Updated**: {count}
+
+## Unknowns (only when Result is INCOMPLETE)
+
+- **Unresolved Questions**: {List each placeholder or ambiguity the user must resolve}
 ```

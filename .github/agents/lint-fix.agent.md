@@ -68,8 +68,7 @@ submission, not during normal development.
 # Lint Fix Report
 
 **Result**: (SUCCEEDED|FAILED)
-
-## Summary
+**Report**: `.agent-logs/lint-fix-{subject}-{unique-id}.md`
 
 - **Iterations**: {Number of fix-loop iterations performed}
 - **Files Modified**: {List of all files changed}

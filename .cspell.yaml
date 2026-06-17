@@ -35,6 +35,7 @@ words:
   - invocability
   - isysroot
   - isystem
+  - inheritdoc
   - langword
   - libc
   - libclang
@@ -62,6 +63,7 @@ words:
   - paramref
   - pasteable
   - postconditions
+  - renderable
   - repoint
   - reqstream
   - reviewmark

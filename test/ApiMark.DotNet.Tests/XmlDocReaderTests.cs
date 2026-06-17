@@ -437,4 +437,599 @@ public class XmlDocReaderTests
             File.Delete(path);
         }
     }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> follows a <c>cref</c> inheritdoc reference
+    ///     and returns the summary from the referenced target member.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocWithCref_ReturnsSummaryFromTarget()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod">
+                <inheritdoc cref="M:MyNamespace.BaseClass.BaseMethod" />
+            </member>
+            <member name="M:MyNamespace.BaseClass.BaseMethod">
+                <summary>Base summary text.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.MyMethod");
+
+            // Assert
+            Assert.Equal("Base summary text.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetRemarks"/> follows a <c>cref</c> inheritdoc reference
+    ///     and returns the remarks from the referenced target member.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_InheritDocWithCref_ReturnsRemarksFromTarget()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod">
+                <inheritdoc cref="M:MyNamespace.BaseClass.BaseMethod" />
+            </member>
+            <member name="M:MyNamespace.BaseClass.BaseMethod">
+                <remarks>Base remarks text.</remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("M:MyNamespace.MyClass.MyMethod");
+
+            // Assert
+            Assert.Equal("Base remarks text.", remarks);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetParams"/> follows a <c>cref</c> inheritdoc reference
+    ///     and returns parameters from the referenced target member.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetParams_InheritDocWithCref_ReturnsParamsFromTarget()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod(System.String)">
+                <inheritdoc cref="M:MyNamespace.BaseClass.BaseMethod(System.String)" />
+            </member>
+            <member name="M:MyNamespace.BaseClass.BaseMethod(System.String)">
+                <param name="input">The input value.</param>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parameters = reader.GetParams("M:MyNamespace.MyClass.MyMethod(System.String)");
+
+            // Assert
+            Assert.Single(parameters);
+            Assert.Equal("input", parameters[0].Name);
+            Assert.Equal("The input value.", parameters[0].Description);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetReturns"/> follows a <c>cref</c> inheritdoc reference
+    ///     and returns the returns text from the referenced target member.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetReturns_InheritDocWithCref_ReturnsReturnsFromTarget()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod">
+                <inheritdoc cref="M:MyNamespace.BaseClass.BaseMethod" />
+            </member>
+            <member name="M:MyNamespace.BaseClass.BaseMethod">
+                <returns>The computed result.</returns>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var returns = reader.GetReturns("M:MyNamespace.MyClass.MyMethod");
+
+            // Assert
+            Assert.Equal("The computed result.", returns);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> returns <c>null</c> when the
+    ///     <c>cref</c> target referenced by <c>&lt;inheritdoc /&gt;</c> does not exist in the XML doc file.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocWithCref_MissingTarget_ReturnsNull()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod">
+                <inheritdoc cref="M:MyNamespace.BaseClass.MissingMethod" />
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.MyMethod");
+
+            // Assert: missing cref target must degrade gracefully to null
+            Assert.Null(summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> returns <c>null</c> rather than
+    ///     throwing when a cyclic <c>&lt;inheritdoc cref="..." /&gt;</c> chain is encountered.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocWithCref_CyclicReference_ReturnsNull()
+    {
+        // Arrange: A -> B -> A forms a cycle
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.A.Method">
+                <inheritdoc cref="M:MyNamespace.B.Method" />
+            </member>
+            <member name="M:MyNamespace.B.Method">
+                <inheritdoc cref="M:MyNamespace.A.Method" />
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("M:MyNamespace.A.Method");
+
+            // Assert: cycle must degrade gracefully to null without throwing
+            Assert.Null(summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> applies the <c>path</c> XPath
+    ///     filter from <c>&lt;inheritdoc /&gt;</c> and returns only the matching section.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocWithPath_ReturnsFilteredSummary()
+    {
+        // Arrange: cref points to a member with both summary and remarks; path selects only summary
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod">
+                <inheritdoc cref="M:MyNamespace.BaseClass.BaseMethod" path="//summary" />
+            </member>
+            <member name="M:MyNamespace.BaseClass.BaseMethod">
+                <summary>Filtered summary text.</summary>
+                <remarks>These remarks must not appear.</remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.MyMethod");
+
+            // Assert: path filter must select only the summary element
+            Assert.Equal("Filtered summary text.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> returns <c>null</c> when the
+    ///     <c>path</c> XPath expression does not match any node in the resolved source member.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocWithPath_NonMatchingPath_ReturnsNull()
+    {
+        // Arrange: source has summary, but path expression selects a non-existent element
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod">
+                <inheritdoc cref="M:MyNamespace.BaseClass.BaseMethod" path="//nonexistent" />
+            </member>
+            <member name="M:MyNamespace.BaseClass.BaseMethod">
+                <summary>A summary.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.MyMethod");
+
+            // Assert: non-matching path must degrade gracefully to null
+            Assert.Null(summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> resolves an explicit <c>cref</c>
+    ///     target and applies a <c>path</c> filter to return only the matching section.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocWithCrefAndPath_ReturnsFilteredSummaryFromTarget()
+    {
+        // Arrange: cref selects an explicit target; path restricts to the summary element only
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod">
+                <inheritdoc cref="M:MyNamespace.OtherClass.OtherMethod" path="//summary" />
+            </member>
+            <member name="M:MyNamespace.OtherClass.OtherMethod">
+                <summary>Other summary text.</summary>
+                <remarks>Other remarks text.</remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.MyMethod");
+
+            // Assert: cref + path must select only the summary from the named target
+            Assert.Equal("Other summary text.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> resolves a bare
+    ///     <c>&lt;inheritdoc /&gt;</c> (no cref) using an injected inheritance chain and returns
+    ///     the summary from the base member.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocBare_WithChain_ReturnsSummaryFromBase()
+    {
+        // Arrange: XML doc has bare inheritdoc; chain maps derived -> base
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod">
+                <inheritdoc />
+            </member>
+            <member name="M:MyNamespace.BaseClass.BaseMethod">
+                <summary>Base summary text.</summary>
+            </member>
+            """);
+        var chain = new Dictionary<string, IReadOnlyList<string>>
+        {
+            ["M:MyNamespace.MyClass.MyMethod"] = new List<string> { "M:MyNamespace.BaseClass.BaseMethod" },
+        };
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path, chain);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.MyMethod");
+
+            // Assert: bare inheritdoc must follow the chain to the base member
+            Assert.Equal("Base summary text.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> returns <c>null</c> for a bare
+    ///     <c>&lt;inheritdoc /&gt;</c> when no inheritance chain is provided.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocBare_NoChain_ReturnsNull()
+    {
+        // Arrange: bare inheritdoc with no chain injected
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod">
+                <inheritdoc />
+            </member>
+            """);
+        try
+        {
+            // Act: construct without an inheritance chain
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.MyMethod");
+
+            // Assert: without a chain, bare inheritdoc must degrade gracefully to null
+            Assert.Null(summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> returns <c>null</c> for a bare
+    ///     <c>&lt;inheritdoc /&gt;</c> when the chain entry's target member is absent from the XML doc file.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocBare_ChainMemberAbsent_ReturnsNull()
+    {
+        // Arrange: chain points to a member not present in the XML doc file
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod">
+                <inheritdoc />
+            </member>
+            """);
+        var chain = new Dictionary<string, IReadOnlyList<string>>
+        {
+            ["M:MyNamespace.MyClass.MyMethod"] = new List<string> { "M:MyNamespace.BaseClass.MissingMethod" },
+        };
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path, chain);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.MyMethod");
+
+            // Assert: absent chain target must degrade gracefully to null
+            Assert.Null(summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> resolves a multi-hop
+    ///     <c>&lt;inheritdoc cref="..." /&gt;</c> chain transitively (A inherits from B, B inherits from C).
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocChained_ResolvesTransitively()
+    {
+        // Arrange: A -> B via cref, B -> C via cref; summary is on C
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.A.Method">
+                <inheritdoc cref="M:MyNamespace.B.Method" />
+            </member>
+            <member name="M:MyNamespace.B.Method">
+                <inheritdoc cref="M:MyNamespace.C.Method" />
+            </member>
+            <member name="M:MyNamespace.C.Method">
+                <summary>Transitive summary text.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("M:MyNamespace.A.Method");
+
+            // Assert: multi-hop chain must resolve transitively
+            Assert.Equal("Transitive summary text.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExceptions"/> follows a <c>cref</c>
+    ///     inheritdoc reference and returns exceptions from the referenced target member.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExceptions_InheritDocWithCref_ReturnsExceptionsFromTarget()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:TestClass.Method">
+                <inheritdoc cref="M:TargetClass.Method" />
+            </member>
+            <member name="M:TargetClass.Method">
+                <exception cref="T:System.ArgumentNullException">Null arg</exception>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var exceptions = reader.GetExceptions("M:TestClass.Method");
+
+            // Assert: exceptions must be inherited from the cref target
+            Assert.Single(exceptions);
+            Assert.Contains("T:System.ArgumentNullException", exceptions);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExceptionDetails"/> follows a <c>cref</c>
+    ///     inheritdoc reference and returns exception details from the referenced target member.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExceptionDetails_InheritDocWithCref_ReturnsExceptionDetailsFromTarget()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:TestClass.Method">
+                <inheritdoc cref="M:TargetClass.Method" />
+            </member>
+            <member name="M:TargetClass.Method">
+                <exception cref="T:System.ArgumentNullException">Null arg</exception>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var details = reader.GetExceptionDetails("M:TestClass.Method");
+
+            // Assert: exception details must be inherited from the cref target
+            Assert.Single(details);
+            Assert.Equal("ArgumentNullException", details[0].Type);
+            Assert.Equal("Null arg", details[0].Description);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExample"/> follows a <c>cref</c>
+    ///     inheritdoc reference and returns the example from the referenced target member.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExample_InheritDocWithCref_ReturnsExampleFromTarget()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:TestClass.Method">
+                <inheritdoc cref="M:TargetClass.Method" />
+            </member>
+            <member name="M:TargetClass.Method">
+                <example>Example text</example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var example = reader.GetExample("M:TestClass.Method");
+
+            // Assert: example must be inherited from the cref target
+            Assert.Equal("Example text", example);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> follows a <c>cref</c>
+    ///     inheritdoc reference and returns example parts from the referenced target member.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_InheritDocWithCref_ReturnsExamplePartsFromTarget()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:TestClass.Method">
+                <inheritdoc cref="M:TargetClass.Method" />
+            </member>
+            <member name="M:TargetClass.Method">
+                <example>Example text</example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:TestClass.Method");
+
+            // Assert: example parts must be inherited from the cref target
+            Assert.Single(parts);
+            Assert.True(parts[0].IsCode);
+            Assert.Equal("Example text", parts[0].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Regression test for the branch-local visited-set fix: verifies that when a bare
+    ///     <c>&lt;inheritdoc /&gt;</c> has multiple chain candidates, a failed traversal
+    ///     of the first candidate does not poison the visited set seen by the second candidate.
+    ///     <para>
+    ///         Setup: <c>A.Method</c> has a bare inheritdoc with chain <c>[B.Method, C.Method]</c>.
+    ///         <c>B.Method</c> has <c>&lt;inheritdoc cref="M:C.Method" path="//remarks" /&gt;</c>
+    ///         — it visits <c>C.Method</c> via the explicit cref, but the <c>path</c> filter
+    ///         returns nothing because <c>C.Method</c> has no <c>&lt;remarks&gt;</c> element,
+    ///         so candidate 1 (B) fails.  <c>C.Method</c> has only a <c>&lt;summary&gt;</c>.
+    ///         Candidate 2 (C) must then resolve independently and return C's summary.
+    ///     </para>
+    ///     <para>
+    ///         Without the branch-local fix a shared visited set would contain <c>C.Method</c>
+    ///         after B's failed traversal, causing A's attempt to try C directly to be blocked
+    ///         by the cycle guard and returning <c>null</c> instead of the summary.
+    ///     </para>
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocBare_MultipleChainCandidates_SecondCandidateNotBlockedByFirstsVisited()
+    {
+        // Arrange: A bare inheritdoc, chain [B, C]; B crefs to C with a path filter that
+        // selects //remarks — C has no remarks, so B's candidate fails after visiting C.
+        // A's second candidate C must still succeed independently via a fresh branch copy.
+        var path = WriteXmlDoc("""
+            <member name="M:A.Method">
+                <inheritdoc />
+            </member>
+            <member name="M:B.Method">
+                <inheritdoc cref="M:C.Method" path="//remarks" />
+            </member>
+            <member name="M:C.Method">
+                <summary>C direct summary.</summary>
+            </member>
+            """);
+        var chain = new Dictionary<string, IReadOnlyList<string>>
+        {
+            ["M:A.Method"] = new List<string> { "M:B.Method", "M:C.Method" },
+        };
+        try
+        {
+            // Act: candidate 1 (B) visits C but fails (no remarks); candidate 2 (C) must succeed
+            var reader = new XmlDocReader(path, chain);
+            var summary = reader.GetSummary("M:A.Method");
+
+            // Assert: without the branch-local fix C would be blocked by B's visited traversal
+            // and summary would be null; with the fix each candidate gets its own visited copy
+            // so A's second candidate C resolves independently and returns C's summary
+            Assert.Equal("C direct summary.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }
