@@ -1888,6 +1888,156 @@ public class DotNetGeneratorTests
         Assert.Contains(configureParagraphs, p => p.Contains("Applies an action to a configured value"));
         Assert.DoesNotContain(configureParagraphs, p => p.Contains("No description provided"));
     }
+
+    /// <summary>
+    ///     Validates that bare <c>&lt;inheritdoc /&gt;</c> on a method whose parameters are
+    ///     generic types (<c>IEnumerable&lt;string&gt;</c>) resolves the inherited summary
+    ///     from the interface. This exercises the intersection of inheritdoc chain resolution
+    ///     and the generic-type XML doc ID encoding fix.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_BareInheritdoc_GenericParamMethod_SingleGeneric_ResolvesSummary()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: GenericParamImplementation.Process has a generic param → gets its own page
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/GenericParamImplementation/Process", out var writer),
+            "Expected member page for GenericParamImplementation.Process");
+
+        var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Processes a sequence of items"));
+        Assert.DoesNotContain(paragraphs, p => p.Contains("No description provided"));
+    }
+
+    /// <summary>
+    ///     Validates that bare <c>&lt;inheritdoc /&gt;</c> on a method whose parameters are
+    ///     multiple generic types (<c>IReadOnlyDictionary&lt;string,object&gt;</c> and
+    ///     <c>Action&lt;string&gt;</c>) resolves the inherited summary from the interface.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_BareInheritdoc_GenericParamMethod_MultipleGenerics_ResolvesSummary()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: Transform has IReadOnlyDictionary<string,object> and Action<string> params → gets its own page
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/GenericParamImplementation/Transform", out var writer),
+            "Expected member page for GenericParamImplementation.Transform");
+
+        var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Transforms data using the provided callback"));
+        Assert.DoesNotContain(paragraphs, p => p.Contains("No description provided"));
+    }
+
+    /// <summary>
+    ///     Validates that <c>&lt;inheritdoc cref="..." /&gt;</c> using the short C# alias form
+    ///     (e.g. <c>IEnumerable{string}</c>) resolves the summary from the referenced method.
+    ///     The C# compiler normalizes the alias to the fully-qualified CLR form in the
+    ///     compiled XML, so both alias and fully-qualified styles must work identically.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_CrefInheritdoc_GenericParamMethod_ShortAliasForm_ResolvesSummary()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: RunProcessShortForm has an IEnumerable<string> param → gets its own page
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/CrefGenericDocClass/RunProcessShortForm", out var writer),
+            "Expected member page for CrefGenericDocClass.RunProcessShortForm");
+
+        var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Processes a sequence of items"));
+        Assert.DoesNotContain(paragraphs, p => p.Contains("No description provided"));
+    }
+
+    /// <summary>
+    ///     Validates that <c>&lt;inheritdoc cref="..." /&gt;</c> using the fully-qualified CLR
+    ///     form (e.g. <c>System.Collections.Generic.IEnumerable{System.String}</c>) resolves
+    ///     the summary from the referenced method.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_CrefInheritdoc_GenericParamMethod_FullyQualifiedForm_ResolvesSummary()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: RunProcessFullyQualified uses fully-qualified cref → same resolution
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/CrefGenericDocClass/RunProcessFullyQualified", out var writer),
+            "Expected member page for CrefGenericDocClass.RunProcessFullyQualified");
+
+        var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Processes a sequence of items"));
+        Assert.DoesNotContain(paragraphs, p => p.Contains("No description provided"));
+    }
+
+    /// <summary>
+    ///     Validates that <c>&lt;inheritdoc cref="..." /&gt;</c> using the short alias form
+    ///     resolves the summary for a method with multiple generic parameter types.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_CrefInheritdoc_MultipleGenericParams_ShortAliasForm_ResolvesSummary()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: RunTransformShortForm inherits from Transform via short-form cref
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/CrefGenericDocClass/RunTransformShortForm", out var writer),
+            "Expected member page for CrefGenericDocClass.RunTransformShortForm");
+
+        var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Transforms data using the provided callback"));
+        Assert.DoesNotContain(paragraphs, p => p.Contains("No description provided"));
+    }
+
+    /// <summary>
+    ///     Validates that <c>&lt;inheritdoc cref="..." /&gt;</c> using the fully-qualified CLR
+    ///     form resolves the summary for a method with multiple generic parameter types.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_CrefInheritdoc_MultipleGenericParams_FullyQualifiedForm_ResolvesSummary()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: RunTransformFullyQualified inherits from Transform via fully-qualified cref
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/CrefGenericDocClass/RunTransformFullyQualified", out var writer),
+            "Expected member page for CrefGenericDocClass.RunTransformFullyQualified");
+
+        var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Transforms data using the provided callback"));
+        Assert.DoesNotContain(paragraphs, p => p.Contains("No description provided"));
+    }
 }
 
 

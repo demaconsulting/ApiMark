@@ -384,7 +384,7 @@ internal sealed class DotNetEmitter : IApiEmitter
     ///     Cecil encodes generic instantiations as <c>TypeName`N&lt;Arg1,Arg2&gt;</c>.
     ///     XML doc IDs require <c>TypeName{Arg1,Arg2}</c> — the arity backtick suffix is
     ///     removed and angle brackets are replaced with curly braces. Nested-type separators
-    ///     (<c>/</c>) are also normalised to <c>.</c>.
+    ///     (<c>/</c>) are also normalized to <c>.</c>.
     /// </remarks>
     /// <param name="cecilFullName">The <see cref="Mono.Cecil.TypeReference.FullName"/> value to convert.</param>
     /// <returns>The XML doc parameter type encoding.</returns>
