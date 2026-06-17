@@ -33,3 +33,24 @@ sections:
               - XmlDocReader_GetRemarks_MemberAbsent_ReturnsNull
               - XmlDocReader_GetReturns_MemberAbsent_ReturnsNull
               - XmlDocReader_GetExample_MemberAbsent_ReturnsNull
+          - id: ApiMarkDotNet-XmlDocReader-InheritDoc
+            title: Inherit XML Documentation from Base Members
+            justification: >
+              C# XML documentation supports `<inheritdoc />` to inherit documentation
+              from base class members or interface members. ApiMark must resolve these
+              references to provide complete documentation for derived types.
+            tests:
+              - XmlDocReader_GetSummary_InheritDocWithCref_ReturnsSummaryFromTarget
+              - XmlDocReader_GetRemarks_InheritDocWithCref_ReturnsRemarksFromTarget
+              - XmlDocReader_GetParams_InheritDocWithCref_ReturnsParamsFromTarget
+              - XmlDocReader_GetReturns_InheritDocWithCref_ReturnsReturnsFromTarget
+              - XmlDocReader_GetSummary_InheritDocWithCref_MissingTarget_ReturnsNull
+              - XmlDocReader_GetSummary_InheritDocWithCref_CyclicReference_ReturnsNull
+              - XmlDocReader_GetSummary_InheritDocWithPath_ReturnsFilteredSummary
+              - XmlDocReader_GetSummary_InheritDocWithPath_NonMatchingPath_ReturnsNull
+              - XmlDocReader_GetSummary_InheritDocWithCrefAndPath_ReturnsFilteredSummaryFromTarget
+              - XmlDocReader_GetSummary_InheritDocBare_WithChain_ReturnsSummaryFromBase
+              - XmlDocReader_GetSummary_InheritDocBare_NoChain_ReturnsNull
+              - XmlDocReader_GetSummary_InheritDocBare_ChainMemberAbsent_ReturnsNull
+              - XmlDocReader_GetSummary_InheritDocChained_ResolvesTransitively
+

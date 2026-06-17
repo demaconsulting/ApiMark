@@ -7,7 +7,8 @@ each test's arrange step. Each test writes a minimal XML doc file containing onl
 the member element required for the assertion, calls the relevant getter, and then
 deletes the file in a `finally` block. No mocking is required; the class has no
 injectable dependencies. Tests exercise each getter independently, plus the
-constructor's file-not-found guard.
+constructor's file-not-found guard, and all four `<inheritdoc />` resolution
+styles (bare, `cref`, `path`, and `cref + path`).
 
 ### Test Environment
 
@@ -32,6 +33,16 @@ assembly is needed.
 - `GetExample` returns `null` when the member or element is absent.
 - `GetExampleParts` separates prose text nodes from `<code>` elements.
 - `GetExampleParts` returns an empty list when the member is absent.
+- `<inheritdoc cref="..." />` resolves documentation from the explicitly named member.
+- `<inheritdoc cref="..." />` returns `null` when the cref target is absent.
+- `<inheritdoc cref="..." />` returns `null` on a cyclic chain without throwing.
+- `<inheritdoc path="..." />` applies an XPath filter to the resolved source member.
+- `<inheritdoc path="..." />` returns `null` when the path expression matches nothing.
+- `<inheritdoc cref="..." path="..." />` selects filtered sections from an explicit target.
+- Bare `<inheritdoc />` with an injected chain resolves to the base member.
+- Bare `<inheritdoc />` without a chain returns `null`.
+- Bare `<inheritdoc />` with a chain entry pointing to an absent member returns `null`.
+- Multi-hop `cref` chains resolve transitively (A → B → C yields C's docs).
 
 ### Test Scenarios
 
@@ -107,3 +118,63 @@ separate parts in order. This scenario is tested by
 **GetExampleParts returns empty list for an absent member**: Verifies that an
 absent member identifier returns an empty list rather than throwing. This scenario
 is tested by `XmlDocReader_GetExampleParts_MemberAbsent_ReturnsEmpty`.
+
+**GetSummary follows a cref inheritdoc reference**: Verifies that
+`<inheritdoc cref="M:Target" />` causes the lookup to read the summary from the
+named target member. This scenario is tested by
+`XmlDocReader_GetSummary_InheritDocWithCref_ReturnsSummaryFromTarget`.
+
+**GetRemarks follows a cref inheritdoc reference**: Verifies that remarks
+propagate from the cref target. This scenario is tested by
+`XmlDocReader_GetRemarks_InheritDocWithCref_ReturnsRemarksFromTarget`.
+
+**GetParams follows a cref inheritdoc reference**: Verifies that parameter
+descriptions propagate from the cref target. This scenario is tested by
+`XmlDocReader_GetParams_InheritDocWithCref_ReturnsParamsFromTarget`.
+
+**GetReturns follows a cref inheritdoc reference**: Verifies that the returns
+text propagates from the cref target. This scenario is tested by
+`XmlDocReader_GetReturns_InheritDocWithCref_ReturnsReturnsFromTarget`.
+
+**GetSummary returns null for a missing cref target**: Verifies that a cref
+pointing to an absent member degrades to `null`. This scenario is tested by
+`XmlDocReader_GetSummary_InheritDocWithCref_MissingTarget_ReturnsNull`.
+
+**GetSummary returns null on a cyclic cref chain**: Verifies that a cycle in
+the `<inheritdoc cref="..." />` graph is detected and resolved to `null`
+without throwing a stack overflow or infinite loop. This scenario is tested by
+`XmlDocReader_GetSummary_InheritDocWithCref_CyclicReference_ReturnsNull`.
+
+**GetSummary applies a path XPath filter**: Verifies that `path="//summary"`
+selects only the `<summary>` element from the resolved source and that
+`<remarks>` or other sections are not included in the result. This scenario is
+tested by
+`XmlDocReader_GetSummary_InheritDocWithPath_ReturnsFilteredSummary`.
+
+**GetSummary returns null for a non-matching path**: Verifies that an XPath
+expression that matches nothing produces `null`. This scenario is tested by
+`XmlDocReader_GetSummary_InheritDocWithPath_NonMatchingPath_ReturnsNull`.
+
+**GetSummary applies cref + path**: Verifies that a combination of an explicit
+cref target and an XPath path filter returns only the filtered content from the
+named target. This scenario is tested by
+`XmlDocReader_GetSummary_InheritDocWithCrefAndPath_ReturnsFilteredSummaryFromTarget`.
+
+**GetSummary resolves bare inheritdoc using the injected chain**: Verifies that
+a bare `<inheritdoc />` (no cref) follows the injected inheritance chain map to
+return the base member's summary. This scenario is tested by
+`XmlDocReader_GetSummary_InheritDocBare_WithChain_ReturnsSummaryFromBase`.
+
+**GetSummary returns null for bare inheritdoc without a chain**: Verifies that
+bare `<inheritdoc />` degrades to `null` when no chain is supplied. This
+scenario is tested by
+`XmlDocReader_GetSummary_InheritDocBare_NoChain_ReturnsNull`.
+
+**GetSummary returns null when the chain entry target is absent**: Verifies that
+a chain entry pointing to a member not present in the XML doc file degrades to
+`null`. This scenario is tested by
+`XmlDocReader_GetSummary_InheritDocBare_ChainMemberAbsent_ReturnsNull`.
+
+**GetSummary resolves a multi-hop cref chain transitively**: Verifies that
+A → B → C chains resolve C's summary for a query on A. This scenario is tested
+by `XmlDocReader_GetSummary_InheritDocChained_ResolvesTransitively`.

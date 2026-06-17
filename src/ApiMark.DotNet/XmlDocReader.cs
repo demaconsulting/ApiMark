@@ -1,5 +1,6 @@
 using System.Text;
 using System.Xml.Linq;
+using System.Xml.XPath;
 
 namespace ApiMark.DotNet;
 
@@ -9,6 +10,14 @@ public sealed class XmlDocReader
     /// <summary>Index of documentation members keyed by their XML doc identifier.</summary>
     private readonly Dictionary<string, XElement> _members;
 
+    /// <summary>
+    ///     Optional inheritance chain mapping member IDs to ordered candidate base member IDs.
+    ///     Used to resolve bare <c>&lt;inheritdoc /&gt;</c> elements that carry no <c>cref</c>
+    ///     attribute. When <c>null</c>, bare inheritdoc elements that reference no explicit target
+    ///     produce <c>null</c> or empty results rather than throwing.
+    /// </summary>
+    private readonly IReadOnlyDictionary<string, IReadOnlyList<string>>? _inheritanceChain;
+
     /// <summary>Initializes a new instance of <see cref="XmlDocReader"/> from the given path.</summary>
     /// <remarks>
     ///     When duplicate member names appear in the XML doc file, the first occurrence is used
@@ -17,8 +26,13 @@ public sealed class XmlDocReader
     ///     more than once (e.g., due to partial-class splits or tooling bugs).
     /// </remarks>
     /// <param name="xmlDocPath">Path to the XML documentation file.</param>
+    /// <param name="inheritanceChain">
+    ///     Optional map of member ID to ordered list of base member IDs. Used to resolve
+    ///     bare <c>&lt;inheritdoc /&gt;</c> elements that carry no <c>cref</c> attribute.
+    ///     When <c>null</c>, bare inheritdoc resolution returns <c>null</c> or empty.
+    /// </param>
     /// <exception cref="FileNotFoundException">Thrown when <paramref name="xmlDocPath"/> does not exist.</exception>
-    public XmlDocReader(string xmlDocPath)
+    public XmlDocReader(string xmlDocPath, IReadOnlyDictionary<string, IReadOnlyList<string>>? inheritanceChain = null)
     {
         // Verify the file exists before attempting to parse — a missing doc file
         // is a configuration error that callers should handle explicitly
@@ -36,6 +50,7 @@ public sealed class XmlDocReader
             .Where(m => m.Attribute("name") != null)
             .GroupBy(m => m.Attribute("name")!.Value)
             .ToDictionary(g => g.Key, g => g.First());
+        _inheritanceChain = inheritanceChain;
     }
 
     /// <summary>Returns the trimmed summary text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
@@ -43,12 +58,15 @@ public sealed class XmlDocReader
     ///     Summary text is always normalized to a single line because summaries are by convention
     ///     brief one-liner descriptions. Multi-paragraph content belongs in <c>&lt;remarks&gt;</c>.
     ///     Use <see cref="GetRemarks"/> to retrieve multi-line content.
+    ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, the summary is
+    ///     resolved from the referenced or inherited base member recursively.
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier (e.g. <c>T:MyNamespace.MyClass</c>).</param>
     /// <returns>Single-line trimmed summary text, or <c>null</c>.</returns>
     public string? GetSummary(string memberId)
     {
-        if (!_members.TryGetValue(memberId, out var member))
+        var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
+        if (member == null)
         {
             return null;
         }
@@ -58,11 +76,16 @@ public sealed class XmlDocReader
     }
 
     /// <summary>Returns the trimmed remarks text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
+    /// <remarks>
+    ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, the remarks are
+    ///     resolved from the referenced or inherited base member recursively.
+    /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
     /// <returns>Trimmed remarks text, or <c>null</c>.</returns>
     public string? GetRemarks(string memberId)
     {
-        if (!_members.TryGetValue(memberId, out var member))
+        var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
+        if (member == null)
         {
             return null;
         }
@@ -71,11 +94,16 @@ public sealed class XmlDocReader
     }
 
     /// <summary>Returns all <c>cref</c> attribute values from <c>&lt;exception&gt;</c> elements for <paramref name="memberId"/>.</summary>
+    /// <remarks>
+    ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, exceptions are
+    ///     resolved from the referenced or inherited base member recursively.
+    /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
     /// <returns>A read-only list of exception cref strings.</returns>
     public IReadOnlyList<string> GetExceptions(string memberId)
     {
-        if (!_members.TryGetValue(memberId, out var member))
+        var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
+        if (member == null)
         {
             return Array.Empty<string>();
         }
@@ -87,11 +115,16 @@ public sealed class XmlDocReader
     }
 
     /// <summary>Returns exception types and descriptions from <c>&lt;exception&gt;</c> elements for <paramref name="memberId"/>.</summary>
+    /// <remarks>
+    ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, exception details are
+    ///     resolved from the referenced or inherited base member recursively.
+    /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
     /// <returns>A read-only list of (Type, Description) tuples.</returns>
     public IReadOnlyList<(string Type, string? Description)> GetExceptionDetails(string memberId)
     {
-        if (!_members.TryGetValue(memberId, out var member))
+        var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
+        if (member == null)
         {
             return Array.Empty<(string, string?)>();
         }
@@ -109,11 +142,16 @@ public sealed class XmlDocReader
     }
 
     /// <summary>Returns parameter names and descriptions for <paramref name="memberId"/>.</summary>
+    /// <remarks>
+    ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, parameters are
+    ///     resolved from the referenced or inherited base member recursively.
+    /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
     /// <returns>A read-only list of (Name, Description) tuples.</returns>
     public IReadOnlyList<(string Name, string? Description)> GetParams(string memberId)
     {
-        if (!_members.TryGetValue(memberId, out var member))
+        var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
+        if (member == null)
         {
             return Array.Empty<(string, string?)>();
         }
@@ -127,11 +165,16 @@ public sealed class XmlDocReader
     }
 
     /// <summary>Returns the trimmed returns text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
+    /// <remarks>
+    ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, the returns text is
+    ///     resolved from the referenced or inherited base member recursively.
+    /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
     /// <returns>Trimmed returns text, or <c>null</c>.</returns>
     public string? GetReturns(string memberId)
     {
-        if (!_members.TryGetValue(memberId, out var member))
+        var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
+        if (member == null)
         {
             return null;
         }
@@ -144,12 +187,15 @@ public sealed class XmlDocReader
     ///     Returns <c>null</c> when the <c>&lt;example&gt;</c> element is absent or contains only
     ///     whitespace, matching the null-for-missing contract of <see cref="GetSummary"/>,
     ///     <see cref="GetRemarks"/>, and <see cref="GetReturns"/>.
+    ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, the example is
+    ///     resolved from the referenced or inherited base member recursively.
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
     /// <returns>Trimmed example text, or <c>null</c> when the element is absent or whitespace-only.</returns>
     public string? GetExample(string memberId)
     {
-        if (!_members.TryGetValue(memberId, out var member))
+        var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
+        if (member == null)
         {
             return null;
         }
@@ -172,6 +218,8 @@ public sealed class XmlDocReader
     ///     When the <c>&lt;example&gt;</c> element contains no <c>&lt;code&gt;</c> children, the
     ///     entire text is returned as a single code part. When <c>&lt;code&gt;</c> children are
     ///     present, text nodes become prose parts and <c>&lt;code&gt;</c> elements become code parts.
+    ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, the example parts are
+    ///     resolved from the referenced or inherited base member recursively.
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
     /// <returns>
@@ -180,7 +228,8 @@ public sealed class XmlDocReader
     /// </returns>
     public IReadOnlyList<(bool IsCode, string Content)> GetExampleParts(string memberId)
     {
-        if (!_members.TryGetValue(memberId, out var member))
+        var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
+        if (member == null)
         {
             return Array.Empty<(bool, string)>();
         }
@@ -242,6 +291,101 @@ public sealed class XmlDocReader
         }
 
         return parts;
+    }
+
+    /// <summary>
+    ///     Resolves the effective member element for <paramref name="memberId"/>, following
+    ///     <c>&lt;inheritdoc /&gt;</c> references recursively with cycle detection.
+    /// </summary>
+    /// <remarks>
+    ///     Resolution proceeds as follows:
+    ///     <list type="number">
+    ///         <item>If <paramref name="memberId"/> is already in <paramref name="visited"/>, return
+    ///               <c>null</c> to break cycles.</item>
+    ///         <item>If the member is absent from the index, return <c>null</c>.</item>
+    ///         <item>If the member has no <c>&lt;inheritdoc /&gt;</c> child, return the member element directly.</item>
+    ///         <item>If a <c>cref</c> attribute is present, resolve the cref target recursively.</item>
+    ///         <item>Otherwise, try each candidate in the injected inheritance chain in priority order.</item>
+    ///         <item>When a <c>path</c> attribute is present, apply it as an XPath expression to the resolved
+    ///               source element and return the matches wrapped in a synthetic <c>&lt;member&gt;</c> element.</item>
+    ///     </list>
+    /// </remarks>
+    /// <param name="memberId">The XML doc member identifier to resolve.</param>
+    /// <param name="visited">Set of member IDs visited on the current resolution path; updated in-place.</param>
+    /// <returns>
+    ///     The resolved member element (possibly synthetic when a path filter is applied), or
+    ///     <c>null</c> when the member is absent, a cycle is detected, or no valid target is found.
+    /// </returns>
+    private XElement? ResolveMemberElement(string memberId, HashSet<string> visited)
+    {
+        // Cycle detection: stop if this ID has already been visited on the current resolution path
+        if (!visited.Add(memberId))
+        {
+            return null;
+        }
+
+        if (!_members.TryGetValue(memberId, out var member))
+        {
+            return null;
+        }
+
+        var inheritdoc = member.Element("inheritdoc");
+        if (inheritdoc == null)
+        {
+            // No inheritdoc — return the member element directly
+            return member;
+        }
+
+        var cref = inheritdoc.Attribute("cref")?.Value;
+        var path = inheritdoc.Attribute("path")?.Value;
+
+        // Determine the source member: explicit cref takes priority over bare chain lookup
+        XElement? source = null;
+        if (cref != null)
+        {
+            // Explicit cref target — recurse in case the target itself also inherits
+            source = ResolveMemberElement(cref, visited);
+        }
+        else if (_inheritanceChain != null && _inheritanceChain.TryGetValue(memberId, out var targets))
+        {
+            // Bare inheritdoc — try each candidate in priority order, stop at first hit
+            foreach (var target in targets)
+            {
+                source = ResolveMemberElement(target, visited);
+                if (source != null)
+                {
+                    break;
+                }
+            }
+        }
+
+        if (source == null)
+        {
+            return null;
+        }
+
+        if (path == null)
+        {
+            // No path filter — return the full resolved source element
+            return source;
+        }
+
+        // Apply the XPath path filter to the resolved source element and wrap matching nodes
+        // in a synthetic <member> element so callers can use the same child-extraction logic
+        // regardless of whether a path filter was applied
+        var matched = source.XPathSelectElements(path).ToList();
+        if (matched.Count == 0)
+        {
+            return null;
+        }
+
+        var synthetic = new XElement("member");
+        foreach (var el in matched)
+        {
+            synthetic.Add(new XElement(el));
+        }
+
+        return synthetic;
     }
 
     private static string? GetDocumentationText(XElement? element)
