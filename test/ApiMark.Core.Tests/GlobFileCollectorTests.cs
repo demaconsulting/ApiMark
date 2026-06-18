@@ -80,6 +80,37 @@ public sealed class GlobFileCollectorTests
     }
 
     /// <summary>
+    ///     Verifies that a relative literal path (no glob metacharacters) selects exactly
+    ///     the named file and no others, resolved relative to the working directory.
+    /// </summary>
+    [Fact]
+    public void GlobFileCollector_Collect_RelativeLiteralFilePath_SelectsExactFile()
+    {
+        // Arrange: create an isolated temp directory with two .vhd files in a subdirectory
+        var tempDir = CreateTempDirectory();
+        try
+        {
+            var subDir = Path.Join(tempDir, "src");
+            Directory.CreateDirectory(subDir);
+            var targetFile = Path.Join(subDir, "design.vhd");
+            var otherFile = Path.Join(subDir, "other.vhd");
+            File.WriteAllText(targetFile, string.Empty);
+            File.WriteAllText(otherFile, string.Empty);
+
+            // Act: supply a relative literal path (no glob chars); workingDirectory is the parent
+            var result = GlobFileCollector.Collect(["src/design.vhd"], VhdlExtensions, tempDir);
+
+            // Assert: only the named file is returned
+            Assert.Single(result);
+            Assert.Equal(Path.GetFullPath(targetFile), result[0]);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    /// <summary>
     ///     Verifies that a bare-star pattern <c>**/*</c> with VHDL extensions finds both
     ///     <c>.vhd</c> and <c>.vhdl</c> files but excludes files with other extensions.
     /// </summary>
@@ -140,6 +171,70 @@ public sealed class GlobFileCollectorTests
             // Assert: the file is found via the absolute path pattern
             Assert.Single(result);
             Assert.Equal(Path.GetFullPath(vhdFile), result[0]);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Verifies that an absolute literal path (no glob metacharacters) selects exactly
+    ///     the named file and ignores all other files in the same directory.
+    /// </summary>
+    [Fact]
+    public void GlobFileCollector_Collect_LiteralAbsoluteFilePath_SelectsExactFile()
+    {
+        // Arrange: create a temp directory with two .vhd files
+        var tempDir = CreateTempDirectory();
+        try
+        {
+            var fileA = Path.Join(tempDir, "alpha.vhd");
+            var fileB = Path.Join(tempDir, "beta.vhd");
+            File.WriteAllText(fileA, string.Empty);
+            File.WriteAllText(fileB, string.Empty);
+
+            // Act: pass an absolute literal path — no glob metacharacters
+            var result = GlobFileCollector.Collect(
+                [fileA],
+                VhdlExtensions,
+                workingDirectory: Path.GetTempPath());
+
+            // Assert: only the explicitly named file is returned
+            Assert.Single(result);
+            Assert.Equal(Path.GetFullPath(fileA), result[0]);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Verifies that an absolute literal exclusion path (no glob metacharacters) removes
+    ///     exactly the named file from an otherwise full match set.
+    /// </summary>
+    [Fact]
+    public void GlobFileCollector_Collect_LiteralAbsoluteExclusionPath_RemovesExactFile()
+    {
+        // Arrange: create a temp directory with two .vhd files
+        var tempDir = CreateTempDirectory();
+        try
+        {
+            var fileA = Path.Join(tempDir, "alpha.vhd");
+            var fileB = Path.Join(tempDir, "beta.vhd");
+            File.WriteAllText(fileA, string.Empty);
+            File.WriteAllText(fileB, string.Empty);
+
+            // Act: include all .vhd files then remove one via a literal absolute exclusion path
+            var result = GlobFileCollector.Collect(
+                [$"{tempDir}/**/*.vhd", $"!{fileA}"],
+                VhdlExtensions,
+                workingDirectory: Path.GetTempPath());
+
+            // Assert: only the non-excluded file is returned
+            Assert.Single(result);
+            Assert.Equal(Path.GetFullPath(fileB), result[0]);
         }
         finally
         {

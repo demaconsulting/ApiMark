@@ -40,8 +40,11 @@ public static class GlobFileCollector
     ///         <c>**/*.h</c>), all results are taken as-is without additional filtering.
     ///     </para>
     ///     <para>
-    ///         Non-existent pattern roots are silently skipped and contribute no files.
-    ///         The method never throws for missing directories.
+    ///         When an absolute pattern contains no glob metacharacters it is treated as a
+    ///         literal file path: if the file exists it is added to or removed from the result
+    ///         set directly, without any directory traversal. Non-existent literal paths and
+    ///         non-existent pattern roots are silently skipped; the method never throws for
+    ///         missing files or directories.
     ///     </para>
     /// </remarks>
     /// <param name="patterns">
@@ -81,9 +84,19 @@ public static class GlobFileCollector
             // Determine the filesystem root and the glob tail for this pattern
             var (root, globTail) = ParsePattern(patternBody, workingDirectory);
 
-            if (globTail.Length == 0 || !Directory.Exists(root))
+            if (globTail.Length == 0)
             {
-                // No glob portion, or the root directory does not exist — skip silently
+                // No glob portion — root is a literal path; select it if it exists as a file
+                if (File.Exists(root))
+                {
+                    AccumulateResults(collected, [Path.GetFullPath(root)], isExclusion);
+                }
+
+                continue;
+            }
+
+            if (!Directory.Exists(root))
+            {
                 continue;
             }
 
