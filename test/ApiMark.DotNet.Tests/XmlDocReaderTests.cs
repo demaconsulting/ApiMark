@@ -1354,5 +1354,226 @@ public class XmlDocReaderTests
             File.Delete(path);
         }
     }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> strips the common leading
+    ///     indentation from a multi-line <c>&lt;code&gt;</c> block where every content line carries
+    ///     the same number of leading spaces, producing flush-left output.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_MultiLineCodeUniformIndent_StripsCommonIndent()
+    {
+        // Arrange: both content lines carry 8 spaces of leading indentation from XML formatting
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Use this:
+                <code>
+                    var x = new Bar();
+                    x.Run();
+                </code>
+              </example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: code part must have the common indent stripped so both lines are flush-left
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.True(parts[1].IsCode);
+            Assert.Equal("var x = new Bar();\nx.Run();", parts[1].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> strips the common (base)
+    ///     indentation from a multi-line <c>&lt;code&gt;</c> block where inner lines carry additional
+    ///     indentation, preserving the relative indentation between lines.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_MultiLineCodeMixedIndent_StripsCommonIndentPreservesRelative()
+    {
+        // Arrange: base lines carry 8 spaces; the inner body line carries 12 spaces (8 + 4)
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>
+                <code>
+                    var x = new Bar();
+                    if (true)
+                    {
+                        x.Run();
+                    }
+                </code>
+              </example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: common 8-space prefix stripped; inner body line retains 4 spaces of relative indent
+            Assert.Single(parts);
+            Assert.True(parts[0].IsCode);
+            Assert.Equal("var x = new Bar();\nif (true)\n{\n    x.Run();\n}", parts[0].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> handles a single-line
+    ///     <c>&lt;code&gt;</c> block without regression — no spurious characters are added or removed.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_SingleLineCode_NoRegression()
+    {
+        // Arrange: code element contains a single line with no leading whitespace
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Use this:<code>var x = new Bar();</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: single-line code is returned unchanged
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.True(parts[1].IsCode);
+            Assert.Equal("var x = new Bar();", parts[1].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> preserves blank lines within
+    ///     a <c>&lt;code&gt;</c> block and does not count them when computing the common indent,
+    ///     so they do not artificially reduce the shared prefix.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_CodeWithBlankLinesInMiddle_PreservesBlankLines()
+    {
+        // Arrange: blank line between two indented content lines; the blank must not
+        // shrink the common indent or be removed from the middle of the result
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>
+                <code>
+                    var x = new Bar();
+
+                    x.Run();
+                </code>
+              </example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: blank line is preserved between the two content lines
+            Assert.Single(parts);
+            Assert.True(parts[0].IsCode);
+            Assert.Equal("var x = new Bar();\n\nx.Run();", parts[0].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> normalizes blank lines that
+    ///     carry residual indentation (more spaces than the common indent) to empty strings,
+    ///     so fenced code block output contains no trailing spaces on blank lines.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_BlankLineWithExtraIndent_NormalizesToEmptyLine()
+    {
+        // Arrange: blank line between two content lines carries extra spaces beyond the common
+        // indent — after stripping the common prefix the blank line still has residual spaces
+        var path = WriteXmlDoc(
+            "<member name=\"M:Foo.Bar.Sample\">\n" +
+            "  <example>\n" +
+            "    <code>\n" +
+            "        var x = new Bar();\n" +
+            "                \n" +         // 16 spaces — more than the 8-space common indent
+            "        x.Run();\n" +
+            "    </code>\n" +
+            "  </example>\n" +
+            "</member>");
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: middle line must be truly empty, not a run of residual spaces
+            Assert.Single(parts);
+            Assert.True(parts[0].IsCode);
+            var lines = parts[0].Content.Split('\n');
+            Assert.Equal(3, lines.Length);
+            Assert.Equal("var x = new Bar();", lines[0]);
+            Assert.Equal(string.Empty, lines[1]);   // no trailing spaces
+            Assert.Equal("x.Run();", lines[2]);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that the no-<c>&lt;code&gt;</c>-children fallback path in
+    ///     <see cref="XmlDocReader.GetExampleParts"/> also applies dedent logic when the entire
+    ///     <c>&lt;example&gt;</c> element value is treated as a single code block.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_NoCodeElement_IndentedContent_StripsCommonIndent()
+    {
+        // Arrange: <example> carries no <code> child — the whole text is treated as code;
+        // the content lines carry 8 spaces of leading indentation from XML formatting
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>
+                    var x = new Bar();
+                    x.Run();
+              </example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: common indent is stripped from the whole-value fallback path too
+            Assert.Single(parts);
+            Assert.True(parts[0].IsCode);
+            Assert.Equal("var x = new Bar();\nx.Run();", parts[0].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }
 

@@ -248,7 +248,7 @@ public sealed class XmlDocReader
         // When no <code> children exist, treat the entire value as a single code block
         if (!el.Elements("code").Any())
         {
-            var text = el.Value.Trim();
+            var text = DedentCode(el.Value);
             return string.IsNullOrEmpty(text)
                 ? Array.Empty<(bool, string)>()
                 : [(true, text)];
@@ -281,7 +281,7 @@ public sealed class XmlDocReader
                 // Emit any accumulated prose before this code block
                 FlushProse();
 
-                var code = codeElement.Value.Trim();
+                var code = DedentCode(codeElement.Value);
                 if (code.Length > 0)
                 {
                     parts.Add((true, code));
@@ -809,5 +809,53 @@ public sealed class XmlDocReader
         }
 
         return builder.ToString();
+    }
+
+    /// <summary>
+    ///     Removes common leading indentation from raw code text extracted from an XML doc
+    ///     <c>&lt;code&gt;</c> element so the result renders flush-left in a fenced Markdown code block.
+    /// </summary>
+    /// <remarks>
+    ///     The minimum indentation is computed from the leading whitespace of every non-blank line
+    ///     (blank lines — lines that are entirely whitespace — are excluded from the calculation so
+    ///     they do not artificially reduce the common prefix). That prefix is then stripped from every
+    ///     line. Leading and trailing blank lines are removed from the final result.
+    ///     Returns <see cref="string.Empty"/> for whitespace-only input so existing
+    ///     <c>string.IsNullOrEmpty</c> guards remain effective.
+    /// </remarks>
+    /// <param name="text">Raw text content of a <c>&lt;code&gt;</c> element.</param>
+    /// <returns>Dedented code text with no leading or trailing blank lines, or <see cref="string.Empty"/>.</returns>
+    private static string DedentCode(string text)
+    {
+        // Normalize line endings to \n before splitting to handle \r\n and \r sources uniformly
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal)
+                        .Replace('\r', '\n')
+                        .Split('\n');
+
+        // Compute minimum leading-whitespace count from non-blank lines only; blank lines must
+        // not artificially reduce the common indent and will be preserved as empty in the output
+        var minIndent = lines
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .Select(line => line.TakeWhile(c => c == ' ' || c == '\t').Count())
+            .DefaultIfEmpty(0)
+            .Min();
+
+        // Strip the common prefix from every line; lines shorter than minIndent become empty.
+        // Normalize any remaining whitespace-only lines to string.Empty so lines that originally
+        // carried only indentation (more than minIndent spaces) do not introduce trailing spaces
+        // into the fenced code block output.
+        var dedented = lines
+            .Select(line => line.Length >= minIndent ? line[minIndent..] : string.Empty)
+            .Select(line => string.IsNullOrWhiteSpace(line) ? string.Empty : line);
+
+        // Remove leading and trailing blank lines so the output begins and ends with content
+        var trimmed = dedented
+            .SkipWhile(string.IsNullOrWhiteSpace)
+            .Reverse()
+            .SkipWhile(string.IsNullOrWhiteSpace)
+            .Reverse()
+            .ToList();
+
+        return string.Join("\n", trimmed);
     }
 }

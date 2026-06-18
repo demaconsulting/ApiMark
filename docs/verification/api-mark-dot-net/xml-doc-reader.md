@@ -32,6 +32,10 @@ assembly is needed.
 - `GetExample` returns trimmed text; `null` for whitespace-only content.
 - `GetExample` returns `null` when the member or element is absent.
 - `GetExampleParts` separates prose text nodes from `<code>` elements.
+- `GetExampleParts` strips common leading indentation from multi-line `<code>` blocks.
+- `GetExampleParts` preserves relative indentation when lines have varying indent depths.
+- `GetExampleParts` preserves blank lines inside `<code>` blocks without counting them in the indent calculation.
+- `GetExampleParts` applies dedent to the whole-value fallback path when no `<code>` children are present.
 - `GetExampleParts` returns an empty list when the member is absent.
 - `<inheritdoc cref="..." />` resolves documentation from the explicitly named member.
 - `<inheritdoc cref="..." />` returns `null` when the cref target is absent.
@@ -119,6 +123,33 @@ separate parts in order. This scenario is tested by
 **GetExampleParts returns empty list for an absent member**: Verifies that an
 absent member identifier returns an empty list rather than throwing. This scenario
 is tested by `XmlDocReader_GetExampleParts_MemberAbsent_ReturnsEmpty`.
+
+**GetExampleParts strips common indent from uniformly indented multi-line code**:
+Verifies that when all content lines in a `<code>` block carry the same number of
+leading spaces (from XML formatting), all of those spaces are stripped uniformly
+so the output is flush-left. This scenario is tested by
+`XmlDocReader_GetExampleParts_MultiLineCodeUniformIndent_StripsCommonIndent`.
+
+**GetExampleParts strips common indent and preserves relative indentation in mixed-indent code**:
+Verifies that when a `<code>` block contains lines with varying indentation (e.g. a
+base of 8 spaces plus 4 more for inner blocks), the common 8-space prefix is stripped
+and the 4-space relative indentation is preserved. This scenario is tested by
+`XmlDocReader_GetExampleParts_MultiLineCodeMixedIndent_StripsCommonIndentPreservesRelative`.
+
+**GetExampleParts single-line code has no regression**: Verifies that a single-line
+`<code>` element with no leading whitespace is returned unchanged. This scenario is
+tested by `XmlDocReader_GetExampleParts_SingleLineCode_NoRegression`.
+
+**GetExampleParts preserves blank lines within code blocks**: Verifies that blank
+lines inside a `<code>` block are preserved in the output and that they do not
+contribute to the minimum-indentation calculation. This scenario is tested by
+`XmlDocReader_GetExampleParts_CodeWithBlankLinesInMiddle_PreservesBlankLines`.
+
+**GetExampleParts strips common indent from no-code-children fallback path**:
+Verifies that when the `<example>` element has no `<code>` children and the entire
+value is treated as a single code block, the same `DedentCode` logic is applied so
+indented content is returned flush-left. This scenario is tested by
+`XmlDocReader_GetExampleParts_NoCodeElement_IndentedContent_StripsCommonIndent`.
 
 **GetSummary follows a cref inheritdoc reference**: Verifies that
 `<inheritdoc cref="M:Target" />` causes the lookup to read the summary from the

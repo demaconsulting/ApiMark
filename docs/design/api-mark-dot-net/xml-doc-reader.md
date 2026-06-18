@@ -77,8 +77,9 @@ the `<example>` element is absent or contains only whitespace. Resolves
 **GetExampleParts**: Returns the structured example content for `memberId` as
 `IReadOnlyList<(bool IsCode, string Content)>` parts. When the `<example>`
 element contains no `<code>` children, the entire text is returned as a single
-code part. When `<code>` children are present, text nodes become prose parts
-and `<code>` elements become code parts. Resolves `<inheritdoc />` first.
+code part after applying `DedentCode`. When `<code>` children are present, text
+nodes become prose parts and `<code>` elements become code parts with `DedentCode`
+applied to each code block. Resolves `<inheritdoc />` first.
 
 **ResolveMemberElement** (private): Resolves the effective `<member>` element
 for a given ID by following `<inheritdoc />` recursively with cycle detection.
@@ -96,6 +97,15 @@ for a given ID by following `<inheritdoc />` recursively with cycle detection.
 collapsing internal whitespace within each line. `GetSingleLineDocumentationText`
 additionally joins all non-empty trimmed lines into a single space-separated
 string. Both normalize line endings to `\n` before processing.
+
+**Code block dedentation** (`DedentCode`, private static): Removes common leading
+indentation from raw `<code>` element content so the result renders flush-left in
+a fenced Markdown code block. The minimum indentation is computed from the leading
+whitespace of every non-blank line (blank lines are excluded from the calculation
+to avoid artificially reducing the common prefix). That prefix is then stripped
+from every line. Leading and trailing blank lines are removed from the final
+result. Returns `string.Empty` for whitespace-only input so existing
+`string.IsNullOrEmpty` guards remain effective.
 
 **cref formatting** (`FormatCref`, private static): Strips the type-kind
 prefix (`T:`, `M:`, `P:`, `F:`, `E:`) from a cref value and formats the
