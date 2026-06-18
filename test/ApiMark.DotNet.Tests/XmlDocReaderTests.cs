@@ -1081,9 +1081,36 @@ public class XmlDocReaderTests
     }
 
     /// <summary>
-    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> renders a <c>&lt;see langword="..." /&gt;</c>
-    ///     element as its keyword text within a prose part, rather than dropping it.
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> emits nothing for an empty or
+    ///     whitespace-only <c>&lt;c&gt;</c> element, rather than rendering stray <c>``</c> backtick pairs.
     /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithEmptyInlineCode_EmitsNoBackticks()
+    {
+        // Arrange: example prose contains an empty <c> element followed by a code block
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Use <c></c> carefully.<code>bar.Sample();</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: prose must not contain stray backtick pairs from the empty <c> element
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.DoesNotContain("``", parts[0].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+
     [Fact]
     public void XmlDocReader_GetExampleParts_WithSeeLangword_RendersKeywordInProsePart()
     {

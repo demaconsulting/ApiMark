@@ -509,10 +509,16 @@ public sealed class XmlDocReader
                 // Render inline code in backticks so markdown consumers display it as
                 // monospace text — matches the intent of <c> in XML documentation.
                 // Normalize to a single line to prevent stray whitespace or line breaks
-                // inside the element from leaking into the backtick span.
-                builder.Append('`');
-                builder.Append(NormalizeSingleLine(element.Value));
-                builder.Append('`');
+                // inside the element from leaking into the backtick span. Skip empty or
+                // whitespace-only elements entirely to avoid emitting stray "``" pairs.
+                var inlineCode = NormalizeSingleLine(element.Value);
+                if (inlineCode.Length > 0)
+                {
+                    builder.Append('`');
+                    builder.Append(inlineCode);
+                    builder.Append('`');
+                }
+
                 break;
             default:
                 AppendNodeText(builder, element.Nodes());
