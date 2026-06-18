@@ -510,13 +510,11 @@ public sealed class XmlDocReader
                 // monospace text — matches the intent of <c> in XML documentation.
                 // Normalize to a single line to prevent stray whitespace or line breaks
                 // inside the element from leaking into the backtick span. Skip empty or
-                // whitespace-only elements entirely to avoid emitting stray "``" pairs.
+                // whitespace-only elements entirely to avoid emitting stray backtick pairs.
                 var inlineCode = NormalizeSingleLine(element.Value);
                 if (inlineCode.Length > 0)
                 {
-                    builder.Append('`');
-                    builder.Append(inlineCode);
-                    builder.Append('`');
+                    AppendMarkdownCodeSpan(builder, inlineCode);
                 }
 
                 break;
@@ -527,7 +525,63 @@ public sealed class XmlDocReader
     }
 
     /// <summary>
-    ///     Returns the display text for a <c>&lt;see&gt;</c> or <c>&lt;seealso&gt;</c> inline reference
+    ///     Appends a CommonMark-compliant inline code span for <paramref name="content"/> to
+    ///     <paramref name="builder"/>.
+    /// </summary>
+    /// <remarks>
+    ///     The fence length is chosen as one greater than the longest consecutive run of backticks
+    ///     in <paramref name="content"/>, so the delimiter can never be confused with content.
+    ///     When <paramref name="content"/> starts or ends with a backtick, a single space is
+    ///     inserted on each side of the content inside the fence; CommonMark parsers strip exactly
+    ///     one leading and one trailing space from a code span whose content both begins and ends
+    ///     with a space and is not entirely spaces, preserving the intended text.
+    /// </remarks>
+    /// <param name="builder">The string builder to append to.</param>
+    /// <param name="content">The non-empty, already-normalized code content.</param>
+    private static void AppendMarkdownCodeSpan(StringBuilder builder, string content)
+    {
+        // Find the longest consecutive run of backticks in the content so the fence is longer
+        var maxRun = 0;
+        var currentRun = 0;
+        foreach (var ch in content)
+        {
+            if (ch == '`')
+            {
+                currentRun++;
+                if (currentRun > maxRun)
+                {
+                    maxRun = currentRun;
+                }
+            }
+            else
+            {
+                currentRun = 0;
+            }
+        }
+
+        var fence = new string('`', maxRun + 1);
+
+        // Pad with spaces when content starts or ends with a backtick so the fence
+        // character is unambiguous to Markdown parsers (CommonMark §6.1)
+        var needsPadding = content[0] == '`' || content[^1] == '`';
+
+        builder.Append(fence);
+        if (needsPadding)
+        {
+            builder.Append(' ');
+        }
+
+        builder.Append(content);
+
+        if (needsPadding)
+        {
+            builder.Append(' ');
+        }
+
+        builder.Append(fence);
+    }
+
+    /// <summary>
     ///     element, preferring the <c>langword</c> attribute, then explicit element text, then a
     ///     formatted <c>cref</c> attribute, and finally an empty string when none are present.
     /// </summary>

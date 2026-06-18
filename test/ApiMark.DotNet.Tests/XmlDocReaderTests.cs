@@ -1080,6 +1080,132 @@ public class XmlDocReaderTests
         }
     }
 
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> produces a valid CommonMark
+    ///     code span when the <c>&lt;c&gt;</c> content contains a single backtick (e.g. generic
+    ///     arity notation <c>TypeName`1</c>). The fence must use double backticks so the lone
+    ///     backtick inside cannot close the span prematurely.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithInlineCodeContainingSingleBacktick_UsesTwoBacktickFence()
+    {
+        // Arrange: <c> content contains one backtick (generic arity notation TypeName`1)
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Use <c>TypeName`1</c> here.<code>var x = new TypeName&lt;int&gt;();</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: prose uses a double-backtick fence so the internal backtick cannot end the span
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Contains("``TypeName`1``", parts[0].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> produces a valid CommonMark
+    ///     code span when the <c>&lt;c&gt;</c> content contains two consecutive backticks. The fence
+    ///     must use three backticks so neither the single nor the double run inside can close it.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithInlineCodeContainingDoubleBacktick_UsesThreeBacktickFence()
+    {
+        // Arrange: <c> content contains two consecutive backticks
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Use <c>a``b</c> here.<code>foo();</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: fence must be three backticks — longer than the double run inside
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Contains("```a``b```", parts[0].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> adds padding spaces when the
+    ///     <c>&lt;c&gt;</c> content starts with a backtick, so Markdown parsers do not mistake the
+    ///     leading backtick for part of the fence delimiter (CommonMark §6.1).
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithInlineCodeStartingWithBacktick_AddsPaddingSpaces()
+    {
+        // Arrange: <c> content begins with a backtick
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Use <c>`leading</c> here.<code>foo();</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: content is padded with spaces inside the fence (CommonMark §6.1 padding rule)
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Contains("`` `leading ``", parts[0].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> adds padding spaces when the
+    ///     <c>&lt;c&gt;</c> content ends with a backtick, so Markdown parsers do not mistake the
+    ///     trailing backtick for part of the fence delimiter (CommonMark §6.1).
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithInlineCodeEndingWithBacktick_AddsPaddingSpaces()
+    {
+        // Arrange: <c> content ends with a backtick
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Use <c>trailing`</c> here.<code>foo();</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: content is padded with spaces inside the fence (CommonMark §6.1 padding rule)
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Contains("`` trailing` ``", parts[0].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     /// <summary>
     ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> emits nothing for an empty or
     ///     whitespace-only <c>&lt;c&gt;</c> element, rather than rendering stray <c>``</c> backtick pairs.
