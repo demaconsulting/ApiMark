@@ -217,7 +217,12 @@ public sealed class XmlDocReader
     /// <remarks>
     ///     When the <c>&lt;example&gt;</c> element contains no <c>&lt;code&gt;</c> children, the
     ///     entire text is returned as a single code part. When <c>&lt;code&gt;</c> children are
-    ///     present, text nodes become prose parts and <c>&lt;code&gt;</c> elements become code parts.
+    ///     present, consecutive non-<c>&lt;code&gt;</c> nodes (text and inline elements such as
+    ///     <c>&lt;see cref="..." /&gt;</c>, <c>&lt;c&gt;</c>, <c>&lt;paramref&gt;</c>) are
+    ///     accumulated and rendered together into a single prose part via the same
+    ///     <c>AppendNodeText</c> / <c>AppendElementText</c> pipeline used by other documentation
+    ///     accessors. This preserves inline references and inline code within a prose run rather
+    ///     than emitting them as isolated, broken fragments.
     ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, the example parts are
     ///     resolved from the referenced or inherited base member recursively.
     /// </remarks>
@@ -249,46 +254,55 @@ public sealed class XmlDocReader
                 : [(true, text)];
         }
 
-        // Mixed content: process child nodes in order, separating <code> blocks from prose
+        // Mixed content: process child nodes in order, separating <code> blocks from prose.
+        // Consecutive non-<code> nodes (text nodes and inline elements such as <see>, <c>,
+        // <paramref>) are accumulated into a shared StringBuilder and flushed as a single
+        // prose part when a <code> block or the end of the sequence is reached. This ensures
+        // inline references within a prose run are rendered coherently via AppendNodeText /
+        // AppendElementText rather than being emitted as isolated, broken fragments.
         var parts = new List<(bool IsCode, string Content)>();
-        foreach (var node in el.Nodes())
+        var proseBuilder = new StringBuilder();
+
+        // Flushes any accumulated prose content to the parts list and resets the builder
+        void FlushProse()
         {
-            switch (node)
+            var text = NormalizeSingleLine(proseBuilder.ToString());
+            proseBuilder.Clear();
+            if (text.Length > 0)
             {
-                case XText textNode:
-                    {
-                        var text = textNode.Value.Trim();
-                        if (text.Length > 0)
-                        {
-                            parts.Add((false, text));
-                        }
-
-                        break;
-                    }
-
-                case XElement childElement when childElement.Name.LocalName == "code":
-                    {
-                        var code = childElement.Value.Trim();
-                        if (code.Length > 0)
-                        {
-                            parts.Add((true, code));
-                        }
-
-                        break;
-                    }
-
-                case XElement otherElement:
-                    {
-                        var text = otherElement.Value.Trim();
-                        if (text.Length > 0)
-                        {
-                            parts.Add((false, text));
-                        }
-
-                        break;
-                    }
+                parts.Add((false, text));
             }
         }
+
+        foreach (var node in el.Nodes())
+        {
+            if (node is XElement codeElement && codeElement.Name.LocalName == "code")
+            {
+                // Emit any accumulated prose before this code block
+                FlushProse();
+
+                var code = codeElement.Value.Trim();
+                if (code.Length > 0)
+                {
+                    parts.Add((true, code));
+                }
+            }
+            else if (node is XElement paraElement && paraElement.Name.LocalName == "para")
+            {
+                // Render the paragraph into the accumulator, then flush so that each <para>
+                // becomes a distinct prose part rather than merging with adjacent content
+                AppendNodeText(proseBuilder, paraElement.Nodes());
+                FlushProse();
+            }
+            else
+            {
+                // Text nodes and inline elements — accumulate for combined prose rendering
+                AppendNodeText(proseBuilder, node);
+            }
+        }
+
+        // Flush any remaining prose after the last node
+        FlushProse();
 
         return parts;
     }
@@ -469,9 +483,29 @@ public sealed class XmlDocReader
     }
 
     /// <summary>
+    ///     Appends a single node's text representation to <paramref name="builder"/>,
+    ///     dispatching XML elements to <see cref="AppendElementText"/>.
+    ///     Avoids allocating an array when only one node needs to be processed.
+    /// </summary>
+    /// <param name="builder">The string builder that accumulates the output text.</param>
+    /// <param name="node">The single XML node to process.</param>
+    private static void AppendNodeText(StringBuilder builder, XNode node)
+    {
+        switch (node)
+        {
+            case XText text:
+                builder.Append(text.Value);
+                break;
+            case XElement element:
+                AppendElementText(builder, element);
+                break;
+        }
+    }
+
+    /// <summary>
     ///     Appends the text representation of a single XML element to <paramref name="builder"/>,
     ///     applying element-specific rendering rules for inline references, parameter references,
-    ///     paragraphs, and generic XML elements.
+    ///     inline code, paragraphs, and generic XML elements.
     /// </summary>
     /// <param name="builder">The string builder that accumulates the output text.</param>
     /// <param name="element">The XML element to render.</param>
@@ -491,6 +525,19 @@ public sealed class XmlDocReader
                 AppendNodeText(builder, element.Nodes());
                 builder.AppendLine();
                 break;
+            case "c":
+                // Render inline code in backticks so markdown consumers display it as
+                // monospace text — matches the intent of <c> in XML documentation.
+                // Normalize to a single line to prevent stray whitespace or line breaks
+                // inside the element from leaking into the backtick span. Skip empty or
+                // whitespace-only elements entirely to avoid emitting stray backtick pairs.
+                var inlineCode = NormalizeSingleLine(element.Value);
+                if (inlineCode.Length > 0)
+                {
+                    AppendMarkdownCodeSpan(builder, inlineCode);
+                }
+
+                break;
             default:
                 AppendNodeText(builder, element.Nodes());
                 break;
@@ -498,7 +545,63 @@ public sealed class XmlDocReader
     }
 
     /// <summary>
-    ///     Returns the display text for a <c>&lt;see&gt;</c> or <c>&lt;seealso&gt;</c> inline reference
+    ///     Appends a CommonMark-compliant inline code span for <paramref name="content"/> to
+    ///     <paramref name="builder"/>.
+    /// </summary>
+    /// <remarks>
+    ///     The fence length is chosen as one greater than the longest consecutive run of backticks
+    ///     in <paramref name="content"/>, so the delimiter can never be confused with content.
+    ///     When <paramref name="content"/> starts or ends with a backtick, a single space is
+    ///     inserted on each side of the content inside the fence; CommonMark parsers strip exactly
+    ///     one leading and one trailing space from a code span whose content both begins and ends
+    ///     with a space and is not entirely spaces, preserving the intended text.
+    /// </remarks>
+    /// <param name="builder">The string builder to append to.</param>
+    /// <param name="content">The non-empty, already-normalized code content.</param>
+    private static void AppendMarkdownCodeSpan(StringBuilder builder, string content)
+    {
+        // Find the longest consecutive run of backticks in the content so the fence is longer
+        var maxRun = 0;
+        var currentRun = 0;
+        foreach (var ch in content)
+        {
+            if (ch == '`')
+            {
+                currentRun++;
+                if (currentRun > maxRun)
+                {
+                    maxRun = currentRun;
+                }
+            }
+            else
+            {
+                currentRun = 0;
+            }
+        }
+
+        var fence = new string('`', maxRun + 1);
+
+        // Pad with spaces when content starts or ends with a backtick so the fence
+        // character is unambiguous to Markdown parsers (CommonMark §6.1)
+        var needsPadding = content[0] == '`' || content[^1] == '`';
+
+        builder.Append(fence);
+        if (needsPadding)
+        {
+            builder.Append(' ');
+        }
+
+        builder.Append(content);
+
+        if (needsPadding)
+        {
+            builder.Append(' ');
+        }
+
+        builder.Append(fence);
+    }
+
+    /// <summary>
     ///     element, preferring the <c>langword</c> attribute, then explicit element text, then a
     ///     formatted <c>cref</c> attribute, and finally an empty string when none are present.
     /// </summary>

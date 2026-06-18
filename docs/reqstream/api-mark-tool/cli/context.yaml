@@ -168,8 +168,9 @@ sections:
                   clang binary location discovered via PATH, xcrun (macOS), or vswhere (Windows).
                 tests: [Context_Create_WithClangPathOption_SetsClangPath]
               - id: ApiMarkTool-Cli-Context-ParseVhdlSourceOptions
-                title: Context shall parse repeated --source flags and accumulate them
-                  into the Sources array in order, preserving any leading ! exclusion prefix.
+                title: Context shall parse repeated --source flags and accumulate
+                  them into the Sources array in order, preserving any leading ! exclusion
+                  prefix.
                 justification: |
                   VHDL projects select source files using gitignore-style glob patterns supplied
                   via repeated --source flags. Patterns prefixed with ! are exclusion patterns.

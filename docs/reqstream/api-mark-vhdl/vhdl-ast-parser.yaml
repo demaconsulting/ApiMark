@@ -23,7 +23,8 @@ sections:
               - VhdlAstParser_Parse_MuxFixture_ParsesTwoArchitectures
               - VhdlAstParser_Parse_MuxFixture_HasMuxEntity
           - id: ApiMarkVhdl-VhdlAstParser-ParsePackage
-            title: VhdlAstParser shall parse package declarations including types, constants, components, and subprograms.
+            title: VhdlAstParser shall parse package declarations including types,
+              constants, components, and subprograms.
             justification: |
               Packages are the primary reuse mechanism in VHDL and may contain all four declaration kinds.
             tests:

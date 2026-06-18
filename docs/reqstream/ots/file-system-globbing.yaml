@@ -22,8 +22,7 @@ sections:
               GlobFileCollector uses exclusion patterns (! prefix) to let callers
               narrow the file set after broad inclusions. The Matcher must honor these
               correctly so that excluded files never appear in documentation output.
-            tests:
-              - GlobFileCollector_Collect_ExclusionPattern_RemovesMatchedFiles
+            tests: [GlobFileCollector_Collect_ExclusionPattern_RemovesMatchedFiles]
           - id: FileSystemGlobbing-Matcher-NonExistentRoot
             title: Microsoft.Extensions.FileSystemGlobbing shall return an empty result
               without throwing when the pattern root directory does not exist.

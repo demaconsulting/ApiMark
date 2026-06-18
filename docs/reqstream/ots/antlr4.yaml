@@ -20,8 +20,8 @@ sections:
               - VhdlAstParser_Parse_FixtureFile_EntityHasPorts
           - id: Antlr4-GeneratedParser-ExtractDocComments
             title: The ANTLR4-generated vhdl2008 parser shall correctly identify the
-              token positions needed for VhdlAstParser to extract associated
-              doc comments from VHDL source files.
+              token positions needed for VhdlAstParser to extract associated doc comments
+              from VHDL source files.
             justification: |
               ApiMark's doc-comment extraction maps source line numbers from the
               parser token stream to pre-extracted comment lines. If the parser

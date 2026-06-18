@@ -978,6 +978,328 @@ public class XmlDocReaderTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> renders a <c>&lt;see cref="..." /&gt;</c>
+    ///     inline reference in prose correctly — the referenced name must appear in the prose part
+    ///     and must not be silently dropped.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithSeeCref_RendersInlineReferenceInProsePart()
+    {
+        // Arrange: example prose contains a self-closing <see cref> element followed by a code block
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Call <see cref="M:Foo.Bar.Run(System.Int32)" /> to run:<code>bar.Run(1);</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: prose part must contain the formatted cref text, not be empty or dropped
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Contains("Bar.Run()", parts[0].Content);
+            Assert.True(parts[1].IsCode);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> accumulates surrounding text
+    ///     and inline elements into a single coherent prose part rather than emitting each node
+    ///     as a separate, disconnected fragment.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithMixedInlineElements_ProseAccumulatedAsOnePart()
+    {
+        // Arrange: prose run spans two text nodes with a <see cref> element between them,
+        // followed by a code block — without accumulation the prose would be split into
+        // three separate parts ("prefer ", "RegisterService", " which registers...")
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>prefer <see cref="M:Foo.Bar.RegisterService(System.Type)" /> which registers automatically.<code>bar.RegisterService(typeof(MyService));</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: exactly two parts — one prose part and one code part
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+
+            // The prose part must include the text before the reference, the formatted
+            // cref name, and the text after — all in one coherent string
+            Assert.Contains("prefer", parts[0].Content);
+            Assert.Contains("Bar.RegisterService()", parts[0].Content);
+            Assert.Contains("which registers automatically.", parts[0].Content);
+
+            Assert.True(parts[1].IsCode);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> renders <c>&lt;c&gt;</c>
+    ///     inline code elements as backtick-wrapped text in the prose part.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithInlineCode_BackticksApplied()
+    {
+        // Arrange: example prose contains a <c> inline code element
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Use <c>IHostedService</c> for background work.<code>services.AddHostedService&lt;MyService&gt;();</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: prose part must render <c> as backtick-wrapped inline code
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Contains("`IHostedService`", parts[0].Content);
+            Assert.True(parts[1].IsCode);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> produces a valid CommonMark
+    ///     code span when the <c>&lt;c&gt;</c> content contains a single backtick (e.g. generic
+    ///     arity notation <c>TypeName`1</c>). The fence must use double backticks so the lone
+    ///     backtick inside cannot close the span prematurely.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithInlineCodeContainingSingleBacktick_UsesTwoBacktickFence()
+    {
+        // Arrange: <c> content contains one backtick (generic arity notation TypeName`1)
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Use <c>TypeName`1</c> here.<code>var x = new TypeName&lt;int&gt;();</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: prose uses a double-backtick fence so the internal backtick cannot end the span
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Contains("``TypeName`1``", parts[0].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> produces a valid CommonMark
+    ///     code span when the <c>&lt;c&gt;</c> content contains two consecutive backticks. The fence
+    ///     must use three backticks so neither the single nor the double run inside can close it.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithInlineCodeContainingDoubleBacktick_UsesThreeBacktickFence()
+    {
+        // Arrange: <c> content contains two consecutive backticks
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Use <c>a``b</c> here.<code>foo();</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: fence must be three backticks — longer than the double run inside
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Contains("```a``b```", parts[0].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> adds padding spaces when the
+    ///     <c>&lt;c&gt;</c> content starts with a backtick, so Markdown parsers do not mistake the
+    ///     leading backtick for part of the fence delimiter (CommonMark §6.1).
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithInlineCodeStartingWithBacktick_AddsPaddingSpaces()
+    {
+        // Arrange: <c> content begins with a backtick
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Use <c>`leading</c> here.<code>foo();</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: content is padded with spaces inside the fence (CommonMark §6.1 padding rule)
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Contains("`` `leading ``", parts[0].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> adds padding spaces when the
+    ///     <c>&lt;c&gt;</c> content ends with a backtick, so Markdown parsers do not mistake the
+    ///     trailing backtick for part of the fence delimiter (CommonMark §6.1).
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithInlineCodeEndingWithBacktick_AddsPaddingSpaces()
+    {
+        // Arrange: <c> content ends with a backtick
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Use <c>trailing`</c> here.<code>foo();</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: content is padded with spaces inside the fence (CommonMark §6.1 padding rule)
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Contains("`` trailing` ``", parts[0].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> emits nothing for an empty or
+    ///     whitespace-only <c>&lt;c&gt;</c> element, rather than rendering stray <c>``</c> backtick pairs.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithEmptyInlineCode_EmitsNoBackticks()
+    {
+        // Arrange: example prose contains an empty <c> element followed by a code block
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Use <c></c> carefully.<code>bar.Sample();</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: prose must not contain stray backtick pairs from the empty <c> element
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.DoesNotContain("``", parts[0].Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> renders a <c>&lt;see langword="..." /&gt;</c>
+    ///     element as its keyword text within a prose part, rather than dropping it.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithSeeLangword_RendersKeywordInProsePart()
+    {
+        // Arrange: example prose contains a <see langword> element followed by a code block
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Returns <see langword="null" /> when not found.<code>var x = bar.Find();</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: prose part must contain the langword text, not drop it
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Contains("null", parts[0].Content);
+            Assert.True(parts[1].IsCode);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> renders a <c>&lt;paramref name="..." /&gt;</c>
+    ///     element as its parameter name within a prose part, rather than dropping it.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithParamref_RendersParameterNameInProsePart()
+    {
+        // Arrange: example prose contains a <paramref> element followed by a code block
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Pass <paramref name="timeout" /> in milliseconds.<code>bar.Sample(5000);</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: prose part must contain the parameter name, not drop it
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Contains("timeout", parts[0].Content);
+            Assert.True(parts[1].IsCode);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
     ///     Regression test for the branch-local visited-set fix: verifies that when a bare
     ///     <c>&lt;inheritdoc /&gt;</c> has multiple chain candidates, a failed traversal
     ///     of the first candidate does not poison the visited set seen by the second candidate.
@@ -1033,3 +1355,4 @@ public class XmlDocReaderTests
         }
     }
 }
+
