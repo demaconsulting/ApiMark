@@ -30,4 +30,20 @@ public class ExampleDocClass
     /// </code>
     /// </example>
     public string GetGreeting(string name) => $"Hello, {name}! Value={Value}";
+
+    /// <summary>Registers a hosted service of the given type.</summary>
+    /// <param name="serviceType">The service type to register.</param>
+    /// <returns>The current instance for chaining.</returns>
+    /// <example>
+    /// Use <see cref="RegisterService"/> to register a service, or prefer
+    /// <c>IHostedService</c> which registers automatically.
+    /// <code>
+    /// builder.RegisterService(typeof(MyService));
+    /// </code>
+    /// </example>
+    public ExampleDocClass RegisterService(Type serviceType)
+    {
+        _ = serviceType;
+        return this;
+    }
 }

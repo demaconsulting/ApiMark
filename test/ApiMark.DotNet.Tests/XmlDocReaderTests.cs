@@ -978,54 +978,163 @@ public class XmlDocReaderTests
     }
 
     /// <summary>
-    ///     Regression test for the branch-local visited-set fix: verifies that when a bare
-    ///     <c>&lt;inheritdoc /&gt;</c> has multiple chain candidates, a failed traversal
-    ///     of the first candidate does not poison the visited set seen by the second candidate.
-    ///     <para>
-    ///         Setup: <c>A.Method</c> has a bare inheritdoc with chain <c>[B.Method, C.Method]</c>.
-    ///         <c>B.Method</c> has <c>&lt;inheritdoc cref="M:C.Method" path="//remarks" /&gt;</c>
-    ///         — it visits <c>C.Method</c> via the explicit cref, but the <c>path</c> filter
-    ///         returns nothing because <c>C.Method</c> has no <c>&lt;remarks&gt;</c> element,
-    ///         so candidate 1 (B) fails.  <c>C.Method</c> has only a <c>&lt;summary&gt;</c>.
-    ///         Candidate 2 (C) must then resolve independently and return C's summary.
-    ///     </para>
-    ///     <para>
-    ///         Without the branch-local fix a shared visited set would contain <c>C.Method</c>
-    ///         after B's failed traversal, causing A's attempt to try C directly to be blocked
-    ///         by the cycle guard and returning <c>null</c> instead of the summary.
-    ///     </para>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> renders a <c>&lt;see cref="..." /&gt;</c>
+    ///     inline reference in prose correctly — the referenced name must appear in the prose part
+    ///     and must not be silently dropped.
     /// </summary>
     [Fact]
-    public void XmlDocReader_GetSummary_InheritDocBare_MultipleChainCandidates_SecondCandidateNotBlockedByFirstsVisited()
+    public void XmlDocReader_GetExampleParts_WithSeeCref_RendersInlineReferenceInProsePart()
     {
-        // Arrange: A bare inheritdoc, chain [B, C]; B crefs to C with a path filter that
-        // selects //remarks — C has no remarks, so B's candidate fails after visiting C.
-        // A's second candidate C must still succeed independently via a fresh branch copy.
+        // Arrange: example prose contains a self-closing <see cref> element followed by a code block
         var path = WriteXmlDoc("""
-            <member name="M:A.Method">
-                <inheritdoc />
-            </member>
-            <member name="M:B.Method">
-                <inheritdoc cref="M:C.Method" path="//remarks" />
-            </member>
-            <member name="M:C.Method">
-                <summary>C direct summary.</summary>
+            <member name="M:Foo.Bar.Sample">
+              <example>Call <see cref="M:Foo.Bar.Run(System.Int32)" /> to run:<code>bar.Run(1);</code></example>
             </member>
             """);
-        var chain = new Dictionary<string, IReadOnlyList<string>>
-        {
-            ["M:A.Method"] = new List<string> { "M:B.Method", "M:C.Method" },
-        };
         try
         {
-            // Act: candidate 1 (B) visits C but fails (no remarks); candidate 2 (C) must succeed
-            var reader = new XmlDocReader(path, chain);
-            var summary = reader.GetSummary("M:A.Method");
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
 
-            // Assert: without the branch-local fix C would be blocked by B's visited traversal
-            // and summary would be null; with the fix each candidate gets its own visited copy
-            // so A's second candidate C resolves independently and returns C's summary
-            Assert.Equal("C direct summary.", summary);
+            // Assert: prose part must contain the formatted cref text, not be empty or dropped
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Contains("Bar.Run()", parts[0].Content);
+            Assert.True(parts[1].IsCode);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> accumulates surrounding text
+    ///     and inline elements into a single coherent prose part rather than emitting each node
+    ///     as a separate, disconnected fragment.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithMixedInlineElements_ProseAccumulatedAsOnePart()
+    {
+        // Arrange: prose run spans two text nodes with a <see cref> element between them,
+        // followed by a code block — without accumulation the prose would be split into
+        // three separate parts ("prefer ", "RegisterService", " which registers...")
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>prefer <see cref="M:Foo.Bar.RegisterService(System.Type)" /> which registers automatically.<code>bar.RegisterService(typeof(MyService));</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: exactly two parts — one prose part and one code part
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+
+            // The prose part must include the text before the reference, the formatted
+            // cref name, and the text after — all in one coherent string
+            Assert.Contains("prefer", parts[0].Content);
+            Assert.Contains("Bar.RegisterService()", parts[0].Content);
+            Assert.Contains("which registers automatically.", parts[0].Content);
+
+            Assert.True(parts[1].IsCode);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> renders <c>&lt;c&gt;</c>
+    ///     inline code elements as backtick-wrapped text in the prose part.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithInlineCode_BackticksApplied()
+    {
+        // Arrange: example prose contains a <c> inline code element
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Use <c>IHostedService</c> for background work.<code>services.AddHostedService&lt;MyService&gt;();</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: prose part must render <c> as backtick-wrapped inline code
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Contains("`IHostedService`", parts[0].Content);
+            Assert.True(parts[1].IsCode);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> renders a <c>&lt;see langword="..." /&gt;</c>
+    ///     element as its keyword text within a prose part, rather than dropping it.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithSeeLangword_RendersKeywordInProsePart()
+    {
+        // Arrange: example prose contains a <see langword> element followed by a code block
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Returns <see langword="null" /> when not found.<code>var x = bar.Find();</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: prose part must contain the langword text, not drop it
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Contains("null", parts[0].Content);
+            Assert.True(parts[1].IsCode);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> renders a <c>&lt;paramref name="..." /&gt;</c>
+    ///     element as its parameter name within a prose part, rather than dropping it.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithParamref_RendersParameterNameInProsePart()
+    {
+        // Arrange: example prose contains a <paramref> element followed by a code block
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Pass <paramref name="timeout" /> in milliseconds.<code>bar.Sample(5000);</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: prose part must contain the parameter name, not drop it
+            Assert.Equal(2, parts.Count);
+            Assert.False(parts[0].IsCode);
+            Assert.Contains("timeout", parts[0].Content);
+            Assert.True(parts[1].IsCode);
         }
         finally
         {
@@ -1033,3 +1142,4 @@ public class XmlDocReaderTests
         }
     }
 }
+

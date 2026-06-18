@@ -215,7 +215,8 @@ sections:
               - CppGenerator_Generate_ApiHeaderPatterns_ExcludeWithoutReInclude_ExcludesHeader
           - id: ApiMarkCpp-CppGenerator-SupportAbsoluteAndRelativeHeaderPatterns
             title: >-
-              CppGenerator shall support both absolute and relative ApiHeaderPatterns glob
+              CppGenerator shall support both absolute and relative ApiHeaderPatterns
+              glob
               patterns: relative patterns shall be expanded against each PublicIncludeRoot,
               and absolute patterns shall be forwarded directly to GlobFileCollector.
             justification: |
@@ -224,8 +225,7 @@ sections:
               hard-coding directory paths. Absolute patterns allow headers on other drives or
               outside all configured roots to be included directly, supporting build layouts
               where public headers are not all under a common tree.
-            tests:
-              - GlobFileCollector_Collect_AbsolutePattern_FindsFiles
+            tests: [GlobFileCollector_Collect_AbsolutePattern_FindsFiles]
           - id: ApiMarkCpp-CppGenerator-EmitExternalTypesSection
             title: CppGenerator shall emit an "External Types" section at the bottom
               of each generated page that references at least one non-std external

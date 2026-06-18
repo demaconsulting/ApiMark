@@ -217,7 +217,12 @@ public sealed class XmlDocReader
     /// <remarks>
     ///     When the <c>&lt;example&gt;</c> element contains no <c>&lt;code&gt;</c> children, the
     ///     entire text is returned as a single code part. When <c>&lt;code&gt;</c> children are
-    ///     present, text nodes become prose parts and <c>&lt;code&gt;</c> elements become code parts.
+    ///     present, consecutive non-<c>&lt;code&gt;</c> nodes (text and inline elements such as
+    ///     <c>&lt;see cref="..." /&gt;</c>, <c>&lt;c&gt;</c>, <c>&lt;paramref&gt;</c>) are
+    ///     accumulated and rendered together into a single prose part via the same
+    ///     <c>AppendNodeText</c> / <c>AppendElementText</c> pipeline used by other documentation
+    ///     accessors. This preserves inline references and inline code within a prose run rather
+    ///     than emitting them as isolated, broken fragments.
     ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, the example parts are
     ///     resolved from the referenced or inherited base member recursively.
     /// </remarks>
@@ -249,46 +254,48 @@ public sealed class XmlDocReader
                 : [(true, text)];
         }
 
-        // Mixed content: process child nodes in order, separating <code> blocks from prose
+        // Mixed content: process child nodes in order, separating <code> blocks from prose.
+        // Consecutive non-<code> nodes (text nodes and inline elements such as <see>, <c>,
+        // <paramref>) are accumulated into a shared StringBuilder and flushed as a single
+        // prose part when a <code> block or the end of the sequence is reached. This ensures
+        // inline references within a prose run are rendered coherently via AppendNodeText /
+        // AppendElementText rather than being emitted as isolated, broken fragments.
         var parts = new List<(bool IsCode, string Content)>();
-        foreach (var node in el.Nodes())
+        var proseBuilder = new StringBuilder();
+
+        // Flushes any accumulated prose content to the parts list and resets the builder
+        void FlushProse()
         {
-            switch (node)
+            var text = NormalizeSingleLine(proseBuilder.ToString());
+            proseBuilder.Clear();
+            if (text.Length > 0)
             {
-                case XText textNode:
-                    {
-                        var text = textNode.Value.Trim();
-                        if (text.Length > 0)
-                        {
-                            parts.Add((false, text));
-                        }
-
-                        break;
-                    }
-
-                case XElement childElement when childElement.Name.LocalName == "code":
-                    {
-                        var code = childElement.Value.Trim();
-                        if (code.Length > 0)
-                        {
-                            parts.Add((true, code));
-                        }
-
-                        break;
-                    }
-
-                case XElement otherElement:
-                    {
-                        var text = otherElement.Value.Trim();
-                        if (text.Length > 0)
-                        {
-                            parts.Add((false, text));
-                        }
-
-                        break;
-                    }
+                parts.Add((false, text));
             }
         }
+
+        foreach (var node in el.Nodes())
+        {
+            if (node is XElement codeElement && codeElement.Name.LocalName == "code")
+            {
+                // Emit any accumulated prose before this code block
+                FlushProse();
+
+                var code = codeElement.Value.Trim();
+                if (code.Length > 0)
+                {
+                    parts.Add((true, code));
+                }
+            }
+            else
+            {
+                // Text nodes and inline elements — accumulate for combined prose rendering
+                AppendNodeText(proseBuilder, [node]);
+            }
+        }
+
+        // Flush any remaining prose after the last node
+        FlushProse();
 
         return parts;
     }
@@ -471,7 +478,7 @@ public sealed class XmlDocReader
     /// <summary>
     ///     Appends the text representation of a single XML element to <paramref name="builder"/>,
     ///     applying element-specific rendering rules for inline references, parameter references,
-    ///     paragraphs, and generic XML elements.
+    ///     inline code, paragraphs, and generic XML elements.
     /// </summary>
     /// <param name="builder">The string builder that accumulates the output text.</param>
     /// <param name="element">The XML element to render.</param>
@@ -490,6 +497,13 @@ public sealed class XmlDocReader
             case "para":
                 AppendNodeText(builder, element.Nodes());
                 builder.AppendLine();
+                break;
+            case "c":
+                // Render inline code in backticks so markdown consumers display it as
+                // monospace text — matches the intent of <c> in XML documentation
+                builder.Append('`');
+                builder.Append(element.Value);
+                builder.Append('`');
                 break;
             default:
                 AppendNodeText(builder, element.Nodes());
