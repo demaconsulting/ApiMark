@@ -840,9 +840,13 @@ public sealed class XmlDocReader
             .DefaultIfEmpty(0)
             .Min();
 
-        // Strip the common prefix from every line; lines shorter than minIndent become empty
+        // Strip the common prefix from every line; lines shorter than minIndent become empty.
+        // Normalize any remaining whitespace-only lines to string.Empty so lines that originally
+        // carried only indentation (more than minIndent spaces) do not introduce trailing spaces
+        // into the fenced code block output.
         var dedented = lines
-            .Select(line => line.Length >= minIndent ? line[minIndent..] : string.Empty);
+            .Select(line => line.Length >= minIndent ? line[minIndent..] : string.Empty)
+            .Select(line => string.IsNullOrWhiteSpace(line) ? string.Empty : line);
 
         // Remove leading and trailing blank lines so the output begins and ends with content
         var trimmed = dedented

@@ -1501,6 +1501,47 @@ public class XmlDocReaderTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> normalizes blank lines that
+    ///     carry residual indentation (more spaces than the common indent) to empty strings,
+    ///     so fenced code block output contains no trailing spaces on blank lines.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_BlankLineWithExtraIndent_NormalizesToEmptyLine()
+    {
+        // Arrange: blank line between two content lines carries extra spaces beyond the common
+        // indent — after stripping the common prefix the blank line still has residual spaces
+        var path = WriteXmlDoc(
+            "<member name=\"M:Foo.Bar.Sample\">\n" +
+            "  <example>\n" +
+            "    <code>\n" +
+            "        var x = new Bar();\n" +
+            "                \n" +         // 16 spaces — more than the 8-space common indent
+            "        x.Run();\n" +
+            "    </code>\n" +
+            "  </example>\n" +
+            "</member>");
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: middle line must be truly empty, not a run of residual spaces
+            Assert.Single(parts);
+            Assert.True(parts[0].IsCode);
+            var lines = parts[0].Content.Split('\n');
+            Assert.Equal(3, lines.Length);
+            Assert.Equal("var x = new Bar();", lines[0]);
+            Assert.Equal(string.Empty, lines[1]);   // no trailing spaces
+            Assert.Equal("x.Run();", lines[2]);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
     ///     Validates that the no-<c>&lt;code&gt;</c>-children fallback path in
     ///     <see cref="XmlDocReader.GetExampleParts"/> also applies dedent logic when the entire
     ///     <c>&lt;example&gt;</c> element value is treated as a single code block.
