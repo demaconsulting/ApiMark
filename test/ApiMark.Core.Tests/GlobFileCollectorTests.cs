@@ -395,4 +395,70 @@ public sealed class GlobFileCollectorTests
             Directory.Delete(tempDir, recursive: true);
         }
     }
+
+    /// <summary>
+    ///     Verifies that a non-canonical absolute literal path containing <c>..</c> segments
+    ///     is normalized via <see cref="Path.GetFullPath"/> and still selects the correct file.
+    /// </summary>
+    [Fact]
+    public void GlobFileCollector_Collect_LiteralAbsoluteFilePath_NonCanonicalPath_NormalizesAndSelectsFile()
+    {
+        // Arrange: create a temp directory with a .vhd file
+        var tempDir = CreateTempDirectory();
+        try
+        {
+            var subDir = Path.Join(tempDir, "sub");
+            Directory.CreateDirectory(subDir);
+            var vhdFile = Path.Join(tempDir, "entity.vhd");
+            File.WriteAllText(vhdFile, string.Empty);
+
+            // Act: pass a non-canonical path using sub/../entity.vhd
+            var nonCanonical = Path.Join(subDir, "..", "entity.vhd");
+            var result = GlobFileCollector.Collect(
+                [nonCanonical],
+                VhdlExtensions,
+                workingDirectory: Path.GetTempPath());
+
+            // Assert: the file is found and its path is fully normalized
+            Assert.Single(result);
+            Assert.Equal(Path.GetFullPath(vhdFile), result[0]);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Verifies that a literal absolute exclusion path whose extension is not in
+    ///     <c>languageExtensions</c> is a no-op — it neither adds nor removes any file.
+    /// </summary>
+    [Fact]
+    public void GlobFileCollector_Collect_LiteralAbsoluteExclusionPath_WrongExtension_IsNoOp()
+    {
+        // Arrange: create a temp directory with a .vhd file and a .txt file
+        var tempDir = CreateTempDirectory();
+        try
+        {
+            var vhdFile = Path.Join(tempDir, "entity.vhd");
+            var txtFile = Path.Join(tempDir, "readme.txt");
+            File.WriteAllText(vhdFile, string.Empty);
+            File.WriteAllText(txtFile, string.Empty);
+
+            // Act: include all .vhd files, then attempt to exclude the .txt file via literal path.
+            // The .txt extension is not in VhdlExtensions, so the exclusion should be a no-op.
+            var result = GlobFileCollector.Collect(
+                [$"{tempDir}/**/*.vhd", $"!{txtFile}"],
+                VhdlExtensions,
+                workingDirectory: Path.GetTempPath());
+
+            // Assert: the .vhd file is still present; the .txt exclusion had no effect
+            Assert.Single(result);
+            Assert.Equal(Path.GetFullPath(vhdFile), result[0]);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
 }

@@ -31,7 +31,8 @@ public sealed class CppGeneratorOptions
     ///     headers can find each other during AST parsing, and (2) it is the base directory
     ///     from which a declaration's canonical <c>#include</c> path is derived. When
     ///     <see cref="ApiHeaderPatterns"/> is non-empty, relative patterns are resolved against
-    ///     the current working directory rather than against these roots. Must contain at least
+    ///         <see cref="WorkingDirectory"/> (or the process working directory when
+    ///         <see cref="WorkingDirectory"/> is <see langword="null"/>) rather than against these roots. Must contain at least
     ///     one entry.
     /// </remarks>
     public IReadOnlyList<string> PublicIncludeRoots { get; set; } = [];
@@ -43,11 +44,12 @@ public sealed class CppGeneratorOptions
     /// <remarks>
     ///     <para>
     ///         Both absolute and relative glob patterns are supported. Relative patterns are
-    ///         resolved against the current working directory (CWD) so that callers can write
-    ///         patterns such as <c>include/**</c> when invoking the tool from the project root,
-    ///         matching the resolution behavior of all other CLI glob tools. Absolute patterns
-    ///         determine their own root from the non-glob path prefix, allowing headers outside
-    ///         any include root or on other drives to be included directly.
+    ///         resolved against <see cref="WorkingDirectory"/> (or the process working directory
+    ///         when <see cref="WorkingDirectory"/> is <see langword="null"/>), so that callers
+    ///         can write patterns such as <c>include/**</c> when invoking the tool from the
+    ///         project root, matching the resolution behavior of all other CLI glob tools.
+    ///         Absolute patterns determine their own root from the non-glob path prefix, allowing
+    ///         headers outside any include root or on other drives to be included directly.
     ///     </para>
     ///     <para>
     ///         Patterns whose final segment is a bare <c>*</c> (e.g. <c>include/**/*</c>,
@@ -115,4 +117,13 @@ public sealed class CppGeneratorOptions
     ///     located automatically (PATH, xcrun on macOS, vswhere on Windows).
     /// </summary>
     public string? ClangPath { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the directory used as the root for resolving relative
+    ///     <see cref="ApiHeaderPatterns"/> entries. Defaults to <see langword="null"/>,
+    ///     which means <see cref="Directory.GetCurrentDirectory"/> is used at parse time.
+    ///     Set this in tests or programmatic callers to anchor patterns to a known directory
+    ///     without mutating the process working directory.
+    /// </summary>
+    public string? WorkingDirectory { get; set; }
 }

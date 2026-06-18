@@ -148,11 +148,10 @@ public sealed class CppGenerator : IApiGenerator
     ///         which restricts results to files with recognized C++ header extensions.
     ///     </para>
     ///     <para>
-    ///         When patterns are provided, absolute patterns are forwarded to
-    ///         <see cref="GlobFileCollector"/> unchanged. Relative patterns are resolved against
-    ///         the current working directory via <see cref="ExpandExplicitPatterns"/> so that
-    ///         callers can write patterns such as <c>include/**</c> when invoking the tool from
-    ///         the project root, matching the resolution behavior of all other CLI glob tools.
+    ///         When patterns are provided, they are forwarded directly to
+    ///         <see cref="GlobFileCollector"/>, which resolves relative patterns against
+    ///         <see cref="CppGeneratorOptions.WorkingDirectory"/> and resolves absolute patterns
+    ///         from their own root prefix.
     ///     </para>
     /// </remarks>
     /// <exception cref="DirectoryNotFoundException">
@@ -162,7 +161,7 @@ public sealed class CppGenerator : IApiGenerator
     private List<string> CollectHeaderFiles()
     {
         var headerExtensions = new[] { ".h", ".hpp", ".hxx", ".h++" };
-        var cwd = Path.GetFullPath(Directory.GetCurrentDirectory());
+        var cwd = Path.GetFullPath(_options.WorkingDirectory ?? Directory.GetCurrentDirectory());
 
         List<string> patterns;
 
@@ -183,58 +182,12 @@ public sealed class CppGenerator : IApiGenerator
         }
         else
         {
-            // Explicit patterns: forward absolute patterns unchanged; resolve relative patterns
-            // against the CWD so users can write patterns like "include/**" when invoked from
-            // the project root, matching how all other CLI glob tools behave.
-            patterns = ExpandExplicitPatterns(cwd);
+            // Explicit patterns: pass directly to GlobFileCollector, which resolves relative
+            // patterns against cwd and absolute patterns from their own root prefix.
+            patterns = [.. _options.ApiHeaderPatterns];
         }
 
         return GlobFileCollector.Collect(patterns, headerExtensions, cwd).ToList();
-    }
-
-    /// <summary>
-    ///     Expands the explicit <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> into absolute
-    ///     glob patterns ready for <see cref="GlobFileCollector.Collect"/>.
-    /// </summary>
-    /// <remarks>
-    ///     Absolute patterns are forwarded unchanged. Relative patterns are resolved against the
-    ///     current working directory (<paramref name="cwd"/>) so that patterns such as
-    ///     <c>include/**</c> work correctly when the tool is invoked from the project root,
-    ///     matching the resolution behavior of all other CLI glob tools. Exclusion prefixes
-    ///     (<c>!</c>) are preserved on the expanded output entries.
-    /// </remarks>
-    /// <param name="cwd">
-    ///     The absolute path of the current working directory, used as the base for resolving
-    ///     relative patterns. Must be a fully-qualified, rooted path.
-    /// </param>
-    /// <returns>
-    ///     An ordered list of absolute-path glob patterns with exclusion prefixes preserved,
-    ///     ready to pass directly to <see cref="GlobFileCollector.Collect"/>.
-    /// </returns>
-    private List<string> ExpandExplicitPatterns(string cwd)
-    {
-        var patterns = new List<string>();
-        foreach (var pattern in _options.ApiHeaderPatterns)
-        {
-            var isExclusion = pattern.StartsWith('!');
-            var body = isExclusion ? pattern.Substring(1).Trim() : pattern.Trim();
-
-            if (Path.IsPathRooted(body))
-            {
-                // Absolute pattern — pass through unchanged
-                patterns.Add(pattern);
-            }
-            else
-            {
-                // Relative pattern — resolve against the CWD so users can write patterns like
-                // "include/**" when invoking the tool from the project root, consistent with
-                // how all other CLI glob tools resolve relative patterns.
-                var expanded = Path.Join(cwd, body);
-                patterns.Add(isExclusion ? "!" + expanded : expanded);
-            }
-        }
-
-        return patterns;
     }
 
     // =========================================================================

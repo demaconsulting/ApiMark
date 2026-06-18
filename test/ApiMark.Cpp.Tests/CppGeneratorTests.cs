@@ -692,44 +692,32 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     ///     Validates that <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> with a specific
     ///     include pattern restricts header enumeration to files matching that pattern.
     /// </summary>
-    /// <remarks>
-    ///     CWD is set explicitly to the fixture include directory so that relative glob patterns
-    ///     such as <c>**/SampleClass.h</c> resolve to the correct fixture tree on all platforms.
-    /// </remarks>
     [Fact]
     public void CppGenerator_Generate_ApiHeaderPatterns_IncludePattern_OnlyMatchingFilesDocumented()
     {
-        var previousCwd = Directory.GetCurrentDirectory();
-        Directory.SetCurrentDirectory(FixturePaths.GetFixtureIncludeDir());
-        try
+        // Arrange: include only SampleClass.h to isolate a single type
+        var options = new CppGeneratorOptions
         {
-            // Arrange: include only SampleClass.h to isolate a single type
-            var options = new CppGeneratorOptions
-            {
-                LibraryName = "Fixtures",
-                PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
-                ApiHeaderPatterns = ["**/SampleClass.h"],
-            };
-            var factory = new InMemoryMarkdownWriterFactory();
-            var generator = new CppGenerator(options);
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ApiHeaderPatterns = ["**/SampleClass.h"],
+            WorkingDirectory = FixturePaths.GetFixtureIncludeDir(),
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
 
-            // Act
-            generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-            // Assert: SampleClass page must exist because its header matched the include pattern
-            Assert.True(
-                factory.Writers.ContainsKey("fixtures/SampleClass"),
-                "Expected SampleClass page when included by pattern");
+        // Assert: SampleClass page must exist because its header matched the include pattern
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/SampleClass"),
+            "Expected SampleClass page when included by pattern");
 
-            // Assert: SampleStatus page must not exist because SampleEnum.h was not included
-            Assert.False(
-                factory.Writers.ContainsKey("fixtures/SampleStatus"),
-                "Expected SampleStatus to be absent when not matched by include pattern");
-        }
-        finally
-        {
-            Directory.SetCurrentDirectory(previousCwd);
-        }
+        // Assert: SampleStatus page must not exist because SampleEnum.h was not included
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/SampleStatus"),
+            "Expected SampleStatus to be absent when not matched by include pattern");
     }
 
     /// <summary>
@@ -737,127 +725,90 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     ///     <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> excludes matching headers while
     ///     leaving all other headers documented.
     /// </summary>
-    /// <remarks>
-    ///     CWD is set explicitly to the fixture include directory so that relative glob patterns
-    ///     such as <c>**/*</c> and <c>!**/SampleClass.h</c> resolve to the correct fixture tree
-    ///     on all platforms.
-    /// </remarks>
     [Fact]
     public void CppGenerator_Generate_ApiHeaderPatterns_ExcludePattern_ExcludesMatchingFiles()
     {
-        var previousCwd = Directory.GetCurrentDirectory();
-        Directory.SetCurrentDirectory(FixturePaths.GetFixtureIncludeDir());
-        try
+        // Arrange: catch-all followed by an exclusion pattern for SampleClass.h
+        var options = new CppGeneratorOptions
         {
-            // Arrange: catch-all followed by an exclusion pattern for SampleClass.h
-            var options = new CppGeneratorOptions
-            {
-                LibraryName = "Fixtures",
-                PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
-                ApiHeaderPatterns = ["**/*", "!**/SampleClass.h"],
-            };
-            var factory = new InMemoryMarkdownWriterFactory();
-            var generator = new CppGenerator(options);
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ApiHeaderPatterns = ["**/*", "!**/SampleClass.h"],
+            WorkingDirectory = FixturePaths.GetFixtureIncludeDir(),
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
 
-            // Act
-            generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-            // Assert: SampleClass page must not exist because its header was excluded by the exclusion pattern
-            Assert.False(
-                factory.Writers.ContainsKey("fixtures/SampleClass"),
-                "Expected SampleClass to be absent when its header is excluded by exclusion pattern");
+        // Assert: SampleClass page must not exist because its header was excluded by the exclusion pattern
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/SampleClass"),
+            "Expected SampleClass to be absent when its header is excluded by exclusion pattern");
 
-            // Assert: SampleStatus page must still exist because SampleEnum.h was not excluded
-            Assert.True(
-                factory.Writers.ContainsKey("fixtures/SampleStatus"),
-                "Expected SampleStatus to be present when only SampleClass.h is excluded");
-        }
-        finally
-        {
-            Directory.SetCurrentDirectory(previousCwd);
-        }
+        // Assert: SampleStatus page must still exist because SampleEnum.h was not excluded
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/SampleStatus"),
+            "Expected SampleStatus to be present when only SampleClass.h is excluded");
     }
 
     /// <summary>
     ///     Validates gitignore-style re-include semantics: a header that is first excluded by
     ///     an exclusion pattern and then re-included by a later positive pattern is documented.
     /// </summary>
-    /// <remarks>
-    ///     CWD is set explicitly to the fixture include directory so that relative glob patterns
-    ///     resolve to the correct fixture tree on all platforms.
-    /// </remarks>
     [Fact]
     public void CppGenerator_Generate_ApiHeaderPatterns_ReInclude_GitignoreSemantics_IncludesReIncludedHeader()
     {
-        var previousCwd = Directory.GetCurrentDirectory();
-        Directory.SetCurrentDirectory(FixturePaths.GetFixtureIncludeDir());
-        try
+        // Arrange: catch-all, exclude DeprecatedClass.h, then re-include it;
+        // IncludeDeprecated=true so the class appears in output even when its header is parsed
+        var options = new CppGeneratorOptions
         {
-            // Arrange: catch-all, exclude DeprecatedClass.h, then re-include it;
-            // IncludeDeprecated=true so the class appears in output even when its header is parsed
-            var options = new CppGeneratorOptions
-            {
-                LibraryName = "Fixtures",
-                PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
-                ApiHeaderPatterns = ["**/*", "!**/DeprecatedClass.h", "**/DeprecatedClass.h"],
-                IncludeDeprecated = true,
-            };
-            var factory = new InMemoryMarkdownWriterFactory();
-            var generator = new CppGenerator(options);
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ApiHeaderPatterns = ["**/*", "!**/DeprecatedClass.h", "**/DeprecatedClass.h"],
+            IncludeDeprecated = true,
+            WorkingDirectory = FixturePaths.GetFixtureIncludeDir(),
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
 
-            // Act
-            generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-            // Assert: DeprecatedClass must be documented because the re-include pattern wins
-            Assert.True(
-                factory.Writers.ContainsKey("fixtures/DeprecatedClass"),
-                "Expected DeprecatedClass page when re-included after exclusion");
-        }
-        finally
-        {
-            Directory.SetCurrentDirectory(previousCwd);
-        }
+        // Assert: DeprecatedClass must be documented because the re-include pattern wins
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/DeprecatedClass"),
+            "Expected DeprecatedClass page when re-included after exclusion");
     }
 
     /// <summary>
     ///     Validates that an exclusion pattern without a subsequent re-include permanently
     ///     removes a header from documentation, confirming last-match-wins semantics.
     /// </summary>
-    /// <remarks>
-    ///     CWD is set explicitly to the fixture include directory so that relative glob patterns
-    ///     resolve to the correct fixture tree on all platforms.
-    /// </remarks>
     [Fact]
     public void CppGenerator_Generate_ApiHeaderPatterns_ExcludeWithoutReInclude_ExcludesHeader()
     {
-        var previousCwd = Directory.GetCurrentDirectory();
-        Directory.SetCurrentDirectory(FixturePaths.GetFixtureIncludeDir());
-        try
+        // Arrange: catch-all followed by exclusion pattern for DeprecatedClass.h (no re-include);
+        // IncludeDeprecated=true so the class would appear if the header were parsed
+        var options = new CppGeneratorOptions
         {
-            // Arrange: catch-all followed by exclusion pattern for DeprecatedClass.h (no re-include);
-            // IncludeDeprecated=true so the class would appear if the header were parsed
-            var options = new CppGeneratorOptions
-            {
-                LibraryName = "Fixtures",
-                PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
-                ApiHeaderPatterns = ["**/*", "!**/DeprecatedClass.h"],
-                IncludeDeprecated = true,
-            };
-            var factory = new InMemoryMarkdownWriterFactory();
-            var generator = new CppGenerator(options);
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ApiHeaderPatterns = ["**/*", "!**/DeprecatedClass.h"],
+            IncludeDeprecated = true,
+            WorkingDirectory = FixturePaths.GetFixtureIncludeDir(),
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
 
-            // Act
-            generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-            // Assert: DeprecatedClass must not be documented because the exclusion pattern is final
-            Assert.False(
-                factory.Writers.ContainsKey("fixtures/DeprecatedClass"),
-                "Expected DeprecatedClass to be absent when excluded without re-include");
-        }
-        finally
-        {
-            Directory.SetCurrentDirectory(previousCwd);
-        }
+        // Assert: DeprecatedClass must not be documented because the exclusion pattern is final
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/DeprecatedClass"),
+            "Expected DeprecatedClass to be absent when excluded without re-include");
     }
 
     /// <summary>
@@ -866,154 +817,117 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     ///     This confirms that api-headers filtering controls symbol ownership, not just which
     ///     files are passed to clang.
     /// </summary>
-    /// <remarks>
-    ///     CWD is set explicitly to the fixture include directory so that the relative glob
-    ///     pattern <c>**/TypeLinkClass.h</c> resolves to the correct fixture tree on all platforms.
-    /// </remarks>
     [Fact]
     public void CppGenerator_Generate_ApiHeaderPatterns_TransitiveInclude_ExcludesNonSelectedSymbols()
     {
-        var previousCwd = Directory.GetCurrentDirectory();
-        Directory.SetCurrentDirectory(FixturePaths.GetFixtureIncludeDir());
-        try
+        // Arrange: select only TypeLinkClass.h; InheritanceClass.h is transitively included by it
+        // but must NOT be treated as an owned source file
+        var options = new CppGeneratorOptions
         {
-            // Arrange: select only TypeLinkClass.h; InheritanceClass.h is transitively included by it
-            // but must NOT be treated as an owned source file
-            var options = new CppGeneratorOptions
-            {
-                LibraryName = "Fixtures",
-                PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
-                ApiHeaderPatterns = ["**/TypeLinkClass.h"],
-            };
-            var factory = new InMemoryMarkdownWriterFactory();
-            var generator = new CppGenerator(options);
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ApiHeaderPatterns = ["**/TypeLinkClass.h"],
+            WorkingDirectory = FixturePaths.GetFixtureIncludeDir(),
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
 
-            // Act
-            generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-            // Assert: TypeLinkClass page must exist — its header was selected
-            Assert.True(
-                factory.Writers.ContainsKey("fixtures/TypeLinkClass"),
-                "Expected TypeLinkClass page when its header is selected");
+        // Assert: TypeLinkClass page must exist — its header was selected
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/TypeLinkClass"),
+            "Expected TypeLinkClass page when its header is selected");
 
-            // Assert: Shape and Circle must be absent — they are defined in InheritanceClass.h which
-            // was not selected by --api-headers, even though it is under PublicIncludeRoot
-            Assert.False(
-                factory.Writers.ContainsKey("fixtures/Shape"),
-                "Expected Shape to be absent: InheritanceClass.h was not selected by --api-headers");
-            Assert.False(
-                factory.Writers.ContainsKey("fixtures/Circle"),
-                "Expected Circle to be absent: InheritanceClass.h was not selected by --api-headers");
-        }
-        finally
-        {
-            Directory.SetCurrentDirectory(previousCwd);
-        }
+        // Assert: Shape and Circle must be absent — they are defined in InheritanceClass.h which
+        // was not selected by --api-headers, even though it is under PublicIncludeRoot
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/Shape"),
+            "Expected Shape to be absent: InheritanceClass.h was not selected by --api-headers");
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/Circle"),
+            "Expected Circle to be absent: InheritanceClass.h was not selected by --api-headers");
     }
 
     /// <summary>
-    ///     Validates that a CWD-relative <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> entry
-    ///     selects only the file it names when resolved from the current working directory, confirming
-    ///     that relative patterns are resolved from the CWD and not from each include root.
+    ///     Validates that a relative <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> entry
+    ///     selects only the file it names when resolved from <see cref="CppGeneratorOptions.WorkingDirectory"/>,
+    ///     confirming that relative patterns are resolved from <c>WorkingDirectory</c> and not from
+    ///     each include root.
     /// </summary>
     /// <remarks>
-    ///     CWD is set explicitly to the fixture include directory for this test so that
-    ///     <see cref="Path.GetRelativePath"/> produces a path relative to that directory (e.g.
-    ///     <c>fixtures/SampleClass.h</c>). After <c>ExpandExplicitPatterns</c> resolves it to
-    ///     an absolute literal path it is handled by the literal-path branch of
-    ///     <see cref="GlobFileCollector.Collect"/>. The pattern is computed at runtime via
-    ///     <see cref="Path.GetRelativePath"/> so that the test works on any developer machine or
-    ///     CI environment regardless of where the repo is checked out.
+    ///     The pattern is computed at runtime via <see cref="Path.GetRelativePath"/> so that the
+    ///     test works on any developer machine or CI environment regardless of where the repo is
+    ///     checked out. Using a non-<c>**/</c> prefix means the pattern can only resolve correctly
+    ///     from the configured <c>WorkingDirectory</c>.
     /// </remarks>
     [Fact]
     public void CppGenerator_Generate_ApiHeaderPatterns_CwdRelativePattern_OnlyMatchingFilesDocumented()
     {
-        var previousCwd = Directory.GetCurrentDirectory();
-        Directory.SetCurrentDirectory(FixturePaths.GetFixtureIncludeDir());
-        try
+        // Arrange: compute a WorkingDirectory-relative path to SampleClass.h that is NOT root-agnostic.
+        var absoluteSampleClassPath = Path.Join(FixturePaths.GetFixtureNamespaceDir(), "SampleClass.h");
+        var relativePattern = Path.GetRelativePath(FixturePaths.GetFixtureIncludeDir(), absoluteSampleClassPath);
+
+        var options = new CppGeneratorOptions
         {
-            // Arrange: compute a CWD-relative path to SampleClass.h that is NOT root-agnostic.
-            // Using a non-**/ prefix means the pattern can only resolve correctly from the CWD.
-            var absoluteSampleClassPath = Path.Join(FixturePaths.GetFixtureNamespaceDir(), "SampleClass.h");
-            var cwdRelativePattern = Path.GetRelativePath(Directory.GetCurrentDirectory(), absoluteSampleClassPath);
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ApiHeaderPatterns = [relativePattern],
+            WorkingDirectory = FixturePaths.GetFixtureIncludeDir(),
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
 
-            var options = new CppGeneratorOptions
-            {
-                LibraryName = "Fixtures",
-                PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
-                ApiHeaderPatterns = [cwdRelativePattern],
-            };
-            var factory = new InMemoryMarkdownWriterFactory();
-            var generator = new CppGenerator(options);
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-            // Act
-            generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+        // Assert: SampleClass page must exist because its header was selected by the relative pattern
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/SampleClass"),
+            "Expected SampleClass page when selected by a WorkingDirectory-relative pattern");
 
-            // Assert: SampleClass page must exist because its header was selected by the CWD-relative pattern
-            Assert.True(
-                factory.Writers.ContainsKey("fixtures/SampleClass"),
-                "Expected SampleClass page when selected by a CWD-relative pattern");
-
-            // Assert: SampleStatus page must not exist because SampleEnum.h was not selected
-            Assert.False(
-                factory.Writers.ContainsKey("fixtures/SampleStatus"),
-                "Expected SampleStatus to be absent when not matched by the CWD-relative include pattern");
-        }
-        finally
-        {
-            Directory.SetCurrentDirectory(previousCwd);
-        }
+        // Assert: SampleStatus page must not exist because SampleEnum.h was not selected
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/SampleStatus"),
+            "Expected SampleStatus to be absent when not matched by the WorkingDirectory-relative include pattern");
     }
 
     /// <summary>
-    ///     Validates that a CWD-relative exclusion pattern removes the named file from the documented
-    ///     header set while leaving all other headers present, confirming that CWD-relative resolution
-    ///     applies to both inclusion and exclusion patterns.
+    ///     Validates that a relative exclusion pattern removes the named file from the documented
+    ///     header set while leaving all other headers present, confirming that
+    ///     <see cref="CppGeneratorOptions.WorkingDirectory"/>-relative resolution applies to both
+    ///     inclusion and exclusion patterns.
     /// </summary>
-    /// <remarks>
-    ///     CWD is set explicitly to the fixture include directory for this test so that
-    ///     <see cref="Path.GetRelativePath"/> produces a path relative to that directory (e.g.
-    ///     <c>fixtures/SampleClass.h</c>). After <c>ExpandExplicitPatterns</c> resolves it to
-    ///     an absolute literal path it is handled by the literal-path branch of
-    ///     <see cref="GlobFileCollector.Collect"/>.
-    /// </remarks>
     [Fact]
     public void CppGenerator_Generate_ApiHeaderPatterns_CwdRelativeExclusionPattern_ExcludesMatchingFiles()
     {
-        var previousCwd = Directory.GetCurrentDirectory();
-        Directory.SetCurrentDirectory(FixturePaths.GetFixtureIncludeDir());
-        try
+        // Arrange: compute a WorkingDirectory-relative path to SampleClass.h and use it as an exclusion.
+        var absoluteSampleClassPath = Path.Join(FixturePaths.GetFixtureNamespaceDir(), "SampleClass.h");
+        var relativeExclusion = "!" + Path.GetRelativePath(FixturePaths.GetFixtureIncludeDir(), absoluteSampleClassPath);
+
+        var options = new CppGeneratorOptions
         {
-            // Arrange: compute a CWD-relative path to SampleClass.h and use it as an exclusion.
-            var absoluteSampleClassPath = Path.Join(FixturePaths.GetFixtureNamespaceDir(), "SampleClass.h");
-            var cwdRelativeExclusion = "!" + Path.GetRelativePath(Directory.GetCurrentDirectory(), absoluteSampleClassPath);
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ApiHeaderPatterns = ["**/*", relativeExclusion],
+            WorkingDirectory = FixturePaths.GetFixtureIncludeDir(),
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
 
-            var options = new CppGeneratorOptions
-            {
-                LibraryName = "Fixtures",
-                PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
-                ApiHeaderPatterns = ["**/*", cwdRelativeExclusion],
-            };
-            var factory = new InMemoryMarkdownWriterFactory();
-            var generator = new CppGenerator(options);
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-            // Act
-            generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+        // Assert: SampleClass page must not exist because its header was excluded by the relative exclusion pattern
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/SampleClass"),
+            "Expected SampleClass to be absent when its header is excluded by a WorkingDirectory-relative exclusion pattern");
 
-            // Assert: SampleClass page must not exist because its header was excluded by the CWD-relative exclusion pattern
-            Assert.False(
-                factory.Writers.ContainsKey("fixtures/SampleClass"),
-                "Expected SampleClass to be absent when its header is excluded by a CWD-relative exclusion pattern");
-
-            // Assert: SampleStatus page must still exist because SampleEnum.h was not excluded
-            Assert.True(
-                factory.Writers.ContainsKey("fixtures/SampleStatus"),
-                "Expected SampleStatus to be present when only SampleClass.h is excluded by CWD-relative pattern");
-        }
-        finally
-        {
-            Directory.SetCurrentDirectory(previousCwd);
-        }
+        // Assert: SampleStatus page must still exist because SampleEnum.h was not excluded
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/SampleStatus"),
+            "Expected SampleStatus to be present when only SampleClass.h is excluded by WorkingDirectory-relative pattern");
     }
 
     /// <summary>
