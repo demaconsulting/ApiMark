@@ -846,6 +846,83 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     }
 
     /// <summary>
+    ///     Validates that a CWD-relative <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> entry
+    ///     selects only the file it names when resolved from the current working directory, confirming
+    ///     that relative patterns are resolved from the CWD and not from each include root.
+    /// </summary>
+    /// <remarks>
+    ///     This test would fail with the old include-root-expansion behavior because that behavior
+    ///     joined the pattern onto each include root, producing a doubled path that matches nothing.
+    ///     The pattern is computed at runtime via <see cref="Path.GetRelativePath"/> so that the test
+    ///     works on any developer machine or CI environment regardless of where the repo is checked out.
+    /// </remarks>
+    [Fact]
+    public void CppGenerator_Generate_ApiHeaderPatterns_CwdRelativePattern_OnlyMatchingFilesDocumented()
+    {
+        // Arrange: compute a CWD-relative path to SampleClass.h that is NOT root-agnostic.
+        // Using a non-**/ prefix means the pattern can only resolve correctly from the CWD.
+        var absoluteSampleClassPath = Path.Join(FixturePaths.GetFixtureNamespaceDir(), "SampleClass.h");
+        var cwdRelativePattern = Path.GetRelativePath(Directory.GetCurrentDirectory(), absoluteSampleClassPath);
+
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ApiHeaderPatterns = [cwdRelativePattern],
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: SampleClass page must exist because its header was selected by the CWD-relative pattern
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/SampleClass"),
+            "Expected SampleClass page when selected by a CWD-relative pattern");
+
+        // Assert: SampleStatus page must not exist because SampleEnum.h was not selected
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/SampleStatus"),
+            "Expected SampleStatus to be absent when not matched by the CWD-relative include pattern");
+    }
+
+    /// <summary>
+    ///     Validates that a CWD-relative exclusion pattern removes the named file from the documented
+    ///     header set while leaving all other headers present, confirming that CWD-relative resolution
+    ///     applies to both inclusion and exclusion patterns.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ApiHeaderPatterns_CwdRelativeExclusionPattern_ExcludesMatchingFiles()
+    {
+        // Arrange: compute a CWD-relative path to SampleClass.h and use it as an exclusion.
+        var absoluteSampleClassPath = Path.Join(FixturePaths.GetFixtureNamespaceDir(), "SampleClass.h");
+        var cwdRelativeExclusion = "!" + Path.GetRelativePath(Directory.GetCurrentDirectory(), absoluteSampleClassPath);
+
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ApiHeaderPatterns = ["**/*", cwdRelativeExclusion],
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: SampleClass page must not exist because its header was excluded by the CWD-relative exclusion pattern
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/SampleClass"),
+            "Expected SampleClass to be absent when its header is excluded by a CWD-relative exclusion pattern");
+
+        // Assert: SampleStatus page must still exist because SampleEnum.h was not excluded
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/SampleStatus"),
+            "Expected SampleStatus to be present when only SampleClass.h is excluded by CWD-relative pattern");
+    }
+
+    /// <summary>
     ///     Validates that the type page for a <c>final</c> class contains the <c>final</c>
     ///     keyword in its signature block so that AI readers immediately know the class
     ///     cannot be used as a base class.

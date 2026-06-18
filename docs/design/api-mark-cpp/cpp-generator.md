@@ -62,9 +62,12 @@ glob and exclusion pattern strings that determine which header files contribute 
 documented public API. Gitignore-style semantics apply: patterns are evaluated
 in order; the last matching pattern wins. Entries without a `!` prefix are
 include patterns; entries with a `!` prefix are exclusion patterns (the `!`
-is stripped before glob matching). When empty, all headers with recognized C++
-extensions (`.h`, `.hpp`, `.hxx`, `.h++`) under all configured roots are
-documented automatically without any pattern filtering.
+is stripped before glob matching). Relative patterns are resolved against the
+current working directory (CWD), matching the behavior of all other CLI glob tools
+and allowing users to write patterns reflecting their project layout directly
+(e.g. `include/**` when invoked from the project root). When empty, all headers
+with recognized C++ extensions (`.h`, `.hpp`, `.hxx`, `.h++`) under all configured
+roots are documented automatically without any pattern filtering.
 
 Example — all headers except `detail/`, with one re-included:
 `["include/**", "!include/detail/**", "include/detail/public_api.h"]`
@@ -140,8 +143,8 @@ a `CppEmitter` holding all parsed data.
 Execution steps: call `CollectHeaderFiles()` which uses `GlobFileCollector.Collect()`
 to build the selected-header set from `ApiHeaderPatterns` and `PublicIncludeRoots`;
 when `ApiHeaderPatterns` is empty all headers under all roots are used directly;
-when `ApiHeaderPatterns` is non-empty relative patterns are expanded against each
-include root via `ExpandExplicitPatterns`; build Clang options from all configured
+when `ApiHeaderPatterns` is non-empty relative patterns are resolved against the
+current working directory (CWD) via `ExpandExplicitPatterns`; build Clang options from all configured
 paths, defines, standard, and additional arguments; write a temporary combined
 header that `#include`s all selected headers; invoke
 `clang -Xclang -ast-dump=json -fparse-all-comments -fsyntax-only` on it, parse the
@@ -151,10 +154,12 @@ walking using the pre-built selected-header set; apply `Visibility` and
 `CppEmitter` holding all parsed data.
 
 **CppGenerator.ExpandExplicitPatterns** (private): Expands relative
-`ApiHeaderPatterns` entries against each configured include root.
+`ApiHeaderPatterns` entries against the current working directory (CWD).
 
+- *Parameters*: `string cwd` — the absolute current working directory path, used as the
+  base for resolving relative patterns.
 - *Returns*: `List<string>` — all patterns with relative entries resolved to
-  absolute paths under each root; absolute patterns passed through unchanged;
+  absolute paths under the CWD; absolute patterns passed through unchanged;
   exclusion prefix `!` preserved.
 
 **CppEmitter.Emit** (implements `IApiEmitter`): Writes the full Markdown output tree using the
