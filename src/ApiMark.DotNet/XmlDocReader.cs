@@ -287,6 +287,13 @@ public sealed class XmlDocReader
                     parts.Add((true, code));
                 }
             }
+            else if (node is XElement paraElement && paraElement.Name.LocalName == "para")
+            {
+                // Render the paragraph into the accumulator, then flush so that each <para>
+                // becomes a distinct prose part rather than merging with adjacent content
+                AppendNodeText(proseBuilder, paraElement.Nodes());
+                FlushProse();
+            }
             else
             {
                 // Text nodes and inline elements — accumulate for combined prose rendering
@@ -500,9 +507,11 @@ public sealed class XmlDocReader
                 break;
             case "c":
                 // Render inline code in backticks so markdown consumers display it as
-                // monospace text — matches the intent of <c> in XML documentation
+                // monospace text — matches the intent of <c> in XML documentation.
+                // Normalize to a single line to prevent stray whitespace or line breaks
+                // inside the element from leaking into the backtick span.
                 builder.Append('`');
-                builder.Append(element.Value);
+                builder.Append(NormalizeSingleLine(element.Value));
                 builder.Append('`');
                 break;
             default:
