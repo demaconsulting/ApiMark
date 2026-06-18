@@ -1237,6 +1237,10 @@ public class XmlDocReaderTests
     }
 
 
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> renders a <c>&lt;see langword="..." /&gt;</c>
+    ///     element as its keyword text within a prose part, rather than dropping it.
+    /// </summary>
     [Fact]
     public void XmlDocReader_GetExampleParts_WithSeeLangword_RendersKeywordInProsePart()
     {

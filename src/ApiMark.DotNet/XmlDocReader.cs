@@ -297,7 +297,7 @@ public sealed class XmlDocReader
             else
             {
                 // Text nodes and inline elements — accumulate for combined prose rendering
-                AppendNodeText(proseBuilder, [node]);
+                AppendNodeText(proseBuilder, node);
             }
         }
 
@@ -479,6 +479,26 @@ public sealed class XmlDocReader
                     AppendElementText(builder, element);
                     break;
             }
+        }
+    }
+
+    /// <summary>
+    ///     Appends a single node's text representation to <paramref name="builder"/>,
+    ///     dispatching XML elements to <see cref="AppendElementText"/>.
+    ///     Avoids allocating an array when only one node needs to be processed.
+    /// </summary>
+    /// <param name="builder">The string builder that accumulates the output text.</param>
+    /// <param name="node">The single XML node to process.</param>
+    private static void AppendNodeText(StringBuilder builder, XNode node)
+    {
+        switch (node)
+        {
+            case XText text:
+                builder.Append(text.Value);
+                break;
+            case XElement element:
+                AppendElementText(builder, element);
+                break;
         }
     }
 
