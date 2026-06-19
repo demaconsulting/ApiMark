@@ -857,24 +857,28 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     ///     each include root.
     /// </summary>
     /// <remarks>
-    ///     The pattern is computed at runtime via <see cref="Path.GetRelativePath"/> so that the
-    ///     test works on any developer machine or CI environment regardless of where the repo is
-    ///     checked out. Using a non-<c>**/</c> prefix means the pattern can only resolve correctly
-    ///     from the configured <c>WorkingDirectory</c>.
+    ///     <c>WorkingDirectory</c> is set to the <em>parent</em> of the include root so that the
+    ///     relative pattern contains an <c>include/</c> prefix (e.g. <c>include/fixtures/SampleClass.h</c>).
+    ///     Under the old include-root expansion bug, the pattern would have been joined onto the include
+    ///     root, producing a doubled path (<c>include/include/fixtures/SampleClass.h</c>) that matches
+    ///     nothing — so the test would fail with the old code and pass only with the correct implementation.
     /// </remarks>
     [Fact]
     public void CppGenerator_Generate_ApiHeaderPatterns_CwdRelativePattern_OnlyMatchingFilesDocumented()
     {
-        // Arrange: compute a WorkingDirectory-relative path to SampleClass.h that is NOT root-agnostic.
+        // Arrange: WorkingDirectory is the parent of include/, not include/ itself.
+        // The relative pattern therefore starts with "include/", which under the old
+        // include-root expansion would have produced "include/include/..." — matching nothing.
+        var workingDirectory = Path.GetDirectoryName(FixturePaths.GetFixtureIncludeDir())!;
         var absoluteSampleClassPath = Path.Join(FixturePaths.GetFixtureNamespaceDir(), "SampleClass.h");
-        var relativePattern = Path.GetRelativePath(FixturePaths.GetFixtureIncludeDir(), absoluteSampleClassPath);
+        var relativePattern = Path.GetRelativePath(workingDirectory, absoluteSampleClassPath);
 
         var options = new CppGeneratorOptions
         {
             LibraryName = "Fixtures",
             PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
             ApiHeaderPatterns = [relativePattern],
-            WorkingDirectory = FixturePaths.GetFixtureIncludeDir(),
+            WorkingDirectory = workingDirectory,
         };
         var factory = new InMemoryMarkdownWriterFactory();
         var generator = new CppGenerator(options);
@@ -899,19 +903,30 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     ///     <see cref="CppGeneratorOptions.WorkingDirectory"/>-relative resolution applies to both
     ///     inclusion and exclusion patterns.
     /// </summary>
+    /// <remarks>
+    ///     <c>WorkingDirectory</c> is set to the <em>parent</em> of the include root so that both
+    ///     the catch-all inclusion (<c>include/**/*</c>) and the exclusion contain an <c>include/</c>
+    ///     prefix. Under the old include-root expansion bug, both would have been joined onto the
+    ///     include root, producing doubled paths that match nothing — so the test validates the
+    ///     correct CWD-relative behavior rather than accidentally passing with the old code.
+    /// </remarks>
     [Fact]
     public void CppGenerator_Generate_ApiHeaderPatterns_CwdRelativeExclusionPattern_ExcludesMatchingFiles()
     {
-        // Arrange: compute a WorkingDirectory-relative path to SampleClass.h and use it as an exclusion.
+        // Arrange: WorkingDirectory is the parent of include/, not include/ itself.
+        // Both the catch-all and the exclusion use "include/..." prefixes.
+        // Under the old bug, joining onto the include root would double the prefix to
+        // "include/include/..." — matching nothing and causing the test to fail.
+        var workingDirectory = Path.GetDirectoryName(FixturePaths.GetFixtureIncludeDir())!;
         var absoluteSampleClassPath = Path.Join(FixturePaths.GetFixtureNamespaceDir(), "SampleClass.h");
-        var relativeExclusion = "!" + Path.GetRelativePath(FixturePaths.GetFixtureIncludeDir(), absoluteSampleClassPath);
+        var relativeExclusion = "!" + Path.GetRelativePath(workingDirectory, absoluteSampleClassPath);
 
         var options = new CppGeneratorOptions
         {
             LibraryName = "Fixtures",
             PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
-            ApiHeaderPatterns = ["**/*", relativeExclusion],
-            WorkingDirectory = FixturePaths.GetFixtureIncludeDir(),
+            ApiHeaderPatterns = ["include/**/*", relativeExclusion],
+            WorkingDirectory = workingDirectory,
         };
         var factory = new InMemoryMarkdownWriterFactory();
         var generator = new CppGenerator(options);
