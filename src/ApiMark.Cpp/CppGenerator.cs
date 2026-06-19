@@ -148,11 +148,10 @@ public sealed class CppGenerator : IApiGenerator
     ///         which restricts results to files with recognized C++ header extensions.
     ///     </para>
     ///     <para>
-    ///         When patterns are provided, absolute patterns are forwarded to
-    ///         <see cref="GlobFileCollector"/> unchanged. Relative patterns are expanded
-    ///         against each <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry so
-    ///         that callers can write root-agnostic patterns such as <c>**/MyHeader.h</c>
-    ///         and have them resolved under every configured include root.
+    ///         When patterns are provided, they are forwarded directly to
+    ///         <see cref="GlobFileCollector"/>, which resolves relative patterns against
+    ///         <see cref="CppGeneratorOptions.WorkingDirectory"/> and resolves absolute patterns
+    ///         from their own root prefix.
     ///     </para>
     /// </remarks>
     /// <exception cref="DirectoryNotFoundException">
@@ -162,7 +161,7 @@ public sealed class CppGenerator : IApiGenerator
     private List<string> CollectHeaderFiles()
     {
         var headerExtensions = new[] { ".h", ".hpp", ".hxx", ".h++" };
-        var cwd = Path.GetFullPath(Directory.GetCurrentDirectory());
+        var cwd = Path.GetFullPath(_options.WorkingDirectory ?? Directory.GetCurrentDirectory());
 
         List<string> patterns;
 
@@ -183,57 +182,12 @@ public sealed class CppGenerator : IApiGenerator
         }
         else
         {
-            // Explicit patterns: forward absolute patterns unchanged; expand relative patterns
-            // against each include root so root-agnostic globs like "**/MyHeader.h" resolve
-            // correctly under every configured root without requiring callers to know the roots.
-            patterns = ExpandExplicitPatterns();
+            // Explicit patterns: pass directly to GlobFileCollector, which resolves relative
+            // patterns against cwd and absolute patterns from their own root prefix.
+            patterns = [.. _options.ApiHeaderPatterns];
         }
 
         return GlobFileCollector.Collect(patterns, headerExtensions, cwd).ToList();
-    }
-
-    /// <summary>
-    ///     Expands the explicit <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> into absolute
-    ///     glob patterns ready for <see cref="GlobFileCollector.Collect"/>.
-    /// </summary>
-    /// <remarks>
-    ///     Absolute patterns are forwarded unchanged. Relative patterns are resolved against
-    ///     every entry in <see cref="CppGeneratorOptions.PublicIncludeRoots"/> so that
-    ///     root-agnostic globs such as <c>**/MyHeader.h</c> match under all configured roots
-    ///     without requiring callers to hard-code root paths. Exclusion prefixes (<c>!</c>)
-    ///     are preserved on the expanded output entries.
-    /// </remarks>
-    /// <returns>
-    ///     An ordered list of absolute-path glob patterns with exclusion prefixes preserved,
-    ///     ready to pass directly to <see cref="GlobFileCollector.Collect"/>.
-    /// </returns>
-    private List<string> ExpandExplicitPatterns()
-    {
-        var patterns = new List<string>();
-        foreach (var pattern in _options.ApiHeaderPatterns)
-        {
-            var isExclusion = pattern.StartsWith('!');
-            var body = isExclusion ? pattern.Substring(1).Trim() : pattern.Trim();
-
-            if (Path.IsPathRooted(body))
-            {
-                // Absolute pattern — pass through unchanged
-                patterns.Add(pattern);
-            }
-            else
-            {
-                // Relative pattern — expand against each include root so callers can write
-                // root-agnostic patterns without knowing the configured include paths
-                patterns.AddRange(
-                    _options.PublicIncludeRoots.Select(root =>
-                    {
-                        var expanded = Path.Join(Path.GetFullPath(root), body);
-                        return isExclusion ? "!" + expanded : expanded;
-                    }));
-            }
-        }
-
-        return patterns;
     }
 
     // =========================================================================

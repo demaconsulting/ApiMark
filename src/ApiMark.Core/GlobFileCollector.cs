@@ -40,8 +40,12 @@ public static class GlobFileCollector
     ///         <c>**/*.h</c>), all results are taken as-is without additional filtering.
     ///     </para>
     ///     <para>
-    ///         Non-existent pattern roots are silently skipped and contribute no files.
-    ///         The method never throws for missing directories.
+    ///         When an absolute pattern contains no glob metacharacters it is treated as a
+    ///         literal file path: if the file exists and its extension appears in
+    ///         <paramref name="languageExtensions"/> it is added to or removed from the result
+    ///         set directly, without any directory traversal. Non-existent literal paths and
+    ///         non-existent pattern roots are silently skipped; the method never throws for
+    ///         missing files or directories.
     ///     </para>
     /// </remarks>
     /// <param name="patterns">
@@ -81,9 +85,20 @@ public static class GlobFileCollector
             // Determine the filesystem root and the glob tail for this pattern
             var (root, globTail) = ParsePattern(patternBody, workingDirectory);
 
-            if (globTail.Length == 0 || !Directory.Exists(root))
+            if (globTail.Length == 0)
             {
-                // No glob portion, or the root directory does not exist — skip silently
+                // No glob portion — root is a literal path; select it if it exists as a file
+                // and its extension is in the allowed set (same gate applied to glob results)
+                if (File.Exists(root) && extensions.Contains(Path.GetExtension(root)))
+                {
+                    AccumulateResults(collected, [Path.GetFullPath(root)], isExclusion);
+                }
+
+                continue;
+            }
+
+            if (!Directory.Exists(root))
+            {
                 continue;
             }
 
@@ -163,12 +178,13 @@ public static class GlobFileCollector
     ///     <see cref="Matcher"/>.
     /// </summary>
     /// <remarks>
-    ///     For absolute patterns the root is the longest non-glob path prefix — segments
-    ///     are included until the first one containing a glob metacharacter (<c>*</c>,
+    ///     For fully-qualified absolute patterns the root is the longest non-glob path prefix —
+    ///     segments are included until the first one containing a glob metacharacter (<c>*</c>,
     ///     <c>?</c>, <c>[</c>, <c>{</c>). The remainder from the last directory separator
     ///     before the first glob metacharacter to the end is the glob tail.
-    ///     For relative patterns the root is <paramref name="workingDirectory"/> and the
-    ///     entire pattern body is the glob tail.
+    ///     For all other patterns (relative, or rooted-but-not-fully-qualified such as
+    ///     <c>C:foo.h</c> or <c>\foo.h</c> on Windows) the root is <paramref name="workingDirectory"/>
+    ///     and the entire pattern body is the glob tail, so they resolve against the working directory.
     /// </remarks>
     /// <param name="patternBody">The pattern with any leading <c>!</c> prefix already stripped.</param>
     /// <param name="workingDirectory">Absolute path used as the root for relative patterns.</param>
@@ -178,13 +194,13 @@ public static class GlobFileCollector
     /// </returns>
     private static (string Root, string GlobTail) ParsePattern(string patternBody, string workingDirectory)
     {
-        if (Path.IsPathRooted(patternBody))
+        if (Path.IsPathFullyQualified(patternBody))
         {
             // Normalize backslashes to forward slashes for uniform metacharacter scanning
             return SplitAbsolutePattern(patternBody.Replace('\\', '/'));
         }
 
-        // Relative pattern — root is the configured working directory; tail is the full pattern body
+        // Relative or rooted-but-not-fully-qualified pattern — resolve against workingDirectory
         return (workingDirectory, patternBody);
     }
 

@@ -51,7 +51,8 @@ privileged configuration is required beyond a standard clang installation.
 - When `ApiHeaderPatterns` is empty, all headers under configured PublicIncludeRoots with
   recognized C++ extensions are documented. When patterns are configured, only headers whose last
   matching pattern is a positive (non-`!`) pattern are included; gitignore last-match-wins
-  semantics apply.
+  semantics apply. Relative patterns are resolved from the current working directory so that users
+  can write patterns such as `include/**` when invoking the tool from the project root.
 - Methods returning types documented within the same library emit Markdown links in the Returns
   column of the Methods table; methods returning types not found in the library emit plain text.
 - Types referenced in member signatures that are not documented within the library are tracked
@@ -261,6 +262,20 @@ Last-pattern-wins (gitignore) semantics are confirmed by this scenario, which is
 `!`-prefixed pattern with no subsequent positive pattern remains excluded from the generated
 output, confirming that the last matching pattern wins. This scenario is tested by
 `CppGenerator_Generate_ApiHeaderPatterns_ExcludeWithoutReInclude_ExcludesHeader`.
+
+**CWD-relative pattern selects only matching files**: Verifies that a relative pattern resolved
+from the current working directory (e.g. a path of the form
+`test/ApiMark.Cpp.Fixtures/include/fixtures/SampleClass.h` when invoked from the repo root)
+selects only the file it names and no other headers. This scenario would fail with the old
+include-root-expansion behavior because that behavior joined the pattern onto each include root,
+producing a doubled path that matches nothing. This scenario is tested by
+`CppGenerator_Generate_ApiHeaderPatterns_CwdRelativePattern_OnlyMatchingFilesDocumented`.
+
+**CWD-relative exclusion pattern removes matching files**: Verifies that a `!`-prefixed relative
+pattern resolved from the current working directory removes the named file from the documented
+header set while leaving all other headers present. This scenario confirms that CWD-relative
+resolution applies consistently to both inclusion and exclusion patterns. This scenario is tested
+by `CppGenerator_Generate_ApiHeaderPatterns_CwdRelativeExclusionPattern_ExcludesMatchingFiles`.
 
 **Intra-library return type emits a Markdown link in the Returns cell**: Verifies that when a
 method returns a type that is itself documented within the same library, the Returns column in the

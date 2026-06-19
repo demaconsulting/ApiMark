@@ -217,15 +217,20 @@ sections:
             title: >-
               CppGenerator shall support both absolute and relative ApiHeaderPatterns
               glob
-              patterns: relative patterns shall be expanded against each PublicIncludeRoot,
+              patterns: relative patterns shall be resolved from the current working
+              directory (CWD),
               and absolute patterns shall be forwarded directly to GlobFileCollector.
             justification: |
-              Relative patterns allow build authors to write root-agnostic patterns such as
-              "**/MyHeader.h" that resolve under every configured include root without
-              hard-coding directory paths. Absolute patterns allow headers on other drives or
+              CWD-relative patterns match how all other CLI glob tools work and allow
+              users to write patterns that reflect their project directory layout directly
+              (e.g. `include/**` when invoked from the project root) without needing to
+              hard-code absolute paths. Absolute patterns allow headers on other drives or
               outside all configured roots to be included directly, supporting build layouts
               where public headers are not all under a common tree.
-            tests: [GlobFileCollector_Collect_AbsolutePattern_FindsFiles]
+            tests:
+              - GlobFileCollector_Collect_AbsolutePattern_FindsFiles
+              - CppGenerator_Generate_ApiHeaderPatterns_CwdRelativePattern_OnlyMatchingFilesDocumented
+              - CppGenerator_Generate_ApiHeaderPatterns_CwdRelativeExclusionPattern_ExcludesMatchingFiles
           - id: ApiMarkCpp-CppGenerator-EmitExternalTypesSection
             title: CppGenerator shall emit an "External Types" section at the bottom
               of each generated page that references at least one non-std external

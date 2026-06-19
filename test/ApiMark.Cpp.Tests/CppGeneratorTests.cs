@@ -701,6 +701,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
             LibraryName = "Fixtures",
             PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
             ApiHeaderPatterns = ["**/SampleClass.h"],
+            WorkingDirectory = FixturePaths.GetFixtureIncludeDir(),
         };
         var factory = new InMemoryMarkdownWriterFactory();
         var generator = new CppGenerator(options);
@@ -733,6 +734,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
             LibraryName = "Fixtures",
             PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
             ApiHeaderPatterns = ["**/*", "!**/SampleClass.h"],
+            WorkingDirectory = FixturePaths.GetFixtureIncludeDir(),
         };
         var factory = new InMemoryMarkdownWriterFactory();
         var generator = new CppGenerator(options);
@@ -766,6 +768,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
             PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
             ApiHeaderPatterns = ["**/*", "!**/DeprecatedClass.h", "**/DeprecatedClass.h"],
             IncludeDeprecated = true,
+            WorkingDirectory = FixturePaths.GetFixtureIncludeDir(),
         };
         var factory = new InMemoryMarkdownWriterFactory();
         var generator = new CppGenerator(options);
@@ -794,6 +797,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
             PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
             ApiHeaderPatterns = ["**/*", "!**/DeprecatedClass.h"],
             IncludeDeprecated = true,
+            WorkingDirectory = FixturePaths.GetFixtureIncludeDir(),
         };
         var factory = new InMemoryMarkdownWriterFactory();
         var generator = new CppGenerator(options);
@@ -823,6 +827,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
             LibraryName = "Fixtures",
             PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
             ApiHeaderPatterns = ["**/TypeLinkClass.h"],
+            WorkingDirectory = FixturePaths.GetFixtureIncludeDir(),
         };
         var factory = new InMemoryMarkdownWriterFactory();
         var generator = new CppGenerator(options);
@@ -843,6 +848,101 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         Assert.False(
             factory.Writers.ContainsKey("fixtures/Circle"),
             "Expected Circle to be absent: InheritanceClass.h was not selected by --api-headers");
+    }
+
+    /// <summary>
+    ///     Validates that a relative <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> entry
+    ///     selects only the file it names when resolved from <see cref="CppGeneratorOptions.WorkingDirectory"/>,
+    ///     confirming that relative patterns are resolved from <c>WorkingDirectory</c> and not from
+    ///     each include root.
+    /// </summary>
+    /// <remarks>
+    ///     <c>WorkingDirectory</c> is set to the <em>parent</em> of the include root so that the
+    ///     relative pattern contains an <c>include/</c> prefix (e.g. <c>include/fixtures/SampleClass.h</c>).
+    ///     Under the old include-root expansion bug, the pattern would have been joined onto the include
+    ///     root, producing a doubled path (<c>include/include/fixtures/SampleClass.h</c>) that matches
+    ///     nothing — so the test would fail with the old code and pass only with the correct implementation.
+    /// </remarks>
+    [Fact]
+    public void CppGenerator_Generate_ApiHeaderPatterns_CwdRelativePattern_OnlyMatchingFilesDocumented()
+    {
+        // Arrange: WorkingDirectory is the parent of include/, not include/ itself.
+        // The relative pattern therefore starts with "include/", which under the old
+        // include-root expansion would have produced "include/include/..." — matching nothing.
+        var workingDirectory = Path.GetDirectoryName(FixturePaths.GetFixtureIncludeDir())!;
+        var absoluteSampleClassPath = Path.Join(FixturePaths.GetFixtureNamespaceDir(), "SampleClass.h");
+        var relativePattern = Path.GetRelativePath(workingDirectory, absoluteSampleClassPath);
+
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ApiHeaderPatterns = [relativePattern],
+            WorkingDirectory = workingDirectory,
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: SampleClass page must exist because its header was selected by the relative pattern
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/SampleClass"),
+            "Expected SampleClass page when selected by a WorkingDirectory-relative pattern");
+
+        // Assert: SampleStatus page must not exist because SampleEnum.h was not selected
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/SampleStatus"),
+            "Expected SampleStatus to be absent when not matched by the WorkingDirectory-relative include pattern");
+    }
+
+    /// <summary>
+    ///     Validates that a relative exclusion pattern removes the named file from the documented
+    ///     header set while leaving all other headers present, confirming that
+    ///     <see cref="CppGeneratorOptions.WorkingDirectory"/>-relative resolution applies to both
+    ///     inclusion and exclusion patterns.
+    /// </summary>
+    /// <remarks>
+    ///     <c>WorkingDirectory</c> is set to the <em>parent</em> of the include root so that both
+    ///     the catch-all inclusion (<c>include/**/*</c>) and the exclusion contain an <c>include/</c>
+    ///     prefix. Under the old include-root expansion bug, both would have been joined onto the
+    ///     include root, producing doubled paths that match nothing — so the test validates the
+    ///     correct CWD-relative behavior rather than accidentally passing with the old code.
+    /// </remarks>
+    [Fact]
+    public void CppGenerator_Generate_ApiHeaderPatterns_CwdRelativeExclusionPattern_ExcludesMatchingFiles()
+    {
+        // Arrange: WorkingDirectory is the parent of include/, not include/ itself.
+        // Both the catch-all and the exclusion use "include/..." prefixes.
+        // Under the old bug, joining onto the include root would double the prefix to
+        // "include/include/..." — matching nothing and causing the test to fail.
+        var workingDirectory = Path.GetDirectoryName(FixturePaths.GetFixtureIncludeDir())!;
+        var absoluteSampleClassPath = Path.Join(FixturePaths.GetFixtureNamespaceDir(), "SampleClass.h");
+        var relativeExclusion = "!" + Path.GetRelativePath(workingDirectory, absoluteSampleClassPath);
+
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ApiHeaderPatterns = ["include/**/*", relativeExclusion],
+            WorkingDirectory = workingDirectory,
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: SampleClass page must not exist because its header was excluded by the relative exclusion pattern
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/SampleClass"),
+            "Expected SampleClass to be absent when its header is excluded by a WorkingDirectory-relative exclusion pattern");
+
+        // Assert: SampleStatus page must still exist because SampleEnum.h was not excluded
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/SampleStatus"),
+            "Expected SampleStatus to be present when only SampleClass.h is excluded by WorkingDirectory-relative pattern");
     }
 
     /// <summary>
