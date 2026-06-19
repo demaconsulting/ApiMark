@@ -143,8 +143,10 @@ a `CppEmitter` holding all parsed data.
 Execution steps: call `CollectHeaderFiles()` which uses `GlobFileCollector.Collect()`
 to build the selected-header set from `ApiHeaderPatterns` and `PublicIncludeRoots`;
 when `ApiHeaderPatterns` is empty all headers under all roots are used directly;
-when `ApiHeaderPatterns` is non-empty relative patterns are resolved against the
-current working directory (CWD) via `ExpandExplicitPatterns`; build Clang options from all configured
+when `ApiHeaderPatterns` is non-empty patterns are forwarded directly to
+`GlobFileCollector`, which resolves relative patterns against
+`CppGeneratorOptions.WorkingDirectory` (or the process CWD when null) and resolves
+absolute patterns from their own root prefix; build Clang options from all configured
 paths, defines, standard, and additional arguments; write a temporary combined
 header that `#include`s all selected headers; invoke
 `clang -Xclang -ast-dump=json -fparse-all-comments -fsyntax-only` on it, parse the
@@ -152,15 +154,6 @@ resulting JSON AST; `ClangAstParser` rejects non-selected declarations during AS
 walking using the pre-built selected-header set; apply `Visibility` and
 `IncludeDeprecated` filters; delete the temporary combined header file; return a
 `CppEmitter` holding all parsed data.
-
-**CppGenerator.ExpandExplicitPatterns** (private): Expands relative
-`ApiHeaderPatterns` entries against the current working directory (CWD).
-
-- *Parameters*: `string cwd` — the absolute current working directory path, used as the
-  base for resolving relative patterns.
-- *Returns*: `List<string>` — all patterns with relative entries resolved to
-  absolute paths under the CWD; absolute patterns passed through unchanged;
-  exclusion prefix `!` preserved.
 
 **CppEmitter.Emit** (implements `IApiEmitter`): Writes the full Markdown output tree using the
 format specified by `config.Format`.

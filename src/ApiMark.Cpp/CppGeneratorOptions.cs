@@ -31,9 +31,9 @@ public sealed class CppGeneratorOptions
     ///     headers can find each other during AST parsing, and (2) it is the base directory
     ///     from which a declaration's canonical <c>#include</c> path is derived. When
     ///     <see cref="ApiHeaderPatterns"/> is non-empty, relative patterns are resolved against
-    ///         <see cref="WorkingDirectory"/> (or the process working directory when
-    ///         <see cref="WorkingDirectory"/> is <see langword="null"/>) rather than against these roots. Must contain at least
-    ///     one entry.
+    ///     <see cref="WorkingDirectory"/> (or the process working directory when
+    ///     <see cref="WorkingDirectory"/> is <see langword="null"/>) rather than against these
+    ///     roots. Must contain at least one entry.
     /// </remarks>
     public IReadOnlyList<string> PublicIncludeRoots { get; set; } = [];
 
