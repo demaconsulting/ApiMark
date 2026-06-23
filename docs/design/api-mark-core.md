@@ -46,8 +46,8 @@ and ApiMarkVhdl to discover source files using glob patterns.
 symbol data for a configured software component.
 
 - *Type*: In-process .NET public API.
-- *Role*: Provider — ApiMarkCore publishes this interface; ApiMarkDotNet and
-  ApiMarkCpp implement it; ApiMarkTool consumes it directly. ApiMarkMsbuild
+- *Role*: Provider — ApiMarkCore publishes this interface; ApiMarkDotNet,
+  ApiMarkCpp, and ApiMarkVhdl implement it; ApiMarkTool consumes it directly. ApiMarkMsbuild
   spawns ApiMarkTool as a child process and does not call this interface
   in-process.
 - *Contract*: `IApiEmitter Parse(IContext context)` — parses the configured
@@ -146,12 +146,13 @@ files on the filesystem using gitignore-style glob patterns.
 
 ## Dependencies
 
-N/A — ApiMarkCore has no dependencies on other systems, OTS items, or shared
-packages.
+ApiMarkCore depends on `Microsoft.Extensions.FileSystemGlobbing` (OTS) via
+`GlobFileCollector`. See `docs/design/ots/file-system-globbing.md` for the
+integration and usage design of this OTS item.
 
 ## Risk Control Measures
 
-N/A — not a safety-classified software item.
+N/A - not a safety-classified software item.
 
 ## Data Flow
 
@@ -169,7 +170,7 @@ flow is:
 
 ## Design Constraints
 
-- Platform: targets .NET 8 as a class library; no platform-specific code.
+- Platform: targets a supported .NET LTS release as a class library; no platform-specific code.
 - No in-memory document model: Core defines only interfaces and their file-system
   implementations; language-specific generators own all in-memory state.
 - Stable API surface: changes to IApiGenerator, IApiEmitter, EmitConfig,

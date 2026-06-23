@@ -13,7 +13,7 @@ namespace ApiMark.Core;
 internal static class PathHelpers
 {
     /// <summary>
-    ///     Safely combines a base path with one or more path segments, ensuring the result
+    ///     Safely combines a base path with zero or more path segments, ensuring the result
     ///     remains within the base directory.
     /// </summary>
     /// <remarks>
@@ -27,6 +27,7 @@ internal static class PathHelpers
     ///     Individual segments may contain <c>..</c> or be rooted provided the combined result
     ///     does not escape the base — for example segments <c>["baa", ".."]</c> on base
     ///     <c>C:\foo</c> resolve back to <c>C:\foo</c> and are accepted.
+    ///     When no segments are supplied, returns <paramref name="basePath"/> unchanged.
     ///     This method is stateless and thread-safe.
     /// </remarks>
     /// <param name="basePath">
@@ -34,13 +35,14 @@ internal static class PathHelpers
     ///     not exist on disk because only string and normalized-path operations are performed.
     /// </param>
     /// <param name="relativePaths">
-    ///     One or more path segments to append in order. Must not be null, and each individual
+    ///     Zero or more path segments to append in order. Must not be null, and each individual
     ///     segment must not be null.
     /// </param>
     /// <returns>
     ///     The result of joining <paramref name="basePath"/> with all segments in
     ///     <paramref name="relativePaths"/>. The returned path always resolves within
-    ///     <paramref name="basePath"/>.
+    ///     <paramref name="basePath"/>. Returns <paramref name="basePath"/> unchanged when
+    ///     no segments are supplied.
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="basePath"/>, <paramref name="relativePaths"/>, or any

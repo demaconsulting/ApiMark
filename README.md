@@ -50,7 +50,7 @@ type page — consuming only as much context as the task requires.
 C++ documentation generation requires `clang` to be installed and available:
 
 - **Windows**: Install [LLVM](https://releases.llvm.org/) or the "C++ Clang tools for Windows"
-  component via the Visual Studio Installer. The `ClangPath` MSBuild property or `--clang-path`
+  component via the Visual Studio Installer. The `ApiMarkClangPath` MSBuild property or `--clang-path`
   CLI option can point to a specific installation.
 - **macOS**: Xcode Command Line Tools (`xcode-select --install`) — `clang` is included.
 - **Linux**: Install via the system package manager (e.g. `apt install clang` or `dnf install clang`).
@@ -157,6 +157,7 @@ Documentation is generated automatically after every build. Output goes to
 ```
 
 See the [User Guide](https://github.com/DemaConsulting/ApiMark/releases) for the full list of properties including C++-specific options.
+(The user guide is published as a release artifact so it is accessible from the NuGet package page, which has no access to repository files.)
 
 ## Building
 
@@ -166,7 +167,7 @@ pwsh ./build.ps1
 
 ## User Guide
 
-The ApiMark User Guide is available on the [ApiMark releases page](https://github.com/DemaConsulting/ApiMark/releases).
+The ApiMark User Guide is available on the [ApiMark releases page](https://github.com/DemaConsulting/ApiMark/releases) (published as a release artifact — the guide is not bundled in the NuGet package).
 
 ## Contributing
 

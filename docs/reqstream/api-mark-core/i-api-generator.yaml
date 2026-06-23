@@ -5,18 +5,25 @@ sections:
     sections:
       - title: IApiGenerator Requirements
         requirements:
-          - id: ApiMarkCore-IApiGenerator-DefineParseMethod
-            title: IApiGenerator shall accept a caller-supplied diagnostic channel
-              and return an emitter ready to write the parsed component's documentation.
+          - id: ApiMarkCore-IApiGenerator-AcceptContextParameter
+            title: IApiGenerator.Parse shall accept an IContext parameter as the
+              caller-supplied diagnostic channel for informational and error output.
             justification: |
-              The caller needs one consistent invocation point for every language
-              generator so symbol parsing can be triggered without knowing the
-              implementation details of each language-specific module. Returning an
-              IApiEmitter separates parsing from output-format selection, allowing the
-              caller to choose the output format at emit time rather than at parse time.
               IContext decouples generators from Console so output can be captured,
-              suppressed, or redirected by the caller.
+              suppressed, or redirected by the caller without changing the generator
+              implementation. The caller supplies an IContext reference that the
+              generator uses for all diagnostic output during parsing.
             tests: [IApiGenerator_Parse_WithMinimalStub_ExecutesSuccessfully]
+          - id: ApiMarkCore-IApiGenerator-ReturnIApiEmitter
+            title: IApiGenerator.Parse shall return an IApiEmitter that holds all
+              data required to emit the parsed component's documentation.
+            justification: |
+              Returning an IApiEmitter separates the I/O-heavy parsing phase from
+              output-format selection, allowing the caller to choose the output format
+              at emit time rather than at parse time. The returned emitter is
+              format-agnostic; format selection is the responsibility of the caller
+              when invoking IApiEmitter.Emit.
+            tests: [ApiMarkCore_GeneratorContract_SupportedLanguage_CanBeInvoked]
           - id: ApiMarkCore-IApiGenerator-AllowConstructionTimeConfiguration
             title: IApiGenerator shall allow language-specific configuration to be
               supplied when an implementation is constructed before Parse is called.
@@ -25,3 +32,11 @@ sections:
               file paths or visibility settings, so configuration must be captured
               before parsing starts while keeping the runtime invocation uniform.
             tests: [IApiGenerator_Implementation_UsesConstructionConfiguration]
+          - id: ApiMarkCore-IApiGenerator-RejectNullContext
+            title: IApiGenerator.Parse shall reject a null context argument.
+            justification: |
+              Passing a null IContext to Parse would cause a NullReferenceException
+              deep inside the generator implementation with no actionable message.
+              Failing fast with ArgumentNullException at the entry point makes
+              misconfiguration immediately diagnosable by the caller.
+            tests: [IApiGenerator_Parse_NullContext_ThrowsArgumentNullException]

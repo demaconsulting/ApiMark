@@ -127,5 +127,5 @@ re-thrown.
 
 ### Callers
 
-N/A — entry point, called by the host environment (ApiMarkTask process spawn,
+N/A - entry point, called by the host environment (ApiMarkTask process spawn,
 dotnet tool invocation, or CI pipeline script).

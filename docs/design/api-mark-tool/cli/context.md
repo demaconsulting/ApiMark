@@ -100,7 +100,7 @@ to stderr (in red) and to the log file.
 
 #### Dependencies
 
-N/A — Context depends only on the .NET runtime (`System.IO.StreamWriter`,
+N/A - Context depends only on the .NET runtime (`System.IO.StreamWriter`,
 `System.Console`). It has no dependencies on other units, OTS items, or
 shared packages.
 

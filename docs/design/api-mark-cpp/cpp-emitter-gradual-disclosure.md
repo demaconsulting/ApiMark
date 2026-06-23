@@ -85,7 +85,7 @@ page at `{nsKey}/operators.md`.
 
 ### Error Handling
 
-N/A — CppEmitterGradualDisclosure propagates exceptions from the factory and
+N/A - CppEmitterGradualDisclosure propagates exceptions from the factory and
 writer without wrapping. No additional error handling is performed.
 
 ### External Interfaces

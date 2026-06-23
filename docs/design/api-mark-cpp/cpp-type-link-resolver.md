@@ -65,18 +65,18 @@ C++ name (everything before the last `::`), or an empty string for unqualified n
 
 ### Error Handling
 
-N/A — CppTypeLinkResolver performs no I/O and throws no exceptions under normal
+N/A - CppTypeLinkResolver performs no I/O and throws no exceptions under normal
 operation. Null or whitespace type strings are returned unchanged without error.
 
 ### External Interfaces
 
-N/A — CppTypeLinkResolver is an in-process utility class with no external
+N/A - CppTypeLinkResolver is an in-process utility class with no external
 dependencies or outbound interfaces. All input is supplied via constructor and
 method parameters.
 
 ### Dependencies
 
-N/A — CppTypeLinkResolver depends only on the BCL (`System.IO.Path`,
+N/A - CppTypeLinkResolver depends only on the BCL (`System.IO.Path`,
 `System.Collections.Generic`). It has no dependency on ApiMarkCore or other
 ApiMark units.
 

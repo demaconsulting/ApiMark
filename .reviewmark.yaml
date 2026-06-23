@@ -1,6 +1,5 @@
 ---
 # ReviewMark Configuration File
-
 # Files needing review
 needs-review:
   - README.md  # Root README file
@@ -15,20 +14,18 @@ needs-review:
   - '!**/bin/**'  # Exclude build output
   - '!**/generated/**'  # Exclude generated output
   - '!**/VhdlAst/Antlr/**'  # Exclude ANTLR4-generated lexer/parser files
-
 # Source of review evidence
 evidence-source:
   type: none
-
 # Context included for all reviews.
 context:
   - docs/design/introduction.md  # Software structure overview — shown to every reviewer
-
 # Reviews
 reviews:
   # Purpose
   - id: Purpose
     title: Review that README and User Guide are Coherent and Complete
+    context: ['!docs/design/introduction.md']  # Exclude design intro — design should not back-feed into user docs review
     paths:
       - README.md
       - docs/user_guide/**/*.md
@@ -36,9 +33,7 @@ reviews:
   # Decomposition
   - id: Decomposition
     title: Review that ApiMark Decomposition Addresses the Stated Purpose
-    context:
-      - README.md
-      - docs/user_guide/**/*.md
+    context: [README.md, docs/user_guide/**/*.md]
     paths:
       - requirements.yaml
       - docs/design/introduction.md
@@ -46,9 +41,7 @@ reviews:
   # ApiMarkCore - Specials
   - id: ApiMark-Core-Architecture
     title: Review that ApiMark Core Architecture Satisfies Requirements
-    context:
-      - README.md
-      - docs/user_guide/**/*.md
+    context: [README.md, docs/user_guide/**/*.md]
     paths:
       - docs/reqstream/api-mark-core.yaml
       - docs/design/introduction.md
@@ -60,21 +53,19 @@ reviews:
     context:
       - docs/design/api-mark-core.md
       - docs/reqstream/api-mark-core.yaml
-    paths:
-      - docs/reqstream/api-mark-core/**/*.yaml
+    paths: [docs/reqstream/api-mark-core/**/*.yaml]
   - id: ApiMark-Core-Design
     title: Review that ApiMark Core Design is Consistent and Complete
-    context:
-      - docs/reqstream/api-mark-core.yaml
+    context: [docs/reqstream/api-mark-core.yaml]
     paths:
       - docs/design/ots.md
       - docs/design/api-mark-core.md
       - docs/design/api-mark-core/**/*.md
   - id: ApiMark-Core-Verification
     title: Review that ApiMark Core Verification is Consistent and Complete
-    context:
-      - docs/reqstream/api-mark-core.yaml
+    context: [docs/reqstream/api-mark-core.yaml]
     paths:
+      - docs/verification/introduction.md
       - docs/verification/ots.md
       - docs/verification/api-mark-core.md
       - docs/verification/api-mark-core/**/*.md
@@ -141,6 +132,9 @@ reviews:
       - docs/reqstream/api-mark-core/i-markdown-writer.yaml
       - docs/design/api-mark-core/i-markdown-writer.md
       - docs/verification/api-mark-core/i-markdown-writer.md
+      - docs/reqstream/api-mark-core/file-markdown-writer.yaml
+      - docs/design/api-mark-core/file-markdown-writer.md
+      - docs/verification/api-mark-core/file-markdown-writer.md
       - src/ApiMark.Core/IMarkdownWriter.cs
       - src/ApiMark.Core/FileMarkdownWriter.cs
       - test/ApiMark.Core.Tests/IMarkdownWriterTests.cs
@@ -154,6 +148,9 @@ reviews:
       - docs/reqstream/api-mark-core/i-markdown-writer-factory.yaml
       - docs/design/api-mark-core/i-markdown-writer-factory.md
       - docs/verification/api-mark-core/i-markdown-writer-factory.md
+      - docs/reqstream/api-mark-core/file-markdown-writer-factory.yaml
+      - docs/design/api-mark-core/file-markdown-writer-factory.md
+      - docs/verification/api-mark-core/file-markdown-writer-factory.md
       - src/ApiMark.Core/IMarkdownWriterFactory.cs
       - src/ApiMark.Core/FileMarkdownWriterFactory.cs
       - test/ApiMark.Core.Tests/IMarkdownWriterFactoryTests.cs
@@ -184,9 +181,7 @@ reviews:
   # ApiMarkDotNet - Specials
   - id: ApiMark-DotNet-Architecture
     title: Review that ApiMark DotNet Architecture Satisfies Requirements
-    context:
-      - README.md
-      - docs/user_guide/**/*.md
+    context: [README.md, docs/user_guide/**/*.md]
     paths:
       - docs/reqstream/api-mark-dot-net.yaml
       - docs/design/introduction.md
@@ -198,20 +193,17 @@ reviews:
     context:
       - docs/design/api-mark-dot-net.md
       - docs/reqstream/api-mark-dot-net.yaml
-    paths:
-      - docs/reqstream/api-mark-dot-net/**/*.yaml
+    paths: [docs/reqstream/api-mark-dot-net/**/*.yaml]
   - id: ApiMark-DotNet-Design
     title: Review that ApiMark DotNet Design is Consistent and Complete
-    context:
-      - docs/reqstream/api-mark-dot-net.yaml
+    context: [docs/reqstream/api-mark-dot-net.yaml]
     paths:
       - docs/design/ots.md
       - docs/design/api-mark-dot-net.md
       - docs/design/api-mark-dot-net/**/*.md
   - id: ApiMark-DotNet-Verification
     title: Review that ApiMark DotNet Verification is Consistent and Complete
-    context:
-      - docs/reqstream/api-mark-dot-net.yaml
+    context: [docs/reqstream/api-mark-dot-net.yaml]
     paths:
       - docs/verification/ots.md
       - docs/verification/api-mark-dot-net.md
@@ -317,9 +309,7 @@ reviews:
   # ApiMarkCpp - Specials
   - id: ApiMark-Cpp-Architecture
     title: Review that ApiMark Cpp Architecture Satisfies Requirements
-    context:
-      - README.md
-      - docs/user_guide/**/*.md
+    context: [README.md, docs/user_guide/**/*.md]
     paths:
       - docs/reqstream/api-mark-cpp.yaml
       - docs/design/introduction.md
@@ -328,23 +318,18 @@ reviews:
       - docs/verification/api-mark-cpp.md
   - id: ApiMark-Cpp-AllRequirements
     title: Review that All ApiMark Cpp Requirements are Complete
-    context:
-      - docs/design/api-mark-cpp.md
-      - docs/reqstream/api-mark-cpp.yaml
-    paths:
-      - docs/reqstream/api-mark-cpp/**/*.yaml
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
+    paths: [docs/reqstream/api-mark-cpp/**/*.yaml]
   - id: ApiMark-Cpp-Design
     title: Review that ApiMark Cpp Design is Consistent and Complete
-    context:
-      - docs/reqstream/api-mark-cpp.yaml
+    context: [docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/design/ots.md
       - docs/design/api-mark-cpp.md
       - docs/design/api-mark-cpp/**/*.md
   - id: ApiMark-Cpp-Verification
     title: Review that ApiMark Cpp Verification is Consistent and Complete
-    context:
-      - docs/reqstream/api-mark-cpp.yaml
+    context: [docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/verification/ots.md
       - docs/verification/api-mark-cpp.md
@@ -353,9 +338,7 @@ reviews:
   # ApiMarkCpp - Units
   - id: ApiMark-Cpp-CppGenerator
     title: Review that ApiMark Cpp CppGenerator Implementation is Correct
-    context:
-      - docs/design/api-mark-cpp.md
-      - docs/reqstream/api-mark-cpp.yaml
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/reqstream/api-mark-cpp/cpp-generator.yaml
       - docs/design/api-mark-cpp/cpp-generator.md
@@ -368,9 +351,7 @@ reviews:
       - test/ApiMark.Cpp.Tests/FixturePaths.cs
   - id: ApiMark-Cpp-CppEmitter
     title: Review that ApiMark Cpp CppEmitter Implementation is Correct
-    context:
-      - docs/design/api-mark-cpp.md
-      - docs/reqstream/api-mark-cpp.yaml
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/reqstream/api-mark-cpp/cpp-emitter.yaml
       - docs/design/api-mark-cpp/cpp-emitter.md
@@ -380,9 +361,7 @@ reviews:
       - test/ApiMark.Cpp.Tests/CppEmitterTests.cs
   - id: ApiMark-Cpp-CppEmitterGradualDisclosure
     title: Review that ApiMark Cpp CppEmitterGradualDisclosure Implementation is Correct
-    context:
-      - docs/design/api-mark-cpp.md
-      - docs/reqstream/api-mark-cpp.yaml
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/reqstream/api-mark-cpp/cpp-emitter-gradual-disclosure.yaml
       - docs/design/api-mark-cpp/cpp-emitter-gradual-disclosure.md
@@ -392,9 +371,7 @@ reviews:
       - test/ApiMark.Cpp.Tests/CppEmitterGradualDisclosureTests.cs
   - id: ApiMark-Cpp-CppEmitterSingleFile
     title: Review that ApiMark Cpp CppEmitterSingleFile Implementation is Correct
-    context:
-      - docs/design/api-mark-cpp.md
-      - docs/reqstream/api-mark-cpp.yaml
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/reqstream/api-mark-cpp/cpp-emitter-single-file.yaml
       - docs/design/api-mark-cpp/cpp-emitter-single-file.md
@@ -403,9 +380,7 @@ reviews:
       - test/ApiMark.Cpp.Tests/CppEmitterSingleFileTests.cs
   - id: ApiMark-Cpp-CppTypeLinkResolver
     title: Review that ApiMark Cpp CppTypeLinkResolver Implementation is Correct
-    context:
-      - docs/design/api-mark-cpp.md
-      - docs/reqstream/api-mark-cpp.yaml
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/reqstream/api-mark-cpp/cpp-type-link-resolver.yaml
       - docs/design/api-mark-cpp/cpp-type-link-resolver.md
@@ -416,9 +391,7 @@ reviews:
   # ApiMarkCpp.CppAst - Units
   - id: ApiMark-Cpp-CppAstModel
     title: Review that ApiMark Cpp CppAstModel Implementation is Correct
-    context:
-      - docs/design/api-mark-cpp.md
-      - docs/reqstream/api-mark-cpp.yaml
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/reqstream/api-mark-cpp/cpp-ast-model.yaml
       - docs/design/api-mark-cpp/cpp-ast-model.md
@@ -427,9 +400,7 @@ reviews:
       - test/ApiMark.Cpp.Tests/CppAstModelTests.cs
   - id: ApiMark-Cpp-ClangAstParser
     title: Review that ApiMark Cpp ClangAstParser Implementation is Correct
-    context:
-      - docs/design/api-mark-cpp.md
-      - docs/reqstream/api-mark-cpp.yaml
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/reqstream/api-mark-cpp/clang-ast-parser.yaml
       - docs/design/api-mark-cpp/clang-ast-parser.md
@@ -441,9 +412,7 @@ reviews:
   # ApiMarkVhdl - Specials
   - id: ApiMark-Vhdl-Architecture
     title: Review that ApiMark Vhdl Architecture Satisfies Requirements
-    context:
-      - README.md
-      - docs/user_guide/**/*.md
+    context: [README.md, docs/user_guide/**/*.md]
     paths:
       - docs/reqstream/api-mark-vhdl.yaml
       - docs/design/introduction.md
@@ -455,20 +424,17 @@ reviews:
     context:
       - docs/design/api-mark-vhdl.md
       - docs/reqstream/api-mark-vhdl.yaml
-    paths:
-      - docs/reqstream/api-mark-vhdl/**/*.yaml
+    paths: [docs/reqstream/api-mark-vhdl/**/*.yaml]
   - id: ApiMark-Vhdl-Design
     title: Review that ApiMark Vhdl Design is Consistent and Complete
-    context:
-      - docs/reqstream/api-mark-vhdl.yaml
+    context: [docs/reqstream/api-mark-vhdl.yaml]
     paths:
       - docs/design/ots.md
       - docs/design/api-mark-vhdl.md
       - docs/design/api-mark-vhdl/**/*.md
   - id: ApiMark-Vhdl-Verification
     title: Review that ApiMark Vhdl Verification is Consistent and Complete
-    context:
-      - docs/reqstream/api-mark-vhdl.yaml
+    context: [docs/reqstream/api-mark-vhdl.yaml]
     paths:
       - docs/verification/ots.md
       - docs/verification/api-mark-vhdl.md
@@ -553,9 +519,7 @@ reviews:
   # ApiMarkMSBuild - Specials
   - id: ApiMark-MSBuild-Architecture
     title: Review that ApiMark MSBuild Architecture Satisfies Requirements
-    context:
-      - README.md
-      - docs/user_guide/**/*.md
+    context: [README.md, docs/user_guide/**/*.md]
     paths:
       - docs/reqstream/api-mark-msbuild.yaml
       - docs/design/introduction.md
@@ -567,20 +531,17 @@ reviews:
     context:
       - docs/design/api-mark-msbuild.md
       - docs/reqstream/api-mark-msbuild.yaml
-    paths:
-      - docs/reqstream/api-mark-msbuild/**/*.yaml
+    paths: [docs/reqstream/api-mark-msbuild/**/*.yaml]
   - id: ApiMark-MSBuild-Design
     title: Review that ApiMark MSBuild Design is Consistent and Complete
-    context:
-      - docs/reqstream/api-mark-msbuild.yaml
+    context: [docs/reqstream/api-mark-msbuild.yaml]
     paths:
       - docs/design/ots.md
       - docs/design/api-mark-msbuild.md
       - docs/design/api-mark-msbuild/**/*.md
   - id: ApiMark-MSBuild-Verification
     title: Review that ApiMark MSBuild Verification is Consistent and Complete
-    context:
-      - docs/reqstream/api-mark-msbuild.yaml
+    context: [docs/reqstream/api-mark-msbuild.yaml]
     paths:
       - docs/verification/ots.md
       - docs/verification/api-mark-msbuild.md
@@ -605,9 +566,7 @@ reviews:
   # ApiMarkTool - Specials
   - id: ApiMark-Tool-Architecture
     title: Review that ApiMark Tool Architecture Satisfies Requirements
-    context:
-      - README.md
-      - docs/user_guide/**/*.md
+    context: [README.md, docs/user_guide/**/*.md]
     paths:
       - docs/reqstream/api-mark-tool.yaml
       - docs/design/introduction.md
@@ -619,20 +578,17 @@ reviews:
     context:
       - docs/design/api-mark-tool.md
       - docs/reqstream/api-mark-tool.yaml
-    paths:
-      - docs/reqstream/api-mark-tool/**/*.yaml
+    paths: [docs/reqstream/api-mark-tool/**/*.yaml]
   - id: ApiMark-Tool-Design
     title: Review that ApiMark Tool Design is Consistent and Complete
-    context:
-      - docs/reqstream/api-mark-tool.yaml
+    context: [docs/reqstream/api-mark-tool.yaml]
     paths:
       - docs/design/ots.md
       - docs/design/api-mark-tool.md
       - docs/design/api-mark-tool/**/*.md
   - id: ApiMark-Tool-Verification
     title: Review that ApiMark Tool Verification is Consistent and Complete
-    context:
-      - docs/reqstream/api-mark-tool.yaml
+    context: [docs/reqstream/api-mark-tool.yaml]
     paths:
       - docs/verification/ots.md
       - docs/verification/api-mark-tool.md

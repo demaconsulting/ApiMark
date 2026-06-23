@@ -34,24 +34,24 @@ The following record types are defined (all in `ApiMark.Cpp`):
 
 ### Key Methods
 
-N/A — CppAstModel contains only record type definitions. All construction is
+N/A - CppAstModel contains only record type definitions. All construction is
 performed by the C# record compiler-generated constructors.
 
 ### Error Handling
 
-N/A — CppAstModel records perform no validation in their constructors; all
+N/A - CppAstModel records perform no validation in their constructors; all
 values are accepted as provided. Validation is the responsibility of
 `ClangAstParser`, which constructs these records from verified JSON data.
 
 ### External Interfaces
 
-N/A — CppAstModel records are purely in-process value types. They are
+N/A - CppAstModel records are purely in-process value types. They are
 constructed exclusively by `ClangAstParser` and consumed by `CppEmitter` and
 `CppEmitterGradualDisclosure`.
 
 ### Dependencies
 
-N/A — CppAstModel has no external dependencies. All types are self-contained
+N/A - CppAstModel has no external dependencies. All types are self-contained
 immutable records with no constructor logic beyond field assignment.
 
 ### Callers

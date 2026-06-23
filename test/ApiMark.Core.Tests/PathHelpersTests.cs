@@ -215,4 +215,21 @@ public sealed class PathHelpersTests
         Assert.Throws<ArgumentNullException>(() =>
             PathHelpers.SafePathCombine(basePath, relativePath!));
     }
+
+    /// <summary>
+    ///     Verifies that calling <see cref="PathHelpers.SafePathCombine"/> with zero
+    ///     segments returns the base path unchanged.
+    /// </summary>
+    [Fact]
+    public void PathHelpers_SafePathCombine_NoSegments_ReturnsBasePath()
+    {
+        // Arrange: a valid base path
+        var basePath = Path.Join("home", "user", "project");
+
+        // Act: call SafePathCombine with no additional segments
+        var result = PathHelpers.SafePathCombine(basePath);
+
+        // Assert: the result must equal the base path because no segments were appended
+        Assert.Equal(basePath, result);
+    }
 }

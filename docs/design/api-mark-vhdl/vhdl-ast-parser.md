@@ -11,7 +11,7 @@ the resulting parse tree to produce a `VhdlFileModel`.
 
 ### Data Model
 
-N/A — VhdlAstParser is a stateless static class; all state is local to each `Parse`
+N/A - VhdlAstParser is a stateless static class; all state is local to each `Parse`
 call and returned as a `VhdlFileModel`.
 
 ### Key Methods

@@ -61,3 +61,24 @@ invokes the parser. See `docs/verification/ots/antlr4.md` for detailed test scen
 directories and confirm that the `Matcher` API correctly handles include patterns, exclude patterns,
 and non-existent roots. See `docs/verification/ots/file-system-globbing.md` for detailed test
 scenarios.
+
+## DemaConsulting.TestResults
+
+`DemaConsulting.TestResults` is verified through the self-validation tests in
+`test/ApiMark.Tool.Tests/SelfTest/ValidationTests.cs`. These tests exercise the
+pass/fail outcome recording and results-file serialization paths of `Validation.cs`,
+which is the sole consumer of `DemaConsulting.TestResults` in the repository. The
+verification focus is the subset of capabilities the product depends on: creating a
+`TestResults` collection, recording `Passed` and `Failed` outcomes on individual
+`TestResult` objects, and serializing the collection to TRX and JUnit XML via
+`TrxSerializer` and `JUnitSerializer`. See
+`docs/verification/ots/dema-consulting-test-results.md` for detailed test scenarios.
+
+## cpp-ast-net (Archived)
+
+The `cpp-ast-net` OTS item is archived and retained for historical reference only. It was
+superseded by direct `clang -ast-dump=json` invocation (see the *clang* section above for the
+current approach). No active verification scenarios exist for this item; the design, requirements,
+and verification documents (`docs/design/ots/cpp-ast-net.md`, `docs/reqstream/ots/cpp-ast-net.yaml`,
+`docs/verification/ots/cpp-ast-net.md`) are preserved to document the historical integration
+decision.

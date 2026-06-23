@@ -63,13 +63,24 @@ public static class GlobFileCollector
     ///     Sorted, deduplicated list of absolute file paths that match the accumulated
     ///     inclusion patterns and are not removed by any exclusion pattern.
     /// </returns>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="patterns"/>, <paramref name="languageExtensions"/>,
+    ///     or <paramref name="workingDirectory"/> is null. Empty collections and an empty
+    ///     working directory string are valid; null references are not.
+    /// </exception>
     public static IReadOnlyList<string> Collect(
         IEnumerable<string> patterns,
         IEnumerable<string> languageExtensions,
         string workingDirectory)
     {
+        // Guard against null arguments — empty patterns and extensions are valid
+        // but null references indicate a programming error in the caller
+        ArgumentNullException.ThrowIfNull(patterns);
+        ArgumentNullException.ThrowIfNull(languageExtensions);
+        ArgumentNullException.ThrowIfNull(workingDirectory);
+
         var extensions = new HashSet<string>(languageExtensions, StringComparer.OrdinalIgnoreCase);
-        var collected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var collected = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var pattern in patterns)
         {

@@ -15,7 +15,7 @@ temporary directory per test run to avoid inter-test interference.
 
 ### Test Environment
 
-N/A — standard test environment using the .NET test runner is sufficient.
+N/A - standard test environment using the .NET test runner is sufficient.
 Interface contract compliance is enforced at compile time through the test double
 in `ApiMark.Core.TestHelpers`.
 
@@ -53,6 +53,12 @@ which write methods can be called without error. Tested by
 string for subFolder produces a root-level writer (i.e. no subdirectory prefix in
 the captured path). Tested by
 `IMarkdownWriterFactory_CreateMarkdown_EmptySubFolder_IsRootLevel`.
+
+**Root-level file created with whitespace-only subFolder**: Verifies that passing
+a whitespace-only string for subFolder produces a root-level writer — whitespace is
+treated identically to an empty string so that generators are not required to trim
+configuration values before calling CreateMarkdown. Tested by
+`FileMarkdownWriterFactory_CreateMarkdown_WhitespaceSubFolder_CreatesRootLevelFile`.
 
 **File-system factory creates root-level file on disk**: Verifies that
 `FileMarkdownWriterFactory.CreateMarkdown` with an empty subFolder writes a real

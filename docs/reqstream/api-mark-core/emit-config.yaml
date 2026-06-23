@@ -15,8 +15,9 @@ sections:
               GradualDisclosure preserves backward compatibility with all existing callers
               that do not supply an explicit format.
             tests:
-              - IApiGenerator_Emit_GradualDisclosure_ProducesMultipleFiles
-              - IApiGenerator_Emit_SingleFile_ProducesSingleApiMd
+              - EmitConfig_DefaultFormat_IsGradualDisclosure
+              - IApiEmitter_Emit_GradualDisclosure_ProducesMultipleFiles
+              - IApiEmitter_Emit_SingleFile_ProducesSingleApiMd
           - id: ApiMarkCore-EmitConfig-DefineHeadingDepth
             title: EmitConfig shall make the top-level heading level selectable, defaulting
               to level 1.
@@ -26,4 +27,19 @@ sections:
               controls the absolute heading level of the top-level section so that the
               emitter can shift all headings consistently. Defaulting to 1 produces H1
               top-level headings, matching the expected output for standalone documents.
-            tests: [IApiGenerator_Emit_SingleFile_ProducesSingleApiMd]
+            tests:
+              - EmitConfig_DefaultHeadingDepth_IsOne
+              - IApiEmitter_Emit_SingleFile_ProducesSingleApiMd
+          - id: ApiMarkCore-EmitConfig-ValidateHeadingDepthRange
+            title: EmitConfig shall reject HeadingDepth values outside the range 1–3
+              by throwing ArgumentOutOfRangeException at init time.
+            justification: |
+              The effective member heading level is HeadingDepth + 3. A depth of 3
+              produces H6 member headings, which is the maximum in CommonMark. Values
+              above 3 would generate H7+ headings that are not rendered as headings by
+              standard processors. Enforcing the range at init time produces a clear
+              error at the point of misconfiguration.
+            tests:
+              - EmitConfig_HeadingDepth_BelowMinimum_ThrowsArgumentOutOfRangeException
+              - EmitConfig_HeadingDepth_AboveMaximum_ThrowsArgumentOutOfRangeException
+              - EmitConfig_HeadingDepth_ValidNonDefault_SetsCorrectly

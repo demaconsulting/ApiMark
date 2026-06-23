@@ -13,7 +13,7 @@ that route messages to a log file or build-system diagnostic channel.
 
 ### Data Model
 
-N/A — IContext is an interface with no fields or properties of its own. State,
+N/A - IContext is an interface with no fields or properties of its own. State,
 if any, is managed entirely by the implementing class.
 
 ### Key Methods
@@ -44,7 +44,7 @@ throw in response to invalid arguments or I/O failures.
 
 ### Dependencies
 
-N/A — IContext is an interface defined in ApiMarkCore; it has no dependencies
+N/A - IContext is an interface defined in ApiMarkCore; it has no dependencies
 on other units, OTS items, or shared packages.
 
 ### Callers

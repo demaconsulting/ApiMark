@@ -39,14 +39,21 @@ filesystem matching the specified patterns.
   - `string workingDirectory` — absolute path used as the root for relative
     patterns.
 - *Returns*: `IReadOnlyList<string>` — sorted, deduplicated absolute file paths.
-- *Preconditions*: none — empty patterns return an empty list; non-existent
-  roots are silently skipped.
+- *Preconditions*: `patterns`, `languageExtensions`, and `workingDirectory` must
+  not be null; `ArgumentNullException` is thrown if any is null. Empty collections
+  and an empty working directory string are valid.
 - *Algorithm*:
   1. For each pattern, strip a leading `!` (marks exclusion) and trim whitespace.
   2. Call `ParsePattern` to obtain a `(root, globTail)` pair. Relative patterns
      use `workingDirectory` as root; absolute patterns derive their root from the
      longest non-glob path prefix (see `SplitAbsolutePattern`).
-  3. Skip the pattern silently if `globTail` is empty or `root` does not exist.
+  3. When `globTail` is empty (no glob metacharacters in the absolute pattern),
+     treat `root` as a literal file path: if the file exists and its extension
+     appears in `languageExtensions`, add/remove it directly without directory
+     traversal, then continue to the next pattern. Skip silently if `root` does
+     not exist as a file or its extension is not in `languageExtensions`.
+     When `globTail` is non-empty and `root` does not exist as a directory,
+     skip the pattern silently.
   4. Call `HasBareStarFinalSegment` to determine whether extension inference
      applies (final segment is exactly `*`).
   5. Run `Microsoft.Extensions.FileSystemGlobbing.Matcher.GetResultsInFullPath`
@@ -78,7 +85,8 @@ non-glob path prefix and the first glob metacharacter.
 
 - Returns `(root, tail)` where root is the longest static prefix (a real
   directory) and tail is passed to `Matcher.AddInclude`.
-- If no metacharacter is found, returns `(pattern, "")` — no glob tail.
+- If no metacharacter is found, returns `(pattern, "")` — no glob tail; the
+  caller treats the entire pattern as a literal file path.
 - If no `/` precedes the first metacharacter, returns `("", pattern)` — no
   static root.
 
@@ -88,9 +96,11 @@ with no extension), triggering language-extension filtering.
 
 ### Error Handling
 
-`GlobFileCollector.Collect` never throws for missing directories or empty
-pattern lists. Non-existent roots are skipped silently. All other exceptions
-(e.g. I/O errors from `Matcher.GetResultsInFullPath`) propagate to the caller.
+`GlobFileCollector.Collect` throws `ArgumentNullException` immediately when
+`patterns`, `languageExtensions`, or `workingDirectory` is null. For non-null
+inputs it never throws for missing directories or empty pattern lists; non-existent
+roots are skipped silently. All other exceptions (e.g. I/O errors from
+`Matcher.GetResultsInFullPath`) propagate to the caller.
 
 ### Dependencies
 

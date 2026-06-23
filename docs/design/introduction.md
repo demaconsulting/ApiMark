@@ -10,9 +10,11 @@ systems: ApiMark.Core (shared contracts and file-path helpers), ApiMark.DotNet
 (VHDL language generator), ApiMark.MSBuild
 (unified MSBuild task that spawns ApiMark.Tool out-of-process), and ApiMark.Tool (the
 .NET executable invoked by ApiMarkTask and directly by users or CI pipelines).
-Three OTS items provide library support: Mono.Cecil for the DotNet system, clang (via
-`clang -ast-dump=json`) for the Cpp system, and DemaConsulting.TestResults for the SelfTest
-subsystem. A fourth archived OTS item, cpp-ast-net, is retained for historical reference.
+Several OTS items provide library support: Mono.Cecil for the DotNet system, clang (via
+`clang -ast-dump=json`) for the Cpp system, DemaConsulting.TestResults for the SelfTest
+subsystem, Antlr4.Runtime.Standard/ANTLR4 vhdl2008 grammar for the Vhdl system, and
+Microsoft.Extensions.FileSystemGlobbing for glob-based file discovery in ApiMarkCore.
+An archived OTS item, cpp-ast-net, is retained for historical reference.
 
 ## Purpose
 
@@ -23,14 +25,8 @@ its requirements without reading source code.
 
 ## Scope
 
-Local items:
-
-- **ApiMarkCore**: system and unit design.
-- **ApiMarkDotNet**: system and unit design.
-- **ApiMarkCpp**: system and unit design.
-- **ApiMarkVhdl**: system and unit design.
-- **ApiMarkMsbuild**: system and unit design.
-- **ApiMarkTool**: system and unit design.
+Local items cover system, subsystem, and unit design for: ApiMarkCore, ApiMarkDotNet,
+ApiMarkCpp, ApiMarkVhdl, ApiMarkMsbuild, and ApiMarkTool.
 
 OTS items:
 
@@ -38,10 +34,11 @@ OTS items:
 - **clang**: integration and usage design (via `clang -ast-dump=json`).
 - **DemaConsulting.TestResults**: integration and usage design.
 - **Antlr4.Runtime.Standard / ANTLR4 vhdl2008 grammar**: integration and usage design.
+- **Microsoft.Extensions.FileSystemGlobbing**: integration and usage design.
 - **cpp-ast-net**: integration and usage design (archived; retained for historical reference).
 
-Out of scope: test projects, build pipeline CI configuration, and the internal design
-of OTS items.
+Out of scope: design documents are not produced for test projects or build pipeline CI
+configuration; the internal design of OTS items is also excluded.
 
 ## Software Structure
 
@@ -100,6 +97,7 @@ OTS Dependencies:
 ├── DemaConsulting.TestResults (OTS)
 ├── clang -ast-dump=json (OTS)
 ├── Antlr4.Runtime.Standard / ANTLR4 vhdl2008 grammar (OTS)
+├── Microsoft.Extensions.FileSystemGlobbing (OTS)
 └── cpp-ast-net (OTS) [archived]
 ```
 
@@ -158,20 +156,6 @@ src/
     ├── SelfTest/
     │   └── Validation.cs              - self-validation tests for --validate
     └── Program.cs                     - dotnet CLI entry point dispatching to IApiGenerator
-
-test/
-├── ApiMark.Core.TestHelpers/
-│   ├── InMemoryMarkdownWriterFactory.cs  - in-memory IMarkdownWriterFactory test double
-│   ├── InMemoryMarkdownWriter.cs         - in-memory IMarkdownWriter test double
-│   └── InMemoryContext.cs                - in-memory IContext test double
-├── ApiMark.Core.Tests/            - unit tests for Core contracts
-├── ApiMark.DotNet.Fixtures/       - multi-target fixture assembly for DotNet integration tests
-├── ApiMark.DotNet.Tests/          - unit tests for DotNetGenerator and TypeNameSimplifier
-├── ApiMark.Cpp.Fixtures/          - C++ fixture headers for CppGenerator integration tests
-├── ApiMark.Cpp.Tests/             - unit tests for CppGenerator
-├── ApiMark.Vhdl.Tests/            - unit tests for VhdlGenerator
-├── ApiMark.MSBuild.Tests/         - unit tests for ApiMarkTask
-└── ApiMark.Tool.Tests/            - integration tests for the CLI tool
 ```
 
 ## Companion Artifact Structure
@@ -261,8 +245,9 @@ Each local software item has corresponding artifacts in parallel directory trees
 - Source: `src/ApiMark.Core/`, `src/ApiMark.DotNet/`, `src/ApiMark.Cpp/`, `src/ApiMark.Vhdl/`,
   `src/ApiMark.MSBuild/`, `src/ApiMark.Tool/`
 - Tests: `test/ApiMark.Core.TestHelpers/`, `test/ApiMark.Core.Tests/`, `test/ApiMark.DotNet.Tests/`,
-  `test/ApiMark.Cpp.Fixtures/`, `test/ApiMark.Cpp.Tests/`, `test/ApiMark.Vhdl.Tests/`,
+  `test/ApiMark.Cpp.Tests/`, `test/ApiMark.Vhdl.Tests/`,
   `test/ApiMark.MSBuild.Tests/`, `test/ApiMark.Tool.Tests/`
+- Fixtures: `test/ApiMark.DotNet.Fixtures/`, `test/ApiMark.Cpp.Fixtures/`
 
 OTS items have integration/usage design documentation parallel to system folders:
 
@@ -288,6 +273,12 @@ And for ANTLR4:
 - Design: `docs/design/ots/antlr4.md`
 - Verification: `docs/verification/ots/antlr4.md`
 
+And for Microsoft.Extensions.FileSystemGlobbing:
+
+- Requirements: `docs/reqstream/ots/file-system-globbing.yaml`
+- Design: `docs/design/ots/file-system-globbing.md`
+- Verification: `docs/verification/ots/file-system-globbing.md`
+
 And for cpp-ast-net (archived):
 
 - Requirements: `docs/reqstream/ots/cpp-ast-net.yaml`
@@ -298,5 +289,5 @@ Review-sets: defined in `.reviewmark.yaml`
 
 ## References
 
-N/A — this document set is derived from repository source materials and does not
+N/A - this document set is derived from repository source materials and does not
 introduce external specifications or standards requiring citation.

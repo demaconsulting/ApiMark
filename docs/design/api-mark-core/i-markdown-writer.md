@@ -28,7 +28,8 @@ implementation, `FileMarkdownWriter`, holds:
 
 - *Parameters*: `int level` — heading depth (1–6); `string text` — heading text.
 - *Returns*: `void`
-- *Preconditions*: `level` must be between 1 and 6 inclusive.
+- *Preconditions*: `level` must be between 1 and 6 inclusive; `text` must not be
+  null or empty.
 - *Postconditions*: A Markdown heading line (`# text` through `###### text`) is
   appended to the current output file.
 
@@ -37,14 +38,14 @@ implementation, `FileMarkdownWriter`, holds:
 - *Parameters*: `string language` — fence language tag (e.g. `csharp`);
   `string code` — the formatted signature text.
 - *Returns*: `void`
-- *Preconditions*: N/A — no constraints on parameter values beyond the interface type.
+- *Preconditions*: `language` and `code` must not be null.
 - *Postconditions*: A fenced code block is appended to the current output file.
 
 **IMarkdownWriter.WriteParagraph**: Writes a prose paragraph.
 
 - *Parameters*: `string text` — paragraph content.
 - *Returns*: `void`
-- *Preconditions*: N/A — no constraints on parameter values beyond the interface type.
+- *Preconditions*: `text` must not be null.
 - *Postconditions*: A blank-line-delimited paragraph is appended to the current
   output file.
 
@@ -54,7 +55,9 @@ implementation, `FileMarkdownWriter`, holds:
   `IEnumerable<string[]> rows` — row data, each inner array containing one cell
   per column.
 - *Returns*: `void`
-- *Preconditions*: N/A — no constraints on parameter values beyond the interface type.
+- *Preconditions*: `headers` must not be null and must contain at least one element;
+  `rows` must not be null; each row must contain the same number of elements as
+  `headers`; no element in `headers` or any row may be null.
 - *Postconditions*: A pipe-delimited Markdown table is appended to the current
   output file. Literal pipe characters (`|`) in cell content are escaped as `\|`.
 
@@ -62,7 +65,7 @@ implementation, `FileMarkdownWriter`, holds:
 
 - *Parameters*: `string language` — fence language tag; `string code` — code text.
 - *Returns*: `void`
-- *Preconditions*: N/A — no constraints on parameter values beyond the interface type.
+- *Preconditions*: `language` and `code` must not be null.
 - *Postconditions*: A fenced code block is appended to the current output file.
 
 **IMarkdownWriter.WriteLink**: Writes a relative navigation link to another documentation file.
@@ -70,7 +73,7 @@ implementation, `FileMarkdownWriter`, holds:
 - *Parameters*: `string text` — display label; `string relativePath` — path to the
   linked file relative to the current output file.
 - *Returns*: `void`
-- *Preconditions*: N/A — no constraints on parameter values beyond the interface type.
+- *Preconditions*: `text` must not be null or empty; `relativePath` must not be null.
 - *Postconditions*: A Markdown inline link of the form `[text](relativePath)` is
   appended to the current output file.
 
@@ -84,6 +87,10 @@ output file.
 
 `IMarkdownWriter` itself defines no error-handling contract; it is an interface.
 
+Implementations must throw `ArgumentNullException` or `ArgumentException` when
+required preconditions are violated (null arguments, empty heading text, out-of-range
+heading level, mismatched row length, or an empty headers array).
+
 `FileMarkdownWriter` does not catch I/O errors. Any `IOException` raised by the
 underlying `StreamWriter` (for example, if the output directory is not writable or
 the disk is full) propagates directly to the caller. Callers are responsible for
@@ -96,7 +103,7 @@ after `Dispose` throws `ObjectDisposedException`.
 
 ### Dependencies
 
-N/A — IMarkdownWriter is an interface defined in ApiMarkCore; it has no dependencies
+N/A - IMarkdownWriter is an interface defined in ApiMarkCore; it has no dependencies
 on other units, OTS items, or shared packages.
 
 ### Callers

@@ -13,23 +13,50 @@ sections:
               the storage mechanism so that the same generator code can write to disk
               in production and to memory in tests.
             tests: [IMarkdownWriterFactory_HasCreateMarkdown_Method]
-          - id: ApiMarkCore-IMarkdownWriterFactory-SupportRootLevelFiles
-            title: IMarkdownWriterFactory shall support creating root-level files
-              when subFolder is an empty string.
+          - id: ApiMarkCore-IMarkdownWriterFactory-AcceptEmptySubFolderAsRoot
+            title: IMarkdownWriterFactory shall create a root-level file when subFolder
+              is an empty string.
             justification: |
               The api.md entrypoint file is always at the root of the output tree, so
-              the factory must accept an empty subFolder without error to allow
+              the factory must accept an empty string subFolder without error to allow
               generators to create that fixed entrypoint.
-            tests: [IMarkdownWriterFactory_CreateMarkdown_EmptySubFolder_IsRootLevel]
-          - id: ApiMarkCore-IMarkdownWriterFactory-RejectInvalidOutputDirectory
-            title: IMarkdownWriterFactory shall reject a null, empty, or whitespace
-              output directory path at construction time.
+            tests:
+              - IMarkdownWriterFactory_CreateMarkdown_EmptySubFolder_IsRootLevel
+              - FileMarkdownWriterFactory_CreateMarkdown_RootLevel_CreatesFile
+          - id: ApiMarkCore-IMarkdownWriterFactory-AcceptWhitespaceSubFolderAsRoot
+            title: IMarkdownWriterFactory shall create a root-level file when subFolder
+              is a whitespace-only string.
+            justification: |
+              Treating a whitespace-only subFolder identically to an empty string prevents
+              generators from having to trim input before every CreateMarkdown call and
+              makes the contract more robust against accidental trailing whitespace in
+              configuration values.
+            tests:
+              - FileMarkdownWriterFactory_CreateMarkdown_WhitespaceSubFolder_CreatesRootLevelFile
+          - id: ApiMarkCore-IMarkdownWriterFactory-RejectNullOutputDirectory
+            title: IMarkdownWriterFactory shall reject a null output directory path
+              at construction time.
             justification: |
               Failing fast at construction with a clear ArgumentException prevents
               obscure I/O failures later when the first file is created, making
               misconfiguration easier to diagnose.
             tests:
               - FileMarkdownWriterFactory_Constructor_NullDirectory_ThrowsArgumentException
+          - id: ApiMarkCore-IMarkdownWriterFactory-RejectEmptyOutputDirectory
+            title: IMarkdownWriterFactory shall reject an empty string output directory
+              path at construction time.
+            justification: |
+              An empty string cannot produce a valid directory path; failing fast at
+              construction with a clear ArgumentException prevents obscure I/O failures.
+            tests:
+              - FileMarkdownWriterFactory_Constructor_EmptyDirectory_ThrowsArgumentException
+          - id: ApiMarkCore-IMarkdownWriterFactory-RejectWhitespaceOutputDirectory
+            title: IMarkdownWriterFactory shall reject a whitespace-only output directory
+              path at construction time.
+            justification: |
+              A whitespace-only string cannot produce a valid directory path; failing fast
+              at construction prevents obscure I/O failures later.
+            tests:
               - FileMarkdownWriterFactory_Constructor_WhitespaceDirectory_ThrowsArgumentException
           - id: ApiMarkCore-IMarkdownWriterFactory-EnsureOutputDirectory
             title: IMarkdownWriterFactory shall create the output directory and any

@@ -15,7 +15,7 @@ also omitted because it only applies to the multi-file layout.
 
 ### Data Model
 
-N/A — CppEmitterSingleFile holds no data model of its own. It reads from the
+N/A - CppEmitterSingleFile holds no data model of its own. It reads from the
 `SortedDictionary<string, CppEmitter.NamespaceDeclarations>` supplied by
 `CppEmitter` and from `CppGeneratorOptions` via the parent emitter.
 
@@ -67,7 +67,7 @@ display name.
 
 ### Error Handling
 
-N/A — CppEmitterSingleFile propagates exceptions from the factory and writer
+N/A - CppEmitterSingleFile propagates exceptions from the factory and writer
 without wrapping. No additional error handling is performed.
 
 ### External Interfaces

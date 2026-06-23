@@ -21,8 +21,9 @@ is stateless and thread-safe.
 relative path segments.
 
 - *Parameters*: `string basePath` — trusted base directory. `params string[] relativePaths`
-  — one or more caller-supplied relative path segments appended in order.
-- *Returns*: `string` — the combined path.
+  — zero or more caller-supplied relative path segments appended in order.
+- *Returns*: `string` — the combined path. When no segments are supplied, returns
+  `basePath` unchanged.
 - *Preconditions*: `basePath` must not be null. `relativePaths` must not be null. Each
   segment must not be null.
 - *Postconditions*: The returned path is the result of joining all segments to `basePath`
@@ -34,12 +35,14 @@ relative path segments.
 
 PathHelpers joins all segments using `Path.Join`, then applies a single escape check:
 `Path.GetFullPath` is called on both the base and the combined path, and
-`Path.GetRelativePath` confirms the result still resolves under the base. If the
-relative path starts with `..` or is itself rooted, the method throws `ArgumentException`.
+`Path.GetRelativePath` confirms the result still resolves under the base.
+`ArgumentException` is thrown when and only when the normalized combined path escapes
+(resolves above) the base directory — that is, when the relative path from the base
+to the combined result starts with `..` or is itself rooted.
 
-Segments may contain `..` components or be rooted provided the combined result does not
-escape — for example segments `["baa", ".."]` on base `C:\foo` resolve back to `C:\foo`
-and are accepted. Only the final resolved position matters.
+Individual segments may contain `..` components or be rooted provided the combined
+result does not escape — for example segments `["baa", ".."]` on base `C:\foo` resolve
+back to `C:\foo` and are accepted. Only the final resolved position matters.
 
 `Path.Join` is used rather than `Path.Combine` so no segment can silently replace the
 base path.

@@ -20,7 +20,7 @@ public interface IApiGenerator
 {
     /// <summary>
     ///     Parses the configured software component and returns an emitter ready to
-    ///     produce Markdown documentation in the requested format.
+    ///     emit documentation in any supported output format.
     /// </summary>
     /// <param name="context">
     ///     Output channel used to emit informational and error messages during parsing.

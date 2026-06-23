@@ -38,9 +38,10 @@ public sealed class InMemoryContext : IContext
     ///     Captures an informational message by appending it to <see cref="Lines"/>.
     /// </summary>
     /// <param name="message">The message to capture. Must not be null.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="message"/> is null.</exception>
     public void WriteLine(string message)
     {
-        // Append the message to the in-memory list for later assertion
+        ArgumentNullException.ThrowIfNull(message);
         _lines.Add(message);
     }
 
@@ -48,9 +49,10 @@ public sealed class InMemoryContext : IContext
     ///     Captures an error or warning message by appending it to <see cref="Errors"/>.
     /// </summary>
     /// <param name="message">The error or warning message to capture. Must not be null.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="message"/> is null.</exception>
     public void WriteError(string message)
     {
-        // Append the error message to the in-memory list for later assertion
+        ArgumentNullException.ThrowIfNull(message);
         _errors.Add(message);
     }
 }

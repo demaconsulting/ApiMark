@@ -12,7 +12,7 @@ matches the naming conventions a C# developer would write by hand.
 
 ### Data Model
 
-N/A — TypeNameSimplifier is a stateless helper class. It exposes a single
+N/A - TypeNameSimplifier is a stateless helper class. It exposes a single
 simplification method and holds no mutable state across calls.
 
 **Primitives** (`private static readonly Dictionary<string, string>`): maps full

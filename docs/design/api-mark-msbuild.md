@@ -96,7 +96,7 @@ executable to perform generation.
 
 ## Risk Control Measures
 
-N/A — not a safety-classified software item.
+N/A - not a safety-classified software item.
 
 ## Data Flow
 

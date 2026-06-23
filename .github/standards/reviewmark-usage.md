@@ -20,71 +20,84 @@ review, organizes them into review-sets, and generates review plans and reports.
 
 - **Lint Configuration**: `dotnet reviewmark --lint`
 - **Elaborate Review-Set**: `dotnet reviewmark --elaborate {review-set}`
-- **Generate Plan**: `dotnet reviewmark --plan docs/code_review_plan/generated/plan.md --enforce`
-
-> **Note**: `--enforce` causes the plan to fail with a non-zero exit code if any repository
-> files are not covered by a review-set. Uncovered files indicate a gap in review-set
-> configuration that should be addressed.
+- **Generate Plan**: `dotnet reviewmark --plan docs/code_review_plan/generated/plan.md --enforce` (exits non-zero if any files are uncovered)
 
 ## Repository Structure
 
-Required repository items for ReviewMark operation:
-
 - `.reviewmark.yaml` - Configuration for review-sets, file-patterns, and review evidence-source.
-- `docs/code_review_plan/generated/` - Generated review plan (build output, do not edit)
-- `docs/code_review_report/generated/` - Generated review report (build output, do not edit)
 
 # Review Definition Structure
 
 Configure reviews in `.reviewmark.yaml` at repository root:
 
 ```yaml
-# Patterns identifying all files that require review
 needs-review:
-  # Include source code (adjust file extensions for your repo)
-  - "**/*.cs"           # C# source files
-  - "**/*.cpp"          # C++ source files
-  - "**/*.hpp"          # C++ header files
-  - "!**/bin/**"        # Generated source in build outputs
-  - "!**/obj/**"        # Generated source in build intermediates
+  - "**/*.cs"
+  - "**/*.cpp"
+  - "**/*.hpp"
+  - "!**/bin/**"
+  - "!**/obj/**"
+  - "requirements.yaml"
+  - "docs/reqstream/**/*.yaml"
+  - "README.md"
+  - "docs/user_guide/**/*.md"
+  - "docs/design/**/*.md"
+  - "docs/verification/**/*.md"
 
-  # Include requirement files
-  - "requirements.yaml"        # Root requirements file
-  - "docs/reqstream/**/*.yaml" # Requirements files
-
-  # Include critical documentation files
-  - "README.md"                                 # Root level README
-  - "docs/user_guide/**/*.md"                   # User guide
-  - "docs/design/**/*.md"                       # Design documentation
-  - "docs/verification/**/*.md"                 # Verification design documentation
-
-# Source of review evidence
 evidence-source:
   type: none
 
-# Review-sets (each focuses on a single compliance question)
+context:
+  - docs/design/introduction.md
+
 reviews:
   - id: Purpose
-    title: Review of user-facing capabilities and system promises
+    title: Review that README and User Guide are Coherent and Complete
     paths:
       - "README.md"
       - "docs/user_guide/**/*.md"
-      - "docs/reqstream/{system-name}.yaml"
+  - id: Decomposition
+    title: Review that {SystemName} Decomposition Addresses the Stated Purpose
+    context:
+      - "README.md"
+      - "docs/user_guide/**/*.md"
+    paths:
+      - "requirements.yaml"
       - "docs/design/introduction.md"
-      - "docs/design/{system-name}.md"
 ```
 
-# Review-Set Design Principles
+For a complete annotated example with template directives, see `.reviewmark.yaml` in the
+reference template (`{template-url}/.reviewmark.yaml` per `AGENTS.md`).
 
-When constructing review-sets, follow these principles to maintain manageable scope and effective compliance evidence:
+# Review-Set Design Principles
 
 - **Hierarchical Scope**: Higher-level reviews exclude lower-level implementation details, relying instead on design
   documents to describe what components they use. System reviews exclude subsystem/unit details, subsystem reviews
   exclude unit source code, only unit reviews include actual implementation.
 - **Single Focus**: Each review-set proves one specific compliance question (user promises, system architecture,
   design consistency, etc.)
+- **Parent Context**: Unit and subsystem reviews include parent design and requirements as
+  context so reviewers understand the intended role and scope; see the Context Files section.
 - **Context Management**: Keep file counts manageable to prevent context overflow while maintaining complete coverage
   through the hierarchy
+
+# Context Files
+
+Context files are shown to reviewers for orientation but not fingerprinted. Add a top-level
+`context:` key for global context (every reviewer) and a per-review-set `context:` between
+`title:` and `paths:` for review-specific context. Always include `docs/design/introduction.md`
+as global context.
+
+| Review Type | Context to add |
+| :---------- | :------------- |
+| `Decomposition` | `README.md`, `docs/user_guide/**/*.md` |
+| `{SystemName}-Architecture` | `README.md`, `docs/user_guide/**/*.md` |
+| `{SystemName}-Design` | `docs/reqstream/{system-name}.yaml` |
+| `{SystemName}-Verification` | `docs/reqstream/{system-name}.yaml` |
+| `{SystemName}-AllRequirements` | Parent system design doc + `docs/reqstream/{system-name}.yaml` |
+| `{SystemName}-{UnitName}` (direct unit) | Parent system design doc + parent system requirements |
+| `{SystemName}-{SubsystemName}` (subsystem) | Parent system design doc + parent system requirements |
+| `{SystemName}-{SubsystemName}-{UnitName}` (unit under subsystem) | System + subsystem design docs, system + subsystem requirements |
 
 # Review-Set Organization
 
@@ -96,22 +109,26 @@ placeholders are always PascalCase (e.g., `{SystemName}`).
 
 ## `Purpose` Review (only one per repository)
 
-Reviews user-facing capabilities and system promises:
-
-- **Purpose**: Proves that the systems provide the capabilities the user is being told about
-- **Title**: "Review that Advertised Features Match System Design"
-- **Scope**: Excludes subsystem and unit files, relying on system-level design documents
-  to describe what subsystems and units they use
+- **Purpose**: Proves that the user-facing docs are coherent and complete — the north-star for the hierarchy
+- **Title**: "Review that README and User Guide are Coherent and Complete"
+- **ID**: `Purpose` (no system prefix — one per repository)
+- **Scope**: README and user_guide only; no requirements or design files
 - **File Path Patterns**:
   - README: `README.md`
   - User guide: `docs/user_guide/**/*.md`
-  - System requirements: `docs/reqstream/{system-name}.yaml`
+
+## `Decomposition` Review (only one per repository)
+
+- **Purpose**: Proves that the software items tree breakdown logically addresses the user-facing promise; the structural mirror of the decomposition decision
+- **Title**: "Review that {SystemName} Decomposition Addresses the Stated Purpose"
+- **ID**: `Decomposition` (no system prefix — one per repository)
+- **Scope**: introduction.md (the decomposition narrative) and requirements.yaml (the structural tree); no system-level detail
+- **File Path Patterns**:
+  - Root requirements: `requirements.yaml`
   - Design introduction: `docs/design/introduction.md`
-  - System design: `docs/design/{system-name}.md`
+- **Context Files**: `README.md`, `docs/user_guide/**/*.md`
 
 ## `{SystemName}-Architecture` Review (one per system)
-
-Reviews system architecture and operational validation:
 
 - **Purpose**: Proves that the system is designed and tested to satisfy its requirements
 - **Title**: "Review that {SystemName} Architecture Satisfies Requirements"
@@ -124,16 +141,15 @@ Reviews system architecture and operational validation:
   - Verification introduction: `docs/verification/introduction.md`
   - System verification design: `docs/verification/{system-name}.md`
   - System integration tests: `test/{SystemName}.Tests/{SystemName}Tests.{ext}`
+- **Context Files**: `README.md`, `docs/user_guide/**/*.md`
 
 ## `{SystemName}-Design` Review (one per system)
-
-Reviews architectural and design consistency:
 
 - **Purpose**: Proves the system design is consistent and complete
 - **Title**: "Review that {SystemName} Design is Consistent and Complete"
 - **Scope**: Only brings in top-level requirements and relies on brevity of design documentation
+- **Context Files**: `docs/reqstream/{system-name}.yaml`
 - **File Path Patterns**:
-  - System requirements: `docs/reqstream/{system-name}.yaml`
   - Platform requirements: `docs/reqstream/{system-name}/platform-requirements.yaml`
   - Design introduction: `docs/design/introduction.md`
   - System design: `docs/design/{system-name}.md`
@@ -143,13 +159,11 @@ Reviews architectural and design consistency:
 
 ## `{SystemName}-Verification` Review (one per system)
 
-Reviews verification completeness and consistency:
-
 - **Purpose**: Proves the system verification design is consistent and covers all requirements
 - **Title**: "Review that {SystemName} Verification is Consistent and Complete"
 - **Scope**: Only brings in top-level requirements and all verification docs for the system
+- **Context Files**: `docs/reqstream/{system-name}.yaml`
 - **File Path Patterns**:
-  - System requirements: `docs/reqstream/{system-name}.yaml`
   - Verification introduction: `docs/verification/introduction.md`
   - System verification: `docs/verification/{system-name}.md`
   - System verification files: `docs/verification/{system-name}/**/*.md`
@@ -158,19 +172,14 @@ Reviews verification completeness and consistency:
 
 ## `{SystemName}-AllRequirements` Review (one per system)
 
-Reviews requirements quality and traceability:
-
 - **Purpose**: Proves the requirements are consistent and complete
 - **Title**: "Review that All {SystemName} Requirements are Complete"
 - **Scope**: Only brings in requirements files to keep review manageable
 - **File Path Patterns**:
-  - Root requirements: `requirements.yaml`
-  - System requirements: `docs/reqstream/{system-name}.yaml`
   - Subsystem/unit requirements: `docs/reqstream/{system-name}/**/*.yaml`
+- **Context Files**: `docs/design/{system-name}.md`, `docs/reqstream/{system-name}.yaml`
 
 ## `{SystemName}-{SubsystemName}[-{SubsystemName}...]` Review (one per subsystem at any depth)
-
-Reviews subsystem architecture and interfaces:
 
 - **Purpose**: Proves that the subsystem is designed and tested to satisfy its requirements
 - **Title**: "Review that {SystemName} {SubsystemName} Satisfies Subsystem Requirements"
@@ -181,10 +190,9 @@ Reviews subsystem architecture and interfaces:
   - Design: `docs/design/{system-name}[/{subsystem-name}...]/{subsystem-name}.md`
   - Verification design: `docs/verification/{system-name}[/{subsystem-name}...]/{subsystem-name}.md`
   - Tests: `test/{SystemName}.Tests[/{SubsystemName}...]/{SubsystemName}Tests.{ext}`
+- **Context Files**: `docs/design/{system-name}.md`, `docs/reqstream/{system-name}.yaml`
 
 ## `{SystemName}-{SubsystemName}[-{SubsystemName}...]-{UnitName}` Review (one per unit)
-
-Reviews individual software unit implementation:
 
 - **Purpose**: Proves the unit is designed, implemented, and tested to satisfy its requirements
 - **Title**: "Review that {SystemName} {SubsystemName} {UnitName} Implementation is Correct"
@@ -197,10 +205,9 @@ Reviews individual software unit implementation:
   - Tests (C# example): `test/{SystemName}.Tests[/{SubsystemName}...]/{UnitName}Tests.cs`
   - Source (snake_case C++ example): `src/{system_name}[/{subsystem_name}...]/{unit_name}.cpp`
   - Tests (snake_case C++ example): `test/{system_name}_tests[/{subsystem_name}...]/{unit_name}_tests.cpp`
+- **Context Files**: Parent system design + requirements; add subsystem design + requirements for each subsystem level above the unit.
 
 ## `OTS-{OtsName}` Review (one per OTS item)
-
-Reviews OTS item integration design, requirements, and verification evidence:
 
 - **Purpose**: Proves that the OTS item provides the required functionality and is correctly integrated
 - **Title**: "Review that {OtsName} Provides Required Functionality"
@@ -213,8 +220,6 @@ Reviews OTS item integration design, requirements, and verification evidence:
     (Python/other) — fixed repo-level name, no system prefix
 
 ## `Shared-{PackageName}` Review (one per Shared Package)
-
-Reviews Shared Package integration design, requirements, and verification evidence:
 
 - **Purpose**: Proves that the Shared Package provides the required advertised features and is correctly integrated
 - **Title**: "Review that {PackageName} Provides Required Features"
@@ -229,10 +234,9 @@ extensions (`.cs`, `.cpp`/`.hpp`, `.py`, etc.). Adapt to your repository's langu
 
 # Quality Checks
 
-Before submitting ReviewMark configuration, verify:
-
 - [ ] `.reviewmark.yaml` exists at repository root with proper structure
 - [ ] Review-set organization follows the standard hierarchy patterns
 - [ ] Each review-set focuses on a single compliance question (single focus principle)
 - [ ] File patterns use correct glob syntax and match intended files
 - [ ] Review-set file counts remain manageable (context management principle)
+- [ ] Context configured per the Context Files section

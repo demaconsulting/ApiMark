@@ -8,12 +8,12 @@ test doubles from `test/ApiMark.Core.TestHelpers/` to confirm that callers can i
 the full range of structured operations through the `IApiGenerator` and
 `IMarkdownWriter` interfaces in a predictable sequence without depending on a specific
 renderer or generator implementation. Additional PathHelpers tests verify safe
-combination of valid relative paths and rejection of traversal, rooted, and null input.
+combination of valid relative paths and rejection of traversal attempts and null input.
 No MSBuild or external process involvement is required.
 
 ## Test Environment
 
-N/A — standard test environment using the .NET test runner is sufficient for ApiMark.Core
+N/A - standard test environment using the .NET test runner is sufficient for ApiMark.Core
 unit tests.
 
 ## Acceptance Criteria
@@ -26,8 +26,9 @@ unit tests.
 - `IMarkdownWriterFactory` can create writers for root and subfolder paths.
 - `IMarkdownWriter` structured operations (headings, paragraphs, code blocks, tables,
   links) are forwarded with the correct values and sequence.
-- `PathHelpers` combines valid relative paths and rejects traversal, rooted, and null
-  path input.
+- `PathHelpers` combines valid relative paths and rejects traversal and null
+  path input. Rooted (absolute) path segments are not rejected — they are
+  concatenated as relative components within the base directory.
 - `GlobFileCollector` collects files matching glob patterns: empty patterns return
   empty; bare-star segments apply language-extension filtering; absolute patterns work
   independently of working directory; exclusions remove files; non-existent roots
@@ -40,7 +41,7 @@ unit tests.
 `Lines`, error messages reach `Errors`, and no cross-contamination occurs between
 channels. This scenario is tested by `IContext_WriteLine_CapturesMessage_InLines`,
 `IContext_WriteError_CapturesMessage_InErrors`, and
-`ApiMarkCore_ContextContract_WrittenMessages_AreAccessibleForAssertion`.
+`InMemoryContext_WriteLineAndWriteError_RouteToSeparateChannels`.
 
 **Generator contract is satisfied**: Verifies that a language-generator implementation
 compiles against the `IApiGenerator` interface and can be invoked through an interface
@@ -58,11 +59,12 @@ by generators. This scenario is tested by
 operations (headings, paragraphs, code blocks, tables, links) are forwarded through
 the `IMarkdownWriter` contract with the correct values and without loss of
 structure. This scenario is tested by
-`ApiMarkCore_MarkdownWriterContract_FileSections_RenderConsistently`.
+`InMemoryMarkdownWriter_Write_AllOperations_RecordsInOrder`.
 
 **Path helper enforces safe path combination**: Verifies that PathHelpers combines valid
-relative segments while rejecting traversal attempts, rooted paths, and null input.
-This scenario is tested by the `PathHelpers_SafePathCombine_*` test cases in
+relative segments while rejecting traversal attempts and null input. Rooted (absolute)
+path segments are resolved as relative components within the base directory rather than
+rejected. This scenario is tested by the `PathHelpers_SafePathCombine_*` test cases in
 `PathHelpersTests`.
 
 **GlobFileCollector discovers files via glob patterns**: Verifies that GlobFileCollector
@@ -71,3 +73,17 @@ for bare-star segments, supports absolute path patterns, removes files matched b
 exclusion patterns, returns empty results for non-existent roots without throwing, and
 returns a sorted, deduplicated list. These scenarios are tested by the
 `GlobFileCollector_Collect_*` test cases in `GlobFileCollectorTests`.
+
+**Emitter contract is callable through the interface**: Verifies that a language-emitter
+implementation compiles against the `IApiEmitter` interface and that `Emit` can be
+invoked through an interface reference, producing either multi-file or single-file output
+depending on `EmitConfig.Format`. This scenario is tested by
+`IApiEmitter_Emit_WithGradualDisclosure_ProducesMultipleFiles` and
+`IApiEmitter_Emit_WithSingleFile_ProducesSingleApiMd`.
+
+**Emit configuration defaults are correct**: Verifies that `EmitConfig` defaults to
+`OutputFormat.GradualDisclosure` for `Format` and `1` for `HeadingDepth`, and that
+out-of-range heading depths are rejected. This scenario is tested by
+`EmitConfig_DefaultFormat_IsGradualDisclosure`, `EmitConfig_DefaultHeadingDepth_IsOne`,
+`EmitConfig_HeadingDepth_BelowMinimum_ThrowsArgumentOutOfRangeException`, and
+`EmitConfig_HeadingDepth_AboveMaximum_ThrowsArgumentOutOfRangeException`.

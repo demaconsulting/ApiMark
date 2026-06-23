@@ -461,4 +461,44 @@ public sealed class GlobFileCollectorTests
             Directory.Delete(tempDir, recursive: true);
         }
     }
+
+    // =========================================================================
+    // Null-argument guard tests
+    // =========================================================================
+
+    /// <summary>
+    ///     Verifies that passing null for <c>patterns</c> throws
+    ///     <see cref="ArgumentNullException"/> immediately.
+    /// </summary>
+    [Fact]
+    public void GlobFileCollector_Collect_NullPatterns_ThrowsArgumentNullException()
+    {
+        // Arrange / Act / Assert: null patterns must be rejected at the API boundary
+        Assert.Throws<ArgumentNullException>(() =>
+            GlobFileCollector.Collect(null!, VhdlExtensions, Path.GetTempPath()));
+    }
+
+    /// <summary>
+    ///     Verifies that passing null for <c>languageExtensions</c> throws
+    ///     <see cref="ArgumentNullException"/> immediately.
+    /// </summary>
+    [Fact]
+    public void GlobFileCollector_Collect_NullLanguageExtensions_ThrowsArgumentNullException()
+    {
+        // Arrange / Act / Assert: null languageExtensions must be rejected at the API boundary
+        Assert.Throws<ArgumentNullException>(() =>
+            GlobFileCollector.Collect([], null!, Path.GetTempPath()));
+    }
+
+    /// <summary>
+    ///     Verifies that passing null for <c>workingDirectory</c> throws
+    ///     <see cref="ArgumentNullException"/> immediately.
+    /// </summary>
+    [Fact]
+    public void GlobFileCollector_Collect_NullWorkingDirectory_ThrowsArgumentNullException()
+    {
+        // Arrange / Act / Assert: null workingDirectory must be rejected at the API boundary
+        Assert.Throws<ArgumentNullException>(() =>
+            GlobFileCollector.Collect([], VhdlExtensions, null!));
+    }
 }

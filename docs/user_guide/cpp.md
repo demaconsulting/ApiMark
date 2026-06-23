@@ -140,6 +140,41 @@ Block form:
 
 Missing `@brief` tags render as *No description provided.* in the output.
 
+## Example Code Blocks
+
+ApiMark captures Doxygen `@code`/`@endcode` blocks from doc-comments and renders them as
+fenced code blocks in the generated Markdown output. Place a `@code`/`@endcode` block
+inside any doc-comment to illustrate usage of the documented declaration.
+
+Single-line form:
+
+```cpp
+/// @brief Adds two integers.
+/// @code
+/// int result = Add(2, 3); // result is 5
+/// @endcode
+int Add(int a, int b);
+```
+
+Block form:
+
+```cpp
+/**
+ * @brief Parses a configuration file.
+ * @param path Path to the configuration file.
+ * @return Parsed configuration object.
+ * @code
+ * auto cfg = ParseConfig("app.cfg");
+ * std::cout << cfg.value("timeout");
+ * @endcode
+ */
+Config ParseConfig(const std::string& path);
+```
+
+The content between `@code` and `@endcode` is extracted verbatim by `ClangAstParser`
+from the Doxygen `BlockCommandComment` AST node and emitted as a fenced `cpp` code block
+in the output. The code block appears on the member detail page under the *Example* heading.
+
 ## Output Structure
 
 ApiMark supports two output formats selectable via `--format`.

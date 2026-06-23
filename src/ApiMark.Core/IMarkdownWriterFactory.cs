@@ -6,9 +6,10 @@ namespace ApiMark.Core;
 /// <remarks>
 ///     Decouples language generators from the file system. The file-system
 ///     implementation (FileMarkdownWriterFactory) writes to disk; test doubles
-///     capture writes in memory. Callers inject the factory into
-///     IApiGenerator.Generate so that the same generator code works in both
-///     production and tests.
+///     capture writes in memory. Callers inject the factory into language
+///     generators, which are then invoked through <c>IApiGenerator.Parse</c>
+///     and <c>IApiEmitter.Emit</c>, so that the same generator code works in
+///     both production and tests.
 /// </remarks>
 public interface IMarkdownWriterFactory
 {
@@ -16,8 +17,9 @@ public interface IMarkdownWriterFactory
     ///     Creates a Markdown writer for a single output file.
     /// </summary>
     /// <param name="subFolder">
-    ///     Subfolder path relative to the output root. Pass an empty string to
-    ///     create a root-level file. Path separators should use '/' (forward slash).
+    ///     Subfolder path relative to the output root. Pass an empty string or a
+    ///     whitespace-only string for <paramref name="subFolder"/> to create a
+    ///     root-level file. Path separators should use '/' (forward slash).
     /// </param>
     /// <param name="name">
     ///     File name without extension. Must not be null, empty, or whitespace.

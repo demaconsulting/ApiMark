@@ -10,7 +10,7 @@ forwarded with the correct arguments and in the correct order.
 
 ### Test Environment
 
-N/A — standard test environment using the .NET test runner is sufficient.
+N/A - standard test environment using the .NET test runner is sufficient.
 Interface contract compliance is enforced at compile time through the test double
 in `ApiMark.Core.TestHelpers`.
 
@@ -45,7 +45,7 @@ contract is correctly implemented by the test double. Tested by
 consumers can call heading, signature, paragraph, table, code block, and link operations through
 an `IMarkdownWriter` reference and that the recorded invocations carry the correct
 level, text, and path arguments. Tested by
-`InMemoryMarkdownWriter_Write_AllMethods_RecordsOperations`.
+`InMemoryMarkdownWriter_Write_AllOperations_RecordsInOrder`.
 
 **Writer contract captures output in declaration order**: Verifies that successive
 write operations through the `IMarkdownWriter` interface are recorded in the sequence

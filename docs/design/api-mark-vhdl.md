@@ -82,7 +82,7 @@ ANTLR4 parser to parse VHDL-2008 source files.
 
 ## Risk Control Measures
 
-N/A — not a safety-classified software item.
+N/A - not a safety-classified software item.
 
 ## Data Flow
 

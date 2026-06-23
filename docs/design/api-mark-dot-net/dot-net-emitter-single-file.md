@@ -66,7 +66,7 @@ this class.
 
 ### External Interfaces
 
-N/A — DotNetEmitterSingleFile is an internal class with no external interfaces.
+N/A - DotNetEmitterSingleFile is an internal class with no external interfaces.
 
 ### Callers
 

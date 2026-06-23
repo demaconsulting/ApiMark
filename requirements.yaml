@@ -7,7 +7,9 @@ includes:
   - docs/reqstream/api-mark-core/emit-config.yaml
   - docs/reqstream/api-mark-core/i-context.yaml
   - docs/reqstream/api-mark-core/i-markdown-writer-factory.yaml
+  - docs/reqstream/api-mark-core/file-markdown-writer-factory.yaml
   - docs/reqstream/api-mark-core/i-markdown-writer.yaml
+  - docs/reqstream/api-mark-core/file-markdown-writer.yaml
   - docs/reqstream/api-mark-core/path-helpers.yaml
   - docs/reqstream/api-mark-core/glob-file-collector.yaml
   - docs/reqstream/api-mark-dot-net.yaml

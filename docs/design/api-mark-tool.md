@@ -83,7 +83,7 @@ implementations from ApiMarkCore and dispatches to them using the two-stage pipe
 
 ## Risk Control Measures
 
-N/A — not a safety-classified software item.
+N/A - not a safety-classified software item.
 
 ## Data Flow
 

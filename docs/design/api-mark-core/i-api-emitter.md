@@ -15,9 +15,9 @@ emitted into multiple formats in one pass.
 
 ### Data Model
 
-N/A — IApiEmitter is an interface with no fields or properties of its own.
-Parsed symbol state is held by the private nested emitter class that each
-language module returns from `IApiGenerator.Parse`.
+N/A - IApiEmitter is an interface with no fields or properties of its own.
+Implementations hold all data required to emit documentation and are returned by
+`IApiGenerator.Parse`.
 
 ### Key Methods
 
