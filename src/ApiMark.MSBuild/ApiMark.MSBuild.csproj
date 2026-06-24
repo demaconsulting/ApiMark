@@ -39,6 +39,11 @@
     <!-- NU5100/NU5128: expected for MSBuild-only packages with no lib/ folder -->
     <NoWarn>$(NoWarn);NU5100;NU5128</NoWarn>
 
+    <!-- This is a build-plugin package, not a library. The MSBuild host provides
+         Microsoft.Build.* at runtime; ApiMark.Tool and its dependencies are bundled
+         directly under tools/. No NuGet dependency should ever flow to consumers. -->
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+
     <!-- Hook into the NuGet pack pipeline before _GetPackageFiles collects items -->
     <BeforePack>PublishApiMarkTool;PackTaskAssembly;$(BeforePack)</BeforePack>
 
