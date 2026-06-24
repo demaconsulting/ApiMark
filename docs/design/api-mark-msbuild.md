@@ -92,7 +92,9 @@ executable to perform generation.
 - **ApiMark.Tool** (out-of-process): all documentation generation is delegated to
   the spawned tool process; no in-process dependency on ApiMarkDotNet or ApiMarkCpp.
 - **Microsoft.Build.Framework / Microsoft.Build.Utilities.Core**: the MSBuild task
-  base class and logging APIs.
+  base class and logging APIs. Declared with `ExcludeAssets="runtime"` because the
+  MSBuild host provides these assemblies at runtime; they are compile-time references
+  only and must not be copied to the build output.
 
 ## Risk Control Measures
 
@@ -141,3 +143,8 @@ bundled in the NuGet package.
   host process; ApiMarkTask must remain a thin process spawner.
 - Graceful opt-out: when `DisableApiMark` is true, the task returns success with no
   side effects so projects can suppress generation without removing the package.
+- No consumer NuGet dependencies: `SuppressDependenciesWhenPacking=true` is set in
+  the project file. This package is a build plugin — the MSBuild host provides
+  `Microsoft.Build.*` at runtime and `ApiMark.Tool` with its dependencies is bundled
+  directly in the package under `tools/`. No NuGet dependency should ever propagate
+  to a consumer's dependency graph.

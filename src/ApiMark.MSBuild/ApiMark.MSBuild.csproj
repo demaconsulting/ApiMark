@@ -39,6 +39,11 @@
     <!-- NU5100/NU5128: expected for MSBuild-only packages with no lib/ folder -->
     <NoWarn>$(NoWarn);NU5100;NU5128</NoWarn>
 
+    <!-- This is a build-plugin package, not a library. The MSBuild host provides
+         Microsoft.Build.* at runtime; ApiMark.Tool and its dependencies are bundled
+         directly under tools/. No NuGet dependency should ever flow to consumers. -->
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+
     <!-- Hook into the NuGet pack pipeline before _GetPackageFiles collects items -->
     <BeforePack>PublishApiMarkTool;PackTaskAssembly;$(BeforePack)</BeforePack>
 
@@ -51,9 +56,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- MSBuild host provides these assemblies at runtime; PrivateAssets="all" keeps them out of the packed .nuspec -->
-    <PackageReference Include="Microsoft.Build.Framework" Version="17.8.43" ExcludeAssets="runtime" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.8.43" ExcludeAssets="runtime" PrivateAssets="all" />
+    <!-- MSBuild host provides these assemblies at runtime; compile-only references keep them out of output -->
+    <PackageReference Include="Microsoft.Build.Framework" Version="17.8.43" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.8.43" ExcludeAssets="runtime" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.300" PrivateAssets="All" />
     <PackageReference Include="Polyfill" Version="10.7.0" PrivateAssets="All" />
   </ItemGroup>
