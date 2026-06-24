@@ -51,9 +51,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- MSBuild host provides these assemblies at runtime; compile-only references keep them out of output -->
-    <PackageReference Include="Microsoft.Build.Framework" Version="17.8.43" ExcludeAssets="runtime" />
-    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.8.43" ExcludeAssets="runtime" />
+    <!-- MSBuild host provides these assemblies at runtime; PrivateAssets="all" keeps them out of the packed .nuspec -->
+    <PackageReference Include="Microsoft.Build.Framework" Version="17.8.43" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.8.43" ExcludeAssets="runtime" PrivateAssets="all" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.300" PrivateAssets="All" />
     <PackageReference Include="Polyfill" Version="10.7.0" PrivateAssets="All" />
   </ItemGroup>
