@@ -21,6 +21,7 @@ sections:
               - ApiMarkCpp-CppEmitterSingleFile-EmitsFreeFunctionSection
               - ApiMarkCpp-CppEmitterSingleFile-EmitsEnumSection
               - ApiMarkCpp-CppEmitterSingleFile-EmitsMemberSection
+              - ApiMarkCpp-CppEmitterSingleFile-EmitsTypeAliasSection
             tests:
               - CppEmitterSingleFile_Emit_MinimalData_CreatesExactlyOneWriter
           - id: ApiMarkCpp-CppEmitterSingleFile-CreatesSingleApiWriter
@@ -71,3 +72,11 @@ sections:
               Member sections preserve drill-down detail while keeping the document linear.
             tests:
               - CppEmitterSingleFile_Emit_NonDefaultHeadingDepth_OffsetsHeadings
+          - id: ApiMarkCpp-CppEmitterSingleFile-EmitsTypeAliasSection
+            title: CppEmitterSingleFile shall emit a section for each documented namespace-level type alias.
+            justification: |
+              Type alias pages in gradual disclosure correspond to explicit type alias sections
+              in the single-file layout. Without rendering type aliases the single-file output
+              would be incomplete and omit documented API surface.
+            tests:
+              - CppEmitterSingleFile_Emit_TypeAlias_ContainsTypeAliasSection

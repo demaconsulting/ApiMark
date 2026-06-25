@@ -125,7 +125,8 @@ N/A - not a safety-classified software item.
    per-nested-type, and per-class-scoped-alias pages.
    `SingleFile` uses `CppEmitterSingleFile`, which writes the entire API reference
    into a single `api.md` file with library-name and namespace headings followed by
-   type and member sections.
+   type, free-function, enum, and type-alias sections (all at H{depth+2}) and
+   individual member and class-scoped type-alias sub-entries at H{depth+3}.
 5. During emission, the `Visibility` access-specifier filter (Public/PublicAndProtected/All)
    is applied by `CppEmitter` helper methods to include or exclude class members based on
    their C++ access specifier. Regular members receive per-member pages (gradual-disclosure);

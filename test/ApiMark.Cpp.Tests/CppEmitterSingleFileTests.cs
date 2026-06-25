@@ -161,6 +161,41 @@ public class CppEmitterSingleFileTests
         Assert.Contains(headings, h => h.Level == 3 && h.Text == "Color");
     }
 
+    /// <summary>Validates that namespace-level type aliases are emitted as H3 sections in single-file output.</summary>
+    [Fact]
+    public void CppEmitterSingleFile_Emit_TypeAlias_ContainsTypeAliasSection()
+    {
+        // Arrange: build a namespace with a single type alias
+        var factory = new InMemoryMarkdownWriterFactory();
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "TestLib",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+        };
+        var nsDecls = new SortedDictionary<string, CppEmitter.NamespaceDeclarations>(StringComparer.Ordinal);
+        var ns = new CppEmitter.NamespaceDeclarations("testlib", null);
+        ns.TypeAliases.Add(new CppTypeAlias(
+            "WidgetHandle",
+            "unsigned int",
+            false,
+            null,
+            new CppDocComment("Handle to a Widget.", null, [], null)));
+        nsDecls["testlib"] = ns;
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+        var emitter = new CppEmitter(options, nsDecls, resolver);
+
+        // Act
+        new CppEmitterSingleFile(emitter, nsDecls, resolver).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: alias name appears as an H3 heading and underlying type appears in the writer content
+        var writer = factory.GetWriter("", "api");
+        var headings = writer.Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(headings, h => h.Level == 3 && h.Text == "WidgetHandle");
+        var signatures = writer.Operations.OfType<SignatureOperation>().ToList();
+        Assert.Contains(signatures, s => s.Code.Contains("WidgetHandle", StringComparison.Ordinal)
+            && s.Code.Contains("unsigned int", StringComparison.Ordinal));
+    }
+
     /// <summary>Validates that non-default heading depth offsets are applied consistently.</summary>
     [Fact]
     public void CppEmitterSingleFile_Emit_NonDefaultHeadingDepth_OffsetsHeadings()

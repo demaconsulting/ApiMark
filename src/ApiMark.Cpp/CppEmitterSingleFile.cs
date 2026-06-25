@@ -105,6 +105,12 @@ internal sealed class CppEmitterSingleFile
             {
                 WriteSingleFileEnumSection(writer, depth, en);
             }
+
+            // Emit each namespace-level type alias as an H{depth+2} section
+            foreach (var alias in nsDecls.TypeAliases.OrderBy(a => a.Name, StringComparer.Ordinal))
+            {
+                WriteSingleFileTypeAliasSection(writer, depth, nsDisplay, alias);
+            }
         }
     }
 
@@ -202,6 +208,18 @@ internal sealed class CppEmitterSingleFile
             }
         }
 
+        // Emit class-scoped type aliases as H{depth+3} sub-entries below the member sections
+        var classScope = string.IsNullOrEmpty(nsDisplay) ? cls.Name : $"{nsDisplay}::{cls.Name}";
+        foreach (var alias in cls.TypeAliases.OrderBy(a => a.Name, StringComparer.Ordinal))
+        {
+            writer.WriteHeading(depth + 3, alias.Name);
+            var aliasQualifiedName = $"{classScope}::{alias.Name}";
+            var simplifiedUnderlying = CppEmitter.SimplifyTypeName(alias.UnderlyingTypeName);
+            writer.WriteSignature("cpp", $"// {aliasQualifiedName}\nusing {alias.Name} = {simplifiedUnderlying};");
+            var aliasSummary = CppEmitter.GetSummary(alias.Doc);
+            writer.WriteParagraph(!string.IsNullOrEmpty(aliasSummary) ? aliasSummary : CppEmitter.NoDescriptionPlaceholder);
+        }
+
         // Emit nested classes as peer H{depth+2} sections with a parent-context note
         foreach (var nested in cls.NestedClasses.OrderBy(n => n.Name, StringComparer.Ordinal))
         {
@@ -269,6 +287,36 @@ internal sealed class CppEmitterSingleFile
             });
             writer.WriteTable(enumHeaders, enumRows);
         }
+    }
+
+    /// <summary>
+    ///     Emits an H{depth+2} section for a single namespace-level C++ type alias.
+    /// </summary>
+    /// <param name="writer">Markdown writer to write to.</param>
+    /// <param name="depth">Heading depth offset from the library-level heading.</param>
+    /// <param name="nsDisplay">Display name of the enclosing namespace.</param>
+    /// <param name="alias">The type alias to emit.</param>
+    /// <remarks>
+    ///     Mirrors the content produced by <c>WriteTypeAliasPage</c> in gradual-disclosure mode:
+    ///     a heading, fenced <c>cpp</c> code block with the <c>using</c> declaration, and a
+    ///     summary paragraph (or the no-description placeholder when no doc comment is present).
+    /// </remarks>
+    private static void WriteSingleFileTypeAliasSection(
+        IMarkdownWriter writer,
+        int depth,
+        string nsDisplay,
+        CppTypeAlias alias)
+    {
+        writer.WriteHeading(depth + 2, alias.Name);
+
+        // using declaration as a fenced code block — mirrors the gradual-disclosure alias page
+        var qualifiedName = string.IsNullOrEmpty(nsDisplay) ? alias.Name : $"{nsDisplay}::{alias.Name}";
+        var simplifiedUnderlying = CppEmitter.SimplifyTypeName(alias.UnderlyingTypeName);
+        writer.WriteSignature("cpp", $"// {qualifiedName}\nusing {alias.Name} = {simplifiedUnderlying};");
+
+        // Emit summary from doc comment or placeholder
+        var summary = CppEmitter.GetSummary(alias.Doc);
+        writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : CppEmitter.NoDescriptionPlaceholder);
     }
 
     /// <summary>
