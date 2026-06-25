@@ -38,3 +38,9 @@ is configured. This scenario is tested by
 exactly one Markdown writer keyed as `api` at the output root. Tested by
 `CppEmitterSingleFile_Emit_MinimalData_CreatesExactlyOneWriter` and
 `CppEmitterSingleFile_Emit_MinimalData_CreatesApiFileOnly`.
+
+**Library name heading**: Verifies that `CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsLibraryNameHeading`
+confirms the generated `api.md` contains the configured library name as a top-level heading.
+
+**Namespace heading**: Verifies that `CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsNamespaceHeading`
+confirms the generated `api.md` contains a namespace section heading for each documented namespace.

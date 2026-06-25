@@ -104,6 +104,8 @@ parse-time deprecated filter, builds the known-type map, and returns a
 ### Dependencies
 
 - **IApiGenerator** — implemented from ApiMarkCore.
+- **CppAstModel** — immutable record types received from `ClangAstParser` and
+  stored while building the known-type map and grouping namespaces.
 - **GlobFileCollector** — performs gitignore-style header selection.
 - **ClangAstParser** — parses the selected headers into `CppCompilationResult`.
 - **CppEmitter** — returned by `Parse` to emit Markdown output.

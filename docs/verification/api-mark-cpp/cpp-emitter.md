@@ -19,6 +19,8 @@ Tests run with the standard xUnit.net test runner.
 - `SanitizeFileName` preserves valid names and replaces invalid characters with underscores.
 - `BuildClassDeclaration` renders non-final, final, and inherited class declarations correctly.
 - `WriteCombinedMemberPage` emits one shared page for case-insensitive member collisions.
+- `GetIncludePath` returns a root-relative path when the source file is under a configured public root; returns the full normalized path when no root matches.
+- `WriteExternalTypesSection` writes an H2 "External Types" heading and a table row per entry when the set is non-empty; writes nothing when the set is empty.
 
 ### Test Scenarios
 
@@ -42,13 +44,17 @@ underscores instead of causing output-path failures. This scenario is tested by
 file-name characters are returned unchanged. Tested by
 `CppEmitter_SanitizeFileName_RegularName_IsUnchanged`.
 
+**BuildClassDeclaration with final class**: Verifies that the `final` keyword is appended to the
+class declaration when `CppClass.IsFinal` is true. Tested by
+`CppEmitter_BuildClassDeclaration_FinalClass_AppendsFinalKeyword`.
+
 **BuildClassDeclaration with base types**: Verifies that base class names are appended to
 the class declaration line in the form `class X : public Base`. Tested by
 `CppEmitter_BuildClassDeclaration_WithBaseTypes_AppendsInheritanceList`.
 
-**BuildClassDeclaration with final and base types**: Verifies that both the `final` keyword
-and the inheritance list are correctly combined in the declaration string. Tested by
-`CppEmitter_BuildClassDeclaration_FinalClassWithBaseTypes_AppendsFinalAndInheritance`.
+**BuildClassDeclaration non-final no-base**: Verifies that a non-final class with no base types
+produces a declaration string containing only the class keyword and name. Tested by
+`CppEmitter_BuildClassDeclaration_NonFinalNoBase_ReturnsJustClassName`.
 
 **WriteCombinedMemberPage for case-insensitive collisions**: Verifies that members whose
 names differ only in case are merged onto a single lowercase-keyed page. Tested by
@@ -62,6 +68,11 @@ path. Tested by `CppEmitter_GetIncludePath_MatchingRoot_ReturnsRelativePath`.
 under any configured root produces the full normalized path. Tested by
 `CppEmitter_GetIncludePath_NoMatchingRoot_ReturnsFileName`.
 
-**WriteExternalTypesSection emits heading with entries**: Verifies that a non-empty
-external-types set causes `WriteExternalTypesSection` to write an "External Types" heading.
-Tested by `CppEmitter_WriteExternalTypesSection_WithEntries_WritesExternalTypesSection`.
+**WriteExternalTypesSection emits H2 heading with table rows**: Verifies that a non-empty
+external-types set causes `WriteExternalTypesSection` to write an H2 "External Types" heading
+and a table row for each entry containing the type name and namespace. Tested by
+`CppEmitter_WriteExternalTypesSection_WithEntries_WritesExternalTypesSection`.
+
+**WriteExternalTypesSection produces no output for empty set**: Verifies that an empty
+external-types set causes `WriteExternalTypesSection` to write no headings and no tables.
+Tested by `CppEmitter_WriteExternalTypesSection_EmptySet_WritesNothing`.

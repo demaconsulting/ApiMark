@@ -1560,4 +1560,39 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
             string.Equals(cb.Language, "cpp", StringComparison.Ordinal) &&
             cb.Code.Contains("GetGreeting", StringComparison.Ordinal));
     }
+
+    /// <summary>
+    ///     Validates that an absolute <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> entry
+    ///     selects the file it names via its absolute path, confirming that absolute patterns are
+    ///     forwarded directly to the file collector without <c>WorkingDirectory</c> resolution.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ApiHeaderPatterns_AbsolutePattern_DocumentsMatchingFile()
+    {
+        // Arrange: build an absolute path to SampleClass.h and pass it as the only pattern
+        var absoluteHeaderPath = Path.GetFullPath(
+            Path.Combine(FixturePaths.GetFixtureNamespaceDir(), "SampleClass.h"));
+
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ApiHeaderPatterns = [absoluteHeaderPath],
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: SampleClass page must exist because the absolute pattern matched its header
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/SampleClass"),
+            "Expected SampleClass page when its absolute header path was used as a pattern");
+
+        // Assert: SampleStatus page must not exist because SampleEnum.h was not matched
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/SampleStatus"),
+            "Expected SampleStatus to be absent when not matched by the absolute header pattern");
+    }
 }

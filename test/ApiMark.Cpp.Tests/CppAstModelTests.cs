@@ -43,6 +43,8 @@ public class CppAstModelTests
         // Assert
         Assert.Equal("A brief summary.", doc.Summary);
         Assert.Equal("Detailed explanation.", doc.Details);
+        Assert.Empty(doc.Params);
+        Assert.Equal("Returns a value.", doc.Returns);
     }
 
     /// <summary>Validates that two identical <see cref="CppDocComment"/> instances are equal (record equality).</summary>
@@ -144,6 +146,7 @@ public class CppAstModelTests
         Assert.Equal("int", field.TypeName);
         Assert.Equal(CppAccessibility.Private, field.Accessibility);
         Assert.False(field.IsStatic);
+        Assert.False(field.IsDeprecated);
     }
 
     /// <summary>Validates that <see cref="CppFunction"/> stores core properties correctly.</summary>
@@ -161,6 +164,10 @@ public class CppAstModelTests
         Assert.Equal(CppAccessibility.Public, fn.Accessibility);
         Assert.False(fn.IsConstructor);
         Assert.False(fn.IsDeleted);
+        Assert.False(fn.IsStatic);
+        Assert.False(fn.IsVirtual);
+        Assert.False(fn.IsVariadic);
+        Assert.False(fn.IsDeprecated);
     }
 
     /// <summary>Validates that <see cref="CppClass"/> stores core properties correctly.</summary>
@@ -174,6 +181,7 @@ public class CppAstModelTests
         Assert.Equal("Widget", cls.Name);
         Assert.Empty(cls.BaseTypes);
         Assert.False(cls.IsFinal);
+        Assert.False(cls.IsDeprecated);
     }
 
     /// <summary>Validates that <see cref="CppEnum"/> stores Name and Values correctly.</summary>

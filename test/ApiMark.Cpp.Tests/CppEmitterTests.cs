@@ -275,8 +275,37 @@ public class CppEmitterTests
         // Act
         CppEmitter.WriteExternalTypesSection(writer, externalTypes);
 
-        // Assert: an "External Types" heading must appear in the written output
+        // Assert: an "External Types" H2 heading must appear in the written output
         var headings = factory.GetWriter("", "test").Operations.OfType<HeadingOperation>().ToList();
         Assert.Contains(headings, h => h.Text.Contains("External Types", StringComparison.Ordinal));
+        Assert.Contains(headings, h => h.Level == 2 && h.Text.Contains("External Types", StringComparison.Ordinal));
+
+        // Assert: the table must include a row for Logger in the acme namespace
+        var tables = factory.GetWriter("", "test").Operations.OfType<TableOperation>().ToList();
+        var allCells = tables.SelectMany(t => t.Rows).SelectMany(r => r).ToList();
+        Assert.Contains(allCells, c => c.Contains("Logger", StringComparison.Ordinal));
+        Assert.Contains(allCells, c => c.Contains("acme", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="CppEmitter.WriteExternalTypesSection"/> writes no output
+    ///     when the external-types set is empty.
+    /// </summary>
+    [Fact]
+    public void CppEmitter_WriteExternalTypesSection_EmptySet_WritesNothing()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        using var writer = factory.CreateMarkdown("", "empty");
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
+        // Act
+        CppEmitter.WriteExternalTypesSection(writer, externalTypes);
+
+        // Assert: no operations were written to the writer — empty set must produce no output
+        var headings = factory.GetWriter("", "empty").Operations.OfType<HeadingOperation>().ToList();
+        Assert.Empty(headings);
+        var tables = factory.GetWriter("", "empty").Operations.OfType<TableOperation>().ToList();
+        Assert.Empty(tables);
     }
 }

@@ -91,7 +91,7 @@ internal sealed class CppTypeLinkResolver
     /// <param name="externalTypes">
     ///     Mutable set that accumulates non-std external type references found during
     ///     resolution. The caller creates this set per output file and emits the "External
-    ///     Types" section after all table rows have been written.
+    ///     Types" section after all table rows have been written. Must not be null.
     /// </param>
     /// <returns>
     ///     A Markdown string: either a link of the form <c>[Name](relative/path.md)</c>,

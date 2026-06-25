@@ -64,7 +64,7 @@ public sealed class CppGenerator : IApiGenerator
     ///       <item>Enumerate candidate header files under each <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry.</item>
     ///       <item>Run clang with <c>-ast-dump=json</c> on all candidate headers via <see cref="ClangAstParser"/>.</item>
     ///       <item>Log any clang diagnostic errors from system headers via the context output channel.</item>
-    ///       <item>Walk the parsed namespaces, applying the ownership filter and deprecated filter.</item>
+    ///       <item>Walk the parsed namespaces, applying the deprecated filter.</item>
     ///     </list>
     ///     The caller must subsequently invoke <see cref="IApiEmitter.Emit"/> to write output.
     /// </remarks>

@@ -46,8 +46,10 @@ public class CppTypeLinkResolverTests
         // Act
         var result = resolver.Linkify("Bar", "ns", externalTypes);
 
-        // Assert: unambiguous short name produces a link
+        // Assert: unambiguous short name produces a link with correct path; no external type tracked
         Assert.Contains("[Bar]", result, StringComparison.Ordinal);
+        Assert.Contains("Bar.md", result, StringComparison.Ordinal);
+        Assert.Empty(externalTypes);
     }
 
     /// <summary>

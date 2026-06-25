@@ -38,6 +38,10 @@ configuration beyond a standard clang installation is required.
   pages, and `{namespace}/{TypeName}/{MemberName}.md` member detail pages.
 - When the single-file format is specified, all documentation is written to a single `api.md`
   file using a flat H1/H2/H3/H4 heading hierarchy.
+- `api.md` lists all namespaces in a table with a Declarations count column so AI agents can
+  calibrate exploration depth for each namespace.
+- Doxygen `@code`/`@endcode` blocks are rendered as fenced `cpp` code blocks on both
+  gradual-disclosure member pages and single-file output.
 
 ## Test Scenarios
 
@@ -192,3 +196,34 @@ individual alias pages. This scenario is tested by
 `--format single-file` option is specified, all documentation is written to a single `api.md`
 file using a flat heading hierarchy rather than producing separate namespace and type pages. This
 scenario is tested by `CppGenerator_Generate_SingleFileFormat_WritesToSingleFile`.
+
+**api.md lists all namespaces with type count**: Verifies that `api.md` contains a namespace
+table where every documented namespace appears with a Declarations count column so that AI agents
+have a complete navigation map in a single read. This scenario is tested by
+`CppGenerator_Generate_ApiMd_ListsNamespacesWithTypeCount`.
+
+**Class operator overloads grouped on single operators page**: Verifies that all operator
+overloads for a class are combined onto a single `operators.md` page at
+`{namespace}/{TypeName}/operators` and that the owning type page links to it. This scenario is
+tested by `CppGenerator_Generate_ClassWithOperators_CreatesOperatorsPage`,
+`CppGenerator_Generate_ClassWithOperators_OperatorsPageContainsOperatorEntry`, and
+`CppGenerator_Generate_ClassWithOperators_TypePageLinksToOperatorsPage`.
+
+**Intra-library return type emits Markdown link in table cell**: Verifies that a method whose
+return type is a documented intra-library type produces a Markdown hyperlink in the Returns
+column of the Methods table. This scenario is tested by
+`CppGenerator_Generate_IntraLibraryReturnType_EmitsMarkdownLinkInReturnsCell`.
+
+**Gitignore-style ApiHeaderPatterns restrict documented headers**: Verifies that the generator
+correctly applies include, exclude, and re-include patterns to restrict the documented API surface.
+This scenario is tested by `CppGenerator_Generate_NoApiHeaderPatterns_DocumentsAllHeaders`,
+`CppGenerator_Generate_ApiHeaderPatterns_IncludePattern_OnlyMatchingFilesDocumented`,
+`CppGenerator_Generate_ApiHeaderPatterns_ExcludePattern_ExcludesMatchingFiles`,
+`CppGenerator_Generate_ApiHeaderPatterns_ReInclude_GitignoreSemantics_IncludesReIncludedHeader`, and
+`CppGenerator_Generate_ApiHeaderPatterns_ExcludeWithoutReInclude_ExcludesHeader`.
+
+**Code example blocks rendered as fenced code**: Verifies that Doxygen `@code`/`@endcode` blocks
+on documented methods are rendered as fenced `cpp` code blocks on both gradual-disclosure member
+pages and single-file output. This scenario is tested by
+`CppGenerator_Generate_MethodWithCodeExample_EmitsCodeBlockOnMemberPage` and
+`CppGenerator_SingleFile_MethodWithCodeExample_EmitsCodeBlock`.

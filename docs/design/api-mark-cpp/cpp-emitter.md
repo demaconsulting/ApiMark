@@ -22,9 +22,9 @@ accumulator populated during `CppGenerator.Parse`.
 - `TypeAliases`: `List<CppTypeAlias>` — owned namespace-level aliases.
 - `FreeFunctions`: `List<CppFunction>` — owned free functions.
 
-**CppExternalTypeInfo** (internal record): per-page external-type entry emitted in
-an `External Types` section — see _CppTypeLinkResolver Data Model_ for the full
-definition.
+**CppExternalTypeInfo** (internal record, defined in `CppExternalTypeInfo.cs`):
+per-page external-type entry emitted in an `External Types` section — see
+_CppTypeLinkResolver Data Model_ for the full definition.
 
 **CppTypePageWriteContext** (internal record): bundles per-type-page constants for
 member page and table generation.
@@ -114,6 +114,8 @@ by `WriteFunctionContent`.
 ### Error Handling
 
 - `ArgumentNullException` — thrown by `Emit` when `factory` is null.
+- `ArgumentNullException` — thrown by `GetIncludePath` when `sourceFile` is null.
+- `ArgumentException` — thrown by `WriteCombinedMemberPage` when `members` contains fewer than two elements.
 - All writer and factory exceptions are propagated without wrapping.
 
 ### External Interfaces

@@ -21,8 +21,6 @@ sections:
               - ApiMarkCpp-CppEmitter-SanitizeFileName
               - ApiMarkCpp-CppEmitter-BuildClassDeclaration
               - ApiMarkCpp-CppEmitter-RepresentExternalTypeInfo
-              - ApiMarkCpp-CppEmitter-RepresentTypePageWriteContext
-              - ApiMarkCpp-CppEmitter-RepresentFunctionWriteContext
             tests:
               - CppEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
               - CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
@@ -78,22 +76,3 @@ sections:
               WriteExternalTypesSection.
             tests:
               - CppEmitter_WriteExternalTypesSection_WithEntries_WritesExternalTypesSection
-          - id: ApiMarkCpp-CppEmitter-RepresentTypePageWriteContext
-            title: >-
-              CppEmitter shall produce consistent type page output for a given class,
-              regardless of how many times Emit is called with the same inputs.
-            justification: |
-              Consistent output guarantees that the emitter is purely functional with
-              respect to its inputs, so that documentation generation is reproducible and
-              deterministic.
-            tests:
-              - CppEmitterGradualDisclosure_Emit_MethodMember_CreatesMemberDetailPage
-          - id: ApiMarkCpp-CppEmitter-RepresentFunctionWriteContext
-            title: >-
-              CppEmitter shall produce consistent function page output for a given
-              function, regardless of how many times Emit is called with the same inputs.
-            justification: |
-              Consistent output guarantees that function page generation is reproducible
-              and deterministic across both gradual-disclosure and single-file formats.
-            tests:
-              - CppEmitterGradualDisclosure_Emit_ClassOperators_CreatesOperatorsPage

@@ -104,5 +104,4 @@ sections:
               Namespace operator overloads need the same collision-safe grouping as class
               operators.
             tests:
-              - CppGenerator_Generate_NamespaceFreeOperator_CreatesNamespaceOperatorsPage
               - CppEmitterGradualDisclosure_Emit_NamespaceOperators_CreatesOperatorsPage

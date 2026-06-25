@@ -159,6 +159,7 @@ internal sealed class CppEmitter : IApiEmitter
     /// </returns>
     internal string GetIncludePath(string sourceFile)
     {
+        ArgumentNullException.ThrowIfNull(sourceFile);
         var normalized = Path.GetFullPath(sourceFile);
 
         // Select the longest matching root so the most specific prefix wins
@@ -518,6 +519,10 @@ internal sealed class CppEmitter : IApiEmitter
     ///     Must contain at least two elements.
     /// </param>
     /// <param name="cppResolver">Type link resolver used to linkify parameter type cells.</param>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="members"/> contains fewer than two elements.
+    ///     A combined page requires at least two members; call individual member page writers for single members.
+    /// </exception>
     internal static void WriteCombinedMemberPage(
         IMarkdownWriterFactory factory,
         string nsKey,
@@ -527,6 +532,11 @@ internal sealed class CppEmitter : IApiEmitter
         IReadOnlyList<object> members,
         CppTypeLinkResolver cppResolver)
     {
+        if (members.Count < 2)
+        {
+            throw new ArgumentException("WriteCombinedMemberPage requires at least two members.", nameof(members));
+        }
+
         var combinedCurrentFolder = $"{nsKey}/{cls.Name}";
         using var writer = factory.CreateMarkdown(combinedCurrentFolder, lowerKey);
 

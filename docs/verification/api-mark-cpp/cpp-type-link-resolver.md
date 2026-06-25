@@ -24,6 +24,12 @@ the standard xUnit.net test runner. No clang installation is needed.
   name) produces plain text and does not produce a link.
 - A fully-qualified reference to one of two ambiguously-named types resolves correctly
   via the exact-match path and produces the correct Markdown link.
+- Primitive and `std::` types return the original string unchanged and are not added to
+  the external-types set.
+- A non-std, non-library type whose stripped name carries a non-empty namespace is added
+  to the caller's external-types set, and the original string is returned unchanged.
+- Null input returns null; whitespace-only input returns unchanged — neither causes an
+  exception or external-type tracking.
 
 ### Test Scenarios
 

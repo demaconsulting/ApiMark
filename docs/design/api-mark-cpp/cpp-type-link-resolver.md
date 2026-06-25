@@ -32,6 +32,11 @@ fundamental C++ type names that must always remain plain text.
   primitives, and `std::` types; resolves exact qualified matches first; falls back
   to an unambiguous short-name match; when no known type matches and the stripped
   name has a non-empty non-`std` namespace, records a `CppExternalTypeInfo` entry.
+  For qualified type strings, the splice uses a position-aware algorithm to prevent
+  template-argument prefix corruption: derives `startIdx` as the position after the
+  last `::` in the original string (or 0 for unqualified types), calls
+  `IndexOf(shortName, startIdx)` to locate the exact token, then reconstructs the
+  result as `original[..idx] + linked + original[(idx + shortName.Length)..]`.
 - **FindPageKey** — performs exact qualified lookup first, then a short-name scan
   that returns null when the short name is ambiguous.
 - **StripQualifiers** — repeatedly removes leading and trailing `const`,

@@ -153,10 +153,6 @@ sections:
               - CppGenerator_OutputFiles_FollowNamingConvention
               - CppGenerator_Generate_ValidHeaders_CreatesNamespacePage
               - CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass
-              - CppEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
-              - CppEmitter_SanitizeFileName_RegularName_IsUnchanged
-              - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesNamespacePage
-              - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesTypePage
           - id: ApiMarkCpp-CppGenerator-ApiMdListsAllNamespacesWithTypeCount
             title: CppGenerator shall list all namespaces in api.md with a declaration
               count column.
@@ -167,8 +163,6 @@ sections:
               opening it first.
             tests:
               - CppGenerator_Generate_ApiMd_ListsNamespacesWithTypeCount
-              - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesApiIndexPage
-              - CppEmitterGradualDisclosure_Emit_MinimalData_ApiIndexContainsLibraryNameHeading
           - id: ApiMarkCpp-CppGenerator-GroupOperatorOverloadsOnSinglePage
             title: >-
               CppGenerator shall group all operator overloads for a class onto a single
@@ -201,9 +195,6 @@ sections:
             tests:
               - CppGenerator_Generate_InheritanceClass_EmitsBaseClassInSignature
               - CppGenerator_Generate_FinalClass_EmitsFinalKeywordInSignature
-              - CppEmitter_BuildClassDeclaration_NonFinalNoBase_ReturnsJustClassName
-              - CppEmitter_BuildClassDeclaration_FinalClass_AppendsFinalKeyword
-              - CppEmitter_BuildClassDeclaration_WithBaseTypes_AppendsInheritanceList
           - id: ApiMarkCpp-CppGenerator-EmitIntraDocLinksInTableCells
             title: CppGenerator shall emit Markdown links in type and parameter type
               table cells when the referenced type is documented in the same library.
@@ -234,24 +225,18 @@ sections:
               - CppGenerator_Generate_ApiHeaderPatterns_ExcludePattern_ExcludesMatchingFiles
               - CppGenerator_Generate_ApiHeaderPatterns_ReInclude_GitignoreSemantics_IncludesReIncludedHeader
               - CppGenerator_Generate_ApiHeaderPatterns_ExcludeWithoutReInclude_ExcludesHeader
-          - id: ApiMarkCpp-CppGenerator-SupportAbsoluteAndRelativeHeaderPatterns
+          - id: ApiMarkCpp-CppGenerator-SupportAbsoluteHeaderPatterns
             title: >-
-              CppGenerator shall support both absolute and relative ApiHeaderPatterns
-              glob patterns: relative patterns shall be resolved from
-              CppGeneratorOptions.WorkingDirectory (defaulting to the process CWD when
-              WorkingDirectory is null or empty), and absolute patterns shall be
-              forwarded directly to GlobFileCollector.
+              CppGenerator shall support absolute ApiHeaderPatterns glob patterns by
+              forwarding them directly to GlobFileCollector without WorkingDirectory
+              resolution.
             justification: |
-              WorkingDirectory-relative patterns allow users to write patterns that reflect
-              their project directory layout directly (e.g. `include/**` when WorkingDirectory
-              is the project root) without needing to hard-code absolute paths. Absolute
-              patterns allow headers on other drives or outside all configured roots to be
-              included directly. WorkingDirectory defaults to the process CWD so existing
-              callers that omit the property continue to work correctly.
+              Absolute patterns allow headers on other drives or outside all configured
+              roots to be included directly. Forwarding them as-is to GlobFileCollector
+              ensures the full absolute path is preserved and the pattern can match
+              headers outside the WorkingDirectory tree.
             tests:
-              - GlobFileCollector_Collect_AbsolutePattern_FindsFiles
-              - CppGenerator_Generate_ApiHeaderPatterns_CwdRelativePattern_OnlyMatchingFilesDocumented
-              - CppGenerator_Generate_ApiHeaderPatterns_CwdRelativeExclusionPattern_ExcludesMatchingFiles
+              - CppGenerator_Generate_ApiHeaderPatterns_AbsolutePattern_DocumentsMatchingFile
           - id: ApiMarkCpp-CppGenerator-WorkingDirectory
             title: >-
               CppGenerator shall use CppGeneratorOptions.WorkingDirectory as the base
@@ -263,17 +248,7 @@ sections:
               independently of the process CWD, making builds reproducible across machines.
             tests:
               - CppGenerator_Generate_ApiHeaderPatterns_CwdRelativePattern_OnlyMatchingFilesDocumented
-          - id: ApiMarkCpp-CppGenerator-EmitExternalTypesSection
-            title: CppGenerator shall emit an "External Types" section at the bottom
-              of each generated page that references at least one non-std external
-              type.
-            justification: |
-              Readers using an external library type documented on a page need to know
-              which namespace or header to include. Collecting all external type
-              references per page and listing them alphabetically provides this context
-              without cluttering individual type cells with fully-qualified names.
-            tests:
-              - CppTypeLinkResolver_Linkify_ExternalType_AddsToExternalTypesSet
+              - CppGenerator_Generate_ApiHeaderPatterns_CwdRelativeExclusionPattern_ExcludesMatchingFiles
           - id: ApiMarkCpp-CppGenerator-ShowDeletedFunctionsWithDeletedNotation
             title: >-
               CppGenerator shall document explicitly deleted functions and operators
@@ -316,11 +291,6 @@ sections:
             tests:
               - CppGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown
               - CppGenerator_SingleFile_MethodWithCodeExample_EmitsCodeBlock
-              - CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
-              - CppEmitterSingleFile_Emit_MinimalData_CreatesExactlyOneWriter
-              - CppEmitterSingleFile_Emit_MinimalData_CreatesApiFileOnly
-              - CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsLibraryNameHeading
-              - CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsNamespaceHeading
           - id: ApiMarkCpp-CppGenerator-RejectNullContext
             title: CppGenerator.Parse shall reject a null IContext argument.
             justification: |
