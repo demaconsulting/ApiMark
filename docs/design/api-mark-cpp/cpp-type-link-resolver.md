@@ -28,6 +28,13 @@ fundamental C++ type names that must always remain plain text.
 
 ### Key Methods
 
+**CppTypeLinkResolver(knownTypes)** (internal constructor): stores `knownTypes` as the
+private `_knownTypes` field.
+
+- *Parameter*: `knownTypes: IReadOnlyDictionary<string, string>` — mapping from fully
+  qualified C++ name to documentation page key.
+- *Preconditions*: `knownTypes` must not be null; throws `ArgumentNullException` if null.
+
 - **Linkify** — returns the original string unchanged for null/whitespace input,
   primitives, and `std::` types; also returns the original value unchanged when
   qualifier stripping yields an empty string (degenerate input); resolves exact

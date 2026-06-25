@@ -264,6 +264,10 @@ declarations appear as headings in the single-file `api.md` output, confirming t
 emitter emits type alias sections alongside class, enum, and function sections. Tested by
 `CppGenerator_SingleFile_TypeAlias_AppearsInOutput`.
 
+**Class declared `final` includes `final` keyword in signature**: Verifies that a class
+declared with the `final` specifier has the `final` keyword included in its generated class
+signature block. Tested by `CppGenerator_Generate_FinalClass_EmitsFinalKeywordInSignature`.
+
 **Case-insensitive member collision combines onto one page**: Verifies that when two class members
 have names that differ only in letter case (a case-insensitive collision), the generator combines
 them onto a single shared member page rather than creating conflicting file names. Tested by
