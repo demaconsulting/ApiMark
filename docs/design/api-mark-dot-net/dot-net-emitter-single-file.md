@@ -28,6 +28,10 @@ into that writer at heading levels `HeadingDepth` (assembly title),
 `HeadingDepth+1` (namespace), `HeadingDepth+2` (type), and `HeadingDepth+3`
 (individual members).
 
+- If the assembly carries an `AssemblyDescriptionAttribute`, its value is emitted
+  as a paragraph immediately after the assembly-level H{depth} heading.
+- If a namespace has a summary supplied via the `NamespaceDoc` convention, that
+  summary is emitted as a paragraph below the H{depth+1} namespace heading.
 - Each type section includes a compact bullet list of members
   (`- **Name**: summary`) before the H(depth+3) member sections.
 - No group headings (`Constructors`, `Methods`, `Properties`) or convention
@@ -42,9 +46,23 @@ bullet list, and then dispatches to `WriteSingleFileMemberSection` for each
 visible member. Recursively calls `WriteSingleFileNestedTypes` when the type
 contains nested types.
 
+- For nested types, a notice paragraph `"Nested type of \`{OuterType}\`."` is
+  emitted immediately after the H{depth+2} heading to establish parent context.
+- When the type is a delegate (detected via `DotNetEmitter.IsDelegate`), the
+  method returns early after emitting the declaration, summary, remarks, and
+  example sections; compiler-injected Invoke/BeginInvoke/EndInvoke members are
+  not emitted as they are not meaningful API content.
+- Visible members are ordered with constructors first (by name `.ctor`), then
+  all remaining members alphabetically by name.
+
 **WriteSingleFileMemberSection** (private): Writes the full per-member block for
 one member — member heading, signature code block, summary, parameter table,
-returns documentation, exception table, and example block.
+returns documentation, exception table, and example block. A throw-away empty
+`SortedSet<ExternalTypeInfo>` is passed to each `resolver.Linkify` call; because
+`generateLinks` is `false` and no External Types section is emitted in single-file
+output, this set is never populated or read. Note that `namespaceFolderPath` is
+passed to `resolver.Linkify` as a required parameter even though it is not used for
+link generation when `generateLinks` is `false`.
 
 **WriteSingleFileNestedTypes** (private): Recursively emits documentation for
 nested types within a type section by calling `WriteSingleFileTypeSections` for
@@ -60,15 +78,17 @@ this class.
 
 - **DotNetEmitter** — parent emitter providing shared static helpers.
 - **DotNetAstModel** — provides assembly data.
-- **TypeNameSimplifier** — used to build type signature strings.
+- **TypeLinkResolver** — constructed with `generateLinks: false` to produce plain-text
+  type names without Markdown link generation; used when rendering parameter type cells
+  in single-file output.
 - **XmlDocReader** — used to retrieve documentation text for each member.
 - **IMarkdownWriterFactory** — received from `DotNetEmitter.Emit`.
-
-### External Interfaces
-
-N/A - DotNetEmitterSingleFile is an internal class with no external interfaces.
 
 ### Callers
 
 - **DotNetEmitter.Emit** — constructs and calls this class when
   `config.Format == OutputFormat.SingleFile`.
+
+### External Interfaces
+
+N/A - DotNetEmitterSingleFile is an internal class with no external interfaces.

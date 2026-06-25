@@ -1,3 +1,6 @@
+// Copyright (c) DemaConsulting LLC. All rights reserved.
+// Licensed under the MIT License.
+
 using ApiMark.Core;
 using Mono.Cecil;
 using static ApiMark.DotNet.DotNetEmitter;
@@ -35,7 +38,7 @@ internal sealed class DotNetEmitterGradualDisclosure
     /// <summary>Dispatches to <see cref="EmitGradualDisclosure"/>.</summary>
     /// <param name="factory">Factory for creating per-file Markdown writers.</param>
     /// <param name="config">Output configuration (unused for gradual-disclosure format).</param>
-    /// <param name="context">Output channel for informational messages.</param>
+    /// <param name="context">Output channel for informational messages (unused for gradual-disclosure format).</param>
     internal void Emit(IMarkdownWriterFactory factory, EmitConfig config, IContext context)
     {
         EmitGradualDisclosure(factory);
@@ -438,47 +441,25 @@ internal sealed class DotNetEmitterGradualDisclosure
             return;
         }
 
-        var signature = BuildMemberSignature(member, ctx.NamespaceName);
-        memberWriter.WriteSignature("csharp", signature);
-
-        // Always emit a summary paragraph — use the placeholder when no doc is present
-        var summary = ctx.XmlDocs.GetSummary(memberId);
-        memberWriter.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : DotNetEmitter.NoDescriptionPlaceholder);
-
-        var returns = ctx.XmlDocs.GetReturns(memberId);
-        if (!string.IsNullOrEmpty(returns))
-        {
-            memberWriter.WriteParagraph($"**Returns:** {returns}");
-        }
-
-        // Emit exception table when documented exceptions exist
-        var exceptions = ctx.XmlDocs.GetExceptionDetails(memberId);
-        if (exceptions.Count > 0)
-        {
-            var exHeaders = new[] { "Exception", DotNetEmitter.DescriptionColumnHeader };
-            var exRows = exceptions.Select(e => new[] { e.Type, e.Description ?? string.Empty });
-            memberWriter.WriteTable(exHeaders, exRows);
-        }
-
-        var remarks = ctx.XmlDocs.GetRemarks(memberId);
-        if (!string.IsNullOrEmpty(remarks))
-        {
-            memberWriter.WriteParagraph(remarks);
-        }
-
-        foreach (var (isCode, content) in ctx.XmlDocs.GetExampleParts(memberId))
-        {
-            if (isCode)
-            {
-                memberWriter.WriteCodeBlock("csharp", content);
-            }
-            else
-            {
-                memberWriter.WriteParagraph(content);
-            }
-        }
+        WriteNonMethodMemberContent(memberWriter, member, memberId, new MethodDocContext(ctx.NamespaceName, ctx.XmlDocs, ctx.Resolver, memberCurrentFolder, new SortedSet<ExternalTypeInfo>()));
     }
 
+    /// <summary>
+    ///     Writes a single consolidated Markdown page for a pure method overload group — all methods
+    ///     sharing the same base name and therefore the same sanitized file name.
+    /// </summary>
+    /// <remarks>
+    ///     Each overload is distinguished by an H2 heading showing its full parameter signature via
+    ///     <see cref="DotNetEmitter.BuildMethodDisplayName"/>. External type references are accumulated
+    ///     across all overloads and emitted as a shared External Types section at the bottom of the page.
+    /// </remarks>
+    /// <param name="factory">Factory for creating the output Markdown writer.</param>
+    /// <param name="namespaceName">Full namespace name of the declaring type; used to simplify type names.</param>
+    /// <param name="namespaceFolderPath">File-system folder path for the namespace.</param>
+    /// <param name="type">The type definition that declares the overload group.</param>
+    /// <param name="overloads">Ordered list of overload methods (at least one element).</param>
+    /// <param name="xmlDocs">Documentation index for per-overload member-ID lookups.</param>
+    /// <param name="resolver">Type link resolver for table cell link generation.</param>
     private static void WriteMethodOverloadPage(
         IMarkdownWriterFactory factory,
         string namespaceName,

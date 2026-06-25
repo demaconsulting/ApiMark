@@ -74,6 +74,11 @@ format names); entries with an empty cref are filtered out. Resolves
 the `<example>` element is absent or contains only whitespace. Resolves
 `<inheritdoc />` first.
 
+> **Note**: `GetExample` returns raw text content using `element?.Value.Trim()`
+> rather than the inline element rendering pipeline. Inline elements such as
+> `<see cref>`, `<c>`, and `<paramref>` within `<example>` are silently dropped by
+> `GetExample`. Use `GetExampleParts` for full inline-element rendering.
+
 **GetExampleParts**: Returns the structured example content for `memberId` as
 `IReadOnlyList<(bool IsCode, string Content)>` parts. When the `<example>`
 element contains no `<code>` children, the entire text is returned as a single
@@ -81,13 +86,22 @@ code part after applying `DedentCode`. When `<code>` children are present, text
 nodes become prose parts and `<code>` elements become code parts with `DedentCode`
 applied to each code block. Resolves `<inheritdoc />` first.
 
+> **`<para>` flush behavior**: When a `<para>` element is encountered among the
+> mixed-content children of `<example>`, its text is rendered into the prose
+> accumulator and then the accumulator is immediately flushed as a distinct prose
+> part. This ensures that each `<para>` produces its own separate prose part
+> rather than merging with adjacent text content.
+
 **ResolveMemberElement** (private): Resolves the effective `<member>` element
 for a given ID by following `<inheritdoc />` recursively with cycle detection.
 
 - Returns the member element directly when no `<inheritdoc />` child is present.
 - When `cref` is present, resolves the named target recursively.
 - When no `cref` is present, tries each candidate from `_inheritanceChain` in
-  order, stopping at the first that yields a result.
+  order, stopping at the first that yields a result. Each candidate is tried with
+  a branch-local copy of the visited set. This ensures that a failed traversal
+  through one candidate — which may visit shared ancestor nodes — does not prevent
+  subsequent candidates from resolving through those same ancestors.
 - When `path` is present (XPath expression), evaluates it against the resolved
   source element and wraps matching nodes in a synthetic `<member>` element.
 - Maintains a `HashSet<string>` of visited IDs per resolution path to break
@@ -98,6 +112,38 @@ collapsing internal whitespace within each line. `GetSingleLineDocumentationText
 additionally joins all non-empty trimmed lines into a single space-separated
 string. Both normalize line endings to `\n` before processing.
 
+#### Inline Element Rendering
+
+`GetDocumentationText` processes inline XML elements within doc comment nodes
+according to the following element-to-text mappings:
+
+- `<c>text</c>` → CommonMark backtick code span; the fence length adapts to avoid
+  embedded backticks in the content per CommonMark §6.1. When the code content starts
+  or ends with a backtick, a single space is inserted on each side inside the fence so
+  that Markdown parsers can unambiguously identify the fence delimiter (CommonMark §6.1).
+- `<see cref="..."/>` → formatted cref value via the `FormatCref` helper (strips the
+  type-kind prefix, strips the namespace path to leave just the type name, and replaces
+  generic arity markers with angle-bracket type-parameter placeholders via
+  `FormatTypeArity`, e.g. `List\`1` → `List<T>`,`Dictionary\`2` → `Dictionary<T1, T2>`).
+- `<see langword="..."/>` → the `langword` attribute value directly (e.g., `null`,
+  `true`, `false`).
+- `<paramref name="..."/>` and `<typeparamref name="..."/>` → the `name` attribute
+  value directly.
+- Consecutive non-`<code>` child nodes in `<example>` → accumulated into a single
+  prose text part; `<code>` child nodes → separate code parts (dedented via
+  `DedentCode`).
+
+**FormatCref** (private static): Converts a raw `cref` attribute value to a concise
+display string.
+
+- *Algorithm*: Strips the type-kind prefix (`T:`, `M:`, `P:`, `F:`, `E:`); strips
+  the namespace path from the remaining qualified name to leave just the type and
+  member name; replaces generic arity markers (`` `1 ``, `` `2 ``) with angle-bracket
+  type-parameter placeholder notation via `FormatTypeArity` (e.g., `List\`1` →
+  `List<T>`,`Dictionary\`2` → `Dictionary<T1, T2>`); replaces`#ctor` with the
+  declaring type name for constructor crefs; appends `()` to method crefs that
+  include a parameter list.
+
 **Code block dedentation** (`DedentCode`, private static): Removes common leading
 indentation from raw `<code>` element content so the result renders flush-left in
 a fenced Markdown code block. The minimum indentation is computed from the leading
@@ -106,13 +152,6 @@ to avoid artificially reducing the common prefix). That prefix is then stripped
 from every line. Leading and trailing blank lines are removed from the final
 result. Returns `string.Empty` for whitespace-only input so existing
 `string.IsNullOrEmpty` guards remain effective.
-
-**cref formatting** (`FormatCref`, private static): Strips the type-kind
-prefix (`T:`, `M:`, `P:`, `F:`, `E:`) from a cref value and formats the
-result as a readable name. Constructor crefs (`#ctor`) are replaced by the
-type name. Method crefs with parameters append `()`. Type crefs are simplified
-using `FormatTypeName`, which applies C# primitive aliases for well-known CLR
-names.
 
 ### Error Handling
 
@@ -137,3 +176,7 @@ chain entries degrade gracefully to `null` or empty.
   member detail pages.
 - **DotNetEmitterSingleFile** — calls getter methods when writing member
   sections in the single-file output.
+
+### External Interfaces
+
+N/A — this is an internal class with no external interfaces exposed beyond its assembly.

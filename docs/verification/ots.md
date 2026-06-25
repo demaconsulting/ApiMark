@@ -27,6 +27,30 @@ verification scenarios against the same fixture assemblies used for baseline qua
 change in discovered members, rendered signatures, or generated file layout is treated as a
 regression candidate and must be reviewed before the upgrade is accepted.
 
+## Mono.Cecil
+
+Mono.Cecil is used by `ApiMark.DotNet` as an OTS component for .NET assembly reflection.
+It is not modified; ApiMark reads assembly metadata, type and member definitions, generic
+parameters, nullable annotations, and custom attributes through Mono.Cecil's public API
+without altering the component in any way.
+
+**Verification approach**: ApiMark exercises the subset of Mono.Cecil's API surface that it
+depends on through its existing integration tests. `DotNetGenerator` tests open the fixture
+assembly via `AssemblyDefinition.ReadAssembly`, enumerate types and members, inspect
+accessibility modifiers and custom attributes, and feed the resulting metadata into Markdown
+generation. These tests collectively verify that Mono.Cecil correctly discovers namespace and
+type structure, member signatures, generic parameters, nullable annotations, obsolete markers,
+and inheritance chains for the pattern of assemblies ApiMark is expected to document.
+
+**Qualification evidence**: The Mono.Cecil package version is pinned in the project's NuGet
+references. ApiMark uses only the public Mono.Cecil API. All `ApiMark.DotNet` tests must pass
+with each version of Mono.Cecil to confirm continued compatibility.
+
+**Regression criteria**: All `ApiMark.DotNet` tests pass with each Mono.Cecil version update.
+Any change in discovered members, rendered signatures, or generated file layout relative to
+the fixture assembly baseline is treated as a regression candidate and must be reviewed before
+the upgrade is accepted.
+
 ## clang
 
 ApiMark verifies the clang integration by testing the exact externally supplied behavior that

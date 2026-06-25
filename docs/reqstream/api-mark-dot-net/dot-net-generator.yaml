@@ -44,6 +44,7 @@ sections:
               a public API reference to broader internal documentation for development.
             tests:
               - DotNetGenerator_Visibility_PublicPublicAndProtectedAll_FilterExpectedApis
+              - DotNetGenerator_Generate_AllVisibility_IncludesPrivateMembers
           - id: ApiMarkDotNet-DotNetGenerator-IncludeObsoleteApisWhenRequested
             title: DotNetGenerator shall control obsolete API inclusion via the IncludeObsolete
               flag, including them when enabled and omitting them when disabled.
@@ -51,125 +52,75 @@ sections:
               Teams sometimes need complete historical reference output and sometimes need
               only the actively supported API surface, so obsolete items must be controllable.
             tests: [DotNetGenerator_IncludeObsolete_Toggle_ControlsObsoleteOutput]
-          - id: ApiMarkDotNet-DotNetGenerator-EmitDetailPageForEveryMember
-            title: DotNetGenerator shall emit a dedicated detail page for every visible
-              member.
+          - id: ApiMarkDotNet-DotNetGenerator-RecognizeNamespaceDocCarrierClass
+            title: DotNetGenerator shall recognize internal static NamespaceDoc classes as
+              namespace documentation carriers.
             justification: |
-              All members always receive their own dedicated file so that navigation is
-              fully deterministic. An AI or tool can always resolve
-              {Namespace}/{TypeName}/{MemberName}.md without inspecting member content
-              or shape. Exception: members whose sanitized names collide on a
-              case-insensitive filesystem are combined onto a single shared page (see
-              ApiMarkDotNet-DotNetGenerator-EmitCombinedMemberPageForCaseInsensitiveCollisions).
-            tests: [DotNetGenerator_AllMembers_GetSeparateFiles]
-          - id: ApiMarkDotNet-DotNetGenerator-EmitCombinedMemberPageForCaseInsensitiveCollisions
-            title: DotNetGenerator shall emit a combined member page for case-insensitive
-              filename collisions.
-            justification: |
-              On case-insensitive filesystems (Windows, macOS), two members whose sanitized
-              names differ only in case (e.g. a field 'name' and a property 'Name') would
-              produce colliding filenames. To avoid data loss and maintain predictable link
-              targets, such members are combined onto a single page named after the
-              lower-invariant of the shared key, with each member distinguished by an H2
-              heading showing its exact name and kind label.
+              The NamespaceDoc convention is the standard way to attach documentation to a
+              namespace in C#. ApiMark must identify these carrier classes so their XML
+              summary can be used as the namespace description.
             tests:
-              - DotNetGenerator_Generate_CaseCollisionClass_CreatesCombinedPage
-              - DotNetGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPage
-              - DotNetGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers
-          - id: ApiMarkDotNet-DotNetGenerator-ProduceConsistentOutputFileStructure
-            title: DotNetGenerator shall produce output files following the established
-              naming convention.
+              - DotNetGenerator_Generate_NamespaceDocClass_ExcludedFromTypeListing
+              - DotNetGenerator_NamespacePage_NamespaceDocSummary_AppearsAsNamespaceDescription
+          - id: ApiMarkDotNet-DotNetGenerator-ExcludeNamespaceDocCarrierFromTypeListing
+            title: DotNetGenerator shall exclude NamespaceDoc carrier classes from generated
+              type listings.
             justification: |
-              Consistent file and folder naming allows navigation between the entrypoint,
-              namespace summaries, type pages, and member detail pages without relying on
-              a separate path-resolution helper.
-            tests: [DotNetGenerator_OutputFiles_FollowNamingConvention]
-          - id: ApiMarkDotNet-DotNetGenerator-ApiMdListsAllNamespacesWithTypeCount
-            title: DotNetGenerator shall list all namespaces in api.md with a direct
-              type count column.
-            justification: |
-              Listing every namespace (root and child) in api.md gives AI agents a complete
-              navigation map in a single read, avoiding an extra round-trip through parent
-              namespace pages to discover children. The type count column provides scope
-              signal so an AI can calibrate how deeply to explore each namespace without
-              opening it first.
-            tests: [DotNetGenerator_Generate_ApiMd_ListsAllNamespacesWithTypeCount]
-          - id: ApiMarkDotNet-DotNetGenerator-ShowDirectInheritanceInTypeSignature
-            title: >-
-              DotNetGenerator shall include the direct base class and directly declared
-              interfaces in the type signature, omitting well-known implicit bases
-              such as
-              System.Object, System.ValueType, System.Enum, and System.MulticastDelegate.
-            justification: |
-              The direct inheritance list tells AI agents the contract a type satisfies and
-              the class it extends without requiring them to navigate to the source file.
-              Suppressing well-known implicit bases avoids noise that adds no information.
+              Including the carrier class in type listings would pollute the API surface with
+              an implementation detail not intended for public consumption.
             tests:
-              - DotNetGenerator_Generate_SampleImplementation_TypeSignatureShowsInterface
-              - DotNetGenerator_Generate_EnumTypeSignature_HasNoBaseClass
-          - id: ApiMarkDotNet-DotNetGenerator-EmitIntraDocLinksInTableCells
-            title: DotNetGenerator shall emit Markdown links in type and parameter
-              type table cells when the referenced type is documented in the same
-              assembly.
+              - DotNetGenerator_Generate_NamespaceDocClass_ExcludedFromTypeListing
+          - id: ApiMarkDotNet-DotNetGenerator-UseNamespaceDocSummaryAsNamespaceDescription
+            title: DotNetGenerator shall use the XML summary of a NamespaceDoc class as the
+              description for its containing namespace.
             justification: |
-              AI agents and human readers navigating API documentation benefit from
-              clickable links that jump directly to the referenced type page rather
-              than requiring a separate search. Links are only emitted in table cells,
-              not inside fenced code blocks, because Markdown links do not render
-              inside fences.
+              Developer-authored namespace descriptions belong in the published API reference.
+              The NamespaceDoc carrier class is the standard mechanism for providing this
+              description.
             tests:
-              - DotNetGenerator_Generate_IntraAssemblyReturnType_EmitsMarkdownLinkInReturnsCell
-          - id: ApiMarkDotNet-DotNetGenerator-EmitExternalTypesSection
-            title: DotNetGenerator shall emit an "External Types" section at the bottom
-              of each generated page that references at least one non-System external
-              type.
+              - DotNetGenerator_NamespacePage_NamespaceDocClass_ExcludedFromTypeListing
+              - DotNetGenerator_NamespacePage_NamespaceDocSummary_AppearsAsNamespaceDescription
+          - id: ApiMarkDotNet-DotNetGenerator-RejectMissingAssemblyPath
+            title: DotNetGenerator shall throw FileNotFoundException when the configured
+              assembly path does not exist.
             justification: |
-              Readers using an external library type documented on a page need to know
-              which package or namespace to import. Collecting all external type
-              references per page and listing them alphabetically provides this context
-              without cluttering individual type cells with fully-qualified names.
+              Fail-fast on a missing assembly avoids a confusing downstream error and gives
+              the caller an actionable exception with the missing path.
             tests:
-              - DotNetGenerator_Generate_ExternalNonSystemParameterType_EmitsExternalTypesSection
-          - id: ApiMarkDotNet-DotNetGenerator-DocumentOperatorOverloads
-            title: >-
-              DotNetGenerator shall emit operator overload methods for a type on its
-              dedicated operators.md page, using C# operator symbols as headings and
-              including conversion operator documentation with summary and parameters.
+              - DotNetGenerator_Parse_MissingAssemblyPath_ThrowsFileNotFoundException
+          - id: ApiMarkDotNet-DotNetGenerator-RejectMissingXmlDocPath
+            title: DotNetGenerator shall throw FileNotFoundException when the configured
+              XML documentation path does not exist.
             justification: |
-              C# types frequently expose arithmetic, comparison, and conversion operators
-              as part of their public API. Grouping all operators for a type onto a single
-              operators.md page with C# symbol headings (operator +, operator -) makes the
-              operator API surface discoverable and navigable without file-name collisions.
+              Fail-fast on a missing XML documentation file avoids a confusing downstream
+              error and gives the caller an actionable exception with the missing path.
             tests:
-              - DotNetGenerator_Generate_TypeWithOperators_CreatesOperatorsPage
-              - DotNetGenerator_Generate_TypeWithOperators_TypePageHasOperatorsSection
-              - DotNetGenerator_Generate_TypeWithOperators_OperatorsPageContainsSummaries
-              - DotNetGenerator_Generate_TypeWithOperators_OperatorsPageUsesSymbolHeadings
-              - DotNetGenerator_Generate_TypeWithConversionOperators_OperatorsPageContainsSummaries
-              - DotNetGenerator_Generate_TypeWithConversionOperators_OperatorsPageUsesConversionSyntax
-              - DotNetGenerator_Generate_ConversionOperatorReturningNestedType_OperatorsPageContainsSummary
-          - id: ApiMarkDotNet-DotNetGenerator-DocumentNestedTypes
-            title: >-
-              DotNetGenerator shall document public nested types within their containing
-              type's page and
-              generate a dedicated page for each nested type under the containing
-              type's folder.
+              - DotNetGenerator_Generate_XmlDocMissing_ThrowsFileNotFoundException
+          - id: ApiMarkDotNet-DotNetGenerator-RejectNullOptions
+            title: DotNetGenerator constructor shall throw ArgumentNullException when options
+              is null.
             justification: |
-              C# types commonly nest supporting types (builders, enumerators, result types, configuration
-              records) within their declaring type as part of the public API. Omitting nested types from
-              the generated documentation silently drops documented API surface that consumers depend on.
-              Each nested type receives a dedicated page at {NamespacePath}/{OuterTypeName}/{NestedTypeName}.md
-              so the documentation hierarchy mirrors the C# type hierarchy.
+              Null options would produce a NullReferenceException at an unpredictable point
+              during generation. Rejecting null at construction gives the caller a precise,
+              actionable failure.
             tests:
-              - DotNetGenerator_Generate_NestedClass_CreatesNestedClassPage
-              - DotNetGenerator_Generate_NestedClass_ListedOnOuterClassPage
-              - DotNetGenerator_Generate_NestedClass_PageContainsSummary
-          - id: ApiMarkDotNet-DotNetGenerator-EmitSingleFileOutput
-            title: DotNetGenerator shall emit a single api.md file when OutputFormat.SingleFile
-              is selected.
+              - DotNetGenerator_Constructor_NullOptions_ThrowsArgumentNullException
+          - id: ApiMarkDotNet-DotNetGenerator-RejectNullContext
+            title: DotNetGenerator.Parse shall throw ArgumentNullException when context is null.
             justification: |
-              Single-file output is required for consumers who want a compact, linear reference
-              instead of the gradual-disclosure folder tree.
+              A null context would produce a NullReferenceException at the first
+              context.WriteLine call. Rejecting null eagerly gives the caller a precise,
+              actionable failure.
             tests:
-              - DotNetGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown
-              - DotNetGenerator_SingleFile_MethodWithExample_EmitsCodeBlock
+              - DotNetGenerator_Parse_NullContext_ThrowsArgumentNullException
+          - id: ApiMarkDotNet-DotNetGenerator-BuildInheritanceChainForInheritDoc
+            title: DotNetGenerator shall build and supply an inheritance chain map from
+              assembly metadata to XmlDocReader to enable bare inheritdoc resolution.
+            justification: |
+              Bare inheritdoc elements (without a cref attribute) require an inheritance
+              chain map to resolve the correct base documentation. Building this map at
+              parse time from Mono.Cecil metadata allows XmlDocReader to resolve inherited
+              documentation without accessing the assembly again during emit.
+            tests:
+              - DotNetGenerator_Generate_SampleImplementationNameMemberPage_UsesInheritedSummary
+              - DotNetGenerator_Generate_SampleImplementationExecuteMemberPage_UsesInheritedSummaryAndParamDescription

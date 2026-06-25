@@ -5,6 +5,10 @@ using System.Xml.XPath;
 namespace ApiMark.DotNet;
 
 /// <summary>Reads and indexes a .NET XML documentation file for fast member-level lookups.</summary>
+/// <remarks>
+///     Safe for concurrent reads after construction; all fields are set once during the constructor
+///     and are never subsequently mutated.
+/// </remarks>
 public sealed class XmlDocReader
 {
     /// <summary>Index of documentation members keyed by their XML doc identifier.</summary>
@@ -602,6 +606,7 @@ public sealed class XmlDocReader
     }
 
     /// <summary>
+    ///     Returns the display text for a <c>&lt;see&gt;</c> or <c>&lt;seealso&gt;</c>
     ///     element, preferring the <c>langword</c> attribute, then explicit element text, then a
     ///     formatted <c>cref</c> attribute, and finally an empty string when none are present.
     /// </summary>
@@ -718,7 +723,7 @@ public sealed class XmlDocReader
             "System.UInt32" => "uint",
             "System.UInt64" => "ulong",
             "System.Void" => "void",
-            _ => StripArity(typeName[(typeName.LastIndexOf('.') + 1)..]),
+            _ => FormatTypeArity(typeName[(typeName.LastIndexOf('.') + 1)..]),
         };
     }
 
@@ -733,15 +738,46 @@ public sealed class XmlDocReader
     private static bool IsPrimitiveTypeName(string typeName) => typeName.StartsWith("System.", StringComparison.Ordinal);
 
     /// <summary>
-    ///     Removes the generic arity backtick suffix from a type name, e.g. converting <c>List`1</c>
-    ///     to <c>List</c>. Returns the original string unchanged when no backtick is present.
+    ///     Removes the generic arity backtick suffix from a member name, e.g. converting
+    ///     <c>GetValue`1</c> to <c>GetValue</c>. Returns the original string unchanged when
+    ///     no backtick is present. Use this for member name stripping only — for type display
+    ///     names, use <see cref="FormatTypeArity"/> instead to produce angle-bracket notation.
     /// </summary>
-    /// <param name="typeName">Raw type name that may contain a backtick arity suffix.</param>
+    /// <param name="typeName">Raw member name that may contain a backtick arity suffix.</param>
     /// <returns>The name without the backtick and trailing digit(s).</returns>
     private static string StripArity(string typeName)
     {
         var tickIndex = typeName.IndexOf('`');
         return tickIndex >= 0 ? typeName[..tickIndex] : typeName;
+    }
+
+    /// <summary>
+    ///     Converts a raw CLR type name with a generic arity backtick suffix into a
+    ///     C# display form with angle-bracket type-parameter placeholders.
+    ///     For example, <c>List`1</c> → <c>List&lt;T&gt;</c> and
+    ///     <c>Dictionary`2</c> → <c>Dictionary&lt;T1, T2&gt;</c>.
+    ///     Returns the original string unchanged when no backtick is present.
+    /// </summary>
+    /// <param name="typeName">Raw type name that may contain a backtick arity suffix.</param>
+    /// <returns>The name with angle-bracket placeholder notation, or the original name if no arity marker is present.</returns>
+    private static string FormatTypeArity(string typeName)
+    {
+        var tickIndex = typeName.IndexOf('`');
+        if (tickIndex < 0)
+        {
+            return typeName;
+        }
+
+        var baseName = typeName[..tickIndex];
+        if (!int.TryParse(typeName[(tickIndex + 1)..], out var arity) || arity <= 0)
+        {
+            return baseName;
+        }
+
+        var typeParams = arity == 1
+            ? "T"
+            : string.Join(", ", Enumerable.Range(1, arity).Select(i => $"T{i}"));
+        return $"{baseName}<{typeParams}>";
     }
 
     /// <summary>

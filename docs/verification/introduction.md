@@ -89,22 +89,15 @@ and the internal implementation of OTS items are also excluded.
 
 ```text
 test/
-├── ApiMark.Core.TestHelpers/
-│   ├── InMemoryMarkdownWriterFactory.cs  - in-memory IMarkdownWriterFactory test double
-│   ├── InMemoryMarkdownWriter.cs         - in-memory IMarkdownWriter test double
-│   └── InMemoryContext.cs                - in-memory IContext test double
-│
-│   (Test Runners)
-├── ApiMark.Core.Tests/            - unit tests for Core contracts
-├── ApiMark.DotNet.Tests/          - unit tests for DotNetGenerator and TypeNameSimplifier
-├── ApiMark.Cpp.Tests/             - unit tests for CppGenerator
-├── ApiMark.Vhdl.Tests/            - unit tests for VhdlGenerator
-├── ApiMark.MSBuild.Tests/         - unit tests for ApiMarkTask
-├── ApiMark.Tool.Tests/            - integration tests for the CLI tool
-│
-│   (Fixtures — provide test inputs only; not test runners)
-├── ApiMark.DotNet.Fixtures/       - multi-target fixture assembly for DotNet integration tests
-└── ApiMark.Cpp.Fixtures/          - C++ fixture headers for CppGenerator integration tests
+├── ApiMark.Core.TestHelpers/  - in-memory test doubles for Core contracts
+├── ApiMark.Core.Tests/        - unit tests for Core contracts
+├── ApiMark.DotNet.Tests/      - unit tests for DotNetGenerator and TypeNameSimplifier
+├── ApiMark.Cpp.Tests/         - unit tests for CppGenerator
+├── ApiMark.Vhdl.Tests/        - unit tests for VhdlGenerator
+├── ApiMark.MSBuild.Tests/     - unit tests for ApiMarkTask
+├── ApiMark.Tool.Tests/        - integration tests for the CLI tool
+├── ApiMark.DotNet.Fixtures/   - multi-target fixture assembly for DotNet integration tests
+└── ApiMark.Cpp.Fixtures/      - C++ fixture headers for CppGenerator integration tests
 ```
 
 OTS items:
@@ -245,7 +238,7 @@ Local items have parallel artifacts in:
   `docs/verification/api-mark-tool/self-test/validation.md`
 - Source: `src/ApiMark.Core/`, `src/ApiMark.Cpp/`, `src/ApiMark.DotNet/`,
   `src/ApiMark.Vhdl/`, `src/ApiMark.MSBuild/`, `src/ApiMark.Tool/`
-- Tests: `test/ApiMark.Core.Tests/`, `test/ApiMark.Cpp.Tests/`,
+- Tests: `test/ApiMark.Core.TestHelpers/`, `test/ApiMark.Core.Tests/`, `test/ApiMark.Cpp.Tests/`,
   `test/ApiMark.DotNet.Tests/`, `test/ApiMark.Vhdl.Tests/`,
   `test/ApiMark.MSBuild.Tests/`, `test/ApiMark.Tool.Tests/`
 - Fixtures: `test/ApiMark.DotNet.Fixtures/`, `test/ApiMark.Cpp.Fixtures/`

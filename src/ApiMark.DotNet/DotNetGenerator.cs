@@ -23,6 +23,7 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <param name="options">The generator configuration options.</param>
     public DotNetGenerator(DotNetGeneratorOptions options)
     {
+        ArgumentNullException.ThrowIfNull(options);
         _options = options;
     }
 
@@ -37,8 +38,8 @@ public sealed class DotNetGenerator : IApiGenerator
     ///     <see cref="AssemblyDefinition"/> remains open until <see cref="IApiEmitter.Emit"/>
     ///     completes and is then disposed.
     ///     <para>
-    ///         The entrypoint <c>api.md</c> lists only root namespaces followed by a file naming
-    ///         and path convention appendix. Each namespace page lists only its immediate child
+    ///     The entrypoint <c>api.md</c> lists all namespaces — both root and child — with a
+    ///         direct type count column, followed by a file naming and path convention appendix. Each namespace page lists only its immediate child
     ///         namespaces and types, enabling gradual disclosure for AI consumers. Namespace-level
     ///         documentation is sourced from the <c>NamespaceDoc</c> convention: an
     ///         <c>internal static class NamespaceDoc</c> in a namespace carries the namespace
@@ -46,23 +47,32 @@ public sealed class DotNetGenerator : IApiGenerator
     ///     </para>
     /// </remarks>
     /// <param name="context">
-    ///     Output channel for informational and error messages. Must not be null. Reserved for
-    ///     future use — DotNetGenerator does not currently emit messages through this channel.
+    ///     Output channel for informational messages. DotNetGenerator emits parsing progress and
+    ///     type-count summary messages via <see cref="IContext.WriteLine"/>. Must not be null.
     /// </param>
     /// <returns>
     ///     An <see cref="IApiEmitter"/> holding all data required to emit documentation
     ///     in any supported <see cref="OutputFormat"/>. The caller must subsequently
     ///     invoke <see cref="IApiEmitter.Emit"/> to write output.
     /// </returns>
-    /// <exception cref="FileNotFoundException">Thrown when the XML documentation file does not exist.</exception>
+    /// <exception cref="FileNotFoundException">Thrown when the assembly file or XML documentation file does not exist.</exception>
     public IApiEmitter Parse(IContext context)
     {
+        ArgumentNullException.ThrowIfNull(context);
+
+        // Fail early if the assembly is absent to give the caller an actionable exception
+        if (!File.Exists(_options.AssemblyPath))
+        {
+            throw new FileNotFoundException("Assembly file not found.", _options.AssemblyPath);
+        }
+
         // Fail early if the XML doc is absent rather than producing empty output
         if (!File.Exists(_options.XmlDocPath))
         {
             throw new FileNotFoundException("XML documentation file not found.", _options.XmlDocPath);
         }
 
+        context.WriteLine($"Parsing assembly: {Path.GetFileName(_options.AssemblyPath)}");
         var assembly = AssemblyDefinition.ReadAssembly(_options.AssemblyPath);
         try
         {
@@ -96,7 +106,7 @@ public sealed class DotNetGenerator : IApiGenerator
                 .Where(t => !t.IsNested && _options.Visibility switch
                 {
                     ApiVisibility.Public => t.IsPublic,
-                    ApiVisibility.PublicAndProtected => t.IsPublic || t.IsNestedFamily || t.IsNestedFamilyOrAssembly,
+                    ApiVisibility.PublicAndProtected => t.IsPublic,
                     ApiVisibility.All => true,
                     _ => t.IsPublic,
                 })
@@ -107,9 +117,10 @@ public sealed class DotNetGenerator : IApiGenerator
             var byNamespace = visibleTypes
                 .GroupBy(t => t.Namespace)
                 .OrderBy(g => g.Key)
-                .ToDictionary(g => g.Key, g => g.OrderBy(t => t.Name).ToList());
+                .ToDictionary(g => g.Key, g => (IReadOnlyList<TypeDefinition>)g.OrderBy(t => t.Name).ToList());
 
             var allNamespaces = byNamespace.Keys.OrderBy(n => n).ToList();
+            context.WriteLine($"Found {visibleTypes.Count} types across {allNamespaces.Count} namespace(s).");
 
             // Root namespaces: those not prefixed by any other namespace present in the assembly
             var rootNamespaces = allNamespaces
@@ -519,4 +530,36 @@ public sealed class DotNetGenerator : IApiGenerator
         var typeName = accessorRef.DeclaringType.FullName.Replace('/', '.');
         return $"E:{typeName}.{eventName}";
     }
+}
+
+/// <summary>Specifies which members are included in the generated API documentation.</summary>
+public enum ApiVisibility
+{
+    /// <summary>Include only public members.</summary>
+    Public,
+
+    /// <summary>Include public and protected members.</summary>
+    PublicAndProtected,
+
+    /// <summary>Include all members regardless of access modifier.</summary>
+    All,
+}
+
+/// <summary>Configuration options for <see cref="DotNetGenerator"/>.</summary>
+public sealed class DotNetGeneratorOptions
+{
+    /// <summary>Gets or sets the path to the .NET assembly to document.</summary>
+    public string AssemblyPath { get; set; } = string.Empty;
+
+    /// <summary>
+    ///     Gets or sets the path to the XML documentation file produced alongside the assembly.
+    ///     <see cref="DotNetGenerator"/> throws <see cref="FileNotFoundException"/> if this file does not exist.
+    /// </summary>
+    public string XmlDocPath { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets which members are visible in the generated output. Defaults to <see cref="ApiVisibility.Public"/>.</summary>
+    public ApiVisibility Visibility { get; set; } = ApiVisibility.Public;
+
+    /// <summary>Gets or sets a value indicating whether obsolete members are included. Defaults to <c>false</c>.</summary>
+    public bool IncludeObsolete { get; set; }
 }

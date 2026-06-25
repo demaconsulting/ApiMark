@@ -1,3 +1,6 @@
+// Copyright (c) DemaConsulting LLC. All rights reserved.
+// Licensed under the MIT License.
+
 namespace ApiMark.DotNet.Fixtures;
 
 /// <summary>A sample class for testing the API generator.</summary>

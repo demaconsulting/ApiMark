@@ -23,6 +23,9 @@ No external service, network dependency, or privileged configuration is needed.
 - `Options` returns the same `DotNetGeneratorOptions` instance passed to the constructor.
 - `Assembly` is non-null and has the expected name after parsing.
 - `Resolver` is non-null after parsing.
+- `XmlDocs` is non-null after parsing.
+- `NamespaceDescriptions` is non-null after parsing.
+- All collection-type properties (`AllNamespaces`, `ByNamespace`, `RootNamespaces`) expose read-only interfaces.
 
 ### Test Scenarios
 
@@ -57,4 +60,23 @@ member iteration during emission. This scenario is tested by
 **Resolver property is non-null**: Verifies that `DotNetAstModel.Resolver` is
 non-null after parsing, confirming that the type-reference resolver used during
 link generation is initialized as part of the model. This scenario is tested by
-`DotNetAstModel_Resolver_IsNotNull`.
+`DotNetAstModel_Resolver_AfterParse_IsNotNull`.
+
+**XmlDocs property is non-null**: Verifies that `DotNetAstModel.XmlDocs` is
+non-null after construction, confirming that the XML documentation reader is
+retained in the model for per-member lookups during emission. This scenario is
+tested by `DotNetAstModel_XmlDocs_AfterParse_IsNotNull`.
+
+**NamespaceDescriptions property is non-null**: Verifies that
+`DotNetAstModel.NamespaceDescriptions` is non-null after construction, confirming
+that the namespace description map (populated from NamespaceDoc carriers) is
+initialized in the model even when no carriers are present. This scenario is
+tested by `DotNetAstModel_NamespaceDescriptions_AfterParse_IsNotNull`.
+
+**All collection-type properties expose read-only interfaces**: Verifies that
+`AllNamespaces`, `ByNamespace`, and `RootNamespaces` properties all return
+`IReadOnly*` interface types, confirmed by the C# compiler type system — no runtime
+test is required for the static guarantee. Supplementary runtime test:
+`DotNetAstModel_Collections_ExposeReadOnlyInterfaces` asserts that the runtime
+types satisfy the interface constraints by calling `Assert.IsAssignableFrom` on
+each collection property.

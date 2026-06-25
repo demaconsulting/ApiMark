@@ -260,6 +260,7 @@ reviews:
       - src/ApiMark.DotNet/DotNetEmitterGradualDisclosure.cs
       - test/ApiMark.DotNet.Fixtures/**/*.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterGradualDisclosureTests.cs
+      - '!test/**/obj/**'
   - id: ApiMark-DotNet-DotNetEmitterSingleFile
     title: Review that ApiMark DotNet DotNetEmitterSingleFile Implementation is Correct
     context:
@@ -272,6 +273,7 @@ reviews:
       - src/ApiMark.DotNet/DotNetEmitterSingleFile.cs
       - test/ApiMark.DotNet.Fixtures/**/*.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterSingleFileTests.cs
+      - '!test/**/obj/**'
   - id: ApiMark-DotNet-XmlDocReader
     title: Review that ApiMark DotNet XmlDocReader Implementation is Correct
     context:

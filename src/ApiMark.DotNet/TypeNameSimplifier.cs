@@ -72,6 +72,14 @@ public static class TypeNameSimplifier
     }
 
     /// <summary>Applies Rules 1–6 to produce a simplified type name without nullable-reference annotation.</summary>
+    /// <remarks>
+    ///     Exists as a named helper so that <see cref="Simplify"/> can apply Rule 7 (nullable reference
+    ///     annotation) as a single post-processing step without duplicating the core switch logic.
+    ///     The switch-expression arms are ordered by structural specificity: composite types (array,
+    ///     nullable generic, generic instance) are tested before primitive aliases and plain types to
+    ///     ensure that, for example, <c>int?</c> (Nullable&lt;int&gt;) is handled by Rule 3 rather than
+    ///     the primitive-alias arm.
+    /// </remarks>
     /// <param name="typeRef">The Mono.Cecil type reference to simplify.</param>
     /// <param name="contextNamespace">The namespace of the enclosing type, used for prefix stripping.</param>
     /// <returns>A simplified C# type name without a trailing nullable-reference <c>?</c>.</returns>
@@ -79,9 +87,9 @@ public static class TypeNameSimplifier
     {
         return typeRef switch
         {
-            // Rule 2: array types recurse on the element type
+            // Rule 2: array types recurse on the element type; rank-aware suffix (e.g., [] for 1-D, [,] for 2-D)
             ArrayType arr
-                => Simplify(arr.ElementType, contextNamespace) + "[]",
+                => Simplify(arr.ElementType, contextNamespace) + "[" + new string(',', arr.Rank - 1) + "]",
 
             // Rule 3: Nullable<T> is represented as T?
             GenericInstanceType { GenericArguments.Count: 1 } git
@@ -108,6 +116,14 @@ public static class TypeNameSimplifier
     }
 
     /// <summary>Builds the simplified type name for a generic type instance.</summary>
+    /// <remarks>
+    ///     Extracted from <see cref="SimplifyCore"/> because generic instance handling requires
+    ///     three distinct sub-decisions: (1) whether to strip the well-known namespace prefix
+    ///     from the container type, (2) whether to apply context-namespace prefix stripping as
+    ///     a fallback, and (3) recursive simplification of every type argument. Isolating these
+    ///     steps in a named helper keeps <see cref="SimplifyCore"/> readable and avoids a deeply
+    ///     nested conditional inside the switch expression.
+    /// </remarks>
     /// <param name="git">The generic instance type to represent.</param>
     /// <param name="contextNamespace">The namespace of the enclosing type, used for prefix stripping.</param>
     /// <returns>A string of the form <c>Name&lt;Arg1, Arg2&gt;</c>.</returns>
@@ -122,6 +138,13 @@ public static class TypeNameSimplifier
     }
 
     /// <summary>Removes the generic arity suffix (e.g. <c>`1</c>) from a type name.</summary>
+    /// <remarks>
+    ///     Used wherever the arity count carries no meaning for human readers — for example, in
+    ///     display names, external-type table entries, and type-page headings. The backtick and
+    ///     following digit(s) are dropped entirely. Contrast with <see cref="FlattenArity"/>,
+    ///     which removes only the backtick but preserves the digit so that file-system path
+    ///     segments remain unique even when both <c>Foo</c> and <c>Foo&lt;T&gt;</c> exist.
+    /// </remarks>
     /// <param name="name">The raw type name that may contain a backtick arity suffix.</param>
     /// <returns>The name without the arity suffix.</returns>
     internal static string StripArity(string name)
@@ -151,6 +174,13 @@ public static class TypeNameSimplifier
     ///     Returns the shortest unambiguous name for <paramref name="typeRef"/> relative to
     ///     <paramref name="contextNamespace"/>, stripping that namespace's prefix if present.
     /// </summary>
+    /// <remarks>
+    ///     Exists as a named helper to encapsulate the context-stripping logic that is shared
+    ///     between the plain-type arm of <see cref="SimplifyCore"/> and the generic-container
+    ///     name computation in <see cref="BuildGenericName"/>. Returning the raw type name when
+    ///     no prefix matches is the safe fallback — it avoids hiding a type behind an incorrect
+    ///     short name when the namespace relationship is ambiguous.
+    /// </remarks>
     /// <param name="typeRef">The type reference to shorten.</param>
     /// <param name="contextNamespace">The namespace of the enclosing type.</param>
     /// <returns>The shortest name that is unambiguous in the given context.</returns>

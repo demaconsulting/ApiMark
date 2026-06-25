@@ -92,7 +92,7 @@ internal sealed class TypeLinkResolver
     ///     type, plain text when it is a primitive or System type, or plain text with external
     ///     tracking when it is a non-System type from another assembly.
     /// </summary>
-    /// <param name="typeRef">The Mono.Cecil type reference to resolve. Must not be null.</param>
+    /// <param name="typeRef">The Mono.Cecil type reference to resolve. When <see langword="null"/>, an empty string is returned.</param>
     /// <param name="currentFolder">
     ///     The folder path of the Markdown file that will contain the link, relative to the
     ///     documentation output root (e.g. <c>ApiMark.DotNet.Fixtures/SampleClass</c>).
@@ -146,11 +146,12 @@ internal sealed class TypeLinkResolver
             return Linkify(inner, currentFolder, contextNamespace, externalTypes, true);
         }
 
-        // Handle array types by resolving the element type and appending "[]" (plus "?" when nullable)
+        // Handle array types by resolving the element type and appending the rank-aware suffix
         if (typeRef is ArrayType arrayType)
         {
             var elementText = Linkify(arrayType.ElementType, currentFolder, contextNamespace, externalTypes);
-            return isNullableAnnotated ? elementText + "[]?" : elementText + "[]";
+            var suffix = "[" + new string(',', arrayType.Rank - 1) + "]";
+            return isNullableAnnotated ? elementText + suffix + "?" : elementText + suffix;
         }
 
         // Handle generic instance types: linkify the container when intra-assembly, else track external
@@ -322,4 +323,53 @@ internal sealed class TypeLinkResolver
 
         externalTypes.Add(new ExternalTypeInfo(simpleName, typeRef.Namespace));
     }
+}
+
+/// <summary>
+///     Represents a non-standard external type reference found in the documentation.
+/// </summary>
+/// <remarks>
+///     Instances are collected per generated Markdown file and emitted in the
+///     "External Types" section so that readers know which additional packages or
+///     headers they must include to use the documented API. System-namespace types
+///     and C# primitives are excluded; only types whose namespace does not start
+///     with "System" and are not CLR value-type primitives are recorded here.
+/// </remarks>
+/// <param name="SimplifiedName">The simplified type name as it appears in the documentation table.</param>
+/// <param name="Namespace">The .NET namespace that declares the type.</param>
+internal sealed record ExternalTypeInfo(string SimplifiedName, string Namespace)
+    : IComparable<ExternalTypeInfo>
+{
+    /// <summary>
+    ///     Compares this instance to <paramref name="other"/> by simplified name,
+    ///     enabling deterministic alphabetical sorting of the External Types table.
+    /// </summary>
+    /// <param name="other">The other instance to compare against, or <see langword="null"/>.</param>
+    /// <returns>
+    ///     A negative value when this instance sorts before <paramref name="other"/>,
+    ///     zero when equal, or a positive value when it sorts after.
+    /// </returns>
+    public int CompareTo(ExternalTypeInfo? other)
+    {
+        var nameComparison = StringComparer.Ordinal.Compare(SimplifiedName, other?.SimplifiedName);
+        return nameComparison != 0
+            ? nameComparison
+            : StringComparer.Ordinal.Compare(Namespace, other?.Namespace);
+    }
+
+    /// <summary>Returns <see langword="true"/> when <paramref name="left"/> sorts before <paramref name="right"/>.</summary>
+    public static bool operator <(ExternalTypeInfo left, ExternalTypeInfo right) =>
+        left.CompareTo(right) < 0;
+
+    /// <summary>Returns <see langword="true"/> when <paramref name="left"/> sorts before or equal to <paramref name="right"/>.</summary>
+    public static bool operator <=(ExternalTypeInfo left, ExternalTypeInfo right) =>
+        left.CompareTo(right) <= 0;
+
+    /// <summary>Returns <see langword="true"/> when <paramref name="left"/> sorts after <paramref name="right"/>.</summary>
+    public static bool operator >(ExternalTypeInfo left, ExternalTypeInfo right) =>
+        left.CompareTo(right) > 0;
+
+    /// <summary>Returns <see langword="true"/> when <paramref name="left"/> sorts after or equal to <paramref name="right"/>.</summary>
+    public static bool operator >=(ExternalTypeInfo left, ExternalTypeInfo right) =>
+        left.CompareTo(right) >= 0;
 }

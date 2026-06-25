@@ -105,57 +105,16 @@ OTS Dependencies:
 
 ```text
 src/
-├── ApiMark.Core/
-│   ├── IApiGenerator.cs                - interface every language generator must implement
-│   ├── IApiEmitter.cs                  - interface for writing parsed results as Markdown output
-│   ├── EmitConfig.cs                   - value object controlling output format and heading depth
-│   ├── OutputFormat.cs                 - enum selecting GradualDisclosure or SingleFile output
-│   ├── IContext.cs                     - minimal output channel that generators use to emit messages
-│   ├── IMarkdownWriterFactory.cs       - factory interface for creating per-file markdown writers
-│   ├── IMarkdownWriter.cs              - per-file markdown writing interface (IDisposable)
-│   ├── PathHelpers.cs                  - shared path-safety helper for combining validated relative paths
-│   ├── GlobFileCollector.cs            - shared glob-based file discovery utility (absolute/relative patterns, extension inference)
-│   ├── FileMarkdownWriterFactory.cs    - file-system implementation of IMarkdownWriterFactory
-│   └── FileMarkdownWriter.cs           - file-system implementation of IMarkdownWriter
-├── ApiMark.DotNet/
-│   ├── ApiVisibility.cs           - enum controlling which members are included in output
-│   ├── DotNetGenerator.cs         - C#/.NET IApiGenerator implementation
-│   ├── DotNetGeneratorOptions.cs  - configuration options for the .NET generator
-│   ├── DotNetAstModel.cs          - holds pre-parsed assembly data for the emit phase
-│   ├── DotNetEmitter.cs           - dispatches to single-file or gradual-disclosure emitter
-│   ├── DotNetEmitterGradualDisclosure.cs - writes multiple-file gradual-disclosure output
-│   ├── DotNetEmitterSingleFile.cs - writes single-file output
-│   ├── TypeLinkResolver.cs        - resolves Mono.Cecil type references to Markdown links
-│   ├── TypeNameSimplifier.cs      - simplifies rendered .NET type references
-│   └── XmlDocReader.cs            - parses XML documentation files produced by the C# compiler
-├── ApiMark.Cpp/
-│   ├── ApiVisibility.cs           - enum controlling which members are included in output
-│   ├── CppGenerator.cs            - C++ IApiGenerator implementation
-│   ├── CppGeneratorOptions.cs     - configuration options for the C++ generator
-│   ├── CppEmitter.cs              - dispatches to single-file or gradual-disclosure C++ emitter
-│   ├── CppEmitterGradualDisclosure.cs - writes multiple-file gradual-disclosure C++ output
-│   ├── CppEmitterSingleFile.cs    - writes single-file C++ output
-│   ├── CppTypeLinkResolver.cs     - resolves C++ type strings to Markdown links
-│   └── CppAst/
-│       ├── CppAstModel.cs         - C++ AST data model (types, functions, namespaces)
-│       └── ClangAstParser.cs      - invokes clang -ast-dump=json and parses the AST
-├── ApiMark.Vhdl/
-│   ├── VhdlGenerator.cs           - VHDL IApiGenerator implementation
-│   ├── VhdlGeneratorOptions.cs    - configuration options for the VHDL generator
-│   ├── VhdlEmitter.cs             - dispatches to single-file or gradual-disclosure VHDL emitter
-│   ├── VhdlEmitterGradualDisclosure.cs - writes multiple-file gradual-disclosure VHDL output
-│   ├── VhdlEmitterSingleFile.cs   - writes single-file VHDL output
-│   └── VhdlAst/
-│       ├── VhdlAstModel.cs        - VHDL AST data model (entities, architectures, packages)
-│       └── VhdlAstParser.cs       - parses .vhd files using ANTLR4 vhdl2008 grammar
-├── ApiMark.MSBuild/
-│   └── ApiMarkTask.cs             - MSBuild task that spawns ApiMark.Tool out-of-process
-└── ApiMark.Tool/
-    ├── Cli/
-    │   └── Context.cs                 - command-line context with standard flags and language options
-    ├── SelfTest/
-    │   └── Validation.cs              - self-validation tests for --validate
-    └── Program.cs                     - dotnet CLI entry point dispatching to IApiGenerator
+├── ApiMark.Core/        - shared contracts, file-path helpers, and Markdown writer implementations
+├── ApiMark.DotNet/      - C#/.NET language generator
+├── ApiMark.Cpp/         - C++ language generator
+│   └── CppAst/          - C++ AST data model and clang parser
+├── ApiMark.Vhdl/        - VHDL language generator
+│   └── VhdlAst/         - VHDL AST data model and ANTLR4 parser
+├── ApiMark.MSBuild/     - MSBuild task that spawns ApiMark.Tool out-of-process
+└── ApiMark.Tool/        - CLI entry point
+    ├── Cli/             - command-line argument parsing and context construction
+    └── SelfTest/        - self-validation subsystem
 ```
 
 ## Companion Artifact Structure

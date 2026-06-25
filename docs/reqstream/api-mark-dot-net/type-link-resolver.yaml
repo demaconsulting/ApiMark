@@ -5,20 +5,75 @@ sections:
     sections:
       - title: TypeLinkResolver Requirements
         requirements:
-          - id: ApiMarkDotNet-TypeLinkResolver-ResolveTypeReferencesToMarkdownLinks
-            title: TypeLinkResolver shall resolve Mono.Cecil type references to Markdown
-              link text, emitting intra-assembly links or plain text for external
-              and primitive types.
+          - id: ApiMarkDotNet-TypeLinkResolver-ResolveIntraAssemblyTypesToMarkdownLinks
+            title: TypeLinkResolver shall resolve intra-assembly type references to relative
+              Markdown links when generateLinks is true, and plain text when false.
             justification: |
               Intra-document cross-references improve navigability for both AI agents
-              and human readers. TypeLinkResolver centralizes the logic for deciding
-              whether a type reference produces a clickable link (intra-assembly),
-              a plain alias (primitive or System type), or tracked plain text (external
-              non-System type), keeping emitter code free of resolution logic.
+              and human readers. Controlling link generation via generateLinks allows
+              the single-file emitter to suppress file-relative links that would be
+              invalid in a single-file context.
             tests:
               - TypeLinkResolver_Linkify_NullTypeRef_ReturnsEmptyString
-              - TypeLinkResolver_Linkify_Int32_ReturnsCSharpAlias
-              - TypeLinkResolver_Linkify_StringType_ReturnsCSharpAlias
               - TypeLinkResolver_Linkify_GenerateLinksTrue_IntraAssemblyType_ReturnsMarkdownLink
               - TypeLinkResolver_Linkify_GenerateLinksFalse_IntraAssemblyType_ReturnsPlainText
               - TypeLinkResolver_Linkify_NullableGenericParameter_AppendsQuestionMark
+              - DotNetGenerator_Generate_IntraAssemblyReturnType_EmitsMarkdownLinkInReturnsCell
+          - id: ApiMarkDotNet-TypeLinkResolver-ResolvePrimitiveAndSystemTypesToPlainText
+            title: TypeLinkResolver shall resolve C# primitive types and System-namespace
+              types to their plain simplified names without tracking them as external
+              dependencies.
+            justification: |
+              Primitive and System types are universally known and do not require
+              readers to install separate packages, so they must be rendered as
+              plain text and excluded from the External Types section to keep that
+              section focused on third-party dependencies.
+            tests:
+              - TypeLinkResolver_Linkify_Int32_ReturnsCSharpAlias
+              - TypeLinkResolver_Linkify_StringType_ReturnsCSharpAlias
+              - TypeLinkResolver_Linkify_SystemNamespaceExternalType_ReturnsPlainTextAndDoesNotTrack
+          - id: ApiMarkDotNet-TypeLinkResolver-TrackNonSystemExternalTypesForExternalTypesSection
+            title: TypeLinkResolver shall resolve non-System external type references to
+              plain text and add them to the caller-supplied external type set for later
+              emission in the External Types section.
+            justification: |
+              Non-System external types originate from third-party packages that readers
+              must install separately. Accumulating them per output file and emitting an
+              External Types section alerts readers to additional dependencies without
+              cluttering the main member table with redundant package information.
+            tests:
+              - TypeLinkResolver_Linkify_ExternalNonSystemType_ReturnsPlainNameAndTracksExternalType
+              - DotNetGenerator_Generate_ExternalNonSystemParameterType_EmitsExternalTypesSection
+
+          - id: ApiMarkDotNet-TypeLinkResolver-RenderArrayTypesWithSuffix
+            title: TypeLinkResolver shall render array types by appending the array rank suffix
+              to the element type name.
+            justification: |
+              C# array types such as string[] and int[,] are common in API signatures. Rendering
+              them with the correct suffix ensures the generated Markdown matches the C# syntax
+              readers expect, making member signatures self-explanatory without requiring a
+              separate type-lookup step.
+            tests:
+              - TypeLinkResolver_Linkify_ArrayType_AppendsArraySuffix
+              - TypeLinkResolver_Linkify_MultiDimensionalArrayType_AppendsRankSuffix
+
+          - id: ApiMarkDotNet-TypeLinkResolver-RenderGenericTypesWithTypeArguments
+            title: TypeLinkResolver shall render generic container types by appending the resolved
+              type argument list in angle-bracket notation.
+            justification: |
+              Generic types such as List<string> and Dictionary<string, int> appear frequently
+              in .NET API signatures. Rendering the full generic form — including resolved type
+              arguments — gives AI agents and human readers the complete type contract in a
+              single table cell read.
+            tests:
+              - TypeLinkResolver_Linkify_GenericType_RendersTypeArguments
+
+          - id: ApiMarkDotNet-TypeLinkResolver-UnwrapNullableValueTypes
+            title: TypeLinkResolver shall unwrap Nullable<T> generic instances and render
+              the inner type with a ? suffix.
+            justification: |
+              C# value types such as int? and DateTime? are Nullable<T> generic instances
+              at the CLR level. Rendering them as "int?" rather than "Nullable<int>" matches
+              the C# syntax that developers read and write, keeping member signatures idiomatic.
+            tests:
+              - TypeLinkResolver_Linkify_NullableValueType_ReturnsInnerAliasWithQuestionMark

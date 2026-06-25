@@ -8,8 +8,10 @@
 DotNetAstModel is an immutable data class that holds all parsed .NET assembly
 data required during the emit phase. It is created exclusively by
 `DotNetGenerator.Parse` and transferred to `DotNetEmitter`. All properties are
-read-only after construction, so the emitter can safely share the model across
-its internal helper methods without defensive copies.
+read-only after construction and the collections they expose use read-only
+interfaces (`IReadOnlyList`, `IReadOnlyDictionary`), making the model's entire
+observable state immutable after construction. The emitter can safely share the
+model across its internal helper methods without defensive copies.
 
 The three context records defined in the same file — `TypePageWriteContext`,
 `MethodDocContext`, and `NamespaceDocContext` — reduce parameter counts on the
@@ -23,15 +25,14 @@ boundary between parse and emit.
 
 - *Assembly* (`AssemblyDefinition`): The Mono.Cecil assembly definition held
   open for the duration of emit. Ownership is transferred to the model on
-  construction; the `AssemblyDefinition` is disposed by `DotNetEmitter.Emit`
-  in its `finally` block after the emit run completes or throws.
+  construction; the `AssemblyDefinition` is disposed via a `using (Model.Assembly)` block in `DotNetEmitter.Emit` after the emit run completes or throws.
 - *XmlDocs* (`XmlDocReader`): Pre-built XML documentation reader for O(1)
   per-member lookups by XML doc identifier string.
-- *AllNamespaces* (`List<string>`): All namespace names present in the assembly,
+- *AllNamespaces* (`IReadOnlyList<string>`): All namespace names present in the assembly,
   ordered alphabetically (ordinal).
-- *ByNamespace* (`Dictionary<string, List<TypeDefinition>>`): Visible types
+- *ByNamespace* (`IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>>`): Visible types
   grouped by their namespace name.
-- *RootNamespaces* (`List<string>`): Root namespace names identified during
+- *RootNamespaces* (`IReadOnlyList<string>`): Root namespace names identified during
   parse. Used by `DotNetEmitter.GetNamespaceFolderPath` to compute file-system
   paths.
 - *NamespaceDescriptions* (`IReadOnlyDictionary<string, string?>`): Optional
@@ -67,9 +68,9 @@ callers do not need to thread five constant parameters through each call site.
 namespace documentation context that is constant across all namespace page
 writes in a single generation run.
 
-- *AllNamespaces* (`List<string>`): All namespaces in alphabetical order.
-- *ByNamespace* (`Dictionary<string, List<TypeDefinition>>`): Types grouped by namespace.
-- *RootNamespaces* (`List<string>`): Root namespaces for path computation.
+- *AllNamespaces* (`IReadOnlyList<string>`): All namespaces in alphabetical order.
+- *ByNamespace* (`IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>>`): Types grouped by namespace.
+- *RootNamespaces* (`IReadOnlyList<string>`): Root namespaces for path computation.
 - *NamespaceDescriptions* (`IReadOnlyDictionary<string, string?>`): Optional namespace summaries.
 - *XmlDocs* (`XmlDocReader`): Documentation index.
 - *Resolver* (`TypeLinkResolver`): Type link resolver.
@@ -80,8 +81,8 @@ writes in a single generation run.
 read-only properties.
 
 - *Parameters*: `AssemblyDefinition assembly`, `XmlDocReader xmlDocs`,
-  `List<string> allNamespaces`, `Dictionary<string, List<TypeDefinition>> byNamespace`,
-  `List<string> rootNamespaces`, `IReadOnlyDictionary<string, string?> namespaceDescriptions`,
+  `IReadOnlyList<string> allNamespaces`, `IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>> byNamespace`,
+  `IReadOnlyList<string> rootNamespaces`, `IReadOnlyDictionary<string, string?> namespaceDescriptions`,
   `TypeLinkResolver resolver`, `DotNetGeneratorOptions options`.
 - *Preconditions*: No parameter may be null.
 - *Postconditions*: All properties are initialized; no mutation is possible.
@@ -107,3 +108,7 @@ responsibility of `DotNetGenerator.Parse` before constructing the model.
   gradual-disclosure emission.
 - **DotNetEmitterSingleFile** — reads all model properties during single-file
   emission.
+
+### External Interfaces
+
+N/A — this is an internal class with no external interfaces exposed beyond its assembly.

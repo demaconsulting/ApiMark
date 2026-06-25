@@ -1,3 +1,6 @@
+// Copyright (c) DemaConsulting LLC. All rights reserved.
+// Licensed under the MIT License.
+
 using ApiMark.Core;
 using Mono.Cecil;
 
@@ -50,9 +53,9 @@ internal sealed record MethodDocContext(
 /// <param name="XmlDocs">Documentation index for namespace-level lookups.</param>
 /// <param name="Resolver">Type link resolver for namespace page table cells.</param>
 internal sealed record NamespaceDocContext(
-    List<string> AllNamespaces,
-    Dictionary<string, List<TypeDefinition>> ByNamespace,
-    List<string> RootNamespaces,
+    IReadOnlyList<string> AllNamespaces,
+    IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>> ByNamespace,
+    IReadOnlyList<string> RootNamespaces,
     IReadOnlyDictionary<string, string?> NamespaceDescriptions,
     XmlDocReader XmlDocs,
     TypeLinkResolver Resolver);
@@ -80,9 +83,9 @@ internal sealed class DotNetAstModel
     internal DotNetAstModel(
         AssemblyDefinition assembly,
         XmlDocReader xmlDocs,
-        List<string> allNamespaces,
-        Dictionary<string, List<TypeDefinition>> byNamespace,
-        List<string> rootNamespaces,
+        IReadOnlyList<string> allNamespaces,
+        IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>> byNamespace,
+        IReadOnlyList<string> rootNamespaces,
         IReadOnlyDictionary<string, string?> namespaceDescriptions,
         TypeLinkResolver resolver,
         DotNetGeneratorOptions options)
@@ -104,13 +107,13 @@ internal sealed class DotNetAstModel
     internal XmlDocReader XmlDocs { get; }
 
     /// <summary>Gets all namespace names present in the assembly, ordered alphabetically.</summary>
-    internal List<string> AllNamespaces { get; }
+    internal IReadOnlyList<string> AllNamespaces { get; }
 
     /// <summary>Gets the visible types grouped by their namespace name.</summary>
-    internal Dictionary<string, List<TypeDefinition>> ByNamespace { get; }
+    internal IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>> ByNamespace { get; }
 
     /// <summary>Gets the root namespaces identified in the assembly.</summary>
-    internal List<string> RootNamespaces { get; }
+    internal IReadOnlyList<string> RootNamespaces { get; }
 
     /// <summary>Gets the optional namespace descriptions sourced from NamespaceDoc carriers.</summary>
     internal IReadOnlyDictionary<string, string?> NamespaceDescriptions { get; }

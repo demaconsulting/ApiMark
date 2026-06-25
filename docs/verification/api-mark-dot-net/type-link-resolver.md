@@ -22,9 +22,13 @@ output location is needed.
 - A null type reference returns an empty string.
 - `System.Int32` resolves to the C# alias `int`.
 - `System.String` resolves to the C# alias `string`.
+- A System-namespace external type (e.g. `System.IO.Stream`) is returned as plain text and is not tracked as an external dependency.
+- A non-System external type (e.g. `Acme.Widgets.Widget`) is returned as plain text and is added to the external types accumulator.
 - An intra-assembly type produces a Markdown link when `generateLinks` is `true`.
 - An intra-assembly type produces plain text when `generateLinks` is `false`.
 - A nullable generic parameter appends `?` when `isNullableAnnotated` is `true`.
+- An array type appends the array rank suffix (e.g., `[]`) to the element type name.
+- A generic container type appends angle-bracket notation listing the resolved type arguments.
 
 ### Test Scenarios
 
@@ -54,3 +58,27 @@ scenario is tested by
 parameter linkified with `isNullableAnnotated: true` produces a `?` suffix. This
 scenario is tested by
 `TypeLinkResolver_Linkify_NullableGenericParameter_AppendsQuestionMark`.
+
+**Array type appends [] suffix**: Verifies that an array type reference produces
+a result ending with `[]`, confirming that the array rank suffix is appended to the
+element type name. This scenario is tested by
+`TypeLinkResolver_Linkify_ArrayType_AppendsArraySuffix`.
+
+**Generic type renders type arguments in angle-bracket notation**: Verifies that a
+generic instance type reference (e.g., `List<string>`) produces a result containing
+escaped angle brackets, confirming that the resolved type argument list is appended.
+This scenario is tested by
+`TypeLinkResolver_Linkify_GenericType_RendersTypeArguments`.
+
+**System-namespace external type returns plain text and is not tracked**: Verifies
+that a type reference from a `System.*` namespace (e.g. `System.IO.Stream`) is
+returned as plain text and is not added to the external types accumulator, because
+System types are universally known and should not appear in the External Types
+section. This scenario is tested by
+`TypeLinkResolver_Linkify_SystemNamespaceExternalType_ReturnsPlainTextAndDoesNotTrack`.
+
+**Non-System external type returns plain text and is tracked**: Verifies that a
+type reference from a non-System namespace (e.g. `Acme.Widgets.Widget`) is returned
+as plain text and is added to the external types accumulator so that the consuming
+emitter can emit an External Types section. This scenario is tested by
+`TypeLinkResolver_Linkify_ExternalNonSystemType_ReturnsPlainNameAndTracksExternalType`.

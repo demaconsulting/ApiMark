@@ -1,3 +1,6 @@
+// Copyright (c) DemaConsulting LLC. All rights reserved.
+// Licensed under the MIT License.
+
 namespace ApiMark.DotNet.Fixtures;
 
 /// <summary>A struct with operator overloads for testing operator page generation.</summary>

@@ -32,6 +32,19 @@ parameter.
   C# primitive types that are always rendered as their keyword alias and never
   tracked as external dependencies.
 
+**ExternalTypeInfo** (internal record): Represents a non-System external type
+reference collected during table cell generation.
+
+- *SimplifiedName* (`string`): The type's simplified display name (may include
+  escaped generic angle brackets).
+- *Namespace* (`string`): The type's .NET namespace.
+- *Ordering*: Implements `IComparable<ExternalTypeInfo>` for deterministic
+  alphabetical ordering by `SimplifiedName` then `Namespace` — used when emitting
+  the External Types table to ensure a stable, predictable sort order so the
+  generated section is reproducible across runs. The record also implements four
+  comparison operators (`<`, `<=`, `>`, `>=`) as mechanical companions to
+  `IComparable<ExternalTypeInfo>`.
+
 ### Key Methods
 
 **TypeLinkResolver constructor**: Accepts the root namespaces and an optional
@@ -69,7 +82,8 @@ parameter.
      intra-assembly, tracks external otherwise.
   6. Primitive or `System.Nullable<>` open type → `TypeNameSimplifier.Simplify`,
      append `?` if nullable annotated.
-  7. Intra-assembly (scope is `ModuleDefinition`) → relative Markdown link.
+  7. Intra-assembly (scope is `ModuleDefinition`) → relative Markdown link when `_generateLinks`
+     is `true`; plain-text type name when `_generateLinks` is `false`.
   8. Non-System external → track in `externalTypes`, return plain name.
 - *Intra-assembly detection*: `TypeReference.Scope is ModuleDefinition`.
 
@@ -82,16 +96,30 @@ No other exceptions are thrown by TypeLinkResolver itself; exceptions from
 ### Dependencies
 
 - **TypeNameSimplifier** — called to produce simplified type names for primitive
-  types and as display text for generic arguments.
+  types and as display text for generic arguments. `TypeNameSimplifier.FlattenArity`
+  converts a backtick arity suffix to a plain numeric suffix (e.g. `List\`1` →
+  `List1`) for use in file-path generation, while`TypeNameSimplifier.StripArity`
+  removes the backtick suffix entirely (e.g. `List\`1` → `List`) for display name
+  generation. These two methods serve distinct purposes and must not be substituted
+  for each other.
 - **DotNetEmitter.GetNamespaceFolderPath** — called to compute the documentation
   folder path for intra-assembly types.
 - **Mono.Cecil** — TypeLinkResolver operates on Mono.Cecil type reference objects.
 
 ### Callers
 
-- **DotNetEmitter** — uses TypeLinkResolver (via DotNetAstModel.Resolver) to
-  build link text in type signature and table cell generation.
+The direct callers of TypeLinkResolver are the two sub-emitters and the generator
+that constructs it. `DotNetEmitter` does not call TypeLinkResolver directly; it holds
+a `DotNetAstModel` that carries the resolver, making it available to sub-emitters via
+`model.Resolver`.
+
+- **DotNetGenerator** — constructs `DotNetAstModel`, which holds the
+  `TypeLinkResolver` instance created during `Parse`.
 - **DotNetEmitterGradualDisclosure** — calls `Linkify` for each type reference
   encountered in member table rows.
 - **DotNetEmitterSingleFile** — constructs a TypeLinkResolver with
   `generateLinks: false` for parameter type display in single-file output.
+
+### External Interfaces
+
+N/A — this is an internal class with no external interfaces exposed beyond its assembly.

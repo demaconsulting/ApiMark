@@ -41,6 +41,9 @@ network dependency, or privileged configuration is needed.
   and parameter descriptions on their generated member detail pages; the full pipeline from
   Mono.Cecil inheritance mapping through XmlDocReader resolution to emitted Markdown is
   exercised end-to-end.
+- `Parse` throws `FileNotFoundException` when the assembly path does not exist on disk,
+  and this check occurs before the XML documentation path is verified.
+- The `DotNetGenerator` constructor throws `ArgumentNullException` when `options` is null.
 
 ### Test Scenarios
 
@@ -161,6 +164,17 @@ tested by `DotNetGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCase
 page includes documentation for both case-colliding members. This scenario is tested by
 `DotNetGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers`.
 
+**Missing assembly path throws FileNotFoundException**: Verifies that calling `Parse` when the
+configured assembly path does not exist throws `FileNotFoundException` with the missing path,
+giving callers a precise fail-fast error before any XML documentation path check or Mono.Cecil
+I/O is attempted. AssemblyPath is checked before XmlDocPath. This scenario is tested by
+`DotNetGenerator_Parse_MissingAssemblyPath_ThrowsFileNotFoundException`.
+
+**Null options throws ArgumentNullException**: Verifies that passing `null` to the
+`DotNetGenerator` constructor throws `ArgumentNullException`, preventing a confusing
+`NullReferenceException` at an unpredictable point during generation. This scenario is tested
+by `DotNetGenerator_Constructor_NullOptions_ThrowsArgumentNullException`.
+
 **Single-file output writes a complete api.md tree**: Verifies that when `OutputFormat.SingleFile`
 is configured, the generator produces exactly one writer keyed `api`, containing an H1 assembly
 title, H2 namespace heading, H3 type heading (e.g., `SampleClass`), H4 member headings with
@@ -169,171 +183,26 @@ compact bullet-list paragraph (`- **MemberName**: description`) summarizing a ty
 This scenario is tested by
 `DotNetGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown`.
 
-### Unit Test Scenarios
+**Namespace description from NamespaceDoc appears on namespace page**: Verifies that when a
+namespace carries a NamespaceDoc carrier class, its XML summary is emitted as a paragraph on
+the namespace page, confirming that developer-authored namespace descriptions appear in generated
+output. This scenario is tested by
+`DotNetGenerator_NamespacePage_NamespaceDocClass_ExcludedFromTypeListing`.
 
-**DotNetAstModel namespaces are sorted alphabetically**: Verifies that `DotNetAstModel.AllNamespaces`
-returns all parsed namespaces in ordinal alphabetical order so that downstream pages list namespaces
-in a stable, deterministic sequence. This scenario is tested by
-`DotNetAstModel_AllNamespaces_ReturnsAlphabeticallySorted`.
-
-**DotNetAstModel namespace dictionary contains the fixture namespace**: Verifies that
-`DotNetAstModel.ByNamespace` contains an entry for the fixture namespace after parsing, confirming
-that type-lookup by exact namespace name is reliable. This scenario is tested by
-`DotNetAstModel_ByNamespace_ContainsFixtureNamespace`.
-
-**DotNetAstModel root-namespace list is non-empty**: Verifies that `DotNetAstModel.RootNamespaces`
-is populated after parsing the fixture assembly, confirming that the root-namespace index used when
-building namespace folder paths is correctly initialized. This scenario is tested by
-`DotNetAstModel_RootNamespaces_ContainsFixtureNamespace`.
-
-**DotNetAstModel options property returns construction-time options**: Verifies that
-`DotNetAstModel.Options` returns the same `DotNetGeneratorOptions` instance that was passed at
-construction, confirming that configuration is preserved through the parse step for use during
-emission. This scenario is tested by `DotNetAstModel_Options_ReturnsOptionsPassedAtConstruction`.
-
-**DotNetAstModel assembly property returns the loaded assembly**: Verifies that
-`DotNetAstModel.Assembly` is non-null and has the expected name after parsing, confirming that the
-Mono.Cecil `AssemblyDefinition` is retained in the model for member iteration during emission. This
-scenario is tested by `DotNetAstModel_Assembly_ReturnsLoadedAssembly`.
-
-**DotNetAstModel resolver property is non-null**: Verifies that `DotNetAstModel.Resolver` is
-non-null after parsing, confirming that the type-reference resolver used during link generation is
-initialized as part of the model. This scenario is tested by `DotNetAstModel_Resolver_IsNotNull`.
-
-**DotNetEmitter rejects a null factory with an ArgumentNullException**: Verifies that calling
-`DotNetEmitter.Emit` with a null factory throws `ArgumentNullException` before any I/O is attempted,
-providing a clear failure rather than a misleading null-reference error from within a file-write
-operation. This scenario is tested by `DotNetEmitter_Emit_NullFactory_ThrowsArgumentNullException`.
-
-**DotNetEmitter dispatches GradualDisclosure format to produce multiple files**: Verifies that when
-`OutputFormat.GradualDisclosure` is configured the emitter produces more than one Markdown writer,
-confirming that the dispatch path routes to the gradual-disclosure emitter and not the single-file
-emitter. This scenario is tested by
-`DotNetEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles`.
-
-**DotNetEmitter dispatches SingleFile format to produce exactly one api file**: Verifies that when
-`OutputFormat.SingleFile` is configured the emitter produces exactly one writer keyed `api`,
-confirming that the dispatch path routes to the single-file emitter. This scenario is tested by
-`DotNetEmitter_Emit_SingleFileFormat_ProducesSingleApiFile`.
-
-**GetNamespaceFolderPath returns the dotted name for a root namespace**: Verifies that a namespace
-that is itself a configured root namespace returns its full dotted name as the folder path, so
-namespace pages land at the expected location in the output tree. This scenario is tested by
-`DotNetEmitter_GetNamespaceFolderPath_RootNamespace_ReturnsDottedName`.
-
-**GetNamespaceFolderPath returns a slash-separated path for a child namespace**: Verifies that a
-namespace that is a child of a configured root returns a slash-separated path (root dotted name,
-then `/`, then the child suffix), so child namespace pages land under the correct parent folder.
-This scenario is tested by
-`DotNetEmitter_GetNamespaceFolderPath_ChildNamespace_ReturnsSlashSeparated`.
-
-**DotNetEmitterGradualDisclosure creates the api index page**: Verifies that the
-gradual-disclosure emitter creates the `api` writer key, confirming that the top-level assembly
-entrypoint is emitted as the first page in the output tree. This scenario is tested by
-`DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesApiIndexPage`.
-
-**DotNetEmitterGradualDisclosure creates a namespace page for the fixture namespace**: Verifies
-that the gradual-disclosure emitter creates a writer whose key contains the fixture namespace name,
-confirming that namespace summary pages are emitted for all discovered namespaces. This scenario is
-tested by `DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesNamespacePage`.
-
-**DotNetEmitterGradualDisclosure creates a type page for SampleClass**: Verifies that the
-gradual-disclosure emitter creates a writer whose key contains `SampleClass`, confirming that
-per-type pages are emitted for all visible types in each namespace. This scenario is tested by
-`DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesTypePage`.
-
-**DotNetEmitterGradualDisclosure api index page heading contains the assembly name**: Verifies that
-the api index page includes a heading containing the fixture assembly name, confirming that the
-top-level heading identifies the documented assembly so AI readers know its scope immediately. This
-scenario is tested by
-`DotNetEmitterGradualDisclosure_Emit_ValidModel_ApiIndexContainsAssemblyNameHeading`.
-
-**DotNetEmitterSingleFile creates exactly one writer**: Verifies that the single-file emitter
-produces exactly one Markdown writer, confirming that all documentation is consolidated into a
-single file and no additional writers are created. This scenario is tested by
-`DotNetEmitterSingleFile_Emit_ValidModel_CreatesExactlyOneWriter`.
-
-**DotNetEmitterSingleFile creates only the api writer**: Verifies that the single writer produced
-by the single-file emitter is keyed as `api`, confirming that the output file name follows the
-established convention. This scenario is tested by
-`DotNetEmitterSingleFile_Emit_ValidModel_CreatesApiFileOnly`.
-
-**DotNetEmitterSingleFile api file contains an assembly-level heading**: Verifies that the single
-output file includes a heading containing the fixture assembly name, confirming that the top-level
-section identifies the documented assembly. This scenario is tested by
-`DotNetEmitterSingleFile_Emit_ValidModel_ApiFileContainsAssemblyHeading`.
-
-**DotNetEmitterSingleFile api file contains a namespace-level heading**: Verifies that the single
-output file includes a heading containing the fixture namespace name, confirming that namespaces are
-represented as sections in the consolidated document. This scenario is tested by
-`DotNetEmitterSingleFile_Emit_ValidModel_ApiFileContainsNamespaceHeading`.
-
-**DotNetEmitterSingleFile api file contains a type-level heading for SampleClass**: Verifies that
-the single output file includes a heading for `SampleClass`, confirming that all visible types
-receive a dedicated section in the consolidated document. This scenario is tested by
-`DotNetEmitterSingleFile_Emit_ValidModel_ApiFileContainsTypeHeading`.
-
-**TypeLinkResolver returns an empty string for a null type reference**: Verifies that
-`TypeLinkResolver.Linkify` returns an empty string rather than throwing when passed a null type
-reference, providing a safe no-op for callers that may encounter unresolvable references during
-table cell generation. This scenario is tested by
-`TypeLinkResolver_Linkify_NullTypeRef_ReturnsEmptyString`.
-
-**TypeLinkResolver resolves System.Int32 to the C# alias "int"**: Verifies that
-`TypeLinkResolver.Linkify` returns the C# primitive alias `int` for `System.Int32`, confirming
-that the alias table is applied to well-known system types so table cells contain readable C# names.
-This scenario is tested by `TypeLinkResolver_Linkify_Int32_ReturnsCSharpAlias`.
-
-**TypeLinkResolver resolves System.String to the C# alias "string"**: Verifies that
-`TypeLinkResolver.Linkify` returns the C# primitive alias `string` for `System.String`, confirming
-that string references in table cells are shown using the idiomatic C# keyword. This scenario is
-tested by `TypeLinkResolver_Linkify_StringType_ReturnsCSharpAlias`.
-
-**TypeLinkResolver returns a Markdown link for an intra-assembly type when generateLinks is true**:
-Verifies that an intra-assembly type resolves to a Markdown link when `generateLinks` is true,
-confirming that the link-generation mode produces clickable cross-references in table cells. This
-scenario is tested by
-`TypeLinkResolver_Linkify_GenerateLinksTrue_IntraAssemblyType_ReturnsMarkdownLink`.
-
-**TypeLinkResolver returns plain text for an intra-assembly type when generateLinks is false**:
-Verifies that an intra-assembly type resolves to plain text when `generateLinks` is false,
-confirming that the no-link mode suppresses markup for contexts where links would not render. This
-scenario is tested by
-`TypeLinkResolver_Linkify_GenerateLinksFalse_IntraAssemblyType_ReturnsPlainText`.
-
-**Enum type signature omits System.Enum base class**: Verifies that the type signature for an
-enum does not include `System.Enum` or the `:` inheritance separator, confirming that
-well-known implicit base types are suppressed and the signature remains clean and readable. This
-scenario is tested by `DotNetGenerator_Generate_EnumTypeSignature_HasNoBaseClass`.
-
-**SampleImplementation type signature shows its implemented interface**: Verifies that the type
-page for `SampleImplementation` includes `: ISampleInterface` in its signature block,
-confirming that explicitly declared interface implementations appear in the generated type
-signature. This scenario is tested by
+**Type signature includes direct base class or interface**: Verifies that the type signature
+code block for a class that implements an interface includes the interface name in the
+`:` clause, confirming that direct inheritance is visible at a glance without opening the source
+file. This scenario is tested by
 `DotNetGenerator_Generate_SampleImplementation_TypeSignatureShowsInterface`.
 
-**Method with example emits a code block on its member detail page**: Verifies that a method
-whose XML documentation contains an `<example><code>` element causes a `csharp` code block to
-appear on the member's gradual-disclosure detail page, confirming that example content is
-rendered for AI and developer consumers. This scenario is tested by
-`DotNetGenerator_Generate_MethodWithExample_EmitsCodeBlockOnMemberPage`.
-
-**Method with example emits a code block in single-file output**: Verifies that the same
-`<example><code>` block renders a `csharp` code block in the consolidated `api.md` produced
-by the single-file emitter, confirming that example sections are not silently dropped in
-single-file mode. This scenario is tested by
-`DotNetGenerator_SingleFile_MethodWithExample_EmitsCodeBlock`.
-
-**Intra-assembly return type emits a Markdown link in the Returns table cell**: Verifies that
-when a method returns a type defined in the same assembly, the Returns column of the Methods
-table on the type page contains a Markdown link (e.g., `[SampleClass](SampleClass.md)`) rather
-than plain text, confirming that the TypeLinkResolver emits intra-document navigation links in
-gradual-disclosure mode. This scenario is tested by
+**Table cells include Markdown links for intra-assembly types**: Verifies that the Returns
+column in the type page Methods table contains a Markdown link for a method that returns an
+intra-assembly type, confirming that readers can navigate directly to the referenced type page.
+This scenario is tested by
 `DotNetGenerator_Generate_IntraAssemblyReturnType_EmitsMarkdownLinkInReturnsCell`.
 
-**Method with an external non-System parameter type emits an External Types section**: Verifies
-that when a method accepts a parameter whose type comes from an external non-System assembly,
-the member detail page includes an `External Types` H2 section with a two-column table listing
-the type name and its namespace, confirming that external type references are surfaced for
-readers. This scenario is tested by
+**External Types section appears when non-System types are referenced**: Verifies that a
+member detail page contains an External Types section listing any non-System external types
+referenced in its parameters or return type, confirming that readers have the context needed
+to identify external dependencies without opening source code. This scenario is tested by
 `DotNetGenerator_Generate_ExternalNonSystemParameterType_EmitsExternalTypesSection`.

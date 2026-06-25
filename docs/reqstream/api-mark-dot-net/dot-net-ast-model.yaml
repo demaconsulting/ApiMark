@@ -19,4 +19,7 @@ sections:
               - DotNetAstModel_RootNamespaces_ContainsFixtureNamespace
               - DotNetAstModel_Options_ReturnsOptionsPassedAtConstruction
               - DotNetAstModel_Assembly_ReturnsLoadedAssembly
-              - DotNetAstModel_Resolver_IsNotNull
+              - DotNetAstModel_Resolver_AfterParse_IsNotNull
+              - DotNetAstModel_XmlDocs_AfterParse_IsNotNull
+              - DotNetAstModel_NamespaceDescriptions_AfterParse_IsNotNull
+              - DotNetAstModel_Collections_ExposeReadOnlyInterfaces

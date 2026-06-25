@@ -1073,6 +1073,25 @@ public class DotNetGeneratorTests
             p => p.Contains("Contains types for testing", StringComparison.Ordinal));
     }
 
+    /// <summary>Validates that the NamespaceDoc XML summary appears as a paragraph on the namespace page.</summary>
+    [Fact]
+    public void DotNetGenerator_NamespacePage_NamespaceDocSummary_AppearsAsNamespaceDescription()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the NamespaceDoc <summary> must appear as a paragraph on the namespace page
+        var nsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
+        var paragraphs = nsWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Contains("Contains types for testing", StringComparison.Ordinal));
+    }
+
     /// <summary>
     ///     Validates that two members whose names differ only in case are combined onto a
     ///     single page named after the lowercase key.
@@ -2038,7 +2057,61 @@ public class DotNetGeneratorTests
         Assert.Contains(paragraphs, p => p.Contains("Transforms data using the provided callback"));
         Assert.DoesNotContain(paragraphs, p => p.Contains("No description provided"));
     }
+
+    /// <summary>Validates that constructing <see cref="DotNetGenerator"/> with a null options argument throws <see cref="ArgumentNullException"/>.</summary>
+    [Fact]
+    public void DotNetGenerator_Constructor_NullOptions_ThrowsArgumentNullException()
+    {
+        // Act / Assert
+        Assert.Throws<ArgumentNullException>(() => new DotNetGenerator(null!));
+    }
+
+    /// <summary>Validates that <see cref="DotNetGenerator.Parse"/> throws <see cref="FileNotFoundException"/> when the assembly path does not exist.</summary>
+    [Fact]
+    public void DotNetGenerator_Parse_MissingAssemblyPath_ThrowsFileNotFoundException()
+    {
+        // Arrange
+        var options = new DotNetGeneratorOptions
+        {
+            AssemblyPath = "/nonexistent/path/assembly.dll",
+            XmlDocPath = FixturePaths.GetFixtureXmlDoc(),
+        };
+        var generator = new DotNetGenerator(options);
+
+        // Act / Assert
+        Assert.Throws<FileNotFoundException>(() => generator.Parse(new InMemoryContext()));
+    }
+
+    /// <summary>Validates that an internal static NamespaceDoc class is excluded from the generated type listing.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_NamespaceDocClass_ExcludedFromTypeListing()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the namespace type table must not contain a row for NamespaceDoc
+        var nsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
+        var typeTable = nsWriter.Operations.OfType<TableOperation>().FirstOrDefault(t => t.Headers[0] == "Type");
+        if (typeTable != null)
+        {
+            Assert.DoesNotContain(
+                typeTable.Rows,
+                row => row[0].Contains("NamespaceDoc", StringComparison.Ordinal));
+        }
+    }
+
+    /// <summary>Validates that <see cref="DotNetGenerator.Parse"/> throws <see cref="ArgumentNullException"/> when context is null.</summary>
+    [Fact]
+    public void DotNetGenerator_Parse_NullContext_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act / Assert
+        Assert.Throws<ArgumentNullException>(() => generator.Parse(null!));
+    }
 }
-
-
-

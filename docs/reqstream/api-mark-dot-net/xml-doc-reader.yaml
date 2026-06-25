@@ -6,15 +6,15 @@ sections:
       - title: XmlDocReader Requirements
         requirements:
           - id: ApiMarkDotNet-XmlDocReader-ParseAndIndexXmlDocumentation
-            title: XmlDocReader shall parse a .NET XML documentation file and provide
-              O(1) per-member lookups for summary, remarks, parameters, returns, exceptions,
-              and example content.
+            title: XmlDocReader shall read assembly documentation data from a .NET XML
+              documentation file.
             justification: |
-              Assembly documentation comes from compiler-produced XML files that can
-              contain thousands of member entries. Indexing on construction ensures
-              each documentation lookup during emit is O(1) rather than a linear scan,
-              keeping generation time proportional to the number of members documented
-              rather than the square of that count.
+              Assembly documentation comes from compiler-produced XML files. XmlDocReader
+              parses and indexes all documentation metadata — including summary, remarks,
+              parameters, returns, exceptions, and examples — on construction, ensuring
+              each per-member lookup during emit uses direct index access rather than a
+              linear scan and keeping generation time proportional to the number of
+              documented members.
             tests:
               - XmlDocReader_Constructor_FileDoesNotExist_ThrowsFileNotFoundException
               - XmlDocReader_GetSummary_MemberPresent_ReturnsTrimmedText
@@ -34,7 +34,8 @@ sections:
               - XmlDocReader_GetReturns_MemberAbsent_ReturnsNull
               - XmlDocReader_GetExample_MemberAbsent_ReturnsNull
           - id: ApiMarkDotNet-XmlDocReader-InheritDoc
-            title: Inherit XML Documentation from Base Members
+            title: XmlDocReader shall resolve `<inheritdoc />` references and inherit
+              XML documentation from base members and interface members.
             justification: >
               C# XML documentation supports `<inheritdoc />` to inherit documentation
               from base class members or interface members. ApiMark must resolve these
