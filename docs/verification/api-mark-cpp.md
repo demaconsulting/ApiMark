@@ -212,7 +212,7 @@ individual alias pages. Tested by
 
 **Single-file format writes all namespaces to one api.md file**: Verifies that when the
 `--format single-file` option is specified, all documentation is written to a single `api.md`
-file using a flat heading hierarchy rather than producing separate namespace and type pages. Tested by `CppGenerator_Generate_SingleFileFormat_WritesToSingleFile`.
+file using a flat heading hierarchy rather than producing separate namespace and type pages. Tested by `CppGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown`.
 
 **api.md lists all namespaces with type count**: Verifies that `api.md` contains a namespace
 table where every documented namespace appears with a Declarations count column so that AI agents

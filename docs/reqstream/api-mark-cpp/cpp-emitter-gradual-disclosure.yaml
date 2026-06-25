@@ -22,7 +22,8 @@ sections:
               - ApiMarkCpp-CppEmitterGradualDisclosure-EmitMemberDetailPage
               - ApiMarkCpp-CppEmitterGradualDisclosure-EmitFreeFunctionPage
               - ApiMarkCpp-CppEmitterGradualDisclosure-EmitEnumPage
-              - ApiMarkCpp-CppEmitterGradualDisclosure-EmitTypeAliasPage
+              - ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceLevelTypeAliasPage
+              - ApiMarkCpp-CppEmitterGradualDisclosure-EmitClassScopedTypeAliasPage
               - ApiMarkCpp-CppEmitterGradualDisclosure-EmitClassOperatorsPage
               - ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceOperatorsPage
             tests:
@@ -79,14 +80,21 @@ sections:
               inflating namespace pages.
             tests:
               - CppEmitterGradualDisclosure_Emit_Enum_CreatesEnumPage
-          - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitTypeAliasPage
-            title: >-
-              CppEmitterGradualDisclosure shall produce detail pages for namespace-level
-              and class-scoped type aliases.
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceLevelTypeAliasPage
+            title: CppEmitterGradualDisclosure shall produce a detail page for each namespace-level type alias.
             justification: |
-              Public aliases are first-class API declarations and require stable paths.
+              Public namespace-level aliases are first-class API declarations and require
+              stable paths in the multi-file layout.
             tests:
               - CppEmitterGradualDisclosure_Emit_TypeAlias_CreatesTypeAliasPage
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitClassScopedTypeAliasPage
+            title: CppEmitterGradualDisclosure shall produce a detail page for each class-scoped type alias under the owning class folder.
+            justification: |
+              Class-scoped aliases are part of the type's API surface and must receive
+              their own pages at {namespace}/{TypeName}/{AliasName} so they are
+              individually navigable.
+            tests:
+              - CppEmitterGradualDisclosure_Emit_ClassScopedTypeAlias_CreatesAliasPage
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitClassOperatorsPage
             title: >-
               CppEmitterGradualDisclosure shall group class-scoped operators onto a

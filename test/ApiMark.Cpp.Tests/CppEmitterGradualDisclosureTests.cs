@@ -216,6 +216,21 @@ public class CppEmitterGradualDisclosureTests
         Assert.True(factory.HasWriter("testlib/Widget", "size_type"));
     }
 
+    /// <summary>Validates that class-scoped type aliases receive their own detail pages under the owning class folder.</summary>
+    [Fact]
+    public void CppEmitterGradualDisclosure_Emit_ClassScopedTypeAlias_CreatesAliasPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, nsDecls, resolver) = BuildRichData();
+
+        // Act
+        new CppEmitterGradualDisclosure(emitter, nsDecls, resolver).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: class-scoped alias page at {namespace}/{TypeName}/{AliasName}
+        Assert.True(factory.HasWriter("testlib/Widget", "size_type"));
+    }
+
     /// <summary>Validates that nested classes receive pages under their parent class folder.</summary>
     [Fact]
     public void CppEmitterGradualDisclosure_Emit_NestedClass_CreatesNestedClassPage()
