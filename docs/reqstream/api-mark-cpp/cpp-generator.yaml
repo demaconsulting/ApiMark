@@ -266,8 +266,8 @@ sections:
               - CppGenerator_Generate_DeletedCopyAssignmentOperator_EmitsDeleteSuffix
           - id: ApiMarkCpp-CppGenerator-DocumentTypeAliases
             title: >-
-              CppGenerator shall document using type aliases declared in documented
-              namespaces
+              CppGenerator shall document using type aliases declared in the
+              documented API surface (namespaces and classes)
               as first-class entries — each alias receives its own page showing
               the using
               declaration, the underlying type, and the Doxygen summary comment.
