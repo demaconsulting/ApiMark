@@ -141,20 +141,17 @@ receives its own type page following the same `{namespace}/{typeName}` conventio
 Tested by `CppGenerator_Generate_ValidHeaders_CreatesEnumPage`.
 
 **Enum page contains all declared values**: Verifies that the enum type page includes all declared
-enum value names so the complete enumeration is visible in the generated reference. This scenario
-is tested by `CppGenerator_Generate_EnumPage_ContainsValues`.
+enum value names so the complete enumeration is visible in the generated reference. Tested by `CppGenerator_Generate_EnumPage_ContainsValues`.
 
 **Template class creates a type page**: Verifies that a primary class template receives its own
 type page, confirming that template declarations are handled by the ownership filter and type page
 emission path. Tested by `CppGenerator_Generate_TemplateClass_CreatesTypePage`.
 
 **Inheritance class creates a type page**: Verifies that a class that inherits from another class
-receives its own type page, confirming that derived types are documented independently. This
-scenario is tested by `CppGenerator_Generate_InheritanceClass_CreatesTypePage`.
+receives its own type page, confirming that derived types are documented independently. Tested by `CppGenerator_Generate_InheritanceClass_CreatesTypePage`.
 
 **Constructor creates a constructor detail page**: Verifies that an explicit constructor receives
-its own member detail page, confirming that constructors are treated as documented members. This
-scenario is tested by `CppGenerator_Generate_Constructor_CreatesConstructorPage`.
+its own member detail page, confirming that constructors are treated as documented members. Tested by `CppGenerator_Generate_Constructor_CreatesConstructorPage`.
 
 **Type page contains fully qualified C++ name**: Verifies that the type page signature block
 contains the fully qualified C++ name (e.g. `fixtures::SampleClass`) so an AI reader knows
@@ -183,18 +180,15 @@ than an unrelated null-reference failure during I/O. Tested by
 
 **Generate throws when include root does not exist**: Verifies that Generate throws
 `DirectoryNotFoundException` when a configured PublicIncludeRoot path does not exist on disk,
-providing a clear diagnostic rather than silently producing empty output. This scenario is tested
-by `CppGenerator_Generate_NonexistentIncludeRoot_ThrowsDirectoryNotFoundException`.
+providing a clear diagnostic rather than silently producing empty output. Tested by `CppGenerator_Generate_NonexistentIncludeRoot_ThrowsDirectoryNotFoundException`.
 
 **Deleted copy constructor signature contains = delete suffix**: Verifies that a copy constructor
 declared with `= delete` is documented with a `= delete` suffix in its signature block so that
-readers can see the intentional prohibition without opening the header file. This scenario is
-tested by `CppGenerator_Generate_DeletedCopyConstructor_EmitsDeleteSuffix`.
+readers can see the intentional prohibition without opening the header file. Tested by `CppGenerator_Generate_DeletedCopyConstructor_EmitsDeleteSuffix`.
 
 **Deleted copy-assignment operator signature contains = delete suffix**: Verifies that a
 copy-assignment operator declared with `= delete` is documented with a `= delete` suffix in its
-signature so that the prohibition is visible on the combined operators page. This scenario is
-tested by `CppGenerator_Generate_DeletedCopyAssignmentOperator_EmitsDeleteSuffix`.
+signature so that the prohibition is visible on the combined operators page. Tested by `CppGenerator_Generate_DeletedCopyAssignmentOperator_EmitsDeleteSuffix`.
 
 **Type aliases receive their own pages**: Verifies that `using` type alias declarations in
 documented namespaces produce individual pages at `{namespace}/{aliasName}`, following the same
@@ -213,8 +207,7 @@ individual alias pages. Tested by
 
 **Single-file format writes all namespaces to one api.md file**: Verifies that when the
 `--format single-file` option is specified, all documentation is written to a single `api.md`
-file using a flat heading hierarchy rather than producing separate namespace and type pages. This
-scenario is tested by `CppGenerator_Generate_SingleFileFormat_WritesToSingleFile`.
+file using a flat heading hierarchy rather than producing separate namespace and type pages. Tested by `CppGenerator_Generate_SingleFileFormat_WritesToSingleFile`.
 
 **api.md lists all namespaces with type count**: Verifies that `api.md` contains a namespace
 table where every documented namespace appears with a Declarations count column so that AI agents
@@ -223,8 +216,7 @@ have a complete navigation map in a single read. Tested by
 
 **Class operator overloads grouped on single operators page**: Verifies that all operator
 overloads for a class are combined onto a single `operators.md` page at
-`{namespace}/{TypeName}/operators` and that the owning type page links to it. This scenario is
-tested by `CppGenerator_Generate_ClassWithOperators_CreatesOperatorsPage`,
+`{namespace}/{TypeName}/operators` and that the owning type page links to it. Tested by `CppGenerator_Generate_ClassWithOperators_CreatesOperatorsPage`,
 `CppGenerator_Generate_ClassWithOperators_OperatorsPageContainsOperatorEntry`, and
 `CppGenerator_Generate_ClassWithOperators_TypePageLinksToOperatorsPage`.
 
