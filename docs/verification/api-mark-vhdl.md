@@ -29,6 +29,8 @@ additional toolchain dependency is required — the ANTLR4 runtime is a NuGet pa
 - The parser correctly extracts a package declaration including types, constants,
   components, and subprograms from the common_types fixture file.
 - The gradual-disclosure emitter creates an api index page and at least one entity page.
+- When an entity has associated architectures, the gradual-disclosure emitter renders them
+  inline on the entity detail page (not as separate files), including source-filename attribution.
 - The single-file emitter creates exactly one file.
 - The parser throws `InvalidOperationException` when given a file with invalid VHDL syntax.
 
@@ -84,6 +86,13 @@ creates an entity detail page. Tested by
 **Gradual emitter api index contains library heading**: Verifies that the api index page
 heading contains the library name. Tested by
 `VhdlEmitterGradualDisclosure_Emit_MinimalData_ApiIndexContainsLibraryNameHeading`.
+
+**Gradual emitter renders architectures inline on entity page**: Verifies that when an entity
+has associated architectures, the gradual-disclosure emitter renders them as an inline section
+on the entity detail page rather than creating separate architecture files. Also verifies that
+the architecture paragraph includes the source filename for attribution. Tested by
+`VhdlEmitterGradualDisclosure_Emit_WithArchitecture_EntityPageHasInlineArchitecturesSection`
+and `VhdlEmitterGradualDisclosure_Emit_WithArchitecture_ArchitectureParagraphContainsFilename`.
 
 **Single-file emitter creates exactly one writer**: Verifies that the single-file emitter
 creates exactly one Markdown file. Tested by

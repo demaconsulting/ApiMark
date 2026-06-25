@@ -16,6 +16,8 @@ sections:
               - VhdlAstParser_Parse_FixtureFile_EntityHasPorts
               - VhdlAstParser_Parse_FixtureFile_EntityDocCommentParsed
               - VhdlAstParser_Parse_FixtureFile_PortsHaveInlineDocComments
+              - VhdlAstParser_Parse_CounterFixture_EntityNameIsCounter
+              - VhdlAstParser_Parse_CounterFixture_GenericsHaveInlineDocComments
           - id: ApiMarkVhdl-VhdlAstParser-ParseArchitecture
             title: VhdlAstParser shall parse architecture bodies from a .vhd file, capturing
               the architecture name and associated entity name.

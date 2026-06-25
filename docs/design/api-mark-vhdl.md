@@ -78,7 +78,8 @@ ANTLR4 parser to parse VHDL-2008 source files.
 ## Dependencies
 
 - **Antlr4.Runtime.Standard**: NuGet package providing the ANTLR4 runtime for parsing
-  VHDL source files using the pre-generated vhdl2008 grammar (see [ANTLR4](ots/antlr4.md)).
+  VHDL source files using the pre-generated vhdl2008 grammar; see the ANTLR4 OTS design
+  document.
 
 ## Risk Control Measures
 
