@@ -46,24 +46,24 @@ the standard xUnit.net test runner. No clang installation is needed.
 **Exact qualified match emits a link**: Verifies that when a fully-qualified type name
 (e.g. `"ns::Foo"`) exactly matches a key in `knownTypes`, `Linkify` returns a string
 containing a Markdown link with the short type name and the resolved relative path.
-This scenario is tested by `CppTypeLinkResolver_Linkify_ExactQualifiedMatch_EmitsLink`.
+Tested by `CppTypeLinkResolver_Linkify_ExactQualifiedMatch_EmitsLink`.
 
 **Unambiguous short name emits a link**: Verifies that when only one known type has the
 unqualified name being resolved (e.g. `"Bar"` with only `"ns::Bar"` in `knownTypes`),
 `Linkify` returns a Markdown link via the short-name fallback path.
-This scenario is tested by `CppTypeLinkResolver_Linkify_UnambiguousShortName_EmitsLink`.
+Tested by `CppTypeLinkResolver_Linkify_UnambiguousShortName_EmitsLink`.
 
 **Ambiguous short name emits plain text**: Verifies that when two known types share the
 same unqualified name (e.g. `"size_type"` is both `"ns::Outer::size_type"` and
 `"ns::Other::size_type"`), an unqualified reference produces plain text and no link,
 preventing non-deterministic navigation.
-This scenario is tested by `CppTypeLinkResolver_Linkify_AmbiguousShortName_EmitsPlainText`.
+Tested by `CppTypeLinkResolver_Linkify_AmbiguousShortName_EmitsPlainText`.
 
 **Qualified reference to ambiguous type emits correct link**: Verifies that a
 fully-qualified reference (e.g. `"ns::Outer::size_type"`) still resolves to the correct
 page even when two types share the same unqualified name, because the exact-match path
 takes precedence over the ambiguous short-name path.
-This scenario is tested by
+Tested by
 `CppTypeLinkResolver_Linkify_QualifiedReferenceToAmbiguousType_EmitsCorrectLink`.
 
 **Primitive type returns unchanged**: Verifies that primitive C++ types such as `int` are
@@ -92,3 +92,11 @@ reference/pointer qualifiers are removed before the base name is looked up. Test
 intra-library type (e.g. `Foo`) and a prefix of a template argument (e.g. `FooBar`), only
 the actual type token is linked and the template argument is left unchanged. Tested by
 `CppTypeLinkResolver_Linkify_QualifiedTypeWithSameNamePrefixInTemplateArg_EmitsLinkWithoutCorruption`.
+
+**Constructor rejects null knownTypes**: Verifies that passing `null` as the `knownTypes`
+argument to the constructor throws `ArgumentNullException` immediately. Tested by
+`CppTypeLinkResolver_Constructor_NullKnownTypes_ThrowsArgumentNullException`.
+
+**Linkify rejects null externalTypes**: Verifies that passing `null` as the `externalTypes`
+argument to `Linkify` throws `ArgumentNullException`. Tested by
+`CppTypeLinkResolver_Linkify_NullExternalTypes_ThrowsArgumentNullException`.

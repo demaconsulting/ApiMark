@@ -40,7 +40,6 @@ flowchart TD
     CppEmitterGradualDisclosure --> CppAstModel
     CppEmitterSingleFile --> CppAstModel
     CppEmitterGradualDisclosure --> CppTypeLinkResolver
-    CppEmitterSingleFile --> CppTypeLinkResolver
     CppEmitterGradualDisclosure --> IMarkdownWriterFactory
     CppEmitterSingleFile --> IMarkdownWriterFactory
 ```

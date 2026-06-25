@@ -233,6 +233,7 @@ public class CppTypeLinkResolverTests
     [Fact]
     public void CppTypeLinkResolver_Constructor_NullKnownTypes_ThrowsArgumentNullException()
     {
+        // Arrange / Act / Assert
         Assert.Throws<ArgumentNullException>(() => new CppTypeLinkResolver(null!));
     }
 
@@ -240,7 +241,10 @@ public class CppTypeLinkResolverTests
     [Fact]
     public void CppTypeLinkResolver_Linkify_NullExternalTypes_ThrowsArgumentNullException()
     {
+        // Arrange
         var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+
+        // Act / Assert
         Assert.Throws<ArgumentNullException>(() => resolver.Linkify("SomeType", string.Empty, null!));
     }
 }

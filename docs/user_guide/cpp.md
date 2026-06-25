@@ -192,6 +192,8 @@ A hierarchy of Markdown files designed for incremental context loading.
 | `{namespace}/{type}/{member}.md` | Member detail page — full signature, parameters, return value, remarks, example |
 | `{namespace}/{type}/{nested-type}.md` | Nested type page — same structure as a top-level type page |
 | `{namespace}/{type}/{alias}.md` | Class-scoped type alias page — alias declared inside a class body |
+| `{namespace}/{type}/operators.md` | Class operator overloads page — all operator overloads for a type on one page |
+| `{namespace}/operators.md` | Namespace operator overloads page — free-function operator overloads for a namespace |
 
 An AI agent can read the root index first, drill into the relevant namespace or type
 page, and then read the member detail — consuming only as much context as the task

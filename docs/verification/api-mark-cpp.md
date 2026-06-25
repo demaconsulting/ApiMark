@@ -62,83 +62,83 @@ configuration beyond a standard clang installation is required.
 
 **Valid headers create the api entrypoint file**: Verifies that the generator creates the top-level
 `api.md` entrypoint file when run against real fixture headers, confirming the full generation path
-from header parsing to file emission is wired correctly. This scenario is tested by
+from header parsing to file emission is wired correctly. Tested by
 `CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint`.
 
 **Valid headers create a namespace summary page**: Verifies that the generator creates a namespace
 summary page for each namespace discovered in the fixture headers so all owned declarations are
-reachable from the entrypoint. This scenario is tested by
+reachable from the entrypoint. Tested by
 `CppGenerator_Generate_ValidHeaders_CreatesNamespacePage`.
 
 **Valid headers create a type page for SampleClass**: Verifies that a representative class defined
 in the fixture headers receives its own type page, confirming the ownership filter and type page
-generation path are correct. This scenario is tested by
+generation path are correct. Tested by
 `CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass`.
 
 **Inheritance class includes base type in signature**: Verifies that a class with a public base class
-has the base class name included in the generated type page class signature. This scenario is tested by
+has the base class name included in the generated type page class signature. Tested by
 `CppGenerator_Generate_InheritanceClass_EmitsBaseClassInSignature`.
 
 **Deprecated class is excluded when IncludeDeprecated is false**: Verifies that a class marked
 `[[deprecated]]` does not receive a type page when the IncludeDeprecated option is false,
-confirming the default exclude behavior. This scenario is tested by
+confirming the default exclude behavior. Tested by
 `CppGenerator_Generate_IncludeDeprecatedFalse_ExcludesDeprecatedClass`.
 
 **Deprecated class is included when IncludeDeprecated is true**: Verifies that a class marked
 `[[deprecated]]` receives a type page when IncludeDeprecated is explicitly set to true,
-confirming the opt-in include behavior. This scenario is tested by
+confirming the opt-in include behavior. Tested by
 `CppGenerator_Generate_IncludeDeprecatedTrue_IncludesDeprecatedClass`.
 
 **Protected method is excluded under Public visibility**: Verifies that a protected method does
 not receive its own member page when the visibility is set to Public, confirming the access
-specifier filter is applied correctly for the public-only audience. This scenario is tested by
+specifier filter is applied correctly for the public-only audience. Tested by
 `CppGenerator_Generate_PublicVisibility_ExcludesProtectedMethod`.
 
 **Protected method is included under PublicAndProtected visibility**: Verifies that a protected
 method receives its own member page when visibility is PublicAndProtected, confirming that the
-broader visibility mode includes the expected members. This scenario is tested by
+broader visibility mode includes the expected members. Tested by
 `CppGenerator_Generate_PublicAndProtectedVisibility_IncludesProtectedMethod`.
 
 **Private method is included under All visibility**: Verifies that a private method receives its
 own member page when visibility is All, confirming that all access specifiers are included in the
-most permissive mode. This scenario is tested by
+most permissive mode. Tested by
 `CppGenerator_Generate_AllVisibility_IncludesPrivateMethod`.
 
 **Method with parameters creates a member page**: Verifies that a method with parameters receives
 its own dedicated member detail page, confirming that parameterized members are handled by the
-member page emission path. This scenario is tested by
+member page emission path. Tested by
 `CppGenerator_Generate_MethodWithParameters_CreatesMemberPage`.
 
 **All members receive separate files**: Verifies that every visible member — including
 parameterless methods and free functions — is emitted as a separate file, making navigation fully
-deterministic without requiring callers to know member shape. This scenario is tested by
+deterministic without requiring callers to know member shape. Tested by
 `CppGenerator_AllMembers_GetSeparateFiles`.
 
 **Output files follow naming convention**: Verifies that generated file keys follow the expected
 naming convention: `api` entrypoint, `{namespace}` namespace summaries, `{namespace}/{TypeName}`
-type pages, and `{namespace}/{TypeName}/{MemberName}` member pages. This scenario is tested by
+type pages, and `{namespace}/{TypeName}/{MemberName}` member pages. Tested by
 `CppGenerator_OutputFiles_FollowNamingConvention`.
 
 **Type with doc comment writes summary to paragraph**: Verifies that the Doxygen `@brief` comment
 on a documented class is extracted and rendered as a description paragraph in the type page output.
-This scenario is tested by `CppGenerator_Generate_TypeWithDocComment_WritesSummaryToParagraph`.
+Tested by `CppGenerator_Generate_TypeWithDocComment_WritesSummaryToParagraph`.
 
 **Method with doc comment writes summary to paragraph**: Verifies that the Doxygen `@brief`
 comment on a documented method is extracted and rendered as a description paragraph in the member
-page output. This scenario is tested by
+page output. Tested by
 `CppGenerator_Generate_MethodWithDocComment_WritesSummaryToParagraph`.
 
 **Missing doc comment writes placeholder text**: Verifies that a member with no Doxygen doc
 comment emits the standard no-description placeholder rather than an empty or absent description
-field. This scenario is tested by `CppGenerator_Generate_MissingDocComment_WritesPlaceholder`.
+field. Tested by `CppGenerator_Generate_MissingDocComment_WritesPlaceholder`.
 
 **Free functions receive their own pages**: Verifies that free functions in a namespace receive
 dedicated pages at `{namespace}/{functionName}`, parallel to the member page convention for class
-members. This scenario is tested by `CppGenerator_Generate_FreeFunctions_GetOwnPages`.
+members. Tested by `CppGenerator_Generate_FreeFunctions_GetOwnPages`.
 
 **Valid headers create an enum page**: Verifies that an enum declared in the fixture headers
 receives its own type page following the same `{namespace}/{typeName}` convention as classes.
-This scenario is tested by `CppGenerator_Generate_ValidHeaders_CreatesEnumPage`.
+Tested by `CppGenerator_Generate_ValidHeaders_CreatesEnumPage`.
 
 **Enum page contains all declared values**: Verifies that the enum type page includes all declared
 enum value names so the complete enumeration is visible in the generated reference. This scenario
@@ -146,7 +146,7 @@ is tested by `CppGenerator_Generate_EnumPage_ContainsValues`.
 
 **Template class creates a type page**: Verifies that a primary class template receives its own
 type page, confirming that template declarations are handled by the ownership filter and type page
-emission path. This scenario is tested by `CppGenerator_Generate_TemplateClass_CreatesTypePage`.
+emission path. Tested by `CppGenerator_Generate_TemplateClass_CreatesTypePage`.
 
 **Inheritance class creates a type page**: Verifies that a class that inherits from another class
 receives its own type page, confirming that derived types are documented independently. This
@@ -158,27 +158,27 @@ scenario is tested by `CppGenerator_Generate_Constructor_CreatesConstructorPage`
 
 **Type page contains fully qualified C++ name**: Verifies that the type page signature block
 contains the fully qualified C++ name (e.g. `fixtures::SampleClass`) so an AI reader knows
-exactly how to reference the type in code. This scenario is tested by
+exactly how to reference the type in code. Tested by
 `CppGenerator_Generate_TypePage_ContainsQualifiedName`.
 
 **Member page contains fully qualified C++ name**: Verifies that the member page signature block
 contains the fully qualified C++ name (e.g. `fixtures::SampleClass::GetGreeting`) so an AI reader
-can call the member without guessing the namespace. This scenario is tested by
+can call the member without guessing the namespace. Tested by
 `CppGenerator_Generate_MemberPage_ContainsQualifiedName`.
 
 **Variadic function creates its own page**: Verifies that a variadic free function declared with
 `...` receives its own dedicated page, confirming that variadic functions are handled correctly
-by the free-function emission path. This scenario is tested by
+by the free-function emission path. Tested by
 `CppGenerator_Generate_VariadicFunction_CreatesPage`.
 
 **Constructor throws when options are null**: Verifies that passing a null options object to the
 CppGenerator constructor throws `ArgumentNullException` immediately, so misconfigured callers fail
-fast before any I/O is attempted. This scenario is tested by
+fast before any I/O is attempted. Tested by
 `CppGenerator_Constructor_NullOptions_ThrowsArgumentNullException`.
 
 **Generate throws when factory is null**: Verifies that passing a null factory to Generate throws
 `ArgumentNullException`, so callers that forget to supply a factory receive a clear error rather
-than an unrelated null-reference failure during I/O. This scenario is tested by
+than an unrelated null-reference failure during I/O. Tested by
 `CppGenerator_Generate_NullFactory_ThrowsArgumentNullException`.
 
 **Generate throws when include root does not exist**: Verifies that Generate throws
@@ -198,17 +198,17 @@ tested by `CppGenerator_Generate_DeletedCopyAssignmentOperator_EmitsDeleteSuffix
 
 **Type aliases receive their own pages**: Verifies that `using` type alias declarations in
 documented namespaces produce individual pages at `{namespace}/{aliasName}`, following the same
-convention as class and enum pages. This scenario is tested by
+convention as class and enum pages. Tested by
 `CppGenerator_Generate_TypeAlias_CreatesAliasPages`.
 
 **Type alias page contains declaration and summary**: Verifies that the type alias page contains
 the `using {name} = {underlying}` declaration in a fenced code block and the Doxygen `@brief`
-summary as a description paragraph. This scenario is tested by
+summary as a description paragraph. Tested by
 `CppGenerator_Generate_TypeAliasPage_ContainsDeclarationAndSummary`.
 
 **Namespace page lists type aliases**: Verifies that the namespace summary page includes a
 "Type Aliases" section that lists every owned alias so readers can discover them without opening
-individual alias pages. This scenario is tested by
+individual alias pages. Tested by
 `CppGenerator_Generate_NamespacePage_ListsTypeAliases`.
 
 **Single-file format writes all namespaces to one api.md file**: Verifies that when the
@@ -218,7 +218,7 @@ scenario is tested by `CppGenerator_Generate_SingleFileFormat_WritesToSingleFile
 
 **api.md lists all namespaces with type count**: Verifies that `api.md` contains a namespace
 table where every documented namespace appears with a Declarations count column so that AI agents
-have a complete navigation map in a single read. This scenario is tested by
+have a complete navigation map in a single read. Tested by
 `CppGenerator_Generate_ApiMd_ListsNamespacesWithTypeCount`.
 
 **Class operator overloads grouped on single operators page**: Verifies that all operator
@@ -235,12 +235,12 @@ at `{namespace}/operators` rather than producing individual pages. Tested by
 
 **Intra-library return type emits Markdown link in table cell**: Verifies that a method whose
 return type is a documented intra-library type produces a Markdown hyperlink in the Returns
-column of the Methods table. This scenario is tested by
+column of the Methods table. Tested by
 `CppGenerator_Generate_IntraLibraryReturnType_EmitsMarkdownLinkInReturnsCell`.
 
 **Gitignore-style ApiHeaderPatterns restrict documented headers**: Verifies that the generator
 correctly applies include, exclude, and re-include patterns to restrict the documented API surface.
-This scenario is tested by `CppGenerator_Generate_NoApiHeaderPatterns_DocumentsAllHeaders`,
+Tested by `CppGenerator_Generate_NoApiHeaderPatterns_DocumentsAllHeaders`,
 `CppGenerator_Generate_ApiHeaderPatterns_IncludePattern_OnlyMatchingFilesDocumented`,
 `CppGenerator_Generate_ApiHeaderPatterns_ExcludePattern_ExcludesMatchingFiles`,
 `CppGenerator_Generate_ApiHeaderPatterns_ReInclude_GitignoreSemantics_IncludesReIncludedHeader`, and
@@ -253,11 +253,11 @@ WorkingDirectory resolution, allowing headers outside the project tree to be inc
 
 **Code example blocks rendered as fenced code**: Verifies that Doxygen `@code`/`@endcode` blocks
 on documented methods are rendered as fenced `cpp` code blocks on both gradual-disclosure member
-pages and single-file output. This scenario is tested by
+pages and single-file output. Tested by
 `CppGenerator_Generate_MethodWithCodeExample_EmitsCodeBlockOnMemberPage` and
 `CppGenerator_SingleFile_MethodWithCodeExample_EmitsCodeBlock`.
 
 **External types section in generated output**: Verifies that when a documented type references an
 external (non-std, non-library) type, the generated page includes an `External Types` section with
-the external type listed. This scenario is tested by
+the external type listed. Tested by
 `CppGenerator_Generate_ExternalTypeReference_EmitsExternalTypesSection`.

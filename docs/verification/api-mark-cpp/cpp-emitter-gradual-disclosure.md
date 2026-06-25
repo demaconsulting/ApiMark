@@ -15,7 +15,8 @@ Tests run with the standard xUnit.net test runner.
 
 - The emitter creates the api index, namespace summary, and type pages.
 - The emitter creates detail pages for visible members and free functions.
-- The emitter creates enum pages, type-alias pages (namespace-level and class-scoped), nested-type pages, and operator pages.
+- The emitter creates enum pages, type-alias pages (namespace-level and class-scoped),
+  nested-type pages, class-level operator pages, and namespace-level operator pages.
 - Case-insensitive collisions are combined onto one page.
 - Empty namespace collections still produce an `api.md` fallback page.
 - The api index page heading contains the configured library name.
