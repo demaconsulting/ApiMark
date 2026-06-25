@@ -45,7 +45,17 @@ by `WriteFunctionContent`.
 - `ExternalTypes`: `ISet<CppExternalTypeInfo>`
 - `ParametersHeadingLevel`: `int`
 
+**CppEmitter instance fields** (private): state carried from construction through dispatch.
+
+- `_options`: `CppGeneratorOptions` — generator configuration; exposed to sub-emitters via the `internal Options` property.
+- `_namespaceDecls`: `SortedDictionary<string, NamespaceDeclarations>` — sorted map of namespace key → declarations; passed directly to the format-specific sub-emitter constructor.
+- `_cppResolver`: `CppTypeLinkResolver` — type link resolver; forwarded to the sub-emitter constructor.
+
 ### Key Methods
+
+#### Constructor
+
+**CppEmitter(options, namespaceDecls, cppResolver)** — stores all three arguments as private fields. Preconditions: none of the parameters are null (null-guard not enforced by the constructor itself; the caller `CppGenerator.Parse` always supplies non-null values).
 
 #### Dispatch
 
