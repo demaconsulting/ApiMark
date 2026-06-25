@@ -150,6 +150,9 @@ listener that accumulates syntax errors and throws rather than writing to
 
 a `VhdlDocComment`.
 
+**VhdlAstParser.ParseDocCommentLines** (private static): Parses a list of `--!` comment
+lines into a `VhdlDocComment`, recognising `@brief`, `@param`, and `@return` tags.
+
 - `@brief <text>` → `Summary`
 - `@param <name> <description>` → `VhdlParamDoc` entry in `Params`
 - `@return <text>` → `Returns`

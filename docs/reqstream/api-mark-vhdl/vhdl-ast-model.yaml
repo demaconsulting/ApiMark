@@ -17,3 +17,8 @@ sections:
               - VhdlAstParser_Parse_FixtureFile_ReturnsEntity
               - VhdlAstParser_Parse_FixtureFile_EntityHasGenerics
               - VhdlAstParser_Parse_FixtureFile_EntityHasPorts
+              - VhdlAstParser_Parse_CommonTypesFixture_ReturnsPackage
+              - VhdlAstParser_Parse_CommonTypesFixture_PackageHasTwoTypes
+              - VhdlAstParser_Parse_CommonTypesFixture_PackageHasTwoConstants
+              - VhdlAstParser_Parse_CommonTypesFixture_PackageHasOneComponent
+              - VhdlAstParser_Parse_CommonTypesFixture_PackageHasTwoSubprograms

@@ -101,6 +101,10 @@ N/A - not a safety-classified software item.
    `VhdlEntityDecl`, `VhdlArchitectureDecl`, and `VhdlPackageDecl` records.
 4. `VhdlAstParser` returns a `VhdlFileModel` containing all declarations
    found in the file, with associated doc comments extracted from --! annotations.
+   When the file contains syntax errors, `VhdlAstParser.Parse` throws
+   `InvalidOperationException`; `VhdlGenerator` catches the exception per file,
+   emits an error message via `context.WriteError`, and continues parsing the
+   remaining files, so a single malformed file does not abort the entire run.
 5. VhdlGenerator collects all VhdlFileModel results and constructs a
    `VhdlEmitter` wrapping the options and file models.
 6. When Emit is called, VhdlEmitter dispatches to `VhdlEmitterGradualDisclosure`

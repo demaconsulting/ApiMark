@@ -5,9 +5,30 @@ sections:
     sections:
       - title: VhdlEmitter Requirements
         requirements:
-          - id: ApiMarkVhdl-VhdlEmitter
-            title: VhdlEmitter shall implement IApiEmitter and dispatch to format-specific
-              emitters.
+          - id: ApiMarkVhdl-VhdlEmitter-ImplementsIApiEmitter
+            title: VhdlEmitter shall implement the IApiEmitter interface.
             justification: |
-              The dispatcher separates format selection from emission logic.
-            tests: [VhdlEmitter_Emit_NullFactory_ThrowsArgumentNullException]
+              Implementing IApiEmitter allows VhdlEmitter to be returned from
+              VhdlGenerator.Parse and consumed by ApiMarkTool through the standard
+              two-stage pipeline.
+            children:
+              - ApiMarkVhdl-VhdlEmitter-DispatchesFormat
+              - ApiMarkVhdl-VhdlEmitter-ValidatesNullFactory
+            tests: []
+          - id: ApiMarkVhdl-VhdlEmitter-DispatchesFormat
+            title: VhdlEmitter shall dispatch to VhdlEmitterGradualDisclosure or VhdlEmitterSingleFile
+              based on config.Format.
+            justification: |
+              The dispatcher separates format selection from emission logic, allowing
+              each format-specific emitter to be developed and tested independently.
+            tests:
+              - VhdlEmitter_Emit_GradualDisclosureFormat_ProducesMultipleOutputFiles
+              - VhdlEmitter_Emit_SingleFileFormat_ProducesSingleOutputFile
+              - VhdlEmitter_Emit_EmptyFileModels_ProducesNoOutput
+          - id: ApiMarkVhdl-VhdlEmitter-ValidatesNullFactory
+            title: VhdlEmitter shall throw ArgumentNullException when the factory argument is null.
+            justification: |
+              Failing fast on a null factory provides a clear error before any writer
+              or pipeline logic is invoked.
+            tests:
+              - VhdlEmitter_Emit_NullFactory_ThrowsArgumentNullException

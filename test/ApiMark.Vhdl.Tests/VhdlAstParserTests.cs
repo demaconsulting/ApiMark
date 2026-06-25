@@ -11,13 +11,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_FixtureFile_ReturnsEntity()
     {
-        // Arrange
+        // Arrange: resolve path to counter.vhd fixture file
         var path = FixturePaths.GetFixtureFilePath("counter.vhd");
 
-        // Act
+        // Act: invoke parser on the fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: result must contain at least one entity
         Assert.NotEmpty(model.Entities);
     }
 
@@ -25,13 +25,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_FixtureFile_EntityHasGenerics()
     {
-        // Arrange
+        // Arrange: resolve path to counter.vhd fixture file
         var path = FixturePaths.GetFixtureFilePath("counter.vhd");
 
-        // Act
+        // Act: invoke parser on the fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: single entity must have at least one generic
         var entity = Assert.Single(model.Entities);
         Assert.NotEmpty(entity.Generics);
     }
@@ -40,13 +40,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_FixtureFile_EntityHasPorts()
     {
-        // Arrange
+        // Arrange: resolve path to counter.vhd fixture file
         var path = FixturePaths.GetFixtureFilePath("counter.vhd");
 
-        // Act
+        // Act: invoke parser on the fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: single entity must have at least one port
         var entity = Assert.Single(model.Entities);
         Assert.NotEmpty(entity.Ports);
     }
@@ -55,13 +55,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_FixtureFile_EntityDocCommentParsed()
     {
-        // Arrange
+        // Arrange: resolve path to counter.vhd fixture file
         var path = FixturePaths.GetFixtureFilePath("counter.vhd");
 
-        // Act
+        // Act: invoke parser on the fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: entity doc comment Summary field must be populated
         var entity = Assert.Single(model.Entities);
         Assert.NotNull(entity.Doc);
         Assert.False(string.IsNullOrEmpty(entity.Doc.Summary));
@@ -71,13 +71,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_FixtureFile_PortsHaveInlineDocComments()
     {
-        // Arrange
+        // Arrange: resolve path to counter.vhd fixture file
         var path = FixturePaths.GetFixtureFilePath("counter.vhd");
 
-        // Act
+        // Act: invoke parser on the fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: at least one port must have an inline --! trailing comment
         var entity = Assert.Single(model.Entities);
         Assert.Contains(entity.Ports, p => p.Doc != null);
     }
@@ -86,13 +86,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_MuxFixture_ParsesTwoArchitectures()
     {
-        // Arrange
+        // Arrange: resolve path to mux.vhd fixture file
         var path = FixturePaths.MuxVhd;
 
-        // Act
+        // Act: invoke parser on the mux fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: mux.vhd contains two architecture bodies
         Assert.Equal(2, model.Architectures.Count);
     }
 
@@ -100,13 +100,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_MuxFixture_HasMuxEntity()
     {
-        // Arrange
+        // Arrange: resolve path to mux.vhd fixture file
         var path = FixturePaths.MuxVhd;
 
-        // Act
+        // Act: invoke parser on the mux fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: single entity name must be "mux"
         var entity = Assert.Single(model.Entities);
         Assert.Equal("mux", entity.Name);
     }
@@ -115,13 +115,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_CommonTypesFixture_ReturnsPackage()
     {
-        // Arrange
+        // Arrange: resolve path to common_types.vhd fixture file
         var path = FixturePaths.CommonTypesVhd;
 
-        // Act
+        // Act: invoke parser on the common types fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: at least one package must be present
         Assert.NotEmpty(model.Packages);
     }
 
@@ -129,13 +129,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_CommonTypesFixture_PackageHasTwoTypes()
     {
-        // Arrange
+        // Arrange: resolve path to common_types.vhd fixture file
         var path = FixturePaths.CommonTypesVhd;
 
-        // Act
+        // Act: invoke parser on the common types fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: single package must have exactly two type declarations
         var pkg = Assert.Single(model.Packages);
         Assert.Equal(2, pkg.Types.Count);
     }
@@ -144,13 +144,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_CommonTypesFixture_PackageHasTwoConstants()
     {
-        // Arrange
+        // Arrange: resolve path to common_types.vhd fixture file
         var path = FixturePaths.CommonTypesVhd;
 
-        // Act
+        // Act: invoke parser on the common types fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: single package must have exactly two constant declarations
         var pkg = Assert.Single(model.Packages);
         Assert.Equal(2, pkg.Constants.Count);
     }
@@ -159,13 +159,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_CommonTypesFixture_ConstantsHaveDocComments()
     {
-        // Arrange
+        // Arrange: resolve path to common_types.vhd fixture file
         var path = FixturePaths.CommonTypesVhd;
 
-        // Act
+        // Act: invoke parser on the common types fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: DATA_WIDTH constant must have a non-empty Summary in its doc comment
         var pkg = Assert.Single(model.Packages);
         var dataWidth = pkg.Constants.FirstOrDefault(c => c.Name == "DATA_WIDTH");
         Assert.NotNull(dataWidth);
@@ -177,13 +177,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_CommonTypesFixture_PackageHasOneComponent()
     {
-        // Arrange
+        // Arrange: resolve path to common_types.vhd fixture file
         var path = FixturePaths.CommonTypesVhd;
 
-        // Act
+        // Act: invoke parser on the common types fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: single package must have exactly one component declaration
         var pkg = Assert.Single(model.Packages);
         Assert.Single(pkg.Components);
     }
@@ -192,13 +192,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_CommonTypesFixture_PackageHasTwoSubprograms()
     {
-        // Arrange
+        // Arrange: resolve path to common_types.vhd fixture file
         var path = FixturePaths.CommonTypesVhd;
 
-        // Act
+        // Act: invoke parser on the common types fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: single package must have exactly two subprogram declarations
         var pkg = Assert.Single(model.Packages);
         Assert.Equal(2, pkg.Subprograms.Count);
     }
@@ -207,13 +207,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_CommonTypesFixture_ToNaturalIsFunction()
     {
-        // Arrange
+        // Arrange: resolve path to common_types.vhd fixture file
         var path = FixturePaths.CommonTypesVhd;
 
-        // Act
+        // Act: invoke parser on the common types fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: to_natural subprogram kind must be Function
         var pkg = Assert.Single(model.Packages);
         var subprogram = pkg.Subprograms.FirstOrDefault(s => s.Name == "to_natural");
         Assert.NotNull(subprogram);
@@ -224,13 +224,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_CommonTypesFixture_ClearVectorIsProcedure()
     {
-        // Arrange
+        // Arrange: resolve path to common_types.vhd fixture file
         var path = FixturePaths.CommonTypesVhd;
 
-        // Act
+        // Act: invoke parser on the common types fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: clear_vector subprogram kind must be Procedure
         var pkg = Assert.Single(model.Packages);
         var subprogram = pkg.Subprograms.FirstOrDefault(s => s.Name == "clear_vector");
         Assert.NotNull(subprogram);
@@ -241,13 +241,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_CommonTypesFixture_ToNaturalHasOneParameter()
     {
-        // Arrange
+        // Arrange: resolve path to common_types.vhd fixture file
         var path = FixturePaths.CommonTypesVhd;
 
-        // Act
+        // Act: invoke parser on the common types fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: to_natural must have one parameter named "v" of type STD_LOGIC_VECTOR with empty mode
         var pkg = Assert.Single(model.Packages);
         var subprogram = pkg.Subprograms.FirstOrDefault(s => s.Name == "to_natural");
         Assert.NotNull(subprogram);
@@ -263,13 +263,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_CommonTypesFixture_ToNaturalHasReturnTypeNatural()
     {
-        // Arrange
+        // Arrange: resolve path to common_types.vhd fixture file
         var path = FixturePaths.CommonTypesVhd;
 
-        // Act
+        // Act: invoke parser on the common types fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: to_natural return type must be "NATURAL"
         var pkg = Assert.Single(model.Packages);
         var subprogram = pkg.Subprograms.FirstOrDefault(s => s.Name == "to_natural");
         Assert.NotNull(subprogram);
@@ -280,13 +280,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_CommonTypesFixture_ClearVectorHasOneParameter()
     {
-        // Arrange
+        // Arrange: resolve path to common_types.vhd fixture file
         var path = FixturePaths.CommonTypesVhd;
 
-        // Act
+        // Act: invoke parser on the common types fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: clear_vector must have one parameter with SIGNAL or OUT in the mode string
         var pkg = Assert.Single(model.Packages);
         var subprogram = pkg.Subprograms.FirstOrDefault(s => s.Name == "clear_vector");
         Assert.NotNull(subprogram);
@@ -305,13 +305,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_CommonTypesFixture_ClearVectorHasNullReturnType()
     {
-        // Arrange
+        // Arrange: resolve path to common_types.vhd fixture file
         var path = FixturePaths.CommonTypesVhd;
 
-        // Act
+        // Act: invoke parser on the common types fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: procedure must have a null ReturnType
         var pkg = Assert.Single(model.Packages);
         var subprogram = pkg.Subprograms.FirstOrDefault(s => s.Name == "clear_vector");
         Assert.NotNull(subprogram);
@@ -322,13 +322,13 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_CommonTypesFixture_ToNaturalDocHasParamEntry()
     {
-        // Arrange
+        // Arrange: resolve path to common_types.vhd fixture file
         var path = FixturePaths.CommonTypesVhd;
 
-        // Act
+        // Act: invoke parser on the common types fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: to_natural doc must contain a @param entry for "v"
         var pkg = Assert.Single(model.Packages);
         var subprogram = pkg.Subprograms.FirstOrDefault(s => s.Name == "to_natural");
         Assert.NotNull(subprogram);
@@ -340,17 +340,40 @@ public class VhdlAstParserTests
     [Fact]
     public void VhdlAstParser_Parse_CommonTypesFixture_ToNaturalDocHasReturnEntry()
     {
-        // Arrange
+        // Arrange: resolve path to common_types.vhd fixture file
         var path = FixturePaths.CommonTypesVhd;
 
-        // Act
+        // Act: invoke parser on the common types fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert
+        // Assert: to_natural doc must have a non-empty Returns field from @return tag
         var pkg = Assert.Single(model.Packages);
         var subprogram = pkg.Subprograms.FirstOrDefault(s => s.Name == "to_natural");
         Assert.NotNull(subprogram);
         Assert.NotNull(subprogram.Doc);
         Assert.False(string.IsNullOrEmpty(subprogram.Doc.Returns));
+    }
+
+    /// <summary>Validates that a file with invalid VHDL syntax throws InvalidOperationException.</summary>
+    [Fact]
+    public void VhdlAstParser_Parse_InvalidVhdl_ThrowsInvalidOperationException()
+    {
+        // Arrange: write deliberately invalid VHDL content to a temp file
+        var tempFile = Path.GetTempFileName() + ".vhd";
+        try
+        {
+            File.WriteAllText(tempFile, "this is not valid vhdl syntax!!!");
+
+            // Act / Assert: parsing invalid VHDL must throw InvalidOperationException
+            Assert.Throws<InvalidOperationException>(() => VhdlAstParser.Parse(tempFile));
+        }
+        finally
+        {
+            // Clean up temp file regardless of outcome
+            if (File.Exists(tempFile))
+            {
+                File.Delete(tempFile);
+            }
+        }
     }
 }

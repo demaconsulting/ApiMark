@@ -7,13 +7,28 @@ sections:
         requirements:
           - id: ApiMarkVhdl-VhdlGenerator-AcceptSourceGlobPatterns
             title: VhdlGenerator shall accept one or more glob patterns that select
-              which .vhd source files to document.
+              which .vhd source files to document, using gitignore-style last-match-wins
+              semantics with ! prefix exclusion patterns.
             justification: |
               VHDL projects organize IP cores as individual files or as directories of .vhd
               files. Glob patterns with gitignore-style last-match-wins semantics and ! prefix
               exclusion allow callers to specify and refine the source file set without
               requiring project reorganization.
+            children:
+              - ApiMarkVhdl-VhdlGenerator-ReportNoFilesMatched
             tests:
               - VhdlGenerator_Constructor_NullOptions_ThrowsArgumentNullException
+              - VhdlGenerator_Constructor_EmptyLibraryName_ThrowsArgumentException
+              - VhdlGenerator_Constructor_WhitespaceLibraryName_ThrowsArgumentException
               - VhdlGenerator_Generate_FixtureFile_CreatesApiEntrypoint
               - VhdlGenerator_Generate_FixtureFile_CreatesEntityPage
+              - VhdlGenerator_Generate_AllFixtures_ProducesExpectedOutputStructure
+          - id: ApiMarkVhdl-VhdlGenerator-ReportNoFilesMatched
+            title: VhdlGenerator shall report an error via the context when no source
+              files match the configured glob patterns.
+            justification: |
+              Reporting a clear error when no files are matched prevents silently
+              producing an empty documentation set that would indicate successful
+              generation to the caller.
+            tests:
+              - VhdlGenerator_Parse_NoFilesMatched_EmitsErrorAndReturnsEmptyEmitter

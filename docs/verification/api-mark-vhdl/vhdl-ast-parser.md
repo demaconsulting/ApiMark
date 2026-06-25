@@ -110,3 +110,9 @@ This scenario is tested by `VhdlAstParser_Parse_CommonTypesFixture_ToNaturalDocH
 **Doc @return entry extracted**: Verifies that the doc comment on `to_natural` has a
 non-null `Returns` field matching the `@return` tag in the source.
 This scenario is tested by `VhdlAstParser_Parse_CommonTypesFixture_ToNaturalDocHasReturnEntry`.
+
+**Invalid VHDL throws InvalidOperationException**: Verifies that calling `VhdlAstParser.Parse`
+on a file containing deliberately invalid VHDL syntax throws `InvalidOperationException`,
+confirming that syntax errors are detected and surfaced rather than silently producing corrupt
+output.
+This scenario is tested by `VhdlAstParser_Parse_InvalidVhdl_ThrowsInvalidOperationException`.

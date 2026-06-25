@@ -14,7 +14,7 @@ public record VhdlDocComment(string? Summary, string? Details, IReadOnlyList<Vhd
 
 /// <summary>Represents a port in a VHDL entity declaration.</summary>
 /// <param name="Name">Port name.</param>
-/// <param name="Direction">Port direction: IN, OUT, INOUT, BUFFER, or in (default).</param>
+/// <param name="Direction">Port direction: one of IN, OUT, INOUT, or BUFFER (uppercase). Defaults to IN per VHDL-2008 when no explicit direction is written.</param>
 /// <param name="TypeName">Port type as declared in source.</param>
 /// <param name="Doc">Documentation extracted from inline --! comment, or null.</param>
 public record VhdlPortDoc(string Name, string Direction, string TypeName, VhdlDocComment? Doc);
@@ -69,7 +69,7 @@ public enum VhdlSubprogramKind
 
 /// <summary>Represents a parameter in a VHDL subprogram declaration.</summary>
 /// <param name="Name">Parameter name.</param>
-/// <param name="Mode">Parameter mode: IN, OUT, INOUT, BUFFER, SIGNAL, VARIABLE, CONSTANT, or empty.</param>
+/// <param name="Mode">Parameter mode token(s): one of the direction keywords (IN, OUT, INOUT, BUFFER), one of the object-class keywords (SIGNAL, VARIABLE, CONSTANT, FILE), a combination of both (e.g., SIGNAL IN), or an empty string when no explicit mode is specified.</param>
 /// <param name="TypeName">Parameter type as declared in source.</param>
 public record VhdlParamDecl(string Name, string Mode, string TypeName);
 

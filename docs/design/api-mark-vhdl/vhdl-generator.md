@@ -15,13 +15,15 @@ configured glob patterns to enumerate VHDL source files, delegates parsing to
 **VhdlGeneratorOptions** (public): Configuration record supplied by the caller.
 
 - `LibraryName`: `string` — the name of the VHDL library to document; must be non-empty.
+- `Description`: `string` — introductory paragraph text emitted at the top of the api index
+  page (gradual disclosure) or below the top-level heading (single-file). An empty string
+  produces no description paragraph.
 - `Sources`: `IList<string>` — glob patterns that identify source files to include.
   Patterns prefixed with `!` are exclusion patterns. Evaluated with gitignore-style
   last-match-wins semantics by `GlobFileCollector` from ApiMarkCore. An empty list
   produces no matched files.
 - `WorkingDirectory`: `string?` — the base directory for glob evaluation. When `null`,
   defaults to `Directory.GetCurrentDirectory()`.
-- Additional display and format options are forwarded to `VhdlEmitter` unchanged.
 
 ### Key Methods
 

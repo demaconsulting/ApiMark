@@ -19,6 +19,8 @@ configuration are required.
 - `VhdlEmitterGradualDisclosure.Emit` produces at least one entity detail page in addition to
   the api index page.
 - The api index page content includes the library name as a heading.
+- When an entity has architectures that implement it, the entity detail page includes an
+  Architectures section rendered inline (not as separate files).
 
 ### Test Scenarios
 
@@ -37,3 +39,10 @@ emitter contains the library name as a heading, confirming that library metadata
 correctly.
 This scenario is tested by
 `VhdlEmitterGradualDisclosure_Emit_MinimalData_ApiIndexContainsLibraryNameHeading`.
+
+**Architecture rendered inline on entity page**: Verifies that when an entity has associated
+architectures, those architectures appear as an inline section on the entity detail page rather
+than as separate files, confirming that the gradual-disclosure emitter does not create
+standalone architecture pages.
+This scenario is tested by
+`VhdlEmitterGradualDisclosure_Emit_EntityWithArchitecture_ArchitectureSectionAppearsInEntityPage`.

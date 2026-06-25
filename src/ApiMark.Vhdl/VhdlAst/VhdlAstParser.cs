@@ -17,7 +17,7 @@ internal static class VhdlAstParser
     internal static VhdlFileModel Parse(string filePath)
     {
         var sourceText = File.ReadAllText(filePath);
-        var lines = File.ReadAllLines(filePath);
+        var lines = sourceText.Split('\n').Select(l => l.TrimEnd('\r')).ToArray();
 
         var input = new AntlrInputStream(sourceText);
         var lexer = new vhdl2008Lexer(input);
@@ -750,7 +750,7 @@ internal static class VhdlAstParser
     {
         private readonly List<string> _errors = [];
 
-        // Called by the lexer (offending symbol is an int token type)
+        /// <summary>Called by the ANTLR4 lexer when a syntax error is encountered; appends the error to the collected list.</summary>
         public void SyntaxError(
             TextWriter output,
             IRecognizer recognizer,
@@ -761,7 +761,7 @@ internal static class VhdlAstParser
             RecognitionException e) =>
             _errors.Add($"line {line}:{charPositionInLine} {msg}");
 
-        // Called by the parser (offending symbol is an IToken)
+        /// <summary>Called by the ANTLR4 parser when a syntax error is encountered; appends the error to the collected list.</summary>
         public void SyntaxError(
             TextWriter output,
             IRecognizer recognizer,

@@ -6,7 +6,8 @@ sections:
       - title: VhdlAstParser Requirements
         requirements:
           - id: ApiMarkVhdl-VhdlAstParser-ParseEntity
-            title: VhdlAstParser shall parse entity declarations from a .vhd file.
+            title: VhdlAstParser shall parse entity declarations including generics, ports,
+              and associated doc comments from a .vhd file.
             justification: |
               Entity declarations are the primary design unit in VHDL.
             tests:
@@ -16,7 +17,8 @@ sections:
               - VhdlAstParser_Parse_FixtureFile_EntityDocCommentParsed
               - VhdlAstParser_Parse_FixtureFile_PortsHaveInlineDocComments
           - id: ApiMarkVhdl-VhdlAstParser-ParseArchitecture
-            title: VhdlAstParser shall parse architecture bodies from a .vhd file.
+            title: VhdlAstParser shall parse architecture bodies from a .vhd file, capturing
+              the architecture name and associated entity name.
             justification: |
               A file may contain multiple architectures for the same entity.
             tests:
@@ -42,3 +44,12 @@ sections:
               - VhdlAstParser_Parse_CommonTypesFixture_ClearVectorHasNullReturnType
               - VhdlAstParser_Parse_CommonTypesFixture_ToNaturalDocHasParamEntry
               - VhdlAstParser_Parse_CommonTypesFixture_ToNaturalDocHasReturnEntry
+          - id: ApiMarkVhdl-VhdlAstParser-RejectInvalidSyntax
+            title: VhdlAstParser shall throw InvalidOperationException when the source file
+              contains syntax errors that prevent the ANTLR4 parser from producing a valid
+              parse tree.
+            justification: |
+              Failing fast on syntax errors prevents silently emitting corrupt or empty
+              documentation from a file that could not be correctly parsed.
+            tests:
+              - VhdlAstParser_Parse_InvalidVhdl_ThrowsInvalidOperationException

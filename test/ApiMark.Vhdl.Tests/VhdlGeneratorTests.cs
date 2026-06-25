@@ -15,6 +15,52 @@ public class VhdlGeneratorTests
         Assert.Throws<ArgumentNullException>(() => new VhdlGenerator(null!));
     }
 
+    /// <summary>Validates that empty LibraryName throws ArgumentException.</summary>
+    [Fact]
+    public void VhdlGenerator_Constructor_EmptyLibraryName_ThrowsArgumentException()
+    {
+        // Arrange: options with an empty LibraryName
+        var options = new VhdlGeneratorOptions { LibraryName = string.Empty };
+
+        // Act / Assert: empty LibraryName must be rejected at construction time
+        Assert.Throws<ArgumentException>(() => new VhdlGenerator(options));
+    }
+
+    /// <summary>Validates that a whitespace-only LibraryName throws ArgumentException.</summary>
+    [Fact]
+    public void VhdlGenerator_Constructor_WhitespaceLibraryName_ThrowsArgumentException()
+    {
+        // Arrange: options with a whitespace-only LibraryName
+        var options = new VhdlGeneratorOptions { LibraryName = "   " };
+
+        // Act / Assert: whitespace LibraryName must be rejected at construction time
+        Assert.Throws<ArgumentException>(() => new VhdlGenerator(options));
+    }
+
+    /// <summary>Validates that a source pattern matching no files emits an error and returns an emitter that produces no output.</summary>
+    [Fact]
+    public void VhdlGenerator_Parse_NoFilesMatched_EmitsErrorAndReturnsEmptyEmitter()
+    {
+        // Arrange: use a pattern that will not match any files
+        var options = new VhdlGeneratorOptions
+        {
+            LibraryName = "TestLib",
+            WorkingDirectory = FixturePaths.FixturesDirectory,
+            Sources = ["*.nonexistent"],
+        };
+        var generator = new VhdlGenerator(options);
+        var factory = new InMemoryMarkdownWriterFactory();
+        var context = new InMemoryContext();
+
+        // Act: parse with a non-matching pattern
+        var emitter = generator.Parse(context);
+        emitter.Emit(factory, new EmitConfig(), context);
+
+        // Assert: an error message was written and no output was produced
+        Assert.NotEmpty(context.Errors);
+        Assert.Empty(factory.Writers);
+    }
+
     /// <summary>Validates that the generator creates the api entrypoint file from the fixture.</summary>
     [Fact]
     public void VhdlGenerator_Generate_FixtureFile_CreatesApiEntrypoint()
