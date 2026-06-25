@@ -1557,6 +1557,22 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     }
 
     /// <summary>
+    ///     Validates that namespace-level <c>using</c> type alias declarations appear as headings
+    ///     in the single-file <c>api.md</c> output, confirming the single-file emitter emits
+    ///     type alias sections alongside class and enum sections.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_SingleFile_TypeAlias_AppearsInOutput()
+    {
+        // Act: locate the single api.md writer and find all headings
+        var writer = _fixture.PublicSingleFileFactory.Writers["api"];
+        var headings = writer.Operations.OfType<HeadingOperation>().ToList();
+
+        // Assert: the namespace-level alias item_id_t appears as a heading in the output
+        Assert.Contains(headings, h => h.Text.Contains("item_id_t", StringComparison.Ordinal));
+    }
+
+    /// <summary>
     ///     Validates that an absolute <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> entry
     ///     selects the file it names via its absolute path, confirming that absolute patterns are
     ///     forwarded directly to the file collector without <c>WorkingDirectory</c> resolution.

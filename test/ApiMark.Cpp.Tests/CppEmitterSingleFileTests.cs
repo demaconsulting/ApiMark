@@ -196,6 +196,47 @@ public class CppEmitterSingleFileTests
             && s.Code.Contains("unsigned int", StringComparison.Ordinal));
     }
 
+    /// <summary>Validates that class-scoped type aliases appear as sub-entries below the owning class.</summary>
+    [Fact]
+    public void CppEmitterSingleFile_Emit_ClassScopedTypeAlias_ContainsAliasSubEntry()
+    {
+        // Arrange: build a class with a class-scoped type alias
+        var factory = new InMemoryMarkdownWriterFactory();
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "TestLib",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+        };
+        var nsDecls = new SortedDictionary<string, CppEmitter.NamespaceDeclarations>(StringComparer.Ordinal);
+        var ns = new CppEmitter.NamespaceDeclarations("testlib", null);
+        ns.Classes.Add(new CppClass(
+            "Widget",
+            [],
+            [],
+            [],
+            [],
+            [],
+            [new CppTypeAlias("size_type", "unsigned int", false, null, new CppDocComment("Size type.", null, [], null))],
+            false,
+            false,
+            null,
+            new CppDocComment("A widget.", null, [], null)));
+        nsDecls["testlib"] = ns;
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+        var emitter = new CppEmitter(options, nsDecls, resolver);
+
+        // Act
+        new CppEmitterSingleFile(emitter, nsDecls, resolver).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: class-scoped alias appears as an H4 heading (depth+3 with default depth=1) with a signature
+        var writer = factory.GetWriter("", "api");
+        var headings = writer.Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(headings, h => h.Level == 4 && h.Text == "size_type");
+        var signatures = writer.Operations.OfType<SignatureOperation>().ToList();
+        Assert.Contains(signatures, s => s.Code.Contains("size_type", StringComparison.Ordinal)
+            && s.Code.Contains("unsigned int", StringComparison.Ordinal));
+    }
+
     /// <summary>Validates that non-default heading depth offsets are applied consistently.</summary>
     [Fact]
     public void CppEmitterSingleFile_Emit_NonDefaultHeadingDepth_OffsetsHeadings()

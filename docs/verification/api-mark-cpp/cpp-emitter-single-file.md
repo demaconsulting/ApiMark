@@ -15,7 +15,8 @@ Tests run with the standard xUnit.net test runner.
 
 - `CppEmitterSingleFile.Emit` creates exactly one writer keyed as `("", "api")`.
 - The api file contains the library-name heading and namespace headings.
-- The api file emits class, free-function, enum, and type-alias sections when present.
+- The api file emits class, free-function, enum, and namespace-level type-alias sections when present.
+- Class-scoped type aliases appear as H{depth+3} sub-entries within their owning class section.
 - Member headings respect non-default heading-depth offsets.
 
 ### Test Scenarios
@@ -34,6 +35,11 @@ output. Tested by `CppEmitterSingleFile_Emit_Enum_ContainsEnumSection`.
 rendered into the single-file output with an H3 heading containing the alias name and a
 fenced code block containing the `using` declaration and underlying type. Tested by
 `CppEmitterSingleFile_Emit_TypeAlias_ContainsTypeAliasSection`.
+
+**Emit class-scoped type alias sub-entry**: Verifies that a class-scoped `using` type alias
+declaration appears as an H{depth+3} sub-entry below the owning class section, with a
+signature block containing the `using` declaration and underlying type. Tested by
+`CppEmitterSingleFile_Emit_ClassScopedTypeAlias_ContainsAliasSubEntry`.
 
 **Heading depth offset**: Verifies that all heading levels — library, namespace, class, and
 member — shift when a non-default heading depth is configured. Tested by

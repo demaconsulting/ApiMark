@@ -27,7 +27,20 @@ and dedicated pages for enums, type aliases, and grouped operator overloads.
 | Operators (class) | `{Namespace}/{TypeName}/operators.md` |
 | Operators (namespace) | `{Namespace}/operators.md` |
 
+**CppEmitterGradualDisclosure instance fields** (private): state supplied at construction.
+
+- `_emitter`: `CppEmitter` — parent emitter providing options, visibility helpers,
+  comment extractors, and signature builders.
+- `_namespaceDecls`: `SortedDictionary<string, CppEmitter.NamespaceDeclarations>` —
+  sorted map of namespace key → declarations passed in from `CppEmitter`.
+- `_cppResolver`: `CppTypeLinkResolver` — type link resolver; used to linkify type
+  strings in table cells and to track external type references per page.
+
 ### Key Methods
+
+**CppEmitterGradualDisclosure(emitter, namespaceDecls, cppResolver)** (internal constructor):
+stores all three arguments as private fields. None of the parameters are null-guarded
+in the constructor; the caller `CppEmitter.Emit` always supplies non-null values.
 
 - **Emit / EmitGradualDisclosure**: `public void Emit(IMarkdownWriterFactory factory,
   EmitConfig config, IContext context)` — writes `api.md`, then iterates namespaces,

@@ -16,11 +16,19 @@ only applies to the multi-file layout.
 
 ### Data Model
 
-N/A - CppEmitterSingleFile holds no data model of its own. It reads from the
-`SortedDictionary<string, CppEmitter.NamespaceDeclarations>` supplied by
-`CppEmitter` and from `CppGeneratorOptions` via the parent emitter.
+**CppEmitterSingleFile instance fields** (private): state supplied at construction.
+
+- `_emitter`: `CppEmitter` — parent emitter providing options, visibility helpers,
+  comment extractors, and signature builders.
+- `_namespaceDecls`: `SortedDictionary<string, CppEmitter.NamespaceDeclarations>` —
+  sorted map of namespace key → declarations passed in from `CppEmitter`.
 
 ### Key Methods
+
+**CppEmitterSingleFile(emitter, namespaceDecls, cppResolver)** (internal constructor):
+stores `emitter` and `namespaceDecls` as private fields. `cppResolver` is accepted to
+satisfy the uniform constructor contract but is deliberately discarded (`_ = cppResolver`)
+because type links are omitted in single-file mode to prevent anchor collisions.
 
 **CppEmitterSingleFile.Emit** (internal): Entry point; writes all content into a
 single `api.md` file.
@@ -30,9 +38,12 @@ single `api.md` file.
 - *Returns*: `void`
 - *Algorithm*: Calls `EmitSingleFile(factory, config)` which creates one writer
   via `factory.CreateMarkdown("", "api")`, writes the H{depth} library-name heading
-  in the form `{LibraryName} API Reference`, optional description, and iterates over
-  namespaces calling `WriteSingleFileClassSection`, `WriteSingleFileFreeFunctionSection`,
-  `WriteSingleFileEnumSection`, and `WriteSingleFileTypeAliasSection`.
+  in the form `{LibraryName} API Reference`, optional description paragraph, and
+  iterates over namespaces. Within each namespace iteration, writes an H{depth+1}
+  namespace heading (`nsDecls.DisplayName`) and an optional namespace summary
+  paragraph, then calls `WriteSingleFileClassSection`,
+  `WriteSingleFileFreeFunctionSection`, `WriteSingleFileEnumSection`, and
+  `WriteSingleFileTypeAliasSection`.
 
 **WriteSingleFileClassSection** (private): Emits an H{depth+2} section for a
 class.

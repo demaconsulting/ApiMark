@@ -57,6 +57,11 @@ configuration beyond a standard clang installation is required.
   rendered as Markdown hyperlinks to the corresponding type page.
 - Absolute `ApiHeaderPatterns` entries select headers by their full path without WorkingDirectory
   resolution.
+- CWD-relative `ApiHeaderPatterns` entries are resolved against `WorkingDirectory` before
+  pattern matching, allowing project-relative patterns to restrict the documented API surface.
+- Classes declared `final` include the `final` keyword in the generated class signature block.
+- When the single-file format is specified, type aliases (both namespace-level and class-scoped)
+  appear in the generated output.
 
 ## Test Scenarios
 
@@ -253,3 +258,39 @@ pages and single-file output. Tested by
 external (non-std, non-library) type, the generated page includes an `External Types` section with
 the external type listed. Tested by
 `CppGenerator_Generate_ExternalTypeReference_EmitsExternalTypesSection`.
+
+**Type alias appears in single-file output**: Verifies that namespace-level `using` type alias
+declarations appear as headings in the single-file `api.md` output, confirming that the single-file
+emitter emits type alias sections alongside class, enum, and function sections. Tested by
+`CppGenerator_SingleFile_TypeAlias_AppearsInOutput`.
+
+**Case-insensitive member collision combines onto one page**: Verifies that when two class members
+have names that differ only in letter case (a case-insensitive collision), the generator combines
+them onto a single shared member page rather than creating conflicting file names. Tested by
+`CppGenerator_Generate_CaseCollisionClass_CreatesCombinedPage`,
+`CppGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers`, and
+`CppGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPage`.
+
+**CWD-relative ApiHeaderPatterns restrict documented headers**: Verifies that
+`ApiHeaderPatterns` entries that are relative paths are resolved against `WorkingDirectory`,
+allowing project-relative include and exclude patterns to restrict the documented API surface.
+Tested by
+`CppGenerator_Generate_ApiHeaderPatterns_CwdRelativePattern_OnlyMatchingFilesDocumented` and
+`CppGenerator_Generate_ApiHeaderPatterns_CwdRelativeExclusionPattern_ExcludesMatchingFiles`.
+
+**Parse throws when context is null**: Verifies that passing a null context to `CppGenerator.Parse`
+throws `ArgumentNullException` immediately, so misconfigured callers fail fast. Tested by
+`CppGenerator_Parse_NullContext_ThrowsArgumentNullException`.
+
+**Class-scoped type aliases receive their own pages and are listed on the owning class page**:
+Verifies that `using` type alias declarations scoped to a class produce individual pages at
+`{namespace}/{TypeName}/{AliasName}.md` and are listed in the "Type Aliases" section of the
+owning class page. Tested by
+`CppGenerator_Generate_ClassScopedTypeAlias_CreatesAliasPage` and
+`CppGenerator_Generate_ClassScopedTypeAlias_ListedOnClassPage`.
+
+**Transitively included headers do not contribute symbols to output**: Verifies that symbols
+declared in headers that are only transitively included (not directly matched by
+`ApiHeaderPatterns`) are excluded from the generated documentation, preventing unintended API
+surface expansion. Tested by
+`CppGenerator_Generate_ApiHeaderPatterns_TransitiveInclude_ExcludesNonSelectedSymbols`.

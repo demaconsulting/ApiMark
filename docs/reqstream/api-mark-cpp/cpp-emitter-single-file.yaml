@@ -22,6 +22,7 @@ sections:
               - ApiMarkCpp-CppEmitterSingleFile-EmitsEnumSection
               - ApiMarkCpp-CppEmitterSingleFile-EmitsMemberSection
               - ApiMarkCpp-CppEmitterSingleFile-EmitsTypeAliasSection
+              - ApiMarkCpp-CppEmitterSingleFile-EmitsClassScopedTypeAliasSection
             tests:
               - CppEmitterSingleFile_Emit_MinimalData_CreatesExactlyOneWriter
           - id: ApiMarkCpp-CppEmitterSingleFile-CreatesSingleApiWriter
@@ -72,7 +73,14 @@ sections:
               Member sections preserve drill-down detail while keeping the document linear.
             tests:
               - CppEmitterSingleFile_Emit_NonDefaultHeadingDepth_OffsetsHeadings
-          - id: ApiMarkCpp-CppEmitterSingleFile-EmitsTypeAliasSection
+          - id: ApiMarkCpp-CppEmitterSingleFile-EmitsClassScopedTypeAliasSection
+            title: CppEmitterSingleFile shall emit class-scoped type alias sub-entries below the owning class section at H{depth+3}.
+            justification: |
+              Class-scoped type aliases are part of the class API surface. Without rendering
+              them in single-file output, AI agents would have no visibility of class-level
+              using declarations such as size_type.
+            tests:
+              - CppEmitterSingleFile_Emit_ClassScopedTypeAlias_ContainsAliasSubEntry
             title: CppEmitterSingleFile shall emit a section for each documented namespace-level type alias.
             justification: |
               Type alias pages in gradual disclosure correspond to explicit type alias sections

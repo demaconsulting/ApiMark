@@ -51,6 +51,8 @@ Any change in discovered members, rendered signatures, or generated file layout 
 the fixture assembly baseline is treated as a regression candidate and must be reviewed before
 the upgrade is accepted.
 
+See `docs/verification/ots/mono-cecil.md` for detailed test scenarios.
+
 ## clang
 
 ApiMark verifies the clang integration by testing the exact externally supplied behavior that
@@ -70,6 +72,8 @@ Whenever the minimum supported clang version changes, the repository re-runs all
 integration tests against the same fixture headers used for baseline qualification. Any change in
 discovered types, rendered signatures, doc comment availability, or generated file layout is treated
 as a regression candidate and must be reviewed before the version change is accepted.
+
+See `docs/verification/ots/clang.md` for detailed test scenarios.
 
 ## ANTLR4
 
