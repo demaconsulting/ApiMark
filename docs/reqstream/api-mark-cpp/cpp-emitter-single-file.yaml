@@ -33,7 +33,7 @@ sections:
               - CppEmitterSingleFile_Emit_MinimalData_CreatesExactlyOneWriter
               - CppEmitterSingleFile_Emit_MinimalData_CreatesApiFileOnly
           - id: ApiMarkCpp-CppEmitterSingleFile-EmitsLibraryNameHeading
-            title: CppEmitterSingleFile shall emit the library name as the top-level heading.
+            title: CppEmitterSingleFile shall emit the library name as the top-level heading in the form "{LibraryName} API Reference".
             justification: |
               The single-file document must identify the documented library immediately.
             tests:

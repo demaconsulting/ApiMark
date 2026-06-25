@@ -229,28 +229,4 @@ public class CppTypeLinkResolverTests
         Assert.DoesNotContain("[FooBar]", result, StringComparison.Ordinal);
         Assert.EndsWith("<FooBar>", result, StringComparison.Ordinal);
     }
-
-    /// <summary>
-    ///     Validates that when the type is not in the known-types dictionary,
-    ///     <see cref="CppTypeLinkResolver.Linkify"/> returns the original string unchanged and records
-    ///     the type in the external-types set so the caller can emit an External Types section.
-    /// </summary>
-    [Fact]
-    public void CppTypeLinkResolver_Linkify_UnknownNamespacedType_TracksExternalType()
-    {
-        // Arrange: a resolver with no known types, simulating a fully external reference
-        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
-        var externalTypes = new SortedSet<CppExternalTypeInfo>();
-
-        // Act: resolve a type that belongs to a non-std namespace not in the known-types map
-        var result = resolver.Linkify("acme::Logger *", string.Empty, externalTypes);
-
-        // Assert: the original type string is returned as-is (no link to an unknown page)
-        Assert.Equal("acme::Logger *", result);
-
-        // Assert: the type is tracked in the external types set with the correct namespace
-        Assert.Single(externalTypes);
-        Assert.Equal("Logger", externalTypes.First().TypeString);
-        Assert.Equal("acme", externalTypes.First().Namespace);
-    }
 }

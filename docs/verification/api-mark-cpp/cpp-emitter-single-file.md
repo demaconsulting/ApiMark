@@ -30,8 +30,8 @@ single-file output. This scenario is tested by
 **Emit enum section**: Verifies that enum declarations are rendered into the single-file
 output. This scenario is tested by `CppEmitterSingleFile_Emit_Enum_ContainsEnumSection`.
 
-**Heading depth offset**: Verifies that member headings shift when a non-default heading depth
-is configured. This scenario is tested by
+**Heading depth offset**: Verifies that all heading levels — library, namespace, class, and
+member — shift when a non-default heading depth is configured. This scenario is tested by
 `CppEmitterSingleFile_Emit_NonDefaultHeadingDepth_OffsetsHeadings`.
 
 **Creates exactly one writer keyed as api**: Verifies that the single-file emitter creates

@@ -33,6 +33,8 @@ the standard xUnit.net test runner. No clang installation is needed.
 - When a type name appears in a template argument position sharing a prefix with the
   resolved type (e.g., `Foo<FooBar>` where `Foo` is a known type), only the actual type
   token is wrapped in a Markdown link and the template argument is left unchanged.
+- Leading `const`/`volatile` and trailing pointer/reference qualifiers are stripped from
+  the type name before any lookup is performed.
 
 ### Test Scenarios
 

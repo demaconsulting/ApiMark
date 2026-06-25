@@ -29,6 +29,9 @@ Tests require the fixture headers and a system clang installation accessible on 
 - Public type aliases, enums, nested classes, and single-file output are documented correctly.
 - Gitignore-style `ApiHeaderPatterns` (include, exclude, re-include, last-match-wins) are
   applied correctly to restrict the documented header set.
+- Absolute `ApiHeaderPatterns` glob patterns are forwarded directly to `GlobFileCollector`
+  without WorkingDirectory resolution, allowing headers outside the project tree to be
+  documented.
 - Doxygen `@code`/`@endcode` blocks are rendered as fenced `cpp` code blocks on both
   gradual-disclosure member pages and single-file output.
 - `api.md` lists all namespaces with a declaration count column for AI navigation scope.
@@ -36,25 +39,25 @@ Tests require the fixture headers and a system clang installation accessible on 
 ### Test Scenarios
 
 **Inheritance signature includes base class**: Verifies that a derived class page includes its
-base class in the rendered class declaration line. This scenario is tested by
+base class in the rendered class declaration line. Tested by
 `CppGenerator_Generate_InheritanceClass_EmitsBaseClassInSignature`.
 
 **Case-collision members share one page**: Verifies that members whose names differ only by case
-are emitted on a single combined detail page. This scenario is tested by
+are emitted on a single combined detail page. Tested by
 `CppGenerator_Generate_CaseCollisionClass_CreatesCombinedPage` and
 `CppGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers`.
 
 **Namespace operators share one page**: Verifies that namespace-level operator overloads are
-combined onto one operators page. This scenario is tested by
+combined onto one operators page. Tested by
 `CppGenerator_Generate_NamespaceFreeOperator_CreatesNamespaceOperatorsPage`.
 
 **Class-scoped type aliases are documented**: Verifies that class-level aliases receive pages and
-are listed from the owning class page. This scenario is tested by
+are listed from the owning class page. Tested by
 `CppGenerator_Generate_ClassScopedTypeAlias_CreatesAliasPage` and
 `CppGenerator_Generate_ClassScopedTypeAlias_ListedOnClassPage`.
 
 **CWD-relative header patterns are supported**: Verifies that relative `ApiHeaderPatterns` are
-resolved from the current working directory. This scenario is tested by
+resolved from the current working directory. Tested by
 `CppGenerator_Generate_ApiHeaderPatterns_CwdRelativePattern_OnlyMatchingFilesDocumented` and
 `CppGenerator_Generate_ApiHeaderPatterns_CwdRelativeExclusionPattern_ExcludesMatchingFiles`.
 
@@ -134,3 +137,13 @@ the Methods table. Tested by
 case-insensitive collision exists, no separate page is created for the upper-case member name —
 only the combined lowercase page exists. Tested by
 `CppGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPage`.
+
+**External type reference emits External Types section**: Verifies that when a documented type
+references a non-library, non-`std` external type in its member table cells, the generated output
+for that type page includes an `External Types` section listing the external type. Tested by
+`CppGenerator_Generate_ExternalTypeReference_EmitsExternalTypesSection`.
+
+**Absolute header pattern documents matching file**: Verifies that an absolute-path
+`ApiHeaderPatterns` entry selects the specified header for documentation without WorkingDirectory
+resolution. Tested by
+`CppGenerator_Generate_ApiHeaderPatterns_AbsolutePattern_DocumentsMatchingFile`.

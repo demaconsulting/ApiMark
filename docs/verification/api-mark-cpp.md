@@ -37,8 +37,9 @@ configuration beyond a standard clang installation is required.
 - Output files follow the naming convention: `api.md` entrypoint, `{namespace}.md` namespace
   summaries, `{namespace}/{TypeName}.md` type pages, `{namespace}/{AliasName}.md` type alias
   pages, `{namespace}/{TypeName}/{MemberName}.md` member detail pages,
-  `{namespace}/{TypeName}/{NestedType}.md` nested-type pages, and
-  `{namespace}/{TypeName}/{AliasName}.md` class-scoped type alias pages.
+  `{namespace}/{TypeName}/{NestedType}.md` nested-type pages,
+  `{namespace}/{TypeName}/{AliasName}.md` class-scoped type alias pages, and
+  `{namespace}/{TypeName}/operators.md` operator overloads pages.
 - When the single-file format is specified, all documentation is written to a single `api.md`
   file using a flat H1/H2/H3/H4 heading hierarchy.
 - `api.md` lists all namespaces in a table with a Declarations count column so AI agents can
@@ -47,6 +48,12 @@ configuration beyond a standard clang installation is required.
   gradual-disclosure member pages and single-file output.
 - When output contains references to external (non-library, non-std) types, the generated
   documentation includes an External Types section listing those types alphabetically.
+- All operator overloads for a class are grouped onto a single `operators.md` page at
+  `{namespace}/{TypeName}/operators.md`, and the owning type page includes a link to that page.
+- Type strings in method and member table cells that match a documented intra-library type are
+  rendered as Markdown hyperlinks to the corresponding type page.
+- Absolute `ApiHeaderPatterns` entries select headers by their full path without WorkingDirectory
+  resolution.
 
 ## Test Scenarios
 

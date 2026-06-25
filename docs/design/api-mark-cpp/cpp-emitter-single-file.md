@@ -28,10 +28,10 @@ single `api.md` file.
   `IContext context`.
 - *Returns*: `void`
 - *Algorithm*: Calls `EmitSingleFile(factory, config)` which creates one writer
-  via `factory.CreateMarkdown("", "api")`, writes the H{depth} library-name
-  heading, optional description, and iterates over namespaces calling
-  `WriteSingleFileClassSection`, `WriteSingleFileFreeFunctionSection`, and
-  `WriteSingleFileEnumSection`.
+  via `factory.CreateMarkdown("", "api")`, writes the H{depth} library-name heading
+  in the form `{LibraryName} API Reference`, optional description, and iterates over
+  namespaces calling `WriteSingleFileClassSection`, `WriteSingleFileFreeFunctionSection`,
+  and `WriteSingleFileEnumSection`.
 
 **WriteSingleFileClassSection** (private): Emits an H{depth+2} section for a
 class.

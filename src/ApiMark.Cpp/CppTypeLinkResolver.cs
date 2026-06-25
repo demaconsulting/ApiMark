@@ -68,6 +68,7 @@ internal sealed class CppTypeLinkResolver
     ///     Dictionary mapping fully-qualified C++ type names (<c>::</c> separators) to
     ///     page keys (<c>/</c> separators). Must not be null.
     /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="knownTypes"/> is null.</exception>
     public CppTypeLinkResolver(IReadOnlyDictionary<string, string> knownTypes)
     {
         ArgumentNullException.ThrowIfNull(knownTypes);
@@ -98,17 +99,18 @@ internal sealed class CppTypeLinkResolver
     ///     A Markdown string: either a link of the form <c>[Name](relative/path.md)</c>,
     ///     or the original <paramref name="cppTypeString"/> unchanged.
     /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="externalTypes"/> is null.</exception>
     public string Linkify(
         string cppTypeString,
         string currentFolder,
         ISet<CppExternalTypeInfo> externalTypes)
     {
+        ArgumentNullException.ThrowIfNull(externalTypes);
+
         if (string.IsNullOrWhiteSpace(cppTypeString))
         {
             return cppTypeString;
         }
-
-        ArgumentNullException.ThrowIfNull(externalTypes);
 
         // Treat null currentFolder as an empty string (root-level file)
         currentFolder ??= string.Empty;

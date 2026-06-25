@@ -72,6 +72,9 @@ parse-time deprecated filter, builds the known-type map, and returns a
   system-header diagnostics; `CollectResultNamespace` groups declarations by
   namespace key; the known-type map is flattened from namespaces, nested classes,
   and type aliases; a `CppTypeLinkResolver` and `CppEmitter` are returned.
+  The constructed `CppTypeLinkResolver` accumulates references to external
+  (non-library, non-`std`) types encountered during `CppEmitter` execution; the
+  emitter renders them in an `External Types` section on each affected page.
 
 ### External Interfaces
 

@@ -9,7 +9,7 @@ namespace ApiMark.Cpp.Tests;
 
 /// <summary>
 ///     Integration tests for <see cref="CppGenerator"/> using a shared <see cref="CppGeneratorFixture"/>
-///     to avoid invoking clang more than 4 times per test run.
+///     to avoid invoking clang more than five times per test run.
 /// </summary>
 public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
 {

@@ -37,6 +37,7 @@ fundamental C++ type names that must always remain plain text.
   last `::` in the original string (or 0 for unqualified types), calls
   `IndexOf(shortName, startIdx)` to locate the exact token, then reconstructs the
   result as `original[..idx] + linked + original[(idx + shortName.Length)..]`.
+  A null `currentFolder` is treated as an empty string (root-level file).
 - **FindPageKey** — performs exact qualified lookup first, then a short-name scan
   that returns null when the short name is ambiguous.
 - **StripQualifiers** — repeatedly removes leading and trailing `const`,
@@ -47,8 +48,10 @@ fundamental C++ type names that must always remain plain text.
 
 ### Error Handling
 
-N/A - the unit performs no I/O and returns inputs unchanged for unsupported or
-empty values.
+Constructor throws `ArgumentNullException` when `knownTypes` is null. `Linkify` throws
+`ArgumentNullException` when `externalTypes` is null. All other unsupported input
+(null/whitespace `cppTypeString`, empty stripped name) is handled by returning the original
+value unchanged rather than throwing.
 
 ### External Interfaces
 

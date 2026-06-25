@@ -34,9 +34,13 @@ flowchart TD
     CppEmitter --> CppTypeLinkResolver
     CppEmitter --> IMarkdownWriterFactory
     CppGenerator --> CppTypeLinkResolver
+    CppEmitter --> CppAstModel
     CppEmitterGradualDisclosure --> CppAstModel
     CppEmitterSingleFile --> CppAstModel
     CppEmitterGradualDisclosure --> CppTypeLinkResolver
+    CppEmitterSingleFile --> CppTypeLinkResolver
+    CppEmitterGradualDisclosure --> IMarkdownWriterFactory
+    CppEmitterSingleFile --> IMarkdownWriterFactory
 ```
 
 ## External Interfaces
@@ -123,7 +127,9 @@ N/A - not a safety-classified software item.
    `SingleFile` uses `CppEmitterSingleFile`, which writes the entire API reference
    into a single `api.md` file with library-name and namespace headings followed by
    type and member sections.
-5. During gradual-disclosure emission, regular members receive per-member pages;
+5. During emission, the `Visibility` access-specifier filter (Public/PublicAndProtected/All)
+   is applied by `CppEmitter` helper methods to include or exclude class members based on
+   their C++ access specifier. Regular members receive per-member pages (gradual-disclosure);
    case-insensitive collisions are combined onto a single lowercase page;
    operator overloads are detected by name and grouped onto shared class-level or
    namespace-level `operators.md` pages.
