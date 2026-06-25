@@ -73,6 +73,14 @@ sections:
               Member sections preserve drill-down detail while keeping the document linear.
             tests:
               - CppEmitterSingleFile_Emit_NonDefaultHeadingDepth_OffsetsHeadings
+          - id: ApiMarkCpp-CppEmitterSingleFile-EmitsTypeAliasSection
+            title: CppEmitterSingleFile shall emit a section for each documented namespace-level type alias.
+            justification: |
+              Type alias pages in gradual disclosure correspond to explicit type alias sections
+              in the single-file layout. Without rendering type aliases the single-file output
+              would be incomplete and omit documented API surface.
+            tests:
+              - CppEmitterSingleFile_Emit_TypeAlias_ContainsTypeAliasSection
           - id: ApiMarkCpp-CppEmitterSingleFile-EmitsClassScopedTypeAliasSection
             title: CppEmitterSingleFile shall emit class-scoped type alias sub-entries below the owning class section at H{depth+3}.
             justification: |
@@ -81,10 +89,3 @@ sections:
               using declarations such as size_type.
             tests:
               - CppEmitterSingleFile_Emit_ClassScopedTypeAlias_ContainsAliasSubEntry
-            title: CppEmitterSingleFile shall emit a section for each documented namespace-level type alias.
-            justification: |
-              Type alias pages in gradual disclosure correspond to explicit type alias sections
-              in the single-file layout. Without rendering type aliases the single-file output
-              would be incomplete and omit documented API surface.
-            tests:
-              - CppEmitterSingleFile_Emit_TypeAlias_ContainsTypeAliasSection
