@@ -37,6 +37,7 @@ sections:
           - ApiMarkCpp-CppEmitterGradualDisclosure
           - ApiMarkCpp-CppEmitterSingleFile
           - ApiMarkCpp-CppTypeLinkResolver
+          - ApiMarkCpp-EmitExternalTypesSection
         tests: [CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint]
       - id: ApiMarkCpp-EmitExternalTypesSection
         title: ApiMarkCpp shall render unrecognized non-std type references in an External
@@ -46,4 +47,7 @@ sections:
           C++ standard library, readers need a clear indication of the external dependency.
           The Cpp subsystem tracks these references during generation and emits a dedicated
           External Types section so that the dependency is visible in the generated output.
+        children:
+          - ApiMarkCpp-CppEmitter-RepresentExternalTypeInfo
+          - ApiMarkCpp-CppTypeLinkResolver-LinkifyExternalTypeTracking
         tests: [CppGenerator_Generate_ExternalTypeReference_EmitsExternalTypesSection]
