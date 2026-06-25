@@ -213,6 +213,7 @@ public class CppEmitterGradualDisclosureTests
 
         // Assert
         Assert.True(factory.HasWriter("testlib", "widget_id_t"));
+        Assert.True(factory.HasWriter("testlib/Widget", "size_type"));
     }
 
     /// <summary>Validates that nested classes receive pages under their parent class folder.</summary>

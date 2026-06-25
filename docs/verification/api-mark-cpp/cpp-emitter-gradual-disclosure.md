@@ -15,7 +15,7 @@ Tests run with the standard xUnit.net test runner.
 
 - The emitter creates the api index, namespace summary, and type pages.
 - The emitter creates detail pages for visible members and free functions.
-- The emitter creates enum pages, type-alias pages, nested-type pages, and operator pages.
+- The emitter creates enum pages, type-alias pages (namespace-level and class-scoped), nested-type pages, and operator pages.
 - Case-insensitive collisions are combined onto one page.
 - Empty namespace collections still produce an `api.md` fallback page.
 - The api index page heading contains the configured library name.
@@ -31,9 +31,10 @@ from a single deterministic location. Tested by
 `{namespace}/{EnumName}` with an H1 heading matching the enum name and a values table listing all
 enumerators. Tested by `CppEmitterGradualDisclosure_Emit_Enum_CreatesEnumPage`.
 
-**Type alias page**: Verifies that a namespace-level `using` type alias declaration produces its
-own page at `{namespace}/{AliasName}` containing the `using` declaration in a signature block.
-Tested by `CppEmitterGradualDisclosure_Emit_TypeAlias_CreatesTypeAliasPage`.
+**Type alias page**: Verifies that both namespace-level and class-scoped `using` type alias
+declarations produce their own pages at `{namespace}/{AliasName}` and
+`{namespace}/{ClassName}/{AliasName}` respectively, each containing the `using` declaration in a
+signature block. Tested by `CppEmitterGradualDisclosure_Emit_TypeAlias_CreatesTypeAliasPage`.
 
 **Nested class page**: Verifies that a class nested inside a public outer class produces its own
 page at `{namespace}/{OuterType}/{NestedType}` so readers can navigate to it directly from the
