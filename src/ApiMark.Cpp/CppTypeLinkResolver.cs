@@ -70,6 +70,7 @@ internal sealed class CppTypeLinkResolver
     /// </param>
     public CppTypeLinkResolver(IReadOnlyDictionary<string, string> knownTypes)
     {
+        ArgumentNullException.ThrowIfNull(knownTypes);
         _knownTypes = knownTypes;
     }
 
@@ -80,7 +81,7 @@ internal sealed class CppTypeLinkResolver
     /// </summary>
     /// <param name="cppTypeString">
     ///     The simplified C++ type string to resolve (e.g. <c>"const fixtures::SampleClass &amp;"</c>).
-    ///     Must not be null.
+    ///     When null or whitespace, the value is returned unchanged.
     /// </param>
     /// <param name="currentFolder">
     ///     The folder path of the Markdown file that will contain the link, relative to the
@@ -141,7 +142,31 @@ internal sealed class CppTypeLinkResolver
                 ? stripped[(stripped.LastIndexOf("::", StringComparison.Ordinal) + 2)..]
                 : stripped;
             var linked = $"[{shortName}]({relativePath})";
-            return cppTypeString.Replace(shortName, linked, StringComparison.Ordinal);
+
+            // Position-aware single-site replacement: locate shortName at the exact token
+            // position to avoid corrupting template arguments that share a prefix with it
+            // (e.g. Foo<FooBar> where shortName = "Foo" must not also linkify "FooBar")
+            int startIdx;
+            if (stripped.Contains("::", StringComparison.Ordinal))
+            {
+                // For qualified types, find the last '::' in the original string so we
+                // start searching only where the unqualified name begins
+                var lastColonPos = cppTypeString.LastIndexOf("::", StringComparison.Ordinal);
+                startIdx = lastColonPos >= 0 ? lastColonPos + 2 : 0;
+            }
+            else
+            {
+                startIdx = 0;
+            }
+
+            var idx = cppTypeString.IndexOf(shortName, startIdx, StringComparison.Ordinal);
+            if (idx < 0)
+            {
+                // Fallback: should never happen in practice, but avoid silent corruption
+                return cppTypeString;
+            }
+
+            return cppTypeString[..idx] + linked + cppTypeString[(idx + shortName.Length)..];
         }
 
         // External type with a namespace: track for the External Types section
@@ -209,21 +234,23 @@ internal sealed class CppTypeLinkResolver
     {
         var s = typeString.Trim();
 
-        // Remove leading cv-qualifiers
-        if (s.StartsWith("const ", StringComparison.Ordinal))
-        {
-            s = s[6..].TrimStart();
-        }
-
-        if (s.StartsWith("volatile ", StringComparison.Ordinal))
-        {
-            s = s[9..].TrimStart();
-        }
-
-        // Remove trailing reference, pointer, and trailing-const qualifiers iteratively
-        s = s.TrimEnd();
         while (true)
         {
+            var previous = s;
+
+            // Remove leading cv-qualifiers until no more remain, regardless of order
+            if (s.StartsWith("const ", StringComparison.Ordinal))
+            {
+                s = s[6..].TrimStart();
+            }
+
+            if (s.StartsWith("volatile ", StringComparison.Ordinal))
+            {
+                s = s[9..].TrimStart();
+            }
+
+            // Remove trailing reference, pointer, and trailing cv-qualifiers iteratively
+            s = s.TrimEnd();
             if (s.EndsWith(" &&", StringComparison.Ordinal)) { s = s[..^3].TrimEnd(); continue; }
             if (s.EndsWith("&&", StringComparison.Ordinal)) { s = s[..^2].TrimEnd(); continue; }
             if (s.EndsWith(" &", StringComparison.Ordinal)) { s = s[..^2].TrimEnd(); continue; }
@@ -231,8 +258,12 @@ internal sealed class CppTypeLinkResolver
             if (s.EndsWith(" *", StringComparison.Ordinal)) { s = s[..^2].TrimEnd(); continue; }
             if (s.EndsWith('*')) { s = s[..^1].TrimEnd(); continue; }
             if (s.EndsWith(" const", StringComparison.OrdinalIgnoreCase)) { s = s[..^6].TrimEnd(); continue; }
+            if (s.EndsWith(" volatile", StringComparison.OrdinalIgnoreCase)) { s = s[..^9].TrimEnd(); continue; }
 
-            break;
+            if (s == previous)
+            {
+                break;
+            }
         }
 
         // Remove template arguments — base name is everything before the first '<'

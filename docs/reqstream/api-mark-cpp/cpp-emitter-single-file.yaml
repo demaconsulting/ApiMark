@@ -13,18 +13,61 @@ sections:
               Single-file output is required for consumers who want a compact, linear
               reference instead of the gradual-disclosure folder tree. Writing all
               content into one file simplifies indexing and search.
-            children: [ApiMarkCpp-CppEmitterSingleFile-EmitSingleApiFile]
-          - id: ApiMarkCpp-CppEmitterSingleFile-EmitSingleApiFile
+            children:
+              - ApiMarkCpp-CppEmitterSingleFile-CreatesSingleApiWriter
+              - ApiMarkCpp-CppEmitterSingleFile-EmitsLibraryNameHeading
+              - ApiMarkCpp-CppEmitterSingleFile-EmitsNamespaceHeading
+              - ApiMarkCpp-CppEmitterSingleFile-EmitsClassSection
+              - ApiMarkCpp-CppEmitterSingleFile-EmitsFreeFunctionSection
+              - ApiMarkCpp-CppEmitterSingleFile-EmitsEnumSection
+              - ApiMarkCpp-CppEmitterSingleFile-EmitsMemberSection
+            tests:
+              - CppEmitterSingleFile_Emit_MinimalData_CreatesExactlyOneWriter
+          - id: ApiMarkCpp-CppEmitterSingleFile-CreatesSingleApiWriter
             title: >-
-              CppEmitterSingleFile shall create exactly one writer keyed as api,
-              include the library name as a top-level heading, and include a namespace
-              heading.
+              CppEmitterSingleFile shall create exactly one writer keyed as api.
             justification: |
-              A single output file with a deterministic key (api) and correct heading
-              structure is required for tool-chain consumers that process the file
-              programmatically and for readers who expect a linear document layout.
+              A single output file with a deterministic key is required for tool-chain
+              consumers that process the file programmatically.
             tests:
               - CppEmitterSingleFile_Emit_MinimalData_CreatesExactlyOneWriter
               - CppEmitterSingleFile_Emit_MinimalData_CreatesApiFileOnly
+          - id: ApiMarkCpp-CppEmitterSingleFile-EmitsLibraryNameHeading
+            title: CppEmitterSingleFile shall emit the library name as the top-level heading.
+            justification: |
+              The single-file document must identify the documented library immediately.
+            tests:
               - CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsLibraryNameHeading
+          - id: ApiMarkCpp-CppEmitterSingleFile-EmitsNamespaceHeading
+            title: CppEmitterSingleFile shall emit a namespace heading for each documented namespace.
+            justification: |
+              Namespace headings preserve structural navigation in the linear document.
+            tests:
               - CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsNamespaceHeading
+          - id: ApiMarkCpp-CppEmitterSingleFile-EmitsClassSection
+            title: CppEmitterSingleFile shall emit a section for each documented class.
+            justification: |
+              Class sections keep type-level information discoverable in single-file output.
+            tests:
+              - CppEmitterSingleFile_Emit_ClassData_ContainsClassSection
+          - id: ApiMarkCpp-CppEmitterSingleFile-EmitsFreeFunctionSection
+            title: CppEmitterSingleFile shall emit a section for each documented free function.
+            justification: |
+              Free functions must remain directly navigable in the single-file layout.
+            tests:
+              - CppEmitterSingleFile_Emit_FreeFunction_ContainsFreeFunctionSection
+          - id: ApiMarkCpp-CppEmitterSingleFile-EmitsEnumSection
+            title: CppEmitterSingleFile shall emit a section for each documented enum.
+            justification: |
+              Enum pages in gradual disclosure correspond to explicit enum sections in the
+              single-file layout.
+            tests:
+              - CppEmitterSingleFile_Emit_Enum_ContainsEnumSection
+          - id: ApiMarkCpp-CppEmitterSingleFile-EmitsMemberSection
+            title: >-
+              CppEmitterSingleFile shall emit individual member headings below the owning
+              class section using the configured heading-depth offset.
+            justification: |
+              Member sections preserve drill-down detail while keeping the document linear.
+            tests:
+              - CppEmitterSingleFile_Emit_NonDefaultHeadingDepth_OffsetsHeadings

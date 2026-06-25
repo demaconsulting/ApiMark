@@ -18,6 +18,8 @@ sections:
             children:
               - ApiMarkCpp-CppAstModel-ConstructionAndValidation
               - ApiMarkCpp-CppAstModel-SetsCoreProperties
+            tests:
+              - CppDocComment_Construction_SetsSummaryAndDetails
           - id: ApiMarkCpp-CppAstModel-ConstructionAndValidation
             title: >-
               CppAstModel record types shall be constructable from their declared
@@ -32,6 +34,7 @@ sections:
               - CppParamDoc_Construction_SetsNameAndDescription
               - CppDocComment_Construction_SetsSummaryAndDetails
               - CppDocComment_Equality_TwoIdenticalInstances_AreEqual
+              - CppDocComment_NoteAndExample_WhenNotProvided_AreNull
               - CppBaseType_Construction_SetsName
               - CppTemplateParam_Construction_SetsName
               - CppEnumValue_Construction_SetsNameAndDoc

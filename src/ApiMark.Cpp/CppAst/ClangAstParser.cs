@@ -104,6 +104,13 @@ internal sealed class ClangAstParser
         IReadOnlyList<string> headers,
         CppGeneratorOptions options)
     {
+        ArgumentNullException.ThrowIfNull(headers);
+        ArgumentNullException.ThrowIfNull(options);
+        if (headers.Count == 0 || headers.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new ArgumentException("At least one non-empty header path is required.", nameof(headers));
+        }
+
         // Resolve the clang executable (may be xcrun on macOS)
         var (fileName, prefix) = FindClangExecutable(options.ClangPath);
 

@@ -25,6 +25,7 @@ sections:
           - ApiMarkCpp-CppGenerator-ShowDirectInheritanceInTypeSignature
           - ApiMarkCpp-CppGenerator-EmitIntraDocLinksInTableCells
           - ApiMarkCpp-CppGenerator-ApplyGitignoreStylePatternSelectionToHeaders
+          - ApiMarkCpp-CppGenerator-SupportAbsoluteAndRelativeHeaderPatterns
           - ApiMarkCpp-CppGenerator-EmitExternalTypesSection
           - ApiMarkCpp-CppGenerator-ShowDeletedFunctionsWithDeletedNotation
           - ApiMarkCpp-CppGenerator-DocumentTypeAliases

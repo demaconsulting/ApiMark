@@ -57,6 +57,18 @@ public class CppAstModelTests
         Assert.Equal(doc1, doc2);
     }
 
+    /// <summary>Validates that Note and Example default to null when not provided.</summary>
+    [Fact]
+    public void CppDocComment_NoteAndExample_WhenNotProvided_AreNull()
+    {
+        // Arrange / Act
+        var doc = new CppDocComment("Summary.", null, [], null);
+
+        // Assert
+        Assert.Null(doc.Note);
+        Assert.Null(doc.Example);
+    }
+
     /// <summary>Validates that <see cref="CppBaseType"/> stores Name correctly.</summary>
     [Fact]
     public void CppBaseType_Construction_SetsName()
@@ -148,6 +160,7 @@ public class CppAstModelTests
         Assert.Equal("int", fn.ReturnTypeName);
         Assert.Equal(CppAccessibility.Public, fn.Accessibility);
         Assert.False(fn.IsConstructor);
+        Assert.False(fn.IsDeleted);
     }
 
     /// <summary>Validates that <see cref="CppClass"/> stores core properties correctly.</summary>

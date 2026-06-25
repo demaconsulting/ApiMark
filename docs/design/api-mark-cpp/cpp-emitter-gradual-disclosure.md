@@ -5,109 +5,92 @@
 
 ### Purpose
 
-CppEmitterGradualDisclosure writes the multi-file gradual-disclosure Markdown
-tree for C++ API documentation. It produces one file per namespace, one file per
-type, one file per visible member (or combined page for case-insensitive
-collisions), one file per enum, one file per type alias, and one operators page
-per class and per namespace that contains operator free functions. This layout
-allows AI agents and human readers to navigate progressively from the library
-index to a namespace, then to a type, and finally to an individual member.
+CppEmitterGradualDisclosure writes the multi-file Markdown layout for C++ API
+documentation. It produces one library entry page, one namespace summary page,
+one type page per class or nested class, one detail page per non-operator member,
+and dedicated pages for enums, type aliases, and grouped operator overloads.
 
 ### Data Model
 
-**PathConventionRows** (private static): Table rows listing the path convention
-for each symbol kind, shown on the api index page.
+**PathConventionRows** (private static): path-convention table shown on `api.md`.
 
 | Symbol kind | Path pattern |
 | --- | --- |
 | Namespace | `{Namespace}.md` |
 | Type | `{Namespace}/{TypeName}.md` |
 | Member | `{Namespace}/{TypeName}/{MemberName}.md` |
+| Nested type | `{Namespace}/{OuterType}/{NestedType}.md` |
 | Free function | `{Namespace}/{FunctionName}.md` |
 | Enum | `{Namespace}/{EnumName}.md` |
 | Type alias | `{Namespace}/{AliasName}.md` |
+| Class-scoped type alias | `{Namespace}/{TypeName}/{AliasName}.md` |
 | Operators (class) | `{Namespace}/{TypeName}/operators.md` |
 | Operators (namespace) | `{Namespace}/operators.md` |
 
 ### Key Methods
 
-**CppEmitterGradualDisclosure.Emit** (internal): Entry point; writes the complete
-gradual-disclosure tree.
+- **Emit / EmitGradualDisclosure**: `public void Emit(IMarkdownWriterFactory factory,
+  EmitConfig config, IContext context)` — writes `api.md`, then iterates namespaces,
+  types, nested types, free functions, enums, aliases, and operator groups.
 
-- *Parameters*: `IMarkdownWriterFactory factory`, `EmitConfig config`,
-  `IContext context`.
-- *Returns*: `void`
-- *Algorithm*: Calls `EmitGradualDisclosure(factory)` which calls `WriteApiPage`,
-  then iterates over namespace declarations calling `WriteNamespacePage`,
-  `WriteTypePage`, free-function pages, enum pages, and type-alias pages.
-
-**WriteApiPage** (private): Writes the library entrypoint `api.md`.
-
-- Emits an H1 library-name heading, optional description paragraph, an
-  all-namespaces table (Namespace, Declarations, Description columns), and the
-  path convention appendix table.
-
-**WriteNamespacePage** (private): Writes a namespace summary page at
-`{nsKey}.md`.
-
-- Lists all owned classes, enums, free functions, and type aliases grouped by
-  source header. Operator free functions are referenced via a link to the
-  namespace operators page rather than listed individually.
-
-**WriteTypePage** (private): Writes a type page at `{nsKey}/{typeName}.md`.
-
-- Emits the qualified name, optional template declaration, `#include` directive,
-  summary, details, note, example, base types, and grouped member tables
-  (Constructors, Methods, Fields). Partitions methods into regular and operator;
-  builds a case-insensitive collision map for members; emits individual pages
-  for collision-free members, combined pages for collision groups, and an
-  operators page when operator overloads are present.
-
-**WriteFreeFunctionPage** (private): Writes a free-function page at
-`{nsKey}/{functionName}.md`.
-
-**WriteEnumPage** (private): Writes an enum page at `{nsKey}/{enumName}.md`.
-
-- Emits the qualified name comment, `#include` directive, summary, and a table
-  of all enum values with their descriptions.
-
-**WriteClassOperatorsPage** (private): Writes the class-level operators page at
-`{nsKey}/{typeName}/operators.md`.
-
-**WriteNamespaceOperatorsPage** (private): Writes the namespace-level operators
-page at `{nsKey}/operators.md`.
-
-**WriteTypeAliasPage** (private): Writes a type alias page at
-`{nsKey}/{aliasName}.md`.
-
-- Emits the qualified name comment, `#include` directive, `using` declaration,
-  summary, and optional details.
+  - *Parameters*: `IMarkdownWriterFactory factory`, `EmitConfig config`,
+    `IContext context`.
+  - *Returns*: void.
+  - *Preconditions*: `factory` must not be null.
+  - *Algorithm*: calls `WriteApiPage`, then for each namespace calls
+    `WriteNamespacePage`, then for each class calls `WriteTypePage` and
+    `WriteNestedTypePages`, then calls `WriteFreeFunctionPage`,
+    `WriteEnumPage`, `WriteTypeAliasPage`, `WriteClassOperatorsPage`, and
+    `WriteNamespaceOperatorsPage` as applicable.
+- **WriteApiPage** — writes the library entrypoint, namespace table, and path
+  convention appendix.
+- **WriteNamespacePage** — writes the namespace summary page using alphabetical
+  sub-tables for Types, Enums, Type Aliases, Functions, and Operators; it does not
+  group declarations by source header.
+- **WriteTypePage** — writes a type page with signature block, summary, optional
+  details/note/example, base-class paragraph, member tables, nested-class table,
+  and type-alias table.
+- **WriteNestedTypePages** — recursively writes nested class pages and class-scoped
+  type-alias pages beneath the parent class folder.
+- **WriteClassMemberTables** — writes Constructors, Methods, Fields, Operators,
+  Nested Classes, and Type Aliases sections in canonical order.
+- **ProcessClassConstructorMember / ProcessClassMethodMember /
+  ProcessClassFieldMember** — build table rows and create member pages or combined
+  collision pages.
+- **WriteClassSignatureBlock / WriteClassBaseTypesParagraph** — render type-page
+  signature context and inheritance text.
+- **WriteMemberPage / WriteFunctionPage / WriteFieldPage / WriteFunctionContent /
+  WriteFieldContent** — write per-member detail pages.
+- **WriteFreeFunctionPage / WriteFreeFunctionContent** — write namespace-level free
+  function pages.
+- **WriteEnumPage** — writes enum pages and values tables.
+- **WriteTypeAliasPage** — writes namespace-level and class-scoped alias pages.
+- **WriteClassOperatorsPage** — writes `{nsKey}/{TypeName}/operators.md` for all
+  class-scoped operators.
+- **WriteNamespaceOperatorsPage** — writes `{nsKey}/operators.md` for all
+  namespace-level operators.
 
 ### Error Handling
 
-N/A - CppEmitterGradualDisclosure propagates exceptions from the factory and
-writer without wrapping. No additional error handling is performed.
+N/A - factory and writer exceptions are propagated without additional wrapping.
 
 ### External Interfaces
 
-**IMarkdownWriterFactory (consumed)**: Received from `CppEmitter.Emit` and used
-to create each per-file Markdown writer via `CreateMarkdown`.
+#### IMarkdownWriterFactory (consumed)
 
-- *Type*: In-process .NET interface.
-- *Role*: Consumer — calls `CreateMarkdown(folder, fileName)` for each output page.
-- *Contract*: The factory must produce a valid `IMarkdownWriter` for every call;
-  callers `using`-dispose each writer after writing.
+- *Type*: in-process .NET interface.
+- *Role*: consumer.
+- *Contract*: provides one writer per generated page.
+- *Constraints*: every requested page key must be creatable.
 
 ### Dependencies
 
-- **CppEmitter** — parent emitter providing options, visibility helpers, comment
-  extractors, signature builders, and `WriteCombinedMemberPage`.
-- **CppTypeLinkResolver** — used to resolve type strings to Markdown links in
-  table cells.
-- **CppAstModel** — consumes all record types produced by `ClangAstParser`.
-- **IMarkdownWriterFactory** (ApiMarkCore) — supplies per-file Markdown writers.
+- **CppEmitter** — provides shared helper methods and generator options.
+- **CppTypeLinkResolver** — linkifies table-cell types and tracks external types.
+- **CppAstModel** — supplies classes, functions, fields, enums, and aliases.
+- **IMarkdownWriterFactory** — creates the individual output pages.
 
 ### Callers
 
-- **CppEmitter.Emit** — instantiates and calls `CppEmitterGradualDisclosure.Emit`
-  when `config.Format` is `GradualDisclosure`.
+- **CppEmitter.Emit** — instantiates this unit when
+  `EmitConfig.Format == OutputFormat.GradualDisclosure`.

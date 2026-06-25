@@ -3,46 +3,38 @@
 ### Verification Approach
 
 `CppEmitterSingleFile` is unit-tested in
-`test/ApiMark.Cpp.Tests/CppEmitterSingleFileTests.cs` without invoking clang. A
-`BuildMinimalData` helper constructs a `CppEmitter` and a controlled namespace declaration
-containing one class (`Widget`), along with a `CppTypeLinkResolver`. An
-`InMemoryMarkdownWriterFactory` test double captures the single created writer and its
-content. Tests verify that exactly one writer is created, that its key is `("", "api")`,
-that the api file contains the library-name heading, and that the api file contains a
-namespace heading.
+`test/ApiMark.Cpp.Tests/CppEmitterSingleFileTests.cs` using synthetic namespace data and an
+`InMemoryMarkdownWriterFactory` to capture the single output document.
 
 ### Test Environment
 
-No external services, network access, clang installation, or file system access are
-required. Tests run with the standard xUnit.net test runner.
+No external services, network access, clang installation, or file system access are required.
+Tests run with the standard xUnit.net test runner.
 
 ### Acceptance Criteria
 
-- `CppEmitterSingleFile.Emit` creates exactly one writer in the factory.
-- The single writer is keyed as `("", "api")`.
-- The api file contains a heading whose text includes the library name (`"TestLib"`).
-- The api file contains a heading whose text includes the namespace name (`"testlib"`).
+- `CppEmitterSingleFile.Emit` creates exactly one writer keyed as `("", "api")`.
+- The api file contains the library-name heading and namespace headings.
+- The api file emits class, free-function, and enum sections when present.
+- Member headings respect non-default heading-depth offsets.
 
 ### Test Scenarios
 
-**Emit creates exactly one writer**: Verifies that `CppEmitterSingleFile.Emit`
-produces exactly one writer in the factory, confirming that all content is written
-to a single file.
-This scenario is tested by `CppEmitterSingleFile_Emit_MinimalData_CreatesExactlyOneWriter`.
+**Emit class section**: Verifies that class data is rendered into a dedicated class section.
+This scenario is tested by `CppEmitterSingleFile_Emit_ClassData_ContainsClassSection`.
 
-**Emit creates the api writer only**: Verifies that the single writer created by the
-emitter is keyed as `("", "api")`, confirming that the output uses the expected file
-key convention.
-This scenario is tested by `CppEmitterSingleFile_Emit_MinimalData_CreatesApiFileOnly`.
+**Emit free-function section**: Verifies that namespace free functions are rendered into the
+single-file output. This scenario is tested by
+`CppEmitterSingleFile_Emit_FreeFunction_ContainsFreeFunctionSection`.
 
-**Api file contains library name heading**: Verifies that the api file produced by
-the emitter contains a heading whose text includes `"TestLib"`, confirming that the
-library name from `CppGeneratorOptions` is correctly used in the top-level heading.
-This scenario is tested by
-`CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsLibraryNameHeading`.
+**Emit enum section**: Verifies that enum declarations are rendered into the single-file
+output. This scenario is tested by `CppEmitterSingleFile_Emit_Enum_ContainsEnumSection`.
 
-**Api file contains namespace heading**: Verifies that the api file contains a heading
-whose text includes `"testlib"`, confirming that per-namespace headings are correctly
-emitted in the single-file layout.
-This scenario is tested by
-`CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsNamespaceHeading`.
+**Heading depth offset**: Verifies that member headings shift when a non-default heading depth
+is configured. This scenario is tested by
+`CppEmitterSingleFile_Emit_NonDefaultHeadingDepth_OffsetsHeadings`.
+
+**Creates exactly one writer keyed as api**: Verifies that the single-file emitter creates
+exactly one Markdown writer keyed as `api` at the output root. Tested by
+`CppEmitterSingleFile_Emit_MinimalData_CreatesExactlyOneWriter` and
+`CppEmitterSingleFile_Emit_MinimalData_CreatesApiFileOnly`.

@@ -99,4 +99,132 @@ public class CppTypeLinkResolverTests
         Assert.Contains("[size_type]", result, StringComparison.Ordinal);
         Assert.Contains("Outer/size_type.md", result, StringComparison.Ordinal);
     }
+
+    /// <summary>Validates that primitive types are returned unchanged and are not tracked as external types.</summary>
+    [Fact]
+    public void CppTypeLinkResolver_Linkify_PrimitiveType_ReturnsUnchanged()
+    {
+        // Arrange
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
+        // Act
+        var result = resolver.Linkify("int", string.Empty, externalTypes);
+
+        // Assert
+        Assert.Equal("int", result);
+        Assert.Empty(externalTypes);
+    }
+
+    /// <summary>Validates that <c>std::</c> types are returned unchanged and are not tracked as external types.</summary>
+    [Fact]
+    public void CppTypeLinkResolver_Linkify_StdType_ReturnsUnchanged()
+    {
+        // Arrange
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
+        // Act
+        var result = resolver.Linkify("const std::string &", string.Empty, externalTypes);
+
+        // Assert
+        Assert.Equal("const std::string &", result);
+        Assert.Empty(externalTypes);
+    }
+
+    /// <summary>Validates that a null type string is returned unchanged.</summary>
+    [Fact]
+    public void CppTypeLinkResolver_Linkify_NullInput_ReturnsNull()
+    {
+        // Arrange
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
+        // Act
+        var result = resolver.Linkify(null!, string.Empty, externalTypes);
+
+        // Assert
+        Assert.Null(result);
+        Assert.Empty(externalTypes);
+    }
+
+    /// <summary>Validates that a whitespace-only type string is returned unchanged.</summary>
+    [Fact]
+    public void CppTypeLinkResolver_Linkify_WhitespaceInput_ReturnsUnchanged()
+    {
+        // Arrange
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
+        // Act
+        var result = resolver.Linkify("   ", string.Empty, externalTypes);
+
+        // Assert
+        Assert.Equal("   ", result);
+        Assert.Empty(externalTypes);
+    }
+
+    /// <summary>Validates that an external namespaced type is tracked for the External Types section.</summary>
+    [Fact]
+    public void CppTypeLinkResolver_Linkify_ExternalType_AddsToExternalTypesSet()
+    {
+        // Arrange
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
+        // Act
+        var result = resolver.Linkify("acme::Logger *", string.Empty, externalTypes);
+
+        // Assert
+        Assert.Equal("acme::Logger *", result);
+        Assert.Single(externalTypes);
+        Assert.Equal("Logger", externalTypes.First().TypeString);
+        Assert.Equal("acme", externalTypes.First().Namespace);
+    }
+
+    /// <summary>Validates that leading qualifiers are removed repeatedly before lookup so qualified types still resolve.</summary>
+    [Fact]
+    public void CppTypeLinkResolver_Linkify_QualifiedType_StripsQualifiersBeforeLookup()
+    {
+        // Arrange
+        var knownTypes = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            { "fixtures::SampleClass", "fixtures/SampleClass" },
+        };
+        var resolver = new CppTypeLinkResolver(knownTypes);
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
+        // Act
+        var result = resolver.Linkify("volatile const fixtures::SampleClass &", "fixtures", externalTypes);
+
+        // Assert
+        Assert.Contains("[SampleClass]", result, StringComparison.Ordinal);
+        Assert.Contains("SampleClass.md", result, StringComparison.Ordinal);
+        Assert.Empty(externalTypes);
+    }
+
+    /// <summary>
+    ///     Validates that when a type name (e.g. "Foo") appears both as the intra-library type
+    ///     being linked and as a prefix of a template argument (e.g. "FooBar"), only the
+    ///     actual type token is wrapped in a link and the template argument is left unchanged.
+    /// </summary>
+    [Fact]
+    public void CppTypeLinkResolver_Linkify_QualifiedTypeWithSameNamePrefixInTemplateArg_EmitsLinkWithoutCorruption()
+    {
+        // Arrange: Foo is a known intra-library type; FooBar is a template argument not in knownTypes
+        var knownTypes = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            { "ns::Foo", "ns/Foo" },
+        };
+        var resolver = new CppTypeLinkResolver(knownTypes);
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
+        // Act
+        var result = resolver.Linkify("ns::Foo<FooBar>", "ns", externalTypes);
+
+        // Assert: "Foo" is linked but "FooBar" is not wrapped in a link
+        Assert.Contains("[Foo](", result, StringComparison.Ordinal);
+        Assert.DoesNotContain("[FooBar]", result, StringComparison.Ordinal);
+        Assert.EndsWith("<FooBar>", result, StringComparison.Ordinal);
+    }
 }

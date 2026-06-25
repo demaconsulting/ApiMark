@@ -57,6 +57,22 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         Assert.Throws<ArgumentNullException>(() => new CppGenerator(null!));
     }
 
+    /// <summary>Validates that passing null to <see cref="CppGenerator.Parse"/> throws <see cref="ArgumentNullException"/>.</summary>
+    [Fact]
+    public void CppGenerator_Parse_NullContext_ThrowsArgumentNullException()
+    {
+        // Arrange: valid generator with minimal options
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "TestLibrary",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+        };
+        var generator = new CppGenerator(options);
+
+        // Act / Assert: null context must be rejected before any file I/O is attempted
+        Assert.Throws<ArgumentNullException>(() => generator.Parse(null!));
+    }
+
     /// <summary>
     ///     Validates that passing options with an empty <see cref="CppGeneratorOptions.LibraryName"/>
     ///     to the constructor throws <see cref="ArgumentException"/>.
@@ -1306,10 +1322,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
             s => s.Contains("seed = 0", StringComparison.Ordinal));
     }
 
-    /// <summary>
-    ///     Validates that a Doxygen <c>@note</c> tag is rendered as a blockquote paragraph
-    ///     (prefixed with <c>&gt; **Note:**</c>) on the function's detail page.
-    /// </summary>
+    /// <summary>Validates that a boolean default argument is rendered as <c>false</c> in the function signature.</summary>
     [Fact]
     public void CppGenerator_Generate_BoolDefaultParameter_SignatureContainsFalse()
     {

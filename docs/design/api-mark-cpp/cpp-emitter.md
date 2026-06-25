@@ -5,104 +5,137 @@
 
 ### Purpose
 
-CppEmitter implements `IApiEmitter` for C++ documentation. It holds pre-parsed
-namespace declarations and dispatches Markdown generation to the appropriate
-format-specific emitter: `CppEmitterGradualDisclosure` for the multi-file
-gradual-disclosure layout, or `CppEmitterSingleFile` for the compact single-file
-layout. CppEmitter also provides all shared helper methods used by both emitters:
-visibility and deprecated filters, doc-comment extractors, signature builders,
-include-path resolution, and filename sanitization.
+CppEmitter implements `IApiEmitter` for C++ documentation. It stores the parsed
+namespace declarations, dispatches to the format-specific emitter selected by
+`EmitConfig.Format`, and centralizes the shared helper methods used by both the
+single-file and gradual-disclosure layouts.
 
 ### Data Model
 
-**CppEmitter.NamespaceDeclarations** (internal class): Mutable accumulator used
-during `CppGenerator.Parse` to group owned declarations by namespace. Converted
-by the caller into the immutable data passed to `CppEmitter`.
+**CppEmitter.NamespaceDeclarations** (internal class): mutable namespace-grouping
+accumulator populated during `CppGenerator.Parse`.
 
-- `DisplayName`: `string` — the C++ qualified namespace name using `::` separators
-  (e.g. `"mylib::rendering"`). Used in heading text.
-- `Doc`: `CppDocComment?` — optional namespace-level doc comment.
-- `Classes`: `List<CppClass>` — owned classes and structs in this namespace.
-- `FreeFunctions`: `List<CppFunction>` — owned free functions (non-member) in
-  this namespace.
-- `Enums`: `List<CppEnum>` — owned enum declarations in this namespace.
-- `TypeAliases`: `List<CppTypeAlias>` — owned `using` type aliases in this namespace.
+- `DisplayName`: `string` — qualified namespace display name using `::`.
+- `Doc`: `CppDocComment?` — optional namespace documentation.
+- `Classes`: `List<CppClass>` — owned classes and structs.
+- `Enums`: `List<CppEnum>` — owned enums.
+- `TypeAliases`: `List<CppTypeAlias>` — owned namespace-level aliases.
+- `FreeFunctions`: `List<CppFunction>` — owned free functions.
+
+**CppExternalTypeInfo** (internal record): per-page external-type entry emitted in
+an `External Types` section — see _CppTypeLinkResolver Data Model_ for the full
+definition.
+
+**CppTypePageWriteContext** (internal record): bundles per-type-page constants for
+member page and table generation.
+
+- `Factory`: `IMarkdownWriterFactory`
+- `NsKey`: `string`
+- `NsDisplayName`: `string`
+- `Class`: `CppClass`
+- `CppResolver`: `CppTypeLinkResolver`
+
+**CppFunctionWriteContext** (internal record): bundles function-page constants used
+by `WriteFunctionContent`.
+
+- `NsDisplayName`: `string`
+- `ClassName`: `string`
+- `CppResolver`: `CppTypeLinkResolver`
+- `CurrentFolder`: `string`
+- `ExternalTypes`: `ISet<CppExternalTypeInfo>`
+- `ParametersHeadingLevel`: `int`
 
 ### Key Methods
 
-**CppEmitter.Emit** (implements `IApiEmitter`): Dispatches to the appropriate
-format-specific emitter.
+#### Dispatch
 
-- *Parameters*: `IMarkdownWriterFactory factory` — must not be null; throws
-  `ArgumentNullException` immediately when null is passed. `EmitConfig config` —
-  includes `Format` (GradualDisclosure or SingleFile) and `HeadingDepth`.
-  `IContext context` — logging channel.
-- *Returns*: `void`
-- *Algorithm*: when `config.Format == OutputFormat.SingleFile`, creates a new
-  `CppEmitterSingleFile` and calls its `Emit`; otherwise creates a new
-  `CppEmitterGradualDisclosure` and calls its `Emit`.
+- **CppEmitter.Emit**: `public void Emit(IMarkdownWriterFactory factory, EmitConfig
+  config, IContext context)` — chooses `CppEmitterSingleFile` when
+  `config.Format == OutputFormat.SingleFile`; otherwise chooses
+  `CppEmitterGradualDisclosure`.
+  - _IContext description_: output channel for diagnostic messages; not used by the
+    emitter itself but satisfies the interface contract.
+  - _Preconditions_: `factory` must not be null.
+  - _Exceptions_: `ArgumentNullException` when `factory` is null.
 
-**CppEmitter.SanitizeFileName** (internal static): Replaces characters that are
-invalid in file names on Windows or Unix with underscore.
+#### Visibility filtering helpers
 
-- *Parameters*: `string name` — C++ declaration name to sanitize. Must not be null.
-- *Returns*: A copy of `name` with every character from
-  `Path.GetInvalidFileNameChars()` replaced by `_`.
-- *Algorithm*: Converts `name` to a char array, iterates, replaces invalid chars,
-  returns a new string.
+- **GetVisibleConstructors** — returns visible constructors after applying
+  `ApiVisibility` and deprecated filtering.
+- **GetVisibleMethods** — returns visible non-constructor methods after applying
+  `ApiVisibility` and deprecated filtering.
+- **GetVisibleFields** — returns visible fields after applying `ApiVisibility` and
+  deprecated filtering.
+- **IsVisibleMember** — evaluates a single `CppAccessibility` against
+  `CppGeneratorOptions.Visibility`.
 
-**CppEmitter.BuildClassDeclaration** (internal static): Builds the one-line class
-declaration shown in the signature block.
+#### Comment extraction helpers
 
-- *Parameters*: `CppClass cls` — the class to describe.
-- *Returns*: A string of the form `"class ClassName"`,
-  `"class ClassName final"`, or `"class ClassName : public Base1, public Base2"`.
-- *Algorithm*: starts with `"class {cls.Name}"`; appends `" final"` when
-  `cls.IsFinal`; appends `" : public {b.Name}"` for each base type.
+- **GetSummary** — returns the `@brief` or first-paragraph summary.
+- **GetDetails** — returns `@details` / `@remarks` text.
+- **GetNote** — returns `@note` text.
+- **GetExample** — returns `@code` / `@endcode` example text.
+- **GetParamDescription** — resolves a parameter description by name.
+- **GetReturnDescription** — returns `@return` / `@returns` text.
+- **GetNamespaceDescription** — returns the namespace summary or the standard
+  no-description placeholder.
 
-**CppEmitter.WriteCombinedMemberPage** (internal): Writes a single combined page for
-members whose base names collide on case-insensitive filesystems.
+#### Signature builders
 
-- *Parameters*: `IMarkdownWriterFactory factory`, `string nsKey`, `string nsDisplayName`,
-  `CppClass cls`, `string lowerKey` (the shared lowercase key), members list (at
-  least two; functions or fields), `CppTypeLinkResolver cppResolver` — type link
-  resolver used to linkify parameter type cells.
-- *Returns*: `void`
-- *Algorithm*: Creates `{nsKey}/{cls.Name}/{lowerKey}.md`; writes H1 heading using
-  `lowerKey`; for each function member writes an H2 heading and delegates to
-  `WriteFunctionContent`; for each field member writes an H2 heading and delegates
-  to `WriteFieldContent`.
+- **BuildMethodSignature** — builds method, constructor, and variadic signatures,
+  including default values and `= delete` when `CppFunction.IsDeleted` is true.
+- **BuildClassDeclaration** — renders `class Name`, optional `final`, and direct
+  inheritance (`: public Base1, public Base2`).
+- **BuildTemplateParamDisplay** — renders `<T, U>` for headings and qualified names.
+- **BuildTemplateDeclaration** — renders `template<typename T, ...>` for signature
+  blocks.
+- **SimplifyTypeName** — replaces verbose clang STL spellings with user-facing
+  equivalents such as `std::string`.
+
+#### File and page helpers
+
+- **SanitizeFileName** — replaces any invalid filesystem character reported by
+  `Path.GetInvalidFileNameChars()` with `_`.
+- **GetIncludePath** — derives the canonical `#include` path relative to the
+  longest matching public include root.
+- **GetMemberBaseName** — returns the class name for constructors and the member
+  name for methods or fields.
+- **FileSystemPathComparison** / **FileSystemPathComparer** — static properties that
+  select `OrdinalIgnoreCase` (Windows/macOS) or `Ordinal` (Linux) for all path
+  comparisons in the emitter, ensuring include-path and page-key matching respects
+  native file-system case-sensitivity.
+- **WriteCombinedMemberPage**: `internal static void WriteCombinedMemberPage(
+  IMarkdownWriterFactory factory, string nsKey, string nsDisplayName, CppClass cls,
+  string lowerKey, IReadOnlyList<object> members, CppTypeLinkResolver cppResolver)` —
+  writes the shared page for case-insensitive member-name collisions.
+- **WriteExternalTypesSection** — writes the trailing `## External Types` table when
+  at least one `CppExternalTypeInfo` entry was collected on the page.
 
 ### Error Handling
 
 - `ArgumentNullException` — thrown by `Emit` when `factory` is null.
-- Format-specific exceptions are propagated from `CppEmitterGradualDisclosure`
-  or `CppEmitterSingleFile` without wrapping.
+- All writer and factory exceptions are propagated without wrapping.
 
 ### External Interfaces
 
-**IApiEmitter (provided)**: CppEmitter implements this interface from ApiMarkCore.
+#### IApiEmitter (provided)
 
-- *Type*: In-process .NET public API.
-- *Role*: Provider — `CppGenerator.Parse` returns a `CppEmitter` to the caller,
-  which then invokes `IApiEmitter.Emit`.
-- *Contract*: `Emit(factory, config, context)` must write a complete Markdown
-  tree via the supplied factory and must not throw except for null arguments.
+`CppEmitter` implements the ApiMarkCore emission contract.
+
+- _Type_: in-process .NET interface.
+- _Role_: provider.
+- _Contract_: `Emit` writes the full Markdown output using the supplied factory.
+- _Constraints_: callers must supply a non-null factory and a fully parsed emitter.
 
 ### Dependencies
 
-- **IMarkdownWriterFactory** (ApiMarkCore) — received through `Emit`; each
-  format-specific emitter calls `CreateMarkdown` to obtain per-file writers.
-- **CppEmitterGradualDisclosure** — instantiated and called by `Emit` when
-  `config.Format` is `GradualDisclosure`.
-- **CppEmitterSingleFile** — instantiated and called by `Emit` when
-  `config.Format` is `SingleFile`.
-- **CppTypeLinkResolver** — held and forwarded to both format-specific emitters
-  for Markdown link generation in table cells.
-- **CppAstModel** — consumes `CppNamespaceDeclarations`, `CppClass`,
-  `CppFunction`, `CppField`, `CppEnum`, `CppTypeAlias` record types.
+- **IMarkdownWriterFactory** — creates per-page writers.
+- **CppEmitterGradualDisclosure** — multi-file output implementation.
+- **CppEmitterSingleFile** — single-file output implementation.
+- **CppTypeLinkResolver** — linkifies table-cell types and tracks external types.
+- **CppAstModel** — consumes `CppClass`, `CppFunction`,
+  `CppField`, `CppEnum`, and `CppTypeAlias` records.
 
 ### Callers
 
-- **CppGenerator** — constructs a `CppEmitter` in `Parse` and returns it to the
-  caller as `IApiEmitter`.
+- **CppGenerator** — constructs and returns `CppEmitter` from `Parse`.

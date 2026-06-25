@@ -128,6 +128,7 @@ internal sealed class CppEmitter : IApiEmitter
     /// </returns>
     internal static string SanitizeFileName(string name)
     {
+        ArgumentNullException.ThrowIfNull(name);
         var invalidChars = Path.GetInvalidFileNameChars();
         var chars = name.ToCharArray();
         for (var i = 0; i < chars.Length; i++)

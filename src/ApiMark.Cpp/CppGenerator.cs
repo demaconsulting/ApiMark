@@ -64,7 +64,7 @@ public sealed class CppGenerator : IApiGenerator
     ///       <item>Enumerate candidate header files under each <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry.</item>
     ///       <item>Run clang with <c>-ast-dump=json</c> on all candidate headers via <see cref="ClangAstParser"/>.</item>
     ///       <item>Log any clang diagnostic errors from system headers via the context output channel.</item>
-    ///       <item>Walk the parsed namespaces, applying the ownership and visibility filters.</item>
+    ///       <item>Walk the parsed namespaces, applying the ownership filter and deprecated filter.</item>
     ///     </list>
     ///     The caller must subsequently invoke <see cref="IApiEmitter.Emit"/> to write output.
     /// </remarks>
@@ -72,6 +72,7 @@ public sealed class CppGenerator : IApiGenerator
     ///     Output channel for informational messages. Must not be null. System-header diagnostic
     ///     messages from clang are emitted here via <see cref="IContext.WriteLine"/>.
     /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> is null.</exception>
     /// <exception cref="DirectoryNotFoundException">
     ///     Thrown when <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> is empty and a
     ///     path in <see cref="CppGeneratorOptions.PublicIncludeRoots"/> does not exist on disk.
@@ -81,6 +82,8 @@ public sealed class CppGenerator : IApiGenerator
     /// </exception>
     public IApiEmitter Parse(IContext context)
     {
+        ArgumentNullException.ThrowIfNull(context);
+
         // Collect candidate header files from all configured public include roots
         var headerFiles = CollectHeaderFiles();
 

@@ -36,6 +36,8 @@ configuration beyond a standard clang installation is required.
 - Output files follow the naming convention: `api.md` entrypoint, `{namespace}.md` namespace
   summaries, `{namespace}/{TypeName}.md` type pages, `{namespace}/{AliasName}.md` type alias
   pages, and `{namespace}/{TypeName}/{MemberName}.md` member detail pages.
+- When the single-file format is specified, all documentation is written to a single `api.md`
+  file using a flat H1/H2/H3/H4 heading hierarchy.
 
 ## Test Scenarios
 
@@ -185,3 +187,8 @@ summary as a description paragraph. This scenario is tested by
 "Type Aliases" section that lists every owned alias so readers can discover them without opening
 individual alias pages. This scenario is tested by
 `CppGenerator_Generate_NamespacePage_ListsTypeAliases`.
+
+**Single-file format writes all namespaces to one api.md file**: Verifies that when the
+`--format single-file` option is specified, all documentation is written to a single `api.md`
+file using a flat heading hierarchy rather than producing separate namespace and type pages. This
+scenario is tested by `CppGenerator_Generate_SingleFileFormat_WritesToSingleFile`.

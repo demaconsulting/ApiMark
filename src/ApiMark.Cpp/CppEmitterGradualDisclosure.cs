@@ -18,6 +18,8 @@ internal sealed class CppEmitterGradualDisclosure
         ["Namespace", "`{Namespace}.md`"],
         ["Type", "`{Namespace}/{TypeName}.md`"],
         ["Member", "`{Namespace}/{TypeName}/{MemberName}.md`"],
+        ["Nested type", "`{Namespace}/{OuterType}/{NestedType}.md`"],
+        ["Class-scoped type alias", "`{Namespace}/{TypeName}/{AliasName}.md`"],
         ["Free function", "`{Namespace}/{FunctionName}.md`"],
         ["Enum", "`{Namespace}/{EnumName}.md`"],
         ["Type alias", "`{Namespace}/{AliasName}.md`"],
@@ -152,7 +154,7 @@ internal sealed class CppEmitterGradualDisclosure
         var rows = namespaces.Select(kv =>
         {
             var nsDecls = kv.Value;
-            var declarationCount = nsDecls.Classes.Count + nsDecls.Enums.Count + nsDecls.FreeFunctions.Count;
+            var declarationCount = nsDecls.Classes.Count + nsDecls.Enums.Count + nsDecls.FreeFunctions.Count + nsDecls.TypeAliases.Count;
             var description = CppEmitter.GetNamespaceDescription(nsDecls);
             return new[] { $"[{nsDecls.DisplayName}]({kv.Key}.md)", declarationCount.ToString(), description };
         });
@@ -831,7 +833,7 @@ internal sealed class CppEmitterGradualDisclosure
 
             // Linkify parameter type cells; resolver tracks external types encountered
             var paramRows = method.Parameters.Select(p =>
-                new[] { p.Name, ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(p.TypeName), ctx.CurrentFolder, ctx.ExternalTypes), CppEmitter.GetParamDescription(method.Doc, p.Name) ?? string.Empty });
+                new[] { p.Name, ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(p.TypeName), ctx.CurrentFolder, ctx.ExternalTypes), CppEmitter.GetParamDescription(method.Doc, p.Name) ?? CppEmitter.NoDescriptionPlaceholder });
             writer.WriteTable(paramHeaders, paramRows);
         }
 

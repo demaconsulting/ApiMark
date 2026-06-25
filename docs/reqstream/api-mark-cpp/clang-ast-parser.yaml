@@ -15,18 +15,26 @@ sections:
               JSON-deserialization logic isolated from the higher-level generation
               logic, making each unit independently testable.
             children: [ApiMarkCpp-ClangAstParser-ParseHeaders]
+            tests:
+              - ClangAstParser_Parse_FixtureHeaders_ReturnsNonEmptyNamespaces
           - id: ApiMarkCpp-ClangAstParser-ParseHeaders
             title: >-
-              ClangAstParser.Parse shall write a temporary combined header, invoke
-              clang, parse the resulting JSON AST, and return a CppCompilationResult
-              containing the parsed namespaces filtered to the supplied header set.
+              ClangAstParser.Parse shall accept a list of C++ header file paths and
+              return a CppCompilationResult containing only those namespaces and
+              declarations physically defined in the supplied headers, with any
+              compiler error lines collected separately.
             justification: |
-              Concatenating all headers into one temporary file allows clang to resolve
-              cross-header type references in a single translation unit. Filtering the
-              returned declarations to those in the supplied header set prevents system
-              and third-party declarations from polluting the result.
+              Filtering returned declarations to those in the supplied header set prevents
+              system and third-party declarations from polluting the result. Collecting
+              error lines separately from namespace data allows callers to distinguish
+              hard parse failures from warning-only compilations.
             tests:
+              - ClangAstParser_Parse_NullHeaders_ThrowsArgumentNullException
+              - ClangAstParser_Parse_NullOptions_ThrowsArgumentNullException
+              - ClangAstParser_Parse_EmptyHeaders_ThrowsArgumentException
+              - ClangAstParser_Parse_InvalidExplicitClangPath_ThrowsInvalidOperationException
               - ClangAstParser_Parse_FixtureHeaders_ReturnsNonEmptyNamespaces
               - ClangAstParser_Parse_FixtureHeaders_ContainsFixturesNamespace
               - ClangAstParser_Parse_FixtureHeaders_FixturesNamespaceContainsSampleClass
               - ClangAstParser_Parse_FixtureHeaders_SampleClassHasMembers
+              - ClangAstParser_Parse_FixtureHeaders_ErrorsCollectionIsEmpty

@@ -112,7 +112,171 @@ public class CppEmitterTests
         // Act
         var result = CppEmitter.BuildClassDeclaration(cls);
 
+        // Assert: the exact declaration string for a final class with no bases
+        Assert.Equal("class FinalWidget final", result);
+    }
+
+    /// <summary>Validates that <see cref="CppEmitter.BuildClassDeclaration"/> appends both final and inheritance list correctly.</summary>
+    [Fact]
+    public void CppEmitter_BuildClassDeclaration_FinalClassWithBaseTypes_AppendsFinalAndInheritance()
+    {
+        // Arrange
+        var cls = new CppClass(
+            "FinalWidget",
+            [new CppBaseType("Base")],
+            [],
+            [],
+            [],
+            [],
+            [],
+            false,
+            true,
+            null,
+            null);
+
+        // Act
+        var result = CppEmitter.BuildClassDeclaration(cls);
+
+        // Assert: final keyword precedes the inheritance list
+        Assert.Equal("class FinalWidget final : public Base", result);
+    }
+
+    /// <summary>Validates that colliding member names are merged onto a single combined page keyed by the lowercase name.</summary>
+    [Fact]
+    public void CppEmitter_WriteCombinedMemberPage_CaseInsensitiveCollision_ProducesSingleCombinedPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+        var cls = new CppClass(
+            "CaseCollisionClass",
+            [],
+            [],
+            [
+                new CppFunction("Name", "int", [], CppAccessibility.Public, false, false, false, false, false, false, null, null),
+            ],
+            [
+                new CppField("name", "int", CppAccessibility.Public, false, false, null, null),
+            ],
+            [],
+            [],
+            false,
+            false,
+            null,
+            null);
+
+        // Act
+        CppEmitter.WriteCombinedMemberPage(
+            factory,
+            "fixtures",
+            "fixtures",
+            cls,
+            "name",
+            [cls.Members[0], cls.Fields[0]],
+            resolver);
+
         // Assert
-        Assert.Contains("final", result, StringComparison.Ordinal);
+        Assert.True(factory.HasWriter("fixtures/CaseCollisionClass", "name"));
+        Assert.False(factory.HasWriter("fixtures/CaseCollisionClass", "Name"));
+        var writer = factory.GetWriter("fixtures/CaseCollisionClass", "name");
+        var headings = writer.Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(headings, h => h.Level == 2 && h.Text.StartsWith("Name", StringComparison.Ordinal));
+        Assert.Contains(headings, h => h.Level == 2 && h.Text.StartsWith("name", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that invalid file-name characters are replaced with underscores.</summary>
+    [Fact]
+    public void CppEmitter_SanitizeFileName_InvalidCharacters_AreReplacedWithUnderscore()
+    {
+        // Arrange / Act
+        var result = CppEmitter.SanitizeFileName("operator/");
+
+        // Assert
+        Assert.Equal("operator_", result);
+    }
+
+    /// <summary>Validates that base-class names are appended to the class declaration line.</summary>
+    [Fact]
+    public void CppEmitter_BuildClassDeclaration_WithBaseTypes_AppendsInheritanceList()
+    {
+        // Arrange
+        var cls = new CppClass(
+            "Circle",
+            [new CppBaseType("Shape"), new CppBaseType("Renderable")],
+            [],
+            [],
+            [],
+            [],
+            [],
+            false,
+            false,
+            null,
+            null);
+
+        // Act
+        var result = CppEmitter.BuildClassDeclaration(cls);
+
+        // Assert
+        Assert.Equal("class Circle : public Shape, public Renderable", result);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="CppEmitter.GetIncludePath"/> returns a root-relative path
+    ///     when the source file resides under a configured public include root.
+    /// </summary>
+    [Fact]
+    public void CppEmitter_GetIncludePath_MatchingRoot_ReturnsRelativePath()
+    {
+        // Arrange: emitter whose include root is the fixture include directory
+        var (emitter, _, _) = BuildMinimalEmitter();
+        var root = FixturePaths.GetFixtureIncludeDir();
+        var headerFile = Path.Combine(root, "mylib", "widget.h");
+
+        // Act
+        var result = emitter.GetIncludePath(headerFile);
+
+        // Assert: path relative to the matching root, forward-slash separated
+        Assert.Equal("mylib/widget.h", result);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="CppEmitter.GetIncludePath"/> returns the full normalized
+    ///     forward-slash path when the source file does not reside under any configured root.
+    /// </summary>
+    [Fact]
+    public void CppEmitter_GetIncludePath_NoMatchingRoot_ReturnsFileName()
+    {
+        // Arrange: header path completely outside any configured include root
+        var (emitter, _, _) = BuildMinimalEmitter();
+        var headerFile = Path.Combine(Path.GetTempPath(), "standalone.h");
+
+        // Act
+        var result = emitter.GetIncludePath(headerFile);
+
+        // Assert: when no root matches, the result contains the file name
+        Assert.EndsWith("standalone.h", result, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="CppEmitter.WriteExternalTypesSection"/> emits an
+    ///     "External Types" heading and a table when the external-types set is non-empty.
+    /// </summary>
+    [Fact]
+    public void CppEmitter_WriteExternalTypesSection_WithEntries_WritesExternalTypesSection()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        using var writer = factory.CreateMarkdown("", "test");
+        var externalTypes = new SortedSet<CppExternalTypeInfo>
+        {
+            new CppExternalTypeInfo("Logger", "acme"),
+        };
+
+        // Act
+        CppEmitter.WriteExternalTypesSection(writer, externalTypes);
+
+        // Assert: an "External Types" heading must appear in the written output
+        var headings = factory.GetWriter("", "test").Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(headings, h => h.Text.Contains("External Types", StringComparison.Ordinal));
     }
 }

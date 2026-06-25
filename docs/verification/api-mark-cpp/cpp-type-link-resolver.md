@@ -49,3 +49,30 @@ page even when two types share the same unqualified name, because the exact-matc
 takes precedence over the ambiguous short-name path.
 This scenario is tested by
 `CppTypeLinkResolver_Linkify_QualifiedReferenceToAmbiguousType_EmitsCorrectLink`.
+
+**Primitive type returns unchanged**: Verifies that primitive C++ types such as `int` are
+returned as plain text without being tracked as external types. Tested by
+`CppTypeLinkResolver_Linkify_PrimitiveType_ReturnsUnchanged`.
+
+**Null input returns null**: Verifies that passing a null type string returns null
+without throwing. Tested by `CppTypeLinkResolver_Linkify_NullInput_ReturnsNull`.
+
+**Whitespace input returns unchanged**: Verifies that a whitespace-only string is returned
+unchanged. Tested by `CppTypeLinkResolver_Linkify_WhitespaceInput_ReturnsUnchanged`.
+
+**std:: type returns unchanged**: Verifies that `std::` types are returned as plain text
+and are not tracked as external types. Tested by
+`CppTypeLinkResolver_Linkify_StdType_ReturnsUnchanged`.
+
+**External namespaced type is tracked**: Verifies that a non-std, non-library external type
+with a namespace qualifier is added to the caller's external-types set. Tested by
+`CppTypeLinkResolver_Linkify_ExternalType_AddsToExternalTypesSet`.
+
+**Qualifiers stripped before lookup**: Verifies that leading `const`/`volatile` and trailing
+reference/pointer qualifiers are removed before the base name is looked up. Tested by
+`CppTypeLinkResolver_Linkify_QualifiedType_StripsQualifiersBeforeLookup`.
+
+**Template arg prefix not corrupted**: Verifies that when a type name appears as both an
+intra-library type (e.g. `Foo`) and a prefix of a template argument (e.g. `FooBar`), only
+the actual type token is linked and the template argument is left unchanged. Tested by
+`CppTypeLinkResolver_Linkify_QualifiedTypeWithSameNamePrefixInTemplateArg_EmitsLinkWithoutCorruption`.

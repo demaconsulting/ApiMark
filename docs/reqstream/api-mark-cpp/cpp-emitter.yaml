@@ -15,25 +15,85 @@ sections:
               format-specific logic allows each format emitter to be tested in isolation
               while keeping shared utilities (visibility filters, signature builders,
               include-path resolution) in one place.
-            children: [ApiMarkCpp-CppEmitter-WriteCombinedMemberPage]
+            children:
+              - ApiMarkCpp-CppEmitter-WriteCombinedMemberPageForCaseCollisions
+              - ApiMarkCpp-CppEmitter-RejectNullFactory
+              - ApiMarkCpp-CppEmitter-SanitizeFileName
+              - ApiMarkCpp-CppEmitter-BuildClassDeclaration
+              - ApiMarkCpp-CppEmitter-RepresentExternalTypeInfo
+              - ApiMarkCpp-CppEmitter-RepresentTypePageWriteContext
+              - ApiMarkCpp-CppEmitter-RepresentFunctionWriteContext
             tests:
               - CppEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
               - CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
-          - id: ApiMarkCpp-CppEmitter-WriteCombinedMemberPage
+          - id: ApiMarkCpp-CppEmitter-WriteCombinedMemberPageForCaseCollisions
             title: >-
               CppEmitter shall emit a combined member page for case-insensitive
-              filename collisions within a single type, reject null factories, and
-              sanitize file names for operator declarations.
+              filename collisions within a single type.
             justification: |
               On case-insensitive filesystems members whose names differ only in case
               collide at the file-system level. CppEmitter must detect these collisions
-              and merge the affected members onto one shared page. Null-factory rejection
-              provides fast-fail behavior. File-name sanitization prevents invalid
-              characters in operator names from causing I/O errors.
+              and merge the affected members onto one shared page.
+            tests:
+              - CppEmitter_WriteCombinedMemberPage_CaseInsensitiveCollision_ProducesSingleCombinedPage
+          - id: ApiMarkCpp-CppEmitter-RejectNullFactory
+            title: CppEmitter shall reject a null markdown-writer factory.
+            justification: |
+              Emission cannot proceed without a writer factory, so null input must fail
+              immediately with a clear argument error.
             tests:
               - CppEmitter_Emit_NullFactory_ThrowsArgumentNullException
-              - CppEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
-              - CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
+          - id: ApiMarkCpp-CppEmitter-SanitizeFileName
+            title: >-
+              CppEmitter shall replace any invalid filesystem character in an output
+              file name with an underscore.
+            justification: |
+              File-name sanitization prevents invalid characters in operator names and
+              other declarations from causing I/O errors during emission.
+            tests:
               - CppEmitter_SanitizeFileName_RegularName_IsUnchanged
+              - CppEmitter_SanitizeFileName_InvalidCharacters_AreReplacedWithUnderscore
+          - id: ApiMarkCpp-CppEmitter-BuildClassDeclaration
+            title: >-
+              CppEmitter shall render class declaration lines with final and direct
+              public base-type information when present.
+            justification: |
+              The class declaration line gives readers immediate inheritance and finality
+              context without opening the source header.
+            tests:
               - CppEmitter_BuildClassDeclaration_NonFinalNoBase_ReturnsJustClassName
               - CppEmitter_BuildClassDeclaration_FinalClass_AppendsFinalKeyword
+              - CppEmitter_BuildClassDeclaration_WithBaseTypes_AppendsInheritanceList
+          - id: ApiMarkCpp-CppEmitter-RepresentExternalTypeInfo
+            title: >-
+              CppEmitter shall emit an External Types section listing referenced
+              external types in alphabetical order on pages that reference at least
+              one non-std external type.
+            justification: |
+              Readers using an external library type referenced in a table cell need to
+              know which namespace to include. Collecting all external type references per
+              page and listing them alphabetically provides this context without cluttering
+              individual type cells with fully-qualified names. CppTypeLinkResolver
+              accumulates the entries; CppEmitter writes the section using
+              WriteExternalTypesSection.
+            tests:
+              - CppEmitter_WriteExternalTypesSection_WithEntries_WritesExternalTypesSection
+          - id: ApiMarkCpp-CppEmitter-RepresentTypePageWriteContext
+            title: >-
+              CppEmitter shall produce consistent type page output for a given class,
+              regardless of how many times Emit is called with the same inputs.
+            justification: |
+              Consistent output guarantees that the emitter is purely functional with
+              respect to its inputs, so that documentation generation is reproducible and
+              deterministic.
+            tests:
+              - CppEmitterGradualDisclosure_Emit_MethodMember_CreatesMemberDetailPage
+          - id: ApiMarkCpp-CppEmitter-RepresentFunctionWriteContext
+            title: >-
+              CppEmitter shall produce consistent function page output for a given
+              function, regardless of how many times Emit is called with the same inputs.
+            justification: |
+              Consistent output guarantees that function page generation is reproducible
+              and deterministic across both gradual-disclosure and single-file formats.
+            tests:
+              - CppEmitterGradualDisclosure_Emit_ClassOperators_CreatesOperatorsPage
