@@ -136,36 +136,37 @@ public class VhdlGeneratorTests
         Assert.DoesNotContain(factory.Writers.Keys, k => k.Contains("_arch", StringComparison.Ordinal));
     }
 
-    /// <summary>Validates that a file that fails to parse emits an error and is skipped.</summary>
+    /// <summary>Validates that a file that fails to parse emits an error and is skipped while valid files still produce output.</summary>
     [Fact]
     public void VhdlGenerator_Parse_InvalidVhdlFile_EmitsErrorAndSkipsFile()
     {
-        // Arrange: write deliberately invalid VHDL to a temp .vhd file
-        var tempFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".vhd");
+        // Arrange: create a temp directory with one valid and one invalid .vhd file
+        var tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(tempDir);
         try
         {
-            File.WriteAllText(tempFile, "this is not valid vhdl syntax!!!");
+            File.WriteAllText(Path.Combine(tempDir, "valid.vhd"), "ENTITY minimal IS\nEND ENTITY minimal;\n");
+            File.WriteAllText(Path.Combine(tempDir, "invalid.vhd"), "this is not valid vhdl syntax!!!");
             var options = new VhdlGeneratorOptions
             {
                 LibraryName = "TestLib",
-                WorkingDirectory = Path.GetDirectoryName(tempFile)!,
-                Sources = [Path.GetFileName(tempFile)],
+                WorkingDirectory = tempDir,
+                Sources = ["*.vhd"],
             };
             var generator = new VhdlGenerator(options);
+            var factory = new InMemoryMarkdownWriterFactory();
             var context = new InMemoryContext();
 
-            // Act: parse with an invalid VHDL file
-            generator.Parse(context);
+            // Act: parse both files — invalid one should be skipped, valid one processed
+            generator.Parse(context).Emit(factory, new EmitConfig(), context);
 
-            // Assert: an error message was written for the failed file
+            // Assert: error emitted for the invalid file; valid file still produced output
             Assert.NotEmpty(context.Errors);
+            Assert.NotEmpty(factory.Writers);
         }
         finally
         {
-            if (File.Exists(tempFile))
-            {
-                File.Delete(tempFile);
-            }
+            Directory.Delete(tempDir, recursive: true);
         }
     }
 }

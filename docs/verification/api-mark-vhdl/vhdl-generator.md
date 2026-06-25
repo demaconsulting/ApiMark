@@ -23,6 +23,8 @@ configuration are required.
 - Running `Generate` against the fixture files produces at least one entity detail page.
 - Running `Generate` against all fixture files produces the expected output structure
   including entity pages, a package page, and no standalone architecture pages.
+- When one source file contains invalid VHDL, `Parse` reports an error via `context.WriteError`
+  and continues processing remaining valid files, which still produce output.
 
 ### Test Scenarios
 
@@ -58,3 +60,9 @@ This scenario is tested by `VhdlGenerator_Generate_FixtureFile_CreatesEntityPage
 generator against all fixture files (counter.vhd, mux.vhd, common_types.vhd) produces
 entity pages, a package page, and no standalone architecture pages.
 This scenario is tested by `VhdlGenerator_Generate_AllFixtures_ProducesExpectedOutputStructure`.
+
+**Invalid file emits error and valid files still produce output**: Verifies that when
+the source file set contains one invalid VHDL file and one valid VHDL file, the generator
+reports an error via `context.WriteError` for the invalid file and still emits output for
+the valid file.
+This scenario is tested by `VhdlGenerator_Parse_InvalidVhdlFile_EmitsErrorAndSkipsFile`.
