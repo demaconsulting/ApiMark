@@ -1486,19 +1486,12 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     [Fact]
     public void CppGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown()
     {
-        // Arrange: run a fresh generator with SingleFile format — the shared fixture uses
-        // GradualDisclosure and cannot be reused for this test
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Parse(new InMemoryContext()).Emit(
-            factory,
-            new EmitConfig { Format = OutputFormat.SingleFile },
-            new InMemoryContext());
+        // Arrange: use the pre-generated single-file fixture factory — it emits with
+        // OutputFormat.SingleFile over the same fixture headers as all other tests
+        var factory = _fixture.PublicSingleFileFactory;
 
         // Assert: exactly one writer, keyed "api"
-        Assert.Single(factory.Writers);
+        Assert.Single(_fixture.PublicSingleFileFactory.Writers);
         Assert.True(factory.Writers.TryGetValue("api", out var writer), "Expected a single api writer for single-file output");
         var headings = writer.Operations.OfType<HeadingOperation>().ToList();
 

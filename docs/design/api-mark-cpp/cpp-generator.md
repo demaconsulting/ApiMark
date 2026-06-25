@@ -23,7 +23,9 @@ single-file or gradual-disclosure Markdown output.
 - `ApiHeaderPatterns`: `IList<string>` — ordered gitignore-style include/exclude
   patterns used to select the documented public headers. Relative patterns are
   resolved from `WorkingDirectory` or the process CWD when `WorkingDirectory` is
-  null.
+  null. Absolute patterns are forwarded directly to `GlobFileCollector` without
+  WorkingDirectory resolution, allowing headers outside the project tree to be
+  selected.
 - `WorkingDirectory`: `string?` — optional working-directory anchor for resolving
   relative `ApiHeaderPatterns`; default `null`, which means the current process
   working directory is used.

@@ -96,12 +96,13 @@ internal sealed class CppTypeLinkResolver
     ///     Types" section after all table rows have been written. Must not be null.
     /// </param>
     /// <returns>
-    ///     A Markdown string: either a link of the form <c>[Name](relative/path.md)</c>,
-    ///     or the original <paramref name="cppTypeString"/> unchanged.
+    ///     Returns the resolved Markdown link if the type is a known intra-library type;
+    ///     otherwise returns the original value. Returns <see langword="null"/> when
+    ///     <see langword="null"/> is passed.
     /// </returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="externalTypes"/> is null.</exception>
-    public string Linkify(
-        string cppTypeString,
+    public string? Linkify(
+        string? cppTypeString,
         string currentFolder,
         ISet<CppExternalTypeInfo> externalTypes)
     {

@@ -143,7 +143,7 @@ public class CppTypeLinkResolverTests
         var externalTypes = new SortedSet<CppExternalTypeInfo>();
 
         // Act
-        var result = resolver.Linkify(null!, string.Empty, externalTypes);
+        var result = resolver.Linkify(null, string.Empty, externalTypes);
 
         // Assert
         Assert.Null(result);
@@ -206,9 +206,8 @@ public class CppTypeLinkResolverTests
     }
 
     /// <summary>
-    ///     Validates that when a type name (e.g. "Foo") appears both as the intra-library type
-    ///     being linked and as a prefix of a template argument (e.g. "FooBar"), only the
-    ///     actual type token is wrapped in a link and the template argument is left unchanged.
+    ///     Validates that the template-argument prefix corruption prevention algorithm
+    ///     links only the actual type token and leaves a sharing-prefix template argument unchanged.
     /// </summary>
     [Fact]
     public void CppTypeLinkResolver_Linkify_QualifiedTypeWithSameNamePrefixInTemplateArg_EmitsLinkWithoutCorruption()
@@ -228,5 +227,20 @@ public class CppTypeLinkResolverTests
         Assert.Contains("[Foo](", result, StringComparison.Ordinal);
         Assert.DoesNotContain("[FooBar]", result, StringComparison.Ordinal);
         Assert.EndsWith("<FooBar>", result, StringComparison.Ordinal);
+    }
+
+    /// <summary>Validates that the constructor throws when knownTypes is null.</summary>
+    [Fact]
+    public void CppTypeLinkResolver_Constructor_NullKnownTypes_ThrowsArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => new CppTypeLinkResolver(null!));
+    }
+
+    /// <summary>Validates that Linkify throws when externalTypes is null.</summary>
+    [Fact]
+    public void CppTypeLinkResolver_Linkify_NullExternalTypes_ThrowsArgumentNullException()
+    {
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+        Assert.Throws<ArgumentNullException>(() => resolver.Linkify("SomeType", string.Empty, null!));
     }
 }

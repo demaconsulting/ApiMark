@@ -3,11 +3,14 @@
 ### Verification Approach
 
 `CppTypeLinkResolver` is unit-tested in `test/ApiMark.Cpp.Tests/CppTypeLinkResolverTests.cs`
-without any test doubles. The resolver is stateless with respect to link resolution itself;
-each test constructs a resolver with a controlled `knownTypes` dictionary and supplies a
-fresh `SortedSet<CppExternalTypeInfo>` as the external-type accumulator. Tests cover the
-exact-qualified-match path, the unambiguous short-name fallback, the ambiguous short-name
-non-link path, and the qualified-reference disambiguation path.
+using an `InMemoryMarkdownWriterFactory` substitute and pre-configured known-type
+dictionaries. Tests cover: null/whitespace input pass-through, primitive-type
+pass-through, `std::` type pass-through, exact qualified-name match, unambiguous
+short-name fallback, ambiguous short-name non-link, qualified-reference
+disambiguation, external-type tracking, qualifier stripping
+(`const`/`volatile`/pointer/reference), template-prefix corruption prevention,
+null `knownTypes` constructor rejection, and null `externalTypes` `Linkify`
+rejection.
 
 ### Test Environment
 
@@ -35,6 +38,8 @@ the standard xUnit.net test runner. No clang installation is needed.
   token is wrapped in a Markdown link and the template argument is left unchanged.
 - Leading `const`/`volatile` and trailing pointer/reference qualifiers are stripped from
   the type name before any lookup is performed.
+- Constructor throws `ArgumentNullException` when `knownTypes` is null.
+- `Linkify` throws `ArgumentNullException` when `externalTypes` is null.
 
 ### Test Scenarios
 

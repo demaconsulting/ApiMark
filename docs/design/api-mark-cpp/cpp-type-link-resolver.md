@@ -68,3 +68,6 @@ N/A - in-process utility class only.
 - **CppEmitter** — stores and forwards the resolver.
 - **CppEmitterGradualDisclosure** — calls `Linkify` for return-type, parameter,
   field-type, and alias-type cells.
+- **CppEmitterSingleFile** — calls `Linkify` to resolve type strings in
+  single-file member table cells, producing Markdown links for intra-library
+  types.
