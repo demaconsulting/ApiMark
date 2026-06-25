@@ -21,17 +21,17 @@ Tests run with the standard xUnit.net test runner.
 ### Test Scenarios
 
 **Emit class section**: Verifies that class data is rendered into a dedicated class section.
-This scenario is tested by `CppEmitterSingleFile_Emit_ClassData_ContainsClassSection`.
+Tested by `CppEmitterSingleFile_Emit_ClassData_ContainsClassSection`.
 
 **Emit free-function section**: Verifies that namespace free functions are rendered into the
-single-file output. This scenario is tested by
+single-file output. Tested by
 `CppEmitterSingleFile_Emit_FreeFunction_ContainsFreeFunctionSection`.
 
 **Emit enum section**: Verifies that enum declarations are rendered into the single-file
-output. This scenario is tested by `CppEmitterSingleFile_Emit_Enum_ContainsEnumSection`.
+output. Tested by `CppEmitterSingleFile_Emit_Enum_ContainsEnumSection`.
 
 **Heading depth offset**: Verifies that all heading levels — library, namespace, class, and
-member — shift when a non-default heading depth is configured. This scenario is tested by
+member — shift when a non-default heading depth is configured. Tested by
 `CppEmitterSingleFile_Emit_NonDefaultHeadingDepth_OffsetsHeadings`.
 
 **Creates exactly one writer keyed as api**: Verifies that the single-file emitter creates

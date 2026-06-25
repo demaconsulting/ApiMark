@@ -38,8 +38,9 @@ configuration beyond a standard clang installation is required.
   summaries, `{namespace}/{TypeName}.md` type pages, `{namespace}/{AliasName}.md` type alias
   pages, `{namespace}/{TypeName}/{MemberName}.md` member detail pages,
   `{namespace}/{TypeName}/{NestedType}.md` nested-type pages,
-  `{namespace}/{TypeName}/{AliasName}.md` class-scoped type alias pages, and
-  `{namespace}/{TypeName}/operators.md` operator overloads pages.
+  `{namespace}/{TypeName}/{AliasName}.md` class-scoped type alias pages,
+  `{namespace}/{TypeName}/operators.md` class operator overloads pages, and
+  `{namespace}/operators.md` namespace-level operator overloads pages.
 - When the single-file format is specified, all documentation is written to a single `api.md`
   file using a flat H1/H2/H3/H4 heading hierarchy.
 - `api.md` lists all namespaces in a table with a Declarations count column so AI agents can
@@ -50,6 +51,8 @@ configuration beyond a standard clang installation is required.
   documentation includes an External Types section listing those types alphabetically.
 - All operator overloads for a class are grouped onto a single `operators.md` page at
   `{namespace}/{TypeName}/operators.md`, and the owning type page includes a link to that page.
+- Namespace-level free-function operator overloads are grouped onto a single `operators.md`
+  page at `{namespace}/operators.md`.
 - Type strings in method and member table cells that match a documented intra-library type are
   rendered as Markdown hyperlinks to the corresponding type page.
 - Absolute `ApiHeaderPatterns` entries select headers by their full path without WorkingDirectory
@@ -225,6 +228,11 @@ tested by `CppGenerator_Generate_ClassWithOperators_CreatesOperatorsPage`,
 `CppGenerator_Generate_ClassWithOperators_OperatorsPageContainsOperatorEntry`, and
 `CppGenerator_Generate_ClassWithOperators_TypePageLinksToOperatorsPage`.
 
+**Namespace-level free-function operators grouped on single operators page**: Verifies that
+namespace-level free-function operator overloads are grouped onto a single `operators.md` page
+at `{namespace}/operators` rather than producing individual pages. Tested by
+`CppGenerator_Generate_NamespaceFreeOperator_CreatesNamespaceOperatorsPage`.
+
 **Intra-library return type emits Markdown link in table cell**: Verifies that a method whose
 return type is a documented intra-library type produces a Markdown hyperlink in the Returns
 column of the Methods table. This scenario is tested by
@@ -237,6 +245,11 @@ This scenario is tested by `CppGenerator_Generate_NoApiHeaderPatterns_DocumentsA
 `CppGenerator_Generate_ApiHeaderPatterns_ExcludePattern_ExcludesMatchingFiles`,
 `CppGenerator_Generate_ApiHeaderPatterns_ReInclude_GitignoreSemantics_IncludesReIncludedHeader`, and
 `CppGenerator_Generate_ApiHeaderPatterns_ExcludeWithoutReInclude_ExcludesHeader`.
+
+**Absolute header patterns select headers by full path**: Verifies that an `ApiHeaderPatterns`
+entry containing an absolute path selects the specified header for documentation without
+WorkingDirectory resolution, allowing headers outside the project tree to be included. Tested by
+`CppGenerator_Generate_ApiHeaderPatterns_AbsolutePattern_DocumentsMatchingFile`.
 
 **Code example blocks rendered as fenced code**: Verifies that Doxygen `@code`/`@endcode` blocks
 on documented methods are rendered as fenced `cpp` code blocks on both gradual-disclosure member

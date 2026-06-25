@@ -24,7 +24,7 @@ Tests run with the standard xUnit.net test runner.
 
 **CppDocComment note/example default to null**: Verifies that constructing `CppDocComment`
 without `Note` or `Example` leaves both properties `null`, matching the documented optional
-metadata contract. This scenario is tested by
+metadata contract. Tested by
 `CppDocComment_NoteAndExample_WhenNotProvided_AreNull`.
 
 **Record types store constructor parameters**: Verifies that `CppField`, `CppFunction`, and

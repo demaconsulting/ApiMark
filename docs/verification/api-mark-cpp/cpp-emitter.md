@@ -27,7 +27,7 @@ Tests run with the standard xUnit.net test runner.
 ### Test Scenarios
 
 **Sanitize invalid characters**: Verifies that invalid file-name characters are replaced with
-underscores instead of causing output-path failures. This scenario is tested by
+underscores instead of causing output-path failures. Tested by
 `CppEmitter_SanitizeFileName_InvalidCharacters_AreReplacedWithUnderscore`.
 
 **Null factory rejection**: Verifies that passing null to `CppEmitter.Emit` throws

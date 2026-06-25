@@ -31,6 +31,8 @@ flowchart TD
     CppGenerator --> CppEmitter
     CppEmitter --> CppEmitterGradualDisclosure
     CppEmitter --> CppEmitterSingleFile
+    CppEmitterGradualDisclosure --> CppEmitter
+    CppEmitterSingleFile --> CppEmitter
     CppEmitter --> CppTypeLinkResolver
     CppEmitter --> IMarkdownWriterFactory
     CppGenerator --> CppTypeLinkResolver
@@ -101,8 +103,6 @@ flowchart TD
 - **clang** — external AST parser used through `ClangAstParser`.
 - **ApiMarkCore** — provides `IApiGenerator`, `IApiEmitter`, `EmitConfig`,
   `IContext`, `IMarkdownWriterFactory`, and `GlobFileCollector`.
-- **CppAstModel** — immutable record types that carry parsed declarations from
-  `ClangAstParser` through `CppGenerator` to `CppEmitter`.
 
 ## Risk Control Measures
 
