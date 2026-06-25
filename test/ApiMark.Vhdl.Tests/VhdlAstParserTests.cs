@@ -286,7 +286,7 @@ public class VhdlAstParserTests
         // Act: invoke parser on the common types fixture
         var model = VhdlAstParser.Parse(path);
 
-        // Assert: clear_vector must have one parameter with SIGNAL or OUT in the mode string
+        // Assert: clear_vector must have one parameter with combined SIGNAL OUT mode
         var pkg = Assert.Single(model.Packages);
         var subprogram = pkg.Subprograms.FirstOrDefault(s => s.Name == "clear_vector");
         Assert.NotNull(subprogram);
@@ -294,11 +294,11 @@ public class VhdlAstParserTests
         Assert.Equal("v", param.Name);
         Assert.Equal("STD_LOGIC_VECTOR", param.TypeName);
 
-        // Mode contains SIGNAL (class keyword) and/or OUT (direction) from `SIGNAL v : OUT STD_LOGIC_VECTOR`
+        // Mode must contain both SIGNAL (class keyword) and OUT (direction) from `SIGNAL v : OUT STD_LOGIC_VECTOR`
         Assert.True(
-            param.Mode.Contains("SIGNAL", StringComparison.Ordinal) ||
+            param.Mode.Contains("SIGNAL", StringComparison.Ordinal) &&
             param.Mode.Contains("OUT", StringComparison.Ordinal),
-            $"Expected mode to contain 'SIGNAL' or 'OUT', got '{param.Mode}'");
+            $"Expected mode to contain both 'SIGNAL' and 'OUT', got '{param.Mode}'");
     }
 
     /// <summary>Validates that clear_vector has a null return type because it is a procedure.</summary>
@@ -359,7 +359,7 @@ public class VhdlAstParserTests
     public void VhdlAstParser_Parse_InvalidVhdl_ThrowsInvalidOperationException()
     {
         // Arrange: write deliberately invalid VHDL content to a temp file
-        var tempFile = Path.GetTempFileName() + ".vhd";
+        var tempFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".vhd");
         try
         {
             File.WriteAllText(tempFile, "this is not valid vhdl syntax!!!");
@@ -375,5 +375,37 @@ public class VhdlAstParserTests
                 File.Delete(tempFile);
             }
         }
+    }
+
+    /// <summary>Validates that the entity name from the counter fixture is "counter".</summary>
+    [Fact]
+    public void VhdlAstParser_Parse_CounterFixture_EntityNameIsCounter()
+    {
+        // Arrange: resolve path to counter.vhd fixture file
+        var path = FixturePaths.CounterVhd;
+
+        // Act: invoke parser on the counter fixture
+        var model = VhdlAstParser.Parse(path);
+
+        // Assert: the single entity must be named "counter"
+        var entity = Assert.Single(model.Entities);
+        Assert.Equal("counter", entity.Name);
+    }
+
+    /// <summary>Validates that generics in the counter fixture have inline --! doc comments.</summary>
+    [Fact]
+    public void VhdlAstParser_Parse_CounterFixture_GenericsHaveInlineDocComments()
+    {
+        // Arrange: resolve path to counter.vhd fixture file
+        var path = FixturePaths.CounterVhd;
+
+        // Act: invoke parser on the counter fixture
+        var model = VhdlAstParser.Parse(path);
+
+        // Assert: at least one generic must have a non-empty inline doc comment
+        var entity = Assert.Single(model.Entities);
+        Assert.True(
+            entity.Generics.Any(g => g.Doc != null && !string.IsNullOrEmpty(g.Doc.Summary)),
+            "Expected at least one generic to have an inline --! doc comment");
     }
 }

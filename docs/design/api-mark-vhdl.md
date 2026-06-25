@@ -25,8 +25,8 @@ by the Core interfaces. The system contains the following units:
   declarations, and returns a `VhdlFileModel`.
 - **VhdlEmitter** — `IApiEmitter` implementation that validates the mandatory
   factory argument and dispatches to the appropriate format-specific emitter.
-- **VhdlEmitterGradualDisclosure** — writes one file per entity, architecture,
-  and package, plus an `api.md` index page listing all entities and packages.
+- **VhdlEmitterGradualDisclosure** — writes one file per entity and package, with architectures
+  rendered inline on entity detail pages, plus an `api.md` index page.
 - **VhdlEmitterSingleFile** — writes all documentation into a single `api.md`
   file using heading levels offset by `EmitConfig.HeadingDepth`.
 
@@ -78,7 +78,7 @@ ANTLR4 parser to parse VHDL-2008 source files.
 ## Dependencies
 
 - **Antlr4.Runtime.Standard**: NuGet package providing the ANTLR4 runtime for parsing
-  VHDL source files using the pre-generated vhdl2008 grammar.
+  VHDL source files using the pre-generated vhdl2008 grammar (see [ANTLR4](ots/antlr4.md)).
 
 ## Risk Control Measures
 
@@ -117,7 +117,7 @@ N/A - not a safety-classified software item.
 
 ## Design Constraints
 
-- Platform: targets net8.0 as a class library (the project targets net8.0 only).
+- Platform: .NET class library.
 - Parse environment: ANTLR4 vhdl2008 grammar discards all comments via skip rules;
   doc comment extraction is performed by pre-processing source lines independently
   of the ANTLR parse step.

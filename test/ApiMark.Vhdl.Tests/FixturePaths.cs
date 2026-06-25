@@ -14,6 +14,9 @@ internal static class FixturePaths
     /// <summary>Gets the absolute path to the mux.vhd fixture file.</summary>
     public static string MuxVhd => GetFixtureFilePath("mux.vhd");
 
+    /// <summary>Gets the absolute path to the counter.vhd fixture file.</summary>
+    public static string CounterVhd => GetFixtureFilePath("counter.vhd");
+
     /// <summary>Gets the absolute path to the common_types.vhd fixture file.</summary>
     public static string CommonTypesVhd => GetFixtureFilePath("common_types.vhd");
 

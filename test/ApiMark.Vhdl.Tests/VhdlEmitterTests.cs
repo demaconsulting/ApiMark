@@ -8,6 +8,18 @@ namespace ApiMark.Vhdl.Tests;
 /// <summary>Unit tests for <see cref="VhdlEmitter"/>.</summary>
 public class VhdlEmitterTests
 {
+    /// <summary>Validates that VhdlEmitter implements the IApiEmitter interface.</summary>
+    [Fact]
+    public void VhdlEmitter_ImplementsIApiEmitter()
+    {
+        // Arrange: create a minimal emitter
+        var options = new VhdlGeneratorOptions { LibraryName = "TestLib" };
+        var emitter = new VhdlEmitter(options, []);
+
+        // Assert: VhdlEmitter must be assignable to IApiEmitter
+        Assert.IsAssignableFrom<IApiEmitter>(emitter);
+    }
+
     /// <summary>Validates that passing null factory to Emit throws ArgumentNullException.</summary>
     [Fact]
     public void VhdlEmitter_Emit_NullFactory_ThrowsArgumentNullException()

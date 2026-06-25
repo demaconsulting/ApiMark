@@ -14,7 +14,8 @@ sections:
             children:
               - ApiMarkVhdl-VhdlEmitter-DispatchesFormat
               - ApiMarkVhdl-VhdlEmitter-ValidatesNullFactory
-            tests: []
+            tests:
+              - VhdlEmitter_ImplementsIApiEmitter
           - id: ApiMarkVhdl-VhdlEmitter-DispatchesFormat
             title: VhdlEmitter shall dispatch to VhdlEmitterGradualDisclosure or VhdlEmitterSingleFile
               based on config.Format.

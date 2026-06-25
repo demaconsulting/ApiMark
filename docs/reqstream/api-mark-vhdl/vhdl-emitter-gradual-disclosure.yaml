@@ -26,8 +26,7 @@ sections:
               AI can navigate from the package index to individual subprogram signatures
               without loading the entire package page.
             tests:
-              - VhdlEmitterGradualDisclosure_Emit_CreatesSubprogramDetailFile
-              - VhdlEmitterGradualDisclosure_Emit_SubprogramDetailFileHasSignatureHeading
-              - VhdlEmitterGradualDisclosure_Emit_PackageWithSubprogram_CreatesSubprogramDetailPage
-              - VhdlEmitterGradualDisclosure_Emit_PackageWithSubprogram_SubprogramPageContainsSignatureHeading
-              - VhdlEmitterGradualDisclosure_Emit_PackageWithSubprogram_SubprogramPageContainsSummary
+              - VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_CreatesSubprogramDetailFile
+              - VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_SubprogramDetailFileHasSignatureHeading
+              - VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_EmitsSubprogramsSection
+              - VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_PackagePageLinkUsesSubfolderPath

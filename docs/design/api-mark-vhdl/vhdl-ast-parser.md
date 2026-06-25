@@ -148,8 +148,6 @@ listener that accumulates syntax errors and throws rather than writing to
 - **ThrowIfErrors**: throws `InvalidOperationException` with all collected messages
   when at least one error was recorded; no-op otherwise.
 
-a `VhdlDocComment`.
-
 **VhdlAstParser.ParseDocCommentLines** (private static): Parses a list of `--!` comment
 lines into a `VhdlDocComment`, recognising `@brief`, `@param`, and `@return` tags.
 

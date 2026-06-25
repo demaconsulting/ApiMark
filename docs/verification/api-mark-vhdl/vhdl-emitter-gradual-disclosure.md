@@ -45,4 +45,28 @@ architectures, those architectures appear as an inline section on the entity det
 than as separate files, confirming that the gradual-disclosure emitter does not create
 standalone architecture pages.
 This scenario is tested by
-`VhdlEmitterGradualDisclosure_Emit_EntityWithArchitecture_ArchitectureSectionAppearsInEntityPage`.
+`VhdlEmitterGradualDisclosure_Emit_WithArchitecture_EntityPageHasInlineArchitecturesSection`.
+
+**Subprogram detail file is created**: Verifies that for each subprogram declared in a package,
+the gradual-disclosure emitter creates a dedicated detail file placed under a per-package
+subfolder (`{packageName}/{subprogramName}.md`).
+This scenario is tested by
+`VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_CreatesSubprogramDetailFile`.
+
+**Subprogram detail file has Signature heading**: Verifies that the subprogram detail file
+contains a Signature heading, confirming that the subprogram signature text is rendered in the
+detail page.
+This scenario is tested by
+`VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_SubprogramDetailFileHasSignatureHeading`.
+
+**Package page link uses subfolder path**: Verifies that the package page paragraph linking to a
+subprogram uses the subfolder path format (`{packageName}/{subprogramName}.md`), confirming
+correct relative navigation between the package index and subprogram detail pages.
+This scenario is tested by
+`VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_PackagePageLinkUsesSubfolderPath`.
+
+**Package page emits Subprograms section**: Verifies that the package page includes a Subprograms
+section listing each subprogram, confirming that the package detail page provides a navigable
+index of its declared subprograms.
+This scenario is tested by
+`VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_EmitsSubprogramsSection`.

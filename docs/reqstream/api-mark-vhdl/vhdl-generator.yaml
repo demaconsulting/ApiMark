@@ -7,7 +7,7 @@ sections:
         requirements:
           - id: ApiMarkVhdl-VhdlGenerator-AcceptSourceGlobPatterns
             title: VhdlGenerator shall accept one or more glob patterns that select
-              which .vhd source files to document, using gitignore-style last-match-wins
+              which .vhd and .vhdl source files to document, using gitignore-style last-match-wins
               semantics with ! prefix exclusion patterns.
             justification: |
               VHDL projects organize IP cores as individual files or as directories of .vhd
