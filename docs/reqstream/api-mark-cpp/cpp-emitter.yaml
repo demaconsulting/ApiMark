@@ -62,6 +62,7 @@ sections:
               - CppEmitter_BuildClassDeclaration_NonFinalNoBase_ReturnsJustClassName
               - CppEmitter_BuildClassDeclaration_FinalClass_AppendsFinalKeyword
               - CppEmitter_BuildClassDeclaration_WithBaseTypes_AppendsInheritanceList
+              - CppEmitter_BuildClassDeclaration_FinalClassWithBaseTypes_AppendsFinalAndInheritance
           - id: ApiMarkCpp-CppEmitter-RepresentExternalTypeInfo
             title: >-
               CppEmitter shall emit an External Types section listing referenced

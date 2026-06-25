@@ -1133,26 +1133,28 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     }
 
     /// <summary>
-    ///     Validates that <see cref="CppTypeLinkResolver.Linkify"/> emits plain text and records
-    ///     the type in the external set when the type is not in the known-types dictionary.
+    ///     Validates that when an ExternalTypeFixture class has a method whose return type
+    ///     belongs to a non-library, non-std namespace, the generated type page contains an
+    ///     External Types section listing those types.
     /// </summary>
     [Fact]
-    public void CppTypeLinkResolver_Linkify_UnknownNamespacedType_TracksExternalType()
+    public void CppGenerator_Generate_ExternalTypeReference_EmitsExternalTypesSection()
     {
-        // Arrange: a resolver with no known types, simulating a fully external reference
-        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
-        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+        // Arrange: ExternalTypeFixture.h declares a class whose GetLogger method returns
+        // external::ns::Logger* — a type outside both the fixtures namespace and std::
+        var factory = _fixture.PublicFactory;
 
-        // Act: resolve a type that belongs to a non-std namespace not in the known-types map
-        var result = resolver.Linkify("acme::Logger *", string.Empty, externalTypes);
+        // Assert: type page for ExternalTypeFixture must exist
+        Assert.True(
+            factory.Writers.TryGetValue("fixtures/ExternalTypeFixture", out var writer),
+            "Expected type page for ExternalTypeFixture");
 
-        // Assert: the original type string is returned as-is (no link to an unknown page)
-        Assert.Equal("acme::Logger *", result);
-
-        // Assert: the type is tracked in the external types set with the correct namespace
-        Assert.Single(externalTypes);
-        Assert.Equal("Logger", externalTypes.First().TypeString);
-        Assert.Equal("acme", externalTypes.First().Namespace);
+        // Assert: the type page must contain an External Types section because GetLogger
+        // returns a non-library, non-std type that is tracked by CppTypeLinkResolver
+        var headings = writer.Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(
+            headings,
+            h => h.Level == 2 && h.Text.Contains("External Types", StringComparison.Ordinal));
     }
 
     /// <summary>

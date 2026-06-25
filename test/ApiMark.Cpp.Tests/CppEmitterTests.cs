@@ -258,6 +258,43 @@ public class CppEmitterTests
     }
 
     /// <summary>
+    ///     Validates that passing null to <see cref="CppEmitter.GetIncludePath"/> throws
+    ///     <see cref="ArgumentNullException"/> before any path processing is attempted.
+    /// </summary>
+    [Fact]
+    public void CppEmitter_GetIncludePath_NullSourceFile_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var (emitter, _, _) = BuildMinimalEmitter();
+
+        // Act / Assert: null source file must be rejected immediately
+        Assert.Throws<ArgumentNullException>(() => emitter.GetIncludePath(null!));
+    }
+
+    /// <summary>
+    ///     Validates that passing a <paramref name="members"/> list with fewer than two elements to
+    ///     <see cref="CppEmitter.WriteCombinedMemberPage"/> throws <see cref="ArgumentException"/>,
+    ///     because a combined page by definition requires at least two members.
+    /// </summary>
+    [Fact]
+    public void CppEmitter_WriteCombinedMemberPage_TooFewMembers_ThrowsArgumentException()
+    {
+        // Arrange: a factory, resolver, class, and a list with only one member
+        var factory = new InMemoryMarkdownWriterFactory();
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+        var cls = new CppClass("TestClass", [], [], [], [], [], [], false, false, null, null);
+        var singleMember = new CppFunction(
+            "GetCount", "int", [], CppAccessibility.Public,
+            false, false, false, false, false, false, null, null);
+
+        // Act / Assert: one-element list must be rejected — combined page requires ≥ 2
+        Assert.Throws<ArgumentException>(() =>
+            CppEmitter.WriteCombinedMemberPage(
+                factory, "ns", "ns", cls, "getcount",
+                [singleMember], resolver));
+    }
+
+    /// <summary>
     ///     Validates that <see cref="CppEmitter.WriteExternalTypesSection"/> emits an
     ///     "External Types" heading and a table when the external-types set is non-empty.
     /// </summary>

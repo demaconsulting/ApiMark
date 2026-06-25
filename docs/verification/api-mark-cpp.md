@@ -31,17 +31,22 @@ configuration beyond a standard clang installation is required.
   require combining members onto one shared page.
 - Explicitly deleted functions and operators are documented with a `= delete` suffix in their
   signatures.
+- Type pages for derived classes include the direct base class name in the class signature block.
 - `using` type aliases receive their own pages at `{namespace}/{aliasName}.md` and are listed
   in the namespace summary under a "Type Aliases" section.
 - Output files follow the naming convention: `api.md` entrypoint, `{namespace}.md` namespace
   summaries, `{namespace}/{TypeName}.md` type pages, `{namespace}/{AliasName}.md` type alias
-  pages, and `{namespace}/{TypeName}/{MemberName}.md` member detail pages.
+  pages, `{namespace}/{TypeName}/{MemberName}.md` member detail pages,
+  `{namespace}/{TypeName}/{NestedType}.md` nested-type pages, and
+  `{namespace}/{TypeName}/{AliasName}.md` class-scoped type alias pages.
 - When the single-file format is specified, all documentation is written to a single `api.md`
   file using a flat H1/H2/H3/H4 heading hierarchy.
 - `api.md` lists all namespaces in a table with a Declarations count column so AI agents can
   calibrate exploration depth for each namespace.
 - Doxygen `@code`/`@endcode` blocks are rendered as fenced `cpp` code blocks on both
   gradual-disclosure member pages and single-file output.
+- When output contains references to external (non-library, non-std) types, the generated
+  documentation includes an External Types section listing those types alphabetically.
 
 ## Test Scenarios
 
@@ -59,6 +64,10 @@ reachable from the entrypoint. This scenario is tested by
 in the fixture headers receives its own type page, confirming the ownership filter and type page
 generation path are correct. This scenario is tested by
 `CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass`.
+
+**Inheritance class includes base type in signature**: Verifies that a class with a public base class
+has the base class name included in the generated type page class signature. This scenario is tested by
+`CppGenerator_Generate_InheritanceClass_EmitsBaseClassInSignature`.
 
 **Deprecated class is excluded when IncludeDeprecated is false**: Verifies that a class marked
 `[[deprecated]]` does not receive a type page when the IncludeDeprecated option is false,
@@ -227,3 +236,8 @@ on documented methods are rendered as fenced `cpp` code blocks on both gradual-d
 pages and single-file output. This scenario is tested by
 `CppGenerator_Generate_MethodWithCodeExample_EmitsCodeBlockOnMemberPage` and
 `CppGenerator_SingleFile_MethodWithCodeExample_EmitsCodeBlock`.
+
+**External types section in generated output**: Verifies that when a documented type references an
+external (non-std, non-library) type, the generated page includes an `External Types` section with
+the external type listed. This scenario is tested by
+`CppGenerator_Generate_ExternalTypeReference_EmitsExternalTypesSection`.

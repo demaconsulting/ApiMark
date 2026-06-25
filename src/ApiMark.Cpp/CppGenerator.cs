@@ -65,6 +65,8 @@ public sealed class CppGenerator : IApiGenerator
     ///       <item>Run clang with <c>-ast-dump=json</c> on all candidate headers via <see cref="ClangAstParser"/>.</item>
     ///       <item>Log any clang diagnostic errors from system headers via the context output channel.</item>
     ///       <item>Walk the parsed namespaces, applying the deprecated filter.</item>
+    ///       <item>Build the intra-library type map by flattening owned types from each namespace.</item>
+    ///       <item>Construct and return a <see cref="CppEmitter"/> wrapping the resolved namespace declarations.</item>
     ///     </list>
     ///     The caller must subsequently invoke <see cref="IApiEmitter.Emit"/> to write output.
     /// </remarks>
@@ -251,8 +253,8 @@ public sealed class CppGenerator : IApiGenerator
 
     /// <summary>
     ///     Maps a parsed <see cref="CppNamespaceDecl"/> into the generator's internal
-    ///     <see cref="CppEmitter.NamespaceDeclarations"/> accumulator, applying the configured
-    ///     visibility and deprecated filters.
+    ///     <see cref="CppEmitter.NamespaceDeclarations"/> accumulator, applying the
+    ///     deprecated filter.
     /// </summary>
     /// <param name="ns">The namespace declaration to process.</param>
     /// <param name="result">Dictionary that accumulates declarations grouped by namespace key.</param>

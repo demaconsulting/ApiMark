@@ -20,10 +20,10 @@ and dedicated pages for enums, type aliases, and grouped operator overloads.
 | Type | `{Namespace}/{TypeName}.md` |
 | Member | `{Namespace}/{TypeName}/{MemberName}.md` |
 | Nested type | `{Namespace}/{OuterType}/{NestedType}.md` |
+| Class-scoped type alias | `{Namespace}/{TypeName}/{AliasName}.md` |
 | Free function | `{Namespace}/{FunctionName}.md` |
 | Enum | `{Namespace}/{EnumName}.md` |
 | Type alias | `{Namespace}/{AliasName}.md` |
-| Class-scoped type alias | `{Namespace}/{TypeName}/{AliasName}.md` |
 | Operators (class) | `{Namespace}/{TypeName}/operators.md` |
 | Operators (namespace) | `{Namespace}/operators.md` |
 
@@ -72,7 +72,10 @@ and dedicated pages for enums, type aliases, and grouped operator overloads.
   - *Algorithm*: creates a writer at `(nsKey, className)`, emits an H1 heading with the
     display name, the signature block (qualified name comment, optional template declaration,
     `#include` directive, optional class declaration line), summary paragraph, extended
-    details, note, example, base-types paragraph, then calls `WriteClassMemberTables`.
+    details, note, example, base-types paragraph, then calls `WriteClassMemberTables`. If
+    the class has no visible members, no nested classes, and no type aliases, returns after
+    emitting the heading, signature block, summary, details, note, example, and base-types
+    paragraph; otherwise proceeds to `WriteClassMemberTables`.
 
 - **WriteMemberPage**: `private static void WriteMemberPage(IMarkdownWriterFactory factory,
   string nsKey, string nsDisplayName, CppClass cls, object member, string fileName,
@@ -164,7 +167,9 @@ and dedicated pages for enums, type aliases, and grouped operator overloads.
   - *Parameters*: `IMarkdownWriter writer`, `CppClass cls`, `string qualifiedClassName`.
   - *Algorithm*: calls `GetIncludePath` on the source file, builds a signature string from the
     qualified name comment, optional template declaration, `#include` directive, and optional
-    class declaration line, then calls `writer.WriteSignature`.
+    class declaration line, then calls `writer.WriteSignature`. Returns immediately without
+    emitting any signature content when `cls.Location` is null or `cls.Location.File` is null
+    or empty.
 
 - **WriteClassBaseTypesParagraph**: `private static void WriteClassBaseTypesParagraph(
   IMarkdownWriter writer, CppClass cls)` — emits the `**Inherits**: …` paragraph when the class

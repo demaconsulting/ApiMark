@@ -30,6 +30,9 @@ the standard xUnit.net test runner. No clang installation is needed.
   to the caller's external-types set, and the original string is returned unchanged.
 - Null input returns null; whitespace-only input returns unchanged — neither causes an
   exception or external-type tracking.
+- When a type name appears in a template argument position sharing a prefix with the
+  resolved type (e.g., `Foo<FooBar>` where `Foo` is a known type), only the actual type
+  token is wrapped in a Markdown link and the template argument is left unchanged.
 
 ### Test Scenarios
 

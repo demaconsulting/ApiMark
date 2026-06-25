@@ -18,6 +18,7 @@ Tests run with the standard xUnit.net test runner.
 - The emitter creates enum pages, type-alias pages, nested-type pages, and operator pages.
 - Case-insensitive collisions are combined onto one page.
 - Empty namespace collections still produce an `api.md` fallback page.
+- The api index page heading contains the configured library name.
 
 ### Test Scenarios
 

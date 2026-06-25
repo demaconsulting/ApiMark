@@ -17,7 +17,7 @@ through the ApiMarkCore interfaces. The system contains the following units:
   `CppCompilationResult`.
 - **CppEmitter** — format dispatcher and shared-helper hub.
 - **CppEmitterGradualDisclosure** — writes namespace, type, member, operator,
-  enum, and alias pages.
+  enum, alias, nested-type, and class-scoped alias pages.
 - **CppEmitterSingleFile** — writes all documentation into one `api.md` file.
 - **CppTypeLinkResolver** — resolves intra-library type links and tracks external
   types.
@@ -33,8 +33,10 @@ flowchart TD
     CppEmitter --> CppEmitterSingleFile
     CppEmitter --> CppTypeLinkResolver
     CppEmitter --> IMarkdownWriterFactory
+    CppGenerator --> CppTypeLinkResolver
     CppEmitterGradualDisclosure --> CppAstModel
     CppEmitterSingleFile --> CppAstModel
+    CppEmitterGradualDisclosure --> CppTypeLinkResolver
 ```
 
 ## External Interfaces
@@ -116,7 +118,8 @@ N/A - not a safety-classified software item.
    known-type map covering namespaces, nested classes, and type aliases.
 4. `CppEmitter.Emit` routes by `OutputFormat`: `GradualDisclosure` uses
    `CppEmitterGradualDisclosure`, which produces one `api.md` index and separate
-   per-namespace, per-type, per-member, per-operator, per-enum, and per-alias pages.
+   per-namespace, per-type, per-member, per-operator, per-enum, per-alias,
+   per-nested-type, and per-class-scoped-alias pages.
    `SingleFile` uses `CppEmitterSingleFile`, which writes the entire API reference
    into a single `api.md` file with library-name and namespace headings followed by
    type and member sections.
@@ -143,4 +146,4 @@ N/A - not a safety-classified software item.
   `InvalidOperationException`.
 - Output scope: operator overloads are grouped, macros are out of scope, and
   primary template declarations are documented while partial specializations and
-  concepts remain outside v1 scope.
+  concepts are not in scope.

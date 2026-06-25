@@ -86,7 +86,8 @@ internal sealed class CppTypeLinkResolver
     /// <param name="currentFolder">
     ///     The folder path of the Markdown file that will contain the link, relative to the
     ///     documentation output root (e.g. <c>"fixtures/SampleClass"</c>).
-    ///     Used to compute relative path hrefs. Pass an empty string for root-level files.
+    ///     Used to compute relative path hrefs. Pass an empty string or <see langword="null"/>
+    ///     for root-level files; a <see langword="null"/> value is treated as an empty string.
     /// </param>
     /// <param name="externalTypes">
     ///     Mutable set that accumulates non-std external type references found during
@@ -106,6 +107,11 @@ internal sealed class CppTypeLinkResolver
         {
             return cppTypeString;
         }
+
+        ArgumentNullException.ThrowIfNull(externalTypes);
+
+        // Treat null currentFolder as an empty string (root-level file)
+        currentFolder ??= string.Empty;
 
         // Strip qualifiers to isolate the base type name for lookup
         var stripped = StripQualifiers(cppTypeString);

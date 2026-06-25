@@ -67,10 +67,6 @@ whose source file falls under a configured `PublicIncludeRoot` appear in the gen
 output. Tested by `CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass` and
 `CppGenerator_Generate_ApiHeaderPatterns_TransitiveInclude_ExcludesNonSelectedSymbols`.
 
-**Intra-library type references emit Markdown links**: Verifies that a known intra-library
-type referenced in a member signature produces a Markdown hyperlink in the generated table
-cell. Tested by `CppGenerator_Generate_IntraLibraryReturnType_EmitsMarkdownLinkInReturnsCell`.
-
 **Deleted notation on type pages**: Verifies that a method declared `= delete` is annotated
 as deleted on its generated page. Tested by
 `CppGenerator_Generate_DeletedCopyConstructor_EmitsDeleteSuffix` and

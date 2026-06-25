@@ -151,7 +151,7 @@ internal sealed class CppEmitter : IApiEmitter
     ///     overlap (e.g. both <c>include/</c> and <c>include/mylib/</c> are configured).
     /// </remarks>
     /// <param name="sourceFile">
-    ///     The absolute or relative source file path. Must not be null or empty.
+    ///     The absolute or relative source file path. Must not be null.
     /// </param>
     /// <returns>
     ///     A forward-slash-separated relative path suitable for a <c>#include</c> directive

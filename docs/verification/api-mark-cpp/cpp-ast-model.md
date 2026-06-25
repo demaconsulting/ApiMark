@@ -68,34 +68,40 @@ Tested by `CppFunction_Construction_SetsCoreProperties`.
 reports that value correctly from the `IsDeprecated` property. Tested by
 `CppClass_Construction_SetsCoreProperties`.
 
-**CppSourceLocation stores file and line**: Verifies that `CppSourceLocation_Construction_SetsFileAndLine`
-correctly stores the file path in `File` and the line number in `Line`.
+**CppSourceLocation stores file and line**: Verifies that `CppSourceLocation` stores the file path
+in `File` and the line number in `Line` correctly. Tested by
+`CppSourceLocation_Construction_SetsFileAndLine`.
 
-**CppParamDoc stores name and description**: Verifies that `CppParamDoc_Construction_SetsNameAndDescription`
-correctly stores the parameter name and description string.
+**CppParamDoc stores name and description**: Verifies that `CppParamDoc` stores the parameter name
+in `Name` and the description string in `Description` correctly. Tested by
+`CppParamDoc_Construction_SetsNameAndDescription`.
 
-**CppBaseType stores name**: Verifies that `CppBaseType_Construction_SetsName` correctly stores the
-base class name.
+**CppBaseType stores name**: Verifies that `CppBaseType` stores the base class name in `Name`
+correctly. Tested by `CppBaseType_Construction_SetsName`.
 
-**CppTemplateParam stores name**: Verifies that `CppTemplateParam_Construction_SetsName` correctly
-stores the template parameter name.
+**CppTemplateParam stores name**: Verifies that `CppTemplateParam` stores the template parameter
+name in `Name` correctly. Tested by `CppTemplateParam_Construction_SetsName`.
 
-**CppEnumValue stores name and doc**: Verifies that `CppEnumValue_Construction_SetsNameAndDoc`
-correctly stores the enumerator name and its optional doc comment.
+**CppEnumValue stores name and doc**: Verifies that `CppEnumValue` stores the enumerator name in
+`Name` and its optional doc comment in `Doc` correctly. Tested by
+`CppEnumValue_Construction_SetsNameAndDoc`.
 
-**CppParameter stores name and type**: Verifies that `CppParameter_Construction_SetsNameAndTypeName`
-correctly stores the parameter name and type string.
+**CppParameter stores name and type**: Verifies that `CppParameter` stores the parameter name in
+`Name` and the type string in `TypeName` correctly. Tested by
+`CppParameter_Construction_SetsNameAndTypeName`.
 
-**CppEnum stores name and values**: Verifies that `CppEnum_Construction_SetsNameAndValues` correctly
-stores the enum name and the list of declared enumerator values.
+**CppEnum stores name and values**: Verifies that `CppEnum` stores the enum name in `Name` and the
+list of declared enumerator values in `Values` correctly. Tested by
+`CppEnum_Construction_SetsNameAndValues`.
 
-**CppTypeAlias stores name and underlying type**: Verifies that
-`CppTypeAlias_Construction_SetsNameAndUnderlyingType` correctly stores the alias name and its
-underlying type string.
+**CppTypeAlias stores name and underlying type**: Verifies that `CppTypeAlias` stores the alias name
+in `Name` and its underlying type string in `UnderlyingTypeName` correctly. Tested by
+`CppTypeAlias_Construction_SetsNameAndUnderlyingType`.
 
-**CppNamespaceDecl stores qualified name**: Verifies that
-`CppNamespaceDecl_Construction_SetsQualifiedName` correctly stores the fully-qualified namespace name.
+**CppNamespaceDecl stores qualified name**: Verifies that `CppNamespaceDecl` stores the
+fully-qualified namespace name in `QualifiedName` correctly. Tested by
+`CppNamespaceDecl_Construction_SetsQualifiedName`.
 
-**CppCompilationResult stores namespaces and errors**: Verifies that
-`CppCompilationResult_Construction_SetsNamespacesAndErrors` correctly stores the namespace list and
-the error string collection.
+**CppCompilationResult stores namespaces and errors**: Verifies that `CppCompilationResult` stores
+the namespace list in `Namespaces` and the error string collection in `Errors` correctly. Tested by
+`CppCompilationResult_Construction_SetsNamespacesAndErrors`.

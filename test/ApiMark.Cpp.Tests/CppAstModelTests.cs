@@ -147,6 +147,7 @@ public class CppAstModelTests
         Assert.Equal(CppAccessibility.Private, field.Accessibility);
         Assert.False(field.IsStatic);
         Assert.False(field.IsDeprecated);
+        Assert.Null(field.Doc);
     }
 
     /// <summary>Validates that <see cref="CppFunction"/> stores core properties correctly.</summary>
@@ -168,6 +169,8 @@ public class CppAstModelTests
         Assert.False(fn.IsVirtual);
         Assert.False(fn.IsVariadic);
         Assert.False(fn.IsDeprecated);
+        Assert.Null(fn.Location);
+        Assert.Null(fn.Doc);
     }
 
     /// <summary>Validates that <see cref="CppClass"/> stores core properties correctly.</summary>
@@ -182,6 +185,8 @@ public class CppAstModelTests
         Assert.Empty(cls.BaseTypes);
         Assert.False(cls.IsFinal);
         Assert.False(cls.IsDeprecated);
+        Assert.Null(cls.Location);
+        Assert.Null(cls.Doc);
     }
 
     /// <summary>Validates that <see cref="CppEnum"/> stores Name and Values correctly.</summary>
@@ -197,6 +202,7 @@ public class CppAstModelTests
         // Assert
         Assert.Equal("Color", cppEnum.Name);
         Assert.Equal(2, cppEnum.Values.Count);
+        Assert.False(cppEnum.IsDeprecated);
     }
 
     /// <summary>Validates that <see cref="CppTypeAlias"/> stores Name and UnderlyingTypeName correctly.</summary>
@@ -209,6 +215,7 @@ public class CppAstModelTests
         // Assert
         Assert.Equal("handle_t", alias.Name);
         Assert.Equal("void*", alias.UnderlyingTypeName);
+        Assert.False(alias.IsDeprecated);
     }
 
     /// <summary>Validates that <see cref="CppNamespaceDecl"/> stores QualifiedName correctly.</summary>

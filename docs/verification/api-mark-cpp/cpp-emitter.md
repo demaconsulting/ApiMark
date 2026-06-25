@@ -19,7 +19,9 @@ Tests run with the standard xUnit.net test runner.
 - `SanitizeFileName` preserves valid names and replaces invalid characters with underscores.
 - `BuildClassDeclaration` renders non-final, final, and inherited class declarations correctly.
 - `WriteCombinedMemberPage` emits one shared page for case-insensitive member collisions.
+- `WriteCombinedMemberPage` rejects a `members` list containing fewer than two elements with `ArgumentException`.
 - `GetIncludePath` returns a root-relative path when the source file is under a configured public root; returns the full normalized path when no root matches.
+- `GetIncludePath` rejects a null `sourceFile` with `ArgumentNullException`.
 - `WriteExternalTypesSection` writes an H2 "External Types" heading and a table row per entry when the set is non-empty; writes nothing when the set is empty.
 
 ### Test Scenarios
@@ -64,9 +66,19 @@ names differ only in case are merged onto a single lowercase-keyed page. Tested 
 residing under a configured public include root produces a root-relative, forward-slash
 path. Tested by `CppEmitter_GetIncludePath_MatchingRoot_ReturnsRelativePath`.
 
+**GetIncludePath rejects null source file**: Verifies that passing null to `GetIncludePath`
+throws `ArgumentNullException` immediately, so callers that supply an invalid path receive a
+clear error before any path processing is attempted. Tested by
+`CppEmitter_GetIncludePath_NullSourceFile_ThrowsArgumentNullException`.
+
 **GetIncludePath returns full path when no root matches**: Verifies that a source file not
 under any configured root produces the full normalized path. Tested by
 `CppEmitter_GetIncludePath_NoMatchingRoot_ReturnsFileName`.
+
+**WriteCombinedMemberPage rejects too few members**: Verifies that a `members` list
+containing only one element throws `ArgumentException`, enforcing the contract that a
+combined page requires at least two members. Tested by
+`CppEmitter_WriteCombinedMemberPage_TooFewMembers_ThrowsArgumentException`.
 
 **WriteExternalTypesSection emits H2 heading with table rows**: Verifies that a non-empty
 external-types set causes `WriteExternalTypesSection` to write an H2 "External Types" heading
@@ -76,3 +88,8 @@ and a table row for each entry containing the type name and namespace. Tested by
 **WriteExternalTypesSection produces no output for empty set**: Verifies that an empty
 external-types set causes `WriteExternalTypesSection` to write no headings and no tables.
 Tested by `CppEmitter_WriteExternalTypesSection_EmptySet_WritesNothing`.
+
+**BuildClassDeclaration final class with base types**: Verifies that a class marked both
+`final` and with a public base type produces a declaration string containing both the `final`
+keyword and the inheritance list in the correct order. Tested by
+`CppEmitter_BuildClassDeclaration_FinalClassWithBaseTypes_AppendsFinalAndInheritance`.

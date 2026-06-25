@@ -129,6 +129,16 @@ by `WriteFunctionContent`.
 - _Contract_: `Emit` writes the full Markdown output using the supplied factory.
 - _Constraints_: callers must supply a non-null factory and a fully parsed emitter.
 
+#### IMarkdownWriterFactory (consumed)
+
+- _Type_: in-process .NET interface from ApiMarkCore.
+- _Role_: consumer.
+- _Contract_: received from the caller in `Emit`, validated (null throws
+  `ArgumentNullException`), then forwarded to the format-specific sub-emitter
+  (`CppEmitterGradualDisclosure` or `CppEmitterSingleFile`) to create per-page
+  `IMarkdownWriter` instances.
+- _Constraints_: must not be null.
+
 ### Dependencies
 
 - **IMarkdownWriterFactory** — creates per-page writers.
