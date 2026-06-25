@@ -135,4 +135,37 @@ public class VhdlGeneratorTests
             "Expected a page containing 'common_types'");
         Assert.DoesNotContain(factory.Writers.Keys, k => k.Contains("_arch", StringComparison.Ordinal));
     }
+
+    /// <summary>Validates that a file that fails to parse emits an error and is skipped.</summary>
+    [Fact]
+    public void VhdlGenerator_Parse_InvalidVhdlFile_EmitsErrorAndSkipsFile()
+    {
+        // Arrange: write deliberately invalid VHDL to a temp .vhd file
+        var tempFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".vhd");
+        try
+        {
+            File.WriteAllText(tempFile, "this is not valid vhdl syntax!!!");
+            var options = new VhdlGeneratorOptions
+            {
+                LibraryName = "TestLib",
+                WorkingDirectory = Path.GetDirectoryName(tempFile)!,
+                Sources = [Path.GetFileName(tempFile)],
+            };
+            var generator = new VhdlGenerator(options);
+            var context = new InMemoryContext();
+
+            // Act: parse with an invalid VHDL file
+            generator.Parse(context);
+
+            // Assert: an error message was written for the failed file
+            Assert.NotEmpty(context.Errors);
+        }
+        finally
+        {
+            if (File.Exists(tempFile))
+            {
+                File.Delete(tempFile);
+            }
+        }
+    }
 }

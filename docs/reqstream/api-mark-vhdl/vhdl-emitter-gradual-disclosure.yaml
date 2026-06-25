@@ -17,6 +17,8 @@ sections:
               - VhdlEmitterGradualDisclosure_Emit_MinimalData_CreatesApiIndexPage
               - VhdlEmitterGradualDisclosure_Emit_MinimalData_CreatesEntityPage
               - VhdlEmitterGradualDisclosure_Emit_MinimalData_ApiIndexContainsLibraryNameHeading
+              - VhdlEmitterGradualDisclosure_Emit_WithArchitecture_EntityPageHasInlineArchitecturesSection
+              - VhdlEmitterGradualDisclosure_Emit_WithArchitecture_ArchitectureParagraphContainsFilename
           - id: ApiMarkVhdl-VhdlEmitterGradualDisclosure-EmitSubprogramDetailPage
             title: VhdlEmitterGradualDisclosure shall write one detail file per subprogram
               declared in a package, placed under a per-package subfolder
