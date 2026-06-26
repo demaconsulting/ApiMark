@@ -81,7 +81,7 @@ sections:
               requiring external test infrastructure or the full source tree.
             tests:
               - Program_Main_WithValidateFlag_ExitsZero
-              - Program_Main_WithValidateAndResultsFile_WritesResultsFile
+              - Validation_Run_WithResultsTrxFile_CreatesTrxFile
           - id: ApiMarkTool-Program-SupportVersionOption
             title: Program shall support a global --version option.
             justification: |
