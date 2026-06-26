@@ -17,7 +17,10 @@ internal static class VhdlAstParser
     internal static VhdlFileModel Parse(string filePath)
     {
         var sourceText = File.ReadAllText(filePath);
-        var lines = sourceText.Split('\n').Select(l => l.TrimEnd('\r')).ToArray();
+        // Normalize all line-ending conventions (CRLF, LF, CR) to LF so that
+        // line-index lookups in VhdlVisitor are consistent regardless of the
+        // file's original encoding
+        var lines = sourceText.ReplaceLineEndings("\n").Split('\n');
 
         var input = new AntlrInputStream(sourceText);
         var lexer = new vhdl2008Lexer(input);

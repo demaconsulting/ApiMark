@@ -80,6 +80,13 @@ public static class GlobFileCollector
         ArgumentNullException.ThrowIfNull(workingDirectory);
 
         var extensions = new HashSet<string>(languageExtensions, StringComparer.OrdinalIgnoreCase);
+
+        // Ordinal comparison is correct here because every path added to `collected` carries
+        // on-disk casing: glob paths come from Matcher.GetResultsInFullPath (which returns the
+        // real filesystem entry name) and literal paths go through ResolveOnDiskPath (which uses
+        // Directory.GetFiles to obtain the same on-disk name). Two patterns that refer to the
+        // same physical file will therefore produce identical strings, so Ordinal deduplication
+        // is exact on both case-sensitive (Linux) and case-insensitive (Windows/macOS) filesystems.
         var collected = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var pattern in patterns)

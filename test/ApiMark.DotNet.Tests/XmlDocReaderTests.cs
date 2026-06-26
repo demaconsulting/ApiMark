@@ -1596,9 +1596,9 @@ public class XmlDocReaderTests
             var reader = new XmlDocReader(path);
             var summary = reader.GetSummary("M:Foo.Bar.UseList");
 
-            // Assert: arity marker is rendered as angle-bracket notation, not stripped
+            // Assert: arity marker is rendered as escaped angle-bracket notation for Markdown prose
             Assert.NotNull(summary);
-            Assert.Contains("List<T>", summary, StringComparison.Ordinal);
+            Assert.Contains(@"List\<T\>", summary, StringComparison.Ordinal);
         }
         finally
         {

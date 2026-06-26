@@ -777,7 +777,9 @@ public sealed class XmlDocReader
         var typeParams = arity == 1
             ? "T"
             : string.Join(", ", Enumerable.Range(1, arity).Select(i => $"T{i}"));
-        return $"{baseName}<{typeParams}>";
+        // Escape angle brackets for Markdown prose — bare <T> is parsed as an HTML tag
+        // by Markdown renderers and the type parameter would be stripped or hidden
+        return $"{baseName}\\<{typeParams}\\>";
     }
 
     /// <summary>
