@@ -21,7 +21,10 @@ up after itself. No other external files, services, or configuration are require
 - Unknown flags produce `ArgumentException`.
 - `WriteError` unconditionally sets `ExitCode` to `1` regardless of the `Silent` flag.
 - `--log <file>` creates the file and captures `WriteLine` output.
+- `--log <file>` also captures `WriteError` output.
 - `--depth <n>` sets `HeadingDepth` to `n`; values outside 1–6 or non-integers throw `ArgumentException`.
+- When `--format single-file` is in effect, `--depth` values above 3 throw `ArgumentException` regardless of argument order.
+- `--depth 3` with `--format single-file` is accepted (boundary value).
 - `--results`/`--result` sets `ResultsFile` to the supplied path.
 - `--includes` accepts one directory path per flag; repeated flags accumulate paths into `Includes`.
 - `--api-headers` patterns are accumulated in order; `!`-prefixed exclusion patterns are forwarded verbatim.
@@ -144,3 +147,14 @@ corresponding properties set simultaneously.
 `--source "src/**/*.vhd" --source "!src/tb/**/*.vhd"` →
 `Sources = ["src/**/*.vhd", "!src/tb/**/*.vhd"]`
 (the `!` prefix is preserved verbatim so `VhdlGenerator` can apply gitignore semantics).
+
+**`Context_OpenLogFile_ErrorOutputAlsoWrittenToLog`**: `--log <tempPath>` + `WriteError`
+→ file exists and contains the error message after `Dispose`.
+
+**`Context_Create_WithDepthAbove3AndSingleFileFormat_ThrowsArgumentException`**:
+`--format single-file --depth 4` and `--depth 4 --format single-file` both throw
+`ArgumentException` (theory test covering both argument orderings).
+
+**`Context_Create_WithDepth3AndSingleFileFormat_Succeeds`**: `--format single-file --depth 3`
+parses successfully with `HeadingDepth = 3` and `Format = OutputFormat.SingleFile`
+(boundary value is accepted).

@@ -72,6 +72,15 @@ construction path.
 - *Exceptions*: `ArgumentException` on unknown flag or missing required
   value; `InvalidOperationException` if the log file cannot be opened.
 
+**`--depth` range and format constraints**: `--depth` accepts integer values
+in the range 1–6 for the `gradual` output format. For the `single-file` output
+format, `--depth` is additionally restricted to 1–3 because member-level headings
+in single-file output are rendered at `depth+3`; a depth value greater than 3
+would produce heading levels beyond H6, which is the maximum valid ATX heading
+level in Markdown and cannot be rendered meaningfully by Markdown processors.
+The constraint is enforced during argument parsing regardless of which order
+`--depth` and `--format single-file` appear in the argument list.
+
 **Context.WriteLine(string message)** — Writes a line to stdout and to the
 log file.
 

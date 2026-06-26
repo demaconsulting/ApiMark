@@ -687,4 +687,72 @@ public sealed class ContextTests
         // Assert
         Assert.Equal(["src/**/*.vhd", "!src/tb/**/*.vhd"], context.Sources);
     }
+
+    /// <summary>
+    ///     Validates that output written through <see cref="Context.WriteError"/> is also
+    ///     captured in the log file when <c>--log</c> is specified.
+    /// </summary>
+    [Fact]
+    public void Context_OpenLogFile_ErrorOutputAlsoWrittenToLog()
+    {
+        // Arrange: create a temporary file path for the log
+        var tempPath = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".log");
+
+        try
+        {
+            // Act: create context with --log, write an error message, and dispose to flush
+            using (var context = Context.Create(["--silent", "--log", tempPath]))
+            {
+                context.WriteError("test error output");
+            }
+
+            // Assert: the log file must exist and contain the error message
+            Assert.True(File.Exists(tempPath), "Log file must be created");
+            var content = File.ReadAllText(tempPath);
+            Assert.Contains("test error output", content);
+        }
+        finally
+        {
+            // Clean up the temporary log file regardless of test outcome
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <c>--depth</c> values above 3 throw <see cref="ArgumentException"/>
+    ///     when <c>--format single-file</c> is specified, regardless of argument order.
+    /// </summary>
+    [Theory]
+    [InlineData("--format", "single-file", "--depth", "4")]
+    [InlineData("--depth", "4", "--format", "single-file")]
+    public void Context_Create_WithDepthAbove3AndSingleFileFormat_ThrowsArgumentException(
+        string arg1, string val1, string arg2, string val2)
+    {
+        // Arrange: build the argument array from the theory parameters
+        var args = new[] { arg1, val1, arg2, val2 };
+
+        // Act / Assert: depth > 3 with single-file format must throw ArgumentException
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
+    }
+
+    /// <summary>
+    ///     Validates that <c>--depth 3</c> with <c>--format single-file</c> is accepted
+    ///     (boundary value must not be rejected).
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithDepth3AndSingleFileFormat_Succeeds()
+    {
+        // Arrange: supply depth at the boundary value alongside single-file format
+        var args = new[] { "--format", "single-file", "--depth", "3" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: depth 3 is valid for single-file and both properties must be set
+        Assert.Equal(3, context.HeadingDepth);
+        Assert.Equal(OutputFormat.SingleFile, context.Format);
+    }
 }

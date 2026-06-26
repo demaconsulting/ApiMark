@@ -5,6 +5,7 @@ using Xunit;
 namespace ApiMark.Tool.Tests;
 
 /// <summary>Integration tests for <see cref="Program"/>.</summary>
+[Collection("Console")]
 public class ProgramTests
 {
     /// <summary>

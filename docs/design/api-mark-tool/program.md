@@ -19,8 +19,8 @@ construction, and help/banner printing.
 
 **Program.Version** (public static `string` property): Returns the informational
 version string read from `AssemblyInformationalVersionAttribute` via reflection, with
-fallback to `AssemblyVersion`, then `"0.0.0"`. Used by `PrintBanner` and `Run` when
-responding to `--version`.
+fallback to `AssemblyVersion`, then a safe placeholder string. Used by `PrintBanner`
+and `Run` when responding to `--version`.
 
 **Context** (`Cli/Context.cs`): See _Cli Subsystem Design_ (`cli.md`) and
 _Context Unit Design_ (`cli/context.md`) for the full data model and interface.
