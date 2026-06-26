@@ -35,7 +35,7 @@ sections:
               markdown output and to produce dedicated detail pages for every visible member.
             tests:
               - ApiMarkDotNet_TypeNames_CommonSignatures_RenderReadably
-              - TypeNameSimplifier_GenericArguments_AreSimplifiedRecursively
+              - TypeNameSimplifier_Simplify_GenericArguments_AreSimplifiedRecursively
               - DotNetGenerator_Generate_MethodWithParameters_CreatesMemberPage
           - id: MonoCecil-Assembly-ExposeAccessibilityModifiers
             title: Mono.Cecil shall expose the accessibility modifier for every type
