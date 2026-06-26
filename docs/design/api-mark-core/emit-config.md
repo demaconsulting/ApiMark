@@ -27,10 +27,14 @@ the emitted Markdown. Default: `OutputFormat.GradualDisclosure`. Values:
 - `SingleFile` — all content written into a single `api.md` file using offset
   heading levels.
 
-**EmitConfig.HeadingDepth** defaults to `1` and is validated in the range 1–3 at
-init time. Valid range: 1–3. The effective member heading level is `HeadingDepth + 3`;
-at depth 3 members are at H6, which is the maximum heading level supported by Markdown.
-Values outside 1–3 throw `ArgumentOutOfRangeException`. Ignored by `GradualDisclosure`
+**EmitConfig.HeadingDepth** defaults to `1` and is validated in the range 1–6 at
+init time. Valid range: 1–6. The maximum value allowed by `EmitConfig` itself is 6,
+matching the highest valid ATX heading level in Markdown. Callers that use emitters
+which nest additional heading levels below the top-level heading are responsible for
+further restricting the value before constructing `EmitConfig` (for example,
+single-file emitters render member headings at `HeadingDepth + 3`; callers must
+restrict the supplied value to 1–3 to keep member headings within H1–H6).
+Values outside 1–6 throw `ArgumentOutOfRangeException`. Ignored by `GradualDisclosure`
 emitters.
 
 **OutputFormat**: `enum` — discriminates between the two supported output
@@ -49,7 +53,7 @@ do not affect equality semantics.
 
 `EmitConfig` enforces the `HeadingDepth` range at init time. Setting `HeadingDepth`
 to a value less than 1 throws `ArgumentOutOfRangeException` (via
-`ArgumentOutOfRangeException.ThrowIfLessThan`). Setting it greater than 3 throws
+`ArgumentOutOfRangeException.ThrowIfLessThan`). Setting it greater than 6 throws
 `ArgumentOutOfRangeException` (via `ArgumentOutOfRangeException.ThrowIfGreaterThan`).
 `Format` accepts any `OutputFormat` enum value and performs no range check.
 

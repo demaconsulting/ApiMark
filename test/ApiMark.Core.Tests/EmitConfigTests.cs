@@ -22,15 +22,29 @@ public sealed class EmitConfigTests
     }
 
     /// <summary>
-    ///     Verifies that setting <see cref="EmitConfig.HeadingDepth"/> to 4 throws
-    ///     <see cref="ArgumentOutOfRangeException"/> because 4 is above the maximum valid
-    ///     depth of 3 (which would produce an H7 member heading, unsupported by Markdown).
+    ///     Verifies that setting <see cref="EmitConfig.HeadingDepth"/> to 7 throws
+    ///     <see cref="ArgumentOutOfRangeException"/> because 7 is above the maximum valid
+    ///     depth of 6 (the highest ATX heading level supported by Markdown).
     /// </summary>
     [Fact]
     public void EmitConfig_HeadingDepth_AboveMaximum_ThrowsArgumentOutOfRangeException()
     {
-        // Arrange / Act / Assert: depth 4 is above the valid range and must be rejected
-        Assert.Throws<ArgumentOutOfRangeException>(() => new EmitConfig { HeadingDepth = 4 });
+        // Arrange / Act / Assert: depth 7 is above the valid range and must be rejected
+        Assert.Throws<ArgumentOutOfRangeException>(() => new EmitConfig { HeadingDepth = 7 });
+    }
+
+    /// <summary>
+    ///     Verifies that setting <see cref="EmitConfig.HeadingDepth"/> to 4 succeeds
+    ///     because 4 is within the widened valid range of 1–6.
+    /// </summary>
+    [Fact]
+    public void EmitConfig_HeadingDepth_ValueFour_SetsCorrectly()
+    {
+        // Arrange / Act: construct EmitConfig with a heading depth of 4 — valid in the 1–6 range
+        var config = new EmitConfig { HeadingDepth = 4 };
+
+        // Assert: the property must reflect the supplied value
+        Assert.Equal(4, config.HeadingDepth);
     }
 
     /// <summary>

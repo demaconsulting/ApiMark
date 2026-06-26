@@ -722,35 +722,37 @@ public sealed class ContextTests
     }
 
     /// <summary>
-    ///     Validates that <c>--depth 4</c> without any format flag throws <see cref="ArgumentException"/>
-    ///     because <c>EmitConfig.HeadingDepth</c> accepts a maximum of 3 for all output formats.
+    ///     Validates that <c>--depth 4</c> is accepted by <see cref="Context"/> because
+    ///     the valid range is 1–6; format-specific constraints are enforced downstream.
     /// </summary>
     [Fact]
-    public void Context_Create_WithDepth4_ThrowsArgumentException()
+    public void Context_Create_WithDepth4_SetsHeadingDepth()
     {
-        // Arrange: supply --depth 4 with no format flag — gradual-disclosure is the default format
-        // and must also reject depth > 3 (member headings at depth+3 would exceed H6)
+        // Arrange: supply --depth 4 — this is within the 1–6 range accepted by Context
         var args = new[] { "--depth", "4" };
 
-        // Act / Assert: depth > 3 must throw ArgumentException for any format
-        Assert.Throws<ArgumentException>(() => Context.Create(args));
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: depth 4 is valid in Context and must be stored without error
+        Assert.Equal(4, context.HeadingDepth);
     }
 
     /// <summary>
-    ///     Validates that <c>--depth</c> values above 3 throw <see cref="ArgumentException"/>
-    ///     when <c>--format single-file</c> is specified, regardless of argument order.
+    ///     Validates that <c>--depth 6</c> is accepted by <see cref="Context"/> because 6
+    ///     is the upper bound of valid ATX heading levels in Markdown (H1–H6).
     /// </summary>
-    [Theory]
-    [InlineData("--format", "single-file", "--depth", "4")]
-    [InlineData("--depth", "4", "--format", "single-file")]
-    public void Context_Create_WithDepthAbove3AndSingleFileFormat_ThrowsArgumentException(
-        string arg1, string val1, string arg2, string val2)
+    [Fact]
+    public void Context_Create_WithDepth6_SetsHeadingDepth()
     {
-        // Arrange: build the argument array from the theory parameters
-        var args = new[] { arg1, val1, arg2, val2 };
+        // Arrange: supply --depth 6 — the maximum value in the 1–6 first-principles range
+        var args = new[] { "--depth", "6" };
 
-        // Act / Assert: depth > 3 with single-file format must throw ArgumentException
-        Assert.Throws<ArgumentException>(() => Context.Create(args));
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: depth 6 is the upper boundary and must be stored without error
+        Assert.Equal(6, context.HeadingDepth);
     }
 
     /// <summary>

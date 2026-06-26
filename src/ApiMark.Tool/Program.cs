@@ -184,6 +184,19 @@ internal static class Program
             return;
         }
 
+        // Enforce the single-file format depth constraint: the single-file emitter writes member
+        // headings at depth+3 (assembly at depth, namespace at depth+1, type at depth+2, member
+        // at depth+3), so depth > 3 would produce H7+ headings which CommonMark does not support.
+        // This check lives here (not in Context) because it is a format-specific, cross-argument
+        // constraint discoverable only after both --format and --depth are known.
+        if (context.Format == OutputFormat.SingleFile && context.HeadingDepth > 3)
+        {
+            context.WriteError(
+                $"--depth must be 1-3 for single-file output " +
+                $"(member headings would exceed H6 at depth {context.HeadingDepth}).");
+            return;
+        }
+
         try
         {
             // Construct the generator, parse symbols, then emit using the configured format

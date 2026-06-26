@@ -23,8 +23,9 @@ up after itself. No other external files, services, or configuration are require
 - `--log <file>` creates the file and captures `WriteLine` output.
 - `--log <file>` also captures `WriteError` output.
 - `--depth <n>` sets `HeadingDepth` to `n`; values outside 1–6 or non-integers throw `ArgumentException`.
-- When `--format single-file` is in effect, `--depth` values above 3 throw `ArgumentException` regardless of argument order.
-- `--depth 3` with `--format single-file` is accepted (boundary value).
+- `--depth 4` with no `--format` flag is accepted (`HeadingDepth = 4`).
+- `--depth 6` is accepted as the upper boundary of the valid ATX heading range (`HeadingDepth = 6`).
+- Context validates only that the value is an integer in the range 1–6 (valid ATX heading levels). It does not enforce format-specific constraints such as the single-file depth limit; those are cross-argument constraints enforced by the program layer after all arguments are parsed.
 - `--results`/`--result` sets `ResultsFile` to the supplied path.
 - Flag tokens (starting with `-`) supplied as values for string-valued options are rejected with `ArgumentException`.
 - `--includes` accepts one directory path per flag; repeated flags accumulate paths into `Includes`.
@@ -78,6 +79,12 @@ up after itself. No other external files, services, or configuration are require
 
 **`Context_Create_WithDepthOptionOutOfRange_ThrowsArgumentException`**: `--depth 0`, `--depth 7`,
 and `--depth abc` each throw `ArgumentException` (theory test covering all three variants).
+
+**`Context_Create_WithDepth4_SetsHeadingDepth`**: `--depth 4` → `HeadingDepth = 4` (depth 4 is
+within the valid 1–6 range; format-specific constraints are enforced downstream).
+
+**`Context_Create_WithDepth6_SetsHeadingDepth`**: `--depth 6` → `HeadingDepth = 6` (depth 6 is
+the upper boundary of the valid ATX heading range and must be accepted without error).
 
 **`Context_Create_WithResultsOption_SetsResultsFile`**: `--results results.trx` and
 `--result results.trx` both set `ResultsFile = "results.trx"` (theory test covering both variants).
@@ -152,13 +159,10 @@ corresponding properties set simultaneously.
 **`Context_OpenLogFile_ErrorOutputAlsoWrittenToLog`**: `--log <tempPath>` + `WriteError`
 → file exists and contains the error message after `Dispose`.
 
-**`Context_Create_WithDepthAbove3AndSingleFileFormat_ThrowsArgumentException`**:
-`--format single-file --depth 4` and `--depth 4 --format single-file` both throw
-`ArgumentException` (theory test covering both argument orderings).
-
 **`Context_Create_WithDepth3AndSingleFileFormat_Succeeds`**: `--format single-file --depth 3`
 parses successfully with `HeadingDepth = 3` and `Format = OutputFormat.SingleFile`
-(boundary value is accepted).
+(boundary value is accepted; whether depth 3 is also valid for a particular emitter is
+enforced by the emitter layer, not by Context).
 
 **`Context_Create_WithFlagValueForOutput_ThrowsArgumentException`**: `["dotnet", "--output", "--silent"]`
 — a flag token supplied as the `--output` value — throws `ArgumentException`, confirming

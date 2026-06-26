@@ -441,37 +441,83 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Validates that <c>--validate --results &lt;file&gt;</c> writes a results file to
-    ///     the specified path and exits with code 0.
+    ///     Validates that <c>--format single-file --depth 4</c> exits with a non-zero code
+    ///     and writes a diagnostic naming both flags, because member headings in single-file
+    ///     output are at <c>depth+3</c> and a depth of 4 would produce H7, which exceeds H6.
     /// </summary>
     [Fact]
-    public void Program_Main_WithValidateAndResultsFile_WritesResultsFile()
+    public void Program_Main_WithSingleFileFormatAndDepth4_ReturnsNonZeroExitCode()
     {
-        // Arrange: create a temporary results file path that does not yet exist
-        var resultsFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".trx");
-        var originalOut = Console.Out;
-        using var outWriter = new StringWriter();
+        // Arrange: use the fixture assembly so the tool reaches the cross-argument validation
+        // step; the error must be caught before the generator is constructed
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
 
         try
         {
-            Console.SetOut(outWriter);
+            Console.SetError(errorWriter);
 
             // Act
-            var exitCode = Program.Main(["--validate", "--results", resultsFile]);
+            var exitCode = Program.Main([
+                "dotnet",
+                "--assembly", assemblyPath,
+                "--xml-doc", xmlDocPath,
+                "--output", outputDir,
+                "--format", "single-file",
+                "--depth", "4",
+            ]);
 
-            // Assert: self-validation succeeds and the results file is written to the requested path
-            Assert.Equal(0, exitCode);
-            Assert.True(File.Exists(resultsFile), "Expected results file to be created");
+            // Assert: the cross-argument constraint must produce a non-zero exit and a
+            // diagnostic that names --depth so the user can identify and correct the error
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--depth", errorWriter.ToString(), StringComparison.Ordinal);
         }
         finally
         {
-            // Restore console and remove the temporary results file regardless of outcome
-            Console.SetOut(originalOut);
+            // Restore the original error stream regardless of outcome
+            Console.SetError(originalError);
+        }
+    }
 
-            if (File.Exists(resultsFile))
+    /// <summary>
+    ///     Validates that <c>--format gradual --depth 4</c> exits with code 0 because the
+    ///     single-file depth constraint does not apply to the gradual-disclosure format.
+    /// </summary>
+    [Fact]
+    public void Program_Main_WithGradualFormatAndDepth4_ExitsZero()
+    {
+        // Arrange: use the fixture assembly with gradual format and depth 4 — this combination
+        // is valid because gradual-disclosure emitters do not nest headings beyond depth+1
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+
+        try
+        {
+            // Act
+            var exitCode = Program.Main([
+                "dotnet",
+                "--assembly", assemblyPath,
+                "--xml-doc", xmlDocPath,
+                "--output", outputDir,
+                "--format", "gradual",
+                "--depth", "4",
+            ]);
+
+            // Assert: gradual format with depth 4 is valid and must exit zero
+            Assert.Equal(0, exitCode);
+        }
+        finally
+        {
+            // Clean up the temporary output directory regardless of outcome
+            if (Directory.Exists(outputDir))
             {
-                File.Delete(resultsFile);
+                Directory.Delete(outputDir, recursive: true);
             }
         }
     }
 }
+

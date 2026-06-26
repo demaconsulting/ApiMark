@@ -22,9 +22,9 @@ verification. Property-default compliance is enforced by the test assertions.
 - `EmitConfig.HeadingDepth` defaults to `1` when no explicit value is supplied.
 - Both properties can be overridden at object-initialization time using `init` setters.
 - Setting `HeadingDepth` to a value less than 1 throws `ArgumentOutOfRangeException`.
-- Setting `HeadingDepth` to a value greater than 3 throws `ArgumentOutOfRangeException`.
-- Setting `HeadingDepth` to a valid non-default value (e.g., `2`) is accepted and
-  reflected by the property.
+- Setting `HeadingDepth` to a value greater than 6 throws `ArgumentOutOfRangeException`.
+- Setting `HeadingDepth` to a valid non-default value within 1–6 (e.g., `2` or `4`) is
+  accepted and reflected by the property.
 
 ### Test Scenarios
 
@@ -49,10 +49,15 @@ confirming that values below 1 are rejected at init time. This scenario is teste
 `EmitConfig_HeadingDepth_BelowMinimum_ThrowsArgumentOutOfRangeException`.
 
 **HeadingDepth above maximum throws ArgumentOutOfRangeException**: Verifies that
-constructing `new EmitConfig { HeadingDepth = 4 }` throws `ArgumentOutOfRangeException`,
-confirming that values above 3 are rejected (because depth 4 would produce H7 member
-headings, which are unsupported by CommonMark). This scenario is tested by
+constructing `new EmitConfig { HeadingDepth = 7 }` throws `ArgumentOutOfRangeException`,
+confirming that values above 6 are rejected (because H7 is not a valid ATX heading level
+in CommonMark). This scenario is tested by
 `EmitConfig_HeadingDepth_AboveMaximum_ThrowsArgumentOutOfRangeException`.
+
+**HeadingDepth value 4 is accepted**: Verifies that `new EmitConfig { HeadingDepth = 4 }`
+succeeds and `HeadingDepth` reflects the supplied value, confirming that depth 4 is within
+the widened 1–6 valid range. This scenario is tested by
+`EmitConfig_HeadingDepth_ValueFour_SetsCorrectly`.
 
 **HeadingDepth valid non-default value is accepted**: Verifies that
 `new EmitConfig { HeadingDepth = 2 }` succeeds and `HeadingDepth` reflects the

@@ -27,6 +27,10 @@ output directory. No external service, privileged configuration, or network acce
 - `--validate` runs self-validation tests and returns exit code zero when all pass.
 - `--validate --results <file>` additionally writes the results to the specified file path.
 - The `vhdl` subcommand rejects invocations without at least one non-exclusion `--source` pattern.
+- `--format single-file --depth 4` returns a non-zero exit code with a diagnostic naming `--depth`
+  because member headings in single-file output are at `depth+3` and depth 4 would produce H7.
+- `--format gradual --depth 4` is accepted and returns exit code zero (the single-file depth
+  constraint does not apply to the gradual-disclosure format).
 
 ### Test Scenarios
 
@@ -94,3 +98,15 @@ subcommand without any `--source` arguments returns a non-zero exit code and a d
 message, confirming that the subcommand enforces the requirement for at least one non-exclusion
 source pattern before attempting generation. This scenario is tested by
 `Program_Main_WithVhdlSubcommand_MissingSourceFiles_ReturnsNonZeroExitCode`.
+
+**Single-file format with depth 4 returns non-zero exit code**: Verifies that supplying
+`--format single-file --depth 4` produces a non-zero exit code and a diagnostic naming
+`--depth`, confirming that the cross-argument depth constraint is enforced in `RunToolLogic`
+after both flags are known. The constraint exists because single-file emitters render member
+headings at `depth+3`; depth 4 would produce H7+, which CommonMark does not support. This
+scenario is tested by `Program_Main_WithSingleFileFormatAndDepth4_ReturnsNonZeroExitCode`.
+
+**Gradual-disclosure format with depth 4 exits zero**: Verifies that supplying
+`--format gradual --depth 4` with a valid dotnet subcommand exits with code zero, confirming
+that the single-file depth constraint is not applied to the gradual-disclosure format. This
+scenario is tested by `Program_Main_WithGradualFormatAndDepth4_ExitsZero`.
