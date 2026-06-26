@@ -6,7 +6,7 @@
 `test/ApiMark.Core.Tests/GlobFileCollectorTests.cs` that exercise `GlobFileCollector`,
 the sole consumer of the library. The tests operate against temporary real directories
 on disk, confirming that the `Matcher` API behaves as expected for the subset of
-features ApiMark uses: include patterns rooted at a given directory.
+features ApiMark uses: include patterns, exclusion patterns, and non-existent roots.
 
 ### Test Scenarios
 

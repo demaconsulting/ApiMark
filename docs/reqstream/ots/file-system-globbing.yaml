@@ -15,3 +15,21 @@ sections:
             tests:
               - GlobFileCollector_Collect_RelativeVhdPattern_FindsVhdFiles
               - GlobFileCollector_Collect_AbsolutePattern_FindsFiles
+          - id: FileSystemGlobbing-Matcher-ApplyExclusionPatterns
+            title: Microsoft.Extensions.FileSystemGlobbing shall exclude files matching
+              gitignore-style exclusion patterns prefixed with '!'.
+            justification: |
+              GlobFileCollector passes '!'-prefixed patterns to Matcher as exclusion
+              rules. Any defect in exclusion evaluation would cause excluded files to
+              appear in language-generator input.
+            tests:
+              - GlobFileCollector_Collect_ExclusionPattern_RemovesMatchedFiles
+          - id: FileSystemGlobbing-Matcher-HandleNonExistentRoot
+            title: Microsoft.Extensions.FileSystemGlobbing shall return an empty result
+              when the root directory does not exist, without throwing.
+            justification: |
+              GlobFileCollector passes a working directory that may not exist on disk.
+              A silent empty result is the correct behavior; an exception would
+              propagate to callers as an unhandled error.
+            tests:
+              - GlobFileCollector_Collect_NonExistentRoot_ReturnsEmptyWithoutThrowing

@@ -193,6 +193,11 @@ public static class GlobFileCollector
             return null;
         }
 
+        if (!Directory.Exists(directory))
+        {
+            return null;
+        }
+
         var matches = Directory.GetFiles(directory, fileName);
         return matches.Length > 0 ? matches[0] : null;
     }
