@@ -14,7 +14,10 @@ sections:
               scenario and report totals to the user. DemaConsulting.TestResults provides the
               structured container that aggregates individual test outcomes into a reportable
               collection.
-            tests: [Validation_Run_WritesVersionAndHelpTestResults]
+            tests:
+              - Validation_Run_WritesVersionAndHelpTestResults
+              - Validation_Run_WithResultsTrxFile_CreatesTrxFile
+              - Validation_Run_WithResultsXmlFile_CreatesXmlFile
           - id: DemaConsultingTestResults-Results-SerializeToTrx
             title: >-
               DemaConsulting.TestResults shall serialize a collected test results set
