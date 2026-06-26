@@ -42,3 +42,13 @@ is introduced. The integration follows this sequence:
    serialized content with `File.WriteAllText`.
 
 The consuming unit is `ApiMarkTool-SelfTest-Validation`.
+
+### Error Handling
+
+If the caller supplies a results file path with an unsupported extension (anything other than
+`.trx` or `.xml`), `WriteResultsFile` calls `context.WriteError()` with an explanatory message
+and returns without writing a file; this sets `context.ExitCode` to 1 as a side-effect.
+
+If a file I/O or serialization exception occurs when writing the results file, the exception is
+caught and reported via `context.WriteError()`, again resulting in a non-zero exit code. Exceptions
+are not re-thrown; the caller receives the error through the exit code.
