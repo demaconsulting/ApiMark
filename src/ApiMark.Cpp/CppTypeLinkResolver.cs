@@ -152,23 +152,14 @@ internal sealed class CppTypeLinkResolver
                 : stripped;
             var linked = $"[{shortName}]({relativePath})";
 
-            // Position-aware single-site replacement: locate shortName at the exact token
-            // position to avoid corrupting template arguments that share a prefix with it
-            // (e.g. Foo<FooBar> where shortName = "Foo" must not also linkify "FooBar")
-            int startIdx;
-            if (stripped.Contains("::", StringComparison.Ordinal))
-            {
-                // For qualified types, find the last '::' in the original string so we
-                // start searching only where the unqualified name begins
-                var lastColonPos = cppTypeString.LastIndexOf("::", StringComparison.Ordinal);
-                startIdx = lastColonPos >= 0 ? lastColonPos + 2 : 0;
-            }
-            else
-            {
-                startIdx = 0;
-            }
-
-            var idx = cppTypeString.IndexOf(shortName, startIdx, StringComparison.Ordinal);
+            // Position-aware single-site replacement: search for shortName only in the
+            // portion of cppTypeString before the first '<'. This prevents looking inside
+            // template arguments — which may contain qualified names sharing a prefix with
+            // shortName (e.g. ns::Foo<ns::FooBar> must not linkify FooBar instead of Foo).
+            // LastIndexOf within that slice naturally lands on the correct token site.
+            var ltPos = cppTypeString.IndexOf('<', StringComparison.Ordinal);
+            var searchRange = ltPos >= 0 ? cppTypeString[..ltPos] : cppTypeString;
+            var idx = searchRange.LastIndexOf(shortName, StringComparison.Ordinal);
             if (idx < 0)
             {
                 // Fallback: should never happen in practice, but avoid silent corruption

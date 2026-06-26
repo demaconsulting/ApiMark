@@ -229,6 +229,33 @@ public class CppTypeLinkResolverTests
         Assert.EndsWith("<FooBar>", result, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     Validates that Linkify correctly resolves a qualified intra-library type whose
+    ///     template argument is also a qualified name sharing the same namespace prefix,
+    ///     without corrupting the template argument.
+    /// </summary>
+    [Fact]
+    public void CppTypeLinkResolver_Linkify_QualifiedTypeWithQualifiedTemplateArgSharingPrefix_EmitsLinkWithoutCorruption()
+    {
+        // Arrange: Foo is a known intra-library type; ns::FooBar is a qualified template
+        // argument NOT in knownTypes — the old LastIndexOf("::", cppTypeString) approach
+        // would find the '::' inside the template arg and corrupt "FooBar" into "[Foo](...)Bar"
+        var knownTypes = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            { "ns::Foo", "ns/Foo" },
+        };
+        var resolver = new CppTypeLinkResolver(knownTypes);
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
+        // Act
+        var result = resolver.Linkify("ns::Foo<ns::FooBar>", "ns", externalTypes);
+
+        // Assert: "Foo" is linked but the template argument "FooBar" is not corrupted
+        Assert.Contains("[Foo](", result, StringComparison.Ordinal);
+        Assert.DoesNotContain("[FooBar]", result, StringComparison.Ordinal);
+        Assert.EndsWith("<ns::FooBar>", result, StringComparison.Ordinal);
+    }
+
     /// <summary>Validates that the constructor throws when knownTypes is null.</summary>
     [Fact]
     public void CppTypeLinkResolver_Constructor_NullKnownTypes_ThrowsArgumentNullException()
