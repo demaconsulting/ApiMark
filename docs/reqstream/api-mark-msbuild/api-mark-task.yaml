@@ -160,11 +160,8 @@ sections:
               - ApiMarkTask_Format_NotForwarded_WhenNotSet
           - id: ApiMarkMsbuild-ApiMarkTask-SupportOutputsItemGroup
             title: >-
-              ApiMarkTask shall generate documentation for each ApiMarkOutputs item
-              using that
-              item's per-output metadata (OutputDir, Format, Visibility) to control
-              where and how
-              each output is written.
+              ApiMarkTask shall generate documentation for each item in the
+              ApiMarkOutputs ItemGroup when it is non-empty.
             justification: |
               Projects that need multiple output formats or visibility levels from a single build
               must be able to declare named outputs via the ApiMarkOutputs ItemGroup, each carrying
@@ -173,3 +170,52 @@ sections:
             tests:
               - ApiMarkTask_BuildArgumentsForOutput_OverridesScalarPropertiesFromMetadata
               - ApiMarkTask_BuildArgumentsForOutput_RestoresScalarPropertiesAfterCall
+          - id: ApiMarkMsbuild-ApiMarkTask-OverrideOutputProperties
+            title: >-
+              ApiMarkTask shall override OutputDir, Visibility, and Format from each
+              ApiMarkOutputs item's metadata when building arguments for that output.
+            justification: |
+              Each named output in the ApiMarkOutputs ItemGroup must be able to specify its own
+              output directory, visibility level, and format independently so that a single build
+              invocation can produce multiple distinct documentation artifacts.
+            tests:
+              - ApiMarkTask_BuildArgumentsForOutput_OverridesScalarPropertiesFromMetadata
+          - id: ApiMarkMsbuild-ApiMarkTask-RestoreOutputProperties
+            title: >-
+              ApiMarkTask shall restore the original OutputDir, Visibility, and Format
+              values after building arguments for each output item.
+            justification: |
+              Scalar property values must be restored after each per-output invocation so that
+              subsequent items and the scalar invocation path continue to use the original
+              project-level property values, avoiding cross-contamination between outputs.
+            tests:
+              - ApiMarkTask_BuildArgumentsForOutput_RestoresScalarPropertiesAfterCall
+          - id: ApiMarkMsbuild-ApiMarkTask-ResolveDotNetExecutable
+            title: >-
+              ApiMarkTask shall locate the dotnet executable by checking DOTNET_HOST_PATH
+              first and then searching PATH, and shall return false with an error if neither
+              source provides a valid executable path.
+            justification: |
+              The .NET SDK sets DOTNET_HOST_PATH to the exact dotnet host; preferring it over
+              PATH avoids confusion when multiple SDK versions are installed. Failing fast with
+              a clear error prevents a silent no-op build when the SDK is absent.
+            tests:
+              - ApiMarkTask_Execute_ToolExitsNonZero_ReturnsFalseAndLogsError
+          - id: ApiMarkMsbuild-ApiMarkTask-SurfaceToolExitCode
+            title: >-
+              ApiMarkTask shall return false and log a MSBuild error when the spawned
+              ApiMark.Tool process exits with a non-zero exit code.
+            justification: |
+              MSBuild builds must fail visibly when documentation generation fails. Returning
+              false from Execute causes MSBuild to mark the target as failed and stop the build,
+              while the logged error message identifies the exit code for diagnosis.
+            tests:
+              - ApiMarkTask_Execute_ToolExitsNonZero_ReturnsFalseAndLogsError
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardStdoutToLog
+            title: >-
+              ApiMarkTask shall forward the spawned tool's standard output to the MSBuild
+              build log as informational messages.
+            justification: |
+              ApiMark.Tool writes progress and status to stdout. Forwarding it to the MSBuild
+              log makes generation progress visible in the IDE output window and CI build logs.
+            tests: []

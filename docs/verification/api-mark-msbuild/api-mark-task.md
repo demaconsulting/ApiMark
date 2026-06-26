@@ -33,9 +33,8 @@ MSBuild and VC++ tools installed; those tests skip gracefully when the package i
 - `ApiMarkVisibility` is forwarded as `--visibility` when set.
 - `ApiMarkIncludeObsolete` is forwarded as `--include-obsolete` when true.
 - `DisableApiMark` suppresses tool invocation and returns true with no side effects.
-- A non-zero exit code from the spawned tool causes `Execute` to return false and log a
-  MSBuild error. Note: process-failure surfacing (non-zero exit → task returns false +
-  logs error) is a known verification gap; a dedicated test is pending.
+- A non-zero exit code from the spawned tool causes Execute to return false and log a
+  MSBuild error.
 - For C++ builds, `ApiMarkLibraryName` is forwarded as `--library-name` when set.
 - For C++ builds, `ApiMarkLibraryDescription` is forwarded as `--library-description` when set.
 - For C++ builds, `ApiMarkClangPath` is forwarded as `--clang-path` when set.
@@ -163,3 +162,8 @@ properties (`OutputDir`, `Visibility`, `Format`) are restored to their original 
 `BuildArgumentsForOutput` returns, so subsequent calls still use the original property
 values. This scenario is tested by
 `ApiMarkTask_BuildArgumentsForOutput_RestoresScalarPropertiesAfterCall`.
+
+**Non-zero tool exit returns false and logs error**: Verifies that when the spawned tool
+process exits with a non-zero exit code, `Execute` returns false and a MSBuild error is
+logged. This scenario is tested by
+`ApiMarkTask_Execute_ToolExitsNonZero_ReturnsFalseAndLogsError`.

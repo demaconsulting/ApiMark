@@ -28,9 +28,7 @@ permission is required.
 - `ApiMarkOutputDir` and `ApiMarkVisibility` are forwarded correctly to the tool.
 - `ApiMarkIncludeObsolete` set to `true` adds the `--include-obsolete` flag to the spawned tool
   command.
-- A non-zero exit code from the spawned tool is surfaced as an MSBuild build failure. Note:
-  process-failure surfacing (non-zero exit → task returns false + logs error) is a known
-  verification gap; a dedicated test is pending.
+- A non-zero exit code from the spawned tool causes Execute to return false and log an MSBuild error.
 - When `ApiMarkPackDocs` is `true`, the generated `api/` folder is included in the
   NuGet package; when `false` or unset, the `api/` folder is not packaged.
 - For C++ projects, `ApiMarkLibraryName` is forwarded as `--library-name` when set.

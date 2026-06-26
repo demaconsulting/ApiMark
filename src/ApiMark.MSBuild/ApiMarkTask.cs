@@ -18,7 +18,7 @@ using Microsoft.Build.Utilities;
 ///     intentionally kept out-of-process in <c>ApiMark.Tool</c>, which targets <c>net8.0</c> and may
 ///     use libraries that do not support <c>netstandard2.0</c>.
 /// </remarks>
-public sealed class ApiMarkTask : Task
+public class ApiMarkTask : Task
 {
     /// <summary>Language identifier for .NET documentation generation.</summary>
     private const string DotNetLanguage = "dotnet";
@@ -549,7 +549,7 @@ public sealed class ApiMarkTask : Task
     /// <param name="dotnetExe">Full path to the <c>dotnet</c> executable.</param>
     /// <param name="toolArgs">Ordered argument list starting with the language subcommand.</param>
     /// <returns><c>true</c> when the process exits with code zero; <c>false</c> otherwise.</returns>
-    private bool RunToolProcess(string dotnetExe, IReadOnlyList<string> toolArgs)
+    protected virtual bool RunToolProcess(string dotnetExe, IReadOnlyList<string> toolArgs)
     {
         // Configure the child process with redirected I/O so all output feeds the MSBuild log.
         // ArgumentList is used instead of Arguments so that the runtime applies correct

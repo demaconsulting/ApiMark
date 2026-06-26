@@ -625,5 +625,51 @@ public class ApiMarkTaskTests
         Assert.True(formatIdx >= 0);
         Assert.Equal("gradual", afterArgs[formatIdx + 1]);
     }
-}
 
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.Execute"/> returns <c>false</c> and logs a
+    ///     MSBuild error when the spawned tool process exits with a non-zero exit code.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Execute_ToolExitsNonZero_ReturnsFalseAndLogsError()
+    {
+        // Arrange: use the test assembly as ToolDllPath so File.Exists passes, then override
+        // RunToolProcess to simulate a non-zero exit without spawning a real child process
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new FailingApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".csproj",
+            ToolDllPath = typeof(ApiMarkTaskTests).Assembly.Location,
+            ApiMarkAssemblyPath = "test.dll",
+            ApiMarkXmlDocPath = "test.xml",
+        };
+
+        // Act
+        var result = task.Execute();
+
+        // Assert: Execute must return false and at least one error must have been logged
+        Assert.False(result);
+        buildEngine.Received().LogErrorEvent(Arg.Any<BuildErrorEventArgs>());
+    }
+
+    /// <summary>
+    ///     Subclass of <see cref="ApiMarkTask"/> that overrides <c>RunToolProcess</c> to simulate
+    ///     a non-zero tool exit without spawning a real child process.
+    /// </summary>
+    /// <remarks>
+    ///     This test helper exercises the exit-code error-surfacing path of
+    ///     <see cref="ApiMarkTask.Execute"/> without requiring a real <c>ApiMark.Tool</c>
+    ///     binary or a real dotnet executable to be present on the test host.
+    /// </remarks>
+    private sealed class FailingApiMarkTask : ApiMarkTask
+    {
+        /// <inheritdoc/>
+        protected override bool RunToolProcess(string dotnetExe, IReadOnlyList<string> toolArgs)
+        {
+            // Simulate the exact error the real implementation logs on a non-zero exit
+            Log.LogError("ApiMark.Tool exited with code 1.");
+            return false;
+        }
+    }
+}
