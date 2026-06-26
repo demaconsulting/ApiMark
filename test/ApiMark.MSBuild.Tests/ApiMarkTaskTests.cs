@@ -765,6 +765,9 @@ public class ApiMarkTaskTests
     private sealed class FailingApiMarkTask : ApiMarkTask
     {
         /// <inheritdoc/>
+        protected override string? ResolveDotNetExe() => "dummy-dotnet";
+
+        /// <inheritdoc/>
         protected override bool RunToolProcess(string dotnetExe, IReadOnlyList<string> toolArgs)
         {
             // Simulate the exact error the real implementation logs on a non-zero exit

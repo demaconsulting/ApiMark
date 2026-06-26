@@ -468,7 +468,7 @@ internal sealed class Context : IContext, IDisposable
                     return index + 1;
 
                 case "--depth":
-                    HeadingDepth = GetRequiredIntArgument(arg, args, index, "a heading depth argument", 1, 6);
+                    HeadingDepth = GetRequiredIntArgument(arg, args, index, "a heading depth argument", 1, 3);
 
                     // Reject depth > 3 for all formats — EmitConfig.HeadingDepth enforces a maximum of 3
                     // because member headings are always written at depth+3, which would exceed H6
