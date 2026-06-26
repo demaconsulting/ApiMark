@@ -13,14 +13,14 @@ Visual Studio C++ builds (Windows).
 Rather than calling language generators in-process, ApiMarkTask spawns the
 `ApiMark.Tool` .NET executable as a child process, passing all configuration as
 command-line arguments. This out-of-process design allows the language generators
-to target `net8.0` freely — using libraries that do not support `netstandard2.0`
-such as newer versions of CppAst.Net — while the MSBuild task itself targets
-`netstandard2.0` for full compatibility with both .NET Framework MSBuild (Visual
-Studio) and the .NET SDK MSBuild (`dotnet build`).
+to target a modern .NET framework freely — using libraries that do not support the
+MSBuild-compatible .NET Standard target such as newer versions of CppAst.Net — while
+the MSBuild task itself targets a .NET Standard-compatible target for full compatibility
+with both .NET Framework MSBuild (Visual Studio) and the .NET SDK MSBuild (`dotnet build`).
 
 The NuGet package `ApiMark.MSBuild` bundles both the task assembly and the
-pre-compiled `ApiMark.Tool` DLL and its dependencies under `tools/net8.0/`. The
-`.targets` file wires `ApiMarkTask` into `AfterTargets="Build"` and sets the
+pre-compiled `ApiMark.Tool` DLL and its dependencies under a `tools/` subfolder.
+The `.targets` file wires `ApiMarkTask` into `AfterTargets="Build"` and sets the
 `ToolDllPath` property to the bundled tool location.
 
 When `ApiMarkPackDocs` is set to `true`, the `.targets` file also hooks the
@@ -34,7 +34,7 @@ project explicitly opts in.
 **MSBuild task (provided)**: ApiMarkTask is consumed by MSBuild as an in-process
 task.
 
-- *Type*: MSBuild task (`netstandard2.0`, in-process in the MSBuild host).
+- *Type*: MSBuild task (.NET Standard-compatible target, in-process in the MSBuild host).
 - *Role*: Provider — `.csproj` and `.vcxproj` files reference the task via the
   NuGet package; MSBuild invokes the task at build time.
 - *Contract*: MSBuild properties `ApiMarkLanguage`, `ApiMarkOutputDir`,
@@ -54,8 +54,8 @@ task.
     (semicolon-delimited ordered glob/exclusion patterns; optional),
     `ApiMarkDefines` (semicolon-delimited preprocessor defines; semicolons
     converted to commas for the tool argument),
-    `ApiMarkCppStandard` (e.g. `c++17`; optional, defaulted to `c++17` by the `.targets` file
-    when not set by the project),
+    `ApiMarkCppStandard` (a C++ language standard identifier; optional, defaulted to a
+    recent C++ standard by the `.targets` file when not set by the project),
     `ApiMarkClangPath` (optional explicit clang executable path).
   Optional input item group `ApiMarkOutput` (exposed to MSBuild projects via the task property
   `ApiMarkOutputs`); each item carries `OutputDir`, `Format`, and `Visibility` metadata that
@@ -130,10 +130,10 @@ bundled in the NuGet package.
 
 ## Design Constraints
 
-- Task platform: targets `netstandard2.0` so the same assembly runs in .NET
+- Task platform: targets a .NET Standard-compatible target so the same assembly runs in .NET
   Framework MSBuild (Visual Studio) and .NET SDK MSBuild (`dotnet build`).
-- Tool platform: `ApiMark.Tool.dll` targets `net8.0`; language generators are free
-  to use any library regardless of `netstandard` support.
+- Tool platform: `ApiMark.Tool.dll` targets a modern .NET framework; language generators are free
+  to use any library regardless of .NET Standard support.
 - Cross-platform `dotnet` resolution: `DOTNET_HOST_PATH` is set by the SDK on all
   platforms; the task must fall back to searching `PATH` for environments where it
   is not set (e.g., Visual Studio on .NET Framework MSBuild).

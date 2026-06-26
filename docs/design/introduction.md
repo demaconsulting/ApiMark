@@ -12,7 +12,7 @@ systems: ApiMark.Core (shared contracts and file-path helpers), ApiMark.DotNet
 .NET executable invoked by ApiMarkTask and directly by users or CI pipelines).
 Several OTS items provide library support: Mono.Cecil for the DotNet system, clang (via
 `clang -ast-dump=json`) for the Cpp system, DemaConsulting.TestResults for the SelfTest
-subsystem, Antlr4.Runtime.Standard/ANTLR4 vhdl2008 grammar for the Vhdl system, and
+subsystem, Antlr4.Runtime.Standard with an ANTLR4 VHDL grammar for the Vhdl system, and
 Microsoft.Extensions.FileSystemGlobbing for glob-based file discovery in ApiMarkCore.
 An archived OTS item, cpp-ast-net, is retained for historical reference.
 
@@ -33,7 +33,7 @@ OTS items:
 - **Mono.Cecil**: integration and usage design.
 - **clang**: integration and usage design (via `clang -ast-dump=json`).
 - **DemaConsulting.TestResults**: integration and usage design.
-- **Antlr4.Runtime.Standard / ANTLR4 vhdl2008 grammar**: integration and usage design.
+- **Antlr4.Runtime.Standard / ANTLR4 VHDL grammar**: integration and usage design.
 - **Microsoft.Extensions.FileSystemGlobbing**: integration and usage design.
 - **cpp-ast-net**: integration and usage design (archived; retained for historical reference).
 
@@ -96,7 +96,7 @@ OTS Dependencies:
 ├── Mono.Cecil (OTS)
 ├── DemaConsulting.TestResults (OTS)
 ├── clang -ast-dump=json (OTS)
-├── Antlr4.Runtime.Standard / ANTLR4 vhdl2008 grammar (OTS)
+├── Antlr4.Runtime.Standard / ANTLR4 VHDL grammar (OTS)
 ├── Microsoft.Extensions.FileSystemGlobbing (OTS)
 └── cpp-ast-net (OTS) [archived]
 ```
