@@ -57,10 +57,10 @@ task.
     `ApiMarkCppStandard` (e.g. `c++17`; optional, defaulted to `c++17` by the `.targets` file
     when not set by the project),
     `ApiMarkClangPath` (optional explicit clang executable path).
-  Optional input item group `ApiMarkOutputs`; each item carries `OutputDir`, `Format`, and
-  `Visibility` metadata that overrides the corresponding scalar properties for that named output
-  configuration; one child process is spawned per item; documentation packaging is handled by
-  `_ApiMarkIncludeDocsInPackage`.
+  Optional input item group `ApiMarkOutput` (exposed to MSBuild projects via the task property
+  `ApiMarkOutputs`); each item carries `OutputDir`, `Format`, and `Visibility` metadata that
+  overrides the corresponding scalar properties for that named output configuration; one child
+  process is spawned per item; documentation packaging is handled by `_ApiMarkIncludeDocsInPackage`.
   Fires `AfterTargets="Build"` unless `DisableApiMark` is true. Language is
   inferred from `ProjectExtension` when `ApiMarkLanguage` is not explicitly set.
 - *Constraints*: Must not load any language-generator libraries in the MSBuild

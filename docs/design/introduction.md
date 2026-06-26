@@ -205,12 +205,11 @@ Each local software item has corresponding artifacts in parallel directory trees
   `src/ApiMark.MSBuild/`, `src/ApiMark.Tool/`
 - Tests: `test/ApiMark.Core.TestHelpers/`, `test/ApiMark.Core.Tests/`, `test/ApiMark.DotNet.Tests/`,
   `test/ApiMark.Cpp.Tests/`, `test/ApiMark.Vhdl.Tests/`,
-  `test/ApiMark.MSBuild.Tests/`, `test/ApiMark.Tool.Tests/`
+  `test/ApiMark.MSBuild.Tests/`, `test/ApiMark.MSBuild.PackageTests/`, `test/ApiMark.Tool.Tests/`
 - Fixtures: `test/ApiMark.DotNet.Fixtures/`, `test/ApiMark.Cpp.Fixtures/`
 
 OTS items have integration/usage design documentation parallel to system folders:
 
-- Requirements: `docs/reqstream/ots/mono-cecil.yaml`
 - Design: `docs/design/ots/mono-cecil.md`
 - Verification: `docs/verification/ots/mono-cecil.md`
 

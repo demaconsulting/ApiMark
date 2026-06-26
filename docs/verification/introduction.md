@@ -95,6 +95,7 @@ test/
 ├── ApiMark.Cpp.Tests/         - unit tests for CppGenerator
 ├── ApiMark.Vhdl.Tests/        - unit tests for VhdlGenerator
 ├── ApiMark.MSBuild.Tests/     - unit tests for ApiMarkTask
+├── ApiMark.MSBuild.PackageTests/ - integration tests for the MSBuild NuGet package
 ├── ApiMark.Tool.Tests/        - integration tests for the CLI tool
 ├── ApiMark.DotNet.Fixtures/   - multi-target fixture assembly for DotNet integration tests
 └── ApiMark.Cpp.Fixtures/      - C++ fixture headers for CppGenerator integration tests
@@ -240,14 +241,13 @@ Local items have parallel artifacts in:
   `src/ApiMark.Vhdl/`, `src/ApiMark.MSBuild/`, `src/ApiMark.Tool/`
 - Tests: `test/ApiMark.Core.TestHelpers/`, `test/ApiMark.Core.Tests/`, `test/ApiMark.Cpp.Tests/`,
   `test/ApiMark.DotNet.Tests/`, `test/ApiMark.Vhdl.Tests/`,
-  `test/ApiMark.MSBuild.Tests/`, `test/ApiMark.Tool.Tests/`
+  `test/ApiMark.MSBuild.Tests/`, `test/ApiMark.MSBuild.PackageTests/`, `test/ApiMark.Tool.Tests/`
 - Fixtures: `test/ApiMark.DotNet.Fixtures/`, `test/ApiMark.Cpp.Fixtures/`
 
-OTS items have integration and usage artifacts parallel to the system folders:
-
-- Requirements: `docs/reqstream/ots/clang.yaml`, `docs/reqstream/ots/mono-cecil.yaml`,
+OTS items have integration and usage artifacts parallel to the system folders: `docs/reqstream/ots/mono-cecil.yaml`,
   `docs/reqstream/ots/dema-consulting-test-results.yaml`, `docs/reqstream/ots/antlr4.yaml`,
   `docs/reqstream/ots/file-system-globbing.yaml`, `docs/reqstream/ots/cpp-ast-net.yaml`
+
 - Design: `docs/design/ots/clang.md`, `docs/design/ots/mono-cecil.md`,
   `docs/design/ots/dema-consulting-test-results.md`, `docs/design/ots/antlr4.md`,
   `docs/design/ots/file-system-globbing.md`, `docs/design/ots/cpp-ast-net.md`

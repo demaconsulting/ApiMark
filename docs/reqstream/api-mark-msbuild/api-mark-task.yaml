@@ -174,22 +174,23 @@ sections:
               - ApiMarkTask_Execute_WithMultipleOutputs_RunsToolForEachOutput
           - id: ApiMarkMsbuild-ApiMarkTask-OverrideOutputProperties
             title: >-
-              ApiMarkTask shall override OutputDir, Visibility, and Format from each
-              ApiMarkOutputs item's metadata when building arguments for that output.
+              Each ApiMarkOutput item shall use its own OutputDir, Visibility, and Format
+              metadata as the effective values for its tool invocation, independently of the
+              task-level properties.
             justification: |
-              Each named output in the ApiMarkOutputs ItemGroup must be able to specify its own
-              output directory, visibility level, and format independently so that a single build
-              invocation can produce multiple distinct documentation artifacts.
+              A single build invocation must be able to produce multiple distinct documentation
+              artifacts, each with its own output directory, visibility level, and format. Item-level
+              metadata takes precedence over the task-level property values for that item's invocation.
             tests:
               - ApiMarkTask_BuildArgumentsForOutput_OverridesScalarPropertiesFromMetadata
           - id: ApiMarkMsbuild-ApiMarkTask-RestoreOutputProperties
             title: >-
-              ApiMarkTask shall restore the original OutputDir, Visibility, and Format
-              values after building arguments for each output item.
+              Property overrides applied for one ApiMarkOutput item shall not affect the
+              tool invocation arguments of any subsequent item.
             justification: |
-              Scalar property values must be restored after each per-output invocation so that
-              subsequent items and the scalar invocation path continue to use the original
-              project-level property values, avoiding cross-contamination between outputs.
+              Each output item must be processed with its own metadata in isolation. If one item's
+              overrides persisted into the next item's invocation, outputs would receive incorrect
+              arguments, producing wrong documentation artifacts.
             tests:
               - ApiMarkTask_BuildArgumentsForOutput_RestoresScalarPropertiesAfterCall
           - id: ApiMarkMsbuild-ApiMarkTask-ResolveDotNetFromEnvironment
