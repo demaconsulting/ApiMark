@@ -269,4 +269,25 @@ public class DotNetEmitterTests
         // Assert: both accessors share the property's protected accessibility — no prefix should be emitted
         Assert.Equal("get; set;", result);
     }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.BuildPropertyAccessors"/> uses the most permissive accessor
+    ///     to derive the property-level accessibility keyword when getter and setter have different levels.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_BuildPropertyAccessors_AsymmetricGetSet_UsesMostPermissiveAccessibility()
+    {
+        // Arrange: load AsymmetricProperty from AsymmetricAccessorClass; getter is protected, setter is public.
+        // The most permissive accessor is the setter (public), so the property-level keyword must be "public"
+        // and only the getter should receive an explicit "protected " prefix.
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.Single(t => t.Name == "AsymmetricAccessorClass");
+        var prop = type.Properties.Single(p => p.Name == "AsymmetricProperty");
+
+        // Act
+        var result = DotNetEmitter.BuildPropertyAccessors(prop);
+
+        // Assert: getter must be prefixed with its restricted accessibility; setter must have no prefix
+        Assert.Equal("protected get; set;", result);
+    }
 }

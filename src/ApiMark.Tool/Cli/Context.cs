@@ -469,6 +469,16 @@ internal sealed class Context : IContext, IDisposable
 
                 case "--depth":
                     HeadingDepth = GetRequiredIntArgument(arg, args, index, "a heading depth argument", 1, 6);
+
+                    // Reject depth > 3 for all formats — EmitConfig.HeadingDepth enforces a maximum of 3
+                    // because member headings are always written at depth+3, which would exceed H6
+                    if (HeadingDepth > 3)
+                    {
+                        throw new ArgumentException(
+                            $"'--depth' value must be 1–3 (member headings are written at depth+3, which would exceed H6); got {HeadingDepth}.",
+                            nameof(args));
+                    }
+
                     if (Format == OutputFormat.SingleFile && HeadingDepth > 3)
                     {
                         throw new ArgumentException(

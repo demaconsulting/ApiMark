@@ -687,7 +687,7 @@ internal sealed class DotNetEmitter : IApiEmitter
             prop.PropertyType,
             contextNamespace,
             HasNullableAnnotation(prop.CustomAttributes));
-        var accessibility = GetAccessibilityKeyword(prop.GetMethod ?? prop.SetMethod!);
+        var accessibility = GetAccessibilityKeyword(MostPermissiveAccessor(prop.GetMethod, prop.SetMethod)!);
         var accessors = BuildPropertyAccessors(prop);
         return $"{accessibility} {typeName} {prop.Name} {{ {accessors} }}";
     }
@@ -706,7 +706,10 @@ internal sealed class DotNetEmitter : IApiEmitter
     internal static string BuildPropertyAccessors(PropertyDefinition prop)
     {
         var parts = new List<string>();
-        var propertyAccessibility = GetAccessibilityKeyword(prop.GetMethod ?? prop.SetMethod!);
+
+        // Determine the property-level accessibility from the most permissive accessor so that
+        // a "public … { protected get; set; }" property renders as "public" — not "protected"
+        var propertyAccessibility = GetAccessibilityKeyword(MostPermissiveAccessor(prop.GetMethod, prop.SetMethod)!);
 
         if (prop.GetMethod != null)
         {
@@ -814,6 +817,59 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns>The lowercase C# accessibility keyword string, or <c>"private"</c> when no add-accessor is present.</returns>
     internal static string GetAccessibilityKeyword(EventDefinition evt) =>
         evt.AddMethod != null ? GetAccessibilityKeyword(evt.AddMethod) : "private";
+
+    /// <summary>
+    ///     Returns whichever of two optional method definitions has the higher (more permissive) accessibility.
+    /// </summary>
+    /// <remarks>
+    ///     Used by <see cref="BuildPropertyAccessors"/> and <see cref="BuildPropertySignature"/> to derive
+    ///     the property-level accessibility from its accessors. C# requires the property's declared
+    ///     visibility to match the most permissive accessor; a <c>public { protected get; set; }</c>
+    ///     property has <c>set</c> as the governing accessor (public), while <c>get</c> is less permissive
+    ///     (protected) and therefore receives an explicit per-accessor prefix.
+    /// </remarks>
+    /// <param name="a">First accessor, or <see langword="null"/> when absent.</param>
+    /// <param name="b">Second accessor, or <see langword="null"/> when absent.</param>
+    /// <returns>
+    ///     The accessor with the higher accessibility rank. Returns the non-null operand when one
+    ///     is <see langword="null"/>; behaviour is undefined when both are <see langword="null"/>.
+    /// </returns>
+    private static MethodDefinition MostPermissiveAccessor(MethodDefinition? a, MethodDefinition? b)
+    {
+        if (a == null)
+        {
+            return b!;
+        }
+
+        if (b == null)
+        {
+            return a;
+        }
+
+        // Return the accessor whose accessibility rank is higher (i.e., more permissive)
+        return AccessibilityRank(a) >= AccessibilityRank(b) ? a : b;
+    }
+
+    /// <summary>
+    ///     Returns an integer rank for a method's accessibility, where higher values are more permissive.
+    /// </summary>
+    /// <remarks>
+    ///     Ordering mirrors the C# specification: public (5) &gt; protected internal (4) &gt;
+    ///     internal (3) &gt; protected (2) &gt; private protected (1) &gt; private (0).
+    ///     Used exclusively by <see cref="MostPermissiveAccessor"/> to select the governing
+    ///     accessor for a property.
+    /// </remarks>
+    /// <param name="method">The method whose accessibility rank to compute.</param>
+    /// <returns>An integer rank in [0, 5] where 5 is most permissive (public).</returns>
+    private static int AccessibilityRank(MethodDefinition method) => method switch
+    {
+        { IsPublic: true } => 5,
+        { IsFamilyOrAssembly: true } => 4,
+        { IsAssembly: true } => 3,
+        { IsFamily: true } => 2,
+        { IsFamilyAndAssembly: true } => 1,
+        _ => 0,
+    };
 
     /// <summary>
     ///     Builds the full display name for a method overload, including the simplified parameter
