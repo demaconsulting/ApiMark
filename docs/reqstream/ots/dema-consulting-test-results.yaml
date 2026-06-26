@@ -8,10 +8,7 @@ sections:
           - id: DemaConsultingTestResults-Results-RecordTestOutcomes
             title: >-
               DemaConsulting.TestResults shall provide a TestResults container and
-              TestResult record
-              that captures the name, outcome, error message, and duration for each
-              self-validation
-              test case.
+              TestResult record for aggregating individual test outcomes.
             justification: |
               The SelfTest subsystem must collect pass/fail evidence for each self-validation
               scenario and report totals to the user. DemaConsulting.TestResults provides the

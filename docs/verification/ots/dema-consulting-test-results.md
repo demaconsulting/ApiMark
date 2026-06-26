@@ -12,10 +12,10 @@ the expected file content and outcome counts.
 
 ### Test Scenarios
 
-**Version and help self-tests record Passed outcomes**: Verifies that when the `--version`
-and `--help` child invocations succeed, `Validation.Run` creates `TestResult` entries with
-`Outcome = TestOutcome.Passed` and adds them to the `TestResults` collection. This scenario
-is tested by `Validation_Run_WritesVersionAndHelpTestResults`.
+**Version and help self-test names appear in log output**: Verifies that when `Validation.Run`
+executes, the log output contains the names of both self-test cases: `ApiMark_VersionDisplay`
+and `ApiMark_HelpDisplay`. This scenario is tested by
+`Validation_Run_WritesVersionAndHelpTestResults`.
 
 **Results collection serializes to TRX when requested**: Verifies that when `context.ResultsFile`
 has a `.trx` extension, `WriteResultsFile` calls `TrxSerializer.Serialize` and writes the result

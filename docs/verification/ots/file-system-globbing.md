@@ -6,7 +6,7 @@
 `test/ApiMark.Core.Tests/GlobFileCollectorTests.cs` that exercise `GlobFileCollector`,
 the sole consumer of the library. The tests operate against temporary real directories
 on disk, confirming that the `Matcher` API behaves as expected for the subset of
-features ApiMark uses: include patterns, exclude patterns, and non-existent roots.
+features ApiMark uses: include patterns rooted at a given directory.
 
 ### Test Scenarios
 
@@ -19,15 +19,3 @@ directory. This scenario is tested by
 root is derived from the longest non-glob prefix finds the expected files without
 requiring a separate working directory. This scenario is tested by
 `GlobFileCollector_Collect_AbsolutePattern_FindsFiles`.
-
-**Exclusion pattern removes matched files**: Verifies that a `!`-prefixed exclusion
-pattern correctly removes files that would otherwise be matched by a preceding include
-pattern. `GlobFileCollector` runs `GetResultsInFullPath` for the exclusion pattern and
-calls `collected.Remove()` for each result, ensuring that excluded files never appear
-in the output. This scenario is tested by
-`GlobFileCollector_Collect_ExclusionPattern_RemovesMatchedFiles`.
-
-**Non-existent root returns empty without throwing**: Verifies that a pattern whose
-root directory does not exist produces an empty result rather than throwing an
-exception. This scenario is tested by
-`GlobFileCollector_Collect_NonExistentRoot_ReturnsEmptyWithoutThrowing`.
