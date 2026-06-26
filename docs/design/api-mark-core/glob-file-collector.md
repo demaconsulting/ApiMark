@@ -71,6 +71,13 @@ matched file paths from the collected set.
   `bool isExclusion`.
 - *Algorithm*: when `isExclusion` is true, calls `collected.Remove` for each
   full path; otherwise calls `collected.Add`.
+- *Comparer*: `collected` uses `StringComparer.Ordinal`. Paths returned by
+  `Matcher.GetResultsInFullPath` reflect the actual on-disk casing (the
+  underlying OS resolves the real name), so no two distinct physical files
+  can produce identical ordinal-equal paths. Ordinal comparison is therefore
+  both correct and filesystem-agnostic: it deduplicates genuinely identical
+  paths on all platforms without incorrectly collapsing case-distinct paths
+  that are physically distinct files on case-sensitive filesystems (Linux).
 
 **GlobFileCollector.ParsePattern** (private static): Splits a pattern body into
 a filesystem root and a glob tail.
