@@ -86,6 +86,9 @@ within the valid 1–6 range; format-specific constraints are enforced downstrea
 **`Context_Create_WithDepth6_SetsHeadingDepth`**: `--depth 6` → `HeadingDepth = 6` (depth 6 is
 the upper boundary of the valid ATX heading range and must be accepted without error).
 
+**`Context_Create_WithDepth6_SetsHeadingDepth`**: `--depth 6` → `HeadingDepth = 6` (depth 6 is
+the upper boundary of the valid ATX heading range and must be accepted without error).
+
 **`Context_Create_WithResultsOption_SetsResultsFile`**: `--results results.trx` and
 `--result results.trx` both set `ResultsFile = "results.trx"` (theory test covering both variants).
 
