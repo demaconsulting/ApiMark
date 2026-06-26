@@ -176,5 +176,5 @@ N/A - not a safety-classified software item.
   context)` throws `ArgumentNullException` if any of `factory`, `config`, or `context`
   is null.
 - **Malformed XML documentation**: `XmlDocReader` silently ignores malformed or missing
-  XML doc elements — unrecognised elements produce empty/null lookups rather than
+  XML doc elements — unrecognized elements produce empty/null lookups rather than
   exceptions, so generation continues with placeholder text where doc content is absent.

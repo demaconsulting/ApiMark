@@ -13,6 +13,21 @@ sections:
               the storage mechanism so that the same generator code can write to disk
               in production and to memory in tests.
             tests: [IMarkdownWriterFactory_HasCreateMarkdown_Method]
+          - id: ApiMarkCore-IMarkdownWriterFactory-SupportRootLevelFiles
+            title: >-
+              IMarkdownWriterFactory.CreateMarkdown shall support creating root-level
+              files when subFolder is empty or whitespace.
+            justification: |
+              The api.md entrypoint file must always be created at the root of the
+              output tree, so the factory contract must permit an empty or whitespace
+              subFolder value to indicate the root directory.
+            children:
+              - ApiMarkCore-IMarkdownWriterFactory-AcceptEmptySubFolderAsRoot
+              - ApiMarkCore-IMarkdownWriterFactory-AcceptWhitespaceSubFolderAsRoot
+            tests:
+              - IMarkdownWriterFactory_CreateMarkdown_EmptySubFolder_IsRootLevel
+              - FileMarkdownWriterFactory_CreateMarkdown_RootLevel_CreatesFile
+              - FileMarkdownWriterFactory_CreateMarkdown_WhitespaceSubFolder_CreatesRootLevelFile
           - id: ApiMarkCore-IMarkdownWriterFactory-AcceptEmptySubFolderAsRoot
             title: IMarkdownWriterFactory shall create a root-level file when subFolder
               is an empty string.

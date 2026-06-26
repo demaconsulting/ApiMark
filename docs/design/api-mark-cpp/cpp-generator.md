@@ -33,8 +33,8 @@ single-file or gradual-disclosure Markdown output.
   to clang for type resolution only.
 - `Defines`: `IReadOnlyList<string>` — preprocessor definitions forwarded as `-D`
   arguments.
-- `CppStandard`: `string` — language standard passed to clang; defaults to
-  `c++17`.
+- `CppStandard`: `string` — language standard passed to clang (e.g. `c++17`,
+  `c++20`); defaults to `c++17`.
 - `ClangPath`: `string?` — optional explicit clang path. When null or empty,
   discovery falls back to `APIMARK_CLANG_PATH`, PATH, `xcrun clang`, and Windows
   LLVM discovery.

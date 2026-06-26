@@ -5,6 +5,23 @@ sections:
     sections:
       - title: IApiGenerator Requirements
         requirements:
+          - id: ApiMarkCore-IApiGenerator-DefineParseMethod
+            title: >-
+              IApiGenerator shall define a Parse method that accepts an IContext
+              and returns an IApiEmitter representing the parsed component's
+              documentation.
+            justification: |
+              The Parse method is the entry point for the first stage of the
+              two-stage pipeline. Its signature must be uniform across all
+              language implementations so that the CLI and MSBuild task can
+              invoke any generator without knowing its concrete type.
+            children:
+              - ApiMarkCore-IApiGenerator-AcceptContextParameter
+              - ApiMarkCore-IApiGenerator-ReturnIApiEmitter
+              - ApiMarkCore-IApiGenerator-RejectNullContext
+            tests:
+              - IApiGenerator_Parse_WithMinimalStub_ExecutesSuccessfully
+              - IApiGenerator_Parse_NullContext_ThrowsArgumentNullException
           - id: ApiMarkCore-IApiGenerator-AcceptContextParameter
             title: IApiGenerator.Parse shall accept an IContext parameter as the
               caller-supplied diagnostic channel for informational and error output.

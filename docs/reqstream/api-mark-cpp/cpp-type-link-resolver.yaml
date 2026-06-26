@@ -58,7 +58,8 @@ sections:
             tests:
               - CppTypeLinkResolver_Linkify_PrimitiveType_ReturnsUnchanged
           - id: ApiMarkCpp-CppTypeLinkResolver-LinkifyStdType
-            title: CppTypeLinkResolver.Linkify shall leave std:: types unchanged.
+            title: >-
+              CppTypeLinkResolver.Linkify shall leave std:: types unchanged.
             justification: |
               Standard-library types are outside the generated documentation tree.
             tests:

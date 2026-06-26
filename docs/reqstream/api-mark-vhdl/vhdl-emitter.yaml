@@ -5,6 +5,21 @@ sections:
     sections:
       - title: VhdlEmitter Requirements
         requirements:
+          - id: ApiMarkVhdl-VhdlEmitter
+            title: >-
+              VhdlEmitter shall implement IApiEmitter and dispatch Markdown
+              generation to the appropriate format-specific emitter.
+            justification: |
+              VhdlEmitter acts as the central dispatcher for both
+              gradual-disclosure and single-file VHDL output. Separating
+              the dispatch from format-specific logic allows each format
+              emitter to be tested in isolation while keeping the IApiEmitter
+              contract uniform across all language modules.
+            children:
+              - ApiMarkVhdl-VhdlEmitter-ImplementsIApiEmitter
+            tests:
+              - VhdlEmitter_Emit_GradualDisclosureFormat_ProducesMultipleOutputFiles
+              - VhdlEmitter_Emit_SingleFileFormat_ProducesSingleOutputFile
           - id: ApiMarkVhdl-VhdlEmitter-ImplementsIApiEmitter
             title: VhdlEmitter shall implement the IApiEmitter interface.
             justification: |

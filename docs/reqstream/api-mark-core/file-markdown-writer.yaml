@@ -6,7 +6,8 @@ sections:
       - title: FileMarkdownWriter Requirements
         requirements:
           - id: ApiMarkCore-FileMarkdownWriter-WriteHeadingAsAtxSyntax
-            title: FileMarkdownWriter shall write ATX-style headings using the
+            title: >-
+              FileMarkdownWriter shall write ATX-style headings using the
               correct number of # characters for the requested heading level.
             justification: |
               Generated Markdown files use headings to provide navigable structure.
