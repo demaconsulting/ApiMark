@@ -49,7 +49,7 @@ public class ProgramTests
 
     /// <summary>
     ///     Validates that supplying an unrecognized <c>--visibility</c> value exits
-    ///     with a non-zero code.
+    ///     with a non-zero code and writes an error message containing the invalid value.
     /// </summary>
     [Fact]
     public void Program_Main_WithInvalidVisibility_ReturnsNonZeroExitCode()
@@ -57,17 +57,31 @@ public class ProgramTests
         // Arrange: supply a visibility value that does not map to any ApiVisibility member
         var assemblyPath = typeof(SampleClass).Assembly.Location;
         var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
 
-        // Act
-        var exitCode = Program.Main([
-            "dotnet",
-            "--assembly", assemblyPath,
-            "--output", outputDir,
-            "--visibility", "InvalidValue",
-        ]);
+        try
+        {
+            Console.SetError(errorWriter);
 
-        // Assert: invalid visibility must produce a non-zero exit code
-        Assert.NotEqual(0, exitCode);
+            // Act
+            var exitCode = Program.Main([
+                "dotnet",
+                "--assembly", assemblyPath,
+                "--output", outputDir,
+                "--visibility", "InvalidValue",
+            ]);
+
+            // Assert: invalid visibility must produce a non-zero exit code and a diagnostic
+            // that names the offending value so the user can identify and correct the error
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("InvalidValue", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            // Restore the original error stream regardless of outcome
+            Console.SetError(originalError);
+        }
     }
 
     /// <summary>
@@ -94,8 +108,10 @@ public class ProgramTests
             ]);
 
             // Assert: missing assembly must produce a non-zero exit code and a descriptive error message
+            // that names the missing path so the user can identify the problem immediately
             Assert.NotEqual(0, exitCode);
             Assert.False(string.IsNullOrWhiteSpace(errorWriter.ToString()), "Expected error message on stderr");
+            Assert.Contains("path/does/not/exist.dll", errorWriter.ToString(), StringComparison.Ordinal);
         }
         finally
         {
@@ -218,8 +234,9 @@ public class ProgramTests
 
     /// <summary>
     ///     Validates that <c>--silent</c> and <c>--log</c> are accepted alongside the
-    ///     <c>dotnet</c> subcommand, that the tool exits with code 0, and that the log
-    ///     file is created and non-empty.
+    ///     <c>dotnet</c> subcommand, that the tool exits with code 0, that the log
+    ///     file is created and non-empty, and that no output is written to stdout or
+    ///     stderr when <c>--silent</c> is active.
     /// </summary>
     [Fact]
     public void Program_Main_WithSilentAndLog_DotNetCommand_ExitsZero()
@@ -229,9 +246,16 @@ public class ProgramTests
         var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
         var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
         var logFile = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".log");
+        var originalOut = Console.Out;
+        var originalError = Console.Error;
+        using var outWriter = new StringWriter();
+        using var errWriter = new StringWriter();
 
         try
         {
+            Console.SetOut(outWriter);
+            Console.SetError(errWriter);
+
             // Act
             var exitCode = Program.Main([
                 "--silent",
@@ -242,13 +266,19 @@ public class ProgramTests
                 "--output", outputDir,
             ]);
 
-            // Assert: exits zero; log file exists and is non-empty
+            // Assert: exits zero; console is fully silent; log file exists and is non-empty
             Assert.Equal(0, exitCode);
+            Assert.Equal(string.Empty, outWriter.ToString());
+            Assert.Equal(string.Empty, errWriter.ToString());
             Assert.True(File.Exists(logFile), "Expected log file to be created");
             Assert.True(new FileInfo(logFile).Length > 0, "Expected log file to be non-empty");
         }
         finally
         {
+            // Restore console streams and clean up temporary paths regardless of outcome
+            Console.SetOut(originalOut);
+            Console.SetError(originalError);
+
             if (Directory.Exists(outputDir))
             {
                 Directory.Delete(outputDir, recursive: true);
@@ -402,6 +432,41 @@ public class ProgramTests
         finally
         {
             Console.SetError(originalError);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <c>--validate --results &lt;file&gt;</c> writes a results file to
+    ///     the specified path and exits with code 0.
+    /// </summary>
+    [Fact]
+    public void Program_Main_WithValidateAndResultsFile_WritesResultsFile()
+    {
+        // Arrange: create a temporary results file path that does not yet exist
+        var resultsFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".trx");
+        var originalOut = Console.Out;
+        using var outWriter = new StringWriter();
+
+        try
+        {
+            Console.SetOut(outWriter);
+
+            // Act
+            var exitCode = Program.Main(["--validate", "--results", resultsFile]);
+
+            // Assert: self-validation succeeds and the results file is written to the requested path
+            Assert.Equal(0, exitCode);
+            Assert.True(File.Exists(resultsFile), "Expected results file to be created");
+        }
+        finally
+        {
+            // Restore console and remove the temporary results file regardless of outcome
+            Console.SetOut(originalOut);
+
+            if (File.Exists(resultsFile))
+            {
+                File.Delete(resultsFile);
+            }
         }
     }
 }

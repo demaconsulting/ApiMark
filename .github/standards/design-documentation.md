@@ -30,7 +30,6 @@ docs/design/
 
 All sections in every file are mandatory; write "N/A - {justification}" rather than removing any.
 Determine subsystem vs. unit classification from `docs/design/introduction.md` — folder depth does not determine classification.
-Do not record version numbers anywhere in design documentation — version information is managed in SBOMs.
 
 # introduction.md (MANDATORY)
 
@@ -98,6 +97,11 @@ For each Shared Package, create `docs/design/shared/{package-name}.md` (`##` hea
 - Use Mermaid diagrams to supplement (not replace) text
 - Use verbal cross-references ("see _Parser Design_") - not markdown hyperlinks (break in PDF)
 - Provide sufficient detail for formal code review
+- Do not record version numbers in design documentation — they go stale with dependency updates and
+  are managed in SBOMs. Version numbers are pinned release versions (e.g., `1.2.3`, `v2.0.1`).
+  The following are **not** version numbers and are permitted:
+  - .NET TFMs: `netstandard2.0`, `net10.0` (platform targets, not release versions)
+  - Placeholders: `0.0.0` (signals "not yet assigned")
 
 # Quality Checks
 

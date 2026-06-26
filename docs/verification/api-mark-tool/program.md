@@ -25,6 +25,7 @@ output directory. No external service, privileged configuration, or network acce
 - `--help` before and after a subcommand both display usage information and return exit code zero.
 - `--silent` suppresses console output; `--log <file>` captures output to a file.
 - `--validate` runs self-validation tests and returns exit code zero when all pass.
+- `--validate --results <file>` additionally writes the results to the specified file path.
 - The `vhdl` subcommand rejects invocations without at least one non-exclusion `--source` pattern.
 
 ### Test Scenarios
@@ -53,13 +54,17 @@ including "Usage:" and "Options:" sections and returns exit code zero. This scen
 accepts `--help` after the language token and still dispatches to help display. This scenario is
 tested by `Program_Main_WithHelpAfterSubcommand_PrintsHelpAndExitsZero`.
 
-**Silent and log options produce log file**: Verifies that `--silent` suppresses console output and
-`--log <file>` creates a non-empty log file containing the captured output. This scenario is tested
-by `Program_Main_WithSilentAndLog_DotNetCommand_ExitsZero`.
+**Silent and log options produce log file**: Verifies that `--silent` suppresses all console output
+(stdout and stderr are both empty) and `--log <file>` creates a non-empty log file containing the
+captured output. This scenario is tested by `Program_Main_WithSilentAndLog_DotNetCommand_ExitsZero`.
 
 **Validate flag runs self-validation and exits zero**: Verifies that `--validate` executes internal
 self-validation tests and returns exit code zero when all tests pass. This scenario is tested by
 `Program_Main_WithValidateFlag_ExitsZero`.
+
+**Validate flag with results file writes results**: Verifies that `--validate --results <file>`
+executes internal self-validation tests, writes a results file to the specified path, and returns
+exit code zero. This scenario is tested by `Program_Main_WithValidateAndResultsFile_WritesResultsFile`.
 
 **Version flag prints version and exits zero**: Verifies that `--version` prints a non-empty version
 string to stdout and returns exit code zero without printing the application banner. This scenario is

@@ -593,7 +593,13 @@ internal sealed class Context : IContext, IDisposable
                 throw new ArgumentException($"{arg} requires {description}", nameof(args));
             }
 
-            return args[index];
+            var value = args[index];
+            if (value.StartsWith('-'))
+            {
+                throw new ArgumentException($"{arg} requires {description} but got another flag '{value}'", nameof(args));
+            }
+
+            return value;
         }
 
         /// <summary>

@@ -196,3 +196,13 @@ sections:
                 tests:
                   - Context_Create_WithDepthAbove3AndSingleFileFormat_ThrowsArgumentException
                   - Context_Create_WithDepth3AndSingleFileFormat_Succeeds
+              - id: ApiMarkTool-Cli-Context-RejectFlagAsOptionValue
+                title: Context shall throw ArgumentException when a flag token (starting
+                  with '-') is supplied as the value of a string-valued option.
+                justification: |
+                  Accepting a flag token as a value silently consumes it as data instead of
+                  raising a parse error, causing confusing behavior where the intended flag is
+                  never applied and the option receives a nonsensical value.
+                tests:
+                  - Context_Create_WithFlagValueForOutput_ThrowsArgumentException
+                  - Context_Create_WithFlagValueForLog_ThrowsArgumentException

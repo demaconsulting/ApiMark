@@ -26,6 +26,7 @@ up after itself. No other external files, services, or configuration are require
 - When `--format single-file` is in effect, `--depth` values above 3 throw `ArgumentException` regardless of argument order.
 - `--depth 3` with `--format single-file` is accepted (boundary value).
 - `--results`/`--result` sets `ResultsFile` to the supplied path.
+- Flag tokens (starting with `-`) supplied as values for string-valued options are rejected with `ArgumentException`.
 - `--includes` accepts one directory path per flag; repeated flags accumulate paths into `Includes`.
 - `--api-headers` patterns are accumulated in order; `!`-prefixed exclusion patterns are forwarded verbatim.
 - `--source` patterns are accumulated in order; `!`-prefixed exclusion patterns are forwarded verbatim.
@@ -158,3 +159,11 @@ corresponding properties set simultaneously.
 **`Context_Create_WithDepth3AndSingleFileFormat_Succeeds`**: `--format single-file --depth 3`
 parses successfully with `HeadingDepth = 3` and `Format = OutputFormat.SingleFile`
 (boundary value is accepted).
+
+**`Context_Create_WithFlagValueForOutput_ThrowsArgumentException`**: `["dotnet", "--output", "--silent"]`
+— a flag token supplied as the `--output` value — throws `ArgumentException`, confirming
+that the parser rejects flag tokens as string-valued option values.
+
+**`Context_Create_WithFlagValueForLog_ThrowsArgumentException`**: `["--log", "--silent"]`
+— a flag token supplied as the `--log` value — throws `ArgumentException`, confirming
+that the parser rejects flag tokens as string-valued option values.

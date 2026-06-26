@@ -755,4 +755,34 @@ public sealed class ContextTests
         Assert.Equal(3, context.HeadingDepth);
         Assert.Equal(OutputFormat.SingleFile, context.Format);
     }
+
+    /// <summary>
+    ///     Validates that supplying a flag token (starting with <c>'-'</c>) as the value
+    ///     of <c>--output</c> throws <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithFlagValueForOutput_ThrowsArgumentException()
+    {
+        // Arrange: supply a flag token as the --output value — the parser must reject it
+        // rather than silently consuming the flag as a path string
+        var args = new[] { "dotnet", "--output", "--silent" };
+
+        // Act / Assert: a flag token supplied as an option value must throw ArgumentException
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
+    }
+
+    /// <summary>
+    ///     Validates that supplying a flag token (starting with <c>'-'</c>) as the value
+    ///     of <c>--log</c> throws <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithFlagValueForLog_ThrowsArgumentException()
+    {
+        // Arrange: supply a flag token as the --log value — the parser must reject it
+        // rather than silently consuming the flag as a filename string
+        var args = new[] { "--log", "--silent" };
+
+        // Act / Assert: a flag token supplied as an option value must throw ArgumentException
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
+    }
 }

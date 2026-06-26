@@ -79,7 +79,9 @@ sections:
             justification: |
               Self-validation confirms tool integrity in deployment environments without
               requiring external test infrastructure or the full source tree.
-            tests: [Program_Main_WithValidateFlag_ExitsZero]
+            tests:
+              - Program_Main_WithValidateFlag_ExitsZero
+              - Program_Main_WithValidateAndResultsFile_WritesResultsFile
           - id: ApiMarkTool-Program-SupportVersionOption
             title: Program shall support a global --version option.
             justification: |
