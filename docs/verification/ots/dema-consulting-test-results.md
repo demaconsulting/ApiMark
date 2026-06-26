@@ -5,10 +5,10 @@
 DemaConsulting.TestResults is verified in ApiMark through the existing self-validation tests in
 `test/ApiMark.Tool.Tests/SelfTest/ValidationTests.cs` that exercise the pass/fail recording and
 results-file writing paths of `Validation.cs`. The verification focus is the subset of capabilities
-needed by the product: creating a `TestResults` collection, recording `Passed` and `Failed`
-outcomes on individual `TestResult` objects, and serializing the collection to TRX and JUnit XML
-via `TrxSerializer` and `JUnitSerializer`. Evidence is collected from automated tests that confirm
-the expected file content and outcome counts.
+needed by the product: creating a `TestResults` collection, recording test outcomes on individual
+`TestResult` objects, and serializing the collection to TRX and JUnit XML via `TrxSerializer` and
+`JUnitSerializer`. Evidence is collected from automated tests that confirm test names appear in log
+output and that results files are created at the specified paths.
 
 ### Test Scenarios
 
