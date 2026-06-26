@@ -18,6 +18,11 @@ package integration tests additionally require the pre-built `DemaConsulting.Api
 have not run `dotnet pack` are not blocked. No external service dependency or elevated
 permission is required.
 
+OS requirements: unit tests run on Windows, Linux, and macOS. NuGet package integration
+tests for `.csproj` projects run cross-platform. NuGet package integration tests for
+`.vcxproj` C++ projects are Windows-only (MSBuild C++ toolchain required) and are skipped
+on non-Windows environments.
+
 ## Acceptance Criteria
 
 - All ApiMark.MSBuild integration tests pass with zero failures.
@@ -36,6 +41,8 @@ permission is required.
 - A non-zero exit code from the spawned tool causes Execute to return false and log an MSBuild error.
 - When `ApiMarkPackDocs` is `true`, the generated `api/` folder is included in the
   NuGet package; when `false` or unset, the `api/` folder is not packaged.
+- For C++ projects, when `ApiMarkIncludePaths` is not explicitly set, the task automatically
+  populates it from `AdditionalIncludeDirectories` metadata on `ClCompile` items (Windows only).
 - For C++ projects, `ApiMarkLibraryName` is forwarded as `--library-name` when set.
 - For C++ projects, `ApiMarkDefines` semicolons are converted to commas when forwarding as
   `--defines`.
@@ -104,6 +111,12 @@ can apply last-match-wins gitignore semantics. This scenario is tested by
 `ApiMarkIncludePaths` is not set for a C++ project, the task returns success immediately with no
 side effects and no tool invocation. This scenario is tested by
 `ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExecution`.
+
+**C++ include paths auto-populated from ClCompile metadata (Windows)**: Verifies that when
+`ApiMarkIncludePaths` is not explicitly set, the task harvests `AdditionalIncludeDirectories`
+from `ClCompile` items and uses those paths as the include root for the tool invocation. This
+scenario is exercised by `ApiMarkMsbuild_NuGetPackage_CppVcxprojProject_AutoDocumentsOnBuild`
+on Windows.
 
 **DotNet project executes tool and generates documentation**: End-to-end integration test that
 exercises the complete .NET documentation generation path — locates the bundled `ApiMark.Tool.dll`,
