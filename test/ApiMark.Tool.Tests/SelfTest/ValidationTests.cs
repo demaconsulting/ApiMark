@@ -1,5 +1,7 @@
 using ApiMark.Tool.Cli;
 using ApiMark.Tool.SelfTest;
+using DemaConsulting.TestResults;
+using DemaConsulting.TestResults.IO;
 using Xunit;
 
 namespace ApiMark.Tool.Tests.SelfTest;
@@ -39,10 +41,13 @@ public sealed class ValidationTests
             // Act
             Validation.Run(context);
 
-            // Assert: the .trx file must exist and contain TRX XML content
+            // Assert: the .trx file must exist and round-trip both test names and outcomes
             Assert.True(File.Exists(trxPath), "TRX results file must be created");
-            var content = File.ReadAllText(trxPath);
-            Assert.Contains("TestRun", content);
+            var trxContent = File.ReadAllText(trxPath);
+            var trxResults = TrxSerializer.Deserialize(trxContent);
+            Assert.Equal(2, trxResults.Results.Count);
+            Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_VersionDisplay" && r.Outcome == TestOutcome.Passed);
+            Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_HelpDisplay" && r.Outcome == TestOutcome.Passed);
         }
         finally
         {
@@ -70,10 +75,13 @@ public sealed class ValidationTests
             // Act
             Validation.Run(context);
 
-            // Assert: the .xml file must exist and contain JUnit XML content
+            // Assert: the .xml file must exist and round-trip both test names and outcomes
             Assert.True(File.Exists(xmlPath), "XML results file must be created");
-            var content = File.ReadAllText(xmlPath);
-            Assert.Contains("testsuites", content);
+            var xmlContent = File.ReadAllText(xmlPath);
+            var xmlResults = JUnitSerializer.Deserialize(xmlContent);
+            Assert.Equal(2, xmlResults.Results.Count);
+            Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_VersionDisplay" && r.Outcome == TestOutcome.Passed);
+            Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_HelpDisplay" && r.Outcome == TestOutcome.Passed);
         }
         finally
         {
