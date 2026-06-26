@@ -140,14 +140,15 @@ sections:
             tests: [ApiMarkTask_DotNet_EmptyXmlDocPath_SkipsExecution]
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardApiHeaders
             title: >-
-              ApiMarkTask shall forward each entry of ApiMarkApiHeaders to the tool
-              as a separate
-              --api-headers flag for C++ builds, preserving order and forwarding '!'-prefixed
-              exclusion patterns verbatim.
+              ApiMarkTask shall forward the ApiMarkApiHeaders collection to the tool
+              as individual --api-headers flags for C++ builds.
             justification: |
               C++ projects need fine-grained, gitignore-style control over which headers contribute
-              to the documented API surface. Forwarding each pattern as its own --api-headers flag
-              preserves order and lets CppGenerator apply last-match-wins semantics correctly.
+              to the documented API surface. Each pattern must be forwarded as its own --api-headers
+              flag so CppGenerator can apply last-match-wins gitignore semantics correctly. Order
+              must be preserved because later patterns override earlier ones. Exclusion patterns
+              prefixed with '!' must be forwarded verbatim so CppGenerator, not MSBuild, interprets
+              them.
             tests: [ApiMarkTask_Cpp_ApiHeaders_ForwardedAsIndividualFlags]
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardFormatProperty
             title: ApiMarkTask shall forward the ApiMarkFormat property to the tool
