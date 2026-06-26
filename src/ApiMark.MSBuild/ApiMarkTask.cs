@@ -619,7 +619,7 @@ public class ApiMarkTask : Task
     ///     The full path to the <c>dotnet</c> executable, or <c>null</c> if it cannot be found in
     ///     either <c>DOTNET_HOST_PATH</c> or <c>PATH</c>.
     /// </returns>
-    private static string? ResolveDotNetExe()
+    protected virtual string? ResolveDotNetExe()
     {
         // DOTNET_HOST_PATH is set by the .NET SDK on all platforms and points directly to the
         // dotnet host executable; prefer it over PATH for reliability in build environments

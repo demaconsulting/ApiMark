@@ -39,6 +39,8 @@ permission is required.
   flag in order, with `!`-prefixed exclusion patterns passed verbatim.
 - When `ApiMarkIncludePaths` is empty for a C++ project, the task returns success with no
   side effects.
+- When `ApiMarkOutputs` is non-empty, the task spawns one child process per item in the
+  `ApiMarkOutput` item group.
 
 ## Test Scenarios
 
@@ -114,3 +116,9 @@ This scenario is tested by
 **ApiMarkIncludeObsolete flag is forwarded**: Verifies that when `ApiMarkIncludeObsolete` is
 set to `true`, the `--include-obsolete` flag is added to the spawned tool command. This
 scenario is tested by `ApiMarkTask_IncludeObsolete_True_ForwardsIncludeObsoleteFlag`.
+
+**Multiple outputs spawn one tool process per item**: Verifies that when `ApiMarkOutputs` is
+non-empty, `Execute` spawns one child process per item in the `ApiMarkOutput` item group,
+applying per-item metadata overrides for `OutputDir`, `Format`, and `Visibility` so that
+multiple documentation artifacts are produced in a single build invocation. This scenario is
+tested by `ApiMarkTask_Execute_WithMultipleOutputs_RunsToolForEachOutput`.
