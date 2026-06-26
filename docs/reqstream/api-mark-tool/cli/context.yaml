@@ -128,6 +128,7 @@ sections:
                   matches the valid ATX heading levels in Markdown.
                 tests:
                   - Context_Create_WithDepthOption_SetsHeadingDepth
+                  - Context_Create_WithDepth3AndSingleFileFormat_Succeeds
                   - Context_Create_WithDepthOptionOutOfRange_ThrowsArgumentException
               - id: ApiMarkTool-Cli-Context-ParseResultsOption
                 title: Context shall parse the --results (alias --result) option and
@@ -186,16 +187,6 @@ sections:
                   - Context_Create_WithSourceOption_SetsSources
                   - Context_Create_WithRepeatedSource_AccumulatesAllPaths
                   - Context_Create_WithSourceExclusionPattern_ForwardsVerbatim
-              - id: ApiMarkTool-Cli-Context-ValidateDepthForSingleFileFormat
-                title: Context shall reject --depth values greater than 3 when --format
-                  single-file is used.
-                justification: |
-                  In single-file format, member-level headings are rendered at depth+3; a depth
-                  greater than 3 would produce heading levels beyond H6, which is the maximum
-                  valid Markdown heading level and cannot be rendered meaningfully.
-                tests:
-                  - Context_Create_WithDepthAbove3AndSingleFileFormat_ThrowsArgumentException
-                  - Context_Create_WithDepth3AndSingleFileFormat_Succeeds
               - id: ApiMarkTool-Cli-Context-RejectFlagAsOptionValue
                 title: Context shall throw ArgumentException when a flag token (starting
                   with '-') is supplied as the value of a string-valued option.

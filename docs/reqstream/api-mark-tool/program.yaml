@@ -100,3 +100,4 @@ sections:
             tests:
               - Program_Main_WithMissingAssembly_PrintsErrorAndFails
               - Program_Main_WithInvalidVisibility_ReturnsNonZeroExitCode
+              - Program_Main_WithSingleFileFormatAndDepth4_ReturnsNonZeroExitCode
