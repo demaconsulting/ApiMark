@@ -70,8 +70,10 @@ public sealed class ValidationTests
             // Act
             Validation.Run(context);
 
-            // Assert: the .xml file must exist
+            // Assert: the .xml file must exist and contain JUnit XML content
             Assert.True(File.Exists(xmlPath), "XML results file must be created");
+            var content = File.ReadAllText(xmlPath);
+            Assert.Contains("testsuites", content);
         }
         finally
         {
