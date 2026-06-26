@@ -12,6 +12,7 @@ public sealed class VhdlGenerator : IApiGenerator
     /// <param name="options">Generator options. Must not be null. LibraryName must not be null or whitespace.</param>
     /// <exception cref="ArgumentNullException">Thrown when options is null.</exception>
     /// <exception cref="ArgumentException">Thrown when options.LibraryName is null or whitespace.</exception>
+    /// <remarks>If <c>options.Sources</c> is <see langword="null"/>, it is normalized to an empty list in-place before use.</remarks>
     public VhdlGenerator(VhdlGeneratorOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);

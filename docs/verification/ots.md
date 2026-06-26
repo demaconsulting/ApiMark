@@ -27,6 +27,32 @@ verification scenarios against the same fixture assemblies used for baseline qua
 change in discovered members, rendered signatures, or generated file layout is treated as a
 regression candidate and must be reviewed before the upgrade is accepted.
 
+## Mono.Cecil
+
+Mono.Cecil is used by `ApiMark.DotNet` as an OTS component for .NET assembly reflection.
+It is not modified; ApiMark reads assembly metadata, type and member definitions, generic
+parameters, nullable annotations, and custom attributes through Mono.Cecil's public API
+without altering the component in any way.
+
+**Verification approach**: ApiMark exercises the subset of Mono.Cecil's API surface that it
+depends on through its existing integration tests. `DotNetGenerator` tests open the fixture
+assembly via `AssemblyDefinition.ReadAssembly`, enumerate types and members, inspect
+accessibility modifiers and custom attributes, and feed the resulting metadata into Markdown
+generation. These tests collectively verify that Mono.Cecil correctly discovers namespace and
+type structure, member signatures, generic parameters, nullable annotations, obsolete markers,
+and inheritance chains for the pattern of assemblies ApiMark is expected to document.
+
+**Qualification evidence**: The Mono.Cecil package version is pinned in the project's NuGet
+references. ApiMark uses only the public Mono.Cecil API. All `ApiMark.DotNet` tests must pass
+with each version of Mono.Cecil to confirm continued compatibility.
+
+**Regression criteria**: All `ApiMark.DotNet` tests pass with each Mono.Cecil version update.
+Any change in discovered members, rendered signatures, or generated file layout relative to
+the fixture assembly baseline is treated as a regression candidate and must be reviewed before
+the upgrade is accepted.
+
+See `docs/verification/ots/mono-cecil.md` for detailed test scenarios.
+
 ## clang
 
 ApiMark verifies the clang integration by testing the exact externally supplied behavior that
@@ -47,6 +73,8 @@ integration tests against the same fixture headers used for baseline qualificati
 discovered types, rendered signatures, doc comment availability, or generated file layout is treated
 as a regression candidate and must be reviewed before the version change is accepted.
 
+See `docs/verification/ots/clang.md` for detailed test scenarios.
+
 ## ANTLR4
 
 The ANTLR4 runtime (`Antlr4.Runtime.Standard`) is verified indirectly through `VhdlAstParser` unit
@@ -61,3 +89,24 @@ invokes the parser. See `docs/verification/ots/antlr4.md` for detailed test scen
 directories and confirm that the `Matcher` API correctly handles include patterns, exclude patterns,
 and non-existent roots. See `docs/verification/ots/file-system-globbing.md` for detailed test
 scenarios.
+
+## DemaConsulting.TestResults
+
+`DemaConsulting.TestResults` is verified through the self-validation tests in
+`test/ApiMark.Tool.Tests/SelfTest/ValidationTests.cs`. These tests exercise the
+pass/fail outcome recording and results-file serialization paths of `Validation.cs`,
+which is the sole consumer of `DemaConsulting.TestResults` in the repository. The
+verification focus is the subset of capabilities the product depends on: creating a
+`TestResults` collection, recording `Passed` and `Failed` outcomes on individual
+`TestResult` objects, and serializing the collection to TRX and JUnit XML via
+`TrxSerializer` and `JUnitSerializer`. See
+`docs/verification/ots/dema-consulting-test-results.md` for detailed test scenarios.
+
+## cpp-ast-net (Archived)
+
+The `cpp-ast-net` OTS item is archived and retained for historical reference only. It was
+superseded by direct `clang -ast-dump=json` invocation (see the *clang* section above for the
+current approach). No active verification scenarios exist for this item; the design, requirements,
+and verification documents (`docs/design/ots/cpp-ast-net.md`, `docs/reqstream/ots/cpp-ast-net.yaml`,
+`docs/verification/ots/cpp-ast-net.md`) are preserved to document the historical integration
+decision.

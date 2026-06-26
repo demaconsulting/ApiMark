@@ -50,7 +50,7 @@ internal sealed class Context : IContext, IDisposable
     public OutputFormat Format { get; private init; } = OutputFormat.GradualDisclosure;
 
     /// <summary>
-    ///     Gets the heading depth for markdown output (default is 1).
+    ///     Gets the heading depth for markdown output (default is 1, valid range 1–6).
     /// </summary>
     public int HeadingDepth { get; private init; } = 1;
 
@@ -468,14 +468,10 @@ internal sealed class Context : IContext, IDisposable
                     return index + 1;
 
                 case "--depth":
+                    // Context validates the first-principles range (1–6: valid ATX heading levels in Markdown).
+                    // Format-specific constraints (e.g. single-file requires depth ≤ 3 to keep member headings
+                    // at H6 or above) are enforced by the program layer after all arguments are known, not here.
                     HeadingDepth = GetRequiredIntArgument(arg, args, index, "a heading depth argument", 1, 6);
-                    if (Format == OutputFormat.SingleFile && HeadingDepth > 3)
-                    {
-                        throw new ArgumentException(
-                            $"'--depth' value must be 1–3 when '--format single-file' is used (member headings are at depth+3); got {HeadingDepth}.",
-                            nameof(args));
-                    }
-
                     return index + 1;
 
                 case "--format":
@@ -489,12 +485,6 @@ internal sealed class Context : IContext, IDisposable
                                 $"'{arg}' value must be 'gradual' or 'single-file', got '{formatValue}'.",
                                 nameof(args)),
                         };
-                        if (Format == OutputFormat.SingleFile && HeadingDepth > 3)
-                        {
-                            throw new ArgumentException(
-                                $"'--depth' value must be 1–3 when '--format single-file' is used (member headings are at depth+3); got {HeadingDepth}.",
-                                nameof(args));
-                        }
 
                         return index + 1;
                     }
@@ -593,7 +583,13 @@ internal sealed class Context : IContext, IDisposable
                 throw new ArgumentException($"{arg} requires {description}", nameof(args));
             }
 
-            return args[index];
+            var value = args[index];
+            if (value.StartsWith('-'))
+            {
+                throw new ArgumentException($"{arg} requires {description} but got another flag '{value}'", nameof(args));
+            }
+
+            return value;
         }
 
         /// <summary>

@@ -1,9 +1,6 @@
 ---
 # ReviewMark Configuration File
-# This file defines which files require review, where the evidence store is located,
-# and how files are grouped into named review-sets following hierarchical scope principles.
-# Patterns identifying all files that require review.
-# Processed in order; prefix a pattern with '!' to exclude.
+# Files needing review
 needs-review:
   - README.md  # Root README file
   - requirements.yaml  # Root requirements file
@@ -17,22 +14,34 @@ needs-review:
   - '!**/bin/**'  # Exclude build output
   - '!**/generated/**'  # Exclude generated output
   - '!**/VhdlAst/Antlr/**'  # Exclude ANTLR4-generated lexer/parser files
+# Source of review evidence
 evidence-source:
   type: none
+# Context included for all reviews.
+context:
+  - docs/design/introduction.md  # Software structure overview — shown to every reviewer
+# Reviews
 reviews:
   # Purpose
-  - id: ApiMark-Purpose
-    title: Review that Advertised Features Match System Design
+  - id: Purpose
+    title: Review that README and User Guide are Coherent and Complete
+    context: ['!docs/design/introduction.md']  # Exclude design intro — design should not back-feed into user docs review
     paths:
       - README.md
-      - requirements.yaml
       - docs/user_guide/**/*.md
+
+  # Decomposition
+  - id: Decomposition
+    title: Review that ApiMark Decomposition Addresses the Stated Purpose
+    context: [README.md, docs/user_guide/**/*.md]
+    paths:
+      - requirements.yaml
       - docs/design/introduction.md
-      - docs/verification/introduction.md
 
   # ApiMarkCore - Specials
   - id: ApiMark-Core-Architecture
     title: Review that ApiMark Core Architecture Satisfies Requirements
+    context: [README.md, docs/user_guide/**/*.md]
     paths:
       - docs/reqstream/api-mark-core.yaml
       - docs/design/introduction.md
@@ -41,29 +50,39 @@ reviews:
       - docs/verification/api-mark-core.md
   - id: ApiMark-Core-AllRequirements
     title: Review that All ApiMark Core Requirements are Complete
-    paths:
+    context:
+      - docs/design/api-mark-core.md
       - docs/reqstream/api-mark-core.yaml
-      - docs/reqstream/api-mark-core/**/*.yaml
+    paths: [docs/reqstream/api-mark-core/**/*.yaml]
   - id: ApiMark-Core-Design
     title: Review that ApiMark Core Design is Consistent and Complete
+    context: [docs/reqstream/api-mark-core.yaml]
     paths:
       - docs/design/ots.md
       - docs/design/api-mark-core.md
       - docs/design/api-mark-core/**/*.md
   - id: ApiMark-Core-Verification
     title: Review that ApiMark Core Verification is Consistent and Complete
+    context: [docs/reqstream/api-mark-core.yaml]
     paths:
+      - docs/verification/introduction.md
       - docs/verification/ots.md
       - docs/verification/api-mark-core.md
       - docs/verification/api-mark-core/**/*.md
   - id: ApiMark-Core-TestHelpers
     title: Review that ApiMark Core TestHelpers Implementation is Correct
+    context:
+      - docs/design/api-mark-core.md
+      - docs/reqstream/api-mark-core.yaml
     paths:
       - test/ApiMark.Core.TestHelpers/**/*.cs
 
   # ApiMarkCore - Units
   - id: ApiMark-Core-IApiGenerator
     title: Review that ApiMark Core IApiGenerator Implementation is Correct
+    context:
+      - docs/design/api-mark-core.md
+      - docs/reqstream/api-mark-core.yaml
     paths:
       - docs/reqstream/api-mark-core/i-api-generator.yaml
       - docs/design/api-mark-core/i-api-generator.md
@@ -72,6 +91,9 @@ reviews:
       - test/ApiMark.Core.Tests/IApiGeneratorTests.cs
   - id: ApiMark-Core-IApiEmitter
     title: Review that ApiMark Core IApiEmitter Implementation is Correct
+    context:
+      - docs/design/api-mark-core.md
+      - docs/reqstream/api-mark-core.yaml
     paths:
       - docs/reqstream/api-mark-core/i-api-emitter.yaml
       - docs/design/api-mark-core/i-api-emitter.md
@@ -80,6 +102,9 @@ reviews:
       - test/ApiMark.Core.Tests/IApiEmitterTests.cs
   - id: ApiMark-Core-EmitConfig
     title: Review that ApiMark Core EmitConfig Implementation is Correct
+    context:
+      - docs/design/api-mark-core.md
+      - docs/reqstream/api-mark-core.yaml
     paths:
       - docs/reqstream/api-mark-core/emit-config.yaml
       - docs/design/api-mark-core/emit-config.md
@@ -88,6 +113,9 @@ reviews:
       - src/ApiMark.Core/OutputFormat.cs
   - id: ApiMark-Core-IContext
     title: Review that ApiMark Core IContext Implementation is Correct
+    context:
+      - docs/design/api-mark-core.md
+      - docs/reqstream/api-mark-core.yaml
     paths:
       - docs/reqstream/api-mark-core/i-context.yaml
       - docs/design/api-mark-core/i-context.md
@@ -97,26 +125,41 @@ reviews:
       - test/ApiMark.Core.Tests/IContextTests.cs
   - id: ApiMark-Core-MarkdownWriter
     title: Review that ApiMark Core IMarkdownWriter Implementation is Correct
+    context:
+      - docs/design/api-mark-core.md
+      - docs/reqstream/api-mark-core.yaml
     paths:
       - docs/reqstream/api-mark-core/i-markdown-writer.yaml
       - docs/design/api-mark-core/i-markdown-writer.md
       - docs/verification/api-mark-core/i-markdown-writer.md
+      - docs/reqstream/api-mark-core/file-markdown-writer.yaml
+      - docs/design/api-mark-core/file-markdown-writer.md
+      - docs/verification/api-mark-core/file-markdown-writer.md
       - src/ApiMark.Core/IMarkdownWriter.cs
       - src/ApiMark.Core/FileMarkdownWriter.cs
       - test/ApiMark.Core.Tests/IMarkdownWriterTests.cs
       - test/ApiMark.Core.Tests/FileMarkdownWriterTests.cs
   - id: ApiMark-Core-MarkdownWriterFactory
     title: Review that ApiMark Core IMarkdownWriterFactory Implementation is Correct
+    context:
+      - docs/design/api-mark-core.md
+      - docs/reqstream/api-mark-core.yaml
     paths:
       - docs/reqstream/api-mark-core/i-markdown-writer-factory.yaml
       - docs/design/api-mark-core/i-markdown-writer-factory.md
       - docs/verification/api-mark-core/i-markdown-writer-factory.md
+      - docs/reqstream/api-mark-core/file-markdown-writer-factory.yaml
+      - docs/design/api-mark-core/file-markdown-writer-factory.md
+      - docs/verification/api-mark-core/file-markdown-writer-factory.md
       - src/ApiMark.Core/IMarkdownWriterFactory.cs
       - src/ApiMark.Core/FileMarkdownWriterFactory.cs
       - test/ApiMark.Core.Tests/IMarkdownWriterFactoryTests.cs
       - test/ApiMark.Core.Tests/FileMarkdownWriterFactoryTests.cs
   - id: ApiMark-Core-PathHelpers
     title: Review that ApiMark Core PathHelpers Implementation is Correct
+    context:
+      - docs/design/api-mark-core.md
+      - docs/reqstream/api-mark-core.yaml
     paths:
       - docs/reqstream/api-mark-core/path-helpers.yaml
       - docs/design/api-mark-core/path-helpers.md
@@ -125,6 +168,9 @@ reviews:
       - test/ApiMark.Core.Tests/PathHelpersTests.cs
   - id: ApiMark-Core-GlobFileCollector
     title: Review that ApiMark Core GlobFileCollector Implementation is Correct
+    context:
+      - docs/design/api-mark-core.md
+      - docs/reqstream/api-mark-core.yaml
     paths:
       - docs/reqstream/api-mark-core/glob-file-collector.yaml
       - docs/design/api-mark-core/glob-file-collector.md
@@ -135,6 +181,7 @@ reviews:
   # ApiMarkDotNet - Specials
   - id: ApiMark-DotNet-Architecture
     title: Review that ApiMark DotNet Architecture Satisfies Requirements
+    context: [README.md, docs/user_guide/**/*.md]
     paths:
       - docs/reqstream/api-mark-dot-net.yaml
       - docs/design/introduction.md
@@ -143,17 +190,20 @@ reviews:
       - docs/verification/api-mark-dot-net.md
   - id: ApiMark-DotNet-AllRequirements
     title: Review that All ApiMark DotNet Requirements are Complete
-    paths:
+    context:
+      - docs/design/api-mark-dot-net.md
       - docs/reqstream/api-mark-dot-net.yaml
-      - docs/reqstream/api-mark-dot-net/**/*.yaml
+    paths: [docs/reqstream/api-mark-dot-net/**/*.yaml]
   - id: ApiMark-DotNet-Design
     title: Review that ApiMark DotNet Design is Consistent and Complete
+    context: [docs/reqstream/api-mark-dot-net.yaml]
     paths:
       - docs/design/ots.md
       - docs/design/api-mark-dot-net.md
       - docs/design/api-mark-dot-net/**/*.md
   - id: ApiMark-DotNet-Verification
     title: Review that ApiMark DotNet Verification is Consistent and Complete
+    context: [docs/reqstream/api-mark-dot-net.yaml]
     paths:
       - docs/verification/ots.md
       - docs/verification/api-mark-dot-net.md
@@ -162,6 +212,9 @@ reviews:
   # ApiMarkDotNet - Units
   - id: ApiMark-DotNet-DotNetGenerator
     title: Review that ApiMark DotNet DotNetGenerator Implementation is Correct
+    context:
+      - docs/design/api-mark-dot-net.md
+      - docs/reqstream/api-mark-dot-net.yaml
     paths:
       - docs/reqstream/api-mark-dot-net/dot-net-generator.yaml
       - docs/design/api-mark-dot-net/dot-net-generator.md
@@ -173,6 +226,9 @@ reviews:
       - test/ApiMark.DotNet.Tests/FixturePaths.cs
   - id: ApiMark-DotNet-DotNetAstModel
     title: Review that ApiMark DotNet DotNetAstModel Implementation is Correct
+    context:
+      - docs/design/api-mark-dot-net.md
+      - docs/reqstream/api-mark-dot-net.yaml
     paths:
       - docs/reqstream/api-mark-dot-net/dot-net-ast-model.yaml
       - docs/design/api-mark-dot-net/dot-net-ast-model.md
@@ -181,6 +237,9 @@ reviews:
       - test/ApiMark.DotNet.Tests/DotNetAstModelTests.cs
   - id: ApiMark-DotNet-DotNetEmitter
     title: Review that ApiMark DotNet DotNetEmitter Implementation is Correct
+    context:
+      - docs/design/api-mark-dot-net.md
+      - docs/reqstream/api-mark-dot-net.yaml
     paths:
       - docs/reqstream/api-mark-dot-net/dot-net-emitter.yaml
       - docs/design/api-mark-dot-net/dot-net-emitter.md
@@ -191,6 +250,9 @@ reviews:
   - id: ApiMark-DotNet-DotNetEmitterGradualDisclosure
     title: Review that ApiMark DotNet DotNetEmitterGradualDisclosure Implementation
       is Correct
+    context:
+      - docs/design/api-mark-dot-net.md
+      - docs/reqstream/api-mark-dot-net.yaml
     paths:
       - docs/reqstream/api-mark-dot-net/dot-net-emitter-gradual-disclosure.yaml
       - docs/design/api-mark-dot-net/dot-net-emitter-gradual-disclosure.md
@@ -198,8 +260,12 @@ reviews:
       - src/ApiMark.DotNet/DotNetEmitterGradualDisclosure.cs
       - test/ApiMark.DotNet.Fixtures/**/*.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterGradualDisclosureTests.cs
+      - '!test/**/obj/**'
   - id: ApiMark-DotNet-DotNetEmitterSingleFile
     title: Review that ApiMark DotNet DotNetEmitterSingleFile Implementation is Correct
+    context:
+      - docs/design/api-mark-dot-net.md
+      - docs/reqstream/api-mark-dot-net.yaml
     paths:
       - docs/reqstream/api-mark-dot-net/dot-net-emitter-single-file.yaml
       - docs/design/api-mark-dot-net/dot-net-emitter-single-file.md
@@ -207,8 +273,12 @@ reviews:
       - src/ApiMark.DotNet/DotNetEmitterSingleFile.cs
       - test/ApiMark.DotNet.Fixtures/**/*.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterSingleFileTests.cs
+      - '!test/**/obj/**'
   - id: ApiMark-DotNet-XmlDocReader
     title: Review that ApiMark DotNet XmlDocReader Implementation is Correct
+    context:
+      - docs/design/api-mark-dot-net.md
+      - docs/reqstream/api-mark-dot-net.yaml
     paths:
       - docs/reqstream/api-mark-dot-net/xml-doc-reader.yaml
       - docs/design/api-mark-dot-net/xml-doc-reader.md
@@ -217,6 +287,9 @@ reviews:
       - test/ApiMark.DotNet.Tests/XmlDocReaderTests.cs
   - id: ApiMark-DotNet-TypeLinkResolver
     title: Review that ApiMark DotNet TypeLinkResolver Implementation is Correct
+    context:
+      - docs/design/api-mark-dot-net.md
+      - docs/reqstream/api-mark-dot-net.yaml
     paths:
       - docs/reqstream/api-mark-dot-net/type-link-resolver.yaml
       - docs/design/api-mark-dot-net/type-link-resolver.md
@@ -225,6 +298,9 @@ reviews:
       - test/ApiMark.DotNet.Tests/TypeLinkResolverTests.cs
   - id: ApiMark-DotNet-TypeNameSimplifier
     title: Review that ApiMark DotNet TypeNameSimplifier Implementation is Correct
+    context:
+      - docs/design/api-mark-dot-net.md
+      - docs/reqstream/api-mark-dot-net.yaml
     paths:
       - docs/reqstream/api-mark-dot-net/type-name-simplifier.yaml
       - docs/design/api-mark-dot-net/type-name-simplifier.md
@@ -235,6 +311,7 @@ reviews:
   # ApiMarkCpp - Specials
   - id: ApiMark-Cpp-Architecture
     title: Review that ApiMark Cpp Architecture Satisfies Requirements
+    context: [README.md, docs/user_guide/**/*.md]
     paths:
       - docs/reqstream/api-mark-cpp.yaml
       - docs/design/introduction.md
@@ -243,17 +320,18 @@ reviews:
       - docs/verification/api-mark-cpp.md
   - id: ApiMark-Cpp-AllRequirements
     title: Review that All ApiMark Cpp Requirements are Complete
-    paths:
-      - docs/reqstream/api-mark-cpp.yaml
-      - docs/reqstream/api-mark-cpp/**/*.yaml
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
+    paths: [docs/reqstream/api-mark-cpp/**/*.yaml]
   - id: ApiMark-Cpp-Design
     title: Review that ApiMark Cpp Design is Consistent and Complete
+    context: [docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/design/ots.md
       - docs/design/api-mark-cpp.md
       - docs/design/api-mark-cpp/**/*.md
   - id: ApiMark-Cpp-Verification
     title: Review that ApiMark Cpp Verification is Consistent and Complete
+    context: [docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/verification/ots.md
       - docs/verification/api-mark-cpp.md
@@ -262,6 +340,7 @@ reviews:
   # ApiMarkCpp - Units
   - id: ApiMark-Cpp-CppGenerator
     title: Review that ApiMark Cpp CppGenerator Implementation is Correct
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/reqstream/api-mark-cpp/cpp-generator.yaml
       - docs/design/api-mark-cpp/cpp-generator.md
@@ -274,6 +353,7 @@ reviews:
       - test/ApiMark.Cpp.Tests/FixturePaths.cs
   - id: ApiMark-Cpp-CppEmitter
     title: Review that ApiMark Cpp CppEmitter Implementation is Correct
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/reqstream/api-mark-cpp/cpp-emitter.yaml
       - docs/design/api-mark-cpp/cpp-emitter.md
@@ -283,6 +363,7 @@ reviews:
       - test/ApiMark.Cpp.Tests/CppEmitterTests.cs
   - id: ApiMark-Cpp-CppEmitterGradualDisclosure
     title: Review that ApiMark Cpp CppEmitterGradualDisclosure Implementation is Correct
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/reqstream/api-mark-cpp/cpp-emitter-gradual-disclosure.yaml
       - docs/design/api-mark-cpp/cpp-emitter-gradual-disclosure.md
@@ -292,6 +373,7 @@ reviews:
       - test/ApiMark.Cpp.Tests/CppEmitterGradualDisclosureTests.cs
   - id: ApiMark-Cpp-CppEmitterSingleFile
     title: Review that ApiMark Cpp CppEmitterSingleFile Implementation is Correct
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/reqstream/api-mark-cpp/cpp-emitter-single-file.yaml
       - docs/design/api-mark-cpp/cpp-emitter-single-file.md
@@ -300,6 +382,7 @@ reviews:
       - test/ApiMark.Cpp.Tests/CppEmitterSingleFileTests.cs
   - id: ApiMark-Cpp-CppTypeLinkResolver
     title: Review that ApiMark Cpp CppTypeLinkResolver Implementation is Correct
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/reqstream/api-mark-cpp/cpp-type-link-resolver.yaml
       - docs/design/api-mark-cpp/cpp-type-link-resolver.md
@@ -310,6 +393,7 @@ reviews:
   # ApiMarkCpp.CppAst - Units
   - id: ApiMark-Cpp-CppAstModel
     title: Review that ApiMark Cpp CppAstModel Implementation is Correct
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/reqstream/api-mark-cpp/cpp-ast-model.yaml
       - docs/design/api-mark-cpp/cpp-ast-model.md
@@ -318,6 +402,7 @@ reviews:
       - test/ApiMark.Cpp.Tests/CppAstModelTests.cs
   - id: ApiMark-Cpp-ClangAstParser
     title: Review that ApiMark Cpp ClangAstParser Implementation is Correct
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/reqstream/api-mark-cpp/clang-ast-parser.yaml
       - docs/design/api-mark-cpp/clang-ast-parser.md
@@ -329,6 +414,7 @@ reviews:
   # ApiMarkVhdl - Specials
   - id: ApiMark-Vhdl-Architecture
     title: Review that ApiMark Vhdl Architecture Satisfies Requirements
+    context: [README.md, docs/user_guide/**/*.md]
     paths:
       - docs/reqstream/api-mark-vhdl.yaml
       - docs/design/introduction.md
@@ -337,17 +423,20 @@ reviews:
       - docs/verification/api-mark-vhdl.md
   - id: ApiMark-Vhdl-AllRequirements
     title: Review that All ApiMark Vhdl Requirements are Complete
-    paths:
+    context:
+      - docs/design/api-mark-vhdl.md
       - docs/reqstream/api-mark-vhdl.yaml
-      - docs/reqstream/api-mark-vhdl/**/*.yaml
+    paths: [docs/reqstream/api-mark-vhdl/**/*.yaml]
   - id: ApiMark-Vhdl-Design
     title: Review that ApiMark Vhdl Design is Consistent and Complete
+    context: [docs/reqstream/api-mark-vhdl.yaml]
     paths:
       - docs/design/ots.md
       - docs/design/api-mark-vhdl.md
       - docs/design/api-mark-vhdl/**/*.md
   - id: ApiMark-Vhdl-Verification
     title: Review that ApiMark Vhdl Verification is Consistent and Complete
+    context: [docs/reqstream/api-mark-vhdl.yaml]
     paths:
       - docs/verification/ots.md
       - docs/verification/api-mark-vhdl.md
@@ -356,6 +445,9 @@ reviews:
   # ApiMarkVhdl - Units
   - id: ApiMark-Vhdl-VhdlGenerator
     title: Review that ApiMark Vhdl VhdlGenerator Implementation is Correct
+    context:
+      - docs/design/api-mark-vhdl.md
+      - docs/reqstream/api-mark-vhdl.yaml
     paths:
       - docs/reqstream/api-mark-vhdl/vhdl-generator.yaml
       - docs/design/api-mark-vhdl/vhdl-generator.md
@@ -366,6 +458,9 @@ reviews:
       - test/ApiMark.Vhdl.Tests/FixturePaths.cs
   - id: ApiMark-Vhdl-VhdlEmitter
     title: Review that ApiMark Vhdl VhdlEmitter Implementation is Correct
+    context:
+      - docs/design/api-mark-vhdl.md
+      - docs/reqstream/api-mark-vhdl.yaml
     paths:
       - docs/reqstream/api-mark-vhdl/vhdl-emitter.yaml
       - docs/design/api-mark-vhdl/vhdl-emitter.md
@@ -375,6 +470,9 @@ reviews:
   - id: ApiMark-Vhdl-VhdlEmitterGradualDisclosure
     title: Review that ApiMark Vhdl VhdlEmitterGradualDisclosure Implementation is
       Correct
+    context:
+      - docs/design/api-mark-vhdl.md
+      - docs/reqstream/api-mark-vhdl.yaml
     paths:
       - docs/reqstream/api-mark-vhdl/vhdl-emitter-gradual-disclosure.yaml
       - docs/design/api-mark-vhdl/vhdl-emitter-gradual-disclosure.md
@@ -384,6 +482,9 @@ reviews:
       - test/ApiMark.Vhdl.Tests/VhdlEmitterGradualDisclosureTests.cs
   - id: ApiMark-Vhdl-VhdlEmitterSingleFile
     title: Review that ApiMark Vhdl VhdlEmitterSingleFile Implementation is Correct
+    context:
+      - docs/design/api-mark-vhdl.md
+      - docs/reqstream/api-mark-vhdl.yaml
     paths:
       - docs/reqstream/api-mark-vhdl/vhdl-emitter-single-file.yaml
       - docs/design/api-mark-vhdl/vhdl-emitter-single-file.md
@@ -395,6 +496,9 @@ reviews:
   # ApiMarkVhdl.VhdlAst - Units
   - id: ApiMark-Vhdl-VhdlAstModel
     title: Review that ApiMark Vhdl VhdlAstModel Implementation is Correct
+    context:
+      - docs/design/api-mark-vhdl.md
+      - docs/reqstream/api-mark-vhdl.yaml
     paths:
       - docs/reqstream/api-mark-vhdl/vhdl-ast-model.yaml
       - docs/design/api-mark-vhdl/vhdl-ast-model.md
@@ -403,6 +507,9 @@ reviews:
       - test/ApiMark.Vhdl.Tests/VhdlAstParserTests.cs
   - id: ApiMark-Vhdl-VhdlAstParser
     title: Review that ApiMark Vhdl VhdlAstParser Implementation is Correct
+    context:
+      - docs/design/api-mark-vhdl.md
+      - docs/reqstream/api-mark-vhdl.yaml
     paths:
       - docs/reqstream/api-mark-vhdl/vhdl-ast-parser.yaml
       - docs/design/api-mark-vhdl/vhdl-ast-parser.md
@@ -414,6 +521,7 @@ reviews:
   # ApiMarkMSBuild - Specials
   - id: ApiMark-MSBuild-Architecture
     title: Review that ApiMark MSBuild Architecture Satisfies Requirements
+    context: [README.md, docs/user_guide/**/*.md]
     paths:
       - docs/reqstream/api-mark-msbuild.yaml
       - docs/design/introduction.md
@@ -422,17 +530,20 @@ reviews:
       - docs/verification/api-mark-msbuild.md
   - id: ApiMark-MSBuild-AllRequirements
     title: Review that All ApiMark MSBuild Requirements are Complete
-    paths:
+    context:
+      - docs/design/api-mark-msbuild.md
       - docs/reqstream/api-mark-msbuild.yaml
-      - docs/reqstream/api-mark-msbuild/**/*.yaml
+    paths: [docs/reqstream/api-mark-msbuild/**/*.yaml]
   - id: ApiMark-MSBuild-Design
     title: Review that ApiMark MSBuild Design is Consistent and Complete
+    context: [docs/reqstream/api-mark-msbuild.yaml]
     paths:
       - docs/design/ots.md
       - docs/design/api-mark-msbuild.md
       - docs/design/api-mark-msbuild/**/*.md
   - id: ApiMark-MSBuild-Verification
     title: Review that ApiMark MSBuild Verification is Consistent and Complete
+    context: [docs/reqstream/api-mark-msbuild.yaml]
     paths:
       - docs/verification/ots.md
       - docs/verification/api-mark-msbuild.md
@@ -441,6 +552,9 @@ reviews:
   # ApiMarkMSBuild - Units
   - id: ApiMark-MSBuild-Task
     title: Review that ApiMark MSBuild ApiMarkTask Implementation is Correct
+    context:
+      - docs/design/api-mark-msbuild.md
+      - docs/reqstream/api-mark-msbuild.yaml
     paths:
       - docs/reqstream/api-mark-msbuild/api-mark-task.yaml
       - docs/design/api-mark-msbuild/api-mark-task.md
@@ -454,6 +568,7 @@ reviews:
   # ApiMarkTool - Specials
   - id: ApiMark-Tool-Architecture
     title: Review that ApiMark Tool Architecture Satisfies Requirements
+    context: [README.md, docs/user_guide/**/*.md]
     paths:
       - docs/reqstream/api-mark-tool.yaml
       - docs/design/introduction.md
@@ -462,17 +577,20 @@ reviews:
       - docs/verification/api-mark-tool.md
   - id: ApiMark-Tool-AllRequirements
     title: Review that All ApiMark Tool Requirements are Complete
-    paths:
+    context:
+      - docs/design/api-mark-tool.md
       - docs/reqstream/api-mark-tool.yaml
-      - docs/reqstream/api-mark-tool/**/*.yaml
+    paths: [docs/reqstream/api-mark-tool/**/*.yaml]
   - id: ApiMark-Tool-Design
     title: Review that ApiMark Tool Design is Consistent and Complete
+    context: [docs/reqstream/api-mark-tool.yaml]
     paths:
       - docs/design/ots.md
       - docs/design/api-mark-tool.md
       - docs/design/api-mark-tool/**/*.md
   - id: ApiMark-Tool-Verification
     title: Review that ApiMark Tool Verification is Consistent and Complete
+    context: [docs/reqstream/api-mark-tool.yaml]
     paths:
       - docs/verification/ots.md
       - docs/verification/api-mark-tool.md
@@ -481,6 +599,9 @@ reviews:
   # ApiMarkTool - Units
   - id: ApiMark-Tool-Program
     title: Review that ApiMark Tool Program Implementation is Correct
+    context:
+      - docs/design/api-mark-tool.md
+      - docs/reqstream/api-mark-tool.yaml
     paths:
       - docs/reqstream/api-mark-tool/program.yaml
       - docs/design/api-mark-tool/program.md
@@ -491,12 +612,20 @@ reviews:
   # ApiMarkTool.Cli - Units
   - id: ApiMark-Tool-Cli
     title: Review that ApiMark Tool Cli Satisfies Subsystem Requirements
+    context:
+      - docs/design/api-mark-tool.md
+      - docs/reqstream/api-mark-tool.yaml
     paths:
       - docs/reqstream/api-mark-tool/cli.yaml
       - docs/design/api-mark-tool/cli.md
       - docs/verification/api-mark-tool/cli.md
   - id: ApiMark-Tool-Cli-Context
     title: Review that ApiMark Tool Cli Context Implementation is Correct
+    context:
+      - docs/design/api-mark-tool.md
+      - docs/reqstream/api-mark-tool.yaml
+      - docs/design/api-mark-tool/cli.md
+      - docs/reqstream/api-mark-tool/cli.yaml
     paths:
       - docs/reqstream/api-mark-tool/cli/context.yaml
       - docs/design/api-mark-tool/cli/context.md
@@ -507,12 +636,20 @@ reviews:
   # ApiMarkTool.SelfTest - Units
   - id: ApiMark-Tool-SelfTest
     title: Review that ApiMark Tool SelfTest Satisfies Subsystem Requirements
+    context:
+      - docs/design/api-mark-tool.md
+      - docs/reqstream/api-mark-tool.yaml
     paths:
       - docs/reqstream/api-mark-tool/self-test.yaml
       - docs/design/api-mark-tool/self-test.md
       - docs/verification/api-mark-tool/self-test.md
   - id: ApiMark-Tool-SelfTest-Validation
     title: Review that ApiMark Tool SelfTest Validation Implementation is Correct
+    context:
+      - docs/design/api-mark-tool.md
+      - docs/reqstream/api-mark-tool.yaml
+      - docs/design/api-mark-tool/self-test.md
+      - docs/reqstream/api-mark-tool/self-test.yaml
     paths:
       - docs/reqstream/api-mark-tool/self-test/validation.yaml
       - docs/design/api-mark-tool/self-test/validation.md

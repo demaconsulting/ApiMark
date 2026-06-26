@@ -13,9 +13,9 @@ Visual Studio C++ builds (Windows).
 Rather than calling language generators in-process, ApiMarkTask spawns the
 `ApiMark.Tool` .NET executable as a child process, passing all configuration as
 command-line arguments. This out-of-process design allows the language generators
-to target `net8.0` freely — using libraries that do not support `netstandard2.0`
-such as newer versions of CppAst.Net — while the MSBuild task itself targets
-`netstandard2.0` for full compatibility with both .NET Framework MSBuild (Visual
+to target a modern .NET framework freely — using libraries that do not support
+`netstandard2.0` such as newer versions of CppAst.Net — while the MSBuild task itself
+targets `netstandard2.0` for full compatibility with both .NET Framework MSBuild (Visual
 Studio) and the .NET SDK MSBuild (`dotnet build`).
 
 The NuGet package `ApiMark.MSBuild` bundles both the task assembly and the
@@ -57,10 +57,10 @@ task.
     `ApiMarkCppStandard` (e.g. `c++17`; optional, defaulted to `c++17` by the `.targets` file
     when not set by the project),
     `ApiMarkClangPath` (optional explicit clang executable path).
-  Optional input item group `ApiMarkOutputs`; each item carries `OutputDir`, `Format`, and
-  `Visibility` metadata that overrides the corresponding scalar properties for that named output
-  configuration; one child process is spawned per item; documentation packaging is handled by
-  `_ApiMarkIncludeDocsInPackage`.
+  Optional input item group `ApiMarkOutput` (exposed to MSBuild projects via the task property
+  `ApiMarkOutputs`); each item carries `OutputDir`, `Format`, and `Visibility` metadata that
+  overrides the corresponding scalar properties for that named output configuration; one child
+  process is spawned per item; documentation packaging is handled by `_ApiMarkIncludeDocsInPackage`.
   Fires `AfterTargets="Build"` unless `DisableApiMark` is true. Language is
   inferred from `ProjectExtension` when `ApiMarkLanguage` is not explicitly set.
 - *Constraints*: Must not load any language-generator libraries in the MSBuild
@@ -98,7 +98,7 @@ executable to perform generation.
 
 ## Risk Control Measures
 
-N/A — not a safety-classified software item.
+N/A - not a safety-classified software item.
 
 ## Data Flow
 
@@ -135,7 +135,7 @@ bundled in the NuGet package.
 - Task platform: targets `netstandard2.0` so the same assembly runs in .NET
   Framework MSBuild (Visual Studio) and .NET SDK MSBuild (`dotnet build`).
 - Tool platform: `ApiMark.Tool.dll` targets `net8.0`; language generators are free
-  to use any library regardless of `netstandard` support.
+  to use any library regardless of `netstandard2.0` support.
 - Cross-platform `dotnet` resolution: `DOTNET_HOST_PATH` is set by the SDK on all
   platforms; the task must fall back to searching `PATH` for environments where it
   is not set (e.g., Visual Studio on .NET Framework MSBuild).

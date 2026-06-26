@@ -11,7 +11,24 @@ sections:
               pages.
             justification: |
               Separate files per declaration enable gradual disclosure navigation.
+            children:
+              - ApiMarkVhdl-VhdlEmitterGradualDisclosure-EmitSubprogramDetailPage
             tests:
               - VhdlEmitterGradualDisclosure_Emit_MinimalData_CreatesApiIndexPage
               - VhdlEmitterGradualDisclosure_Emit_MinimalData_CreatesEntityPage
               - VhdlEmitterGradualDisclosure_Emit_MinimalData_ApiIndexContainsLibraryNameHeading
+              - VhdlEmitterGradualDisclosure_Emit_WithArchitecture_EntityPageHasInlineArchitecturesSection
+              - VhdlEmitterGradualDisclosure_Emit_WithArchitecture_ArchitectureParagraphContainsFilename
+          - id: ApiMarkVhdl-VhdlEmitterGradualDisclosure-EmitSubprogramDetailPage
+            title: VhdlEmitterGradualDisclosure shall write one detail file per subprogram
+              declared in a package, placed under a per-package subfolder
+              ({packageName}/{subprogramName}.md).
+            justification: |
+              Per-subprogram detail files enable fine-grained gradual disclosure so an
+              AI can navigate from the package index to individual subprogram signatures
+              without loading the entire package page.
+            tests:
+              - VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_CreatesSubprogramDetailFile
+              - VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_SubprogramDetailFileHasSignatureHeading
+              - VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_EmitsSubprogramsSection
+              - VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_PackagePageLinkUsesSubfolderPath

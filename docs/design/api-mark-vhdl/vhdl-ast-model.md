@@ -69,18 +69,18 @@ Design invariants:
 
 ### Key Methods
 
-N/A — VhdlAstModel contains only immutable record definitions; it exposes no methods
+N/A - VhdlAstModel contains only immutable record definitions; it exposes no methods
 beyond the C# positional-record auto-generated members (constructor, deconstruct,
 equality).
 
 ### Error Handling
 
-N/A — VhdlAstModel is a pure data model with no runtime logic; error handling is
+N/A - VhdlAstModel is a pure data model with no runtime logic; error handling is
 the responsibility of `VhdlAstParser` during record construction.
 
 ### Dependencies
 
-N/A — VhdlAstModel has no dependencies on other units, OTS packages, or shared
+N/A - VhdlAstModel has no dependencies on other units, OTS packages, or shared
 packages; it uses only BCL types (`IReadOnlyList<T>`, `string`).
 
 ### Callers

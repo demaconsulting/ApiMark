@@ -13,25 +13,42 @@ namespace ApiMark.Cpp.Tests;
 /// <summary>Unit tests for <see cref="CppEmitterSingleFile"/>.</summary>
 public class CppEmitterSingleFileTests
 {
-    /// <summary>Builds a minimal set of namespace declarations for testing without invoking clang.</summary>
-    private static (CppEmitter emitter, SortedDictionary<string, CppEmitter.NamespaceDeclarations> nsDecls, CppTypeLinkResolver resolver) BuildMinimalData()
+    /// <summary>Builds a representative synthetic API model without invoking clang.</summary>
+    private static (CppEmitter emitter, SortedDictionary<string, CppEmitter.NamespaceDeclarations> nsDecls, CppTypeLinkResolver resolver) BuildData()
     {
         var options = new CppGeneratorOptions
         {
             LibraryName = "TestLib",
             PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
         };
+
         var nsDecls = new SortedDictionary<string, CppEmitter.NamespaceDeclarations>(StringComparer.Ordinal);
         var ns = new CppEmitter.NamespaceDeclarations("testlib", new CppDocComment("A test library.", null, [], null));
-        ns.Classes.Add(new CppClass("Widget", [], [], [], [], [], [], false, false, null,
+        ns.Classes.Add(new CppClass(
+            "Widget",
+            [],
+            [],
+            [
+                new CppFunction("GetValue", "int", [], CppAccessibility.Public, false, false, false, false, false, false, null, new CppDocComment("Gets the current value.", null, [], null)),
+            ],
+            [],
+            [],
+            [],
+            false,
+            false,
+            null,
             new CppDocComment("A widget.", null, [], null)));
+        ns.FreeFunctions.Add(new CppFunction("MakeWidget", "Widget", [], CppAccessibility.Public, false, false, false, false, false, false, null, new CppDocComment("Creates a widget.", null, [], "A widget.")));
+        ns.Enums.Add(new CppEnum("Color", [new CppEnumValue("Red", new CppDocComment("Red.", null, [], null))], false, null, new CppDocComment("Color options.", null, [], null)));
         nsDecls["testlib"] = ns;
+
         var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal)
         {
             { "testlib::Widget", "testlib/Widget" },
+            { "testlib::Color", "testlib/Color" },
         });
-        var emitter = new CppEmitter(options, nsDecls, resolver);
-        return (emitter, nsDecls, resolver);
+
+        return (new CppEmitter(options, nsDecls, resolver), nsDecls, resolver);
     }
 
     /// <summary>Validates that the single-file emitter creates exactly one writer.</summary>
@@ -40,7 +57,7 @@ public class CppEmitterSingleFileTests
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
-        var (emitter, nsDecls, resolver) = BuildMinimalData();
+        var (emitter, nsDecls, resolver) = BuildData();
 
         // Act
         new CppEmitterSingleFile(emitter, nsDecls, resolver).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
@@ -55,13 +72,13 @@ public class CppEmitterSingleFileTests
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
-        var (emitter, nsDecls, resolver) = BuildMinimalData();
+        var (emitter, nsDecls, resolver) = BuildData();
 
         // Act
         new CppEmitterSingleFile(emitter, nsDecls, resolver).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
 
         // Assert
-        Assert.True(factory.HasWriter("", "api"), "Expected api writer to be created");
+        Assert.True(factory.HasWriter("", "api"));
     }
 
     /// <summary>Validates that the api file contains a library-name heading.</summary>
@@ -70,14 +87,13 @@ public class CppEmitterSingleFileTests
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
-        var (emitter, nsDecls, resolver) = BuildMinimalData();
+        var (emitter, nsDecls, resolver) = BuildData();
 
         // Act
         new CppEmitterSingleFile(emitter, nsDecls, resolver).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
 
         // Assert
-        var apiWriter = factory.GetWriter("", "api");
-        var headings = apiWriter.Operations.OfType<HeadingOperation>().ToList();
+        var headings = factory.GetWriter("", "api").Operations.OfType<HeadingOperation>().ToList();
         Assert.Contains(headings, h => h.Text.Contains("TestLib", StringComparison.Ordinal));
     }
 
@@ -87,14 +103,159 @@ public class CppEmitterSingleFileTests
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
-        var (emitter, nsDecls, resolver) = BuildMinimalData();
+        var (emitter, nsDecls, resolver) = BuildData();
 
         // Act
         new CppEmitterSingleFile(emitter, nsDecls, resolver).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
 
         // Assert
-        var apiWriter = factory.GetWriter("", "api");
-        var headings = apiWriter.Operations.OfType<HeadingOperation>().ToList();
+        var headings = factory.GetWriter("", "api").Operations.OfType<HeadingOperation>().ToList();
         Assert.Contains(headings, h => h.Text.Contains("testlib", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that class declarations are emitted as H3 sections in single-file output.</summary>
+    [Fact]
+    public void CppEmitterSingleFile_Emit_ClassData_ContainsClassSection()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, nsDecls, resolver) = BuildData();
+
+        // Act
+        new CppEmitterSingleFile(emitter, nsDecls, resolver).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert
+        var headings = factory.GetWriter("", "api").Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(headings, h => h.Level == 3 && h.Text == "Widget");
+    }
+
+    /// <summary>Validates that free functions are emitted as H3 sections in single-file output.</summary>
+    [Fact]
+    public void CppEmitterSingleFile_Emit_FreeFunction_ContainsFreeFunctionSection()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, nsDecls, resolver) = BuildData();
+
+        // Act
+        new CppEmitterSingleFile(emitter, nsDecls, resolver).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert
+        var headings = factory.GetWriter("", "api").Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(headings, h => h.Level == 3 && h.Text.StartsWith("MakeWidget(", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that enums are emitted as H3 sections in single-file output.</summary>
+    [Fact]
+    public void CppEmitterSingleFile_Emit_Enum_ContainsEnumSection()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, nsDecls, resolver) = BuildData();
+
+        // Act
+        new CppEmitterSingleFile(emitter, nsDecls, resolver).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert
+        var headings = factory.GetWriter("", "api").Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(headings, h => h.Level == 3 && h.Text == "Color");
+    }
+
+    /// <summary>Validates that namespace-level type aliases are emitted as H3 sections in single-file output.</summary>
+    [Fact]
+    public void CppEmitterSingleFile_Emit_TypeAlias_ContainsTypeAliasSection()
+    {
+        // Arrange: build a namespace with a single type alias
+        var factory = new InMemoryMarkdownWriterFactory();
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "TestLib",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+        };
+        var nsDecls = new SortedDictionary<string, CppEmitter.NamespaceDeclarations>(StringComparer.Ordinal);
+        var ns = new CppEmitter.NamespaceDeclarations("testlib", null);
+        ns.TypeAliases.Add(new CppTypeAlias(
+            "WidgetHandle",
+            "unsigned int",
+            false,
+            null,
+            new CppDocComment("Handle to a Widget.", null, [], null)));
+        nsDecls["testlib"] = ns;
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+        var emitter = new CppEmitter(options, nsDecls, resolver);
+
+        // Act
+        new CppEmitterSingleFile(emitter, nsDecls, resolver).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: alias name appears as an H3 heading and underlying type appears in the writer content
+        var writer = factory.GetWriter("", "api");
+        var headings = writer.Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(headings, h => h.Level == 3 && h.Text == "WidgetHandle");
+        var signatures = writer.Operations.OfType<SignatureOperation>().ToList();
+        Assert.Contains(signatures, s => s.Code.Contains("WidgetHandle", StringComparison.Ordinal)
+            && s.Code.Contains("unsigned int", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that class-scoped type aliases appear as sub-entries below the owning class.</summary>
+    [Fact]
+    public void CppEmitterSingleFile_Emit_ClassScopedTypeAlias_ContainsAliasSubEntry()
+    {
+        // Arrange: build a class with a class-scoped type alias
+        var factory = new InMemoryMarkdownWriterFactory();
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "TestLib",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+        };
+        var nsDecls = new SortedDictionary<string, CppEmitter.NamespaceDeclarations>(StringComparer.Ordinal);
+        var ns = new CppEmitter.NamespaceDeclarations("testlib", null);
+        ns.Classes.Add(new CppClass(
+            "Widget",
+            [],
+            [],
+            [],
+            [],
+            [],
+            [new CppTypeAlias("size_type", "unsigned int", false, null, new CppDocComment("Size type.", null, [], null))],
+            false,
+            false,
+            null,
+            new CppDocComment("A widget.", null, [], null)));
+        nsDecls["testlib"] = ns;
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+        var emitter = new CppEmitter(options, nsDecls, resolver);
+
+        // Act
+        new CppEmitterSingleFile(emitter, nsDecls, resolver).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: class-scoped alias appears as an H4 heading (depth+3 with default depth=1) with a signature
+        var writer = factory.GetWriter("", "api");
+        var headings = writer.Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(headings, h => h.Level == 4 && h.Text == "size_type");
+        var signatures = writer.Operations.OfType<SignatureOperation>().ToList();
+        Assert.Contains(signatures, s => s.Code.Contains("size_type", StringComparison.Ordinal)
+            && s.Code.Contains("unsigned int", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that non-default heading depth offsets are applied consistently.</summary>
+    [Fact]
+    public void CppEmitterSingleFile_Emit_NonDefaultHeadingDepth_OffsetsHeadings()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, nsDecls, resolver) = BuildData();
+
+        // Act
+        new CppEmitterSingleFile(emitter, nsDecls, resolver).Emit(
+            factory,
+            new EmitConfig { Format = OutputFormat.SingleFile, HeadingDepth = 2 },
+            new InMemoryContext());
+
+        // Assert
+        var headings = factory.GetWriter("", "api").Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(headings, h => h.Level == 2 && h.Text.Contains("TestLib", StringComparison.Ordinal));
+        Assert.Contains(headings, h => h.Level == 3 && h.Text.Contains("testlib", StringComparison.Ordinal));
+        Assert.Contains(headings, h => h.Level == 4 && h.Text == "Widget");
+        Assert.Contains(headings, h => h.Level == 5 && h.Text.StartsWith("GetValue(", StringComparison.Ordinal));
     }
 }

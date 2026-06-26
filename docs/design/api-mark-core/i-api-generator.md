@@ -19,7 +19,7 @@ multiple Emit calls.
 
 ### Data Model
 
-N/A — IApiGenerator is an interface with no fields or properties of its own.
+N/A - IApiGenerator is an interface with no fields or properties of its own.
 Language-specific options are passed at construction time of the implementing
 class and are not exposed through this interface.
 

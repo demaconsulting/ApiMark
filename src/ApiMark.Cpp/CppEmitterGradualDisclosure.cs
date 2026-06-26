@@ -18,6 +18,8 @@ internal sealed class CppEmitterGradualDisclosure
         ["Namespace", "`{Namespace}.md`"],
         ["Type", "`{Namespace}/{TypeName}.md`"],
         ["Member", "`{Namespace}/{TypeName}/{MemberName}.md`"],
+        ["Nested type", "`{Namespace}/{OuterType}/{NestedType}.md`"],
+        ["Class-scoped type alias", "`{Namespace}/{TypeName}/{AliasName}.md`"],
         ["Free function", "`{Namespace}/{FunctionName}.md`"],
         ["Enum", "`{Namespace}/{EnumName}.md`"],
         ["Type alias", "`{Namespace}/{AliasName}.md`"],
@@ -152,7 +154,7 @@ internal sealed class CppEmitterGradualDisclosure
         var rows = namespaces.Select(kv =>
         {
             var nsDecls = kv.Value;
-            var declarationCount = nsDecls.Classes.Count + nsDecls.Enums.Count + nsDecls.FreeFunctions.Count;
+            var declarationCount = nsDecls.Classes.Count + nsDecls.Enums.Count + nsDecls.FreeFunctions.Count + nsDecls.TypeAliases.Count;
             var description = CppEmitter.GetNamespaceDescription(nsDecls);
             return new[] { $"[{nsDecls.DisplayName}]({kv.Key}.md)", declarationCount.ToString(), description };
         });
@@ -393,7 +395,7 @@ internal sealed class CppEmitterGradualDisclosure
         var methodSummary = CppEmitter.GetSummary(method.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
 
         // Linkify the return type cell using the type link resolver
-        var returnType = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(method.ReturnTypeName), ctx.NsKey, externalTypes);
+        var returnType = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(method.ReturnTypeName), ctx.NsKey, externalTypes)!;
 
         if (writtenKeys.Add(lowerKey))
         {
@@ -432,7 +434,7 @@ internal sealed class CppEmitterGradualDisclosure
         var fieldSummary = CppEmitter.GetSummary(field.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
 
         // Linkify the field type cell using the type link resolver
-        var typeName = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(field.TypeName), ctx.NsKey, externalTypes);
+        var typeName = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(field.TypeName), ctx.NsKey, externalTypes)!;
 
         if (writtenKeys.Add(lowerKey))
         {
@@ -517,7 +519,7 @@ internal sealed class CppEmitterGradualDisclosure
                 .Select(alias =>
                 {
                     var summary = CppEmitter.GetSummary(alias.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
-                    var underlying = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(alias.UnderlyingTypeName), ctx.NsKey, externalTypes);
+                    var underlying = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(alias.UnderlyingTypeName), ctx.NsKey, externalTypes)!;
                     return new[] { $"[{alias.Name}]({ctx.Class.Name}/{alias.Name}.md)", underlying, summary };
                 });
             writer.WriteTable(aliasHeaders, aliasRows);
@@ -716,7 +718,7 @@ internal sealed class CppEmitterGradualDisclosure
 
             // Linkify parameter type cells; resolver tracks external types encountered
             var paramRows = fn.Parameters.Select(p =>
-                new[] { p.Name, cppResolver.Linkify(CppEmitter.SimplifyTypeName(p.TypeName), currentFolder, externalTypes), CppEmitter.GetParamDescription(fn.Doc, p.Name) ?? CppEmitter.NoDescriptionPlaceholder });
+                new[] { p.Name, cppResolver.Linkify(CppEmitter.SimplifyTypeName(p.TypeName), currentFolder, externalTypes)!, CppEmitter.GetParamDescription(fn.Doc, p.Name) ?? CppEmitter.NoDescriptionPlaceholder });
             writer.WriteTable(paramHeaders, paramRows);
         }
 
@@ -725,7 +727,7 @@ internal sealed class CppEmitterGradualDisclosure
         if (!string.Equals(returnTypeName, "void", StringComparison.Ordinal))
         {
             // Always linkify/track the return type even when a doc description is present
-            var linkedReturnType = cppResolver.Linkify(returnTypeName, currentFolder, externalTypes);
+            var linkedReturnType = cppResolver.Linkify(returnTypeName, currentFolder, externalTypes)!;
             writer.WriteHeading(parametersHeadingLevel, "Returns");
             var returnDescription = CppEmitter.GetReturnDescription(fn.Doc);
             writer.WriteParagraph(!string.IsNullOrEmpty(returnDescription) ? returnDescription : linkedReturnType);
@@ -831,7 +833,7 @@ internal sealed class CppEmitterGradualDisclosure
 
             // Linkify parameter type cells; resolver tracks external types encountered
             var paramRows = method.Parameters.Select(p =>
-                new[] { p.Name, ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(p.TypeName), ctx.CurrentFolder, ctx.ExternalTypes), CppEmitter.GetParamDescription(method.Doc, p.Name) ?? string.Empty });
+                new[] { p.Name, ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(p.TypeName), ctx.CurrentFolder, ctx.ExternalTypes)!, CppEmitter.GetParamDescription(method.Doc, p.Name) ?? CppEmitter.NoDescriptionPlaceholder });
             writer.WriteTable(paramHeaders, paramRows);
         }
 
@@ -843,7 +845,7 @@ internal sealed class CppEmitterGradualDisclosure
             if (!string.Equals(returnTypeName, "void", StringComparison.Ordinal))
             {
                 // Always linkify/track the return type even when a doc description is present
-                var linkedReturnType = ctx.CppResolver.Linkify(returnTypeName, ctx.CurrentFolder, ctx.ExternalTypes);
+                var linkedReturnType = ctx.CppResolver.Linkify(returnTypeName, ctx.CurrentFolder, ctx.ExternalTypes)!;
                 writer.WriteHeading(ctx.ParametersHeadingLevel, "Returns");
                 var returnDescription = CppEmitter.GetReturnDescription(method.Doc);
                 writer.WriteParagraph(!string.IsNullOrEmpty(returnDescription) ? returnDescription : linkedReturnType);
@@ -1094,7 +1096,7 @@ internal sealed class CppEmitterGradualDisclosure
                 .Select(alias =>
                 {
                     var summary = CppEmitter.GetSummary(alias.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
-                    var underlying = cppResolver.Linkify(CppEmitter.SimplifyTypeName(alias.UnderlyingTypeName), nsKey, externalTypes);
+                    var underlying = cppResolver.Linkify(CppEmitter.SimplifyTypeName(alias.UnderlyingTypeName), nsKey, externalTypes)!;
                     return new[] { $"[{alias.Name}]({nsKey}/{alias.Name}.md)", underlying, summary };
                 });
             writer.WriteTable(aliasHeaders, aliasRows);
@@ -1123,7 +1125,7 @@ internal sealed class CppEmitterGradualDisclosure
 
                     // Linkify the return type cell; namespace page folder is "" (root)
                     var returnType = cppResolver.Linkify(
-                        CppEmitter.SimplifyTypeName(fn.ReturnTypeName), string.Empty, externalTypes);
+                        CppEmitter.SimplifyTypeName(fn.ReturnTypeName), string.Empty, externalTypes)!;
                     var safeName = CppEmitter.SanitizeFileName(fn.Name);
                     return new[] { $"[{fn.Name}]({nsKey}/{safeName}.md)", returnType, summary };
                 });

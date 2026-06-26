@@ -5,156 +5,151 @@
 
 ## Architecture
 
-ApiMarkCpp provides C++ language support. It reads a set of public C++ header
-files by invoking clang with `clang -ast-dump=json`, parsing the resulting JSON
-AST, applying a file-provenance filter to identify declarations that belong to the
-documented public API, and producing the Markdown output defined by the Core
-interfaces. The system contains the following units:
+ApiMarkCpp provides C++ language support by parsing selected public headers with
+clang, converting the JSON AST into immutable C# records, and emitting Markdown
+through the ApiMarkCore interfaces. The system contains the following units:
 
-- **CppGenerator** — accepts `CppGeneratorOptions` specifying public include
-  roots and parse environment, invokes `ClangAstParser` to obtain a fully resolved
-  C++ AST as structured records, filters declarations to those physically defined in
-  the public header files, and writes the complete gradual-disclosure Markdown tree
-  through IMarkdownWriterFactory.
-- **CppAstModel** — group of immutable record types (`CppNamespaceDecl`,
-  `CppClass`, `CppFunction`, `CppField`, `CppEnum`, `CppTypeAlias`, etc.)
-  that represent the parsed C++ AST; constructed exclusively by `ClangAstParser`.
-- **ClangAstParser** — internal parser that invokes `clang -ast-dump=json`,
-  deserializes the resulting JSON, and returns a `CppCompilationResult`.
-- **CppEmitter** — `IApiEmitter` implementation that dispatches to the appropriate
-  format-specific emitter and provides shared helper methods used by both emitters.
-- **CppEmitterGradualDisclosure** — writes one file per namespace, type, and
-  member, creating the navigable gradual-disclosure Markdown tree.
-- **CppEmitterSingleFile** — writes all documentation into a single `api.md`
-  file using heading levels offset by `EmitConfig.HeadingDepth`.
-- **CppTypeLinkResolver** — resolves C++ type strings to Markdown link text for
-  table cells in the generated output; tracks non-std external type references.
+- **CppGenerator** — selects public headers, invokes clang, filters deprecated
+  top-level declarations, builds the known-type map, and returns `CppEmitter`.
+- **CppAstModel** — immutable AST record types exchanged between parser and
+  emitters.
+- **ClangAstParser** — invokes clang, walks the JSON AST, and returns
+  `CppCompilationResult`.
+- **CppEmitter** — format dispatcher and shared-helper hub.
+- **CppEmitterGradualDisclosure** — writes namespace, type, member, operator,
+  enum, alias, nested-type, and class-scoped alias pages.
+- **CppEmitterSingleFile** — writes all documentation into one `api.md` file.
+- **CppTypeLinkResolver** — resolves intra-library type links and tracks external
+  types.
 
 ```mermaid
 flowchart TD
-    CppGenerator --> ClangAstParser["ClangAstParser (internal)"]
-    CppGenerator --> CppEmitter
+    CppGenerator --> ClangAstParser
     ClangAstParser --> clang["clang -ast-dump=json (OTS)"]
-    ClangAstParser --> CppAstModel["CppAstModel (records)"]
+    ClangAstParser --> CppAstModel
+    CppGenerator --> CppAstModel
+    CppGenerator --> CppEmitter
     CppEmitter --> CppEmitterGradualDisclosure
     CppEmitter --> CppEmitterSingleFile
+    CppEmitterGradualDisclosure --> CppEmitter
+    CppEmitterSingleFile --> CppEmitter
     CppEmitter --> CppTypeLinkResolver
     CppEmitter --> IMarkdownWriterFactory
+    CppGenerator --> CppTypeLinkResolver
+    CppEmitter --> CppAstModel
+    CppEmitterGradualDisclosure --> CppAstModel
+    CppEmitterSingleFile --> CppAstModel
+    CppEmitterGradualDisclosure --> CppTypeLinkResolver
+    CppEmitterGradualDisclosure --> IMarkdownWriterFactory
+    CppEmitterSingleFile --> IMarkdownWriterFactory
 ```
-
-CppGenerator depends on ClangAstParser and the ApiMarkCore interfaces.
-ClangAstParser invokes clang as an external process and parses its JSON output.
 
 ## External Interfaces
 
-**IApiGenerator / IApiEmitter (provided)**: CppGenerator implements IApiGenerator from
-ApiMarkCore; parsing is separated from emit via the two-stage pipeline.
+### IApiGenerator / IApiEmitter (provided)
 
-- *Type*: In-process .NET public API.
-- *Role*: Provider — ApiMarkTool constructs CppGenerator and calls the two-stage
-  pipeline through the IApiGenerator / IApiEmitter interfaces.
-- *Contract*: `CppGenerator(CppGeneratorOptions options)` constructs a
-  configured generator; `IApiGenerator.Parse(IContext context)` invokes clang,
-  filters declarations, and returns a `CppEmitter` (implements `IApiEmitter`);
-  `IApiEmitter.Emit(IMarkdownWriterFactory factory, EmitConfig config, IContext context)`
-  writes the full Markdown tree using the supplied factory and the format selected
-  by `config`.
-- *Constraints*: CppGeneratorOptions must be fully populated before calling
-  Parse; all paths in PublicIncludeRoots must exist on disk.
+- *Type*: in-process .NET interfaces.
+- *Role*: provider.
+- *Contract*: `CppGenerator.Parse(IContext)` returns a `CppEmitter`, and
+  `IApiEmitter.Emit(IMarkdownWriterFactory, EmitConfig, IContext)` writes the
+  requested Markdown layout.
+- *Constraints*: callers must provide a valid `CppGeneratorOptions`; `Emit` throws
+  `ArgumentNullException` when the writer factory is null.
 
-**clang (consumed)**: CppGenerator uses clang via `ClangAstParser` to parse C++ headers.
+### clang (consumed)
 
-- *Type*: External process (system-installed or PATH-located executable).
-- *Role*: Consumer — `ClangAstParser` invokes `clang -ast-dump=json` with the
-  configured include paths, system include paths, preprocessor defines, and
-  compiler flags, then parses the JSON output into structured C++ AST records.
-- *Contract*: `clang -Xclang -ast-dump=json -fparse-all-comments -fsyntax-only
-  -x c++ -std={standard} -I {roots} -isystem {sysroots} -D {defines} {headers}`.
-  The clang executable is located using this priority order:
-  (1) `CppGeneratorOptions.ClangPath` when set;
-  (2) the `APIMARK_CLANG_PATH` environment variable when set;
-  (3) `clang` on PATH; (4) `xcrun clang` on macOS; (5) vswhere / default LLVM path on Windows.
-- *Constraints*: clang must be installed and accessible; a clear
-  `InvalidOperationException` is thrown when clang cannot be found.
+- *Type*: out-of-process OTS CLI tool.
+- *Role*: consumer.
+- *Contract*: `ClangAstParser` invokes `clang -ast-dump=json -fparse-all-comments
+  -fsyntax-only -x c++` plus configured include paths, defines, and additional
+  compiler arguments.
+- *Constraints*: clang must be discoverable through `ClangPath`,
+  `APIMARK_CLANG_PATH`, PATH, `xcrun clang`, or Windows LLVM discovery; parse
+  failures surface as `InvalidOperationException`.
 
-**MSBuild (consumed via ApiMarkTask)**: The `.targets` file sets the following
-MSBuild properties used to configure generation for C++ projects:
+### IMarkdownWriterFactory (consumed)
 
-- `$(ApiMarkLibraryName)` — library name used as the top-level heading in
-  `api.md`; defaults to `$(MSBuildProjectName)` via the `.targets` file.
-- `$(ApiMarkLibraryDescription)` — optional description emitted as an
-  introductory paragraph in `api.md`; omitted when empty or not set.
-- `$(ApiMarkDefines)` — semicolon-separated list of preprocessor symbol
-  definitions passed to the Clang parser; semicolons are converted to commas
-  when forwarding to the `--defines` argument.
-- `$(ApiMarkCppStandard)` — C++ language standard passed to Clang (e.g.
-  `c++17`, `c++20`); defaults to `c++17` via the `.targets` file.
+- *Type*: in-process .NET interface from ApiMarkCore.
+- *Role*: consumer.
+- *Contract*: `CppEmitter` receives a factory instance from the caller and passes
+  it to the format-specific emitter (`CppEmitterGradualDisclosure` or
+  `CppEmitterSingleFile`) to create `IMarkdownWriter` instances for each output file.
+- *Constraints*: must not be null; `CppEmitter.Emit` throws `ArgumentNullException`
+  when the factory is null.
+
+### MSBuild (consumed via ApiMarkTask)
+
+- *Type*: build-property interface exposed by the ApiMark MSBuild integration.
+- *Role*: consumer.
+- *Contract*: the `.targets` file forwards nine C++ properties into
+  `CppGeneratorOptions`:
+  - `$(ApiMarkLibraryName)` → `LibraryName`
+  - `$(ApiMarkLibraryDescription)` → `Description`
+  - `$(ApiMarkIncludePaths)` → `PublicIncludeRoots` (selects clang `-I` paths)
+  - `$(ApiMarkApiHeaders)` → `ApiHeaderPatterns` (gitignore-style header-selection
+    patterns)
+  - `$(ApiMarkDefines)` → `Defines`
+  - `$(ApiMarkCppStandard)` → `CppStandard`
+  - `$(ApiMarkClangPath)` → `ClangPath` (explicit clang executable override)
+  - `$(ApiMarkVisibility)` → `Visibility` (access-specifier filter)
+  - `$(ApiMarkIncludeObsolete)` → `IncludeDeprecated` (deprecated-API inclusion flag)
+- *Constraints*: missing or invalid option values surface through constructor
+  validation (`ArgumentException`) or parse-time root validation
+  (`DirectoryNotFoundException`).
 
 ## Dependencies
 
-- **clang**: used to parse C++ header files via `clang -ast-dump=json` — requires
-  clang to be installed on the host machine. No NuGet package dependency.
+- **clang** — external AST parser used through `ClangAstParser`.
+- **ApiMarkCore** — provides `IApiGenerator`, `IApiEmitter`, `EmitConfig`,
+  `IContext`, `IMarkdownWriterFactory`, and `GlobFileCollector`.
 
 ## Risk Control Measures
 
-N/A — not a safety-classified software item.
+N/A - not a safety-classified software item.
 
 ## Data Flow
 
-1. The caller (ApiMarkTool) constructs `CppGeneratorOptions` with
-   PublicIncludeRoots, ApiHeaderPatterns, SystemIncludePaths,
-   Defines, CppStandard, AdditionalCompilerArguments,
-   Visibility, IncludeDeprecated, and LibraryName, then calls
-   `CppGenerator.Parse(context)` to obtain a `CppEmitter`. The caller then
-   passes an IMarkdownWriterFactory and an EmitConfig to
-   `CppEmitter.Emit(factory, config, context)`.
-2. CppGenerator enumerates all header files under each PublicIncludeRoot.
-   When ApiHeaderPatterns is non-empty, patterns are applied with gitignore-style
-   last-match-wins semantics to produce the candidate file set; when empty, all
-   recognized header files under every root are included automatically. All
-   candidate headers are concatenated into one temporary combined header and parsed
-   as a single translation unit.
-3. CppGenerator calls `ClangAstParser.Parse` with all candidate headers and the
-   configured options. `ClangAstParser` invokes `clang -ast-dump=json` and parses
-   the resulting JSON into `CppCompilationResult` containing `CppNamespaceDecl`
-   records. The parser skips AST nodes whose source file is not under a public
-   include root, avoiding processing of system and third-party headers.
-4. `ClangAstParser` returns a `CppCompilationResult` containing all declarations
-   physically located in the public headers, already filtered by ownership.
-5. `ClangAstParser` rejects declarations whose source file is not in the
-   pre-selected header set (built by `CollectHeaderFiles()` via `GlobFileCollector`).
-   Only declarations from selected headers are documented; system and third-party
-   declarations are used for type resolution only.
-6. For each owned declaration, CppGenerator derives the canonical #include path
-   as the source file path relative to its matching PublicIncludeRoot, expressed
-   with forward slashes.
-7. CppGenerator calls `factory.CreateMarkdown("", "api")` and writes the
-   library-level entrypoint listing all namespaces with the count of documented
-   types in each.
-8. For each namespace containing owned declarations, CppGenerator calls
-   `factory.CreateMarkdown(qualifiedNamespace, qualifiedNamespace)` and writes
-   a namespace summary listing types and free functions grouped by header.
-9. For each owned type, CppGenerator writes the type page with the #include
-   path, then emits a dedicated detail page for every visible member. Each
-   visible member receives its own page, except where case-insensitive filename
-   collisions on a single type require combining the colliding members onto one
-   shared page.
+1. The caller builds `CppGeneratorOptions` and calls `CppGenerator.Parse(context)`.
+   `CppGenerator` resolves `ApiHeaderPatterns` using `WorkingDirectory` or the
+   process CWD, enumerates the selected headers, and invokes `ClangAstParser`.
+2. `ClangAstParser` invokes clang on a temporary combined header, walks the JSON
+   AST, and returns `CppCompilationResult` containing only declarations whose
+   source files are both selected headers and under configured public include
+   roots.
+3. `CppGenerator` logs system-header diagnostics, rejects public-header parse
+   failures, applies `IncludeDeprecated` while collecting namespaces, and builds a
+   known-type map covering namespaces, nested classes, and type aliases.
+4. `CppEmitter.Emit` routes by `OutputFormat`: `GradualDisclosure` uses
+   `CppEmitterGradualDisclosure`, which produces one `api.md` index and separate
+   per-namespace, per-type, per-member, per-operator, per-enum, per-alias,
+   per-nested-type, and per-class-scoped-alias pages.
+   `SingleFile` uses `CppEmitterSingleFile`, which writes the entire API reference
+   into a single `api.md` file with library-name and namespace headings followed by
+   type, free-function, enum, and type-alias sections (all at H{depth+2}) and
+   individual member and class-scoped type-alias sub-entries at H{depth+3}.
+5. During emission, the `Visibility` access-specifier filter (Public/PublicAndProtected/All)
+   is applied by `CppEmitter` helper methods to include or exclude class members based on
+   their C++ access specifier. Regular members receive per-member pages (gradual-disclosure);
+   case-insensitive collisions are combined onto a single lowercase page;
+   operator overloads are detected by name and grouped onto shared class-level or
+   namespace-level `operators.md` pages.
+6. Type pages render the class signature line with `final` and direct base-class
+   names, then write member tables, nested-class tables, and alias tables.
+7. Table-cell type strings are resolved through `CppTypeLinkResolver`. Exact
+   qualified matches and unambiguous short-name matches become Markdown links;
+   unknown non-`std` namespaced types are accumulated and emitted in an
+   `External Types` section at the bottom of the affected page.
 
 ## Design Constraints
 
-- Platform: targets net8.0, net9.0, net10.0 as a class library. No NuGet runtime
-  packages are required; clang is a system dependency that must be installed
-  separately on the host machine.
-- Parse environment: the host machine must have clang installed (LLVM, VS-bundled,
-  or Xcode on macOS). System include paths can be passed via SystemIncludePaths so
-  that system headers resolve without requiring a full toolchain on PATH.
-- No compilation required: ApiMarkCpp reads source headers without building the
-  C++ project; no object files, link steps, or CMake configuration step is needed.
-- Strict ownership model: only declarations whose source file is physically
-  located under a configured PublicIncludeRoot are documented. Declarations
-  re-exported from system or third-party headers are intentionally excluded
-  from the documented surface; the clang JSON walker skips non-owned subtrees.
-- v1 scope: primary class and function templates are documented; partial
-  specializations, explicit instantiations, and C++ Concepts are out of scope.
-  Preprocessor macros are excluded from the documented surface. Doc comments
-  are parsed from the clang JSON AST via `-fparse-all-comments`.
+- Platform: class library targeting modern .NET runtimes; clang is an external
+  host dependency.
+- Header ownership: only declarations physically defined in selected public
+  headers are documented.
+- Validation: constructor misuse raises `ArgumentNullException` or
+  `ArgumentException`; missing default include roots raise
+  `DirectoryNotFoundException`; clang discovery or AST failures raise
+  `InvalidOperationException`.
+- Output scope: operator overloads are grouped, macros are out of scope, and
+  primary template declarations are documented while partial specializations and
+  concepts are not in scope.

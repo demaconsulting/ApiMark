@@ -81,6 +81,26 @@ Local items:
 - **Validation**: unit verification of the self-test execution logic.
 - **Program**: unit verification of CLI argument parsing, language dispatch, and error handling.
 
+Out of scope: verification documents are not produced for the test projects themselves —
+they are the means of verification, not subjects of it. Build pipeline CI configuration
+and the internal implementation of OTS items are also excluded.
+
+## Folder Layout
+
+```text
+test/
+├── ApiMark.Core.TestHelpers/  - in-memory test doubles for Core contracts
+├── ApiMark.Core.Tests/        - unit tests for Core contracts
+├── ApiMark.DotNet.Tests/      - unit tests for DotNetGenerator and TypeNameSimplifier
+├── ApiMark.Cpp.Tests/         - unit tests for CppGenerator
+├── ApiMark.Vhdl.Tests/        - unit tests for VhdlGenerator
+├── ApiMark.MSBuild.Tests/     - unit tests for ApiMarkTask
+├── ApiMark.MSBuild.PackageTests/ - integration tests for the MSBuild NuGet package
+├── ApiMark.Tool.Tests/        - integration tests for the CLI tool
+├── ApiMark.DotNet.Fixtures/   - multi-target fixture assembly for DotNet integration tests
+└── ApiMark.Cpp.Fixtures/      - C++ fixture headers for CppGenerator integration tests
+```
+
 OTS items:
 
 - **Mono.Cecil**: integration verification that assembly-reading and metadata APIs used by
@@ -92,6 +112,9 @@ OTS items:
 - **Antlr4.Runtime.Standard / ANTLR4 vhdl2008 grammar**: integration verification
   that the committed generated parser code correctly parses VHDL-2008 source files,
   verified indirectly through the VhdlAstParser test suite.
+- **Microsoft.Extensions.FileSystemGlobbing**: integration verification that the glob
+  pattern matching APIs used by GlobFileCollector correctly match and exclude files,
+  verified indirectly through the GlobFileCollector test suite.
 - **cpp-ast-net** (archived): retained for historical reference; see clang verification for the
   current approach.
 
@@ -216,25 +239,25 @@ Local items have parallel artifacts in:
   `docs/verification/api-mark-tool/self-test/validation.md`
 - Source: `src/ApiMark.Core/`, `src/ApiMark.Cpp/`, `src/ApiMark.DotNet/`,
   `src/ApiMark.Vhdl/`, `src/ApiMark.MSBuild/`, `src/ApiMark.Tool/`
-- Tests: `test/ApiMark.Core.Tests/`, `test/ApiMark.Cpp.Fixtures/`,
-  `test/ApiMark.Cpp.Tests/`, `test/ApiMark.DotNet.Tests/`, `test/ApiMark.Vhdl.Tests/`,
-  `test/ApiMark.MSBuild.Tests/`, `test/ApiMark.Tool.Tests/`
+- Tests: `test/ApiMark.Core.TestHelpers/`, `test/ApiMark.Core.Tests/`, `test/ApiMark.Cpp.Tests/`,
+  `test/ApiMark.DotNet.Tests/`, `test/ApiMark.Vhdl.Tests/`,
+  `test/ApiMark.MSBuild.Tests/`, `test/ApiMark.MSBuild.PackageTests/`, `test/ApiMark.Tool.Tests/`
+- Fixtures: `test/ApiMark.DotNet.Fixtures/`, `test/ApiMark.Cpp.Fixtures/`
 
-OTS items have integration and usage artifacts parallel to the system folders:
-
-- Requirements: `docs/reqstream/ots/clang.yaml`, `docs/reqstream/ots/mono-cecil.yaml`,
+OTS items have integration and usage artifacts parallel to the system folders: `docs/reqstream/ots/mono-cecil.yaml`,
   `docs/reqstream/ots/dema-consulting-test-results.yaml`, `docs/reqstream/ots/antlr4.yaml`,
-  `docs/reqstream/ots/cpp-ast-net.yaml`
+  `docs/reqstream/ots/file-system-globbing.yaml`, `docs/reqstream/ots/cpp-ast-net.yaml`
+
 - Design: `docs/design/ots/clang.md`, `docs/design/ots/mono-cecil.md`,
   `docs/design/ots/dema-consulting-test-results.md`, `docs/design/ots/antlr4.md`,
-  `docs/design/ots/cpp-ast-net.md`
+  `docs/design/ots/file-system-globbing.md`, `docs/design/ots/cpp-ast-net.md`
 - Verification: `docs/verification/ots/clang.md`, `docs/verification/ots/mono-cecil.md`,
   `docs/verification/ots/dema-consulting-test-results.md`, `docs/verification/ots/antlr4.md`,
-  `docs/verification/ots/cpp-ast-net.md`
+  `docs/verification/ots/file-system-globbing.md`, `docs/verification/ots/cpp-ast-net.md`
 
 Review-sets are defined in `.reviewmark.yaml`.
 
 ## References
 
-N/A — no external specification is required to describe this repository-specific verification
+N/A - no external specification is required to describe this repository-specific verification
 baseline.

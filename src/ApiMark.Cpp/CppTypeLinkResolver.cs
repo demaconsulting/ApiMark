@@ -68,8 +68,10 @@ internal sealed class CppTypeLinkResolver
     ///     Dictionary mapping fully-qualified C++ type names (<c>::</c> separators) to
     ///     page keys (<c>/</c> separators). Must not be null.
     /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="knownTypes"/> is null.</exception>
     public CppTypeLinkResolver(IReadOnlyDictionary<string, string> knownTypes)
     {
+        ArgumentNullException.ThrowIfNull(knownTypes);
         _knownTypes = knownTypes;
     }
 
@@ -80,31 +82,39 @@ internal sealed class CppTypeLinkResolver
     /// </summary>
     /// <param name="cppTypeString">
     ///     The simplified C++ type string to resolve (e.g. <c>"const fixtures::SampleClass &amp;"</c>).
-    ///     Must not be null.
+    ///     When null or whitespace, the value is returned unchanged.
     /// </param>
     /// <param name="currentFolder">
     ///     The folder path of the Markdown file that will contain the link, relative to the
     ///     documentation output root (e.g. <c>"fixtures/SampleClass"</c>).
-    ///     Used to compute relative path hrefs. Pass an empty string for root-level files.
+    ///     Used to compute relative path hrefs. Pass an empty string or <see langword="null"/>
+    ///     for root-level files; a <see langword="null"/> value is treated as an empty string.
     /// </param>
     /// <param name="externalTypes">
     ///     Mutable set that accumulates non-std external type references found during
     ///     resolution. The caller creates this set per output file and emits the "External
-    ///     Types" section after all table rows have been written.
+    ///     Types" section after all table rows have been written. Must not be null.
     /// </param>
     /// <returns>
-    ///     A Markdown string: either a link of the form <c>[Name](relative/path.md)</c>,
-    ///     or the original <paramref name="cppTypeString"/> unchanged.
+    ///     Returns the resolved Markdown link if the type is a known intra-library type;
+    ///     otherwise returns the original value. Returns <see langword="null"/> when
+    ///     <see langword="null"/> is passed.
     /// </returns>
-    public string Linkify(
-        string cppTypeString,
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="externalTypes"/> is null.</exception>
+    public string? Linkify(
+        string? cppTypeString,
         string currentFolder,
         ISet<CppExternalTypeInfo> externalTypes)
     {
+        ArgumentNullException.ThrowIfNull(externalTypes);
+
         if (string.IsNullOrWhiteSpace(cppTypeString))
         {
             return cppTypeString;
         }
+
+        // Treat null currentFolder as an empty string (root-level file)
+        currentFolder ??= string.Empty;
 
         // Strip qualifiers to isolate the base type name for lookup
         var stripped = StripQualifiers(cppTypeString);
@@ -141,7 +151,22 @@ internal sealed class CppTypeLinkResolver
                 ? stripped[(stripped.LastIndexOf("::", StringComparison.Ordinal) + 2)..]
                 : stripped;
             var linked = $"[{shortName}]({relativePath})";
-            return cppTypeString.Replace(shortName, linked, StringComparison.Ordinal);
+
+            // Position-aware single-site replacement: search for shortName only in the
+            // portion of cppTypeString before the first '<'. This prevents looking inside
+            // template arguments — which may contain qualified names sharing a prefix with
+            // shortName (e.g. ns::Foo<ns::FooBar> must not linkify FooBar instead of Foo).
+            // LastIndexOf within that slice naturally lands on the correct token site.
+            var ltPos = cppTypeString.IndexOf('<', StringComparison.Ordinal);
+            var searchRange = ltPos >= 0 ? cppTypeString[..ltPos] : cppTypeString;
+            var idx = searchRange.LastIndexOf(shortName, StringComparison.Ordinal);
+            if (idx < 0)
+            {
+                // Fallback: should never happen in practice, but avoid silent corruption
+                return cppTypeString;
+            }
+
+            return cppTypeString[..idx] + linked + cppTypeString[(idx + shortName.Length)..];
         }
 
         // External type with a namespace: track for the External Types section
@@ -209,21 +234,23 @@ internal sealed class CppTypeLinkResolver
     {
         var s = typeString.Trim();
 
-        // Remove leading cv-qualifiers
-        if (s.StartsWith("const ", StringComparison.Ordinal))
-        {
-            s = s[6..].TrimStart();
-        }
-
-        if (s.StartsWith("volatile ", StringComparison.Ordinal))
-        {
-            s = s[9..].TrimStart();
-        }
-
-        // Remove trailing reference, pointer, and trailing-const qualifiers iteratively
-        s = s.TrimEnd();
         while (true)
         {
+            var previous = s;
+
+            // Remove leading cv-qualifiers until no more remain, regardless of order
+            if (s.StartsWith("const ", StringComparison.Ordinal))
+            {
+                s = s[6..].TrimStart();
+            }
+
+            if (s.StartsWith("volatile ", StringComparison.Ordinal))
+            {
+                s = s[9..].TrimStart();
+            }
+
+            // Remove trailing reference, pointer, and trailing cv-qualifiers iteratively
+            s = s.TrimEnd();
             if (s.EndsWith(" &&", StringComparison.Ordinal)) { s = s[..^3].TrimEnd(); continue; }
             if (s.EndsWith("&&", StringComparison.Ordinal)) { s = s[..^2].TrimEnd(); continue; }
             if (s.EndsWith(" &", StringComparison.Ordinal)) { s = s[..^2].TrimEnd(); continue; }
@@ -231,8 +258,12 @@ internal sealed class CppTypeLinkResolver
             if (s.EndsWith(" *", StringComparison.Ordinal)) { s = s[..^2].TrimEnd(); continue; }
             if (s.EndsWith('*')) { s = s[..^1].TrimEnd(); continue; }
             if (s.EndsWith(" const", StringComparison.OrdinalIgnoreCase)) { s = s[..^6].TrimEnd(); continue; }
+            if (s.EndsWith(" volatile", StringComparison.OrdinalIgnoreCase)) { s = s[..^9].TrimEnd(); continue; }
 
-            break;
+            if (s == previous)
+            {
+                break;
+            }
         }
 
         // Remove template arguments — base name is everything before the first '<'

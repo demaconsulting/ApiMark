@@ -11,7 +11,7 @@ after each call.
 
 ### Test Environment
 
-N/A — standard test environment using the .NET test runner is sufficient for
+N/A - standard test environment using the .NET test runner is sufficient for
 IContext verification. Interface contract compliance is enforced at compile time.
 
 ### Acceptance Criteria
@@ -23,6 +23,10 @@ IContext verification. Interface contract compliance is enforced at compile time
   call order.
 - Messages written to `WriteLine` do not appear in `Errors`, and messages
   written to `WriteError` do not appear in `Lines`.
+- `InMemoryContext.WriteLine` throws `ArgumentNullException` when passed null.
+- `InMemoryContext.WriteError` throws `ArgumentNullException` when passed null.
+- Messages written to both channels in a defined sequence appear in that exact order
+  within each channel, with no reordering.
 
 ### Test Scenarios
 
@@ -42,6 +46,17 @@ appear only in `Errors` when both channels are exercised on the same instance,
 confirming channel isolation. This scenario is tested by
 `InMemoryContext_WriteLineAndWriteError_RouteToSeparateChannels`.
 
-> **Note on null-message boundary**: No boundary scenario is included for null `message`
-> — the `IContext` interface contract defines no error path for null input;
-> `InMemoryContext` performs no null validation.
+**WriteLine rejects null message**: Verifies that passing null to `InMemoryContext.WriteLine`
+throws `ArgumentNullException`, enforcing the null contract specified on the `IContext`
+interface (`IContext-RejectNullWriteLine`). This scenario is tested by
+`InMemoryContext_WriteLine_NullMessage_ThrowsArgumentNullException`.
+
+**WriteError rejects null message**: Verifies that passing null to `InMemoryContext.WriteError`
+throws `ArgumentNullException`, enforcing the null contract specified on the `IContext`
+interface (`IContext-RejectNullWriteError`). This scenario is tested by
+`InMemoryContext_WriteError_NullMessage_ThrowsArgumentNullException`.
+
+**Multiple messages maintain call order**: Verifies that interleaved calls to both
+`WriteLine` and `WriteError` accumulate messages in the exact order they were written,
+with no reordering between or within channels. This scenario is tested by
+`InMemoryContext_MultipleMessages_MaintainCallOrder`.

@@ -20,6 +20,11 @@ format-specific emitters.
   shared by both format-specific emitters.
 - `NoDescriptionPlaceholder`: `internal const string` — `"*No description provided.*"`;
   cell text used when no summary is available.
+- `NoItemsPlaceholder`: `internal const string` — `"*None.*"`; placeholder text used
+  when a section has no items.
+- `ObjectClassKeywords`: `private static readonly HashSet<string>` — set of VHDL
+  object-class keywords (`SIGNAL`, `VARIABLE`, `CONSTANT`, `FILE`) stripped from
+  parameter modes by `FormatParamType`.
 - `Options`: `VhdlGeneratorOptions` property (internal get) — exposes `_options` to
   format-specific emitters.
 

@@ -79,7 +79,9 @@ sections:
             justification: |
               Self-validation confirms tool integrity in deployment environments without
               requiring external test infrastructure or the full source tree.
-            tests: [Program_Main_WithValidateFlag_ExitsZero]
+            tests:
+              - Program_Main_WithValidateFlag_ExitsZero
+              - Validation_Run_WithResultsTrxFile_CreatesTrxFile
           - id: ApiMarkTool-Program-SupportVersionOption
             title: Program shall support a global --version option.
             justification: |
@@ -98,3 +100,4 @@ sections:
             tests:
               - Program_Main_WithMissingAssembly_PrintsErrorAndFails
               - Program_Main_WithInvalidVisibility_ReturnsNonZeroExitCode
+              - Program_Main_WithSingleFileFormatAndDepth4_ReturnsNonZeroExitCode

@@ -1,6 +1,14 @@
+// Copyright (c) DemaConsulting LLC. All rights reserved.
+// Licensed under the MIT License.
+
 namespace ApiMark.Cpp.CppAst;
 
 /// <summary>Specifies the access level of a C++ class member.</summary>
+/// <remarks>
+///     The CppAstModel record and enum types are immutable value objects populated by
+///     <see cref="ClangAstParser"/> and then shared across the emitters. They are safe for
+///     concurrent read access after construction because their exposed state does not mutate.
+/// </remarks>
 public enum CppAccessibility
 {
     /// <summary>The member is publicly accessible.</summary>

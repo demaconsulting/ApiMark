@@ -18,7 +18,7 @@ public abstract record MarkdownOperation;
 /// <summary>
 ///     Records a call to <see cref="IMarkdownWriter.WriteHeading"/>.
 /// </summary>
-/// <param name="Level">The heading depth that was passed (1–4).</param>
+/// <param name="Level">The heading depth that was passed (1–6).</param>
 /// <param name="Text">The heading text that was passed.</param>
 public sealed record HeadingOperation(int Level, string Text) : MarkdownOperation;
 
@@ -91,13 +91,28 @@ public sealed class InMemoryMarkdownWriter : IMarkdownWriter
     /// <summary>
     ///     Records a <see cref="HeadingOperation"/> with the supplied arguments.
     /// </summary>
-    /// <param name="level">Heading depth 1–4.</param>
-    /// <param name="text">Heading text.</param>
+    /// <param name="level">Heading depth 1–6.</param>
+    /// <param name="text">Heading text. Must not be null or empty.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="level"/> is less than 1 or greater than 6.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="text"/> is empty.</exception>
     /// <exception cref="ObjectDisposedException">Thrown if this writer has been disposed.</exception>
     public void WriteHeading(int level, string text)
     {
         // Guard against use-after-dispose to match the IMarkdownWriter contract
         ObjectDisposedException.ThrowIf(IsDisposed, this);
+
+        // Enforce the 1–6 heading level range to match the FileMarkdownWriter contract
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(level);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(level, 6);
+
+        // Reject null or empty text to match the FileMarkdownWriter contract
+        ArgumentNullException.ThrowIfNull(text);
+        if (string.IsNullOrEmpty(text))
+        {
+            throw new ArgumentException("Heading text must not be empty.", nameof(text));
+        }
+
         _operations.Add(new HeadingOperation(level, text));
     }
 
@@ -106,11 +121,17 @@ public sealed class InMemoryMarkdownWriter : IMarkdownWriter
     /// </summary>
     /// <param name="language">Language identifier.</param>
     /// <param name="code">Signature code text.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="language"/> or <paramref name="code"/> is null.</exception>
     /// <exception cref="ObjectDisposedException">Thrown if this writer has been disposed.</exception>
     public void WriteSignature(string language, string code)
     {
         // Guard against use-after-dispose
         ObjectDisposedException.ThrowIf(IsDisposed, this);
+
+        // Enforce null contract to match the production IMarkdownWriter contract
+        ArgumentNullException.ThrowIfNull(language);
+        ArgumentNullException.ThrowIfNull(code);
+
         _operations.Add(new SignatureOperation(language, code));
     }
 
@@ -118,11 +139,16 @@ public sealed class InMemoryMarkdownWriter : IMarkdownWriter
     ///     Records a <see cref="ParagraphOperation"/> with the supplied text.
     /// </summary>
     /// <param name="text">Paragraph body text.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
     /// <exception cref="ObjectDisposedException">Thrown if this writer has been disposed.</exception>
     public void WriteParagraph(string text)
     {
         // Guard against use-after-dispose
         ObjectDisposedException.ThrowIf(IsDisposed, this);
+
+        // Enforce null contract
+        ArgumentNullException.ThrowIfNull(text);
+
         _operations.Add(new ParagraphOperation(text));
     }
 
@@ -130,23 +156,78 @@ public sealed class InMemoryMarkdownWriter : IMarkdownWriter
     ///     Records a <see cref="TableOperation"/> capturing the headers and a
     ///     snapshot of the rows.
     /// </summary>
-    /// <param name="headers">Column header labels.</param>
+    /// <param name="headers">Column header labels. Must not be null or empty.</param>
     /// <param name="rows">
-    ///     Data rows. The sequence is deep-copied (both the outer list and each inner
+    ///     Data rows, each containing the same number of cells as
+    ///     <paramref name="headers"/>. The sequence is deep-copied (both the outer list and each inner
     ///     row array are snapshotted) so that post-call mutation of the source arrays
     ///     does not affect the recorded operation.
     /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="headers"/> or <paramref name="rows"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="headers"/> is empty, when any element in
+    ///     <paramref name="headers"/> is null, when any row in
+    ///     <paramref name="rows"/> is null, when any row has a different number of
+    ///     cells than <paramref name="headers"/>, or when any cell within a row is null.
+    /// </exception>
     /// <exception cref="ObjectDisposedException">Thrown if this writer has been disposed.</exception>
     public void WriteTable(string[] headers, IEnumerable<string[]> rows)
     {
         // Guard against use-after-dispose
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
+        // Enforce null contract to match the production IMarkdownWriter contract
+        ArgumentNullException.ThrowIfNull(headers);
+        ArgumentNullException.ThrowIfNull(rows);
+
+        // Reject an empty headers array — same contract as FileMarkdownWriter
+        if (headers.Length == 0)
+        {
+            throw new ArgumentException("Headers array must not be empty.", nameof(headers));
+        }
+
+        // Reject any header element that is null — same contract as FileMarkdownWriter
+        for (var i = 0; i < headers.Length; i++)
+        {
+            if (headers[i] == null)
+            {
+                throw new ArgumentException($"Header at index {i} must not be null.", nameof(headers));
+            }
+        }
+
+        // Materialize rows to validate column counts before recording
+        var rowList = rows.ToList();
+
+        // Reject any row that is null or whose column count does not match the header count
+        for (var i = 0; i < rowList.Count; i++)
+        {
+            if (rowList[i] == null)
+            {
+                throw new ArgumentException("Table rows must not contain null entries.", nameof(rows));
+            }
+
+            if (rowList[i].Length != headers.Length)
+            {
+                throw new ArgumentException(
+                    $"Row {i} has {rowList[i].Length} cell(s) but {headers.Length} were expected to match the header count.",
+                    nameof(rows));
+            }
+
+            // Reject any cell within the row that is null — same contract as FileMarkdownWriter
+            for (var j = 0; j < rowList[i].Length; j++)
+            {
+                if (rowList[i][j] == null)
+                {
+                    throw new ArgumentException($"Row {i}, cell {j} must not be null.", nameof(rows));
+                }
+            }
+        }
+
         // Snapshot both collections so that the recorded operation is immune to
         // post-call mutation: headers are copied defensively; rows are deep-copied
         // (both the outer list and each inner row array) so that callers cannot
         // mutate previously recorded row data by modifying the arrays after the call
-        _operations.Add(new TableOperation(headers.ToArray(), rows.Select(r => (string[])r.Clone()).ToList()));
+        _operations.Add(new TableOperation(headers.ToArray(), rowList.Select(r => (string[])r.Clone()).ToList()));
     }
 
     /// <summary>
@@ -154,24 +235,43 @@ public sealed class InMemoryMarkdownWriter : IMarkdownWriter
     /// </summary>
     /// <param name="language">Language identifier.</param>
     /// <param name="code">Example code text.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="language"/> or <paramref name="code"/> is null.</exception>
     /// <exception cref="ObjectDisposedException">Thrown if this writer has been disposed.</exception>
     public void WriteCodeBlock(string language, string code)
     {
         // Guard against use-after-dispose
         ObjectDisposedException.ThrowIf(IsDisposed, this);
+
+        // Enforce null contract
+        ArgumentNullException.ThrowIfNull(language);
+        ArgumentNullException.ThrowIfNull(code);
+
         _operations.Add(new CodeBlockOperation(language, code));
     }
 
     /// <summary>
     ///     Records a <see cref="LinkOperation"/> with the supplied arguments.
     /// </summary>
-    /// <param name="text">Visible link label.</param>
+    /// <param name="text">Visible link label. Must not be null or empty.</param>
     /// <param name="relativePath">Relative path target.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> or <paramref name="relativePath"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="text"/> is empty.</exception>
     /// <exception cref="ObjectDisposedException">Thrown if this writer has been disposed.</exception>
     public void WriteLink(string text, string relativePath)
     {
         // Guard against use-after-dispose
         ObjectDisposedException.ThrowIf(IsDisposed, this);
+
+        // Enforce null contract
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(relativePath);
+
+        // Reject empty link text to match the FileMarkdownWriter contract
+        if (string.IsNullOrEmpty(text))
+        {
+            throw new ArgumentException("Link text must not be empty.", nameof(text));
+        }
+
         _operations.Add(new LinkOperation(text, relativePath));
     }
 

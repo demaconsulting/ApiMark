@@ -20,8 +20,8 @@ internal sealed class VhdlEmitterGradualDisclosure
 
     /// <summary>Emits gradual-disclosure Markdown output: one file per entity/package plus an api index, with architectures rendered inline on entity pages.</summary>
     /// <param name="factory">Factory for creating per-file Markdown writers.</param>
-    /// <param name="config">Emit configuration (format and heading depth).</param>
-    /// <param name="context">Output channel for progress and error messages.</param>
+    /// <param name="config">Accepted for interface-signature consistency; not consumed — format selection is performed upstream by VhdlEmitter.</param>
+    /// <param name="context">Accepted for interface-signature consistency; not consumed by this implementation.</param>
     internal void Emit(IMarkdownWriterFactory factory, EmitConfig config, IContext context)
     {
         // Suppress unused parameter warning

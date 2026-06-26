@@ -201,5 +201,5 @@ the task returns true silently with no side effects.
 
 ### Callers
 
-N/A — entry point, called by the MSBuild host environment via the task execution
+N/A - entry point, called by the MSBuild host environment via the task execution
 pipeline when the `AfterTargets="Build"` target fires.

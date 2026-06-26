@@ -41,6 +41,25 @@ sections:
               Namespace, type, and member summaries rely on tables to present compact
               API information that can be scanned quickly by humans and AI tools.
             tests: [IMarkdownWriter_WriteTable_ValidArgs_DoesNotThrow]
+          - id: ApiMarkCore-IMarkdownWriter-WriteTableRejectEmptyHeaders
+            title: IMarkdownWriter shall reject an empty headers array with
+              ArgumentException when WriteTable is called.
+            justification: |
+              A table with no header columns is not valid GFM syntax; implementations must
+              enforce this constraint consistently so callers receive a clear diagnostic
+              instead of producing malformed output that fails silently in Markdown renderers.
+            tests:
+              - FileMarkdownWriter_WriteTable_EmptyHeaders_ThrowsArgumentException
+          - id: ApiMarkCore-IMarkdownWriter-WriteTableRejectMismatchedRowLength
+            title: IMarkdownWriter shall reject a row whose column count differs from the
+              headers array length with ArgumentException when WriteTable is called.
+            justification: |
+              A row with a different number of cells than the header produces a structurally
+              invalid pipe table. Implementations must enforce this constraint so callers
+              discover structural defects immediately rather than generating malformed
+              documentation.
+            tests:
+              - FileMarkdownWriter_WriteTable_MismatchedRowLength_ThrowsArgumentException
           - id: ApiMarkCore-IMarkdownWriter-DefineWriteCodeBlock
             title: IMarkdownWriter shall define a WriteCodeBlock operation that accepts
               a language identifier and code text.
@@ -55,3 +74,73 @@ sections:
               Gradual disclosure depends on explicit links between generated files, so
               the writer contract must support relative navigation links directly.
             tests: [IMarkdownWriter_WriteLink_ValidArgs_DoesNotThrow]
+          - id: ApiMarkCore-IMarkdownWriter-WriteHeadingRejectInvalidLevel
+            title: IMarkdownWriter shall reject heading levels outside the range 1–6,
+              throwing ArgumentOutOfRangeException for any out-of-range value.
+            justification: |
+              CommonMark defines only six ATX heading levels; values outside this range
+              cannot produce valid heading markup and indicate a generator defect that
+              should surface immediately with a clear diagnostic rather than silently
+              producing malformed output.
+            tests:
+              - FileMarkdownWriter_WriteHeading_ZeroLevel_ThrowsArgumentOutOfRangeException
+              - FileMarkdownWriter_WriteHeading_SevenLevel_ThrowsArgumentOutOfRangeException
+          - id: ApiMarkCore-IMarkdownWriter-ThrowObjectDisposedAfterDispose
+            title: IMarkdownWriter shall throw ObjectDisposedException when any write
+              method is called after the writer has been disposed.
+            justification: |
+              Generators rely on deterministic resource cleanup via IDisposable; calling
+              write methods on a disposed writer indicates a programming error that must
+              be surfaced immediately to prevent silent data loss or corruption.
+            tests:
+              - FileMarkdownWriter_WriteHeading_AfterDispose_ThrowsObjectDisposedException
+          - id: ApiMarkCore-IMarkdownWriter-WriteHeadingRejectEmptyText
+            title: IMarkdownWriter shall reject an empty heading text string with
+              ArgumentException when WriteHeading is called.
+            justification: |
+              A heading with no text produces an ATX prefix with no label (e.g. "# "),
+              which is not meaningful Markdown. Implementations must enforce this
+              constraint so callers receive a clear diagnostic instead of silently
+              generating malformed output.
+            tests:
+              - FileMarkdownWriter_WriteHeading_EmptyText_ThrowsArgumentException
+          - id: ApiMarkCore-IMarkdownWriter-WriteLinkRejectEmptyText
+            title: IMarkdownWriter shall reject an empty link text string with
+              ArgumentException when WriteLink is called.
+            justification: |
+              A link with no visible label (e.g. "[](path)") is not navigable and
+              indicates a generator defect. Implementations must enforce this constraint
+              so callers receive a clear diagnostic rather than silently generating
+              unusable navigation links.
+            tests:
+              - FileMarkdownWriter_WriteLink_EmptyText_ThrowsArgumentException
+          - id: ApiMarkCore-IMarkdownWriter-WriteTableRejectNullRowElements
+            title: IMarkdownWriter shall reject a rows sequence containing a null element
+              with ArgumentException when WriteTable is called.
+            justification: |
+              A null row reference within the rows enumerable cannot be rendered as table
+              cells. Implementations must detect and reject null row elements before
+              writing any output so callers receive a clear diagnostic instead of a
+              NullReferenceException buried in rendering logic.
+            tests:
+              - FileMarkdownWriter_WriteTable_NullRowElement_ThrowsArgumentException
+          - id: ApiMarkCore-IMarkdownWriter-WriteTableRejectNullHeaderElements
+            title: IMarkdownWriter shall reject a headers array containing a null element
+              with ArgumentException when WriteTable is called.
+            justification: |
+              A null element in the headers array cannot produce a valid column label in a
+              pipe-delimited table. Implementations must detect and reject null header
+              elements so callers receive a clear diagnostic instead of a
+              NullReferenceException in rendering logic.
+            tests:
+              - FileMarkdownWriter_WriteTable_NullHeaderElement_ThrowsArgumentException
+          - id: ApiMarkCore-IMarkdownWriter-WriteTableRejectNullCellElements
+            title: IMarkdownWriter shall reject a row containing a null cell element
+              with ArgumentException when WriteTable is called.
+            justification: |
+              A null cell within a row cannot be rendered as Markdown table content.
+              Implementations must detect and reject null cell elements before writing any
+              output so callers receive a clear diagnostic instead of a NullReferenceException
+              in rendering logic.
+            tests:
+              - FileMarkdownWriter_WriteTable_NullCellElement_ThrowsArgumentException

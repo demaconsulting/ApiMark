@@ -53,3 +53,26 @@ sections:
               spurious failures and allows partial results from other patterns.
             tests:
               - GlobFileCollector_Collect_NonExistentRoot_ReturnsEmptyWithoutThrowing
+          - id: ApiMarkCore-GlobFileCollector-SupportLiteralAbsolutePaths
+            title: GlobFileCollector shall treat an absolute pattern with no glob
+              metacharacters as a literal file path and add or remove it directly
+              without directory traversal, when the file exists and its extension
+              appears in languageExtensions.
+            justification: |
+              Callers need to include or exclude individual files by exact path without
+              glob syntax. Literal-path support covers this use case and avoids the
+              overhead of directory traversal when only a single file is targeted.
+            tests:
+              - GlobFileCollector_Collect_LiteralAbsoluteFilePath_SelectsExactFile
+              - GlobFileCollector_Collect_LiteralAbsoluteExclusionPath_RemovesExactFile
+          - id: ApiMarkCore-GlobFileCollector-RejectNullArguments
+            title: GlobFileCollector.Collect shall throw ArgumentNullException when
+              patterns, languageExtensions, or workingDirectory is null.
+            justification: |
+              Null arguments indicate a programming error in the caller. Rejecting them
+              immediately with a clear diagnostic prevents a deferred NullReferenceException
+              buried in pattern evaluation logic that would be harder to attribute.
+            tests:
+              - GlobFileCollector_Collect_NullPatterns_ThrowsArgumentNullException
+              - GlobFileCollector_Collect_NullLanguageExtensions_ThrowsArgumentNullException
+              - GlobFileCollector_Collect_NullWorkingDirectory_ThrowsArgumentNullException

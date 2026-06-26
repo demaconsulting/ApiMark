@@ -5,6 +5,7 @@ using Xunit;
 namespace ApiMark.Tool.Tests;
 
 /// <summary>Integration tests for <see cref="Program"/>.</summary>
+[Collection("Console")]
 public class ProgramTests
 {
     /// <summary>
@@ -48,35 +49,53 @@ public class ProgramTests
 
     /// <summary>
     ///     Validates that supplying an unrecognized <c>--visibility</c> value exits
-    ///     with a non-zero code.
+    ///     with a non-zero code and writes an error message containing the invalid value.
     /// </summary>
     [Fact]
     public void Program_Main_WithInvalidVisibility_ReturnsNonZeroExitCode()
     {
-        // Arrange: supply a visibility value that does not map to any ApiVisibility member
+        // Arrange: supply a visibility value that does not map to any ApiVisibility member;
+        // --xml-doc must also be present so the tool reaches the visibility validation step
         var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
         var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
 
-        // Act
-        var exitCode = Program.Main([
-            "dotnet",
-            "--assembly", assemblyPath,
-            "--output", outputDir,
-            "--visibility", "InvalidValue",
-        ]);
+        try
+        {
+            Console.SetError(errorWriter);
 
-        // Assert: invalid visibility must produce a non-zero exit code
-        Assert.NotEqual(0, exitCode);
+            // Act
+            var exitCode = Program.Main([
+                "dotnet",
+                "--assembly", assemblyPath,
+                "--xml-doc", xmlDocPath,
+                "--output", outputDir,
+                "--visibility", "InvalidValue",
+            ]);
+
+            // Assert: invalid visibility must produce a non-zero exit code and a diagnostic
+            // that names the offending value so the user can identify and correct the error
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("InvalidValue", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            // Restore the original error stream regardless of outcome
+            Console.SetError(originalError);
+        }
     }
 
     /// <summary>
     ///     Validates that supplying a path to a non-existent assembly exits with
-    ///     a non-zero code and writes a descriptive error message.
+    ///     a non-zero code and writes a descriptive error message containing the path.
     /// </summary>
     [Fact]
     public void Program_Main_WithMissingAssembly_PrintsErrorAndFails()
     {
-        // Arrange: use a path that is guaranteed not to exist
+        // Arrange: use paths that are guaranteed not to exist; --xml-doc must also be present
+        // so that validation reaches the generator stage where the missing assembly is detected
         var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
         var originalError = Console.Error;
         using var errorWriter = new StringWriter();
@@ -89,12 +108,15 @@ public class ProgramTests
             var exitCode = Program.Main([
                 "dotnet",
                 "--assembly", "path/does/not/exist.dll",
+                "--xml-doc", "path/does/not/exist.xml",
                 "--output", outputDir,
             ]);
 
             // Assert: missing assembly must produce a non-zero exit code and a descriptive error message
+            // that identifies the assembly-not-found condition so the user can diagnose the problem
             Assert.NotEqual(0, exitCode);
             Assert.False(string.IsNullOrWhiteSpace(errorWriter.ToString()), "Expected error message on stderr");
+            Assert.Contains("Assembly file not found", errorWriter.ToString(), StringComparison.Ordinal);
         }
         finally
         {
@@ -217,8 +239,9 @@ public class ProgramTests
 
     /// <summary>
     ///     Validates that <c>--silent</c> and <c>--log</c> are accepted alongside the
-    ///     <c>dotnet</c> subcommand, that the tool exits with code 0, and that the log
-    ///     file is created and non-empty.
+    ///     <c>dotnet</c> subcommand, that the tool exits with code 0, that the log
+    ///     file is created and non-empty, and that no output is written to stdout or
+    ///     stderr when <c>--silent</c> is active.
     /// </summary>
     [Fact]
     public void Program_Main_WithSilentAndLog_DotNetCommand_ExitsZero()
@@ -228,9 +251,16 @@ public class ProgramTests
         var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
         var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
         var logFile = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".log");
+        var originalOut = Console.Out;
+        var originalError = Console.Error;
+        using var outWriter = new StringWriter();
+        using var errWriter = new StringWriter();
 
         try
         {
+            Console.SetOut(outWriter);
+            Console.SetError(errWriter);
+
             // Act
             var exitCode = Program.Main([
                 "--silent",
@@ -241,13 +271,19 @@ public class ProgramTests
                 "--output", outputDir,
             ]);
 
-            // Assert: exits zero; log file exists and is non-empty
+            // Assert: exits zero; console is fully silent; log file exists and is non-empty
             Assert.Equal(0, exitCode);
+            Assert.Equal(string.Empty, outWriter.ToString());
+            Assert.Equal(string.Empty, errWriter.ToString());
             Assert.True(File.Exists(logFile), "Expected log file to be created");
             Assert.True(new FileInfo(logFile).Length > 0, "Expected log file to be non-empty");
         }
         finally
         {
+            // Restore console streams and clean up temporary paths regardless of outcome
+            Console.SetOut(originalOut);
+            Console.SetError(originalError);
+
             if (Directory.Exists(outputDir))
             {
                 Directory.Delete(outputDir, recursive: true);
@@ -403,4 +439,85 @@ public class ProgramTests
             Console.SetError(originalError);
         }
     }
+
+    /// <summary>
+    ///     Validates that <c>--format single-file --depth 4</c> exits with a non-zero code
+    ///     and writes a diagnostic naming both flags, because member headings in single-file
+    ///     output are at <c>depth+3</c> and a depth of 4 would produce H7, which exceeds H6.
+    /// </summary>
+    [Fact]
+    public void Program_Main_WithSingleFileFormatAndDepth4_ReturnsNonZeroExitCode()
+    {
+        // Arrange: use the fixture assembly so the tool reaches the cross-argument validation
+        // step; the error must be caught before the generator is constructed
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+
+        try
+        {
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "dotnet",
+                "--assembly", assemblyPath,
+                "--xml-doc", xmlDocPath,
+                "--output", outputDir,
+                "--format", "single-file",
+                "--depth", "4",
+            ]);
+
+            // Assert: the cross-argument constraint must produce a non-zero exit and a
+            // diagnostic that names --depth so the user can identify and correct the error
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--depth", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            // Restore the original error stream regardless of outcome
+            Console.SetError(originalError);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <c>--format gradual --depth 4</c> exits with code 0 because the
+    ///     single-file depth constraint does not apply to the gradual-disclosure format.
+    /// </summary>
+    [Fact]
+    public void Program_Main_WithGradualFormatAndDepth4_ExitsZero()
+    {
+        // Arrange: use the fixture assembly with gradual format and depth 4 — this combination
+        // is valid because gradual-disclosure emitters do not nest headings beyond depth+1
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+
+        try
+        {
+            // Act
+            var exitCode = Program.Main([
+                "dotnet",
+                "--assembly", assemblyPath,
+                "--xml-doc", xmlDocPath,
+                "--output", outputDir,
+                "--format", "gradual",
+                "--depth", "4",
+            ]);
+
+            // Assert: gradual format with depth 4 is valid and must exit zero
+            Assert.Equal(0, exitCode);
+        }
+        finally
+        {
+            // Clean up the temporary output directory regardless of outcome
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
 }
+

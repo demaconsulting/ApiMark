@@ -17,6 +17,8 @@ sections:
               decouples the emitter from Console so output can be captured, suppressed,
               or redirected by different hosts.
             tests:
+              - IApiEmitter_Emit_WithGradualDisclosure_ProducesMultipleFiles
+              - IApiEmitter_Emit_WithSingleFile_ProducesSingleApiMd
               - IApiGenerator_Parse_WithMinimalStub_ExecutesSuccessfully
               - IApiGenerator_Emit_OutputDirectory_ContainsApiMd
           - id: ApiMarkCore-IApiEmitter-SupportGradualDisclosure
@@ -27,7 +29,9 @@ sections:
               format optimized for AI agent navigation. An emitter must honor this
               format when selected so callers can produce the expected multi-file layout
               without knowing which language module generated the symbol data.
-            tests: [IApiGenerator_Emit_GradualDisclosure_ProducesMultipleFiles]
+            tests:
+              - IApiEmitter_Emit_GradualDisclosure_ProducesMultipleFiles
+              - IApiEmitter_Emit_WithGradualDisclosure_ProducesMultipleFiles
           - id: ApiMarkCore-IApiEmitter-SupportSingleFile
             title: IApiEmitter.Emit shall support writing all content into a single
               api.md file when EmitConfig.Format is SingleFile.
@@ -36,7 +40,9 @@ sections:
               larger document. An emitter must honor this format when selected so callers
               can produce a single consolidated Markdown file without knowing which language
               module generated the symbol data.
-            tests: [IApiGenerator_Emit_SingleFile_ProducesSingleApiMd]
+            tests:
+              - IApiEmitter_Emit_SingleFile_ProducesSingleApiMd
+              - IApiEmitter_Emit_WithSingleFile_ProducesSingleApiMd
           - id: ApiMarkCore-IApiEmitter-ProduceApiMdEntrypoint
             title: IApiEmitter.Emit shall produce a file named "api.md" as the fixed
               top-level entrypoint of every generated output tree.
@@ -48,3 +54,25 @@ sections:
               - IApiGenerator_Emit_OutputDirectory_ContainsApiMd
               - IApiEmitter_Emit_WithGradualDisclosure_ProducesMultipleFiles
               - IApiEmitter_Emit_WithSingleFile_ProducesSingleApiMd
+          - id: ApiMarkCore-IApiEmitter-RejectNullFactory
+            title: IApiEmitter.Emit shall reject a null factory argument.
+            justification: |
+              A null factory would cause a NullReferenceException inside the emitter
+              on the first CreateMarkdown call, with no actionable message. Failing fast
+              with ArgumentNullException at the start of Emit makes the error immediately
+              diagnosable.
+            tests: [IApiEmitter_Emit_NullFactory_ThrowsArgumentNullException]
+          - id: ApiMarkCore-IApiEmitter-RejectNullConfig
+            title: IApiEmitter.Emit shall reject a null config argument.
+            justification: |
+              A null EmitConfig would cause a NullReferenceException when the emitter
+              reads Format or HeadingDepth. Failing fast with ArgumentNullException at
+              the entry point makes misconfiguration immediately diagnosable.
+            tests: [IApiEmitter_Emit_NullConfig_ThrowsArgumentNullException]
+          - id: ApiMarkCore-IApiEmitter-RejectNullContext
+            title: IApiEmitter.Emit shall reject a null context argument.
+            justification: |
+              A null IContext would cause a NullReferenceException when the emitter
+              emits a diagnostic message. Failing fast with ArgumentNullException at
+              the entry point makes misconfiguration immediately diagnosable.
+            tests: [IApiEmitter_Emit_NullContext_ThrowsArgumentNullException]

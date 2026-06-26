@@ -21,7 +21,7 @@ service, network dependency, or machine-specific configuration is required.
 - All ApiMark.DotNet tests pass with zero failures.
 - The generator discovers namespaces, types, and members from representative fixture assemblies.
 - Type names and member signatures are simplified into the expected C#-friendly display form.
-- Every visible member receives its own dedicated detail page and is linked from the type page.
+- Every visible member receives a dedicated detail page or is combined onto a shared collision page, and is linked from the type page.
 - Visibility filtering excludes members outside the selected audience.
 - Obsolete member filtering correctly excludes or includes deprecated APIs based on the IncludeObsolete option.
 

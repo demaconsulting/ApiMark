@@ -5,7 +5,9 @@ using ApiMark.Cpp;
 namespace ApiMark.Cpp.Tests;
 
 /// <summary>
-///     xUnit class fixture that runs <see cref="CppGenerator.Generate"/> exactly once per
+///     xUnit class fixture that runs <see cref="CppGenerator.Parse"/> and
+///     <see cref="IApiEmitter.Emit(ApiMark.Core.IMarkdownWriterFactory, EmitConfig, ApiMark.Core.IContext)"/>
+///     exactly once per
 ///     option combination per test run, caching the resulting
 ///     <see cref="InMemoryMarkdownWriterFactory"/> instances for every test in
 ///     <see cref="CppGeneratorTests"/> to read.
@@ -79,12 +81,13 @@ public sealed class CppGeneratorFixture
     public InMemoryMarkdownWriterFactory PublicSingleFileFactory { get; }
 
     /// <summary>
-    ///     Initializes the fixture by invoking <see cref="CppGenerator.Generate"/> once for
-    ///     each of the four standard option combinations and storing the resulting factories.
+    ///     Initializes the fixture by invoking <see cref="CppGenerator.Parse"/> and
+    ///     <see cref="IApiEmitter.Emit(ApiMark.Core.IMarkdownWriterFactory, EmitConfig, ApiMark.Core.IContext)"/>
+    ///     once for each of the five standard option combinations and storing the resulting factories.
     /// </summary>
     /// <remarks>
     ///     xUnit constructs this fixture once per test class and shares it across all tests
-    ///     in <see cref="CppGeneratorTests"/>, so clang is invoked at most four times per run.
+    ///     in <see cref="CppGeneratorTests"/>, so clang is invoked at most five times per run.
     /// </remarks>
     public CppGeneratorFixture()
     {

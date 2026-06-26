@@ -243,8 +243,10 @@ public class ApiMarkTaskTests
             // Act: execute the task — this spawns the real ApiMark.Tool child process
             var result = task.Execute();
 
-            // Assert: task returns true and api.md is written to the output directory
+            // Assert: task returns true, stdout was forwarded as informational messages, and
+            // api.md is written to the output directory
             Assert.True(result);
+            buildEngine.Received().LogMessageEvent(Arg.Any<BuildMessageEventArgs>());
             Assert.True(
                 File.Exists(Path.Join(outputDir, "api.md")),
                 "Expected api.md to be created in the output directory.");
@@ -625,5 +627,183 @@ public class ApiMarkTaskTests
         Assert.True(formatIdx >= 0);
         Assert.Equal("gradual", afterArgs[formatIdx + 1]);
     }
-}
 
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.Execute"/> returns <c>false</c> and logs a
+    ///     MSBuild error when the spawned tool process exits with a non-zero exit code.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Execute_ToolExitsNonZero_ReturnsFalseAndLogsError()
+    {
+        // Arrange: use the test assembly as ToolDllPath so File.Exists passes, then override
+        // RunToolProcess to simulate a non-zero exit without spawning a real child process
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new FailingApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".csproj",
+            ToolDllPath = typeof(ApiMarkTaskTests).Assembly.Location,
+            ApiMarkAssemblyPath = "test.dll",
+            ApiMarkXmlDocPath = "test.xml",
+        };
+
+        // Act
+        var result = task.Execute();
+
+        // Assert: Execute must return false and at least one error must have been logged
+        Assert.False(result);
+        buildEngine.Received().LogErrorEvent(Arg.Any<BuildErrorEventArgs>());
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.Execute"/> returns <c>false</c> and logs a
+    ///     MSBuild error when <c>ResolveDotNetExe</c> cannot locate the <c>dotnet</c> executable.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Execute_DotNetExeNotResolved_ReturnsFalseAndLogsError()
+    {
+        // Arrange: task subclass that cannot find dotnet; use the test assembly as ToolDllPath
+        // so the File.Exists check passes and execution reaches the dotnet resolution check
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new NoDotNetApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".csproj",
+            ToolDllPath = typeof(ApiMarkTaskTests).Assembly.Location,
+            ApiMarkAssemblyPath = "test.dll",
+            ApiMarkXmlDocPath = "test.xml",
+        };
+
+        // Act
+        var result = task.Execute();
+
+        // Assert: Execute must return false and log an error about the missing dotnet executable
+        Assert.False(result);
+        buildEngine.Received().LogErrorEvent(Arg.Any<BuildErrorEventArgs>());
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask"/> forwards standard error output from the
+    ///     spawned tool to the MSBuild build log as error messages when the tool fails.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Execute_ToolWritesToStderr_ForwardsToMsBuildErrors()
+    {
+        // Arrange: run the real ApiMark.Tool with a non-existent assembly so it fails and
+        // writes diagnostic output to stderr, exercising the ErrorDataReceived forwarding path
+        var testDir = Path.GetDirectoryName(typeof(ApiMarkTaskTests).Assembly.Location)!;
+        var toolDllPath = Path.Join(testDir, "ApiMark.Tool.dll");
+
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new ApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ToolDllPath = toolDllPath,
+            ProjectExtension = ".csproj",
+            ApiMarkAssemblyPath = Path.Join(Path.GetTempPath(), "nonexistent-for-apimark-test.dll"),
+            ApiMarkXmlDocPath = Path.Join(Path.GetTempPath(), "nonexistent-for-apimark-test.xml"),
+            ApiMarkOutputDir = Path.Join(Path.GetTempPath(), Guid.NewGuid().ToString()),
+        };
+
+        // Act: execute with invalid inputs to cause the tool to fail with stderr/error output
+        var result = task.Execute();
+
+        // Assert: Execute must return false and errors must be forwarded to the MSBuild log
+        Assert.False(result);
+        buildEngine.Received().LogErrorEvent(Arg.Any<BuildErrorEventArgs>());
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.Execute"/> spawns one child process per item
+    ///     when <see cref="ApiMarkTask.ApiMarkOutputs"/> is non-empty, confirming that the
+    ///     multi-output path in <c>ExecuteAllOutputs</c> is exercised correctly.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Execute_WithMultipleOutputs_RunsToolForEachOutput()
+    {
+        // Arrange: two output items with distinct output directories
+        var buildEngine = Substitute.For<IBuildEngine>();
+
+        var output1 = Substitute.For<ITaskItem>();
+        output1.GetMetadata("OutputDir").Returns("/output/one");
+        output1.GetMetadata("Visibility").Returns(string.Empty);
+        output1.GetMetadata("Format").Returns(string.Empty);
+
+        var output2 = Substitute.For<ITaskItem>();
+        output2.GetMetadata("OutputDir").Returns("/output/two");
+        output2.GetMetadata("Visibility").Returns(string.Empty);
+        output2.GetMetadata("Format").Returns(string.Empty);
+
+        var task = new RecordingApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".csproj",
+            ToolDllPath = typeof(ApiMarkTaskTests).Assembly.Location,
+            ApiMarkAssemblyPath = "test.dll",
+            ApiMarkXmlDocPath = "test.xml",
+            ApiMarkOutputs = [output1, output2],
+        };
+
+        // Act
+        var result = task.Execute();
+
+        // Assert: exactly one RunToolProcess call per output item, with no errors
+        Assert.True(result);
+        Assert.Equal(2, task.RunToolProcessCallCount);
+        buildEngine.DidNotReceive().LogErrorEvent(Arg.Any<BuildErrorEventArgs>());
+    }
+
+    /// <summary>
+    ///     Subclass of <see cref="ApiMarkTask"/> that overrides <c>RunToolProcess</c> to simulate
+    ///     a non-zero tool exit without spawning a real child process.
+    /// </summary>
+    /// <remarks>
+    ///     This test helper exercises the exit-code error-surfacing path of
+    ///     <see cref="ApiMarkTask.Execute"/> without requiring a real <c>ApiMark.Tool</c>
+    ///     binary or a real dotnet executable to be present on the test host.
+    /// </remarks>
+    private sealed class FailingApiMarkTask : ApiMarkTask
+    {
+        /// <inheritdoc/>
+        protected override string? ResolveDotNetExe() => "dummy-dotnet";
+
+        /// <inheritdoc/>
+        protected override bool RunToolProcess(string dotnetExe, IReadOnlyList<string> toolArgs)
+        {
+            // Simulate the exact error the real implementation logs on a non-zero exit
+            Log.LogError("ApiMark.Tool exited with code 1.");
+            return false;
+        }
+    }
+
+    /// <summary>
+    ///     Subclass of <see cref="ApiMarkTask"/> that overrides <c>ResolveDotNetExe</c> to
+    ///     simulate an environment where the <c>dotnet</c> executable cannot be found.
+    /// </summary>
+    private sealed class NoDotNetApiMarkTask : ApiMarkTask
+    {
+        /// <inheritdoc/>
+        protected override string? ResolveDotNetExe() => null;
+    }
+
+    /// <summary>
+    ///     Subclass of <see cref="ApiMarkTask"/> that overrides <c>ResolveDotNetExe</c> and
+    ///     <c>RunToolProcess</c> to record how many times the tool process is spawned without
+    ///     launching a real child process.
+    /// </summary>
+    private sealed class RecordingApiMarkTask : ApiMarkTask
+    {
+        /// <summary>Gets the number of times <c>RunToolProcess</c> has been called.</summary>
+        public int RunToolProcessCallCount { get; private set; }
+
+        /// <inheritdoc/>
+        protected override string? ResolveDotNetExe() => "dummy-dotnet";
+
+        /// <inheritdoc/>
+        protected override bool RunToolProcess(string dotnetExe, IReadOnlyList<string> toolArgs)
+        {
+            RunToolProcessCallCount++;
+            return true;
+        }
+    }
+}

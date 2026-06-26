@@ -1575,5 +1575,34 @@ public class XmlDocReaderTests
             File.Delete(path);
         }
     }
-}
 
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> renders a generic type cref
+    ///     (e.g. <c>T:System.Collections.Generic.List`1</c>) using angle-bracket type-parameter
+    ///     placeholders rather than stripping the arity entirely.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_WithSeeGenericTypeCref_FormatsWithTypeParameters()
+    {
+        // Arrange: summary contains a see cref referencing a generic type with arity backtick
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.UseList">
+              <summary>Returns a <see cref="T:System.Collections.Generic.List`1"/>.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("M:Foo.Bar.UseList");
+
+            // Assert: arity marker is rendered as escaped angle-bracket notation for Markdown prose
+            Assert.NotNull(summary);
+            Assert.Contains(@"List\<T\>", summary, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+}

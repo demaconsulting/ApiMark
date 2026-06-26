@@ -19,8 +19,8 @@ construction, and help/banner printing.
 
 **Program.Version** (public static `string` property): Returns the informational
 version string read from `AssemblyInformationalVersionAttribute` via reflection, with
-fallback to `AssemblyVersion`, then `"0.0.0"`. Used by `PrintBanner` and `Run` when
-responding to `--version`.
+fallback to `AssemblyVersion`, then `"0.0.0"`. Used by `PrintBanner`
+and `Run` when responding to `--version`.
 
 **Context** (`Cli/Context.cs`): See _Cli Subsystem Design_ (`cli.md`) and
 _Context Unit Design_ (`cli/context.md`) for the full data model and interface.
@@ -62,6 +62,13 @@ the generator, and calls `Parse` then `Emit`.
   `XmlDoc` for dotnet, `Includes` for cpp, and at least one non-exclusion `--source` pattern
   (i.e. a pattern not prefixed with `!`) for vhdl; calls `context.WriteError` and `PrintHelp`
   if any are missing.
+- Enforces the single-file format depth constraint: if `Format` is `SingleFile` and
+  `HeadingDepth` is greater than 3, calls `context.WriteError` with a diagnostic naming
+  `--depth` and exits without constructing the generator. This check is placed here rather
+  than in `Context` because it is a cross-argument constraint (requiring knowledge of both
+  `--format` and `--depth`) that can only be evaluated after the full argument list is parsed.
+  The single-file emitters render member headings at `depth+3`; a depth above 3 would
+  produce H7+ headings unsupported by CommonMark.
 - Calls `CreateGenerator(context)`, then `generator.Parse(context)` to get an
   `IApiEmitter`, then `emitter.Emit(factory, emitConfig, context)` where
   `emitConfig` is constructed from `context.Format` and `context.HeadingDepth`.
@@ -127,5 +134,5 @@ re-thrown.
 
 ### Callers
 
-N/A — entry point, called by the host environment (ApiMarkTask process spawn,
+N/A - entry point, called by the host environment (ApiMarkTask process spawn,
 dotnet tool invocation, or CI pipeline script).

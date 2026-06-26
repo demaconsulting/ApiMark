@@ -687,4 +687,119 @@ public sealed class ContextTests
         // Assert
         Assert.Equal(["src/**/*.vhd", "!src/tb/**/*.vhd"], context.Sources);
     }
+
+    /// <summary>
+    ///     Validates that output written through <see cref="Context.WriteError"/> is also
+    ///     captured in the log file when <c>--log</c> is specified.
+    /// </summary>
+    [Fact]
+    public void Context_OpenLogFile_ErrorOutputAlsoWrittenToLog()
+    {
+        // Arrange: create a temporary file path for the log
+        var tempPath = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".log");
+
+        try
+        {
+            // Act: create context with --log, write an error message, and dispose to flush
+            using (var context = Context.Create(["--silent", "--log", tempPath]))
+            {
+                context.WriteError("test error output");
+            }
+
+            // Assert: the log file must exist and contain the error message
+            Assert.True(File.Exists(tempPath), "Log file must be created");
+            var content = File.ReadAllText(tempPath);
+            Assert.Contains("test error output", content);
+        }
+        finally
+        {
+            // Clean up the temporary log file regardless of test outcome
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <c>--depth 4</c> is accepted by <see cref="Context"/> because
+    ///     the valid range is 1–6; format-specific constraints are enforced downstream.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithDepth4_SetsHeadingDepth()
+    {
+        // Arrange: supply --depth 4 — this is within the 1–6 range accepted by Context
+        var args = new[] { "--depth", "4" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: depth 4 is valid in Context and must be stored without error
+        Assert.Equal(4, context.HeadingDepth);
+    }
+
+    /// <summary>
+    ///     Validates that <c>--depth 6</c> is accepted by <see cref="Context"/> because 6
+    ///     is the upper bound of valid ATX heading levels in Markdown (H1–H6).
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithDepth6_SetsHeadingDepth()
+    {
+        // Arrange: supply --depth 6 — the maximum value in the 1–6 first-principles range
+        var args = new[] { "--depth", "6" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: depth 6 is the upper boundary and must be stored without error
+        Assert.Equal(6, context.HeadingDepth);
+    }
+
+    /// <summary>
+    ///     Validates that <c>--depth 3</c> with <c>--format single-file</c> is accepted
+    ///     (boundary value must not be rejected).
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithDepth3AndSingleFileFormat_Succeeds()
+    {
+        // Arrange: supply depth at the boundary value alongside single-file format
+        var args = new[] { "--format", "single-file", "--depth", "3" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: depth 3 is valid for single-file and both properties must be set
+        Assert.Equal(3, context.HeadingDepth);
+        Assert.Equal(OutputFormat.SingleFile, context.Format);
+    }
+
+    /// <summary>
+    ///     Validates that supplying a flag token (starting with <c>'-'</c>) as the value
+    ///     of <c>--output</c> throws <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithFlagValueForOutput_ThrowsArgumentException()
+    {
+        // Arrange: supply a flag token as the --output value — the parser must reject it
+        // rather than silently consuming the flag as a path string
+        var args = new[] { "dotnet", "--output", "--silent" };
+
+        // Act / Assert: a flag token supplied as an option value must throw ArgumentException
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
+    }
+
+    /// <summary>
+    ///     Validates that supplying a flag token (starting with <c>'-'</c>) as the value
+    ///     of <c>--log</c> throws <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithFlagValueForLog_ThrowsArgumentException()
+    {
+        // Arrange: supply a flag token as the --log value — the parser must reject it
+        // rather than silently consuming the flag as a filename string
+        var args = new[] { "--log", "--silent" };
+
+        // Act / Assert: a flag token supplied as an option value must throw ArgumentException
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
+    }
 }

@@ -5,21 +5,30 @@
 
 ### Purpose
 
-CppEmitterSingleFile writes all C++ API documentation into a single `api.md`
-file. All content is organized using heading levels offset by
-`EmitConfig.HeadingDepth`: H{depth} for the library title, H{depth+1} for each
-namespace, H{depth+2} for each type or free function, and H{depth+3} for
-individual members. Type links are omitted in single-file mode to prevent anchor
-collisions when all members share a single file. The path convention appendix is
-also omitted because it only applies to the multi-file layout.
+CppEmitterSingleFile writes all C++ API documentation — classes, free functions,
+enums, and type aliases — into a single `api.md` file. All content is organized
+using heading levels offset by `EmitConfig.HeadingDepth`: H{depth} for the library
+title, H{depth+1} for each namespace, H{depth+2} for each type, free function, enum,
+or type alias, and H{depth+3} for individual members and class-scoped type aliases.
+Type links are omitted in single-file mode to prevent anchor collisions when all
+members share a single file. The path convention appendix is also omitted because it
+only applies to the multi-file layout.
 
 ### Data Model
 
-N/A — CppEmitterSingleFile holds no data model of its own. It reads from the
-`SortedDictionary<string, CppEmitter.NamespaceDeclarations>` supplied by
-`CppEmitter` and from `CppGeneratorOptions` via the parent emitter.
+**CppEmitterSingleFile instance fields** (private): state supplied at construction.
+
+- `_emitter`: `CppEmitter` — parent emitter providing options, visibility helpers,
+  comment extractors, and signature builders.
+- `_namespaceDecls`: `SortedDictionary<string, CppEmitter.NamespaceDeclarations>` —
+  sorted map of namespace key → declarations passed in from `CppEmitter`.
 
 ### Key Methods
+
+**CppEmitterSingleFile(emitter, namespaceDecls, cppResolver)** (internal constructor):
+stores `emitter` and `namespaceDecls` as private fields. `cppResolver` is accepted to
+satisfy the uniform constructor contract but is deliberately discarded (`_ = cppResolver`)
+because type links are omitted in single-file mode to prevent anchor collisions.
 
 **CppEmitterSingleFile.Emit** (internal): Entry point; writes all content into a
 single `api.md` file.
@@ -28,10 +37,13 @@ single `api.md` file.
   `IContext context`.
 - *Returns*: `void`
 - *Algorithm*: Calls `EmitSingleFile(factory, config)` which creates one writer
-  via `factory.CreateMarkdown("", "api")`, writes the H{depth} library-name
-  heading, optional description, and iterates over namespaces calling
-  `WriteSingleFileClassSection`, `WriteSingleFileFreeFunctionSection`, and
-  `WriteSingleFileEnumSection`.
+  via `factory.CreateMarkdown("", "api")`, writes the H{depth} library-name heading
+  in the form `{LibraryName} API Reference`, optional description paragraph, and
+  iterates over namespaces. Within each namespace iteration, writes an H{depth+1}
+  namespace heading (`nsDecls.DisplayName`) and an optional namespace summary
+  paragraph, then calls `WriteSingleFileClassSection`,
+  `WriteSingleFileFreeFunctionSection`, `WriteSingleFileEnumSection`, and
+  `WriteSingleFileTypeAliasSection`.
 
 **WriteSingleFileClassSection** (private): Emits an H{depth+2} section for a
 class.
@@ -39,8 +51,8 @@ class.
 - Writes the class name heading, optional parent-context note for nested types,
   signature block (when a source location is available), summary, details, note,
   example, a compact member bullet list, H{depth+3} sections for each visible
-  member via `WriteSingleFileMemberSection`, and peer H{depth+2} sections for
-  nested classes.
+  member via `WriteSingleFileMemberSection`, H{depth+3} sub-entries for each
+  class-scoped type alias, and peer H{depth+2} sections for nested classes.
 
 **WriteSingleFileFreeFunctionSection** (private static): Emits an H{depth+2}
 section for a free function, including parameter types in the heading,
@@ -48,6 +60,15 @@ a fenced-code signature block, summary, details, and a parameters table.
 
 **WriteSingleFileEnumSection** (private static): Emits an H{depth+2} section for
 a C++ enum, including summary and an enum values table.
+
+**WriteSingleFileTypeAliasSection** (private static): Emits an H{depth+2} section
+for a namespace-level C++ type alias.
+
+- *Algorithm*: Writes the alias name as an H{depth+2} heading, a fenced `cpp`
+  code block containing the qualified-name comment and `using {name} = {underlying};`
+  declaration, and a summary paragraph (or the no-description placeholder when no
+  doc comment is present). Mirrors the content produced by `WriteTypeAliasPage` in
+  gradual-disclosure mode.
 
 **WriteSingleFileMemberSection** (private static): Emits an H{depth+3} section
 for a single class member (constructor, method, or field), including a fenced-code
@@ -67,7 +88,7 @@ display name.
 
 ### Error Handling
 
-N/A — CppEmitterSingleFile propagates exceptions from the factory and writer
+N/A - CppEmitterSingleFile propagates exceptions from the factory and writer
 without wrapping. No additional error handling is performed.
 
 ### External Interfaces
@@ -84,8 +105,8 @@ to create the single `api.md` writer via `CreateMarkdown("", "api")`.
 
 - **CppEmitter** — parent emitter providing options, visibility helpers, comment
   extractors, signature builders, and `GetIncludePath`.
-- **CppAstModel** — consumes `CppClass`, `CppFunction`, `CppField`, `CppEnum`
-  record types.
+- **CppAstModel** — consumes `CppClass`, `CppFunction`, `CppField`, `CppEnum`,
+  and `CppTypeAlias` record types.
 - **IMarkdownWriterFactory** (ApiMarkCore) — supplies the single Markdown writer.
 
 ### Callers

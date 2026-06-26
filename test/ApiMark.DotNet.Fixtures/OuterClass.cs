@@ -1,3 +1,6 @@
+// Copyright (c) DemaConsulting LLC. All rights reserved.
+// Licensed under the MIT License.
+
 namespace ApiMark.DotNet.Fixtures;
 
 /// <summary>An outer class containing a public nested type for testing nested type page generation.</summary>

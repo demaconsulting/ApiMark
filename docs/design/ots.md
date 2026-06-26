@@ -25,16 +25,22 @@ OTS version upgrades in ApiMark are managed as follows:
   sprint planning.
 - Major version changes trigger a design review to assess API compatibility and
   any impact on the integration pattern documented in this section.
-- Reproducible builds are ensured by committing lock files (NuGet packages.lock.json)
-  and pinning versions in the project file.
+- Reproducible builds are ensured by pinning versions in project files.
 
 ## General Integration Approach
 
-OTS items are consumed via their public NuGet package API. No wrapper classes are
-introduced unless the OTS API surface is too broad or its error model is
-incompatible with ApiMark conventions. Error conditions from OTS items propagate
-as exceptions to the consuming unit, which is responsible for logging and surfacing
-them appropriately.
+OTS items are consumed in two ways, depending on their delivery mechanism:
+
+- **NuGet packages** (Mono.Cecil, Antlr4.Runtime.Standard, Microsoft.Extensions.FileSystemGlobbing,
+  DemaConsulting.TestResults): consumed via their public NuGet package API. No wrapper classes are
+  introduced unless the OTS API surface is too broad or its error model is incompatible with ApiMark
+  conventions.
+- **External CLI tools** (clang): invoked as an out-of-process command (`clang -ast-dump=json`).
+  The consuming unit (ClangAstParser) is responsible for launching the process, capturing its output,
+  and mapping any non-zero exit code or stderr output to an appropriate ApiMark diagnostic.
+
+Error conditions from OTS items propagate as exceptions (or diagnostic messages for CLI tools) to the
+consuming unit, which is responsible for logging and surfacing them appropriately.
 
 ## Qualification Strategy
 

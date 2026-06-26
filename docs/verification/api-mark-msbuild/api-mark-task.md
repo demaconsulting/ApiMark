@@ -33,9 +33,14 @@ MSBuild and VC++ tools installed; those tests skip gracefully when the package i
 - `ApiMarkVisibility` is forwarded as `--visibility` when set.
 - `ApiMarkIncludeObsolete` is forwarded as `--include-obsolete` when true.
 - `DisableApiMark` suppresses tool invocation and returns true with no side effects.
-- A non-zero exit code from the spawned tool causes `Execute` to return false and log a
-  MSBuild error. Note: process-failure surfacing (non-zero exit → task returns false +
-  logs error) is a known verification gap; a dedicated test is pending.
+- A non-zero exit code from the spawned tool causes Execute to return false and log a
+  MSBuild error.
+- When `dotnet` cannot be located via `DOTNET_HOST_PATH` or `PATH`, Execute returns false
+  and logs an MSBuild error.
+- The spawned tool's standard output is forwarded to the MSBuild build log as informational
+  messages.
+- The spawned tool's standard error output is forwarded to the MSBuild build log as error
+  messages.
 - For C++ builds, `ApiMarkLibraryName` is forwarded as `--library-name` when set.
 - For C++ builds, `ApiMarkLibraryDescription` is forwarded as `--library-description` when set.
 - For C++ builds, `ApiMarkClangPath` is forwarded as `--clang-path` when set.
@@ -48,6 +53,9 @@ MSBuild and VC++ tools installed; those tests skip gracefully when the package i
   with no side effects.
 - When `ApiMarkXmlDocPath` is not set for a .NET project, the task returns true immediately
   with no side effects.
+- When `ApiMarkOutputs` is non-empty, the task spawns one child process per item in the
+  `ApiMarkOutput` item group, passing per-item metadata overrides for `OutputDir`, `Format`,
+  and `Visibility`.
 
 ### Test Scenarios
 
@@ -163,3 +171,30 @@ properties (`OutputDir`, `Visibility`, `Format`) are restored to their original 
 `BuildArgumentsForOutput` returns, so subsequent calls still use the original property
 values. This scenario is tested by
 `ApiMarkTask_BuildArgumentsForOutput_RestoresScalarPropertiesAfterCall`.
+
+**Non-zero tool exit returns false and logs error**: Verifies that when the spawned tool
+process exits with a non-zero exit code, `Execute` returns false and a MSBuild error is
+logged. This scenario is tested by
+`ApiMarkTask_Execute_ToolExitsNonZero_ReturnsFalseAndLogsError`.
+
+**dotnet executable not resolved returns false and logs error**: Verifies that when neither
+`DOTNET_HOST_PATH` nor `PATH` provides a valid `dotnet` executable, `Execute` returns false
+and logs an MSBuild error identifying the problem, allowing the build failure to be diagnosed
+quickly. This scenario is tested by
+`ApiMarkTask_Execute_DotNetExeNotResolved_ReturnsFalseAndLogsError`.
+
+**Stdout from spawned tool forwarded as informational messages**: Verifies that standard
+output written by the spawned `ApiMark.Tool` child process is routed to the MSBuild build log
+as informational messages, making generation progress visible in the IDE output window and CI
+logs. This scenario is tested by `ApiMarkTask_Execute_WithDotNetProject_GeneratesDocumentation`.
+
+**Stderr from spawned tool forwarded as MSBuild errors**: Verifies that standard error output
+written by the spawned tool is routed to the MSBuild build log as error messages, so
+diagnostic information is surfaced in the IDE error list and CI failure summary. This scenario
+is tested by `ApiMarkTask_Execute_ToolWritesToStderr_ForwardsToMsBuildErrors`.
+
+**Multiple outputs run tool once per output item**: Verifies that when `ApiMarkOutputs` is
+non-empty, `Execute` delegates to `ExecuteAllOutputs` and calls `RunToolProcess` exactly once
+per item in the `ApiMarkOutput` item group, using per-item metadata to override scalar
+properties for each invocation. This scenario is tested by
+`ApiMarkTask_Execute_WithMultipleOutputs_RunsToolForEachOutput`.

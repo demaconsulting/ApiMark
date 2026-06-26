@@ -69,6 +69,17 @@ public sealed class FileMarkdownWriterFactoryTests : IDisposable
     }
 
     /// <summary>
+    ///     Verifies that constructing <see cref="FileMarkdownWriterFactory"/> with an
+    ///     empty string output directory throws <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void FileMarkdownWriterFactory_Constructor_EmptyDirectory_ThrowsArgumentException()
+    {
+        // Arrange / Act / Assert: empty strings must be rejected at construction time
+        Assert.Throws<ArgumentException>(() => new FileMarkdownWriterFactory(""));
+    }
+
+    /// <summary>
     ///     Verifies that calling <see cref="FileMarkdownWriterFactory.CreateMarkdown"/>
     ///     with a null file name throws <see cref="ArgumentException"/>.
     /// </summary>
@@ -80,6 +91,34 @@ public sealed class FileMarkdownWriterFactoryTests : IDisposable
 
         // Act / Assert: null name must be rejected before any I/O is attempted
         Assert.Throws<ArgumentException>(() => factory.CreateMarkdown("", null!));
+    }
+
+    /// <summary>
+    ///     Verifies that calling <see cref="FileMarkdownWriterFactory.CreateMarkdown"/>
+    ///     with an empty string file name throws <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void FileMarkdownWriterFactory_CreateMarkdown_EmptyName_ThrowsArgumentException()
+    {
+        // Arrange: create a factory pointing at the temp directory
+        var factory = new FileMarkdownWriterFactory(_tempDirectory);
+
+        // Act / Assert: empty name must be rejected before any I/O is attempted
+        Assert.Throws<ArgumentException>(() => factory.CreateMarkdown("", ""));
+    }
+
+    /// <summary>
+    ///     Verifies that calling <see cref="FileMarkdownWriterFactory.CreateMarkdown"/>
+    ///     with a whitespace-only file name throws <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void FileMarkdownWriterFactory_CreateMarkdown_WhitespaceName_ThrowsArgumentException()
+    {
+        // Arrange: create a factory pointing at the temp directory
+        var factory = new FileMarkdownWriterFactory(_tempDirectory);
+
+        // Act / Assert: whitespace-only name must be rejected before any I/O is attempted
+        Assert.Throws<ArgumentException>(() => factory.CreateMarkdown("", "   "));
     }
 
     /// <summary>
@@ -150,5 +189,27 @@ public sealed class FileMarkdownWriterFactoryTests : IDisposable
         // Assert: the directory and file must both exist after the writer is disposed
         Assert.True(Directory.Exists(nonExistentDir), "Factory must create the output directory if it does not exist.");
         Assert.True(File.Exists(Path.Join(nonExistentDir, "index.md")));
+    }
+
+    /// <summary>
+    ///     Verifies that passing a whitespace-only subfolder writes the file directly
+    ///     under the output root — treating whitespace as equivalent to an empty subfolder.
+    /// </summary>
+    [Fact]
+    public void FileMarkdownWriterFactory_CreateMarkdown_WhitespaceSubFolder_CreatesRootLevelFile()
+    {
+        // Arrange: create a factory pointing at the temp directory
+        var factory = new FileMarkdownWriterFactory(_tempDirectory);
+
+        // Act: create a writer with a whitespace-only subFolder
+        using (var writer = factory.CreateMarkdown("   ", "ws-root"))
+        {
+            writer.WriteHeading(1, "Whitespace SubFolder Test");
+        }
+
+        // Assert: the file must be written directly at the root — whitespace subFolder
+        // is treated the same as empty string per the design contract
+        var expectedPath = Path.Join(_tempDirectory, "ws-root.md");
+        Assert.True(File.Exists(expectedPath), $"Expected file '{expectedPath}' at root level when subFolder is whitespace.");
     }
 }

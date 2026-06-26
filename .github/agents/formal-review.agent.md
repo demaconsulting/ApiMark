@@ -31,12 +31,14 @@ standards from the selection matrix in AGENTS.md.
 1. Download the review checklist from
    <https://github.com/demaconsulting/ContinuousCompliance/raw/refs/heads/main/docs/review-template/review-template.md>.
    If the download fails, report the failure rather than proceeding without the template.
-2. Use `dotnet reviewmark --elaborate {review-set}` to get the files to review
-3. Review all files holistically, checking for cross-file consistency and
-   compliance with the review checklist
-4. Save the populated review checklist to `.agent-logs/reviews/review-report-{review-set}.md`.
+2. Run `dotnet reviewmark --elaborate {review-set}`. Read all files listed under
+   `## Context` first — these are reference material, not under review — then review
+   all files listed under `## Files` holistically, using the context to understand
+   the intended role and scope within the broader system, and checking for cross-file
+   consistency and compliance with the review checklist.
+3. Save the populated review checklist to `.agent-logs/reviews/review-report-{review-set}.md`.
    This directory holds formal review artifacts, not agent logs.
-5. Generate a completion report per the AGENTS.md reporting requirements.
+4. Generate a completion report per the AGENTS.md reporting requirements.
 
 # Report Template
 

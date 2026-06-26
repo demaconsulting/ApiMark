@@ -27,14 +27,15 @@ the emitted Markdown. Default: `OutputFormat.GradualDisclosure`. Values:
 - `SingleFile` — all content written into a single `api.md` file using offset
   heading levels.
 
-**EmitConfig.HeadingDepth**: `int` — the absolute heading level used for the
-top-level section in single-file output. Default: `1`. Valid range: 1–3 (a
-documented guideline; no runtime enforcement is performed by `EmitConfig`
-itself — enforcement is the caller's responsibility). Ignored by
-`GradualDisclosure` emitters. The effective member heading level is
-`HeadingDepth + 3`; at depth 3 members are at H6, which is the maximum heading
-level supported by Markdown. The CLI rejects depth values above 3 when
-`--format single-file` is used.
+**EmitConfig.HeadingDepth** defaults to `1` and is validated in the range 1–6 at
+init time. Valid range: 1–6. The maximum value allowed by `EmitConfig` itself is 6,
+matching the highest valid ATX heading level in Markdown. Callers that use emitters
+which nest additional heading levels below the top-level heading are responsible for
+further restricting the value before constructing `EmitConfig` (for example,
+single-file emitters render member headings at `HeadingDepth + 3`; callers must
+restrict the supplied value to 1–3 to keep member headings within H1–H6).
+Values outside 1–6 throw `ArgumentOutOfRangeException`. Ignored by `GradualDisclosure`
+emitters.
 
 **OutputFormat**: `enum` — discriminates between the two supported output
 strategies.
@@ -44,19 +45,21 @@ strategies.
 
 ### Key Methods
 
-N/A — EmitConfig is a data object; it has no significant methods. `EmitConfig`
+N/A - EmitConfig is a data object; it has no significant methods. `EmitConfig`
 uses reference equality (standard `sealed class` behavior); `init` properties
 do not affect equality semantics.
 
 ### Error Handling
 
-N/A — EmitConfig is a passive data object. Validation of property values
-(e.g., `HeadingDepth` range) is the responsibility of the caller or the
-`IApiEmitter` implementation.
+`EmitConfig` enforces the `HeadingDepth` range at init time. Setting `HeadingDepth`
+to a value less than 1 throws `ArgumentOutOfRangeException` (via
+`ArgumentOutOfRangeException.ThrowIfLessThan`). Setting it greater than 6 throws
+`ArgumentOutOfRangeException` (via `ArgumentOutOfRangeException.ThrowIfGreaterThan`).
+`Format` accepts any `OutputFormat` enum value and performs no range check.
 
 ### Dependencies
 
-N/A — EmitConfig and OutputFormat are self-contained value types defined in
+N/A - EmitConfig and OutputFormat are self-contained value types defined in
 ApiMarkCore; they have no dependencies on other units, OTS items, or shared
 packages.
 

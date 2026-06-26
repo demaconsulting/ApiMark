@@ -40,7 +40,9 @@ sections:
         children:
           - ApiMarkCore-IMarkdownWriterFactory-DefineCreateMarkdownMethod
           - ApiMarkCore-IMarkdownWriterFactory-SupportRootLevelFiles
-          - ApiMarkCore-IMarkdownWriterFactory-RejectInvalidOutputDirectory
+          - ApiMarkCore-IMarkdownWriterFactory-RejectNullOutputDirectory
+          - ApiMarkCore-IMarkdownWriterFactory-RejectEmptyOutputDirectory
+          - ApiMarkCore-IMarkdownWriterFactory-RejectWhitespaceOutputDirectory
           - ApiMarkCore-IMarkdownWriterFactory-EnsureOutputDirectory
         tests: [ApiMarkCore_WriterFactory_CanCreate_RootAndSubfolderWriters]
       - id: ApiMarkCore-IMarkdownWriter-ProvideMarkdownOutputInterface
@@ -58,6 +60,8 @@ sections:
           - ApiMarkCore-IMarkdownWriter-DefineWriteTable
           - ApiMarkCore-IMarkdownWriter-DefineWriteCodeBlock
           - ApiMarkCore-IMarkdownWriter-DefineWriteLink
+          - ApiMarkCore-IMarkdownWriter-WriteHeadingRejectInvalidLevel
+          - ApiMarkCore-IMarkdownWriter-ThrowObjectDisposedAfterDispose
         tests: [InMemoryMarkdownWriter_Write_AllOperations_RecordsInOrder]
       - id: ApiMarkCore-PathHelpers-ProvideSafePathCombinationHelper
         title: ApiMarkCore shall provide an internal helper for safely combining caller-supplied
@@ -86,6 +90,9 @@ sections:
           - ApiMarkCore-IApiEmitter-ProduceApiMdEntrypoint
           - ApiMarkCore-IApiEmitter-SupportGradualDisclosure
           - ApiMarkCore-IApiEmitter-SupportSingleFile
+        tests:
+          - IApiEmitter_Emit_WithGradualDisclosure_ProducesMultipleFiles
+          - IApiEmitter_Emit_WithSingleFile_ProducesSingleApiMd
       - id: ApiMarkCore-ProvideEmitConfiguration
         title: ApiMark Core shall provide an emit configuration contract.
         justification: |
@@ -95,6 +102,12 @@ sections:
         children:
           - ApiMarkCore-EmitConfig-DefineFormat
           - ApiMarkCore-EmitConfig-DefineHeadingDepth
+        tests:
+          - EmitConfig_DefaultFormat_IsGradualDisclosure
+          - EmitConfig_DefaultHeadingDepth_IsOne
+          - EmitConfig_HeadingDepth_BelowMinimum_ThrowsArgumentOutOfRangeException
+          - EmitConfig_HeadingDepth_AboveMaximum_ThrowsArgumentOutOfRangeException
+          - EmitConfig_HeadingDepth_ValidNonDefault_SetsCorrectly
       - id: ApiMarkCore-GlobFileCollector-ProvideGlobFileCollector
         title: ApiMark Core shall provide a shared utility for discovering files from
           the filesystem using gitignore-style glob patterns.
@@ -110,6 +123,8 @@ sections:
           - ApiMarkCore-GlobFileCollector-InferExtensionsFromBareStar
           - ApiMarkCore-GlobFileCollector-SupportExclusionPatterns
           - ApiMarkCore-GlobFileCollector-SkipNonExistentRoots
+          - ApiMarkCore-GlobFileCollector-SupportLiteralAbsolutePaths
+          - ApiMarkCore-GlobFileCollector-RejectNullArguments
         tests:
           - GlobFileCollector_Collect_EmptyPatterns_ReturnsEmptyList
           - GlobFileCollector_Collect_RelativeVhdPattern_FindsVhdFiles

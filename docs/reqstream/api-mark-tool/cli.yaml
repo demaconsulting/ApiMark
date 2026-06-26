@@ -25,4 +25,26 @@ sections:
               - ApiMarkTool-Cli-Context-ParseFormatOption
               - ApiMarkTool-Cli-Context-ParseClangPath
               - ApiMarkTool-Cli-Context-ParseVhdlSourceOptions
+              - ApiMarkTool-Cli-SuppressOutputWhenSilent
+              - ApiMarkTool-Cli-RouteOutputThroughContext
             tests: [Context_Cli_ParsesAllGlobalFlags]
+          - id: ApiMarkTool-Cli-SuppressOutputWhenSilent
+            title: The Cli shall suppress all console output (both stdout and stderr) when
+              the --silent flag is specified.
+            justification: |
+              Silent mode is used in scripted or automated invocations where console output
+              would pollute log output. WriteError still sets the exit code but does not print
+              to the console.
+            tests:
+              - Context_Create_WithSilentFlag_SetsSilentTrue
+          - id: ApiMarkTool-Cli-RouteOutputThroughContext
+            title: The Cli shall route all tool output through the Context.WriteLine and
+              Context.WriteError methods so that output can be consistently captured,
+              suppressed, or redirected to a log file.
+            justification: |
+              Centralizing output through Context ensures that --silent and --log work
+              uniformly regardless of which component produces the output.
+            tests:
+              - Context_Create_WithLogFile_OpensAndWritesToLog
+              - Context_OpenLogFile_ErrorOutputAlsoWrittenToLog
+              - Program_Main_WithSilentAndLog_DotNetCommand_ExitsZero

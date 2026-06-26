@@ -25,7 +25,9 @@ sections:
           - ApiMarkCpp-CppGenerator-ShowDirectInheritanceInTypeSignature
           - ApiMarkCpp-CppGenerator-EmitIntraDocLinksInTableCells
           - ApiMarkCpp-CppGenerator-ApplyGitignoreStylePatternSelectionToHeaders
-          - ApiMarkCpp-CppGenerator-EmitExternalTypesSection
+          - ApiMarkCpp-CppGenerator-SupportAbsoluteHeaderPatterns
+          - ApiMarkCpp-CppGenerator-WorkingDirectory
+          - ApiMarkCpp-CppGenerator-RejectNullContext
           - ApiMarkCpp-CppGenerator-ShowDeletedFunctionsWithDeletedNotation
           - ApiMarkCpp-CppGenerator-DocumentTypeAliases
           - ApiMarkCpp-CppGenerator-EmitSingleFileOutput
@@ -35,4 +37,17 @@ sections:
           - ApiMarkCpp-CppEmitterGradualDisclosure
           - ApiMarkCpp-CppEmitterSingleFile
           - ApiMarkCpp-CppTypeLinkResolver
+          - ApiMarkCpp-EmitExternalTypesSection
         tests: [CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint]
+      - id: ApiMarkCpp-EmitExternalTypesSection
+        title: ApiMarkCpp shall render unrecognized non-std type references in an External
+          Types section on the affected page.
+        justification: |
+          When a documented type references a type outside the library and outside the
+          C++ standard library, readers need a clear indication of the external dependency.
+          The Cpp subsystem tracks these references during generation and emits a dedicated
+          External Types section so that the dependency is visible in the generated output.
+        children:
+          - ApiMarkCpp-CppEmitter-RepresentExternalTypeInfo
+          - ApiMarkCpp-CppTypeLinkResolver-LinkifyExternalTypeTracking
+        tests: [CppGenerator_Generate_ExternalTypeReference_EmitsExternalTypesSection]

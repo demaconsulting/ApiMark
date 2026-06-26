@@ -9,7 +9,7 @@ namespace ApiMark.Cpp.Tests;
 
 /// <summary>
 ///     Integration tests for <see cref="CppGenerator"/> using a shared <see cref="CppGeneratorFixture"/>
-///     to avoid invoking clang more than 4 times per test run.
+///     to avoid invoking clang more than five times per test run.
 /// </summary>
 public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
 {
@@ -55,6 +55,22 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     {
         // Act / Assert: null options must be rejected immediately at construction time
         Assert.Throws<ArgumentNullException>(() => new CppGenerator(null!));
+    }
+
+    /// <summary>Validates that passing null to <see cref="CppGenerator.Parse"/> throws <see cref="ArgumentNullException"/>.</summary>
+    [Fact]
+    public void CppGenerator_Parse_NullContext_ThrowsArgumentNullException()
+    {
+        // Arrange: valid generator with minimal options
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "TestLibrary",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+        };
+        var generator = new CppGenerator(options);
+
+        // Act / Assert: null context must be rejected before any file I/O is attempted
+        Assert.Throws<ArgumentNullException>(() => generator.Parse(null!));
     }
 
     /// <summary>
@@ -1117,26 +1133,28 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     }
 
     /// <summary>
-    ///     Validates that <see cref="CppTypeLinkResolver.Linkify"/> emits plain text and records
-    ///     the type in the external set when the type is not in the known-types dictionary.
+    ///     Validates that when an ExternalTypeFixture class has a method whose return type
+    ///     belongs to a non-library, non-std namespace, the generated type page contains an
+    ///     External Types section listing those types.
     /// </summary>
     [Fact]
-    public void CppTypeLinkResolver_Linkify_UnknownNamespacedType_TracksExternalType()
+    public void CppGenerator_Generate_ExternalTypeReference_EmitsExternalTypesSection()
     {
-        // Arrange: a resolver with no known types, simulating a fully external reference
-        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
-        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+        // Arrange: ExternalTypeFixture.h declares a class whose GetLogger method returns
+        // external::ns::Logger* — a type outside both the fixtures namespace and std::
+        var factory = _fixture.PublicFactory;
 
-        // Act: resolve a type that belongs to a non-std namespace not in the known-types map
-        var result = resolver.Linkify("acme::Logger *", string.Empty, externalTypes);
+        // Assert: type page for ExternalTypeFixture must exist
+        Assert.True(
+            factory.Writers.TryGetValue("fixtures/ExternalTypeFixture", out var writer),
+            "Expected type page for ExternalTypeFixture");
 
-        // Assert: the original type string is returned as-is (no link to an unknown page)
-        Assert.Equal("acme::Logger *", result);
-
-        // Assert: the type is tracked in the external types set with the correct namespace
-        Assert.Single(externalTypes);
-        Assert.Equal("Logger", externalTypes.First().TypeString);
-        Assert.Equal("acme", externalTypes.First().Namespace);
+        // Assert: the type page must contain an External Types section because GetLogger
+        // returns a non-library, non-std type that is tracked by CppTypeLinkResolver
+        var headings = writer.Operations.OfType<HeadingOperation>().ToList();
+        Assert.Contains(
+            headings,
+            h => h.Level == 2 && h.Text.Contains("External Types", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -1306,10 +1324,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
             s => s.Contains("seed = 0", StringComparison.Ordinal));
     }
 
-    /// <summary>
-    ///     Validates that a Doxygen <c>@note</c> tag is rendered as a blockquote paragraph
-    ///     (prefixed with <c>&gt; **Note:**</c>) on the function's detail page.
-    /// </summary>
+    /// <summary>Validates that a boolean default argument is rendered as <c>false</c> in the function signature.</summary>
     [Fact]
     public void CppGenerator_Generate_BoolDefaultParameter_SignatureContainsFalse()
     {
@@ -1471,19 +1486,12 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     [Fact]
     public void CppGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown()
     {
-        // Arrange: run a fresh generator with SingleFile format — the shared fixture uses
-        // GradualDisclosure and cannot be reused for this test
-        var factory = new InMemoryMarkdownWriterFactory();
-        var generator = new CppGenerator(BuildOptions());
-
-        // Act
-        generator.Parse(new InMemoryContext()).Emit(
-            factory,
-            new EmitConfig { Format = OutputFormat.SingleFile },
-            new InMemoryContext());
+        // Arrange: use the pre-generated single-file fixture factory — it emits with
+        // OutputFormat.SingleFile over the same fixture headers as all other tests
+        var factory = _fixture.PublicSingleFileFactory;
 
         // Assert: exactly one writer, keyed "api"
-        Assert.Single(factory.Writers);
+        Assert.Single(_fixture.PublicSingleFileFactory.Writers);
         Assert.True(factory.Writers.TryGetValue("api", out var writer), "Expected a single api writer for single-file output");
         var headings = writer.Operations.OfType<HeadingOperation>().ToList();
 
@@ -1546,5 +1554,56 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         Assert.Contains(codeBlocks, cb =>
             string.Equals(cb.Language, "cpp", StringComparison.Ordinal) &&
             cb.Code.Contains("GetGreeting", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that namespace-level <c>using</c> type alias declarations appear as headings
+    ///     in the single-file <c>api.md</c> output, confirming the single-file emitter emits
+    ///     type alias sections alongside class and enum sections.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_SingleFile_TypeAlias_AppearsInOutput()
+    {
+        // Act: locate the single api.md writer and find all headings
+        var writer = _fixture.PublicSingleFileFactory.Writers["api"];
+        var headings = writer.Operations.OfType<HeadingOperation>().ToList();
+
+        // Assert: the namespace-level alias item_id_t appears as a heading in the output
+        Assert.Contains(headings, h => h.Text.Contains("item_id_t", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that an absolute <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> entry
+    ///     selects the file it names via its absolute path, confirming that absolute patterns are
+    ///     forwarded directly to the file collector without <c>WorkingDirectory</c> resolution.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ApiHeaderPatterns_AbsolutePattern_DocumentsMatchingFile()
+    {
+        // Arrange: build an absolute path to SampleClass.h and pass it as the only pattern
+        var absoluteHeaderPath = Path.GetFullPath(
+            Path.Combine(FixturePaths.GetFixtureNamespaceDir(), "SampleClass.h"));
+
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "Fixtures",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+            ApiHeaderPatterns = [absoluteHeaderPath],
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new CppGenerator(options);
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: SampleClass page must exist because the absolute pattern matched its header
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/SampleClass"),
+            "Expected SampleClass page when its absolute header path was used as a pattern");
+
+        // Assert: SampleStatus page must not exist because SampleEnum.h was not matched
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/SampleStatus"),
+            "Expected SampleStatus to be absent when not matched by the absolute header pattern");
     }
 }

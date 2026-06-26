@@ -6,8 +6,45 @@ sections:
       - title: VhdlEmitter Requirements
         requirements:
           - id: ApiMarkVhdl-VhdlEmitter
-            title: VhdlEmitter shall implement IApiEmitter and dispatch to format-specific
-              emitters.
+            title: >-
+              VhdlEmitter shall implement IApiEmitter and dispatch Markdown
+              generation to the appropriate format-specific emitter.
             justification: |
-              The dispatcher separates format selection from emission logic.
-            tests: [VhdlEmitter_Emit_NullFactory_ThrowsArgumentNullException]
+              VhdlEmitter acts as the central dispatcher for both
+              gradual-disclosure and single-file VHDL output. Separating
+              the dispatch from format-specific logic allows each format
+              emitter to be tested in isolation while keeping the IApiEmitter
+              contract uniform across all language modules.
+            children:
+              - ApiMarkVhdl-VhdlEmitter-ImplementsIApiEmitter
+            tests:
+              - VhdlEmitter_Emit_GradualDisclosureFormat_ProducesMultipleOutputFiles
+              - VhdlEmitter_Emit_SingleFileFormat_ProducesSingleOutputFile
+          - id: ApiMarkVhdl-VhdlEmitter-ImplementsIApiEmitter
+            title: VhdlEmitter shall implement the IApiEmitter interface.
+            justification: |
+              Implementing IApiEmitter allows VhdlEmitter to be returned from
+              VhdlGenerator.Parse and consumed by ApiMarkTool through the standard
+              two-stage pipeline.
+            children:
+              - ApiMarkVhdl-VhdlEmitter-DispatchesFormat
+              - ApiMarkVhdl-VhdlEmitter-ValidatesNullFactory
+            tests:
+              - VhdlEmitter_ImplementsIApiEmitter
+          - id: ApiMarkVhdl-VhdlEmitter-DispatchesFormat
+            title: VhdlEmitter shall dispatch to VhdlEmitterGradualDisclosure or VhdlEmitterSingleFile
+              based on config.Format.
+            justification: |
+              The dispatcher separates format selection from emission logic, allowing
+              each format-specific emitter to be developed and tested independently.
+            tests:
+              - VhdlEmitter_Emit_GradualDisclosureFormat_ProducesMultipleOutputFiles
+              - VhdlEmitter_Emit_SingleFileFormat_ProducesSingleOutputFile
+              - VhdlEmitter_Emit_EmptyFileModels_ProducesNoOutput
+          - id: ApiMarkVhdl-VhdlEmitter-ValidatesNullFactory
+            title: VhdlEmitter shall throw ArgumentNullException when the factory argument is null.
+            justification: |
+              Failing fast on a null factory provides a clear error before any writer
+              or pipeline logic is invoked.
+            tests:
+              - VhdlEmitter_Emit_NullFactory_ThrowsArgumentNullException

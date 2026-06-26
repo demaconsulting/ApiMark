@@ -3,7 +3,7 @@
 sections:
   - title: ApiMarkDotNet Requirements
     requirements:
-      - id: ApiMarkDotNet-DotNetGenerator-GenerateDocumentationFromAssembliesAndXml
+      - id: ApiMarkDotNet-GenerateDocumentationFromAssembliesAndXml
         title: ApiMarkDotNet shall generate API documentation from .NET assemblies
           and XML documentation files.
         justification: |
@@ -16,21 +16,48 @@ sections:
           - ApiMarkDotNet-DotNetGenerator-ReadXmlDocumentationComments
           - ApiMarkDotNet-DotNetGenerator-FilterByVisibility
           - ApiMarkDotNet-DotNetGenerator-IncludeObsoleteApisWhenRequested
-          - ApiMarkDotNet-DotNetGenerator-EmitDetailPageForEveryMember
-          - ApiMarkDotNet-DotNetGenerator-ProduceConsistentOutputFileStructure
-          - ApiMarkDotNet-DotNetGenerator-DocumentOperatorOverloads
-          - ApiMarkDotNet-DotNetGenerator-DocumentNestedTypes
-          - ApiMarkDotNet-DotNetGenerator-EmitCombinedMemberPageForCaseInsensitiveCollisions
-          - ApiMarkDotNet-DotNetGenerator-ApiMdListsAllNamespacesWithTypeCount
-          - ApiMarkDotNet-DotNetGenerator-ShowDirectInheritanceInTypeSignature
-          - ApiMarkDotNet-DotNetGenerator-EmitIntraDocLinksInTableCells
-          - ApiMarkDotNet-DotNetGenerator-EmitExternalTypesSection
-          - ApiMarkDotNet-DotNetGenerator-EmitSingleFileOutput
+          - ApiMarkDotNet-DotNetGenerator-RecognizeNamespaceDocCarrierClass
+          - ApiMarkDotNet-DotNetGenerator-ExcludeNamespaceDocCarrierFromTypeListing
+          - ApiMarkDotNet-DotNetGenerator-UseNamespaceDocSummaryAsNamespaceDescription
+          - ApiMarkDotNet-DotNetGenerator-RejectMissingAssemblyPath
+          - ApiMarkDotNet-DotNetGenerator-RejectMissingXmlDocPath
+          - ApiMarkDotNet-DotNetGenerator-RejectNullOptions
+          - ApiMarkDotNet-DotNetGenerator-RejectNullContext
+          - ApiMarkDotNet-DotNetGenerator-BuildInheritanceChainForInheritDoc
           - ApiMarkDotNet-DotNetAstModel-HoldParsedAssemblyData
           - ApiMarkDotNet-DotNetEmitter-DispatchToFormatSpecificEmitter
-          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-ProduceMultiFileTree
-          - ApiMarkDotNet-DotNetEmitterSingleFile-ProduceSingleApiMd
-          - ApiMarkDotNet-TypeLinkResolver-ResolveTypeReferencesToMarkdownLinks
+          - ApiMarkDotNet-DotNetEmitter-RejectNullArguments
+          - ApiMarkDotNet-DotNetEmitter-ComputeNamespaceFolderPath
+          - ApiMarkDotNet-DotNetEmitter-ShowDirectInheritanceInTypeSignature
+          - ApiMarkDotNet-DotNetEmitter-EmitOperatorsPageWithSymbolHeadings
+          - ApiMarkDotNet-DotNetEmitter-EmitConversionOperators
+          - ApiMarkDotNet-DotNetEmitter-EmitConversionOperatorsWithConversionSyntax
+          - ApiMarkDotNet-DotNetEmitter-RenderClassModifiersInTypeSignature
+          - ApiMarkDotNet-DotNetEmitter-RenderInitOnlyPropertyAccessor
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitApiIndexPage
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitNamespacePages
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitTypePages
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitMemberDetailPages
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitCombinedPageForCaseCollisions
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitMethodOverloadPage
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitOperatorsPage
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitNestedTypePages
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitOperatorsSummaryDocumentation
+          - ApiMarkDotNet-DotNetEmitterSingleFile-EmitAllApiIntoSingleFile
+          - ApiMarkDotNet-DotNetEmitterSingleFile-OffsetHeadingsByHeadingDepth
+          - ApiMarkDotNet-DotNetEmitterSingleFile-EmitAssemblyDescription
+          - ApiMarkDotNet-DotNetEmitterSingleFile-EmitNamespaceDocSummary
+          - ApiMarkDotNet-DotNetEmitterSingleFile-EmitCompactMemberBulletList
+          - ApiMarkDotNet-DotNetEmitterSingleFile-EmitMembersConstructorsFirst
+          - ApiMarkDotNet-DotNetEmitterSingleFile-SkipMemberListForDelegates
+          - ApiMarkDotNet-DotNetEmitterSingleFile-EmitNestedTypeParentNotice
+          - ApiMarkDotNet-DotNetEmitterSingleFile-EmitPlainTextParameterTypes
+          - ApiMarkDotNet-TypeLinkResolver-ResolveIntraAssemblyTypesToMarkdownLinks
+          - ApiMarkDotNet-TypeLinkResolver-ResolvePrimitiveAndSystemTypesToPlainText
+          - ApiMarkDotNet-TypeLinkResolver-TrackNonSystemExternalTypesForExternalTypesSection
+          - ApiMarkDotNet-TypeLinkResolver-RenderArrayTypesWithSuffix
+          - ApiMarkDotNet-TypeLinkResolver-RenderGenericTypesWithTypeArguments
+          - ApiMarkDotNet-TypeLinkResolver-UnwrapNullableValueTypes
           - ApiMarkDotNet-XmlDocReader-ParseAndIndexXmlDocumentation
           - ApiMarkDotNet-XmlDocReader-InheritDoc
         tests: [ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown]

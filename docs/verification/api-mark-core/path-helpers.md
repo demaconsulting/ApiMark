@@ -18,6 +18,7 @@ N/A - standard test environment using the .NET test runner is sufficient.
 - `SafePathCombine` returns the expected combined path for valid input, including
   nested paths, current-directory references, empty segments, multi-segment combinations,
   segments that backtrack within the base, and filenames containing `..` as a substring.
+- `SafePathCombine` returns `basePath` unchanged when zero segments are supplied.
 - `SafePathCombine` throws `ArgumentException` for paths that resolve outside the base
   directory after joining.
 - `SafePathCombine` throws `ArgumentNullException` for null `basePath` and null segments.
@@ -68,3 +69,7 @@ null base path is rejected with `ArgumentNullException`.
 
 **PathHelpers_SafePathCombine_NullRelativePath_ThrowsArgumentNullException**: Verifies that
 a null segment is rejected with `ArgumentNullException`.
+
+**PathHelpers_SafePathCombine_NoSegments_ReturnsBasePath**: Verifies that calling
+`SafePathCombine` with zero segments returns `basePath` unchanged, confirming
+that the zero-segment case is handled as a no-op.

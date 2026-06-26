@@ -14,9 +14,12 @@ comments, header files, docstrings, etc.).
 Covers the `apimark` CLI tool and the `DemaConsulting.ApiMark.MSBuild` NuGet package
 integration. Excludes internal architecture and design details. This guide includes
 installation instructions, a global CLI reference, MSBuild integration concepts, and
-dedicated language sections for .NET, C++, and VHDL — each covering CLI options, file
-discovery, documented constructs, doc comment format, output structure, and
-language-specific MSBuild configuration.
+dedicated language sections for .NET, C++, and VHDL — each covering CLI options,
+documented constructs, doc comment format, and output structure. The C++ and VHDL
+sections also cover file discovery (those generators accept source-file paths or glob
+patterns); the .NET section uses compiled assembly input instead and does not have a
+file-discovery step. The .NET and C++ sections also cover language-specific MSBuild
+configuration; VHDL has no MSBuild integration.
 
 ## References
 

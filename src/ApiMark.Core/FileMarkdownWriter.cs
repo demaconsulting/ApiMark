@@ -40,8 +40,10 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
     ///     invalid; values above 6 are not defined by CommonMark and will not render
     ///     as headings in standard Markdown processors.
     /// </param>
-    /// <param name="text">Heading text to display. Must not be null.</param>
+    /// <param name="text">Heading text to display. Must not be null or empty.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="level"/> is less than 1 or greater than 6.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="text"/> is empty.</exception>
     /// <exception cref="ObjectDisposedException">Thrown if this writer has been disposed.</exception>
     public void WriteHeading(int level, string text)
     {
@@ -51,6 +53,13 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
         // Reject levels outside the 1–6 range defined by CommonMark ATX headings
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(level);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(level, 6);
+
+        // Reject null or empty text — a heading with no text is not valid Markdown
+        ArgumentNullException.ThrowIfNull(text);
+        if (string.IsNullOrEmpty(text))
+        {
+            throw new ArgumentException("Heading text must not be empty.", nameof(text));
+        }
 
         // Emit the ATX heading prefix followed by the text and a blank line to
         // separate the heading from the next block element
@@ -67,11 +76,16 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
     ///     Must not be null; use an empty string for an unlabelled fence.
     /// </param>
     /// <param name="code">Signature text. Must not be null.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="language"/> or <paramref name="code"/> is null.</exception>
     /// <exception cref="ObjectDisposedException">Thrown if this writer has been disposed.</exception>
     public void WriteSignature(string language, string code)
     {
         // Guard against use-after-dispose
         ObjectDisposedException.ThrowIf(_disposed, this);
+
+        // Guard against null parameters so callers get a clear diagnostic
+        ArgumentNullException.ThrowIfNull(language);
+        ArgumentNullException.ThrowIfNull(code);
 
         // Emit a standard fenced code block with the language hint followed by a
         // blank line so that Markdown renderers correctly separate this block from
@@ -86,11 +100,15 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
     ///     Writes a prose paragraph of documentation text.
     /// </summary>
     /// <param name="text">Paragraph body. Must not be null.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
     /// <exception cref="ObjectDisposedException">Thrown if this writer has been disposed.</exception>
     public void WriteParagraph(string text)
     {
         // Guard against use-after-dispose
         ObjectDisposedException.ThrowIf(_disposed, this);
+
+        // Guard against null parameter
+        ArgumentNullException.ThrowIfNull(text);
 
         // Emit the text followed by a blank line to close the Markdown paragraph
         _writer.WriteLine(text);
@@ -105,11 +123,66 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
     ///     Data rows, each containing the same number of cells as
     ///     <paramref name="headers"/>. Must not be null; may be empty.
     /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="headers"/> or <paramref name="rows"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="headers"/> is empty, when any element in
+    ///     <paramref name="headers"/> is null, when any row in
+    ///     <paramref name="rows"/> is null, when any row has a different number of
+    ///     cells than <paramref name="headers"/>, or when any cell within a row is null.
+    /// </exception>
     /// <exception cref="ObjectDisposedException">Thrown if this writer has been disposed.</exception>
     public void WriteTable(string[] headers, IEnumerable<string[]> rows)
     {
         // Guard against use-after-dispose
         ObjectDisposedException.ThrowIf(_disposed, this);
+
+        // Guard against null parameters
+        ArgumentNullException.ThrowIfNull(headers);
+        ArgumentNullException.ThrowIfNull(rows);
+
+        // Reject an empty headers array — a headerless table is not valid Markdown
+        if (headers.Length == 0)
+        {
+            throw new ArgumentException("Headers array must not be empty.", nameof(headers));
+        }
+
+        // Reject any header element that is null — a null header cannot produce a valid column label
+        for (var i = 0; i < headers.Length; i++)
+        {
+            if (headers[i] == null)
+            {
+                throw new ArgumentException($"Header at index {i} must not be null.", nameof(headers));
+            }
+        }
+
+        // Materialize rows once so the column count of each row can be validated before
+        // any output is written; this prevents partially-written malformed tables
+        var rowList = rows.ToList();
+
+        // Reject any row that is null or whose column count does not match the header count
+        for (var i = 0; i < rowList.Count; i++)
+        {
+            if (rowList[i] == null)
+            {
+                throw new ArgumentException("Table rows must not contain null entries.", nameof(rows));
+            }
+
+            if (rowList[i].Length != headers.Length)
+            {
+                throw new ArgumentException(
+                    $"Row {i} has {rowList[i].Length} cell(s) but {headers.Length} were expected to match the header count.",
+                    nameof(rows));
+            }
+
+            // Reject any cell within the row that is null — a null cell cannot be rendered as Markdown
+            for (var j = 0; j < rowList[i].Length; j++)
+            {
+                if (rowList[i][j] == null)
+                {
+                    throw new ArgumentException($"Row {i}, cell {j} must not be null.", nameof(rows));
+                }
+            }
+        }
 
         // Emit the header row with pipe delimiters; escape any literal pipe characters
         // in cell values so they do not break the table structure in Markdown renderers
@@ -121,7 +194,7 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
         _writer.WriteLine("| " + string.Join(" | ", headers.Select(_ => "---")) + " |");
 
         // Emit each data row, escaping pipe characters in every cell value
-        foreach (var row in rows)
+        foreach (var row in rowList)
         {
             _writer.WriteLine("| " + string.Join(" | ", row.Select(cell => cell.Replace("|", @"\|", StringComparison.Ordinal))) + " |");
         }
@@ -138,11 +211,16 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
     ///     use an empty string for an unlabelled fence.
     /// </param>
     /// <param name="code">Example code. Must not be null.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="language"/> or <paramref name="code"/> is null.</exception>
     /// <exception cref="ObjectDisposedException">Thrown if this writer has been disposed.</exception>
     public void WriteCodeBlock(string language, string code)
     {
         // Guard against use-after-dispose
         ObjectDisposedException.ThrowIf(_disposed, this);
+
+        // Guard against null parameters so callers get a clear diagnostic
+        ArgumentNullException.ThrowIfNull(language);
+        ArgumentNullException.ThrowIfNull(code);
 
         // Both WriteSignature and WriteCodeBlock produce identical fenced code block output;
         // WriteCodeBlock delegates here to avoid duplication. The methods are distinct at the
@@ -158,11 +236,23 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
     ///     Relative path to the target file, written verbatim into the link href.
     ///     Must not be null.
     /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> or <paramref name="relativePath"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="text"/> is empty.</exception>
     /// <exception cref="ObjectDisposedException">Thrown if this writer has been disposed.</exception>
     public void WriteLink(string text, string relativePath)
     {
         // Guard against use-after-dispose
         ObjectDisposedException.ThrowIf(_disposed, this);
+
+        // Guard against null parameters so callers get a clear diagnostic
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(relativePath);
+
+        // Reject empty link text — a link with no visible label is not valid Markdown
+        if (string.IsNullOrEmpty(text))
+        {
+            throw new ArgumentException("Link text must not be empty.", nameof(text));
+        }
 
         // Emit a standard inline Markdown link followed by a blank line
         _writer.WriteLine($"[{text}]({relativePath})");

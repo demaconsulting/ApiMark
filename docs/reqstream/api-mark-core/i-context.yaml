@@ -22,3 +22,23 @@ sections:
               channel (for example stderr or a build-system error log) without
               parsing message content.
             tests: [IContext_WriteError_CapturesMessage_InErrors]
+          - id: ApiMarkCore-IContext-RejectNullWriteLine
+            title: IContext implementations shall throw ArgumentNullException when
+              WriteLine is called with a null message.
+            justification: |
+              Null messages would corrupt the captured message list and mislead
+              downstream assertions in test doubles. Enforcing the null contract
+              at the implementation boundary ensures callers receive a clear error
+              immediately attributable to the misuse.
+            tests:
+              - InMemoryContext_WriteLine_NullMessage_ThrowsArgumentNullException
+          - id: ApiMarkCore-IContext-RejectNullWriteError
+            title: IContext implementations shall throw ArgumentNullException when
+              WriteError is called with a null message.
+            justification: |
+              Null messages would corrupt the captured message list and mislead
+              downstream assertions in test doubles. Enforcing the null contract
+              at the implementation boundary ensures callers receive a clear error
+              immediately attributable to the misuse.
+            tests:
+              - InMemoryContext_WriteError_NullMessage_ThrowsArgumentNullException

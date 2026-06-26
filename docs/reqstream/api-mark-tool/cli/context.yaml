@@ -66,13 +66,15 @@ sections:
                   - Context_Create_WithApiHeadersExclusionPattern_ForwardsVerbatim
                   - Context_Create_WithNoArguments_HasEmptyApiHeaders
               - id: ApiMarkTool-Cli-Context-ParseCppNamedOptions
-                title: Context shall parse the C++-specific named options --library-name,
+                title: Context shall parse the named options --library-name,
                   --library-description, --defines, and --cpp-standard into the corresponding
-                  Context properties.
+                  Context properties, where --library-name and --library-description are
+                  shared by the C++ and VHDL subcommands.
                 justification: |
-                  C++ documentation generation requires library metadata and parser configuration
-                  that has no equivalent in the .NET path. Grouping these as a unit gives a single
-                  traceable requirement for the cpp-specific scalar option set.
+                  C++ and VHDL documentation generation share library metadata options
+                  (--library-name and --library-description) while --defines and --cpp-standard
+                  are C++ specific. Grouping these as a unit gives a single traceable requirement
+                  for the cpp-specific and shared scalar option set.
                 children:
                   - ApiMarkTool-Cli-Context-ParseLibraryName
                   - ApiMarkTool-Cli-Context-ParseLibraryDescription
@@ -87,15 +89,17 @@ sections:
                 title: Context shall parse the --library-name option and store it
                   in the LibraryName property.
                 justification: |
-                  Program.CreateGenerator passes LibraryName to CppGeneratorOptions so the
-                  generated api.md uses the project-supplied display name rather than a filename.
+                  Program.CreateGenerator passes LibraryName to both CppGeneratorOptions and
+                  VhdlGeneratorOptions so that the generated api.md uses the project-supplied
+                  display name rather than a filename for both C++ and VHDL subcommands.
                 tests: [Context_Create_WithLibraryNameOption_SetsLibraryName]
               - id: ApiMarkTool-Cli-Context-ParseLibraryDescription
                 title: Context shall parse the --library-description option and store
                   it in the LibraryDescription property.
                 justification: |
-                  Program.CreateGenerator passes LibraryDescription to CppGeneratorOptions so the
-                  generated api.md can include a project-supplied description paragraph.
+                  Program.CreateGenerator passes LibraryDescription to both CppGeneratorOptions
+                  and VhdlGeneratorOptions so the generated api.md can include a project-supplied
+                  description paragraph for both C++ and VHDL subcommands.
                 tests:
                   - Context_Create_WithLibraryDescriptionOption_SetsLibraryDescription
               - id: ApiMarkTool-Cli-Context-ParseDefines
@@ -124,6 +128,7 @@ sections:
                   matches the valid ATX heading levels in Markdown.
                 tests:
                   - Context_Create_WithDepthOption_SetsHeadingDepth
+                  - Context_Create_WithDepth3AndSingleFileFormat_Succeeds
                   - Context_Create_WithDepthOptionOutOfRange_ThrowsArgumentException
               - id: ApiMarkTool-Cli-Context-ParseResultsOption
                 title: Context shall parse the --results (alias --result) option and
@@ -134,12 +139,14 @@ sections:
                 tests: [Context_Create_WithResultsOption_SetsResultsFile]
               - id: ApiMarkTool-Cli-Context-OpenLogFileOnRequest
                 title: Context shall open the file specified by --log and mirror all
-                  subsequent output written through WriteLine to that file.
+                  subsequent output written through `WriteLine` and `WriteError` to that file.
                 justification: |
-                  ApiMarkTask invokes ApiMarkTool out-of-process and captures output by
-                  redirecting it to a log file; --log provides a reliable capture path that
-                  works even when stdout is not redirected.
-                tests: [Context_Create_WithLogFile_OpensAndWritesToLog]
+                  ApiMarkTask invokes ApiMarkTool out-of-process; the log file captures both
+                  normal output and error messages, making it a reliable capture path for both
+                  stdout and stderr even when console redirection is unavailable.
+                tests:
+                  - Context_Create_WithLogFile_OpensAndWritesToLog
+                  - Context_OpenLogFile_ErrorOutputAlsoWrittenToLog
               - id: ApiMarkTool-Cli-Context-TrackErrorsViaWriteError
                 title: Context shall set ExitCode to 1 when WriteError is called at
                   least once.
@@ -180,3 +187,13 @@ sections:
                   - Context_Create_WithSourceOption_SetsSources
                   - Context_Create_WithRepeatedSource_AccumulatesAllPaths
                   - Context_Create_WithSourceExclusionPattern_ForwardsVerbatim
+              - id: ApiMarkTool-Cli-Context-RejectFlagAsOptionValue
+                title: Context shall throw ArgumentException when a flag token (starting
+                  with '-') is supplied as the value of a string-valued option.
+                justification: |
+                  Accepting a flag token as a value silently consumes it as data instead of
+                  raising a parse error, causing confusing behavior where the intended flag is
+                  never applied and the option receives a nonsensical value.
+                tests:
+                  - Context_Create_WithFlagValueForOutput_ThrowsArgumentException
+                  - Context_Create_WithFlagValueForLog_ThrowsArgumentException

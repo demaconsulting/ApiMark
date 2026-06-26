@@ -15,8 +15,89 @@ sections:
               DotNetEmitterSingleFile so that the format-selection logic is concentrated
               in one place.
             tests:
-              - DotNetEmitter_Emit_NullFactory_ThrowsArgumentNullException
               - DotNetEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
               - DotNetEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
+          - id: ApiMarkDotNet-DotNetEmitter-RejectNullArguments
+            title: DotNetEmitter.Emit shall throw ArgumentNullException when factory, config,
+              or context is null.
+            justification: |
+              Null arguments at the Emit entry point would produce unpredictable failures
+              during generation; rejecting them immediately gives callers precise,
+              actionable failures.
+            tests:
+              - DotNetEmitter_Emit_NullFactory_ThrowsArgumentNullException
+              - DotNetEmitter_Emit_NullConfig_ThrowsArgumentNullException
+              - DotNetEmitter_Emit_NullContext_ThrowsArgumentNullException
+          - id: ApiMarkDotNet-DotNetEmitter-ComputeNamespaceFolderPath
+            title: DotNetEmitter shall compute the file-system folder path for a namespace,
+              treating root namespaces as atomic path segments and child namespaces as
+              slash-separated paths.
+            justification: |
+              Both sub-emitters rely on a consistent folder path convention so that the
+              generated Markdown tree is navigable and predictable. Centralizing the path
+              computation in a single static method ensures that gradual-disclosure and
+              single-file emitters agree on folder structure.
+            tests:
               - DotNetEmitter_GetNamespaceFolderPath_RootNamespace_ReturnsDottedName
               - DotNetEmitter_GetNamespaceFolderPath_ChildNamespace_ReturnsSlashSeparated
+              - DotNetEmitter_GetNamespaceFolderPath_UnknownNamespace_ReturnsFullName
+          - id: ApiMarkDotNet-DotNetEmitter-ShowDirectInheritanceInTypeSignature
+            title: DotNetEmitter shall include the direct base class and directly declared
+              interfaces in the type signature, omitting well-known implicit bases such as
+              System.Object, System.ValueType, System.Enum, and System.MulticastDelegate.
+            justification: |
+              The direct inheritance list tells AI agents the contract a type satisfies
+              without requiring them to navigate to the source file. Suppressing well-known
+              implicit bases avoids noise that adds no information.
+            tests:
+              - DotNetGenerator_Generate_SampleImplementation_TypeSignatureShowsInterface
+              - DotNetGenerator_Generate_EnumTypeSignature_HasNoBaseClass
+          - id: ApiMarkDotNet-DotNetEmitter-EmitOperatorsPageWithSymbolHeadings
+            title: DotNetEmitter shall use C# operator symbols as headings on the operators page.
+            justification: |
+              C# operator symbols (operator +, operator ==, implicit/explicit) are the form
+              developers expect to read, so each heading must render the operator in its
+              idiomatic symbolic form rather than as a method name.
+            tests:
+              - DotNetGenerator_Generate_TypeWithOperators_OperatorsPageUsesSymbolHeadings
+          - id: ApiMarkDotNet-DotNetEmitter-EmitConversionOperators
+            title: DotNetEmitter shall document conversion operators on the operators page
+              and include their summaries.
+            justification: |
+              Conversion operators are part of the public API surface and must be included
+              on the operators page with their XML summary so readers understand the
+              conversion intent without navigating elsewhere.
+            tests:
+              - DotNetGenerator_Generate_TypeWithConversionOperators_OperatorsPageContainsSummaries
+              - DotNetGenerator_Generate_ConversionOperatorReturningNestedType_OperatorsPageContainsSummary
+          - id: ApiMarkDotNet-DotNetEmitter-EmitConversionOperatorsWithConversionSyntax
+            title: DotNetEmitter shall use conversion syntax headings for conversion operators
+              on the operators page.
+            justification: |
+              Implicit and explicit conversion operators have distinct syntax from arithmetic
+              operators. Rendering them with conversion syntax (e.g., "implicit operator
+              TargetType(SourceType)") lets readers identify the source and target types at
+              a glance.
+            tests:
+              - DotNetGenerator_Generate_TypeWithConversionOperators_OperatorsPageUsesConversionSyntax
+          - id: ApiMarkDotNet-DotNetEmitter-RenderClassModifiersInTypeSignature
+            title: DotNetEmitter shall include the abstract, sealed, or static modifier
+              in the type signature for classes that declare that modifier.
+            justification: |
+              Generated type signatures must match the C# declaration so that readers
+              can immediately identify abstract, sealed, and static classes without
+              consulting the source file.
+            tests:
+              - DotNetEmitter_BuildTypeSignature_AbstractClass_ContainsAbstractModifier
+              - DotNetEmitter_BuildTypeSignature_SealedClass_ContainsSealedModifier
+              - DotNetEmitter_BuildTypeSignature_StaticClass_ContainsStaticModifier
+
+          - id: ApiMarkDotNet-DotNetEmitter-RenderInitOnlyPropertyAccessor
+            title: DotNetEmitter shall emit init; rather than set; in property signatures
+              for C# 9+ init-only setters.
+            justification: |
+              Init-only setters are semantically distinct from regular setters — they can
+              only be assigned during object initialization. Rendering them as set; would
+              mislead readers into believing the property is mutable after construction.
+            tests:
+              - DotNetEmitter_BuildPropertyAccessors_InitOnlySetter_EmitsInit

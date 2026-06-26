@@ -18,7 +18,6 @@ sections:
             tests:
               - CppGenerator_Constructor_NullOptions_ThrowsArgumentNullException
               - CppGenerator_Generate_NonexistentIncludeRoot_ThrowsDirectoryNotFoundException
-              - CppEmitter_Emit_NullFactory_ThrowsArgumentNullException
           - id: ApiMarkCpp-CppGenerator-ParseHeadersViaClang
             title: CppGenerator shall parse public header files via clang -ast-dump=json
               to obtain a fully resolved C++ AST.
@@ -29,10 +28,6 @@ sections:
               without requiring a bundled parser library.
             tests:
               - CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint
-              - ClangAstParser_Parse_FixtureHeaders_ReturnsNonEmptyNamespaces
-              - ClangAstParser_Parse_FixtureHeaders_ContainsFixturesNamespace
-              - ClangAstParser_Parse_FixtureHeaders_FixturesNamespaceContainsSampleClass
-              - ClangAstParser_Parse_FixtureHeaders_SampleClassHasMembers
           - id: ApiMarkCpp-CppGenerator-FilterDeclarationsByOwnership
             title: >-
               CppGenerator shall apply a file-provenance filter that documents only
@@ -54,14 +49,12 @@ sections:
           - id: ApiMarkCpp-CppGenerator-EmitDetailPageForEveryMember
             title: >-
               CppGenerator shall emit a dedicated detail page for every visible non-operator
-              member
-              of every documented class and free function, making navigation fully
-              deterministic.
+              class member and every regular free-function category entry, except where
+              case-insensitive collisions require a shared member page.
             justification: |
-              All non-operator members always receive their own dedicated file so that navigation
-              is fully deterministic. An AI or tool can always resolve
-              {Namespace}/{TypeName}/{MemberName}.md without inspecting member content or shape.
-              Exception: members whose base names collide on a case-insensitive filesystem are
+              Dedicated detail pages keep navigation deterministic for visible non-operator
+              members and for regular free functions. Members whose base names collide on a
+              case-insensitive filesystem are
               combined onto a single shared page (see
               ApiMarkCpp-CppGenerator-EmitCombinedMemberPageForCaseInsensitiveCollisions).
               Operator overloads are grouped onto a single operators.md page (see
@@ -89,7 +82,7 @@ sections:
             justification: |
               Different consumers need different views of the same C++ class, ranging from a
               public API reference to broader internal documentation for development teams. The
-              visibility filter must be applied consistently before any member page is emitted.
+              visibility filter is applied by the emitter when it selects which members to render.
             tests:
               - CppGenerator_Generate_PublicVisibility_ExcludesProtectedMethod
               - CppGenerator_Generate_PublicAndProtectedVisibility_IncludesProtectedMethod
@@ -117,11 +110,38 @@ sections:
               description paragraph; @param and @return are rendered in their respective sections;
               @code/@endcode blocks are rendered as fenced code blocks; missing doc comments emit a
               standard placeholder.
+            children:
+              - ApiMarkCpp-CppGenerator-RenderBriefDocComment
+              - ApiMarkCpp-CppGenerator-RenderParamAndReturnDocComments
+              - ApiMarkCpp-CppGenerator-RenderCodeExampleDocComments
+              - ApiMarkCpp-CppGenerator-RenderMissingCommentPlaceholder
+          - id: ApiMarkCpp-CppGenerator-RenderBriefDocComment
+            title: CppGenerator shall render @brief text as the declaration summary paragraph.
+            justification: |
+              The summary paragraph is the primary description shown on type and member pages.
             tests:
               - CppGenerator_Generate_TypeWithDocComment_WritesSummaryToParagraph
               - CppGenerator_Generate_MethodWithDocComment_WritesSummaryToParagraph
-              - CppGenerator_Generate_MissingDocComment_WritesPlaceholder
+          - id: ApiMarkCpp-CppGenerator-RenderParamAndReturnDocComments
+            title: CppGenerator shall render @param and @return text in their corresponding sections.
+            justification: |
+              Parameter and return documentation are necessary for correct API consumption.
+            tests:
+              - CppGenerator_Generate_MethodWithParameters_CreatesMemberPage
+              - CppGenerator_Generate_IntraLibraryReturnType_EmitsMarkdownLinkInReturnsCell
+          - id: ApiMarkCpp-CppGenerator-RenderCodeExampleDocComments
+            title: CppGenerator shall render @code/@endcode blocks as fenced code examples.
+            justification: |
+              Example blocks provide usage guidance without requiring readers to open source files.
+            tests:
               - CppGenerator_Generate_MethodWithCodeExample_EmitsCodeBlockOnMemberPage
+              - CppGenerator_SingleFile_MethodWithCodeExample_EmitsCodeBlock
+          - id: ApiMarkCpp-CppGenerator-RenderMissingCommentPlaceholder
+            title: CppGenerator shall emit a standard placeholder when a declaration has no doc comment.
+            justification: |
+              A consistent placeholder makes undocumented symbols obvious while keeping the page shape stable.
+            tests:
+              - CppGenerator_Generate_MissingDocComment_WritesPlaceholder
           - id: ApiMarkCpp-CppGenerator-ProduceConsistentOutputFileStructure
             title: CppGenerator shall produce output files following a consistent
               naming convention.
@@ -133,10 +153,6 @@ sections:
               - CppGenerator_OutputFiles_FollowNamingConvention
               - CppGenerator_Generate_ValidHeaders_CreatesNamespacePage
               - CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass
-              - CppEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
-              - CppEmitter_SanitizeFileName_RegularName_IsUnchanged
-              - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesNamespacePage
-              - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesTypePage
           - id: ApiMarkCpp-CppGenerator-ApiMdListsAllNamespacesWithTypeCount
             title: CppGenerator shall list all namespaces in api.md with a declaration
               count column.
@@ -147,8 +163,6 @@ sections:
               opening it first.
             tests:
               - CppGenerator_Generate_ApiMd_ListsNamespacesWithTypeCount
-              - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesApiIndexPage
-              - CppEmitterGradualDisclosure_Emit_MinimalData_ApiIndexContainsLibraryNameHeading
           - id: ApiMarkCpp-CppGenerator-GroupOperatorOverloadsOnSinglePage
             title: >-
               CppGenerator shall group all operator overloads for a class onto a single
@@ -181,8 +195,6 @@ sections:
             tests:
               - CppGenerator_Generate_InheritanceClass_EmitsBaseClassInSignature
               - CppGenerator_Generate_FinalClass_EmitsFinalKeywordInSignature
-              - CppEmitter_BuildClassDeclaration_NonFinalNoBase_ReturnsJustClassName
-              - CppEmitter_BuildClassDeclaration_FinalClass_AppendsFinalKeyword
           - id: ApiMarkCpp-CppGenerator-EmitIntraDocLinksInTableCells
             title: CppGenerator shall emit Markdown links in type and parameter type
               table cells when the referenced type is documented in the same library.
@@ -213,35 +225,30 @@ sections:
               - CppGenerator_Generate_ApiHeaderPatterns_ExcludePattern_ExcludesMatchingFiles
               - CppGenerator_Generate_ApiHeaderPatterns_ReInclude_GitignoreSemantics_IncludesReIncludedHeader
               - CppGenerator_Generate_ApiHeaderPatterns_ExcludeWithoutReInclude_ExcludesHeader
-          - id: ApiMarkCpp-CppGenerator-SupportAbsoluteAndRelativeHeaderPatterns
+          - id: ApiMarkCpp-CppGenerator-SupportAbsoluteHeaderPatterns
             title: >-
-              CppGenerator shall support both absolute and relative ApiHeaderPatterns
-              glob
-              patterns: relative patterns shall be resolved from the current working
-              directory (CWD),
-              and absolute patterns shall be forwarded directly to GlobFileCollector.
+              CppGenerator shall support absolute ApiHeaderPatterns glob patterns by
+              forwarding them directly to GlobFileCollector without WorkingDirectory
+              resolution.
             justification: |
-              CWD-relative patterns match how all other CLI glob tools work and allow
-              users to write patterns that reflect their project directory layout directly
-              (e.g. `include/**` when invoked from the project root) without needing to
-              hard-code absolute paths. Absolute patterns allow headers on other drives or
-              outside all configured roots to be included directly, supporting build layouts
-              where public headers are not all under a common tree.
+              Absolute patterns allow headers on other drives or outside all configured
+              roots to be included directly. Forwarding them as-is to GlobFileCollector
+              ensures the full absolute path is preserved and the pattern can match
+              headers outside the WorkingDirectory tree.
             tests:
-              - GlobFileCollector_Collect_AbsolutePattern_FindsFiles
+              - CppGenerator_Generate_ApiHeaderPatterns_AbsolutePattern_DocumentsMatchingFile
+          - id: ApiMarkCpp-CppGenerator-WorkingDirectory
+            title: >-
+              CppGenerator shall use CppGeneratorOptions.WorkingDirectory as the base
+              path when resolving relative ApiHeaderPatterns, falling back to the
+              process working directory when WorkingDirectory is null or empty.
+            justification: |
+              Build systems often invoke tools from a directory other than the project root.
+              A configurable WorkingDirectory anchor lets callers pin the resolution base
+              independently of the process CWD, making builds reproducible across machines.
+            tests:
               - CppGenerator_Generate_ApiHeaderPatterns_CwdRelativePattern_OnlyMatchingFilesDocumented
               - CppGenerator_Generate_ApiHeaderPatterns_CwdRelativeExclusionPattern_ExcludesMatchingFiles
-          - id: ApiMarkCpp-CppGenerator-EmitExternalTypesSection
-            title: CppGenerator shall emit an "External Types" section at the bottom
-              of each generated page that references at least one non-std external
-              type.
-            justification: |
-              Readers using an external library type documented on a page need to know
-              which namespace or header to include. Collecting all external type
-              references per page and listing them alphabetically provides this context
-              without cluttering individual type cells with fully-qualified names.
-            tests:
-              - CppTypeLinkResolver_Linkify_UnknownNamespacedType_TracksExternalType
           - id: ApiMarkCpp-CppGenerator-ShowDeletedFunctionsWithDeletedNotation
             title: >-
               CppGenerator shall document explicitly deleted functions and operators
@@ -259,8 +266,8 @@ sections:
               - CppGenerator_Generate_DeletedCopyAssignmentOperator_EmitsDeleteSuffix
           - id: ApiMarkCpp-CppGenerator-DocumentTypeAliases
             title: >-
-              CppGenerator shall document using type aliases declared in documented
-              namespaces
+              CppGenerator shall document using type aliases declared in the
+              documented API surface (namespaces and classes)
               as first-class entries — each alias receives its own page showing
               the using
               declaration, the underlying type, and the Doxygen summary comment.
@@ -273,6 +280,8 @@ sections:
               - CppGenerator_Generate_TypeAlias_CreatesAliasPages
               - CppGenerator_Generate_TypeAliasPage_ContainsDeclarationAndSummary
               - CppGenerator_Generate_NamespacePage_ListsTypeAliases
+              - CppGenerator_Generate_ClassScopedTypeAlias_CreatesAliasPage
+              - CppGenerator_Generate_ClassScopedTypeAlias_ListedOnClassPage
           - id: ApiMarkCpp-CppGenerator-EmitSingleFileOutput
             title: CppGenerator shall emit a single api.md file when OutputFormat.SingleFile
               is selected.
@@ -282,8 +291,11 @@ sections:
             tests:
               - CppGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown
               - CppGenerator_SingleFile_MethodWithCodeExample_EmitsCodeBlock
-              - CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
-              - CppEmitterSingleFile_Emit_MinimalData_CreatesExactlyOneWriter
-              - CppEmitterSingleFile_Emit_MinimalData_CreatesApiFileOnly
-              - CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsLibraryNameHeading
-              - CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsNamespaceHeading
+          - id: ApiMarkCpp-CppGenerator-RejectNullContext
+            title: CppGenerator.Parse shall reject a null IContext argument.
+            justification: |
+              Parse cannot emit diagnostics without a valid context channel. Failing fast
+              with ArgumentNullException ensures callers receive a clear error rather than
+              a null-reference failure deep inside the generation pipeline.
+            tests:
+              - CppGenerator_Parse_NullContext_ThrowsArgumentNullException

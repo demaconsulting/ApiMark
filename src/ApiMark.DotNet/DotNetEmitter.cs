@@ -42,6 +42,8 @@ internal sealed class DotNetEmitter : IApiEmitter
     public void Emit(IMarkdownWriterFactory factory, EmitConfig config, IContext context)
     {
         ArgumentNullException.ThrowIfNull(factory);
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(context);
 
         // Dispose the assembly after emit regardless of success or failure
         using (Model.Assembly)
@@ -101,7 +103,7 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <param name="parent">The parent namespace name.</param>
     /// <param name="allNamespaces">All namespace names to search.</param>
     /// <returns>An enumerable of immediate child namespace names.</returns>
-    internal static IEnumerable<string> GetImmediateChildNamespaces(string parent, List<string> allNamespaces)
+    internal static IEnumerable<string> GetImmediateChildNamespaces(string parent, IReadOnlyList<string> allNamespaces)
     {
         var prefix = parent + ".";
         return allNamespaces.Where(n =>
@@ -575,6 +577,10 @@ internal sealed class DotNetEmitter : IApiEmitter
             {
                 classModifier = "static ";
             }
+            else if (type.IsAbstract)
+            {
+                classModifier = "abstract ";
+            }
             else if (type.IsSealed)
             {
                 classModifier = "sealed ";
@@ -681,32 +687,55 @@ internal sealed class DotNetEmitter : IApiEmitter
             prop.PropertyType,
             contextNamespace,
             HasNullableAnnotation(prop.CustomAttributes));
-        var accessibility = GetAccessibilityKeyword(prop.GetMethod ?? prop.SetMethod!);
+        var accessibility = GetAccessibilityKeyword(MostPermissiveAccessor(prop.GetMethod, prop.SetMethod)!);
         var accessors = BuildPropertyAccessors(prop);
         return $"{accessibility} {typeName} {prop.Name} {{ {accessors} }}";
     }
 
-    /// <summary>Builds the accessor portion of a property signature (e.g. <c>get; internal set;</c>).</summary>
+    /// <summary>Builds the accessor portion of a property signature (e.g. <c>get; internal set;</c> or <c>get; init;</c> for init-only setters).</summary>
+    /// <remarks>
+    ///     The property-level accessibility is determined by the more permissive of the get and set
+    ///     accessors (or the single accessor when only one exists). An individual accessor is prefixed
+    ///     with its own accessibility keyword only when it is strictly less permissive than the
+    ///     property-level keyword (e.g., <c>protected { get; private set; }</c>). A property where
+    ///     both accessors share the same accessibility as the property itself renders without per-accessor
+    ///     prefixes (e.g., <c>protected { get; set; }</c>).
+    /// </remarks>
     /// <param name="prop">The property definition.</param>
     /// <returns>The accessor string to embed in the property signature.</returns>
     internal static string BuildPropertyAccessors(PropertyDefinition prop)
     {
         var parts = new List<string>();
 
+        // Determine the property-level accessibility from the most permissive accessor so that
+        // a "public … { protected get; set; }" property renders as "public" — not "protected"
+        var propertyAccessibility = GetAccessibilityKeyword(MostPermissiveAccessor(prop.GetMethod, prop.SetMethod)!);
+
         if (prop.GetMethod != null)
         {
-            // Only prefix the getter when it is less permissive than the property's declared access
-            var prefix = prop.GetMethod.IsPublic ? string.Empty : $"{GetAccessibilityKeyword(prop.GetMethod)} ";
+            var accessorKeyword = GetAccessibilityKeyword(prop.GetMethod);
+            var prefix = accessorKeyword != propertyAccessibility ? $"{accessorKeyword} " : string.Empty;
             parts.Add($"{prefix}get;");
         }
 
         if (prop.SetMethod != null)
         {
-            var prefix = prop.SetMethod.IsPublic ? string.Empty : $"{GetAccessibilityKeyword(prop.SetMethod)} ";
-            parts.Add($"{prefix}set;");
+            var accessorKeyword = GetAccessibilityKeyword(prop.SetMethod);
+            var prefix = accessorKeyword != propertyAccessibility ? $"{accessorKeyword} " : string.Empty;
+            var keyword = IsInitOnlySetter(prop.SetMethod) ? "init" : "set";
+            parts.Add($"{prefix}{keyword};");
         }
 
         return string.Join(" ", parts);
+    }
+
+    /// <summary>Returns <see langword="true"/> when the property setter is an init-only accessor (C# 9+).</summary>
+    /// <param name="setMethod">The property set method to inspect.</param>
+    /// <returns><see langword="true"/> when the setter carries a <c>modreq(IsExternalInit)</c> modifier.</returns>
+    private static bool IsInitOnlySetter(MethodDefinition setMethod)
+    {
+        return setMethod.ReturnType is RequiredModifierType modreq &&
+               modreq.ModifierType.FullName == "System.Runtime.CompilerServices.IsExternalInit";
     }
 
     /// <summary>Builds a human-readable C# field declaration signature.</summary>
@@ -789,6 +818,65 @@ internal sealed class DotNetEmitter : IApiEmitter
     internal static string GetAccessibilityKeyword(EventDefinition evt) =>
         evt.AddMethod != null ? GetAccessibilityKeyword(evt.AddMethod) : "private";
 
+    /// <summary>
+    ///     Returns whichever of two optional method definitions has the higher (more permissive) accessibility.
+    /// </summary>
+    /// <remarks>
+    ///     Used by <see cref="BuildPropertyAccessors"/> and <see cref="BuildPropertySignature"/> to derive
+    ///     the property-level accessibility from its accessors. C# requires the property's declared
+    ///     visibility to match the most permissive accessor; a <c>public { protected get; set; }</c>
+    ///     property has <c>set</c> as the governing accessor (public), while <c>get</c> is less permissive
+    ///     (protected) and therefore receives an explicit per-accessor prefix.
+    /// </remarks>
+    /// <param name="a">First accessor, or <see langword="null"/> when absent.</param>
+    /// <param name="b">Second accessor, or <see langword="null"/> when absent.</param>
+    /// <returns>
+    ///     The accessor with the higher accessibility rank. Returns the non-null operand when one
+    ///     is <see langword="null"/>; behavior is undefined when both are <see langword="null"/>.
+    /// </returns>
+    private static MethodDefinition MostPermissiveAccessor(MethodDefinition? a, MethodDefinition? b)
+    {
+        if (a == null)
+        {
+            return b!;
+        }
+
+        if (b == null)
+        {
+            return a;
+        }
+
+        // Return the accessor whose accessibility rank is higher (i.e., more permissive)
+        return AccessibilityRank(a) >= AccessibilityRank(b) ? a : b;
+    }
+
+    /// <summary>
+    ///     Returns an integer rank for a method's accessibility, where higher values are more permissive.
+    /// </summary>
+    /// <remarks>
+    ///     Ordering mirrors the C# specification: public (5) &gt; protected internal (4) &gt;
+    ///     internal (3) &gt; protected (2) &gt; private protected (1) &gt; private (0).
+    ///     Used exclusively by <see cref="MostPermissiveAccessor"/> to select the governing
+    ///     accessor for a property.
+    /// </remarks>
+    /// <param name="method">The method whose accessibility rank to compute.</param>
+    /// <returns>An integer rank in [0, 5] where 5 is most permissive (public).</returns>
+    private static int AccessibilityRank(MethodDefinition method) => method switch
+    {
+        { IsPublic: true } => 5,
+        { IsFamilyOrAssembly: true } => 4,
+        { IsAssembly: true } => 3,
+        { IsFamily: true } => 2,
+        { IsFamilyAndAssembly: true } => 1,
+        _ => 0,
+    };
+
+    /// <summary>
+    ///     Builds the full display name for a method overload, including the simplified parameter
+    ///     type list in parentheses (e.g. <c>Process(int, string)</c>).
+    /// </summary>
+    /// <param name="method">The method definition to build a display name for.</param>
+    /// <returns>A human-readable method name including parenthesized parameter types.</returns>
     internal static string BuildMethodDisplayName(MethodDefinition method)
     {
         var baseName = GetMethodGroupName(method);
@@ -797,6 +885,13 @@ internal sealed class DotNetEmitter : IApiEmitter
         return $"{baseName}({parameters})";
     }
 
+    /// <summary>
+    ///     Returns the sanitized file name (without extension) for a method's dedicated detail page.
+    ///     Constructors use the declaring type's simple name; all other methods use the method name.
+    /// </summary>
+    /// <param name="method">The method whose file name to compute.</param>
+    /// <param name="declaringType">The type that declares the method; used to strip arity from constructor file names.</param>
+    /// <returns>A filesystem-safe name string suitable for use as a Markdown file name.</returns>
     internal static string BuildMethodFileName(MethodDefinition method, TypeDefinition declaringType)
     {
         return method.Name == ConstructorMethodName
@@ -804,12 +899,29 @@ internal sealed class DotNetEmitter : IApiEmitter
             : method.Name;
     }
 
+    /// <summary>
+    ///     Builds the group-level display name for a method, optionally appending an overload count
+    ///     suffix when a type page's member table lists multiple overloads under one row.
+    /// </summary>
+    /// <param name="method">The representative method for the overload group.</param>
+    /// <param name="overloadCount">
+    ///     The total number of overloads in the group. When greater than one, the suffix
+    ///     <c>({count} overloads)</c> is appended to the base name.
+    /// </param>
+    /// <returns>A human-readable group display name string.</returns>
     internal static string GetMethodGroupDisplayName(MethodDefinition method, int overloadCount)
     {
         var baseName = GetMethodGroupName(method);
         return overloadCount > 1 ? $"{baseName} ({overloadCount} overloads)" : baseName;
     }
 
+    /// <summary>
+    ///     Returns the base display name for a method as it appears in documentation headings and
+    ///     type page member rows: the declaring type's simple name for constructors, the C# operator
+    ///     symbol for operator methods, and the raw method name for all other methods.
+    /// </summary>
+    /// <param name="method">The method definition to name.</param>
+    /// <returns>A human-readable base name string (no parameter list).</returns>
     internal static string GetMethodGroupName(MethodDefinition method)
     {
         if (method.Name == ConstructorMethodName)

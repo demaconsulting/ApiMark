@@ -20,6 +20,12 @@ service or network dependency is needed.
 - The api index page is created with the expected assembly name heading.
 - A namespace summary page is created for each namespace in the fixture assembly.
 - A type page is created for each visible type in each namespace.
+- At least one member detail page is created for a visible member of a visible type.
+- A single combined page is created for members whose sanitized file names collide on a
+  case-insensitive filesystem.
+- A type with pure method overloads produces a consolidated method overload page.
+- A type with operator overloads produces an `operators.md` page.
+- A type with a nested type produces a dedicated page under the containing type's folder.
 
 ### Test Scenarios
 
@@ -40,3 +46,34 @@ by `DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesNamespacePage`.
 contains `SampleClass` is created, confirming that per-type pages are emitted for
 all visible types. This scenario is tested by
 `DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesTypePage`.
+
+**Member detail page is created for SampleClass.Reset**: Verifies that a writer
+whose key contains both `SampleClass` and `Reset` is created, confirming that
+per-member detail pages are emitted for all visible members. This scenario is
+tested by `DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesMemberDetailPage`.
+
+**Combined collision page is created for CaseCollisionClass**: Verifies that when
+`CaseCollisionClass` has members whose sanitized names differ only in case (`name`
+and `Name`), the emitter creates a single combined page keyed by the lower-invariant
+name rather than two separate colliding pages. This scenario is tested by
+`DotNetEmitterGradualDisclosure_Emit_CaseCollision_CreatesCombinedPage`.
+
+**Method overload page is created for overloaded methods**: Verifies that a type
+with multiple overloads of the same method name produces a consolidated overload
+page rather than separate pages per overload. This scenario is tested by
+`DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesMethodOverloadPage`.
+
+**Operators page is created for types with operator overloads**: Verifies that a
+type defining operator overloads produces an `operators.md` page under the type
+folder. This scenario is tested by
+`DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesOperatorsPage`.
+
+**Nested type page is created under the containing type's folder**: Verifies that
+a type containing a nested type produces a dedicated page for that nested type
+placed under the containing type's folder path. This scenario is tested by
+`DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesNestedTypePage`.
+
+**Child namespace page is created**: Verifies that a child namespace (such as
+`ApiMark.DotNet.Fixtures.Inner`) also produces a dedicated Markdown summary page,
+confirming that child namespace enumeration works correctly. This scenario is tested by
+`DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesChildNamespacePage`.

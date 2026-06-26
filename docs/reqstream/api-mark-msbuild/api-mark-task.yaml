@@ -140,14 +140,15 @@ sections:
             tests: [ApiMarkTask_DotNet_EmptyXmlDocPath_SkipsExecution]
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardApiHeaders
             title: >-
-              ApiMarkTask shall forward each entry of ApiMarkApiHeaders to the tool
-              as a separate
-              --api-headers flag for C++ builds, preserving order and forwarding '!'-prefixed
-              exclusion patterns verbatim.
+              ApiMarkTask shall forward the ApiMarkApiHeaders collection to the tool
+              as individual --api-headers flags for C++ builds.
             justification: |
               C++ projects need fine-grained, gitignore-style control over which headers contribute
-              to the documented API surface. Forwarding each pattern as its own --api-headers flag
-              preserves order and lets CppGenerator apply last-match-wins semantics correctly.
+              to the documented API surface. Each pattern must be forwarded as its own --api-headers
+              flag so CppGenerator can apply last-match-wins gitignore semantics correctly. Order
+              must be preserved because later patterns override earlier ones. Exclusion patterns
+              prefixed with '!' must be forwarded verbatim so CppGenerator, not MSBuild, interprets
+              them.
             tests: [ApiMarkTask_Cpp_ApiHeaders_ForwardedAsIndividualFlags]
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardFormatProperty
             title: ApiMarkTask shall forward the ApiMarkFormat property to the tool
@@ -160,16 +161,81 @@ sections:
               - ApiMarkTask_Format_NotForwarded_WhenNotSet
           - id: ApiMarkMsbuild-ApiMarkTask-SupportOutputsItemGroup
             title: >-
-              ApiMarkTask shall generate documentation for each ApiMarkOutputs item
-              using that
-              item's per-output metadata (OutputDir, Format, Visibility) to control
-              where and how
-              each output is written.
+              ApiMarkTask shall generate documentation for each item in the ApiMarkOutput
+              item group (via the ApiMarkOutputs task property) when it is non-empty.
             justification: |
               Projects that need multiple output formats or visibility levels from a single build
-              must be able to declare named outputs via the ApiMarkOutputs ItemGroup, each carrying
+              must be able to declare named outputs via the ApiMarkOutput item group, each carrying
               its own OutputDir, Format, and Visibility metadata, so that the task produces
               distinct documentation artifacts without requiring separate build invocations.
             tests:
               - ApiMarkTask_BuildArgumentsForOutput_OverridesScalarPropertiesFromMetadata
               - ApiMarkTask_BuildArgumentsForOutput_RestoresScalarPropertiesAfterCall
+              - ApiMarkTask_Execute_WithMultipleOutputs_RunsToolForEachOutput
+          - id: ApiMarkMsbuild-ApiMarkTask-OverrideOutputProperties
+            title: >-
+              Each ApiMarkOutput item shall use its own OutputDir, Visibility, and Format
+              metadata as the effective values for its tool invocation, independently of the
+              task-level properties.
+            justification: |
+              A single build invocation must be able to produce multiple distinct documentation
+              artifacts, each with its own output directory, visibility level, and format. Item-level
+              metadata takes precedence over the task-level property values for that item's invocation.
+            tests:
+              - ApiMarkTask_BuildArgumentsForOutput_OverridesScalarPropertiesFromMetadata
+          - id: ApiMarkMsbuild-ApiMarkTask-RestoreOutputProperties
+            title: >-
+              Property overrides applied for one ApiMarkOutput item shall not affect the
+              tool invocation arguments of any subsequent item.
+            justification: |
+              Each output item must be processed with its own metadata in isolation. If one item's
+              overrides persisted into the next item's invocation, outputs would receive incorrect
+              arguments, producing wrong documentation artifacts.
+            tests:
+              - ApiMarkTask_BuildArgumentsForOutput_RestoresScalarPropertiesAfterCall
+          - id: ApiMarkMsbuild-ApiMarkTask-ResolveDotNetFromEnvironment
+            title: >-
+              ApiMarkTask shall locate the dotnet executable by checking DOTNET_HOST_PATH
+              first and then searching PATH.
+            justification: |
+              The .NET SDK sets DOTNET_HOST_PATH to the exact dotnet host; preferring it over
+              PATH avoids confusion when multiple SDK versions are installed.
+            tests:
+              - ApiMarkTask_Execute_WithDotNetProject_GeneratesDocumentation
+          - id: ApiMarkMsbuild-ApiMarkTask-ReportMissingDotNetExe
+            title: >-
+              ApiMarkTask shall return false and log an MSBuild error when neither
+              DOTNET_HOST_PATH nor PATH provides a valid dotnet executable.
+            justification: |
+              Failing fast with a clear error prevents a silent no-op build when the SDK is
+              absent.
+            tests:
+              - ApiMarkTask_Execute_DotNetExeNotResolved_ReturnsFalseAndLogsError
+          - id: ApiMarkMsbuild-ApiMarkTask-SurfaceToolExitCode
+            title: >-
+              ApiMarkTask shall return false and log a MSBuild error when the spawned
+              ApiMark.Tool process exits with a non-zero exit code.
+            justification: |
+              MSBuild builds must fail visibly when documentation generation fails. Returning
+              false from Execute causes MSBuild to mark the target as failed and stop the build,
+              while the logged error message identifies the exit code for diagnosis.
+            tests:
+              - ApiMarkTask_Execute_ToolExitsNonZero_ReturnsFalseAndLogsError
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardStdoutToLog
+            title: >-
+              ApiMarkTask shall forward the spawned tool's standard output to the MSBuild
+              build log as informational messages.
+            justification: |
+              ApiMark.Tool writes progress and status to stdout. Forwarding it to the MSBuild
+              log makes generation progress visible in the IDE output window and CI build logs.
+            tests:
+              - ApiMarkTask_Execute_WithDotNetProject_GeneratesDocumentation
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardStderrErrors
+            title: >-
+              ApiMarkTask shall forward the spawned tool's standard error output to the MSBuild
+              build log as error messages.
+            justification: |
+              ApiMark.Tool writes error information to stderr. Forwarding it as MSBuild errors
+              surfaces problems in the IDE error list and CI failure summary.
+            tests:
+              - ApiMarkTask_Execute_ToolWritesToStderr_ForwardsToMsBuildErrors

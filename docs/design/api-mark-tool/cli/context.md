@@ -72,6 +72,14 @@ construction path.
 - *Exceptions*: `ArgumentException` on unknown flag or missing required
   value; `InvalidOperationException` if the log file cannot be opened.
 
+**`--depth` range and validation**: `--depth` accepts integer values in the range 1–6.
+Values outside 1–6 or non-integer values throw `ArgumentException` during parsing.
+Context validates only that the value is an integer in the range 1–6 (valid ATX heading
+levels in Markdown). It does not enforce format-specific constraints such as the single-file
+depth limit (depth ≤ 3); those are cross-argument constraints discoverable only after both
+`--depth` and `--format` are known, and are therefore enforced by the program layer in
+`Program.RunToolLogic` after all arguments have been parsed.
+
 **Context.WriteLine(string message)** — Writes a line to stdout and to the
 log file.
 
@@ -100,7 +108,7 @@ to stderr (in red) and to the log file.
 
 #### Dependencies
 
-N/A — Context depends only on the .NET runtime (`System.IO.StreamWriter`,
+N/A - Context depends only on the .NET runtime (`System.IO.StreamWriter`,
 `System.Console`). It has no dependencies on other units, OTS items, or
 shared packages.
 

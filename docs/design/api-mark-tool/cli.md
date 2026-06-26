@@ -32,7 +32,7 @@ can be tested independently.
 
 **Consumed**:
 
-N/A — The Cli subsystem has no dependencies beyond the .NET runtime.
+N/A - The Cli subsystem has no dependencies beyond the .NET runtime.
 
 ### Design
 

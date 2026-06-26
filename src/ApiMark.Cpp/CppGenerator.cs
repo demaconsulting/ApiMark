@@ -64,7 +64,9 @@ public sealed class CppGenerator : IApiGenerator
     ///       <item>Enumerate candidate header files under each <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry.</item>
     ///       <item>Run clang with <c>-ast-dump=json</c> on all candidate headers via <see cref="ClangAstParser"/>.</item>
     ///       <item>Log any clang diagnostic errors from system headers via the context output channel.</item>
-    ///       <item>Walk the parsed namespaces, applying the ownership and visibility filters.</item>
+    ///       <item>Walk the parsed namespaces, applying the deprecated filter.</item>
+    ///       <item>Build the intra-library type map by flattening owned types from each namespace.</item>
+    ///       <item>Construct and return a <see cref="CppEmitter"/> wrapping the resolved namespace declarations.</item>
     ///     </list>
     ///     The caller must subsequently invoke <see cref="IApiEmitter.Emit"/> to write output.
     /// </remarks>
@@ -72,6 +74,7 @@ public sealed class CppGenerator : IApiGenerator
     ///     Output channel for informational messages. Must not be null. System-header diagnostic
     ///     messages from clang are emitted here via <see cref="IContext.WriteLine"/>.
     /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> is null.</exception>
     /// <exception cref="DirectoryNotFoundException">
     ///     Thrown when <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> is empty and a
     ///     path in <see cref="CppGeneratorOptions.PublicIncludeRoots"/> does not exist on disk.
@@ -81,6 +84,8 @@ public sealed class CppGenerator : IApiGenerator
     /// </exception>
     public IApiEmitter Parse(IContext context)
     {
+        ArgumentNullException.ThrowIfNull(context);
+
         // Collect candidate header files from all configured public include roots
         var headerFiles = CollectHeaderFiles();
 
@@ -248,8 +253,8 @@ public sealed class CppGenerator : IApiGenerator
 
     /// <summary>
     ///     Maps a parsed <see cref="CppNamespaceDecl"/> into the generator's internal
-    ///     <see cref="CppEmitter.NamespaceDeclarations"/> accumulator, applying the configured
-    ///     visibility and deprecated filters.
+    ///     <see cref="CppEmitter.NamespaceDeclarations"/> accumulator, applying the
+    ///     deprecated filter.
     /// </summary>
     /// <param name="ns">The namespace declaration to process.</param>
     /// <param name="result">Dictionary that accumulates declarations grouped by namespace key.</param>

@@ -31,6 +31,8 @@ words:
   - ANTLR
   - GHDL
   - archs
+  - getcount
+  - headerless
   - hrefs
   - iface
   - interp
@@ -44,12 +46,14 @@ words:
   - libclangsharp
   - libext
   - linkified
+  - linkifies
   - Linkification
   - Linkify
   - linkify
   - Linq
   - maxcount
   - misattributed
+  - modreq
   - msbuild
   - MSBuild
   - msvc
@@ -67,18 +71,25 @@ words:
   - postconditions
   - renderable
   - repoint
+  - typeparamref
+  - REQDOC
+  - REQIMP
+  - REQTEST
   - reqstream
   - reviewmark
   - runtimeconfig
   - sarif
   - sarifmark
+  - sbyte
   - slnx
   - stdarg
   - stddef
   - sonar
   - sonarmark
   - subclassable
+  - CODEDOC
   - constexpr
+  - cout
   - cppreference
   - endcode
   - fparse

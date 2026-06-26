@@ -14,7 +14,7 @@ optionally written to a `.trx` or `.xml` file.
 
 #### Data Model
 
-N/A — Validation is a static class with no instance state. It uses local
+N/A - Validation is a static class with no instance state. It uses local
 variables within each method for test results and temporary file paths.
 
 All test result objects are `DemaConsulting.TestResults.TestResult` instances

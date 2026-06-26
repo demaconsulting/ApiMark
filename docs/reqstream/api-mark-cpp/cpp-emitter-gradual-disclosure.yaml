@@ -17,7 +17,17 @@ sections:
               deterministic.
             children:
               - ApiMarkCpp-CppEmitterGradualDisclosure-EmitApiIndexPage
-              - ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceAndTypePages
+              - ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceSummaryPage
+              - ApiMarkCpp-CppEmitterGradualDisclosure-EmitTypePage
+              - ApiMarkCpp-CppEmitterGradualDisclosure-EmitMemberDetailPage
+              - ApiMarkCpp-CppEmitterGradualDisclosure-EmitFreeFunctionPage
+              - ApiMarkCpp-CppEmitterGradualDisclosure-EmitEnumPage
+              - ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceLevelTypeAliasPage
+              - ApiMarkCpp-CppEmitterGradualDisclosure-EmitClassScopedTypeAliasPage
+              - ApiMarkCpp-CppEmitterGradualDisclosure-EmitClassOperatorsPage
+              - ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceOperatorsPage
+            tests:
+              - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesApiIndexPage
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitApiIndexPage
             title: >-
               CppEmitterGradualDisclosure shall produce an api index page listing
@@ -31,14 +41,75 @@ sections:
             tests:
               - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesApiIndexPage
               - CppEmitterGradualDisclosure_Emit_MinimalData_ApiIndexContainsLibraryNameHeading
-          - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceAndTypePages
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceSummaryPage
             title: >-
               CppEmitterGradualDisclosure shall produce a namespace summary page for
-              each namespace and a type page for each documented class.
+              each namespace.
             justification: |
-              Per-namespace and per-type pages form the middle layers of the
-              gradual-disclosure hierarchy. Without them an agent reading the api index
-              would have no route to individual member pages.
+              Namespace pages form the middle navigation layer between the api index and
+              detailed type or free-function pages.
             tests:
               - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesNamespacePage
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitTypePage
+            title: CppEmitterGradualDisclosure shall produce a type page for each documented class.
+            justification: |
+              Type pages aggregate member links, nested types, aliases, and inheritance context.
+            tests:
               - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesTypePage
+              - CppEmitterGradualDisclosure_Emit_NestedClass_CreatesNestedClassPage
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitMemberDetailPage
+            title: >-
+              CppEmitterGradualDisclosure shall produce a member detail page for each
+              visible non-operator member, combining only case-insensitive collisions.
+            justification: |
+              Dedicated member pages make navigation deterministic while still handling
+              case-collision edge cases safely.
+            tests:
+              - CppEmitterGradualDisclosure_Emit_MethodMember_CreatesMemberDetailPage
+              - CppEmitterGradualDisclosure_Emit_CaseInsensitiveCollision_CreatesCombinedPage
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitFreeFunctionPage
+            title: CppEmitterGradualDisclosure shall produce a detail page for each regular free function.
+            justification: |
+              Namespace-level free functions need stable standalone pages in the multi-file layout.
+            tests:
+              - CppEmitterGradualDisclosure_Emit_FreeFunction_CreatesFreeFunctionPage
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitEnumPage
+            title: CppEmitterGradualDisclosure shall produce a detail page for each documented enum.
+            justification: |
+              Enum pages preserve value tables and associated documentation without
+              inflating namespace pages.
+            tests:
+              - CppEmitterGradualDisclosure_Emit_Enum_CreatesEnumPage
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceLevelTypeAliasPage
+            title: CppEmitterGradualDisclosure shall produce a detail page for each namespace-level type alias.
+            justification: |
+              Public namespace-level aliases are first-class API declarations and require
+              stable paths in the multi-file layout.
+            tests:
+              - CppEmitterGradualDisclosure_Emit_TypeAlias_CreatesTypeAliasPage
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitClassScopedTypeAliasPage
+            title: CppEmitterGradualDisclosure shall produce a detail page for each class-scoped type alias under the owning class folder.
+            justification: |
+              Class-scoped aliases are part of the type's API surface and must receive
+              their own pages at {namespace}/{TypeName}/{AliasName} so they are
+              individually navigable.
+            tests:
+              - CppEmitterGradualDisclosure_Emit_ClassScopedTypeAlias_CreatesAliasPage
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitClassOperatorsPage
+            title: >-
+              CppEmitterGradualDisclosure shall group class-scoped operators onto a
+              shared operators page for the owning type.
+            justification: |
+              Operator names often normalize to colliding file names, so a shared page
+              avoids invalid or ambiguous output paths.
+            tests:
+              - CppEmitterGradualDisclosure_Emit_ClassOperators_CreatesOperatorsPage
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceOperatorsPage
+            title: >-
+              CppEmitterGradualDisclosure shall group namespace-level operators onto a
+              shared namespace operators page.
+            justification: |
+              Namespace operator overloads need the same collision-safe grouping as class
+              operators.
+            tests:
+              - CppEmitterGradualDisclosure_Emit_NamespaceOperators_CreatesOperatorsPage

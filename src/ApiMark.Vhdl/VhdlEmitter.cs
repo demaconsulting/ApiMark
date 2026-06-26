@@ -15,11 +15,14 @@ internal sealed class VhdlEmitter : IApiEmitter
     /// <summary>Placeholder text for sections that have no items.</summary>
     internal const string NoItemsPlaceholder = "*None.*";
 
-    /// <summary>Object-class keywords stripped from subprogram parameter types before display.</summary>
+    /// <summary>VHDL object-class keywords (SIGNAL, VARIABLE, CONSTANT, FILE) stripped from parameter mode strings by FormatParamType.</summary>
     private static readonly HashSet<string> ObjectClassKeywords =
         new(StringComparer.OrdinalIgnoreCase) { "SIGNAL", "VARIABLE", "CONSTANT", "FILE" };
 
+    /// <summary>Generator options forwarded from VhdlGenerator.</summary>
     private readonly VhdlGeneratorOptions _options;
+
+    /// <summary>Parsed file models to emit.</summary>
     private readonly IReadOnlyList<VhdlFileModel> _fileModels;
 
     /// <summary>Initializes a new VhdlEmitter with the specified options and file models.</summary>

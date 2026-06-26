@@ -17,10 +17,14 @@ file using heading levels offset by `EmitConfig.HeadingDepth`.
 
 **Output file layout** (single `api.md`):
 
-- H{depth} library name.
-- H{depth+1} Entities section — one H{depth+2} per entity, with H{depth+3}
-  Generics, Ports, and Architectures sub-sections.
-- H{depth+1} Packages section — one H{depth+2} per package, with:
+- H{depth} {library name} API Reference.
+- H{depth+1} Entities section — written only when at least one entity is present;
+  one H{depth+2} per entity, with H{depth+3} Generics (always written; uses
+  `NoItemsPlaceholder` when empty), optional H{depth+3} Ports (omitted when the
+  entity has no ports), and optional H{depth+3} Architectures sub-sections (omitted
+  when no architectures implement the entity).
+- H{depth+1} Packages section — written only when at least one package is present;
+  one H{depth+2} per package, with:
   - H{depth+3} Types — one paragraph per type declaration.
   - H{depth+3} Constants — one paragraph per constant declaration.
   - H{depth+3} Components — one paragraph per component declaration.
@@ -88,7 +92,8 @@ per-subprogram block within the single-file output.
   `NoItemsPlaceholder`).
 - **IMarkdownWriterFactory** (ApiMarkCore) — used to create the single Markdown writer.
 - **VhdlAstModel** (internal) — consumes `VhdlFileModel`, `VhdlEntityDecl`,
-  `VhdlArchitectureDecl`, and `VhdlPackageDecl` record types.
+  `VhdlArchitectureDecl`, `VhdlPackageDecl`, `VhdlSubprogramDecl`, and
+  `VhdlParamDecl` record types.
 
 ### Callers
 

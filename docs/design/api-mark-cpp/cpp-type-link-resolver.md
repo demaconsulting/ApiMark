@@ -5,85 +5,75 @@
 
 ### Purpose
 
-CppTypeLinkResolver resolves C++ type strings to Markdown link text suitable for
-table cells in the generated API documentation. It produces one of three outcomes
-for each type string:
-
-1. **Intra-library type**: a relative Markdown link `[Name](relative/path.md)` when
-   the stripped base name matches a known documented type (exact qualified match or
-   unambiguous short-name fallback).
-2. **Primitive or `std::` type**: emitted as plain text and not tracked as external.
-3. **Non-std external type**: emitted as plain text and added to the caller-supplied
-   `CppExternalTypeInfo` set for later emission in the "External Types" section.
-
-Links are emitted only in table cells — never inside fenced code blocks.
+CppTypeLinkResolver resolves simplified C++ type strings to Markdown table-cell
+content. It links documented intra-library types, leaves primitives and `std::`
+types unchanged, and accumulates non-`std` external type references for later
+emission in page-level `External Types` tables.
 
 ### Data Model
 
-**`_knownTypes`** (private): `IReadOnlyDictionary<string, string>` — maps
-fully-qualified C++ type names using `::` separators (e.g. `"fixtures::SampleClass"`)
-to documentation page keys using `/` separators (e.g. `"fixtures/SampleClass"`).
-Built in `CppGenerator.Parse` and supplied at construction time.
+**`_knownTypes`** (private): `IReadOnlyDictionary<string, string>` mapping fully
+qualified C++ names (`::`) to documentation page keys (`/`).
 
-**`Primitives`** (private static): `HashSet<string>` — set of C++ primitive type
-names (`void`, `bool`, `int`, etc.) that are always plain text and never tracked as
-external.
+**`Primitives`** (private static): `HashSet<string>` containing primitive and
+fundamental C++ type names that must always remain plain text.
+
+**CppExternalTypeInfo** (internal record): ordered external-type entry recorded by
+`Linkify` when the base type is not known locally.
+
+- `TypeString`: `string` — short type name rendered in the table.
+- `Namespace`: `string` — external namespace using `::` separators.
+- *Ordering*: comparison sorts first by `TypeString`, then by `Namespace`, so page
+  output is deterministic.
 
 ### Key Methods
 
-**CppTypeLinkResolver.Linkify** (public): Resolves a type string to Markdown link
-text or plain text.
+**CppTypeLinkResolver(knownTypes)** (internal constructor): stores `knownTypes` as the
+private `_knownTypes` field.
 
-- *Parameters*: `string cppTypeString` — the simplified C++ type string to resolve.
-  `string currentFolder` — folder path of the output Markdown file, used to compute
-  relative hrefs. `ISet<CppExternalTypeInfo> externalTypes` — mutable accumulator
-  for non-std external type references.
-- *Returns*: A Markdown link string or the original `cppTypeString` unchanged.
-- *Algorithm*:
-  1. Return `cppTypeString` unchanged when it is null or whitespace.
-  2. Strip qualifiers via `StripQualifiers` to isolate the base type name.
-  3. Return unchanged when stripped is empty, a primitive, or starts with `std::`.
-  4. Look up the stripped name via `FindPageKey` (exact match, then short-name
-     fallback).
-  5. When found: compute the relative path from `currentFolder` to the page key,
-     replace the short name in the original string with a Markdown link.
-  6. When not found and the type has a non-std namespace: add to `externalTypes`
-     and return the original string.
+- *Parameter*: `knownTypes: IReadOnlyDictionary<string, string>` — mapping from fully
+  qualified C++ name to documentation page key.
+- *Preconditions*: `knownTypes` must not be null; throws `ArgumentNullException` if null.
 
-**FindPageKey** (private): Looks up the page key for a stripped type name.
-
-- Tries exact qualified-name match first; falls back to short-name scan that
-  returns `null` when two or more known types share the same unqualified name
-  (ambiguous).
-
-**StripQualifiers** (internal static): Removes C++ cv-qualifiers (`const`,
-`volatile`), reference qualifiers (`&`, `&&`), pointer qualifiers (`*`), trailing
-`const`, and template arguments from a type string to isolate the base type name.
-
-**ExtractNamespace** (private static): Returns the namespace portion of a qualified
-C++ name (everything before the last `::`), or an empty string for unqualified names.
+- **Linkify** — returns the original string unchanged for null/whitespace input,
+  primitives, and `std::` types; also returns the original value unchanged when
+  qualifier stripping yields an empty string (degenerate input); resolves exact
+  qualified matches first; falls back to an unambiguous short-name match; when no
+  known type matches and the stripped name has a non-empty non-`std` namespace,
+  records a `CppExternalTypeInfo` entry.
+  For qualified type strings, the splice uses a position-aware algorithm to prevent
+  template-argument prefix corruption: derives `startIdx` as the position after the
+  last `::` in the original string (or 0 for unqualified types), calls
+  `IndexOf(shortName, startIdx)` to locate the exact token, then reconstructs the
+  result as `original[..idx] + linked + original[(idx + shortName.Length)..]`.
+  A null `currentFolder` is treated as an empty string (root-level file).
+- **FindPageKey** — performs exact qualified lookup first, then a short-name scan
+  that returns null when the short name is ambiguous.
+- **StripQualifiers** — repeatedly removes leading and trailing `const`,
+  `volatile`, reference, pointer, and template-argument syntax until the base name
+  stabilizes.
+- **ExtractNamespace** — returns everything before the last `::`, or an empty
+  string for unqualified names.
 
 ### Error Handling
 
-N/A — CppTypeLinkResolver performs no I/O and throws no exceptions under normal
-operation. Null or whitespace type strings are returned unchanged without error.
+Constructor throws `ArgumentNullException` when `knownTypes` is null. `Linkify` throws
+`ArgumentNullException` when `externalTypes` is null. All other unsupported input
+(null/whitespace `cppTypeString`, empty stripped name) is handled by returning the original
+value unchanged rather than throwing.
 
 ### External Interfaces
 
-N/A — CppTypeLinkResolver is an in-process utility class with no external
-dependencies or outbound interfaces. All input is supplied via constructor and
-method parameters.
+N/A - in-process utility class only.
 
 ### Dependencies
 
-N/A — CppTypeLinkResolver depends only on the BCL (`System.IO.Path`,
-`System.Collections.Generic`). It has no dependency on ApiMarkCore or other
-ApiMark units.
+- **System.IO.Path** — computes relative Markdown paths.
+- **System.Collections.Generic** — stores known types and external-type sets.
 
 ### Callers
 
-- **CppEmitter** — constructs `CppTypeLinkResolver` in `CppGenerator.Parse`
-  from the `knownTypes` dictionary built from `namespaceDecls`, and forwards it
-  to both format-specific emitters.
-- **CppEmitterGradualDisclosure** — calls `Linkify` in all methods that write
-  type and return-type cells in Markdown tables.
+- **CppGenerator** — constructs the resolver from the flattened known-type map.
+- **CppEmitter** — stores and forwards the resolver.
+- **CppEmitterGradualDisclosure** — calls `Linkify` for return-type, parameter,
+  field-type, and alias-type cells.

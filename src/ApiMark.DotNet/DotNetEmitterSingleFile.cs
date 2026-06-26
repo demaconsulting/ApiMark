@@ -77,6 +77,10 @@ internal sealed class DotNetEmitterSingleFile
         // because all content is inline and same-name anchors can collide across types
         var noLinkResolver = new TypeLinkResolver(_model.RootNamespaces, generateLinks: false);
 
+        // Allocate a single throw-away accumulator for all Linkify calls — generateLinks is false so
+        // the set is never populated, and no External Types section is emitted in single-file output
+        var sharedExternalTypes = new SortedSet<ExternalTypeInfo>();
+
         foreach (var namespaceName in _model.AllNamespaces)
         {
             writer.WriteHeading(depth + 1, namespaceName);
@@ -97,7 +101,7 @@ internal sealed class DotNetEmitterSingleFile
 
             foreach (var type in nsTypes)
             {
-                WriteSingleFileTypeSections(writer, depth, namespaceName, namespaceFolderPath, type, noLinkResolver);
+                WriteSingleFileTypeSections(writer, depth, namespaceName, namespaceFolderPath, type, noLinkResolver, sharedExternalTypes);
             }
         }
     }
@@ -113,13 +117,19 @@ internal sealed class DotNetEmitterSingleFile
     /// <param name="namespaceFolderPath">File-system folder path for the namespace.</param>
     /// <param name="type">The type definition to document.</param>
     /// <param name="resolver">No-link type resolver for parameter type cells.</param>
+    /// <param name="sharedExternalTypes">
+    ///     Shared throw-away accumulator passed to all <see cref="TypeLinkResolver.Linkify"/> calls.
+    ///     Never populated because <c>generateLinks</c> is <c>false</c>; reused across all members
+    ///     to avoid allocating a new set per call.
+    /// </param>
     private void WriteSingleFileTypeSections(
         IMarkdownWriter writer,
         int depth,
         string namespaceName,
         string namespaceFolderPath,
         TypeDefinition type,
-        TypeLinkResolver resolver)
+        TypeLinkResolver resolver,
+        SortedSet<ExternalTypeInfo> sharedExternalTypes)
     {
         writer.WriteHeading(depth + 2, StripArity(type.Name));
 
@@ -195,12 +205,13 @@ internal sealed class DotNetEmitterSingleFile
                     _model.XmlDocs,
                     resolver,
                     namespaceName,
-                    namespaceFolderPath);
+                    namespaceFolderPath,
+                    sharedExternalTypes);
             }
         }
 
         // Recursively emit visible nested types
-        WriteSingleFileNestedTypes(writer, depth, namespaceName, namespaceFolderPath, type, resolver);
+        WriteSingleFileNestedTypes(writer, depth, namespaceName, namespaceFolderPath, type, resolver, sharedExternalTypes);
     }
 
     /// <summary>
@@ -215,6 +226,11 @@ internal sealed class DotNetEmitterSingleFile
     /// <param name="resolver">No-link type resolver for parameter type cells.</param>
     /// <param name="namespaceName">Fully qualified namespace name for signature simplification.</param>
     /// <param name="namespaceFolderPath">File-system folder path for the namespace.</param>
+    /// <param name="sharedExternalTypes">
+    ///     Shared throw-away accumulator passed to all <see cref="TypeLinkResolver.Linkify"/> calls.
+    ///     Never populated because <c>generateLinks</c> is <c>false</c>; reused across all parameters
+    ///     and members to avoid allocating a new set per <c>Linkify</c> call.
+    /// </param>
     private static void WriteSingleFileMemberSection(
         IMarkdownWriter writer,
         int depth,
@@ -223,7 +239,8 @@ internal sealed class DotNetEmitterSingleFile
         XmlDocReader xmlDocs,
         TypeLinkResolver resolver,
         string namespaceName,
-        string namespaceFolderPath)
+        string namespaceFolderPath,
+        SortedSet<ExternalTypeInfo> sharedExternalTypes)
     {
         var displayName = GetMemberDisplayName(member);
         writer.WriteHeading(depth + 3, displayName);
@@ -241,11 +258,12 @@ internal sealed class DotNetEmitterSingleFile
         {
             var paramDocs = xmlDocs.GetParams(memberId);
             var paramHeaders = new[] { "Parameter", "Type", DotNetEmitter.DescriptionColumnHeader };
-            var externalTypes = new SortedSet<ExternalTypeInfo>();
             var paramRows = method.Parameters.Select(p =>
             {
                 var desc = paramDocs.FirstOrDefault(pd => pd.Name == p.Name).Description ?? NoDescriptionPlaceholder;
-                var typeName = resolver.Linkify(p.ParameterType, namespaceFolderPath, namespaceName, externalTypes);
+                var typeName = resolver.Linkify(p.ParameterType, namespaceFolderPath, namespaceName,
+                    // Shared throw-away accumulator — generateLinks is false so it is never populated or read
+                    sharedExternalTypes);
                 return new[] { p.Name, typeName, desc };
             });
             writer.WriteTable(paramHeaders, paramRows);
@@ -291,17 +309,22 @@ internal sealed class DotNetEmitterSingleFile
     /// <param name="namespaceFolderPath">File-system folder path for the namespace.</param>
     /// <param name="type">The containing type whose nested types are to be emitted.</param>
     /// <param name="resolver">No-link type resolver for parameter type cells.</param>
+    /// <param name="sharedExternalTypes">
+    ///     Shared throw-away accumulator threaded through all <see cref="TypeLinkResolver.Linkify"/>
+    ///     calls for nested type members.
+    /// </param>
     private void WriteSingleFileNestedTypes(
         IMarkdownWriter writer,
         int depth,
         string namespaceName,
         string namespaceFolderPath,
         TypeDefinition type,
-        TypeLinkResolver resolver)
+        TypeLinkResolver resolver,
+        SortedSet<ExternalTypeInfo> sharedExternalTypes)
     {
         foreach (var nested in _emitter.GetVisibleNestedTypes(type))
         {
-            WriteSingleFileTypeSections(writer, depth, namespaceName, namespaceFolderPath, nested, resolver);
+            WriteSingleFileTypeSections(writer, depth, namespaceName, namespaceFolderPath, nested, resolver, sharedExternalTypes);
         }
     }
 }

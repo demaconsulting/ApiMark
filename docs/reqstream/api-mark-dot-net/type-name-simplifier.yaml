@@ -11,19 +11,19 @@ sections:
             justification: |
               Readers expect C# signatures in documentation to use familiar language
               aliases instead of verbose CLR type names.
-            tests: [TypeNameSimplifier_Primitives_RenderLanguageAliases]
+            tests: [TypeNameSimplifier_Simplify_Primitives_RenderLanguageAliases]
           - id: ApiMarkDotNet-TypeNameSimplifier-SimplifyArrayTypes
             title: TypeNameSimplifier shall render array types using C# bracket notation.
             justification: |
               Array types appear frequently in .NET APIs and must use the idiomatic T[]
               form rather than the CLR array type representation.
-            tests: [TypeNameSimplifier_ArrayType_ReturnsBracketNotation]
+            tests: [TypeNameSimplifier_Simplify_ArrayType_ReturnsBracketNotation]
           - id: ApiMarkDotNet-TypeNameSimplifier-RenderNullableValueTypesWithQuestionMark
             title: TypeNameSimplifier shall render nullable value types in T? form.
             justification: |
               Documentation should present nullable value types using standard C# syntax
               rather than the more verbose Nullable<T> representation.
-            tests: [TypeNameSimplifier_NullableValueTypes_UseQuestionMarkForm]
+            tests: [TypeNameSimplifier_Simplify_NullableValueTypes_UseQuestionMarkForm]
           - id: ApiMarkDotNet-TypeNameSimplifier-SimplifyWellKnownNamespaces
             title: TypeNameSimplifier shall use unqualified names for types in well-known
               namespaces.
@@ -31,7 +31,7 @@ sections:
               Types from System.Collections.Generic and System.Threading.Tasks appear
               frequently in public APIs and are universally recognized without their
               namespace prefix, keeping signatures compact.
-            tests: [TypeNameSimplifier_WellKnownNamespaceTypes_RenderWithoutNamespace]
+            tests: [TypeNameSimplifier_Simplify_WellKnownNamespaceTypes_RenderWithoutNamespace]
           - id: ApiMarkDotNet-TypeNameSimplifier-SimplifyContextNamespaceTypes
             title: TypeNameSimplifier shall strip the context namespace prefix from
               types in the same or nested namespace.
@@ -39,14 +39,15 @@ sections:
               When documenting a type, cross-references to other types in the same
               namespace are easier to read without the repeated namespace prefix.
             tests:
-              - TypeNameSimplifier_ContextNamespaceTypes_RenderWithoutSharedPrefix
+              - TypeNameSimplifier_Simplify_ContextNamespaceTypes_RenderWithoutSharedPrefix
+              - TypeNameSimplifier_Simplify_ContextNamespaceTypes_NestedNamespace_StripsSharedPrefix
           - id: ApiMarkDotNet-TypeNameSimplifier-SimplifyGenericArgumentsRecursively
             title: TypeNameSimplifier shall apply simplification recursively to generic
               type arguments.
             justification: |
               Complex APIs frequently nest generic types, so simplification has to work at
               every level to prevent signatures from becoming unreadable.
-            tests: [TypeNameSimplifier_GenericArguments_AreSimplifiedRecursively]
+            tests: [TypeNameSimplifier_Simplify_GenericArguments_AreSimplifiedRecursively]
           - id: ApiMarkDotNet-TypeNameSimplifier-AppendNullableReferenceSuffix
             title: TypeNameSimplifier shall append ? to nullable reference types.
             justification: |

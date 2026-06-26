@@ -11,7 +11,7 @@ the resulting parse tree to produce a `VhdlFileModel`.
 
 ### Data Model
 
-N/A — VhdlAstParser is a stateless static class; all state is local to each `Parse`
+N/A - VhdlAstParser is a stateless static class; all state is local to each `Parse`
 call and returned as a `VhdlFileModel`.
 
 ### Key Methods
@@ -148,7 +148,8 @@ listener that accumulates syntax errors and throws rather than writing to
 - **ThrowIfErrors**: throws `InvalidOperationException` with all collected messages
   when at least one error was recorded; no-op otherwise.
 
-a `VhdlDocComment`.
+**VhdlAstParser.ParseDocCommentLines** (private static): Parses a list of `--!` comment
+lines into a `VhdlDocComment`, recognizing `@brief`, `@param`, and `@return` tags.
 
 - `@brief <text>` → `Summary`
 - `@param <name> <description>` → `VhdlParamDoc` entry in `Params`

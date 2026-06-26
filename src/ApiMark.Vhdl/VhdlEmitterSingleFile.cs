@@ -21,7 +21,7 @@ internal sealed class VhdlEmitterSingleFile
     /// <summary>Emits all VHDL documentation into a single api.md file.</summary>
     /// <param name="factory">Factory for creating Markdown writers.</param>
     /// <param name="config">Emit configuration (format and heading depth).</param>
-    /// <param name="context">Output channel for progress and error messages.</param>
+    /// <param name="context">Accepted for interface-signature consistency; not consumed by this implementation.</param>
     internal void Emit(IMarkdownWriterFactory factory, EmitConfig config, IContext context)
     {
         // Suppress unused parameter warning

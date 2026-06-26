@@ -69,4 +69,64 @@ public sealed class IContextTests
         Assert.Contains("error message", context.Errors);
         Assert.DoesNotContain("error message", context.Lines);
     }
+
+    /// <summary>
+    ///     Verifies that passing a null message to <see cref="IContext.WriteLine"/>
+    ///     throws <see cref="ArgumentNullException"/>, enforcing the null contract
+    ///     defined on the <see cref="IContext"/> interface.
+    /// </summary>
+    [Fact]
+    public void InMemoryContext_WriteLine_NullMessage_ThrowsArgumentNullException()
+    {
+        // Arrange: a fresh in-memory context
+        var context = new InMemoryContext();
+
+        // Act / Assert: null message must be rejected with ArgumentNullException
+        Assert.Throws<ArgumentNullException>(() => context.WriteLine(null!));
+    }
+
+    /// <summary>
+    ///     Verifies that passing a null message to <see cref="IContext.WriteError"/>
+    ///     throws <see cref="ArgumentNullException"/>, enforcing the null contract
+    ///     defined on the <see cref="IContext"/> interface.
+    /// </summary>
+    [Fact]
+    public void InMemoryContext_WriteError_NullMessage_ThrowsArgumentNullException()
+    {
+        // Arrange: a fresh in-memory context
+        var context = new InMemoryContext();
+
+        // Act / Assert: null message must be rejected with ArgumentNullException
+        Assert.Throws<ArgumentNullException>(() => context.WriteError(null!));
+    }
+
+    /// <summary>
+    ///     Verifies that multiple <see cref="IContext.WriteLine"/> and
+    ///     <see cref="IContext.WriteError"/> calls produce messages in the exact order
+    ///     they were written, with no reordering across channels.
+    /// </summary>
+    [Fact]
+    public void InMemoryContext_MultipleMessages_MaintainCallOrder()
+    {
+        // Arrange: a fresh in-memory context
+        var context = new InMemoryContext();
+
+        // Act: interleave informational and error messages in a defined sequence
+        context.WriteLine("line-1");
+        context.WriteError("error-1");
+        context.WriteLine("line-2");
+        context.WriteError("error-2");
+        context.WriteLine("line-3");
+
+        // Assert: Lines must contain the informational messages in call order
+        Assert.Equal(3, context.Lines.Count);
+        Assert.Equal("line-1", context.Lines[0]);
+        Assert.Equal("line-2", context.Lines[1]);
+        Assert.Equal("line-3", context.Lines[2]);
+
+        // Assert: Errors must contain the error messages in call order
+        Assert.Equal(2, context.Errors.Count);
+        Assert.Equal("error-1", context.Errors[0]);
+        Assert.Equal("error-2", context.Errors[1]);
+    }
 }
