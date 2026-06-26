@@ -832,7 +832,7 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <param name="b">Second accessor, or <see langword="null"/> when absent.</param>
     /// <returns>
     ///     The accessor with the higher accessibility rank. Returns the non-null operand when one
-    ///     is <see langword="null"/>; behaviour is undefined when both are <see langword="null"/>.
+    ///     is <see langword="null"/>; behavior is undefined when both are <see langword="null"/>.
     /// </returns>
     private static MethodDefinition MostPermissiveAccessor(MethodDefinition? a, MethodDefinition? b)
     {
