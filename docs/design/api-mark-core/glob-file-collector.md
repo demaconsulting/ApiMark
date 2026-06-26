@@ -78,6 +78,21 @@ matched file paths from the collected set.
   both correct and filesystem-agnostic: it deduplicates genuinely identical
   paths on all platforms without incorrectly collapsing case-distinct paths
   that are physically distinct files on case-sensitive filesystems (Linux).
+  Literal paths are normalized to on-disk casing via `ResolveOnDiskPath`
+  before being added or removed, ensuring consistency with glob results.
+
+**GlobFileCollector.ResolveOnDiskPath** (private static): Resolves a
+caller-supplied literal file path to its actual on-disk casing.
+
+- *Parameters*: `string literalPath` — the caller-supplied absolute path.
+- *Returns*: the absolute path with on-disk casing, or `null` if the file
+  does not exist or the path is malformed.
+- *Algorithm*: splits `literalPath` into directory and filename, then calls
+  `Directory.GetFiles(directory, fileName)` which asks the OS to resolve the
+  real entry name. On case-insensitive filesystems (Windows, macOS) this
+  corrects the casing to match what the OS stores; on case-sensitive
+  filesystems (Linux) it is equivalent to a guarded existence check with
+  exact case.
 
 **GlobFileCollector.ParsePattern** (private static): Splits a pattern body into
 a filesystem root and a glob tail.

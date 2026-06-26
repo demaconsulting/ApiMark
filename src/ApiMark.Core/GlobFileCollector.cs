@@ -98,11 +98,15 @@ public static class GlobFileCollector
 
             if (globTail.Length == 0)
             {
-                // No glob portion — root is a literal path; select it if it exists as a file
-                // and its extension is in the allowed set (same gate applied to glob results)
-                if (File.Exists(root) && extensions.Contains(Path.GetExtension(root)))
+                // No glob portion — root is a literal path; resolve on-disk casing so
+                // the path key is consistent with paths returned by Matcher.GetResultsInFullPath
+                if (extensions.Contains(Path.GetExtension(root)))
                 {
-                    AccumulateResults(collected, [Path.GetFullPath(root)], isExclusion);
+                    var onDisk = ResolveOnDiskPath(root);
+                    if (onDisk != null)
+                    {
+                        AccumulateResults(collected, [onDisk], isExclusion);
+                    }
                 }
 
                 continue;
@@ -164,9 +168,35 @@ public static class GlobFileCollector
     }
 
     /// <summary>
-    ///     Returns <see langword="true"/> when the final path segment of the glob tail
-    ///     is exactly <c>*</c>, indicating that language-extension filtering should apply.
+    ///     Resolves the on-disk path for a literal file path, correcting the casing to
+    ///     match the actual filesystem entry.
     /// </summary>
+    /// <remarks>
+    ///     On case-insensitive filesystems (Windows, macOS) the caller-supplied casing may
+    ///     differ from the entry stored on disk. Using
+    ///     <see cref="Directory.GetFiles(string, string)"/> asks the OS to resolve the real
+    ///     name, producing a path whose casing is consistent with the paths returned by
+    ///     <see cref="Matcher.GetResultsInFullPath"/>. On case-sensitive filesystems (Linux)
+    ///     this is equivalent to a guarded existence check with exact case.
+    /// </remarks>
+    /// <param name="literalPath">The caller-supplied absolute file path to resolve.</param>
+    /// <returns>
+    ///     The absolute path with on-disk casing when the file exists;
+    ///     <see langword="null"/> when the file does not exist or the path is malformed.
+    /// </returns>
+    private static string? ResolveOnDiskPath(string literalPath)
+    {
+        var directory = Path.GetDirectoryName(literalPath);
+        var fileName = Path.GetFileName(literalPath);
+        if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName))
+        {
+            return null;
+        }
+
+        var matches = Directory.GetFiles(directory, fileName);
+        return matches.Length > 0 ? matches[0] : null;
+    }
+
     /// <remarks>
     ///     The final segment is determined by splitting the glob tail on both forward and
     ///     backward slashes. A segment of <c>**</c> or <c>*.ext</c> does not trigger
