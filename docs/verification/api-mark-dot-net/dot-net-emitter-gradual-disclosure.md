@@ -26,6 +26,8 @@ service or network dependency is needed.
 - A type with pure method overloads produces a consolidated method overload page.
 - A type with operator overloads produces an `operators.md` page.
 - A type with a nested type produces a dedicated page under the containing type's folder.
+- When a namespace has NamespaceDoc remarks and example parts, they are emitted on the namespace page after the summary (remarks as a paragraph, example code as a fenced code block).
+- A type whose `<remarks>` contains a `<list type="number">` renders the list as ordered Markdown items on the type page.
 
 ### Test Scenarios
 
@@ -41,6 +43,21 @@ tested by `DotNetEmitterGradualDisclosure_Emit_ValidModel_ApiIndexContainsAssemb
 **Namespace page is created for the fixture namespace**: Verifies that a writer
 whose key contains the fixture namespace name is created. This scenario is tested
 by `DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesNamespacePage`.
+
+**NamespaceDoc remarks appear on the namespace page**: Verifies that a namespace
+carrying a NamespaceDoc carrier with `<remarks>` has that remarks text emitted as a
+paragraph on the namespace page after the summary. This scenario is tested by
+`DotNetEmitterGradualDisclosure_Emit_NamespaceWithDoc_EmitsNamespaceRemarks`.
+
+**NamespaceDoc example is emitted as a code block on the namespace page**: Verifies
+that a namespace carrying a NamespaceDoc carrier with `<example><code>` has that
+example emitted as a fenced code block on the namespace page. This scenario is tested
+by `DotNetEmitterGradualDisclosure_Emit_NamespaceWithDoc_EmitsNamespaceExampleCodeBlock`.
+
+**Remarks numbered list renders as Markdown on the type page**: Verifies that a type
+whose `<remarks>` contains a `<list type="number">` renders the list as `1. item`
+ordered lines on its type page. This scenario is tested by
+`DotNetEmitterGradualDisclosure_Emit_TypeWithListRemarks_RendersNumberedListInMarkdown`.
 
 **Type page is created for SampleClass**: Verifies that a writer whose key
 contains `SampleClass` is created, confirming that per-type pages are emitted for

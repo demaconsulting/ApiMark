@@ -26,6 +26,8 @@ service or network dependency is needed.
 - When `HeadingDepth` is set to a non-default value, all heading levels in the output are offset accordingly.
 - When the assembly carries an `AssemblyDescriptionAttribute`, its value is emitted as a paragraph after the assembly-level heading.
 - When a namespace has a NamespaceDoc XML summary, that summary is emitted as a paragraph below the namespace heading.
+- When a namespace has NamespaceDoc remarks and example parts, they are emitted after the summary (remarks as a paragraph, example code as a fenced code block).
+- A type whose `<remarks>` contains a `<list type="table">` renders the list as a Markdown table in single-file output.
 - A compact bullet list of member names and summaries is emitted before the per-member heading sections within each type section.
 - Constructor members appear before all other members; remaining members are ordered alphabetically.
 - Delegate types do not emit compiler-generated member sections (Invoke, BeginInvoke, EndInvoke).
@@ -69,6 +71,21 @@ paragraph immediately after the assembly-level heading. This scenario is tested 
 carrying a NamespaceDoc carrier class has its XML summary emitted as a paragraph
 below the namespace heading. This scenario is tested by
 `DotNetEmitterSingleFile_Emit_NamespaceWithDoc_EmitsNamespaceSummary`.
+
+**NamespaceDoc remarks follow the namespace summary**: Verifies that a namespace
+carrying a NamespaceDoc carrier with `<remarks>` has that remarks text emitted as a
+paragraph after the summary. This scenario is tested by
+`DotNetEmitterSingleFile_Emit_NamespaceWithDoc_EmitsNamespaceRemarks`.
+
+**NamespaceDoc example is emitted as a code block**: Verifies that a namespace
+carrying a NamespaceDoc carrier with `<example><code>` has that example emitted as a
+fenced code block. This scenario is tested by
+`DotNetEmitterSingleFile_Emit_NamespaceWithDoc_EmitsNamespaceExampleCodeBlock`.
+
+**Remarks table list renders as a Markdown table**: Verifies that a type whose
+`<remarks>` contains a `<list type="table">` renders the list as a Markdown pipe
+table (header, separator, and rows) within the single-file output. This scenario is
+tested by `DotNetEmitterSingleFile_Emit_TypeWithListRemarks_RendersTableInMarkdown`.
 
 **Compact bullet list appears before per-member headings**: Verifies that within
 each type section, a compact bullet list paragraph summarizing all members is

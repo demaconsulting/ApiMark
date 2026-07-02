@@ -160,6 +160,61 @@ public class DotNetEmitterSingleFileTests
         Assert.Contains(paragraphs, p => p.Text.Contains("testing the ApiMark", StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>Validates that the NamespaceDoc XML remarks are emitted as a paragraph following the namespace summary.</summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_NamespaceWithDoc_EmitsNamespaceRemarks()
+    {
+        // Arrange: the fixture namespace NamespaceDoc carrier declares <remarks>
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterSingleFile(emitter, emitter.Model).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: a paragraph containing the NamespaceDoc remarks appears in the output
+        var apiWriter = factory.GetWriter("", "api");
+        var paragraphs = apiWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Contains("Namespace-level remarks for verification", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that the NamespaceDoc XML example is emitted as a code block in single-file output.</summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_NamespaceWithDoc_EmitsNamespaceExampleCodeBlock()
+    {
+        // Arrange: the fixture namespace NamespaceDoc carrier declares <example><code>
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterSingleFile(emitter, emitter.Model).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: the NamespaceDoc example code appears as a code block
+        var apiWriter = factory.GetWriter("", "api");
+        var codeBlocks = apiWriter.Operations.OfType<CodeBlockOperation>().ToList();
+        Assert.Contains(codeBlocks, c => c.Code.Contains("var x = 1", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that a type's <c>&lt;remarks&gt;</c> table list is rendered as a Markdown table in single-file output.</summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_TypeWithListRemarks_RendersTableInMarkdown()
+    {
+        // Arrange: TableListDocClass declares a <list type="table"> in its <remarks>
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterSingleFile(emitter, emitter.Model).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: a paragraph containing the rendered Markdown table appears in the output
+        var apiWriter = factory.GetWriter("", "api");
+        var paragraphs = apiWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Text.Contains("| Format | Behavior |", StringComparison.Ordinal) &&
+                 p.Text.Contains("| --- | --- |", StringComparison.Ordinal) &&
+                 p.Text.Contains("Writes all output to a single `api.md` file.", StringComparison.Ordinal));
+    }
+
     /// <summary>Validates that a compact bullet list paragraph appears before per-member heading sections within a type section.</summary>
     [Fact]
     public void DotNetEmitterSingleFile_Emit_TypeWithMembers_EmitsBulletListBeforeMemberHeadings()

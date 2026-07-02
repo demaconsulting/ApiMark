@@ -16,7 +16,8 @@ model across its internal helper methods without defensive copies.
 The three context records defined in the same file — `TypePageWriteContext`,
 `MethodDocContext`, and `NamespaceDocContext` — reduce parameter counts on the
 helper methods by bundling constant values that are threaded through multiple
-call levels.
+call levels. A fourth record, `NamespaceDescription`, carries the summary,
+remarks, and example parts extracted from a `NamespaceDoc` carrier.
 
 ### Data Model
 
@@ -35,8 +36,9 @@ boundary between parse and emit.
 - *RootNamespaces* (`IReadOnlyList<string>`): Root namespace names identified during
   parse. Used by `DotNetEmitter.GetNamespaceFolderPath` to compute file-system
   paths.
-- *NamespaceDescriptions* (`IReadOnlyDictionary<string, string?>`): Optional
-  namespace summary text sourced from `NamespaceDoc` carrier types.
+- *NamespaceDescriptions* (`IReadOnlyDictionary<string, NamespaceDescription>`):
+  Optional per-namespace documentation sourced from `NamespaceDoc` carrier types,
+  each bundling the summary, remarks, and structured example parts.
 - *Resolver* (`TypeLinkResolver`): Type link resolver initialized with the
   root namespaces for gradual-disclosure output.
 - *Options* (`DotNetGeneratorOptions`): Generator configuration options
@@ -71,9 +73,18 @@ writes in a single generation run.
 - *AllNamespaces* (`IReadOnlyList<string>`): All namespaces in alphabetical order.
 - *ByNamespace* (`IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>>`): Types grouped by namespace.
 - *RootNamespaces* (`IReadOnlyList<string>`): Root namespaces for path computation.
-- *NamespaceDescriptions* (`IReadOnlyDictionary<string, string?>`): Optional namespace summaries.
+- *NamespaceDescriptions* (`IReadOnlyDictionary<string, NamespaceDescription>`): Optional per-namespace documentation.
 - *XmlDocs* (`XmlDocReader`): Documentation index.
 - *Resolver* (`TypeLinkResolver`): Type link resolver.
+
+**NamespaceDescription** (internal sealed record): Bundles the namespace-level
+documentation sourced from a `NamespaceDoc` carrier class so that all three parts
+surface on namespace output the same way they do for a type.
+
+- *Summary* (`string?`): Single-line namespace summary, or `null` when absent.
+- *Remarks* (`string?`): Namespace remarks text, or `null` when absent.
+- *ExampleParts* (`IReadOnlyList<(bool IsCode, string Content)>`): Structured
+  example parts, each flagged as code or prose; empty when no `<example>` is present.
 
 ### Key Methods
 
@@ -82,7 +93,7 @@ read-only properties.
 
 - *Parameters*: `AssemblyDefinition assembly`, `XmlDocReader xmlDocs`,
   `IReadOnlyList<string> allNamespaces`, `IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>> byNamespace`,
-  `IReadOnlyList<string> rootNamespaces`, `IReadOnlyDictionary<string, string?> namespaceDescriptions`,
+  `IReadOnlyList<string> rootNamespaces`, `IReadOnlyDictionary<string, NamespaceDescription> namespaceDescriptions`,
   `TypeLinkResolver resolver`, `DotNetGeneratorOptions options`.
 - *Preconditions*: No parameter may be null.
 - *Postconditions*: All properties are initialized; no mutation is possible.

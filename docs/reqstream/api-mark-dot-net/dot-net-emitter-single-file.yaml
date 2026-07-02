@@ -50,6 +50,19 @@ sections:
             tests:
               - DotNetEmitterSingleFile_Emit_NamespaceWithDoc_EmitsNamespaceSummary
 
+          - id: ApiMarkDotNet-DotNetEmitterSingleFile-EmitNamespaceDocRemarksAndExamples
+            title: DotNetEmitterSingleFile shall emit the NamespaceDoc remarks and example
+              parts after the namespace summary.
+            justification: |
+              A NamespaceDoc carrier can document a namespace with remarks and worked
+              examples. Emitting the remarks paragraph and structured example parts after the
+              summary — mirroring the type-level rendering — surfaces the full authored
+              namespace documentation in single-file output.
+            tests:
+              - DotNetEmitterSingleFile_Emit_NamespaceWithDoc_EmitsNamespaceRemarks
+              - DotNetEmitterSingleFile_Emit_NamespaceWithDoc_EmitsNamespaceExampleCodeBlock
+              - DotNetEmitterSingleFile_Emit_TypeWithListRemarks_RendersTableInMarkdown
+
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-EmitCompactMemberBulletList
             title: DotNetEmitterSingleFile shall emit a compact bullet list of member names
               and summaries before the per-member heading sections within each type section.

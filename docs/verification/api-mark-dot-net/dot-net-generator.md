@@ -44,6 +44,9 @@ network dependency, or privileged configuration is needed.
 - `Parse` throws `FileNotFoundException` when the assembly path does not exist on disk,
   and this check occurs before the XML documentation path is verified.
 - The `DotNetGenerator` constructor throws `ArgumentNullException` when `options` is null.
+- A NamespaceDoc carrier's `<remarks>` and `<example>` content are surfaced on the namespace
+  page in addition to the summary.
+- A type whose `<remarks>` contains a `<list>` renders the list as Markdown in generated output.
 
 ### Test Scenarios
 
@@ -175,6 +178,12 @@ I/O is attempted. AssemblyPath is checked before XmlDocPath. This scenario is te
 `NullReferenceException` at an unpredictable point during generation. This scenario is tested
 by `DotNetGenerator_Constructor_NullOptions_ThrowsArgumentNullException`.
 
+**Null context throws ArgumentNullException**: Verifies that passing `null` as the
+generation context to `DotNetGenerator.Parse` throws `ArgumentNullException`, giving the
+caller a precise, actionable failure instead of a `NullReferenceException` at the first
+`context.WriteLine` call. This scenario is tested by
+`DotNetGenerator_Parse_NullContext_ThrowsArgumentNullException`.
+
 **Single-file output writes a complete api.md tree**: Verifies that when `OutputFormat.SingleFile`
 is configured, the generator produces exactly one writer keyed `api`, containing an H1 assembly
 title, H2 namespace heading, H3 type heading (e.g., `SampleClass`), H4 member headings with
@@ -188,6 +197,20 @@ namespace carries a NamespaceDoc carrier class, its XML summary is emitted as a 
 the namespace page, confirming that developer-authored namespace descriptions appear in generated
 output. This scenario is tested by
 `DotNetGenerator_NamespacePage_NamespaceDocClass_ExcludedFromTypeListing`.
+
+**NamespaceDoc remarks appear on the namespace page**: Verifies that a NamespaceDoc carrier's
+`<remarks>` content is emitted as a paragraph on the namespace page, alongside the summary. This
+scenario is tested by
+`DotNetGenerator_NamespacePage_NamespaceDocRemarks_AppearsOnNamespacePage`.
+
+**NamespaceDoc example is emitted as a code block**: Verifies that a NamespaceDoc carrier's
+`<example><code>` content is emitted as a fenced code block on the namespace page. This scenario
+is tested by `DotNetGenerator_NamespacePage_NamespaceDocExample_EmitsCodeBlock`.
+
+**Remarks bullet list renders as Markdown in generated output**: Verifies that a type whose
+`<remarks>` contains a `<list type="bullet">` renders the list as `- item` dash lines within the
+type page paragraph, confirming end-to-end list rendering through the generator. This scenario is
+tested by `DotNetGenerator_Generate_RemarksWithBulletList_RendersListInMarkdown`.
 
 **Type signature includes direct base class or interface**: Verifies that the type signature
 code block for a class that implements an interface includes the interface name in the

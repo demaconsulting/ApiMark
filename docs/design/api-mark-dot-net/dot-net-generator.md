@@ -89,16 +89,19 @@ memory and returns a `DotNetEmitter` ready to emit.
 - *NamespaceDoc processing*: After collecting all visible types, `Parse` calls
   `DotNetEmitter.IsNamespaceDocCarrier` on each type. Carrier types (those named
   `NamespaceDoc` with `internal static` modifiers) are excluded from the type
-  listings passed to the emitter. Their XML summary is extracted via
-  `XmlDocReader.GetSummary` using the type's XML-doc ID and stored in the
-  `NamespaceDescriptions` dictionary of `DotNetAstModel`, keyed by namespace name,
-  for use when writing namespace pages.
+  listings passed to the emitter. Their XML documentation is extracted via the
+  `BuildNamespaceDescription` helper — which reads the summary, remarks, and
+  structured example parts (`XmlDocReader.GetSummary`, `GetRemarks`, and
+  `GetExampleParts`) using the type's XML-doc ID — and bundled into a
+  `NamespaceDescription`. The result is stored in the `NamespaceDescriptions`
+  dictionary of `DotNetAstModel`, keyed by namespace name, for use when writing
+  namespace pages.
 - *Visibility note*: At the top-level type enumeration stage, `PublicAndProtected`
   behaves identically to `Public` because C# does not permit protected top-level
   types. The distinction between `Public` and `PublicAndProtected` is applied at
   the member level by `DotNetEmitter`.
 - *TypeLinkResolver scope*: `TypeLinkResolver` is constructed with `rootNamespaces` only (not all namespaces), which constrains which type references can produce intra-assembly Markdown links; types whose namespace does not map to a known root namespace path fall back to plain text.
-- *NamespaceDoc selection*: When multiple `NamespaceDoc` carrier types exist in the same namespace, `FirstOrDefault` over non-empty summaries selects the namespace description; the first carrier type whose XML summary is non-empty wins.
+- *NamespaceDoc selection*: When multiple `NamespaceDoc` carrier types exist in the same namespace, `BuildNamespaceDescription` selects the first non-empty summary, the first non-empty remarks, and the first non-empty example parts independently via `FirstOrDefault`; the historical "first non-empty summary wins" behavior is preserved and extended to remarks and examples.
 
 **DotNetGenerator.BuildInheritanceChain** (private static): Builds a member-ID to ordered
 base-member-ID map from Mono.Cecil metadata for use during `<inheritdoc />` resolution.

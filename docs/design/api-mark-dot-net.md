@@ -15,8 +15,9 @@ defined by the Core interfaces. The system contains eight units:
   inheritance chain map is also used to render direct base-type and interface
   inheritance in type signatures (not only for `<inheritdoc>` resolution).
   During `Parse`, DotNetGenerator recognizes `internal static class NamespaceDoc`
-  carrier classes, excludes them from type listings, and promotes their XML summary
-  to the namespace description dictionary.
+  carrier classes, excludes them from type listings, and promotes their XML
+  `<summary>`, `<remarks>`, and `<example>` content to the namespace description
+  dictionary.
 - **DotNetAstModel** — immutable data class holding all parsed assembly data
   (namespaces, types, XML docs, resolver, options) produced by DotNetGenerator.Parse.
 - **DotNetEmitter** — IApiEmitter dispatcher; reads EmitConfig.Format and forwards
@@ -123,8 +124,9 @@ N/A - not a safety-classified software item.
 3. DotNetGenerator parses the XML documentation file and indexes entries by member
    identifier string. During this phase, `DotNetGenerator.Parse` recognizes
    `internal static class NamespaceDoc` carrier types: they are excluded from the
-   visible type listing, and their XML summary is promoted to the namespace
-   description dictionary keyed by namespace name.
+   visible type listing, and their XML `<summary>`, `<remarks>`, and `<example>`
+   content is promoted to the namespace description dictionary keyed by namespace
+   name.
 4. DotNetEmitter selects the active emitter sub-component (DotNetEmitterGradualDisclosure
    or DotNetEmitterSingleFile) based on EmitConfig.Format. For gradual-disclosure output,
    DotNetEmitterGradualDisclosure calls `factory.CreateMarkdown("", "api")` and writes the

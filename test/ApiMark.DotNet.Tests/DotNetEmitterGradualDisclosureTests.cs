@@ -51,6 +51,106 @@ public class DotNetEmitterGradualDisclosureTests
             "Expected a namespace page containing 'ApiMark.DotNet.Fixtures'");
     }
 
+    /// <summary>Validates that the NamespaceDoc XML remarks are emitted as a paragraph on the namespace page.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_NamespaceWithDoc_EmitsNamespaceRemarks()
+    {
+        // Arrange: the fixture namespace NamespaceDoc carrier declares <remarks>
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the NamespaceDoc remarks appear as a paragraph on the namespace page
+        var nsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
+        var paragraphs = nsWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Namespace-level remarks for verification", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that the NamespaceDoc XML example is emitted as a code block on the namespace page.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_NamespaceWithDoc_EmitsNamespaceExampleCodeBlock()
+    {
+        // Arrange: the fixture namespace NamespaceDoc carrier declares <example><code>
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the NamespaceDoc example code appears as a code block on the namespace page
+        var nsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
+        var codeBlocks = nsWriter.Operations.OfType<CodeBlockOperation>().Select(c => c.Code).ToList();
+        Assert.Contains(codeBlocks, c => c.Contains("var x = 1", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that a namespace whose NamespaceDoc has only <c>&lt;remarks&gt;</c> (no <c>&lt;summary&gt;</c>) shows the single-line remarks text in the all-namespaces index table instead of the no-description placeholder.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_NamespaceWithRemarksOnly_UsesRemarksInIndexTable()
+    {
+        // Arrange: the RemarksOnly fixture namespace declares only <remarks> on its NamespaceDoc
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the all-namespaces table on the api page shows the collapsed remarks text
+        var apiWriter = factory.GetWriter("", "api");
+        var nsTable = apiWriter.Operations.OfType<TableOperation>()
+            .Single(t => t.Headers.Contains("Types", StringComparer.Ordinal));
+        var row = nsTable.Rows.Single(r => r[0].Contains(
+            "ApiMark.DotNet.Fixtures.Inner.RemarksOnly", StringComparison.Ordinal));
+        Assert.Equal(
+            "Remarks-only namespace fallback line one. Remarks-only namespace fallback line two.",
+            row[^1]);
+        Assert.DoesNotContain("No description provided", row[^1], StringComparison.Ordinal);
+    }
+
+    /// <summary>Validates that a namespace whose NamespaceDoc has only <c>&lt;remarks&gt;</c> (no <c>&lt;summary&gt;</c>) shows the single-line remarks text in the parent's child-namespace table instead of the no-description placeholder.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_NamespaceWithRemarksOnly_UsesRemarksInChildTable()
+    {
+        // Arrange: RemarksOnly is a child of ApiMark.DotNet.Fixtures.Inner, so it appears in that
+        // namespace page's child-namespace table
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the child-namespace table on the Inner page shows the collapsed remarks text
+        var innerWriter = factory.Writers["ApiMark.DotNet.Fixtures/Inner"];
+        var childTable = innerWriter.Operations.OfType<TableOperation>()
+            .Single(t => string.Equals(t.Headers[0], "Namespace", StringComparison.Ordinal));
+        var row = childTable.Rows.Single(r => r[0].Contains("RemarksOnly", StringComparison.Ordinal));
+        Assert.Equal(
+            "Remarks-only namespace fallback line one. Remarks-only namespace fallback line two.",
+            row[^1]);
+        Assert.DoesNotContain("No description provided", row[^1], StringComparison.Ordinal);
+    }
+
+    /// <summary>Validates that a type's <c>&lt;remarks&gt;</c> numbered list is rendered as ordered Markdown items on the type page.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_TypeWithListRemarks_RendersNumberedListInMarkdown()
+    {
+        // Arrange: NumberListDocClass declares a <list type="number"> in its <remarks>
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the NumberListDocClass type page contains the rendered ordered list items
+        var typeWriter = factory.Writers["ApiMark.DotNet.Fixtures/NumberListDocClass"];
+        var paragraphs = typeWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Contains("1. Restore dependencies.", StringComparison.Ordinal) &&
+                 p.Contains("1. Run the tests.", StringComparison.Ordinal));
+    }
+
     /// <summary>Validates that the gradual-disclosure emitter creates a type page for SampleClass.</summary>
     [Fact]
     public void DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesTypePage()

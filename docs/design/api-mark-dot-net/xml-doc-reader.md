@@ -132,6 +132,32 @@ according to the following element-to-text mappings:
 - Consecutive non-`<code>` child nodes in `<example>` → accumulated into a single
   prose text part; `<code>` child nodes → separate code parts (dedented via
   `DedentCode`).
+- `<list>` → a Markdown list or table rendered by `AppendListText`, dispatched on the
+  `type` attribute (`bullet`, `number`, or `table`; absent/unknown defaults to
+  `bullet`). The block is wrapped in blank lines (`"\n\n"` prepended and appended) so
+  that, after `NormalizeDocumentationText` trims the string boundaries and
+  `FileMarkdownWriter.WriteParagraph` writes it verbatim, the list is separated from
+  surrounding prose and renders as valid CommonMark:
+  - `type="bullet"` → one `- {item}` line per `<item>` (dash bullet style).
+  - `type="number"` → one `1. {item}` line per `<item>` (repeated `1.`, which the
+    default markdownlint ordered-list style accepts).
+  - `type="table"` → a Markdown pipe table: a header row from the `<listheader>`
+    `<term>`/`<description>` when present (else `Term | Description`), a `| --- | --- |`
+    separator row, and one `| {term} | {description} |` row per `<item>`.
+  - `<item>` content: `<term>` and `<description>` are rendered to single-line text via
+    the shared inline dispatch; when both are present the item renders as
+    `**{term}** — {description}` (em dash), otherwise whichever is present, and a bare
+    `<item>` with no `<term>`/`<description>` contributes its inline content directly.
+  - `<listheader>` on a bullet/number list is emitted as a leading bold line before the
+    items; on a table it supplies the column header text.
+  - Nested inline elements inside `<term>`/`<description>`/`<item>` (such as `<c>`,
+    `<see>`, `<paramref>`) render through the same `AppendNodeText` dispatch. Only
+    top-level bullet, number, and table lists produce block-level Markdown; a `<list>`
+    nested inside an `<item>`/`<description>` is collapsed to single-line inline text
+    (its item text is preserved and joined with spaces) rather than rendered as a
+    block-level nested list, because a Markdown table cell or single-line list item
+    cannot contain a block-level list. This inline degradation keeps the surrounding
+    table or list well-formed (a documented limitation).
 
 **FormatCref** (private static): Converts a raw `cref` attribute value to a concise
 display string.

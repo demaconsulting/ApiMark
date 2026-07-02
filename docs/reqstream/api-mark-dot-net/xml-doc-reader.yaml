@@ -33,6 +33,26 @@ sections:
               - XmlDocReader_GetRemarks_MemberAbsent_ReturnsNull
               - XmlDocReader_GetReturns_MemberAbsent_ReturnsNull
               - XmlDocReader_GetExample_MemberAbsent_ReturnsNull
+          - id: ApiMarkDotNet-XmlDocReader-RenderXmlDocLists
+            title: XmlDocReader shall render `<list>` elements (bullet, number, table)
+              with `<item>`/`<term>`/`<description>` as Markdown lists or tables.
+            justification: |
+              XML documentation authors use `<list>` elements to express bullet lists,
+              numbered lists, and tables. Rendering these as their Markdown equivalents —
+              dash items, ordered items, and pipe tables — preserves the authored
+              structure instead of flattening it to concatenated inline text. A
+              `<term>`/`<description>` pair renders as a bold term followed by an em dash
+              and its description, and nested inline elements such as `<c>` continue to
+              render through the shared inline-element dispatch.
+            tests:
+              - XmlDocReader_GetRemarks_BulletList_RendersDashItems
+              - XmlDocReader_GetRemarks_NumberList_RendersOrderedItems
+              - XmlDocReader_GetRemarks_TableList_RendersMarkdownTable
+              - XmlDocReader_GetRemarks_ListItemWithTermAndDescription_RendersBoldTermDashDescription
+              - XmlDocReader_GetRemarks_ListItemWithInlineCode_PreservesInlineRendering
+              - XmlDocReader_GetRemarks_ListSurroundedByProse_KeepsBlankLineSeparation
+              - XmlDocReader_GetRemarks_TableListCellWithPipe_EscapesPipe
+              - XmlDocReader_GetRemarks_NestedListInsideItem_RendersInlineWithoutBrokenMarkdown
           - id: ApiMarkDotNet-XmlDocReader-InheritDoc
             title: XmlDocReader shall resolve `<inheritdoc />` references and inherit
               XML documentation from base members and interface members.

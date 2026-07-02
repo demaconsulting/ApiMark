@@ -45,7 +45,10 @@ single namespace.
 - *Algorithm*: Computes the namespace folder path and splits it into subfolder
   and short name; creates the namespace page writer via `factory.CreateMarkdown`;
   writes an H1 heading with the namespace name; if a namespace description is
-  present in `NamespaceDescriptions`, emits it as a paragraph; writes a table of
+  present in `NamespaceDescriptions`, emits its summary as a paragraph, then the
+  remarks paragraph (when present) and the structured example parts (code parts as
+  fenced C# blocks, prose parts as paragraphs), mirroring the type-level rendering;
+  writes a table of
   immediate child namespaces with links when any exist; writes a table of all
   visible types in the namespace (columns: Type, Description), with each type
   name linked to its type page; calls `WriteTypePage` for each type.

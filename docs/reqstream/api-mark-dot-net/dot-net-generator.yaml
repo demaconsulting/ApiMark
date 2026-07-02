@@ -80,6 +80,19 @@ sections:
             tests:
               - DotNetGenerator_NamespacePage_NamespaceDocClass_ExcludedFromTypeListing
               - DotNetGenerator_NamespacePage_NamespaceDocSummary_AppearsAsNamespaceDescription
+          - id: ApiMarkDotNet-DotNetGenerator-UseNamespaceDocRemarksAndExamples
+            title: DotNetGenerator shall extract the NamespaceDoc `<remarks>` and
+              `<example>` content in addition to the `<summary>`.
+            justification: |
+              A NamespaceDoc carrier class can document a namespace with remarks and worked
+              examples just as a type does. Extracting the remarks and structured example
+              parts alongside the summary — and bundling them into a NamespaceDescription —
+              ensures the full authored namespace documentation is available to the emitters
+              rather than silently discarding everything but the summary.
+            tests:
+              - DotNetGenerator_NamespacePage_NamespaceDocRemarks_AppearsOnNamespacePage
+              - DotNetGenerator_NamespacePage_NamespaceDocExample_EmitsCodeBlock
+              - DotNetGenerator_Generate_RemarksWithBulletList_RendersListInMarkdown
           - id: ApiMarkDotNet-DotNetGenerator-RejectMissingAssemblyPath
             title: DotNetGenerator shall throw FileNotFoundException when the configured
               assembly path does not exist.

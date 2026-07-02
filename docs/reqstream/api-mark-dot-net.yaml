@@ -19,6 +19,7 @@ sections:
           - ApiMarkDotNet-DotNetGenerator-RecognizeNamespaceDocCarrierClass
           - ApiMarkDotNet-DotNetGenerator-ExcludeNamespaceDocCarrierFromTypeListing
           - ApiMarkDotNet-DotNetGenerator-UseNamespaceDocSummaryAsNamespaceDescription
+          - ApiMarkDotNet-DotNetGenerator-UseNamespaceDocRemarksAndExamples
           - ApiMarkDotNet-DotNetGenerator-RejectMissingAssemblyPath
           - ApiMarkDotNet-DotNetGenerator-RejectMissingXmlDocPath
           - ApiMarkDotNet-DotNetGenerator-RejectNullOptions
@@ -36,6 +37,7 @@ sections:
           - ApiMarkDotNet-DotNetEmitter-RenderInitOnlyPropertyAccessor
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitApiIndexPage
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitNamespacePages
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitNamespaceDocRemarksAndExamples
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitTypePages
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitMemberDetailPages
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitCombinedPageForCaseCollisions
@@ -47,6 +49,7 @@ sections:
           - ApiMarkDotNet-DotNetEmitterSingleFile-OffsetHeadingsByHeadingDepth
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitAssemblyDescription
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitNamespaceDocSummary
+          - ApiMarkDotNet-DotNetEmitterSingleFile-EmitNamespaceDocRemarksAndExamples
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitCompactMemberBulletList
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitMembersConstructorsFirst
           - ApiMarkDotNet-DotNetEmitterSingleFile-SkipMemberListForDelegates
@@ -59,6 +62,7 @@ sections:
           - ApiMarkDotNet-TypeLinkResolver-RenderGenericTypesWithTypeArguments
           - ApiMarkDotNet-TypeLinkResolver-UnwrapNullableValueTypes
           - ApiMarkDotNet-XmlDocReader-ParseAndIndexXmlDocumentation
+          - ApiMarkDotNet-XmlDocReader-RenderXmlDocLists
           - ApiMarkDotNet-XmlDocReader-InheritDoc
         tests: [ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown]
       - id: ApiMarkDotNet-TypeNameSimplifier-ProduceReadableTypeNames

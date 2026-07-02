@@ -37,6 +37,12 @@ assembly is needed.
 - `GetExampleParts` preserves blank lines inside `<code>` blocks without counting them in the indent calculation.
 - `GetExampleParts` applies dedent to the whole-value fallback path when no `<code>` children are present.
 - `GetExampleParts` returns an empty list when the member is absent.
+- `GetRemarks` renders a `<list type="bullet">` as `- item` dash lines.
+- `GetRemarks` renders a `<list type="number">` as `1. item` ordered lines.
+- `GetRemarks` renders a `<list type="table">` as a Markdown pipe table with a header and separator row.
+- A `<list>` item with both `<term>` and `<description>` renders as `**term** — description`.
+- Inline elements such as `<c>` inside a `<list>` item render via the shared inline dispatch.
+- A `<list>` surrounded by prose keeps a blank-line separation so the Markdown list renders correctly.
 - `<inheritdoc cref="..." />` resolves documentation from the explicitly named member.
 - `<inheritdoc cref="..." />` returns `null` when the cref target is absent.
 - `<inheritdoc cref="..." />` returns `null` on a cyclic chain without throwing.
@@ -123,6 +129,49 @@ separate parts in order. This scenario is tested by
 **GetExampleParts returns empty list for an absent member**: Verifies that an
 absent member identifier returns an empty list rather than throwing. This scenario
 is tested by `XmlDocReader_GetExampleParts_MemberAbsent_ReturnsEmpty`.
+
+**GetRemarks renders a bullet list as dash items**: Verifies that a
+`<list type="bullet">` in `<remarks>` renders each `<item>` as a `- {item}` line.
+This scenario is tested by
+`XmlDocReader_GetRemarks_BulletList_RendersDashItems`.
+
+**GetRemarks renders a numbered list as ordered items**: Verifies that a
+`<list type="number">` renders each `<item>` as a `1. {item}` line. This scenario
+is tested by `XmlDocReader_GetRemarks_NumberList_RendersOrderedItems`.
+
+**GetRemarks renders a table list as a Markdown table**: Verifies that a
+`<list type="table">` renders a header row from the `<listheader>`, a `| --- | --- |`
+separator row, and one row per `<item>`. This scenario is tested by
+`XmlDocReader_GetRemarks_TableList_RendersMarkdownTable`.
+
+**GetRemarks renders a term/description item as a bold term with an em dash**:
+Verifies that a `<list>` `<item>` carrying both `<term>` and `<description>` renders
+as `**term** — description`. This scenario is tested by
+`XmlDocReader_GetRemarks_ListItemWithTermAndDescription_RendersBoldTermDashDescription`.
+
+**GetRemarks preserves inline rendering inside list items**: Verifies that a nested
+`<c>` element inside a `<list>` item renders as an inline code span via the shared
+dispatch. This scenario is tested by
+`XmlDocReader_GetRemarks_ListItemWithInlineCode_PreservesInlineRendering`.
+
+**GetRemarks keeps blank-line separation around a list**: Verifies that a `<list>`
+surrounded by prose is separated by a blank line on each side so the Markdown list
+renders correctly. This scenario is tested by
+`XmlDocReader_GetRemarks_ListSurroundedByProse_KeepsBlankLineSeparation`.
+
+**GetRemarks escapes pipe characters in table list cells**: Verifies that a
+`<list type="table">` whose `<term>`/`<description>` content contains a literal pipe
+character (for example a `<c>Flags.A | Flags.B</c>` code span) renders the cell with the
+pipe escaped as `\|`, keeping the Markdown table row well-formed with exactly two
+columns. This scenario is tested by
+`XmlDocReader_GetRemarks_TableListCellWithPipe_EscapesPipe`.
+
+**GetRemarks renders a nested list inline without broken Markdown**: Verifies that a
+`<list>` nested inside an `<item>`/`<description>` degrades to readable single-line inline
+text (a documented limitation, since a Markdown list item or table cell cannot contain a
+block-level nested list) rather than emitting a stray newline that would break the
+surrounding list item. This scenario is tested by
+`XmlDocReader_GetRemarks_NestedListInsideItem_RendersInlineWithoutBrokenMarkdown`.
 
 **GetExampleParts strips common indent from uniformly indented multi-line code**:
 Verifies that when all content lines in a `<code>` block carry the same number of
