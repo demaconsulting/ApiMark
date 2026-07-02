@@ -1672,6 +1672,77 @@ public class XmlDocReaderTests
         }
     }
 
+    /// <summary>Validates that <see cref="XmlDocReader.GetRemarks"/> does not emit a stray marker line for a bullet <c>&lt;list&gt;</c> item whose content is empty or whitespace.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_BulletListWithEmptyItem_OmitsStrayMarker()
+    {
+        // Arrange: the middle item has an empty <description> and the last only whitespace
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>
+              <list type="bullet">
+                <item><description>First item.</description></item>
+                <item><description></description></item>
+                <item><description>   </description></item>
+                <item><description>Last item.</description></item>
+              </list>
+              </remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert: only the non-empty items render, and no bare "- " marker line is emitted
+            Assert.NotNull(remarks);
+            var lines = remarks.Split('\n');
+            Assert.Contains("- First item.", lines);
+            Assert.Contains("- Last item.", lines);
+            Assert.DoesNotContain(lines, line => line.Trim() == "-");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetRemarks"/> does not emit a stray marker line for a numbered <c>&lt;list&gt;</c> item whose content is empty or whitespace.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_NumberListWithEmptyItem_OmitsStrayMarker()
+    {
+        // Arrange: the middle item renders empty and must not produce a bare "1. " marker
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>
+              <list type="number">
+                <item><description>Restore.</description></item>
+                <item><description>   </description></item>
+                <item><description>Build.</description></item>
+              </list>
+              </remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert: only the non-empty items render, and no bare "1." marker line is emitted
+            Assert.NotNull(remarks);
+            var lines = remarks.Split('\n');
+            Assert.Contains("1. Restore.", lines);
+            Assert.Contains("1. Build.", lines);
+            Assert.DoesNotContain(lines, line => line.Trim() == "1.");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     /// <summary>Validates that <see cref="XmlDocReader.GetRemarks"/> renders a table <c>&lt;list&gt;</c> as a Markdown table.</summary>
     [Fact]
     public void XmlDocReader_GetRemarks_TableList_RendersMarkdownTable()

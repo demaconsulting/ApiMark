@@ -77,8 +77,8 @@ internal sealed class DotNetEmitterGradualDisclosure
             var folderPath = GetNamespaceFolderPath(nsName, _model.RootNamespaces);
             var link = $"{folderPath}.md";
             var typeCount = _model.ByNamespace.TryGetValue(nsName, out var nsTypes) ? nsTypes.Count : 0;
-            var description = _model.NamespaceDescriptions.TryGetValue(nsName, out var desc) && !string.IsNullOrEmpty(desc.Summary)
-                ? desc.Summary
+            var description = _model.NamespaceDescriptions.TryGetValue(nsName, out var desc)
+                ? NamespaceTableDescription(desc)
                 : DotNetEmitter.NoDescriptionPlaceholder;
             return new[] { $"[{nsName}]({link})", typeCount.ToString(), description };
         });
@@ -115,6 +115,45 @@ internal sealed class DotNetEmitterGradualDisclosure
                     _model.XmlDocs,
                     _model.Resolver));
         }
+    }
+
+    /// <summary>
+    ///     Computes the description cell value for a namespace row in a single-row Markdown
+    ///     table: the <see cref="NamespaceDescription.Summary"/> when present, otherwise the
+    ///     <see cref="NamespaceDescription.Remarks"/> collapsed to a single line, otherwise the
+    ///     <see cref="DotNetEmitter.NoDescriptionPlaceholder"/>.
+    /// </summary>
+    /// <remarks>
+    ///     Remarks may span multiple paragraphs, so they are collapsed to a single line to keep
+    ///     the one-row table cell well-formed. Summary text is already single-line by convention.
+    /// </remarks>
+    /// <param name="desc">The namespace description whose summary or remarks to render.</param>
+    /// <returns>The single-line description cell value.</returns>
+    private static string NamespaceTableDescription(NamespaceDescription desc)
+    {
+        // Prefer the summary, falling back to single-line remarks, then the placeholder
+        if (!string.IsNullOrEmpty(desc.Summary))
+        {
+            return desc.Summary;
+        }
+
+        if (!string.IsNullOrEmpty(desc.Remarks))
+        {
+            return CollapseToSingleLine(desc.Remarks);
+        }
+
+        return DotNetEmitter.NoDescriptionPlaceholder;
+    }
+
+    /// <summary>
+    ///     Collapses every run of whitespace (including line breaks) in <paramref name="text"/>
+    ///     to a single space so multi-paragraph text fits in a single Markdown table cell.
+    /// </summary>
+    /// <param name="text">The text to collapse to a single line.</param>
+    /// <returns>The text with all whitespace runs replaced by single spaces.</returns>
+    private static string CollapseToSingleLine(string text)
+    {
+        return string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
     }
 
     // =========================================================================
@@ -180,8 +219,8 @@ internal sealed class DotNetEmitterGradualDisclosure
                 var childFolderPath = GetNamespaceFolderPath(child, ctx.RootNamespaces);
                 SplitPath(childFolderPath, out _, out var childShortName);
                 var link = $"{shortName}/{childShortName}.md";
-                var childDesc = ctx.NamespaceDescriptions.TryGetValue(child, out var desc) && !string.IsNullOrEmpty(desc.Summary)
-                    ? desc.Summary
+                var childDesc = ctx.NamespaceDescriptions.TryGetValue(child, out var desc)
+                    ? NamespaceTableDescription(desc)
                     : DotNetEmitter.NoDescriptionPlaceholder;
                 return new[] { $"[{child}]({link})", childDesc };
             });

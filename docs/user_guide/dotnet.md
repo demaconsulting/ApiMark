@@ -47,8 +47,9 @@ namespace-level XML doc comment (`/// <summary>`, and optionally `/// <remarks>`
 `/// <example>`) to it. ApiMark recognizes this carrier class by its exact shape
 (`internal static class NamespaceDoc` declared within the namespace) and excludes it
 from the output. Its `<summary>`, `<remarks>`, and `<example>` are all surfaced on the
-namespace page — the summary and remarks as paragraphs and the example as a fenced code
-block.
+namespace page — the summary and remarks as paragraphs and the example as its structured
+parts: prose is rendered as paragraphs and code as fenced code blocks (a single example
+may therefore produce multiple paragraphs and/or code blocks).
 
 ### Types
 

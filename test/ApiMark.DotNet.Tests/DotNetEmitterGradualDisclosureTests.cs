@@ -85,6 +85,52 @@ public class DotNetEmitterGradualDisclosureTests
         Assert.Contains(codeBlocks, c => c.Contains("var x = 1", StringComparison.Ordinal));
     }
 
+    /// <summary>Validates that a namespace whose NamespaceDoc has only <c>&lt;remarks&gt;</c> (no <c>&lt;summary&gt;</c>) shows the single-line remarks text in the all-namespaces index table instead of the no-description placeholder.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_NamespaceWithRemarksOnly_UsesRemarksInIndexTable()
+    {
+        // Arrange: the RemarksOnly fixture namespace declares only <remarks> on its NamespaceDoc
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the all-namespaces table on the api page shows the collapsed remarks text
+        var apiWriter = factory.GetWriter("", "api");
+        var nsTable = apiWriter.Operations.OfType<TableOperation>()
+            .Single(t => t.Headers.Contains("Types", StringComparer.Ordinal));
+        var row = nsTable.Rows.Single(r => r[0].Contains(
+            "ApiMark.DotNet.Fixtures.Inner.RemarksOnly", StringComparison.Ordinal));
+        Assert.Equal(
+            "Remarks-only namespace fallback line one. Remarks-only namespace fallback line two.",
+            row[^1]);
+        Assert.DoesNotContain("No description provided", row[^1], StringComparison.Ordinal);
+    }
+
+    /// <summary>Validates that a namespace whose NamespaceDoc has only <c>&lt;remarks&gt;</c> (no <c>&lt;summary&gt;</c>) shows the single-line remarks text in the parent's child-namespace table instead of the no-description placeholder.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_NamespaceWithRemarksOnly_UsesRemarksInChildTable()
+    {
+        // Arrange: RemarksOnly is a child of ApiMark.DotNet.Fixtures.Inner, so it appears in that
+        // namespace page's child-namespace table
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the child-namespace table on the Inner page shows the collapsed remarks text
+        var innerWriter = factory.Writers["ApiMark.DotNet.Fixtures/Inner"];
+        var childTable = innerWriter.Operations.OfType<TableOperation>()
+            .Single(t => string.Equals(t.Headers[0], "Namespace", StringComparison.Ordinal));
+        var row = childTable.Rows.Single(r => r[0].Contains("RemarksOnly", StringComparison.Ordinal));
+        Assert.Equal(
+            "Remarks-only namespace fallback line one. Remarks-only namespace fallback line two.",
+            row[^1]);
+        Assert.DoesNotContain("No description provided", row[^1], StringComparison.Ordinal);
+    }
+
     /// <summary>Validates that a type's <c>&lt;remarks&gt;</c> numbered list is rendered as ordered Markdown items on the type page.</summary>
     [Fact]
     public void DotNetEmitterGradualDisclosure_Emit_TypeWithListRemarks_RendersNumberedListInMarkdown()

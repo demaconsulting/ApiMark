@@ -618,6 +618,14 @@ public sealed class XmlDocReader
         foreach (var item in element.Elements("item"))
         {
             var itemText = FormatTermDescription(RenderTermDescription(item));
+
+            // Skip items that render to no text (for example an empty <description>) so no
+            // stray "- "/"1. " marker line is emitted for an item with nothing to show
+            if (string.IsNullOrWhiteSpace(itemText))
+            {
+                continue;
+            }
+
             builder.Append(marker).Append(' ').Append(itemText).Append('\n');
         }
     }
@@ -659,6 +667,14 @@ public sealed class XmlDocReader
         foreach (var item in element.Elements("item"))
         {
             var (term, description) = RenderTermDescription(item);
+
+            // Skip rows whose term and description both render empty so no blank table row is
+            // emitted; the header row is always kept so the table structure remains valid
+            if (string.IsNullOrWhiteSpace(term) && string.IsNullOrWhiteSpace(description))
+            {
+                continue;
+            }
+
             builder.Append("| ").Append(EscapeTableCell(term)).Append(" | ").Append(EscapeTableCell(description)).Append(" |\n");
         }
     }
