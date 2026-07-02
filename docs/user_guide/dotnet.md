@@ -41,9 +41,14 @@ constructs.
 ### Namespaces
 
 Each namespace that contains at least one documented type gets a namespace summary page.
-To provide a description for the namespace itself, add a `NamespaceDoc` carrier class in
-that namespace with a `/// <summary>` XML doc comment. The class is excluded from the
-output — only its summary is used.
+To provide a description for the namespace itself, declare an
+`internal static class NamespaceDoc` inside that namespace and attach the
+namespace-level XML doc comment (`/// <summary>`, and optionally `/// <remarks>` and
+`/// <example>`) to it. ApiMark recognizes this carrier class by its exact shape
+(`internal static class NamespaceDoc` declared within the namespace) and excludes it
+from the output. Its `<summary>`, `<remarks>`, and `<example>` are all surfaced on the
+namespace page — the summary and remarks as paragraphs and the example as a fenced code
+block.
 
 ### Types
 
@@ -82,6 +87,7 @@ ApiMark reads standard C# XML doc comments (`///`).
 | `<returns>` | Description for the return value |
 | `<exception cref="...">` | Documents an exception the method may throw |
 | `<example>` | Code example rendered in a fenced code block |
+| `<list>` | Bullet (`type="bullet"`), numbered (`type="number"`), and table (`type="table"`) lists rendered as their Markdown equivalents; `<item>` `<term>`/`<description>` pairs render as **term** — description |
 
 Missing `<summary>` tags render as *No description provided.* in the output. Missing
 `<param>` descriptions render as *No description provided.* in parameter tables.

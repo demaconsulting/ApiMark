@@ -1092,6 +1092,64 @@ public class DotNetGeneratorTests
             p => p.Contains("Contains types for testing", StringComparison.Ordinal));
     }
 
+    /// <summary>Validates that the NamespaceDoc XML remarks appear as a paragraph on the namespace page.</summary>
+    [Fact]
+    public void DotNetGenerator_NamespacePage_NamespaceDocRemarks_AppearsOnNamespacePage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the NamespaceDoc <remarks> must appear as a paragraph on the namespace page
+        var nsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
+        var paragraphs = nsWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Contains("Namespace-level remarks for verification", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that the NamespaceDoc XML example is emitted as a code block on the namespace page.</summary>
+    [Fact]
+    public void DotNetGenerator_NamespacePage_NamespaceDocExample_EmitsCodeBlock()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the NamespaceDoc <example><code> must be emitted as a code block on the namespace page
+        var nsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
+        var codeBlocks = nsWriter.Operations.OfType<CodeBlockOperation>().Select(c => c.Code).ToList();
+        Assert.Contains(
+            codeBlocks,
+            c => c.Contains("var x = 1", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that a type's <c>&lt;remarks&gt;</c> bullet list is rendered as Markdown dash items on the type page.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_RemarksWithBulletList_RendersListInMarkdown()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the BulletListDocClass type page must contain the rendered bullet items
+        var typeWriter = factory.Writers["ApiMark.DotNet.Fixtures/BulletListDocClass"];
+        var paragraphs = typeWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Contains("- Parse the input source.", StringComparison.Ordinal) &&
+                 p.Contains("- Emit the Markdown output.", StringComparison.Ordinal));
+    }
+
     /// <summary>
     ///     Validates that two members whose names differ only in case are combined onto a
     ///     single page named after the lowercase key.

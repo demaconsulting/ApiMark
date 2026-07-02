@@ -542,10 +542,193 @@ public sealed class XmlDocReader
                 }
 
                 break;
+            case "list":
+                AppendListText(builder, element);
+                break;
             default:
                 AppendNodeText(builder, element.Nodes());
                 break;
         }
+    }
+
+    /// <summary>
+    ///     Appends a Markdown rendering of a <c>&lt;list&gt;</c> element to
+    ///     <paramref name="builder"/>, dispatching on the <c>type</c> attribute
+    ///     (<c>bullet</c>, <c>number</c>, or <c>table</c>; defaulting to <c>bullet</c>).
+    /// </summary>
+    /// <remarks>
+    ///     The rendered block is wrapped in blank lines so that, after
+    ///     <see cref="NormalizeDocumentationText"/> trims the string boundaries and
+    ///     <c>FileMarkdownWriter.WriteParagraph</c> writes it verbatim, the list is
+    ///     separated from surrounding prose and renders as valid CommonMark. Nested
+    ///     inline elements inside <c>&lt;term&gt;</c>/<c>&lt;description&gt;</c>/<c>&lt;item&gt;</c>
+    ///     (such as <c>&lt;c&gt;</c>, <c>&lt;see&gt;</c>, and <c>&lt;paramref&gt;</c>) are rendered
+    ///     via the existing <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode})"/> dispatch.
+    /// </remarks>
+    /// <param name="builder">The string builder that accumulates the output text.</param>
+    /// <param name="element">The <c>&lt;list&gt;</c> element to render.</param>
+    private static void AppendListText(StringBuilder builder, XElement element)
+    {
+        var listType = element.Attribute("type")?.Value;
+
+        // Separate the list block from any preceding prose so Markdown treats it as a
+        // distinct block; NormalizeDocumentationText preserves the internal blank line.
+        builder.Append("\n\n");
+
+        switch (listType)
+        {
+            case "table":
+                AppendTableList(builder, element);
+                break;
+            case "number":
+                AppendMarkerList(builder, element, ordered: true);
+                break;
+            default:
+                // "bullet", absent, or any unknown type renders as a bullet list
+                AppendMarkerList(builder, element, ordered: false);
+                break;
+        }
+
+        // Separate the list block from any following prose
+        builder.Append("\n\n");
+    }
+
+    /// <summary>
+    ///     Appends a bullet (<c>-</c>) or numbered (<c>1.</c>) Markdown list for the
+    ///     <c>&lt;item&gt;</c> children of <paramref name="element"/>.
+    /// </summary>
+    /// <param name="builder">The string builder that accumulates the output text.</param>
+    /// <param name="element">The <c>&lt;list&gt;</c> element whose items to render.</param>
+    /// <param name="ordered"><see langword="true"/> for a numbered list; <see langword="false"/> for a bullet list.</param>
+    private static void AppendMarkerList(StringBuilder builder, XElement element, bool ordered)
+    {
+        // A leading bold line is emitted for a <listheader> when present so header
+        // context is not lost in a bullet/number list (which has no header row).
+        var header = element.Element("listheader");
+        if (header != null)
+        {
+            var headerText = FormatTermDescription(RenderTermDescription(header));
+            if (headerText.Length > 0)
+            {
+                builder.Append("**").Append(headerText).Append("**\n\n");
+            }
+        }
+
+        var marker = ordered ? "1." : "-";
+        foreach (var item in element.Elements("item"))
+        {
+            var itemText = FormatTermDescription(RenderTermDescription(item));
+            builder.Append(marker).Append(' ').Append(itemText).Append('\n');
+        }
+    }
+
+    /// <summary>
+    ///     Appends a Markdown table for the <c>&lt;item&gt;</c> children of
+    ///     <paramref name="element"/>, using the <c>&lt;listheader&gt;</c> term/description as
+    ///     column headers when present and <c>Term</c>/<c>Description</c> otherwise.
+    /// </summary>
+    /// <param name="builder">The string builder that accumulates the output text.</param>
+    /// <param name="element">The <c>&lt;list&gt;</c> element whose items to render as table rows.</param>
+    private static void AppendTableList(StringBuilder builder, XElement element)
+    {
+        var termHeader = "Term";
+        var descriptionHeader = "Description";
+
+        var header = element.Element("listheader");
+        if (header != null)
+        {
+            var (headerTerm, headerDescription) = RenderTermDescription(header);
+            if (headerTerm.Length > 0)
+            {
+                termHeader = headerTerm;
+            }
+
+            if (headerDescription.Length > 0)
+            {
+                descriptionHeader = headerDescription;
+            }
+        }
+
+        // Escape literal pipe characters in cell values so they do not break the table
+        // structure in Markdown renderers. This mirrors FileMarkdownWriter.WriteTable and is
+        // needed because rendered inline content (for example a <c>Flags.A | Flags.B</c> code
+        // span or a nested table list) can legitimately contain pipe characters.
+        builder.Append("| ").Append(EscapeTableCell(termHeader)).Append(" | ").Append(EscapeTableCell(descriptionHeader)).Append(" |\n");
+        builder.Append("| --- | --- |\n");
+
+        foreach (var item in element.Elements("item"))
+        {
+            var (term, description) = RenderTermDescription(item);
+            builder.Append("| ").Append(EscapeTableCell(term)).Append(" | ").Append(EscapeTableCell(description)).Append(" |\n");
+        }
+    }
+
+    /// <summary>
+    ///     Escapes literal pipe (<c>|</c>) characters in a Markdown table cell value so they do
+    ///     not break the table structure. Mirrors the escaping performed by
+    ///     <c>FileMarkdownWriter.WriteTable</c>.
+    /// </summary>
+    /// <param name="cell">The rendered cell value to escape.</param>
+    /// <returns>The cell value with every literal pipe replaced by <c>\|</c>.</returns>
+    private static string EscapeTableCell(string cell)
+    {
+        return cell.Replace("|", @"\|", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Renders the <c>&lt;term&gt;</c> and <c>&lt;description&gt;</c> of a list
+    ///     <c>&lt;item&gt;</c> or <c>&lt;listheader&gt;</c> element to single-line text via the
+    ///     inline-element dispatch. When neither child is present, the element's own inline
+    ///     content is returned as the term.
+    /// </summary>
+    /// <param name="element">The <c>&lt;item&gt;</c> or <c>&lt;listheader&gt;</c> element.</param>
+    /// <returns>A tuple of the rendered term and description; either may be empty.</returns>
+    private static (string Term, string Description) RenderTermDescription(XElement element)
+    {
+        var term = element.Element("term");
+        var description = element.Element("description");
+
+        // A bare item (no <term>/<description>) contributes its inline content as the term
+        if (term == null && description == null)
+        {
+            return (RenderInlineElement(element), string.Empty);
+        }
+
+        return (
+            term != null ? RenderInlineElement(term) : string.Empty,
+            description != null ? RenderInlineElement(description) : string.Empty);
+    }
+
+    /// <summary>
+    ///     Combines a rendered term and description into a single-line item string:
+    ///     <c>**term** — description</c> when both are present, otherwise whichever is present.
+    /// </summary>
+    /// <param name="parts">The rendered term and description.</param>
+    /// <returns>The combined single-line item text.</returns>
+    private static string FormatTermDescription((string Term, string Description) parts)
+    {
+        var (term, description) = parts;
+        if (term.Length > 0 && description.Length > 0)
+        {
+            return $"**{term}** — {description}";
+        }
+
+        return term.Length > 0 ? term : description;
+    }
+
+    /// <summary>
+    ///     Renders the inline content of <paramref name="element"/> to a single line via the
+    ///     shared <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode})"/> dispatch, so
+    ///     nested inline elements such as <c>&lt;c&gt;</c>, <c>&lt;see&gt;</c>, and
+    ///     <c>&lt;paramref&gt;</c> render correctly inside list items.
+    /// </summary>
+    /// <param name="element">The element whose inline content to render.</param>
+    /// <returns>The single-line rendered text.</returns>
+    private static string RenderInlineElement(XElement element)
+    {
+        var builder = new StringBuilder();
+        AppendNodeText(builder, element.Nodes());
+        return NormalizeSingleLine(builder.ToString());
     }
 
     /// <summary>

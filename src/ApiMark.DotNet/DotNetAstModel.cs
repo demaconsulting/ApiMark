@@ -43,20 +43,36 @@ internal sealed record MethodDocContext(
     ISet<ExternalTypeInfo> ExternalTypes);
 
 /// <summary>
+///     Bundles the namespace-level documentation sourced from a NamespaceDoc carrier
+///     class, carrying the summary, remarks, and structured example parts so that all
+///     three surface on namespace output in the same way they do for types.
+/// </summary>
+/// <param name="Summary">Single-line namespace summary, or <c>null</c> when absent.</param>
+/// <param name="Remarks">Namespace remarks text, or <c>null</c> when absent.</param>
+/// <param name="ExampleParts">
+///     Structured example parts, each flagged as code or prose; empty when no
+///     <c>&lt;example&gt;</c> is present on the carrier.
+/// </param>
+internal sealed record NamespaceDescription(
+    string? Summary,
+    string? Remarks,
+    IReadOnlyList<(bool IsCode, string Content)> ExampleParts);
+
+/// <summary>
 ///     Bundles the per-assembly namespace documentation context that is constant
 ///     across all namespace page writes in a single generation run.
 /// </summary>
 /// <param name="AllNamespaces">All namespace names present in the assembly, ordered alphabetically.</param>
 /// <param name="ByNamespace">Visible types grouped by their namespace name.</param>
 /// <param name="RootNamespaces">Root namespaces identified during parse.</param>
-/// <param name="NamespaceDescriptions">Optional namespace summaries sourced from NamespaceDoc carriers.</param>
+/// <param name="NamespaceDescriptions">Optional namespace descriptions sourced from NamespaceDoc carriers.</param>
 /// <param name="XmlDocs">Documentation index for namespace-level lookups.</param>
 /// <param name="Resolver">Type link resolver for namespace page table cells.</param>
 internal sealed record NamespaceDocContext(
     IReadOnlyList<string> AllNamespaces,
     IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>> ByNamespace,
     IReadOnlyList<string> RootNamespaces,
-    IReadOnlyDictionary<string, string?> NamespaceDescriptions,
+    IReadOnlyDictionary<string, NamespaceDescription> NamespaceDescriptions,
     XmlDocReader XmlDocs,
     TypeLinkResolver Resolver);
 
@@ -77,7 +93,7 @@ internal sealed class DotNetAstModel
     /// <param name="allNamespaces">All namespace names in alphabetical order.</param>
     /// <param name="byNamespace">Visible types grouped by namespace.</param>
     /// <param name="rootNamespaces">Root namespaces identified during parse.</param>
-    /// <param name="namespaceDescriptions">Namespace summaries from NamespaceDoc carriers.</param>
+    /// <param name="namespaceDescriptions">Namespace descriptions from NamespaceDoc carriers.</param>
     /// <param name="resolver">Type link resolver for gradual-disclosure output.</param>
     /// <param name="options">Generator configuration options.</param>
     internal DotNetAstModel(
@@ -86,7 +102,7 @@ internal sealed class DotNetAstModel
         IReadOnlyList<string> allNamespaces,
         IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>> byNamespace,
         IReadOnlyList<string> rootNamespaces,
-        IReadOnlyDictionary<string, string?> namespaceDescriptions,
+        IReadOnlyDictionary<string, NamespaceDescription> namespaceDescriptions,
         TypeLinkResolver resolver,
         DotNetGeneratorOptions options)
     {
@@ -116,7 +132,7 @@ internal sealed class DotNetAstModel
     internal IReadOnlyList<string> RootNamespaces { get; }
 
     /// <summary>Gets the optional namespace descriptions sourced from NamespaceDoc carriers.</summary>
-    internal IReadOnlyDictionary<string, string?> NamespaceDescriptions { get; }
+    internal IReadOnlyDictionary<string, NamespaceDescription> NamespaceDescriptions { get; }
 
     /// <summary>Gets the type link resolver for gradual-disclosure output.</summary>
     internal TypeLinkResolver Resolver { get; }

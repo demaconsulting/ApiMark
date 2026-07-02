@@ -85,11 +85,32 @@ internal sealed class DotNetEmitterSingleFile
         {
             writer.WriteHeading(depth + 1, namespaceName);
 
-            // Emit the namespace summary when one was supplied via the NamespaceDoc convention
-            if (_model.NamespaceDescriptions.TryGetValue(namespaceName, out var nsSummary) &&
-                !string.IsNullOrEmpty(nsSummary))
+            // Emit the namespace documentation when one was supplied via the NamespaceDoc
+            // convention — summary, then remarks, then structured example parts, mirroring
+            // the type-level rendering in WriteSingleFileTypeSections
+            if (_model.NamespaceDescriptions.TryGetValue(namespaceName, out var nsDescription))
             {
-                writer.WriteParagraph(nsSummary);
+                if (!string.IsNullOrEmpty(nsDescription.Summary))
+                {
+                    writer.WriteParagraph(nsDescription.Summary);
+                }
+
+                if (!string.IsNullOrEmpty(nsDescription.Remarks))
+                {
+                    writer.WriteParagraph(nsDescription.Remarks);
+                }
+
+                foreach (var (isCode, content) in nsDescription.ExampleParts)
+                {
+                    if (isCode)
+                    {
+                        writer.WriteCodeBlock("csharp", content);
+                    }
+                    else
+                    {
+                        writer.WriteParagraph(content);
+                    }
+                }
             }
 
             if (!_model.ByNamespace.TryGetValue(namespaceName, out var nsTypes) || nsTypes.Count == 0)

@@ -30,8 +30,10 @@ into that writer at heading levels `HeadingDepth` (assembly title),
 
 - If the assembly carries an `AssemblyDescriptionAttribute`, its value is emitted
   as a paragraph immediately after the assembly-level H{depth} heading.
-- If a namespace has a summary supplied via the `NamespaceDoc` convention, that
-  summary is emitted as a paragraph below the H{depth+1} namespace heading.
+- If a namespace has documentation supplied via the `NamespaceDoc` convention, its
+  summary is emitted as a paragraph below the H{depth+1} namespace heading, followed
+  by the remarks paragraph (when present) and the structured example parts (code parts
+  as fenced C# blocks, prose parts as paragraphs), mirroring the type-level rendering.
 - Each type section includes a compact bullet list of members
   (`- **Name**: summary`) before the H(depth+3) member sections.
 - No group headings (`Constructors`, `Methods`, `Properties`) or convention

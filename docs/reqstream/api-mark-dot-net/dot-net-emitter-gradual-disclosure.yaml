@@ -29,6 +29,19 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesNamespacePage
               - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesChildNamespacePage
 
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitNamespaceDocRemarksAndExamples
+            title: DotNetEmitterGradualDisclosure shall emit the NamespaceDoc remarks and
+              example parts after the namespace summary on the namespace page.
+            justification: |
+              A NamespaceDoc carrier can document a namespace with remarks and worked
+              examples. Emitting the remarks paragraph and structured example parts after the
+              summary on the namespace page — mirroring the type-level rendering — surfaces the
+              full authored namespace documentation in gradual-disclosure output.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_NamespaceWithDoc_EmitsNamespaceRemarks
+              - DotNetEmitterGradualDisclosure_Emit_NamespaceWithDoc_EmitsNamespaceExampleCodeBlock
+              - DotNetEmitterGradualDisclosure_Emit_TypeWithListRemarks_RendersNumberedListInMarkdown
+
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitTypePages
             title: DotNetEmitterGradualDisclosure shall emit a separate Markdown page for
               each visible type in the assembly.

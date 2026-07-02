@@ -27,7 +27,11 @@ output location is needed.
 - An intra-assembly type produces a Markdown link when `generateLinks` is `true`.
 - An intra-assembly type produces plain text when `generateLinks` is `false`.
 - A nullable generic parameter appends `?` when `isNullableAnnotated` is `true`.
+- A `Nullable<T>` value type is unwrapped and rendered as the inner type's C# alias followed by `?` (e.g., `Nullable<int>` renders as `int?`).
+- A nullable intra-assembly type produces a Markdown link followed by a `?` suffix.
 - An array type appends the array rank suffix (e.g., `[]`) to the element type name.
+- A multi-dimensional array type appends the multi-dimensional rank suffix (e.g., `[,]` for rank-2) to the element type name.
+- A nullable array type appends the array rank suffix followed by the `?` suffix (e.g., `string[]?`).
 - A generic container type appends angle-bracket notation listing the resolved type arguments.
 
 ### Test Scenarios
@@ -59,10 +63,35 @@ parameter linkified with `isNullableAnnotated: true` produces a `?` suffix. This
 scenario is tested by
 `TypeLinkResolver_Linkify_NullableGenericParameter_AppendsQuestionMark`.
 
+**Nullable value type unwraps to inner alias with ? suffix**: Verifies that a
+`Nullable<T>` generic instance is unwrapped and rendered as the inner type's C#
+alias followed by `?` (i.e., `Nullable<int>` renders as `int?`, not
+`Nullable<int>`), confirming that value-type nullables are rendered in idiomatic
+C# syntax. This scenario is tested by
+`TypeLinkResolver_Linkify_NullableValueType_ReturnsInnerAliasWithQuestionMark`.
+
+**Nullable intra-assembly type returns link with ? suffix**: Verifies that an
+intra-assembly type reference linkified with `isNullableAnnotated: true` produces
+a Markdown link ending with a `?` suffix, confirming that the nullable annotation
+is applied after the cross-reference link is generated. This scenario is tested by
+`TypeLinkResolver_Linkify_NullableIntraAssemblyType_ReturnsLinkWithQuestionMark`.
+
 **Array type appends [] suffix**: Verifies that an array type reference produces
 a result ending with `[]`, confirming that the array rank suffix is appended to the
 element type name. This scenario is tested by
 `TypeLinkResolver_Linkify_ArrayType_AppendsArraySuffix`.
+
+**Multi-dimensional array type appends rank suffix**: Verifies that a
+multi-dimensional array type reference appends the correct rank suffix to the
+element type name (i.e., a rank-2 `int` array renders as `int[,]`), confirming that
+array rank is reflected in the generated Markdown. This scenario is tested by
+`TypeLinkResolver_Linkify_MultiDimensionalArrayType_AppendsRankSuffix`.
+
+**Nullable array type appends array suffix then ? suffix**: Verifies that an array
+type reference linkified with `isNullableAnnotated: true` produces a result ending
+with `[]?` — the array rank suffix followed by the nullable marker (i.e., a
+nullable `string` array renders as `string[]?`). This scenario is tested by
+`TypeLinkResolver_Linkify_NullableArrayType_AppendsArraySuffixThenQuestionMark`.
 
 **Generic type renders type arguments in angle-bracket notation**: Verifies that a
 generic instance type reference (e.g., `List<string>`) produces a result containing

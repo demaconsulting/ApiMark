@@ -94,8 +94,7 @@ public sealed class DotNetGenerator : IApiGenerator
                 .GroupBy(t => t.Namespace, StringComparer.Ordinal)
                 .ToDictionary(
                     g => g.Key,
-                    g => g.Select(t => xmlDocs.GetSummary(DotNetEmitter.BuildTypeId(t)))
-                        .FirstOrDefault(summary => !string.IsNullOrEmpty(summary)),
+                    g => BuildNamespaceDescription(g, xmlDocs),
                     StringComparer.Ordinal);
 
             // Collect all types that pass the visibility, obsolete, and compiler-generated filters.
@@ -147,6 +146,42 @@ public sealed class DotNetGenerator : IApiGenerator
             assembly.Dispose();
             throw;
         }
+    }
+
+    /// <summary>
+    ///     Builds a <see cref="NamespaceDescription"/> for a namespace from its NamespaceDoc
+    ///     carrier types, selecting the first non-empty summary, remarks, and example parts
+    ///     across the carriers.
+    /// </summary>
+    /// <remarks>
+    ///     Preserves the historical "first non-empty summary wins" behavior and extends the
+    ///     same selection to remarks and example parts so a NamespaceDoc carrier surfaces all
+    ///     three the same way a type does.
+    /// </remarks>
+    /// <param name="carriers">The NamespaceDoc carrier types declared in the namespace.</param>
+    /// <param name="xmlDocs">The XML documentation reader used to extract carrier documentation.</param>
+    /// <returns>A <see cref="NamespaceDescription"/> bundling the selected summary, remarks, and example parts.</returns>
+    private static NamespaceDescription BuildNamespaceDescription(
+        IEnumerable<TypeDefinition> carriers,
+        XmlDocReader xmlDocs)
+    {
+        // Materialize once — the selection makes multiple passes over the carriers
+        var memberIds = carriers.Select(DotNetEmitter.BuildTypeId).ToList();
+
+        var summary = memberIds
+            .Select(xmlDocs.GetSummary)
+            .FirstOrDefault(text => !string.IsNullOrEmpty(text));
+
+        var remarks = memberIds
+            .Select(xmlDocs.GetRemarks)
+            .FirstOrDefault(text => !string.IsNullOrEmpty(text));
+
+        var exampleParts = memberIds
+            .Select(xmlDocs.GetExampleParts)
+            .FirstOrDefault(parts => parts.Count > 0)
+            ?? Array.Empty<(bool IsCode, string Content)>();
+
+        return new NamespaceDescription(summary, remarks, exampleParts);
     }
 
     /// <summary>

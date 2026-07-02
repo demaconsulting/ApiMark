@@ -51,6 +51,60 @@ public class DotNetEmitterGradualDisclosureTests
             "Expected a namespace page containing 'ApiMark.DotNet.Fixtures'");
     }
 
+    /// <summary>Validates that the NamespaceDoc XML remarks are emitted as a paragraph on the namespace page.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_NamespaceWithDoc_EmitsNamespaceRemarks()
+    {
+        // Arrange: the fixture namespace NamespaceDoc carrier declares <remarks>
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the NamespaceDoc remarks appear as a paragraph on the namespace page
+        var nsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
+        var paragraphs = nsWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Namespace-level remarks for verification", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that the NamespaceDoc XML example is emitted as a code block on the namespace page.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_NamespaceWithDoc_EmitsNamespaceExampleCodeBlock()
+    {
+        // Arrange: the fixture namespace NamespaceDoc carrier declares <example><code>
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the NamespaceDoc example code appears as a code block on the namespace page
+        var nsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
+        var codeBlocks = nsWriter.Operations.OfType<CodeBlockOperation>().Select(c => c.Code).ToList();
+        Assert.Contains(codeBlocks, c => c.Contains("var x = 1", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that a type's <c>&lt;remarks&gt;</c> numbered list is rendered as ordered Markdown items on the type page.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_TypeWithListRemarks_RendersNumberedListInMarkdown()
+    {
+        // Arrange: NumberListDocClass declares a <list type="number"> in its <remarks>
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the NumberListDocClass type page contains the rendered ordered list items
+        var typeWriter = factory.Writers["ApiMark.DotNet.Fixtures/NumberListDocClass"];
+        var paragraphs = typeWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Contains("1. Restore dependencies.", StringComparison.Ordinal) &&
+                 p.Contains("1. Run the tests.", StringComparison.Ordinal));
+    }
+
     /// <summary>Validates that the gradual-disclosure emitter creates a type page for SampleClass.</summary>
     [Fact]
     public void DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesTypePage()

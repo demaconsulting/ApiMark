@@ -77,8 +77,8 @@ internal sealed class DotNetEmitterGradualDisclosure
             var folderPath = GetNamespaceFolderPath(nsName, _model.RootNamespaces);
             var link = $"{folderPath}.md";
             var typeCount = _model.ByNamespace.TryGetValue(nsName, out var nsTypes) ? nsTypes.Count : 0;
-            var description = _model.NamespaceDescriptions.TryGetValue(nsName, out var desc) && !string.IsNullOrEmpty(desc)
-                ? desc
+            var description = _model.NamespaceDescriptions.TryGetValue(nsName, out var desc) && !string.IsNullOrEmpty(desc.Summary)
+                ? desc.Summary
                 : DotNetEmitter.NoDescriptionPlaceholder;
             return new[] { $"[{nsName}]({link})", typeCount.ToString(), description };
         });
@@ -139,11 +139,32 @@ internal sealed class DotNetEmitterGradualDisclosure
         using var nsWriter = factory.CreateMarkdown(subFolder, shortName);
         nsWriter.WriteHeading(1, namespaceName);
 
-        // Emit the namespace summary when one was supplied via the NamespaceDoc convention
-        if (ctx.NamespaceDescriptions.TryGetValue(namespaceName, out var nsSummary) &&
-            !string.IsNullOrEmpty(nsSummary))
+        // Emit the namespace documentation when one was supplied via the NamespaceDoc
+        // convention — summary, then remarks, then structured example parts, mirroring the
+        // type-level rendering used elsewhere
+        if (ctx.NamespaceDescriptions.TryGetValue(namespaceName, out var nsDescription))
         {
-            nsWriter.WriteParagraph(nsSummary);
+            if (!string.IsNullOrEmpty(nsDescription.Summary))
+            {
+                nsWriter.WriteParagraph(nsDescription.Summary);
+            }
+
+            if (!string.IsNullOrEmpty(nsDescription.Remarks))
+            {
+                nsWriter.WriteParagraph(nsDescription.Remarks);
+            }
+
+            foreach (var (isCode, content) in nsDescription.ExampleParts)
+            {
+                if (isCode)
+                {
+                    nsWriter.WriteCodeBlock("csharp", content);
+                }
+                else
+                {
+                    nsWriter.WriteParagraph(content);
+                }
+            }
         }
 
         // List immediate child namespaces (gradual disclosure — one level at a time)
@@ -159,8 +180,8 @@ internal sealed class DotNetEmitterGradualDisclosure
                 var childFolderPath = GetNamespaceFolderPath(child, ctx.RootNamespaces);
                 SplitPath(childFolderPath, out _, out var childShortName);
                 var link = $"{shortName}/{childShortName}.md";
-                var childDesc = ctx.NamespaceDescriptions.TryGetValue(child, out var desc) && !string.IsNullOrEmpty(desc)
-                    ? desc
+                var childDesc = ctx.NamespaceDescriptions.TryGetValue(child, out var desc) && !string.IsNullOrEmpty(desc.Summary)
+                    ? desc.Summary
                     : DotNetEmitter.NoDescriptionPlaceholder;
                 return new[] { $"[{child}]({link})", childDesc };
             });

@@ -1605,4 +1605,283 @@ public class XmlDocReaderTests
             File.Delete(path);
         }
     }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetRemarks"/> renders a bullet <c>&lt;list&gt;</c> as dash items.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_BulletList_RendersDashItems()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>
+              <list type="bullet">
+                <item><description>First item.</description></item>
+                <item><description>Second item.</description></item>
+              </list>
+              </remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert
+            Assert.NotNull(remarks);
+            var lines = remarks.Split('\n');
+            Assert.Contains("- First item.", lines);
+            Assert.Contains("- Second item.", lines);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetRemarks"/> renders a numbered <c>&lt;list&gt;</c> as ordered items.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_NumberList_RendersOrderedItems()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>
+              <list type="number">
+                <item><description>Restore.</description></item>
+                <item><description>Build.</description></item>
+              </list>
+              </remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert
+            Assert.NotNull(remarks);
+            var lines = remarks.Split('\n');
+            Assert.Contains("1. Restore.", lines);
+            Assert.Contains("1. Build.", lines);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetRemarks"/> renders a table <c>&lt;list&gt;</c> as a Markdown table.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_TableList_RendersMarkdownTable()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>
+              <list type="table">
+                <listheader><term>Name</term><description>Detail</description></listheader>
+                <item><term>A</term><description>Alpha</description></item>
+                <item><term>B</term><description>Beta</description></item>
+              </list>
+              </remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert
+            Assert.NotNull(remarks);
+            var lines = remarks.Split('\n');
+            Assert.Contains("| Name | Detail |", lines);
+            Assert.Contains("| --- | --- |", lines);
+            Assert.Contains("| A | Alpha |", lines);
+            Assert.Contains("| B | Beta |", lines);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that a <c>&lt;list&gt;</c> item with both <c>&lt;term&gt;</c> and <c>&lt;description&gt;</c> renders as a bold term followed by an em-dash and the description.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_ListItemWithTermAndDescription_RendersBoldTermDashDescription()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>
+              <list type="bullet">
+                <item><term>Key</term><description>The lookup key.</description></item>
+              </list>
+              </remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert
+            Assert.NotNull(remarks);
+            Assert.Contains("- **Key** — The lookup key.", remarks, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that inline elements such as <c>&lt;c&gt;</c> inside a <c>&lt;list&gt;</c> item are rendered via the inline-element dispatch.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_ListItemWithInlineCode_PreservesInlineRendering()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>
+              <list type="bullet">
+                <item><description>Use <c>Foo()</c> to start.</description></item>
+              </list>
+              </remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert
+            Assert.NotNull(remarks);
+            Assert.Contains("- Use `Foo()` to start.", remarks, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that a <c>&lt;list&gt;</c> surrounded by prose keeps a blank-line separation on each side so the Markdown list renders correctly.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_ListSurroundedByProse_KeepsBlankLineSeparation()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>
+              Prose before.
+              <list type="bullet">
+                <item><description>First item.</description></item>
+              </list>
+              Prose after.
+              </remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert: prose, the bullet, and trailing prose all appear on separate lines with a
+            // blank line separating the prose from the list block
+            Assert.NotNull(remarks);
+            var lines = remarks.Split('\n');
+            var proseBeforeIndex = Array.IndexOf(lines, "Prose before.");
+            var bulletIndex = Array.IndexOf(lines, "- First item.");
+            var proseAfterIndex = Array.IndexOf(lines, "Prose after.");
+            Assert.True(proseBeforeIndex >= 0, "Expected 'Prose before.' on its own line");
+            Assert.True(bulletIndex > proseBeforeIndex, "Expected the bullet after the leading prose");
+            Assert.True(proseAfterIndex > bulletIndex, "Expected trailing prose after the bullet");
+
+            // A blank line must exist between the leading prose and the bullet
+            Assert.Contains(lines[(proseBeforeIndex + 1)..bulletIndex], line => line.Length == 0);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that literal pipe characters in a <c>&lt;list type="table"&gt;</c> cell (for example a <c>&lt;c&gt;</c> code span containing <c>|</c>) are escaped as <c>\|</c> so the Markdown table stays well-formed.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_TableListCellWithPipe_EscapesPipe()
+    {
+        // Arrange: the description cell contains a code span with a literal pipe character,
+        // which would otherwise split the table row into extra columns.
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>
+              <list type="table">
+                <listheader><term>Name</term><description>Detail</description></listheader>
+                <item><term>Flags</term><description><c>Flags.A | Flags.B</c></description></item>
+              </list>
+              </remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert: the literal pipe inside the cell is escaped so the row keeps exactly two
+            // columns and the table structure is preserved.
+            Assert.NotNull(remarks);
+            var lines = remarks.Split('\n');
+            Assert.Contains(@"| Flags | `Flags.A \| Flags.B` |", lines);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that a <c>&lt;list&gt;</c> nested inside an <c>&lt;item&gt;</c>/<c>&lt;description&gt;</c> degrades to readable inline text on a single line, without emitting a stray newline that would break the surrounding Markdown list item.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_NestedListInsideItem_RendersInlineWithoutBrokenMarkdown()
+    {
+        // Arrange: a bullet list whose item description itself contains a nested list. A Markdown
+        // list item cannot contain a block-level nested list, so the nested content must collapse
+        // to inline text rather than emit row-breaking newlines.
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>
+              <list type="bullet">
+                <item><description>Outer item with nested list:
+                  <list type="bullet">
+                    <item><description>Inner one.</description></item>
+                    <item><description>Inner two.</description></item>
+                  </list>
+                </description></item>
+              </list>
+              </remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert: the outer item and both nested items render inline on a single bullet line;
+            // the nested items do not appear as their own broken bullet lines.
+            Assert.NotNull(remarks);
+            var lines = remarks.Split('\n');
+            Assert.Contains("- Outer item with nested list: - Inner one. - Inner two.", lines);
+            Assert.DoesNotContain("- Inner one.", lines);
+            Assert.DoesNotContain("- Inner two.", lines);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }
