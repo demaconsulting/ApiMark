@@ -198,3 +198,13 @@ sections:
                 tests:
                   - Context_Create_WithFlagValueForOutput_ThrowsArgumentException
                   - Context_Create_WithFlagValueForLog_ThrowsArgumentException
+              - id: ApiMarkTool-Cli-Context-ParseExcludes
+                title: Context shall parse repeated --exclude flags and accumulate
+                  each wildcard pattern into the Excludes array in order.
+                justification: |
+                  .NET projects pass one exclusion pattern per --exclude flag; the context must
+                  accumulate all supplied patterns in order so DotNetGenerator receives the
+                  complete ordered pattern list needed to filter namespaces and types.
+                tests:
+                  - Context_Create_WithExcludeOption_SetsExcludes
+                  - Context_Create_WithRepeatedExcludeFlags_AccumulatesAllPatternsInOrder
