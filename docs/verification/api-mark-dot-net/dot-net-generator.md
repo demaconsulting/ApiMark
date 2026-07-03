@@ -37,6 +37,10 @@ network dependency, or privileged configuration is needed.
   `{Namespace}/{TypeName}/{MemberName}.md` member detail pages.
 - Obsolete member filtering correctly excludes or includes types and members based on the
   IncludeObsolete option.
+- Exclude-pattern filtering correctly omits types and namespaces whose full
+  namespace-qualified name or containing namespace matches a configured wildcard
+  (`*`) exclude pattern, leaves unaffected types unchanged, and causes namespaces
+  that become fully excluded to disappear from every generated index and page.
 - Members implemented with a bare `<inheritdoc />` tag inherit interface-authored summaries
   and parameter descriptions on their generated member detail pages; the full pipeline from
   Mono.Cecil inheritance mapping through XmlDocReader resolution to emitted Markdown is

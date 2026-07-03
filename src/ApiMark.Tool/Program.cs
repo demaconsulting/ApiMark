@@ -265,6 +265,7 @@ internal static class Program
                 XmlDocPath = context.XmlDoc ?? string.Empty,
                 Visibility = visibility,
                 IncludeObsolete = context.IncludeObsolete,
+                ExcludePatterns = context.Excludes,
             }),
 
             // Construct a CppGenerator from the cpp-specific options; cast visibility via its
@@ -337,6 +338,7 @@ internal static class Program
         context.WriteLine("  --output <dir>             Output directory for Markdown files (required)");
         context.WriteLine("  --visibility <value>       Visibility filter: Public, PublicAndProtected, All (default: Public)");
         context.WriteLine("  --include-obsolete         Include obsolete members in generated output");
+        context.WriteLine("  --exclude <pattern>        Exclude namespaces/types matching a wildcard pattern (repeatable)");
         context.WriteLine("");
         context.WriteLine("cpp options:");
         context.WriteLine("  --includes <path>          Include directory for clang -I (repeatable, required)");

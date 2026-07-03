@@ -40,8 +40,8 @@ sections:
           - ApiMarkCpp-EmitExternalTypesSection
         tests: [CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint]
       - id: ApiMarkCpp-EmitExternalTypesSection
-        title: ApiMarkCpp shall render unrecognized non-std type references in an External
-          Types section on the affected page.
+        title: ApiMarkCpp shall render unrecognized non-std type references in an
+          External Types section on the affected page.
         justification: |
           When a documented type references a type outside the library and outside the
           C++ standard library, readers need a clear indication of the external dependency.
@@ -50,4 +50,5 @@ sections:
         children:
           - ApiMarkCpp-CppEmitter-RepresentExternalTypeInfo
           - ApiMarkCpp-CppTypeLinkResolver-LinkifyExternalTypeTracking
-        tests: [CppGenerator_Generate_ExternalTypeReference_EmitsExternalTypesSection]
+        tests:
+          - CppGenerator_Generate_ExternalTypeReference_EmitsExternalTypesSection

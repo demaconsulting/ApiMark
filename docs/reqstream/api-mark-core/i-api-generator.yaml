@@ -23,8 +23,8 @@ sections:
               - IApiGenerator_Parse_WithMinimalStub_ExecutesSuccessfully
               - IApiGenerator_Parse_NullContext_ThrowsArgumentNullException
           - id: ApiMarkCore-IApiGenerator-AcceptContextParameter
-            title: IApiGenerator.Parse shall accept an IContext parameter as the
-              caller-supplied diagnostic channel for informational and error output.
+            title: IApiGenerator.Parse shall accept an IContext parameter as the caller-supplied
+              diagnostic channel for informational and error output.
             justification: |
               IContext decouples generators from Console so output can be captured,
               suppressed, or redirected by the caller without changing the generator

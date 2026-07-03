@@ -47,7 +47,9 @@ task.
   (opt-in; when `true`, causes the generated `api/` folder to be included in the
   NuGet package via `TargetsForTfmSpecificContentInPackage`), and language-specific
   properties:
-  - .NET: `ApiMarkAssemblyPath`, `ApiMarkXmlDocPath`
+  - .NET: `ApiMarkAssemblyPath`, `ApiMarkXmlDocPath`, `ApiMarkExclude`
+    (semicolon-delimited wildcard patterns identifying namespaces/types to
+    exclude, forwarded as repeated `--exclude` flags; optional)
   - C++: `ApiMarkIncludePaths` (semicolon-delimited `-I` include roots),
     `ApiMarkLibraryName` (defaults to `$(MSBuildProjectName)` via `.targets`),
     `ApiMarkLibraryDescription` (optional), `ApiMarkApiHeaders`

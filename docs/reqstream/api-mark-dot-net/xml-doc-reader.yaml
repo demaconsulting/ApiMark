@@ -6,8 +6,8 @@ sections:
       - title: XmlDocReader Requirements
         requirements:
           - id: ApiMarkDotNet-XmlDocReader-ParseAndIndexXmlDocumentation
-            title: XmlDocReader shall read assembly documentation data from a .NET XML
-              documentation file.
+            title: XmlDocReader shall read assembly documentation data from a .NET
+              XML documentation file.
             justification: |
               Assembly documentation comes from compiler-produced XML files. XmlDocReader
               parses and indexes all documentation metadata — including summary, remarks,

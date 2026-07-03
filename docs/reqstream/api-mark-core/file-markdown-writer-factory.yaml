@@ -31,8 +31,8 @@ sections:
             tests:
               - FileMarkdownWriterFactory_Constructor_WhitespaceDirectory_ThrowsArgumentException
           - id: ApiMarkCore-FileMarkdownWriterFactory-RejectNullName
-            title: FileMarkdownWriterFactory shall throw ArgumentException when
-              CreateMarkdown is called with a null file name.
+            title: FileMarkdownWriterFactory shall throw ArgumentException when CreateMarkdown
+              is called with a null file name.
             justification: |
               A null name cannot produce a valid file path; failing at the call site
               produces a clear error immediately attributable to the misuse rather than
@@ -40,16 +40,16 @@ sections:
             tests:
               - FileMarkdownWriterFactory_CreateMarkdown_NullName_ThrowsArgumentException
           - id: ApiMarkCore-FileMarkdownWriterFactory-RejectEmptyName
-            title: FileMarkdownWriterFactory shall throw ArgumentException when
-              CreateMarkdown is called with an empty string file name.
+            title: FileMarkdownWriterFactory shall throw ArgumentException when CreateMarkdown
+              is called with an empty string file name.
             justification: |
               An empty file name cannot produce a valid file path; failing at the call
               site produces a clear error immediately attributable to the misuse.
             tests:
               - FileMarkdownWriterFactory_CreateMarkdown_EmptyName_ThrowsArgumentException
           - id: ApiMarkCore-FileMarkdownWriterFactory-RejectWhitespaceName
-            title: FileMarkdownWriterFactory shall throw ArgumentException when
-              CreateMarkdown is called with a whitespace-only file name.
+            title: FileMarkdownWriterFactory shall throw ArgumentException when CreateMarkdown
+              is called with a whitespace-only file name.
             justification: |
               A whitespace-only name cannot produce a valid file path; failing immediately
               prevents confusing downstream I/O errors.
@@ -57,13 +57,13 @@ sections:
               - FileMarkdownWriterFactory_CreateMarkdown_WhitespaceName_ThrowsArgumentException
           - id: ApiMarkCore-FileMarkdownWriterFactory-SupportRootLevelFiles
             title: FileMarkdownWriterFactory shall create a file directly under the
-              output root when CreateMarkdown is called with an empty or whitespace subFolder.
+              output root when CreateMarkdown is called with an empty or whitespace
+              subFolder.
             justification: |
               The api.md entrypoint file is always at the root of the output tree.
               Accepting an empty or whitespace subFolder without error allows generators to create
               that fixed entrypoint without special-casing.
-            tests:
-              - FileMarkdownWriterFactory_CreateMarkdown_RootLevel_CreatesFile
+            tests: [FileMarkdownWriterFactory_CreateMarkdown_RootLevel_CreatesFile]
           - id: ApiMarkCore-FileMarkdownWriterFactory-CreateOutputDirectoryOnUse
             title: FileMarkdownWriterFactory shall create the output directory tree
               (including the subFolder) if it does not exist before returning the

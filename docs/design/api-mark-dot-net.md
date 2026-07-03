@@ -115,7 +115,8 @@ N/A - not a safety-classified software item.
 ## Data Flow
 
 1. The caller (ApiMarkMsbuild or ApiMarkTool) constructs DotNetGeneratorOptions
-   with AssemblyPath, XmlDocPath, Visibility, and IncludeObsolete, then calls
+   with AssemblyPath, XmlDocPath, Visibility, IncludeObsolete, and ExcludePatterns,
+   then calls
    `DotNetGenerator.Parse(context)` to obtain a `DotNetEmitter`. The caller
    then passes an IMarkdownWriterFactory and an EmitConfig to
    `DotNetEmitter.Emit(factory, config, context)`.
@@ -166,6 +167,9 @@ N/A - not a safety-classified software item.
   System.Reflection API must not be used for assembly reflection.
 - Visibility filter: the Visibility option (Public, PublicAndProtected, All) must be
   applied before any member is written to output.
+- Exclude-pattern filter: ExcludePatterns wildcard matching is applied in the same
+  filtering pass as the visibility filter, so excluded namespaces and types never
+  appear in any generated index or page.
 
 ## Error Handling
 

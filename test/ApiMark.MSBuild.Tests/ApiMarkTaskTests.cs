@@ -111,6 +111,39 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> emits a separate
+    ///     <c>--exclude</c> flag for each pattern in <see cref="ApiMarkTask.ApiMarkExclude"/>
+    ///     when the property is semicolon-separated, rather than joining them into a single
+    ///     comma-separated value.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_DotNet_SpawnsToolWithCorrectExcludeArguments()
+    {
+        // Arrange: configure semicolon-separated exclude patterns for a dotnet invocation
+        var task = new ApiMarkTask
+        {
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/path/api.dll",
+            ApiMarkXmlDocPath = "/some/path/api.xml",
+            ApiMarkExclude = "Antlr4.*;MyNamespace.Generated.*",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet");
+
+        // Assert: each pattern must appear as a separate --exclude <pattern> pair
+        var argList = args.ToList();
+        var firstIdx = argList.IndexOf("--exclude");
+        var lastIdx = argList.LastIndexOf("--exclude");
+        Assert.True(firstIdx >= 0, "--exclude must be present");
+        Assert.NotEqual(firstIdx, lastIdx);
+        Assert.Equal("Antlr4.*", argList[firstIdx + 1]);
+        Assert.Equal("MyNamespace.Generated.*", argList[lastIdx + 1]);
+        Assert.DoesNotContain("Antlr4.*,MyNamespace.Generated.*", args);
+        Assert.DoesNotContain("Antlr4.*;MyNamespace.Generated.*", args);
+    }
+
+    /// <summary>
     ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> appends the <c>--output</c>
     ///     flag with the value of <see cref="ApiMarkTask.ApiMarkOutputDir"/> when that property
     ///     is set.

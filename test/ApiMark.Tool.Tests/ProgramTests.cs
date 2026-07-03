@@ -48,6 +48,50 @@ public class ProgramTests
     }
 
     /// <summary>
+    ///     Validates that invoking the <c>dotnet</c> subcommand with a repeatable
+    ///     <c>--exclude</c> flag exits with code 0 and omits the matching type's page
+    ///     from the generated output.
+    /// </summary>
+    [Fact]
+    public void Program_Main_DotNetWithExcludeFlag_ExcludesMatchingTypeFromOutput()
+    {
+        // Arrange: locate the fixture assembly and its XML doc using runtime type resolution
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+
+        try
+        {
+            // Act
+            var exitCode = Program.Main([
+                "dotnet",
+                "--assembly", assemblyPath,
+                "--xml-doc", xmlDocPath,
+                "--output", outputDir,
+                "--exclude", "ApiMark.DotNet.Fixtures.SampleClass",
+            ]);
+
+            // Assert: tool exits successfully, still produces the entrypoint, but omits
+            // the page for the excluded type
+            Assert.Equal(0, exitCode);
+            Assert.True(
+                File.Exists(Path.Join(outputDir, "api.md")),
+                "Expected api.md in output directory");
+            Assert.False(
+                File.Exists(Path.Join(outputDir, "ApiMark.DotNet.Fixtures", "SampleClass.md")),
+                "Expected SampleClass.md to be omitted when excluded via --exclude");
+        }
+        finally
+        {
+            // Clean up the temporary output directory
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
     ///     Validates that supplying an unrecognized <c>--visibility</c> value exits
     ///     with a non-zero code and writes an error message containing the invalid value.
     /// </summary>

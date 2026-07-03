@@ -103,6 +103,13 @@ internal sealed class Context : IContext, IDisposable
     public bool IncludeObsolete { get; private init; }
 
     /// <summary>
+    ///     Gets the wildcard exclude patterns for the .NET language subcommand.
+    ///     Contains patterns collected from repeated <c>--exclude</c> invocations; each pattern
+    ///     may contain <c>*</c> as a wildcard and is matched against full namespace and type names.
+    /// </summary>
+    public string[] Excludes { get; private init; } = [];
+
+    /// <summary>
     ///     Gets the library name used as the top-level heading in C++ documentation.
     ///     Optional — when <see langword="null"/>, the tool defaults to the output directory name.
     /// </summary>
@@ -184,6 +191,7 @@ internal sealed class Context : IContext, IDisposable
             Output = parser.Output,
             Visibility = parser.Visibility,
             IncludeObsolete = parser.IncludeObsolete,
+            Excludes = [.. parser.Excludes],
             LibraryName = parser.LibraryName,
             LibraryDescription = parser.LibraryDescription,
             Defines = parser.Defines,
@@ -372,6 +380,13 @@ internal sealed class Context : IContext, IDisposable
         public bool IncludeObsolete { get; private set; }
 
         /// <summary>
+        ///     Gets the wildcard exclude patterns for the .NET language subcommand.
+        ///     Accumulated by repeated <c>--exclude</c> invocations; each invocation appends
+        ///     one <c>*</c>-wildcard pattern matched against full namespace and type names.
+        /// </summary>
+        public List<string> Excludes { get; } = new List<string>();
+
+        /// <summary>
         ///     Gets the library name for the C++ documentation root heading.
         ///     Optional — when <see langword="null"/>, the tool derives it from the output directory.
         /// </summary>
@@ -527,6 +542,15 @@ internal sealed class Context : IContext, IDisposable
                 case "--include-obsolete":
                     IncludeObsolete = true;
                     return index;
+
+                case "--exclude":
+                    {
+                        // Append each --exclude invocation as one wildcard pattern
+                        // — repeated --exclude flags accumulate the full list
+                        var pattern = GetRequiredStringArgument(arg, args, index, "a wildcard pattern argument");
+                        Excludes.Add(pattern);
+                        return index + 1;
+                    }
 
                 case "--library-name":
                     LibraryName = GetRequiredStringArgument(arg, args, index, "a library name argument");

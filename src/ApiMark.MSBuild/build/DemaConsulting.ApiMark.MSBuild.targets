@@ -61,6 +61,7 @@
       ApiMarkFormat="$(ApiMarkFormat)"
       ApiMarkAssemblyPath="$(ApiMarkAssemblyPath)"
       ApiMarkXmlDocPath="$(ApiMarkXmlDocPath)"
+      ApiMarkExclude="$(ApiMarkExclude)"
       ApiMarkIncludePaths="$(ApiMarkIncludePaths)"
       ApiMarkApiHeaders="$(ApiMarkApiHeaders)"
       ApiMarkLibraryName="$(ApiMarkLibraryName)"

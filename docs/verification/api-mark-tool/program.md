@@ -18,6 +18,8 @@ output directory. No external service, privileged configuration, or network acce
 
 - All `Program` integration tests pass with zero failures.
 - `apimark dotnet` with valid arguments generates the expected output and returns exit code zero.
+- `apimark dotnet --exclude <pattern>` is accepted and omits the matching type's page from
+  generated output while still returning exit code zero.
 - Invalid subcommands and missing required arguments return a non-zero exit code with descriptive
   error text.
 - Invalid visibility option values are rejected with a non-zero exit code.

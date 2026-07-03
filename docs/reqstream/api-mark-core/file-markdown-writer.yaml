@@ -8,7 +8,7 @@ sections:
           - id: ApiMarkCore-FileMarkdownWriter-WriteHeadingAsAtxSyntax
             title: >-
               FileMarkdownWriter shall write ATX-style headings using the
-              correct number of # characters for the requested heading level.
+              correct number of  # characters for the requested heading level.
             justification: |
               Generated Markdown files use headings to provide navigable structure.
               ATX-style headings are universally supported and produce correct
@@ -23,21 +23,19 @@ sections:
               API signatures require distinct code-block rendering so they are
               visually separated from prose and recognized by syntax highlighters
               in downstream tools and AI consumers.
-            tests:
-              - FileMarkdownWriter_WriteSignature_ValidArgs_WritesCodeFence
+            tests: [FileMarkdownWriter_WriteSignature_ValidArgs_WritesCodeFence]
           - id: ApiMarkCore-FileMarkdownWriter-WriteParagraphAsText
-            title: FileMarkdownWriter shall write prose paragraphs as plain text
-              followed by a blank line.
+            title: FileMarkdownWriter shall write prose paragraphs as plain text followed
+              by a blank line.
             justification: |
               Summaries, remarks, and return descriptions are prose paragraphs.
               A trailing blank line correctly closes the Markdown paragraph block
               so that subsequent elements are rendered separately.
-            tests:
-              - FileMarkdownWriter_WriteParagraph_ValidText_WritesParagraphText
+            tests: [FileMarkdownWriter_WriteParagraph_ValidText_WritesParagraphText]
           - id: ApiMarkCore-FileMarkdownWriter-WriteTableAsPipeTable
             title: FileMarkdownWriter shall write tables as pipe-delimited GFM tables
-              with a header row, a separator row of dashes, and data rows. Pipe
-              characters in cell values shall be escaped as \|.
+              with a header row, a separator row of dashes, and data rows. Pipe characters
+              in cell values shall be escaped as \|.
             justification: |
               Namespace, type, and member summaries use tables for compact scanning.
               Pipe escaping prevents structural breakage when API names or descriptions
@@ -51,8 +49,7 @@ sections:
             justification: |
               Usage examples and multi-line code snippets require fenced code block
               rendering to remain readable and syntax-aware in Markdown viewers.
-            tests:
-              - FileMarkdownWriter_WriteCodeBlock_ValidArgs_WritesCodeFence
+            tests: [FileMarkdownWriter_WriteCodeBlock_ValidArgs_WritesCodeFence]
           - id: ApiMarkCore-FileMarkdownWriter-WriteLinkAsMarkdownLink
             title: FileMarkdownWriter shall write navigation links as standard inline
               Markdown links with the supplied text and relative path.
@@ -60,17 +57,15 @@ sections:
               Gradual disclosure depends on explicit links between generated files.
               Inline Markdown link syntax is universally supported and produces
               clickable navigation in all standard renderers.
-            tests:
-              - FileMarkdownWriter_WriteLink_ValidArgs_WritesMarkdownLink
+            tests: [FileMarkdownWriter_WriteLink_ValidArgs_WritesMarkdownLink]
           - id: ApiMarkCore-FileMarkdownWriter-FlushAndCloseOnDispose
-            title: FileMarkdownWriter shall flush all pending content and release the
-              underlying file handle when Dispose is called.
+            title: FileMarkdownWriter shall flush all pending content and release
+              the underlying file handle when Dispose is called.
             justification: |
               Generators create one writer per output file and dispose it when done.
               Flushing on disposal ensures content is written to disk before callers
               proceed, and releasing the handle prevents resource leaks.
-            tests:
-              - FileMarkdownWriter_Dispose_AfterWrite_FlushesAndClosesFile
+            tests: [FileMarkdownWriter_Dispose_AfterWrite_FlushesAndClosesFile]
           - id: ApiMarkCore-FileMarkdownWriter-WriteHeadingRejectInvalidLevel
             title: FileMarkdownWriter shall throw ArgumentOutOfRangeException when
               WriteHeading is called with a level less than 1 or greater than 6.
@@ -82,8 +77,8 @@ sections:
               - FileMarkdownWriter_WriteHeading_ZeroLevel_ThrowsArgumentOutOfRangeException
               - FileMarkdownWriter_WriteHeading_SevenLevel_ThrowsArgumentOutOfRangeException
           - id: ApiMarkCore-FileMarkdownWriter-ThrowObjectDisposedAfterDispose
-            title: FileMarkdownWriter shall throw ObjectDisposedException when any write
-              method is called after the writer has been disposed.
+            title: FileMarkdownWriter shall throw ObjectDisposedException when any
+              write method is called after the writer has been disposed.
             justification: |
               Generators rely on deterministic resource cleanup; accepting write calls
               on a disposed writer would silently discard content. Throwing immediately
@@ -152,8 +147,7 @@ sections:
             justification: |
               A null display label cannot produce a valid inline Markdown link; rejecting
               it at the call site surfaces the programming error immediately.
-            tests:
-              - FileMarkdownWriter_WriteLink_NullText_ThrowsArgumentNullException
+            tests: [FileMarkdownWriter_WriteLink_NullText_ThrowsArgumentNullException]
           - id: ApiMarkCore-FileMarkdownWriter-RejectNullLinkRelativePath
             title: FileMarkdownWriter shall throw ArgumentNullException when WriteLink
               is called with a null relativePath parameter.
@@ -163,8 +157,8 @@ sections:
             tests:
               - FileMarkdownWriter_WriteLink_NullRelativePath_ThrowsArgumentNullException
           - id: ApiMarkCore-FileMarkdownWriter-RejectEmptyHeaders
-            title: FileMarkdownWriter shall throw ArgumentException when WriteTable is
-              called with an empty headers array.
+            title: FileMarkdownWriter shall throw ArgumentException when WriteTable
+              is called with an empty headers array.
             justification: |
               A table with no header columns is not valid GFM syntax and cannot be
               rendered as a table by any standard Markdown processor. Rejecting empty
@@ -172,8 +166,9 @@ sections:
             tests:
               - FileMarkdownWriter_WriteTable_EmptyHeaders_ThrowsArgumentException
           - id: ApiMarkCore-FileMarkdownWriter-RejectMismatchedRowLength
-            title: FileMarkdownWriter shall throw ArgumentException when WriteTable is
-              called with a row that has a different number of cells than the headers array.
+            title: FileMarkdownWriter shall throw ArgumentException when WriteTable
+              is called with a row that has a different number of cells than the headers
+              array.
             justification: |
               A row whose column count differs from the header count produces a structurally
               malformed pipe table that will not render correctly in any standard Markdown
@@ -182,26 +177,24 @@ sections:
             tests:
               - FileMarkdownWriter_WriteTable_MismatchedRowLength_ThrowsArgumentException
           - id: ApiMarkCore-FileMarkdownWriter-RejectEmptyHeadingText
-            title: FileMarkdownWriter shall throw ArgumentException when WriteHeading is
-              called with an empty text parameter.
+            title: FileMarkdownWriter shall throw ArgumentException when WriteHeading
+              is called with an empty text parameter.
             justification: |
               A heading with no text produces an ATX prefix with no label (e.g. "# "),
               which is not meaningful Markdown and indicates a generator defect. Rejecting
               empty text immediately provides a clear diagnostic.
-            tests:
-              - FileMarkdownWriter_WriteHeading_EmptyText_ThrowsArgumentException
+            tests: [FileMarkdownWriter_WriteHeading_EmptyText_ThrowsArgumentException]
           - id: ApiMarkCore-FileMarkdownWriter-RejectEmptyLinkText
-            title: FileMarkdownWriter shall throw ArgumentException when WriteLink is
-              called with an empty text parameter.
+            title: FileMarkdownWriter shall throw ArgumentException when WriteLink
+              is called with an empty text parameter.
             justification: |
               A link with no visible label (e.g. "[](path)") is not navigable and
               indicates a generator defect. Rejecting empty text immediately provides a
               clear diagnostic and prevents silent generation of unusable navigation links.
-            tests:
-              - FileMarkdownWriter_WriteLink_EmptyText_ThrowsArgumentException
+            tests: [FileMarkdownWriter_WriteLink_EmptyText_ThrowsArgumentException]
           - id: ApiMarkCore-FileMarkdownWriter-RejectNullRowElements
-            title: FileMarkdownWriter shall throw ArgumentException when WriteTable is
-              called with a rows sequence that contains a null element.
+            title: FileMarkdownWriter shall throw ArgumentException when WriteTable
+              is called with a rows sequence that contains a null element.
             justification: |
               A null row reference within the rows enumerable cannot be formatted as table
               cells and would cause a NullReferenceException in rendering logic. Rejecting
@@ -210,8 +203,8 @@ sections:
             tests:
               - FileMarkdownWriter_WriteTable_NullRowElement_ThrowsArgumentException
           - id: ApiMarkCore-FileMarkdownWriter-RejectNullHeaderElements
-            title: FileMarkdownWriter shall throw ArgumentException when WriteTable is
-              called with a headers array that contains a null element.
+            title: FileMarkdownWriter shall throw ArgumentException when WriteTable
+              is called with a headers array that contains a null element.
             justification: |
               A null header element cannot produce a valid column label in a pipe-delimited
               table and would cause a NullReferenceException in rendering logic. Rejecting
@@ -220,8 +213,8 @@ sections:
             tests:
               - FileMarkdownWriter_WriteTable_NullHeaderElement_ThrowsArgumentException
           - id: ApiMarkCore-FileMarkdownWriter-RejectNullCellElements
-            title: FileMarkdownWriter shall throw ArgumentException when WriteTable is
-              called with a row that contains a null cell element.
+            title: FileMarkdownWriter shall throw ArgumentException when WriteTable
+              is called with a row that contains a null cell element.
             justification: |
               A null cell within a row cannot be rendered as Markdown table content and
               would cause a NullReferenceException in rendering logic. Rejecting null cell

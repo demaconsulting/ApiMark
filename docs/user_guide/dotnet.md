@@ -32,6 +32,7 @@ apimark dotnet [options]
 | `--format <value>` | Output format: `gradual` (file-per-type) or `single-file` (single `api.md`) (default: `gradual`) |
 | `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `Public`) |
 | `--include-obsolete` | Include obsolete members in generated output |
+| `--exclude <pattern>` | Exclude namespaces/types matching a wildcard pattern (repeatable) |
 
 ## Documented Constructs
 
@@ -75,6 +76,17 @@ Nested types get their own page in the gradual-disclosure tree and also appear i
 
 Members annotated with `[Obsolete]` are excluded from the output by default. Pass
 `--include-obsolete` to include them.
+
+### Excluding Namespaces and Types
+
+Pass one or more `--exclude <pattern>` flags to omit namespaces and types from
+generated documentation, such as ANTLR-generated parser code. Each pattern may
+contain `*` as a wildcard matching any sequence of characters and is matched
+against both a type's full namespace-qualified name and its containing
+namespace. For example, `--exclude "Antlr4.*"` excludes every namespace and
+type under `Antlr4`. A namespace whose every type is excluded (whether by
+`--exclude` or by the visibility/obsolete filters above) does not appear in
+any generated index or page.
 
 ## Doc Comments
 
@@ -158,6 +170,7 @@ After the next `dotnet build`, documentation is written to `$(MSBuildProjectDire
 | `ApiMarkXmlDocPath` | `$(DocumentationFile)` | Path to the XML documentation file |
 | `ApiMarkVisibility` | `Public` | Visibility filter: `Public`, `PublicAndProtected`, `All` |
 | `ApiMarkIncludeObsolete` | `false` | Include `[Obsolete]` members in generated output |
+| `ApiMarkExclude` | (empty) | Semicolon-separated wildcard patterns identifying namespaces/types to exclude, e.g. `Antlr4.*;MyNamespace.Generated.*` |
 
 See the *MSBuild Integration* section for common properties (`ApiMarkOutputDir`,
 `ApiMarkFormat`, `DisableApiMark`, `ApiMarkPackDocs`) that apply to all project types.

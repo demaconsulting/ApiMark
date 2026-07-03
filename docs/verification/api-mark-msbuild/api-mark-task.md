@@ -32,6 +32,8 @@ MSBuild and VC++ tools installed; those tests skip gracefully when the package i
 - `ApiMarkOutputDir` is forwarded as `--output` in all cases.
 - `ApiMarkVisibility` is forwarded as `--visibility` when set.
 - `ApiMarkIncludeObsolete` is forwarded as `--include-obsolete` when true.
+- For the `dotnet` language, `ApiMarkExclude` is split on `;` and each non-empty
+  trimmed entry is forwarded as a separate `--exclude` argument.
 - `DisableApiMark` suppresses tool invocation and returns true with no side effects.
 - A non-zero exit code from the spawned tool causes Execute to return false and log a
   MSBuild error.

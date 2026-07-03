@@ -7,7 +7,8 @@ sections:
         requirements:
           - id: DemaConsultingTestResults-Results-RecordTestOutcomes
             title: >-
-              DemaConsulting.TestResults shall support collecting individual test case
+              DemaConsulting.TestResults shall support collecting individual test
+              case
               outcomes into a reportable collection.
             justification: |
               The SelfTest subsystem must collect pass/fail evidence for each self-validation
@@ -20,8 +21,10 @@ sections:
               - Validation_Run_WithResultsXmlFile_CreatesXmlFile
           - id: DemaConsultingTestResults-Results-SerializeToTrx
             title: >-
-              DemaConsulting.TestResults shall serialize a collected test results set
-              to TRX format so that self-validation results can be consumed by CI test
+              DemaConsulting.TestResults shall serialize a collected test results
+              set
+              to TRX format so that self-validation results can be consumed by CI
+              test
               reporting tools.
             justification: |
               CI pipelines and test dashboards commonly consume TRX format for result aggregation
@@ -30,8 +33,10 @@ sections:
             tests: [Validation_Run_WithResultsTrxFile_CreatesTrxFile]
           - id: DemaConsultingTestResults-Results-SerializeToJUnit
             title: >-
-              DemaConsulting.TestResults shall serialize a collected test results set
-              to JUnit XML format so that self-validation results can be consumed by
+              DemaConsulting.TestResults shall serialize a collected test results
+              set
+              to JUnit XML format so that self-validation results can be consumed
+              by
               non-Microsoft CI tools.
             justification: |
               JUnit XML is the de-facto standard for test result interchange in many CI systems

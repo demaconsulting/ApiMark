@@ -26,8 +26,7 @@ sections:
               inheritance relationships across headers are available for accurate documentation
               generation; invoking clang directly produces a complete, standards-compliant AST
               without requiring a bundled parser library.
-            tests:
-              - CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint
+            tests: [CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint]
           - id: ApiMarkCpp-CppGenerator-FilterDeclarationsByOwnership
             title: >-
               CppGenerator shall apply a file-provenance filter that documents only
@@ -49,7 +48,8 @@ sections:
           - id: ApiMarkCpp-CppGenerator-EmitDetailPageForEveryMember
             title: >-
               CppGenerator shall emit a dedicated detail page for every visible non-operator
-              class member and every regular free-function category entry, except where
+              class member and every regular free-function category entry, except
+              where
               case-insensitive collisions require a shared member page.
             justification: |
               Dedicated detail pages keep navigation deterministic for visible non-operator
@@ -116,32 +116,35 @@ sections:
               - ApiMarkCpp-CppGenerator-RenderCodeExampleDocComments
               - ApiMarkCpp-CppGenerator-RenderMissingCommentPlaceholder
           - id: ApiMarkCpp-CppGenerator-RenderBriefDocComment
-            title: CppGenerator shall render @brief text as the declaration summary paragraph.
+            title: CppGenerator shall render @brief text as the declaration summary
+              paragraph.
             justification: |
               The summary paragraph is the primary description shown on type and member pages.
             tests:
               - CppGenerator_Generate_TypeWithDocComment_WritesSummaryToParagraph
               - CppGenerator_Generate_MethodWithDocComment_WritesSummaryToParagraph
           - id: ApiMarkCpp-CppGenerator-RenderParamAndReturnDocComments
-            title: CppGenerator shall render @param and @return text in their corresponding sections.
+            title: CppGenerator shall render @param and @return text in their corresponding
+              sections.
             justification: |
               Parameter and return documentation are necessary for correct API consumption.
             tests:
               - CppGenerator_Generate_MethodWithParameters_CreatesMemberPage
               - CppGenerator_Generate_IntraLibraryReturnType_EmitsMarkdownLinkInReturnsCell
           - id: ApiMarkCpp-CppGenerator-RenderCodeExampleDocComments
-            title: CppGenerator shall render @code/@endcode blocks as fenced code examples.
+            title: CppGenerator shall render @code/@endcode blocks as fenced code
+              examples.
             justification: |
               Example blocks provide usage guidance without requiring readers to open source files.
             tests:
               - CppGenerator_Generate_MethodWithCodeExample_EmitsCodeBlockOnMemberPage
               - CppGenerator_SingleFile_MethodWithCodeExample_EmitsCodeBlock
           - id: ApiMarkCpp-CppGenerator-RenderMissingCommentPlaceholder
-            title: CppGenerator shall emit a standard placeholder when a declaration has no doc comment.
+            title: CppGenerator shall emit a standard placeholder when a declaration
+              has no doc comment.
             justification: |
               A consistent placeholder makes undocumented symbols obvious while keeping the page shape stable.
-            tests:
-              - CppGenerator_Generate_MissingDocComment_WritesPlaceholder
+            tests: [CppGenerator_Generate_MissingDocComment_WritesPlaceholder]
           - id: ApiMarkCpp-CppGenerator-ProduceConsistentOutputFileStructure
             title: CppGenerator shall produce output files following a consistent
               naming convention.
@@ -161,8 +164,7 @@ sections:
               a single read. The declaration count (classes + enums + free functions) provides
               scope signal so an AI can calibrate how deeply to explore each namespace without
               opening it first.
-            tests:
-              - CppGenerator_Generate_ApiMd_ListsNamespacesWithTypeCount
+            tests: [CppGenerator_Generate_ApiMd_ListsNamespacesWithTypeCount]
           - id: ApiMarkCpp-CppGenerator-GroupOperatorOverloadsOnSinglePage
             title: >-
               CppGenerator shall group all operator overloads for a class onto a single
@@ -227,7 +229,8 @@ sections:
               - CppGenerator_Generate_ApiHeaderPatterns_ExcludeWithoutReInclude_ExcludesHeader
           - id: ApiMarkCpp-CppGenerator-SupportAbsoluteHeaderPatterns
             title: >-
-              CppGenerator shall support absolute ApiHeaderPatterns glob patterns by
+              CppGenerator shall support absolute ApiHeaderPatterns glob patterns
+              by
               forwarding them directly to GlobFileCollector without WorkingDirectory
               resolution.
             justification: |
@@ -297,5 +300,4 @@ sections:
               Parse cannot emit diagnostics without a valid context channel. Failing fast
               with ArgumentNullException ensures callers receive a clear error rather than
               a null-reference failure deep inside the generation pipeline.
-            tests:
-              - CppGenerator_Parse_NullContext_ThrowsArgumentNullException
+            tests: [CppGenerator_Parse_NullContext_ThrowsArgumentNullException]

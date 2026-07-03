@@ -52,9 +52,22 @@ sections:
               Teams sometimes need complete historical reference output and sometimes need
               only the actively supported API surface, so obsolete items must be controllable.
             tests: [DotNetGenerator_IncludeObsolete_Toggle_ControlsObsoleteOutput]
+          - id: ApiMarkDotNet-DotNetGenerator-FilterByExcludePattern
+            title: DotNetGenerator shall exclude types and namespaces matching a configured
+              wildcard exclude pattern from all generated output, including indexes.
+            justification: |
+              Teams documenting assemblies that bundle generated code (such as ANTLR parser
+              output) need a way to omit entire namespaces or specific types from generated
+              documentation without modifying the source. Applying exclude-pattern filtering
+              in the same pass as visibility/obsolete filtering ensures excluded namespaces
+              never appear in any index, namespace summary, or type page.
+            tests:
+              - DotNetGenerator_Generate_ExactExcludePattern_RemovesOnlyMatchingType
+              - DotNetGenerator_Generate_WildcardExcludePattern_RemovesEntireNamespaceFromIndex
+              - DotNetGenerator_Generate_NonMatchingExcludePattern_LeavesOutputUnaffected
           - id: ApiMarkDotNet-DotNetGenerator-RecognizeNamespaceDocCarrierClass
-            title: DotNetGenerator shall recognize internal static NamespaceDoc classes as
-              namespace documentation carriers.
+            title: DotNetGenerator shall recognize internal static NamespaceDoc classes
+              as namespace documentation carriers.
             justification: |
               The NamespaceDoc convention is the standard way to attach documentation to a
               namespace in C#. ApiMark must identify these carrier classes so their XML
@@ -63,16 +76,16 @@ sections:
               - DotNetGenerator_Generate_NamespaceDocClass_ExcludedFromTypeListing
               - DotNetGenerator_NamespacePage_NamespaceDocSummary_AppearsAsNamespaceDescription
           - id: ApiMarkDotNet-DotNetGenerator-ExcludeNamespaceDocCarrierFromTypeListing
-            title: DotNetGenerator shall exclude NamespaceDoc carrier classes from generated
-              type listings.
+            title: DotNetGenerator shall exclude NamespaceDoc carrier classes from
+              generated type listings.
             justification: |
               Including the carrier class in type listings would pollute the API surface with
               an implementation detail not intended for public consumption.
             tests:
               - DotNetGenerator_Generate_NamespaceDocClass_ExcludedFromTypeListing
           - id: ApiMarkDotNet-DotNetGenerator-UseNamespaceDocSummaryAsNamespaceDescription
-            title: DotNetGenerator shall use the XML summary of a NamespaceDoc class as the
-              description for its containing namespace.
+            title: DotNetGenerator shall use the XML summary of a NamespaceDoc class
+              as the description for its containing namespace.
             justification: |
               Developer-authored namespace descriptions belong in the published API reference.
               The NamespaceDoc carrier class is the standard mechanism for providing this
@@ -110,8 +123,8 @@ sections:
             tests:
               - DotNetGenerator_Generate_XmlDocMissing_ThrowsFileNotFoundException
           - id: ApiMarkDotNet-DotNetGenerator-RejectNullOptions
-            title: DotNetGenerator constructor shall throw ArgumentNullException when options
-              is null.
+            title: DotNetGenerator constructor shall throw ArgumentNullException when
+              options is null.
             justification: |
               Null options would produce a NullReferenceException at an unpredictable point
               during generation. Rejecting null at construction gives the caller a precise,
@@ -119,16 +132,16 @@ sections:
             tests:
               - DotNetGenerator_Constructor_NullOptions_ThrowsArgumentNullException
           - id: ApiMarkDotNet-DotNetGenerator-RejectNullContext
-            title: DotNetGenerator.Parse shall throw ArgumentNullException when context is null.
+            title: DotNetGenerator.Parse shall throw ArgumentNullException when context
+              is null.
             justification: |
               A null context would produce a NullReferenceException at the first
               context.WriteLine call. Rejecting null eagerly gives the caller a precise,
               actionable failure.
-            tests:
-              - DotNetGenerator_Parse_NullContext_ThrowsArgumentNullException
+            tests: [DotNetGenerator_Parse_NullContext_ThrowsArgumentNullException]
           - id: ApiMarkDotNet-DotNetGenerator-BuildInheritanceChainForInheritDoc
-            title: DotNetGenerator shall build and supply an inheritance chain map from
-              assembly metadata to XmlDocReader to enable bare inheritdoc resolution.
+            title: DotNetGenerator shall build and supply an inheritance chain map
+              from assembly metadata to XmlDocReader to enable bare inheritdoc resolution.
             justification: |
               Bare inheritdoc elements (without a cref attribute) require an inheritance
               chain map to resolve the correct base documentation. Building this map at

@@ -15,8 +15,7 @@ sections:
               JSON-deserialization logic isolated from the higher-level generation
               logic, making each unit independently testable.
             children: [ApiMarkCpp-ClangAstParser-ParseHeaders]
-            tests:
-              - ClangAstParser_Parse_FixtureHeaders_ReturnsNonEmptyNamespaces
+            tests: [ClangAstParser_Parse_FixtureHeaders_ReturnsNonEmptyNamespaces]
           - id: ApiMarkCpp-ClangAstParser-ParseHeaders
             title: >-
               ClangAstParser.Parse shall accept a list of C++ header file paths and

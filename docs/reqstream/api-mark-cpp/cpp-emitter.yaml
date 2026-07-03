@@ -39,8 +39,7 @@ sections:
             justification: |
               Emission cannot proceed without a writer factory, so null input must fail
               immediately with a clear argument error.
-            tests:
-              - CppEmitter_Emit_NullFactory_ThrowsArgumentNullException
+            tests: [CppEmitter_Emit_NullFactory_ThrowsArgumentNullException]
           - id: ApiMarkCpp-CppEmitter-SanitizeFileName
             title: >-
               CppEmitter shall replace any invalid filesystem character in an output
