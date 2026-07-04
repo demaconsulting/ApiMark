@@ -178,6 +178,8 @@ public class DotNetGeneratorTests
         Assert.False(
             factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ExcludedSample"),
             "The ExcludedSample namespace page should not exist once fully excluded");
+        var apiIndexLinks = factory.Writers["api"].Operations.OfType<LinkOperation>();
+        Assert.DoesNotContain(apiIndexLinks, link => link.RelativePath.Contains("ExcludedSample"));
     }
 
     /// <summary>Validates that a non-matching exclude pattern leaves all other output unaffected (regression guard).</summary>

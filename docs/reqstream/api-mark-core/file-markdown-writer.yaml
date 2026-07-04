@@ -8,7 +8,7 @@ sections:
           - id: ApiMarkCore-FileMarkdownWriter-WriteHeadingAsAtxSyntax
             title: >-
               FileMarkdownWriter shall write ATX-style headings using the
-              correct number of  # characters for the requested heading level.
+              correct number of # characters for the requested heading level.
             justification: |
               Generated Markdown files use headings to provide navigable structure.
               ATX-style headings are universally supported and produce correct

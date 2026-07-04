@@ -575,10 +575,13 @@ public sealed class DotNetGenerator : IApiGenerator
     ///     Compiles a list of <c>*</c>-wildcard exclude patterns into anchored, case-sensitive
     ///     regular expressions suitable for matching full namespace and type names.
     /// </summary>
-    /// <param name="patterns">The wildcard patterns to compile. May be empty.</param>
-    /// <returns>The compiled regular expressions, in the same order as <paramref name="patterns"/>.</returns>
-    private static List<Regex> CompileExcludePatterns(IReadOnlyList<string> patterns) =>
-        patterns
+    /// <param name="patterns">The wildcard patterns to compile. May be <see langword="null"/> or empty, and
+    /// may contain <see langword="null"/> or whitespace-only entries, which are ignored.</param>
+    /// <returns>The compiled regular expressions, in the same order as the non-empty entries of <paramref name="patterns"/>.</returns>
+    private static List<Regex> CompileExcludePatterns(IReadOnlyList<string>? patterns) =>
+        (patterns ?? [])
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p.Trim())
             .Select(p => "^" + string.Join(".*", p.Split('*').Select(Regex.Escape)) + "$")
             .Select(p => new Regex(p, RegexOptions.Compiled | RegexOptions.CultureInvariant))
             .ToList();
