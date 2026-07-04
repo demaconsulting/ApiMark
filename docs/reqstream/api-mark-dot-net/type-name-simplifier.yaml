@@ -23,7 +23,8 @@ sections:
             justification: |
               Documentation should present nullable value types using standard C# syntax
               rather than the more verbose Nullable<T> representation.
-            tests: [TypeNameSimplifier_Simplify_NullableValueTypes_UseQuestionMarkForm]
+            tests:
+              - TypeNameSimplifier_Simplify_NullableValueTypes_UseQuestionMarkForm
           - id: ApiMarkDotNet-TypeNameSimplifier-SimplifyWellKnownNamespaces
             title: TypeNameSimplifier shall use unqualified names for types in well-known
               namespaces.
@@ -31,7 +32,8 @@ sections:
               Types from System.Collections.Generic and System.Threading.Tasks appear
               frequently in public APIs and are universally recognized without their
               namespace prefix, keeping signatures compact.
-            tests: [TypeNameSimplifier_Simplify_WellKnownNamespaceTypes_RenderWithoutNamespace]
+            tests:
+              - TypeNameSimplifier_Simplify_WellKnownNamespaceTypes_RenderWithoutNamespace
           - id: ApiMarkDotNet-TypeNameSimplifier-SimplifyContextNamespaceTypes
             title: TypeNameSimplifier shall strip the context namespace prefix from
               types in the same or nested namespace.
@@ -47,7 +49,8 @@ sections:
             justification: |
               Complex APIs frequently nest generic types, so simplification has to work at
               every level to prevent signatures from becoming unreadable.
-            tests: [TypeNameSimplifier_Simplify_GenericArguments_AreSimplifiedRecursively]
+            tests:
+              - TypeNameSimplifier_Simplify_GenericArguments_AreSimplifiedRecursively
           - id: ApiMarkDotNet-TypeNameSimplifier-AppendNullableReferenceSuffix
             title: TypeNameSimplifier shall append ? to nullable reference types.
             justification: |

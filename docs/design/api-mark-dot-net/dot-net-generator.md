@@ -53,6 +53,12 @@ of access modifier).
 **DotNetGeneratorOptions.IncludeObsolete**: `bool` — when false, types and members marked
 with `[Obsolete]` are excluded from the output.
 
+**DotNetGeneratorOptions.ExcludePatterns**: `IReadOnlyList<string>` — wildcard
+(`*`) patterns identifying namespaces and types to exclude from the output.
+Defaults to an empty list. Each pattern is matched (case-sensitive, ordinal)
+against a candidate type's full namespace-qualified name and its containing
+namespace; a match on either excludes the type.
+
 **ExternalTypeInfo**: See `TypeLinkResolver` design for the `ExternalTypeInfo` data record.
 
 **DotNetAstModel** (internal sealed class): Holds all pre-parsed assembly data
@@ -100,6 +106,17 @@ memory and returns a `DotNetEmitter` ready to emit.
   behaves identically to `Public` because C# does not permit protected top-level
   types. The distinction between `Public` and `PublicAndProtected` is applied at
   the member level by `DotNetEmitter`.
+- *Exclude-pattern filtering*: `Parse` compiles `ExcludePatterns` once (via a
+  private `CompileExcludePatterns` helper that converts each `*`-wildcard pattern
+  to an anchored, `Regex.Escape`-based regular expression) and adds one more
+  `.Where` predicate to the same filter chain that already applies visibility,
+  obsolete, and compiler-generated filtering. A type is excluded when a compiled
+  pattern matches its full namespace-qualified name or its containing namespace.
+  Because `byNamespace` and `allNamespaces` are derived exclusively from this
+  filtered type set, a namespace whose every type is excluded (or otherwise
+  filtered) never becomes a dictionary key and therefore never appears in any
+  generated index or page — the same mechanism that already applies to
+  obsolete-only namespaces when `IncludeObsolete` is false.
 - *TypeLinkResolver scope*: `TypeLinkResolver` is constructed with `rootNamespaces` only (not all namespaces), which constrains which type references can produce intra-assembly Markdown links; types whose namespace does not map to a known root namespace path fall back to plain text.
 - *NamespaceDoc selection*: When multiple `NamespaceDoc` carrier types exist in the same namespace, `BuildNamespaceDescription` selects the first non-empty summary, the first non-empty remarks, and the first non-empty example parts independently via `FirstOrDefault`; the historical "first non-empty summary wins" behavior is preserved and extended to remarks and examples.
 

@@ -6,8 +6,8 @@ sections:
       - title: VhdlAstParser Requirements
         requirements:
           - id: ApiMarkVhdl-VhdlAstParser-ParseEntity
-            title: VhdlAstParser shall parse entity declarations including generics, ports,
-              and associated doc comments from a .vhd file.
+            title: VhdlAstParser shall parse entity declarations including generics,
+              ports, and associated doc comments from a .vhd file.
             justification: |
               Entity declarations are the primary design unit in VHDL.
             tests:
@@ -19,8 +19,8 @@ sections:
               - VhdlAstParser_Parse_CounterFixture_EntityNameIsCounter
               - VhdlAstParser_Parse_CounterFixture_GenericsHaveInlineDocComments
           - id: ApiMarkVhdl-VhdlAstParser-ParseArchitecture
-            title: VhdlAstParser shall parse architecture bodies from a .vhd file, capturing
-              the architecture name and associated entity name.
+            title: VhdlAstParser shall parse architecture bodies from a .vhd file,
+              capturing the architecture name and associated entity name.
             justification: |
               A file may contain multiple architectures for the same entity.
             tests:
@@ -40,15 +40,13 @@ sections:
               - ApiMarkVhdl-VhdlAstParser-ParseSubprogramParameters
               - ApiMarkVhdl-VhdlAstParser-ParseSubprogramReturnType
               - ApiMarkVhdl-VhdlAstParser-ParseSubprogramDocComments
-            tests:
-              - VhdlAstParser_Parse_CommonTypesFixture_ReturnsPackage
+            tests: [VhdlAstParser_Parse_CommonTypesFixture_ReturnsPackage]
           - id: ApiMarkVhdl-VhdlAstParser-ParsePackageTypes
             title: VhdlAstParser shall parse type declarations within a package.
             justification: |
               Type declarations are a fundamental package member kind in VHDL and must
               be captured to generate complete package documentation.
-            tests:
-              - VhdlAstParser_Parse_CommonTypesFixture_PackageHasTwoTypes
+            tests: [VhdlAstParser_Parse_CommonTypesFixture_PackageHasTwoTypes]
           - id: ApiMarkVhdl-VhdlAstParser-ParsePackageConstants
             title: VhdlAstParser shall parse constant declarations within a package,
               including any associated doc comments.
@@ -64,8 +62,7 @@ sections:
             justification: |
               Component declarations identify reusable design units and must be
               captured to list available components in the generated documentation.
-            tests:
-              - VhdlAstParser_Parse_CommonTypesFixture_PackageHasOneComponent
+            tests: [VhdlAstParser_Parse_CommonTypesFixture_PackageHasOneComponent]
           - id: ApiMarkVhdl-VhdlAstParser-ParsePackageSubprograms
             title: VhdlAstParser shall parse subprogram declarations within a package,
               distinguishing functions from procedures.
@@ -109,11 +106,10 @@ sections:
               - VhdlAstParser_Parse_CommonTypesFixture_ToNaturalDocHasParamEntry
               - VhdlAstParser_Parse_CommonTypesFixture_ToNaturalDocHasReturnEntry
           - id: ApiMarkVhdl-VhdlAstParser-RejectInvalidSyntax
-            title: VhdlAstParser shall throw InvalidOperationException when the source file
-              contains syntax errors that prevent the ANTLR4 parser from producing a valid
-              parse tree.
+            title: VhdlAstParser shall throw InvalidOperationException when the source
+              file contains syntax errors that prevent the ANTLR4 parser from producing
+              a valid parse tree.
             justification: |
               Failing fast on syntax errors prevents silently emitting corrupt or empty
               documentation from a file that could not be correctly parsed.
-            tests:
-              - VhdlAstParser_Parse_InvalidVhdl_ThrowsInvalidOperationException
+            tests: [VhdlAstParser_Parse_InvalidVhdl_ThrowsInvalidOperationException]

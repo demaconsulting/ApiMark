@@ -106,6 +106,19 @@ public class ApiMarkTask : Task
     public string? ApiMarkXmlDocPath { get; set; }
 
     /// <summary>
+    ///     Gets or sets the semicolon-separated list of wildcard patterns identifying namespaces
+    ///     and types to exclude from generated documentation.
+    /// </summary>
+    /// <remarks>
+    ///     Used for the <c>dotnet</c> language only. Maps to <c>$(ApiMarkExclude)</c>.
+    ///     Each semicolon-delimited entry is forwarded as an individual <c>--exclude</c> flag.
+    ///     Each entry may contain <c>*</c> as a wildcard matching any sequence of characters and
+    ///     is matched against full namespace and type names (e.g. <c>Antlr4.*</c>).
+    ///     Optional — when empty, nothing is excluded.
+    /// </remarks>
+    public string? ApiMarkExclude { get; set; }
+
+    /// <summary>
     ///     Gets or sets the semicolon-separated list of include directory paths for C++ documentation.
     /// </summary>
     /// <remarks>
@@ -262,7 +275,8 @@ public class ApiMarkTask : Task
 
     /// <summary>
     ///     Appends the .NET-specific CLI arguments to <paramref name="args"/>, including the
-    ///     language subcommand (<c>dotnet</c>), <c>--assembly</c>, and <c>--xml-doc</c>.
+    ///     language subcommand (<c>dotnet</c>), <c>--assembly</c>, <c>--xml-doc</c>, and any
+    ///     configured <c>--exclude</c> patterns.
     /// </summary>
     /// <param name="args">The argument list being built by <see cref="BuildArguments"/>.</param>
     private void AppendDotNetArguments(List<string> args)
@@ -273,6 +287,24 @@ public class ApiMarkTask : Task
         args.Add(ApiMarkAssemblyPath ?? string.Empty);
         args.Add("--xml-doc");
         args.Add(ApiMarkXmlDocPath ?? string.Empty);
+
+        // Emit one --exclude flag per pattern entry — each semicolon-delimited entry becomes
+        // a separate repeatable --exclude argument
+        if (!string.IsNullOrEmpty(ApiMarkExclude))
+        {
+            // Manually trim each entry — StringSplitOptions.TrimEntries is not
+            // available in netstandard2.0 which this assembly targets
+            foreach (var entry in ApiMarkExclude!.Split(';').Select(e => e.Trim()))
+            {
+                if (string.IsNullOrEmpty(entry))
+                {
+                    continue;
+                }
+
+                args.Add("--exclude");
+                args.Add(entry);
+            }
+        }
     }
 
     /// <summary>

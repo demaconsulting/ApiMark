@@ -22,10 +22,12 @@ public class DotNetGeneratorTests
     /// </summary>
     /// <param name="visibility">Which members to include in generated output.</param>
     /// <param name="includeObsolete">Whether to include obsolete members.</param>
+    /// <param name="excludePatterns">Wildcard patterns for namespaces/types to exclude.</param>
     /// <returns>A fully configured <see cref="DotNetGeneratorOptions"/>.</returns>
     private static DotNetGeneratorOptions BuildOptions(
         ApiVisibility visibility = ApiVisibility.Public,
-        bool includeObsolete = false)
+        bool includeObsolete = false,
+        IReadOnlyList<string>? excludePatterns = null)
     {
         return new DotNetGeneratorOptions
         {
@@ -33,6 +35,7 @@ public class DotNetGeneratorTests
             XmlDocPath = FixturePaths.GetFixtureXmlDoc(),
             Visibility = visibility,
             IncludeObsolete = includeObsolete,
+            ExcludePatterns = excludePatterns ?? [],
         };
     }
 
@@ -134,6 +137,66 @@ public class DotNetGeneratorTests
         Assert.True(
             factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ObsoleteClass"),
             "ObsoleteClass should be included when IncludeObsolete=true");
+    }
+
+    /// <summary>Validates that an exact-name exclude pattern removes only the matching type page while sibling types remain present.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ExactExcludePattern_RemovesOnlyMatchingType()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions(excludePatterns: ["ApiMark.DotNet.Fixtures.SampleClass"]));
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert
+        Assert.False(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleClass"),
+            "SampleClass should be excluded by an exact-name pattern");
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ISampleInterface"),
+            "ISampleInterface should remain present when only SampleClass is excluded");
+    }
+
+    /// <summary>Validates that a wildcard pattern matching a namespace removes the entire namespace, and it disappears from indexes.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_WildcardExcludePattern_RemovesEntireNamespaceFromIndex()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions(excludePatterns: ["ApiMark.DotNet.Fixtures.ExcludedSample*"]));
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the type page, the namespace page, and any reference to the namespace in the
+        // entrypoint index must all be absent because the namespace has zero surviving types.
+        Assert.False(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ExcludedSample/ExcludedSampleClass"),
+            "ExcludedSampleClass should be excluded by the wildcard pattern");
+        Assert.False(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ExcludedSample"),
+            "The ExcludedSample namespace page should not exist once fully excluded");
+        var apiIndexLinks = factory.Writers["api"].Operations.OfType<LinkOperation>();
+        Assert.DoesNotContain(apiIndexLinks, link => link.RelativePath.Contains("ExcludedSample"));
+    }
+
+    /// <summary>Validates that a non-matching exclude pattern leaves all other output unaffected (regression guard).</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_NonMatchingExcludePattern_LeavesOutputUnaffected()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions(excludePatterns: ["Some.Nonexistent.Namespace.*"]));
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert
+        Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleClass"));
+        Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ISampleInterface"));
+        Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ExcludedSample/ExcludedSampleClass"));
     }
 
     /// <summary>Validates that protected members are excluded when <see cref="ApiVisibility.Public"/> is selected.</summary>

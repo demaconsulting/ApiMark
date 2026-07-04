@@ -287,6 +287,41 @@ public sealed class ContextTests
     }
 
     /// <summary>
+    ///     Validates that <c>--exclude</c> with a single pattern sets the <see cref="Context.Excludes"/>
+    ///     property to a one-element array containing that pattern.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithExcludeOption_SetsExcludes()
+    {
+        // Arrange: supply a single wildcard pattern via --exclude
+        var args = new[] { "--exclude", "Antlr4.*" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: Excludes property must contain the single supplied pattern
+        string[] expectedExcludes = ["Antlr4.*"];
+        Assert.Equal(expectedExcludes, context.Excludes);
+    }
+
+    /// <summary>
+    ///     Validates that repeated <c>--exclude</c> flags accumulate all patterns in order.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithRepeatedExcludeFlags_AccumulatesAllPatternsInOrder()
+    {
+        // Arrange: three separate --exclude flags, each with a wildcard pattern
+        var args = new[] { "--exclude", "Antlr4.*", "--exclude", "Foo.Bar", "--exclude", "*.Internal" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: all three patterns must appear in Excludes in the supplied order
+        string[] expectedExcludes = ["Antlr4.*", "Foo.Bar", "*.Internal"];
+        Assert.Equal(expectedExcludes, context.Excludes);
+    }
+
+    /// <summary>
     ///     Validates that an empty argument array produces a Context with all default values.
     /// </summary>
     [Fact]
@@ -313,6 +348,7 @@ public sealed class ContextTests
             () => Assert.False(context.IncludeObsolete),
             () => Assert.Equal(1, context.HeadingDepth),
             () => Assert.Empty(context.Includes),
+            () => Assert.Empty(context.Excludes),
             () => Assert.Empty(context.ApiHeaders),
             () => Assert.Equal(0, context.ExitCode));
     }

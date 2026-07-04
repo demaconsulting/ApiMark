@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using ApiMark.Core;
 using Mono.Cecil;
 
@@ -97,7 +98,10 @@ public sealed class DotNetGenerator : IApiGenerator
                     g => BuildNamespaceDescription(g, xmlDocs),
                     StringComparer.Ordinal);
 
-            // Collect all types that pass the visibility, obsolete, and compiler-generated filters.
+            // Compile the configured exclude patterns once, up front, for reuse in the filter chain below.
+            var excludePatterns = CompileExcludePatterns(_options.ExcludePatterns);
+
+            // Collect all types that pass the visibility, obsolete, compiler-generated, and exclude-pattern filters.
             // Exclude NamespaceDoc types — they are documentation carriers, not user-facing types.
             var visibleTypes = assembly.MainModule.Types
                 .Where(t => !DotNetEmitter.IsCompilerGenerated(t))
@@ -110,6 +114,7 @@ public sealed class DotNetGenerator : IApiGenerator
                     _ => t.IsPublic,
                 })
                 .Where(t => _options.IncludeObsolete || !DotNetEmitter.IsObsolete(t))
+                .Where(t => !IsExcluded(t, excludePatterns))
                 .ToList();
 
             // Group by namespace and sort for deterministic output
@@ -565,6 +570,41 @@ public sealed class DotNetGenerator : IApiGenerator
         var typeName = accessorRef.DeclaringType.FullName.Replace('/', '.');
         return $"E:{typeName}.{eventName}";
     }
+
+    /// <summary>
+    ///     Compiles a list of <c>*</c>-wildcard exclude patterns into anchored, case-sensitive
+    ///     regular expressions suitable for matching full namespace and type names.
+    /// </summary>
+    /// <param name="patterns">The wildcard patterns to compile. May be <see langword="null"/> or empty, and
+    /// may contain <see langword="null"/> or whitespace-only entries, which are ignored.</param>
+    /// <returns>The compiled regular expressions, in the same order as the non-empty entries of <paramref name="patterns"/>.</returns>
+    private static List<Regex> CompileExcludePatterns(IReadOnlyList<string>? patterns) =>
+        (patterns ?? [])
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p.Trim())
+            .Select(p => "^" + string.Join(".*", p.Split('*').Select(Regex.Escape)) + "$")
+            .Select(p => new Regex(p, RegexOptions.Compiled | RegexOptions.CultureInvariant))
+            .ToList();
+
+    /// <summary>
+    ///     Determines whether a type should be excluded from documentation because its full
+    ///     namespace-qualified name or its containing namespace matches one of the compiled
+    ///     exclude patterns.
+    /// </summary>
+    /// <param name="type">The candidate type.</param>
+    /// <param name="excludePatterns">The compiled exclude patterns (from <see cref="CompileExcludePatterns"/>).</param>
+    /// <returns><see langword="true"/> if the type should be excluded; otherwise, <see langword="false"/>.</returns>
+    private static bool IsExcluded(TypeDefinition type, IReadOnlyList<Regex> excludePatterns)
+    {
+        if (excludePatterns.Count == 0)
+        {
+            return false;
+        }
+
+        var fullName = type.FullName.Replace('/', '.');
+        var ns = type.Namespace;
+        return excludePatterns.Any(p => p.IsMatch(fullName) || p.IsMatch(ns));
+    }
 }
 
 /// <summary>Specifies which members are included in the generated API documentation.</summary>
@@ -597,4 +637,20 @@ public sealed class DotNetGeneratorOptions
 
     /// <summary>Gets or sets a value indicating whether obsolete members are included. Defaults to <c>false</c>.</summary>
     public bool IncludeObsolete { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the wildcard patterns identifying namespaces and types to exclude from
+    ///     the generated documentation. Defaults to an empty list (nothing excluded).
+    /// </summary>
+    /// <remarks>
+    ///     Each pattern may contain <c>*</c> as a wildcard matching any sequence of characters
+    ///     (including none). A pattern matches a type if it matches either the type's full
+    ///     namespace-qualified name (e.g. <c>Antlr4.Runtime.ParserRuleContext</c>) or its
+    ///     containing namespace (e.g. <c>Antlr4.Runtime</c>). Matching is case-sensitive and
+    ///     ordinal, consistent with the rest of this class. A namespace whose every type is
+    ///     excluded (whether by this option or by the visibility/obsolete filters above) does
+    ///     not appear in any generated index or page, because <c>byNamespace</c>/<c>allNamespaces</c>
+    ///     are derived from the same filtered type set.
+    /// </remarks>
+    public IReadOnlyList<string> ExcludePatterns { get; set; } = [];
 }

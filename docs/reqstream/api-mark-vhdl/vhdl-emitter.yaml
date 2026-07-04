@@ -15,8 +15,7 @@ sections:
               the dispatch from format-specific logic allows each format
               emitter to be tested in isolation while keeping the IApiEmitter
               contract uniform across all language modules.
-            children:
-              - ApiMarkVhdl-VhdlEmitter-ImplementsIApiEmitter
+            children: [ApiMarkVhdl-VhdlEmitter-ImplementsIApiEmitter]
             tests:
               - VhdlEmitter_Emit_GradualDisclosureFormat_ProducesMultipleOutputFiles
               - VhdlEmitter_Emit_SingleFileFormat_ProducesSingleOutputFile
@@ -29,8 +28,7 @@ sections:
             children:
               - ApiMarkVhdl-VhdlEmitter-DispatchesFormat
               - ApiMarkVhdl-VhdlEmitter-ValidatesNullFactory
-            tests:
-              - VhdlEmitter_ImplementsIApiEmitter
+            tests: [VhdlEmitter_ImplementsIApiEmitter]
           - id: ApiMarkVhdl-VhdlEmitter-DispatchesFormat
             title: VhdlEmitter shall dispatch to VhdlEmitterGradualDisclosure or VhdlEmitterSingleFile
               based on config.Format.
@@ -42,9 +40,9 @@ sections:
               - VhdlEmitter_Emit_SingleFileFormat_ProducesSingleOutputFile
               - VhdlEmitter_Emit_EmptyFileModels_ProducesNoOutput
           - id: ApiMarkVhdl-VhdlEmitter-ValidatesNullFactory
-            title: VhdlEmitter shall throw ArgumentNullException when the factory argument is null.
+            title: VhdlEmitter shall throw ArgumentNullException when the factory
+              argument is null.
             justification: |
               Failing fast on a null factory provides a clear error before any writer
               or pipeline logic is invoked.
-            tests:
-              - VhdlEmitter_Emit_NullFactory_ThrowsArgumentNullException
+            tests: [VhdlEmitter_Emit_NullFactory_ThrowsArgumentNullException]

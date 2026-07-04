@@ -66,10 +66,10 @@ sections:
                   - Context_Create_WithApiHeadersExclusionPattern_ForwardsVerbatim
                   - Context_Create_WithNoArguments_HasEmptyApiHeaders
               - id: ApiMarkTool-Cli-Context-ParseCppNamedOptions
-                title: Context shall parse the named options --library-name,
-                  --library-description, --defines, and --cpp-standard into the corresponding
-                  Context properties, where --library-name and --library-description are
-                  shared by the C++ and VHDL subcommands.
+                title: Context shall parse the named options --library-name, --library-description,
+                  --defines, and --cpp-standard into the corresponding Context properties,
+                  where --library-name and --library-description are shared by the
+                  C++ and VHDL subcommands.
                 justification: |
                   C++ and VHDL documentation generation share library metadata options
                   (--library-name and --library-description) while --defines and --cpp-standard
@@ -119,8 +119,8 @@ sections:
                 tests: [Context_Create_WithCppStandardOption_SetsCppStandard]
               - id: ApiMarkTool-Cli-Context-ParseDepthOption
                 title: Context shall parse the --depth option and set HeadingDepth
-                  to the specified integer value in the range 1–6, defaulting to
-                  1 when the option is absent.
+                  to the specified integer value in the range 1–6, defaulting to 1
+                  when the option is absent.
                 justification: |
                   The --depth option controls the Markdown heading level used in generated output,
                   allowing ApiMark output to be embedded into an existing document at the correct
@@ -139,7 +139,8 @@ sections:
                 tests: [Context_Create_WithResultsOption_SetsResultsFile]
               - id: ApiMarkTool-Cli-Context-OpenLogFileOnRequest
                 title: Context shall open the file specified by --log and mirror all
-                  subsequent output written through `WriteLine` and `WriteError` to that file.
+                  subsequent output written through `WriteLine` and `WriteError` to
+                  that file.
                 justification: |
                   ApiMarkTask invokes ApiMarkTool out-of-process; the log file captures both
                   normal output and error messages, making it a reliable capture path for both
@@ -197,3 +198,13 @@ sections:
                 tests:
                   - Context_Create_WithFlagValueForOutput_ThrowsArgumentException
                   - Context_Create_WithFlagValueForLog_ThrowsArgumentException
+              - id: ApiMarkTool-Cli-Context-ParseExcludes
+                title: Context shall parse repeated --exclude flags and accumulate
+                  each wildcard pattern into the Excludes array in order.
+                justification: |
+                  .NET projects pass one exclusion pattern per --exclude flag; the context must
+                  accumulate all supplied patterns in order so DotNetGenerator receives the
+                  complete ordered pattern list needed to filter namespaces and types.
+                tests:
+                  - Context_Create_WithExcludeOption_SetsExcludes
+                  - Context_Create_WithRepeatedExcludeFlags_AccumulatesAllPatternsInOrder

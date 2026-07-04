@@ -6,8 +6,8 @@ sections:
       - title: DotNetEmitterGradualDisclosure Requirements
         requirements:
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitApiIndexPage
-            title: DotNetEmitterGradualDisclosure shall emit an api.md index page listing all
-              namespaces with type counts.
+            title: DotNetEmitterGradualDisclosure shall emit an api.md index page
+              listing all namespaces with type counts.
             justification: |
               The api.md entrypoint gives AI agents and human readers a complete navigation
               map in a single read. Listing all namespaces with type counts provides scope
@@ -17,10 +17,9 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_ValidModel_ApiIndexContainsAssemblyNameHeading
               - DotNetGenerator_OutputFiles_FollowNamingConvention
               - DotNetGenerator_Generate_ApiMd_ListsAllNamespacesWithTypeCount
-
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitNamespacePages
-            title: DotNetEmitterGradualDisclosure shall emit a separate Markdown page for
-              each namespace in the assembly.
+            title: DotNetEmitterGradualDisclosure shall emit a separate Markdown page
+              for each namespace in the assembly.
             justification: |
               Separate namespace pages allow AI agents and readers to navigate to a
               namespace summary and discover all types within it without reading the
@@ -28,10 +27,9 @@ sections:
             tests:
               - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesNamespacePage
               - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesChildNamespacePage
-
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitNamespaceDocRemarksAndExamples
-            title: DotNetEmitterGradualDisclosure shall emit the NamespaceDoc remarks and
-              example parts after the namespace summary on the namespace page.
+            title: DotNetEmitterGradualDisclosure shall emit the NamespaceDoc remarks
+              and example parts after the namespace summary on the namespace page.
             justification: |
               A NamespaceDoc carrier can document a namespace with remarks and worked
               examples. Emitting the remarks paragraph and structured example parts after the
@@ -41,20 +39,17 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_NamespaceWithDoc_EmitsNamespaceRemarks
               - DotNetEmitterGradualDisclosure_Emit_NamespaceWithDoc_EmitsNamespaceExampleCodeBlock
               - DotNetEmitterGradualDisclosure_Emit_TypeWithListRemarks_RendersNumberedListInMarkdown
-
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitTypePages
-            title: DotNetEmitterGradualDisclosure shall emit a separate Markdown page for
-              each visible type in the assembly.
+            title: DotNetEmitterGradualDisclosure shall emit a separate Markdown page
+              for each visible type in the assembly.
             justification: |
               Separate type pages allow gradual disclosure: an AI can read a namespace page
               to discover types, then open individual type pages on demand, consuming only
               as much context as required.
-            tests:
-              - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesTypePage
-
+            tests: [DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesTypePage]
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitMemberDetailPages
-            title: DotNetEmitterGradualDisclosure shall emit a dedicated detail page for each
-              visible member of every type in gradual-disclosure output.
+            title: DotNetEmitterGradualDisclosure shall emit a dedicated detail page
+              for each visible member of every type in gradual-disclosure output.
             justification: |
               Per-member pages enable AI agents to navigate directly to
               {Namespace}/{TypeName}/{MemberName}.md without reading unrelated members,
@@ -62,10 +57,10 @@ sections:
             tests:
               - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesMemberDetailPage
               - DotNetGenerator_AllMembers_GetSeparateFiles
-
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitCombinedPageForCaseCollisions
-            title: DotNetEmitterGradualDisclosure shall emit a single combined page for members
-              whose sanitized file names collide on a case-insensitive filesystem.
+            title: DotNetEmitterGradualDisclosure shall emit a single combined page
+              for members whose sanitized file names collide on a case-insensitive
+              filesystem.
             justification: |
               On case-insensitive filesystems (Windows, macOS), two members whose sanitized
               names differ only in case would produce colliding filenames. Combining them
@@ -75,10 +70,10 @@ sections:
               - DotNetGenerator_Generate_CaseCollisionClass_CreatesCombinedPage
               - DotNetGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPage
               - DotNetGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers
-
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitMethodOverloadPage
-            title: DotNetEmitterGradualDisclosure shall emit a single consolidated overload
-              page when a type declares multiple overloads of the same method name.
+            title: DotNetEmitterGradualDisclosure shall emit a single consolidated
+              overload page when a type declares multiple overloads of the same method
+              name.
             justification: |
               When a type declares multiple overloads of the same method name, combining them
               onto one page avoids redundant file proliferation and keeps the type page's
@@ -86,10 +81,9 @@ sections:
               its full parameter signature.
             tests:
               - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesMethodOverloadPage
-
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitOperatorsPage
-            title: DotNetEmitterGradualDisclosure shall emit a dedicated operators.md page
-              for types that declare operator overloads.
+            title: DotNetEmitterGradualDisclosure shall emit a dedicated operators.md
+              page for types that declare operator overloads.
             justification: |
               Grouping all operator overloads for a type onto a single operators.md page
               keeps the type page uncluttered and provides a predictable navigation target
@@ -98,10 +92,9 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesOperatorsPage
               - DotNetGenerator_Generate_TypeWithOperators_CreatesOperatorsPage
               - DotNetGenerator_Generate_TypeWithOperators_TypePageHasOperatorsSection
-
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitNestedTypePages
-            title: DotNetEmitterGradualDisclosure shall recursively emit dedicated pages
-              for nested types under their containing type's folder.
+            title: DotNetEmitterGradualDisclosure shall recursively emit dedicated
+              pages for nested types under their containing type's folder.
             justification: |
               C# types commonly nest supporting types within their declaring type. Emitting
               a dedicated page per nested type under the containing type's folder mirrors
@@ -112,10 +105,9 @@ sections:
               - DotNetGenerator_Generate_NestedClass_ListedOnOuterClassPage
               - DotNetGenerator_Generate_NestedClass_CreatesNestedClassPage
               - DotNetGenerator_Generate_NestedClass_PageContainsSummary
-
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitOperatorsSummaryDocumentation
-            title: DotNetEmitterGradualDisclosure shall include XML summary documentation for
-              each operator on the operators page.
+            title: DotNetEmitterGradualDisclosure shall include XML summary documentation
+              for each operator on the operators page.
             justification: |
               Including XML summaries makes the operators page self-contained for readers
               who only need the operator API without navigating to other pages.

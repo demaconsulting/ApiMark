@@ -8,8 +8,8 @@ sections:
           - id: ApiMarkCore-PathHelpers-CombineValidRelativeSegments
             title: PathHelpers shall combine a trusted base path with zero or more
               caller-supplied path segments in order, provided the result resolves
-              within the base. When no segments are supplied, the method returns
-              basePath unchanged.
+              within the base. When no segments are supplied, the method returns basePath
+              unchanged.
             justification: |
               ApiMark callers need one reusable helper that can build derived file-system
               paths without duplicating path-joining logic at every call site. Segments

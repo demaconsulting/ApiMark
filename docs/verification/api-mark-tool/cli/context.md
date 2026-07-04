@@ -29,6 +29,7 @@ up after itself. No other external files, services, or configuration are require
 - `--results`/`--result` sets `ResultsFile` to the supplied path.
 - Flag tokens (starting with `-`) supplied as values for string-valued options are rejected with `ArgumentException`.
 - `--includes` accepts one directory path per flag; repeated flags accumulate paths into `Includes`.
+- `--exclude` accepts one wildcard pattern per flag; repeated flags accumulate patterns into `Excludes` in order.
 - `--api-headers` patterns are accumulated in order; `!`-prefixed exclusion patterns are forwarded verbatim.
 - `--source` patterns are accumulated in order; `!`-prefixed exclusion patterns are forwarded verbatim.
 - C++ named options (`--library-name`, `--library-description`, `--defines`, `--cpp-standard`) set their
@@ -74,6 +75,13 @@ up after itself. No other external files, services, or configuration are require
 
 **`Context_Create_WithRepeatedIncludes_AccumulatesAllPaths`**:
 `--includes /usr/include --includes /opt/include` → `Includes = ["/usr/include", "/opt/include"]`.
+
+**`Context_Create_WithExcludeOption_SetsExcludes`**: `--exclude Antlr4.*` →
+`Excludes = ["Antlr4.*"]`.
+
+**`Context_Create_WithRepeatedExcludeFlags_AccumulatesAllPatternsInOrder`**:
+`--exclude Antlr4.* --exclude Foo.Bar --exclude *.Internal` →
+`Excludes = ["Antlr4.*", "Foo.Bar", "*.Internal"]` (order preserved).
 
 **`Context_Create_WithDepthOption_SetsHeadingDepth`**: `--depth 3` → `HeadingDepth = 3`.
 

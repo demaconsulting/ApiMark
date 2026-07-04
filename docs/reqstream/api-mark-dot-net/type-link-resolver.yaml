@@ -6,8 +6,9 @@ sections:
       - title: TypeLinkResolver Requirements
         requirements:
           - id: ApiMarkDotNet-TypeLinkResolver-ResolveIntraAssemblyTypesToMarkdownLinks
-            title: TypeLinkResolver shall resolve intra-assembly type references to relative
-              Markdown links when generateLinks is true, and plain text when false.
+            title: TypeLinkResolver shall resolve intra-assembly type references to
+              relative Markdown links when generateLinks is true, and plain text when
+              false.
             justification: |
               Intra-document cross-references improve navigability for both AI agents
               and human readers. Controlling link generation via generateLinks allows
@@ -33,9 +34,9 @@ sections:
               - TypeLinkResolver_Linkify_StringType_ReturnsCSharpAlias
               - TypeLinkResolver_Linkify_SystemNamespaceExternalType_ReturnsPlainTextAndDoesNotTrack
           - id: ApiMarkDotNet-TypeLinkResolver-TrackNonSystemExternalTypesForExternalTypesSection
-            title: TypeLinkResolver shall resolve non-System external type references to
-              plain text and add them to the caller-supplied external type set for later
-              emission in the External Types section.
+            title: TypeLinkResolver shall resolve non-System external type references
+              to plain text and add them to the caller-supplied external type set
+              for later emission in the External Types section.
             justification: |
               Non-System external types originate from third-party packages that readers
               must install separately. Accumulating them per output file and emitting an
@@ -44,10 +45,9 @@ sections:
             tests:
               - TypeLinkResolver_Linkify_ExternalNonSystemType_ReturnsPlainNameAndTracksExternalType
               - DotNetGenerator_Generate_ExternalNonSystemParameterType_EmitsExternalTypesSection
-
           - id: ApiMarkDotNet-TypeLinkResolver-RenderArrayTypesWithSuffix
-            title: TypeLinkResolver shall render array types by appending the array rank suffix
-              to the element type name.
+            title: TypeLinkResolver shall render array types by appending the array
+              rank suffix to the element type name.
             justification: |
               C# array types such as string[] and int[,] are common in API signatures. Rendering
               them with the correct suffix ensures the generated Markdown matches the C# syntax
@@ -56,21 +56,18 @@ sections:
             tests:
               - TypeLinkResolver_Linkify_ArrayType_AppendsArraySuffix
               - TypeLinkResolver_Linkify_MultiDimensionalArrayType_AppendsRankSuffix
-
           - id: ApiMarkDotNet-TypeLinkResolver-RenderGenericTypesWithTypeArguments
-            title: TypeLinkResolver shall render generic container types by appending the resolved
-              type argument list in angle-bracket notation.
+            title: TypeLinkResolver shall render generic container types by appending
+              the resolved type argument list in angle-bracket notation.
             justification: |
               Generic types such as List<string> and Dictionary<string, int> appear frequently
               in .NET API signatures. Rendering the full generic form — including resolved type
               arguments — gives AI agents and human readers the complete type contract in a
               single table cell read.
-            tests:
-              - TypeLinkResolver_Linkify_GenericType_RendersTypeArguments
-
+            tests: [TypeLinkResolver_Linkify_GenericType_RendersTypeArguments]
           - id: ApiMarkDotNet-TypeLinkResolver-UnwrapNullableValueTypes
-            title: TypeLinkResolver shall unwrap Nullable<T> generic instances and render
-              the inner type with a ? suffix.
+            title: TypeLinkResolver shall unwrap Nullable<T> generic instances and
+              render the inner type with a ? suffix.
             justification: |
               C# value types such as int? and DateTime? are Nullable<T> generic instances
               at the CLR level. Rendering them as "int?" rather than "Nullable<int>" matches

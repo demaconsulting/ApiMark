@@ -30,8 +30,7 @@ sections:
               downstream assertions in test doubles. Enforcing the null contract
               at the implementation boundary ensures callers receive a clear error
               immediately attributable to the misuse.
-            tests:
-              - InMemoryContext_WriteLine_NullMessage_ThrowsArgumentNullException
+            tests: [InMemoryContext_WriteLine_NullMessage_ThrowsArgumentNullException]
           - id: ApiMarkCore-IContext-RejectNullWriteError
             title: IContext implementations shall throw ArgumentNullException when
               WriteError is called with a null message.

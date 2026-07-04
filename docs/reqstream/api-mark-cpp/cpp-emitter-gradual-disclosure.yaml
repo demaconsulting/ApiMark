@@ -26,8 +26,7 @@ sections:
               - ApiMarkCpp-CppEmitterGradualDisclosure-EmitClassScopedTypeAliasPage
               - ApiMarkCpp-CppEmitterGradualDisclosure-EmitClassOperatorsPage
               - ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceOperatorsPage
-            tests:
-              - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesApiIndexPage
+            tests: [CppEmitterGradualDisclosure_Emit_MinimalData_CreatesApiIndexPage]
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitApiIndexPage
             title: >-
               CppEmitterGradualDisclosure shall produce an api index page listing
@@ -48,10 +47,10 @@ sections:
             justification: |
               Namespace pages form the middle navigation layer between the api index and
               detailed type or free-function pages.
-            tests:
-              - CppEmitterGradualDisclosure_Emit_MinimalData_CreatesNamespacePage
+            tests: [CppEmitterGradualDisclosure_Emit_MinimalData_CreatesNamespacePage]
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitTypePage
-            title: CppEmitterGradualDisclosure shall produce a type page for each documented class.
+            title: CppEmitterGradualDisclosure shall produce a type page for each
+              documented class.
             justification: |
               Type pages aggregate member links, nested types, aliases, and inheritance context.
             tests:
@@ -68,27 +67,29 @@ sections:
               - CppEmitterGradualDisclosure_Emit_MethodMember_CreatesMemberDetailPage
               - CppEmitterGradualDisclosure_Emit_CaseInsensitiveCollision_CreatesCombinedPage
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitFreeFunctionPage
-            title: CppEmitterGradualDisclosure shall produce a detail page for each regular free function.
+            title: CppEmitterGradualDisclosure shall produce a detail page for each
+              regular free function.
             justification: |
               Namespace-level free functions need stable standalone pages in the multi-file layout.
             tests:
               - CppEmitterGradualDisclosure_Emit_FreeFunction_CreatesFreeFunctionPage
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitEnumPage
-            title: CppEmitterGradualDisclosure shall produce a detail page for each documented enum.
+            title: CppEmitterGradualDisclosure shall produce a detail page for each
+              documented enum.
             justification: |
               Enum pages preserve value tables and associated documentation without
               inflating namespace pages.
-            tests:
-              - CppEmitterGradualDisclosure_Emit_Enum_CreatesEnumPage
+            tests: [CppEmitterGradualDisclosure_Emit_Enum_CreatesEnumPage]
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceLevelTypeAliasPage
-            title: CppEmitterGradualDisclosure shall produce a detail page for each namespace-level type alias.
+            title: CppEmitterGradualDisclosure shall produce a detail page for each
+              namespace-level type alias.
             justification: |
               Public namespace-level aliases are first-class API declarations and require
               stable paths in the multi-file layout.
-            tests:
-              - CppEmitterGradualDisclosure_Emit_TypeAlias_CreatesTypeAliasPage
+            tests: [CppEmitterGradualDisclosure_Emit_TypeAlias_CreatesTypeAliasPage]
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitClassScopedTypeAliasPage
-            title: CppEmitterGradualDisclosure shall produce a detail page for each class-scoped type alias under the owning class folder.
+            title: CppEmitterGradualDisclosure shall produce a detail page for each
+              class-scoped type alias under the owning class folder.
             justification: |
               Class-scoped aliases are part of the type's API surface and must receive
               their own pages at {namespace}/{TypeName}/{AliasName} so they are
@@ -97,7 +98,8 @@ sections:
               - CppEmitterGradualDisclosure_Emit_ClassScopedTypeAlias_CreatesAliasPage
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitClassOperatorsPage
             title: >-
-              CppEmitterGradualDisclosure shall group class-scoped operators onto a
+              CppEmitterGradualDisclosure shall group class-scoped operators onto
+              a
               shared operators page for the owning type.
             justification: |
               Operator names often normalize to colliding file names, so a shared page
@@ -106,7 +108,8 @@ sections:
               - CppEmitterGradualDisclosure_Emit_ClassOperators_CreatesOperatorsPage
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceOperatorsPage
             title: >-
-              CppEmitterGradualDisclosure shall group namespace-level operators onto a
+              CppEmitterGradualDisclosure shall group namespace-level operators onto
+              a
               shared namespace operators page.
             justification: |
               Namespace operator overloads need the same collision-safe grouping as class

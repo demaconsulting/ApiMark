@@ -22,8 +22,7 @@ sections:
               GlobFileCollector passes '!'-prefixed patterns to Matcher as exclusion
               rules. Any defect in exclusion evaluation would cause excluded files to
               appear in language-generator input.
-            tests:
-              - GlobFileCollector_Collect_ExclusionPattern_RemovesMatchedFiles
+            tests: [GlobFileCollector_Collect_ExclusionPattern_RemovesMatchedFiles]
           - id: FileSystemGlobbing-Matcher-HandleNonExistentRoot
             title: Microsoft.Extensions.FileSystemGlobbing shall return an empty result
               when the root directory does not exist, without throwing.

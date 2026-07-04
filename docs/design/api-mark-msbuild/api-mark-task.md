@@ -55,6 +55,13 @@ compiler-generated XML documentation file. Defaults to `$(DocumentationFile)` vi
 the `.targets` file when not explicitly set. If not set and the language is
 `dotnet`, the task skips generation and returns success.
 
+**ApiMarkTask.ApiMarkExclude**: `string` — MSBuild property `$(ApiMarkExclude)`;
+for the `dotnet` language, a semicolon-separated list of wildcard (`*`) patterns
+identifying namespaces and types to exclude from generated documentation. Each
+non-empty, trimmed entry is forwarded as an individual `--exclude` flag by
+`AppendDotNetArguments`, mirroring the `ApiMarkIncludePaths` → `--includes` loop
+structure used for `cpp`. Optional — when empty, nothing is excluded.
+
 **ApiMarkTask.ApiMarkIncludePaths**: `string` — MSBuild property
 `$(ApiMarkIncludePaths)`; for the `cpp` language, a semicolon-separated list of
 include directory paths. Each entry is forwarded as an individual `--includes`
@@ -159,7 +166,9 @@ path (check `DOTNET_HOST_PATH` environment variable first, then search `PATH`);
 if `ApiMarkOutputs` is non-empty, delegate to `ExecuteAllOutputs` which spawns one
 child process per item using metadata overrides for `OutputDir`, `Format`, and
 `Visibility`; otherwise build the argument list from scalar MSBuild properties
-according to language-specific mapping (for `cpp`, split `ApiMarkIncludePaths` on
+according to language-specific mapping (for `dotnet`, append `--assembly` and
+`--xml-doc`, then split `ApiMarkExclude` on `;` and emit one `--exclude` flag
+per non-empty trimmed entry; for `cpp`, split `ApiMarkIncludePaths` on
 `;` and emit one `--includes` flag per entry; split `ApiMarkApiHeaders` on `;` and
 emit one `--api-headers` flag per entry, order-preserved including `!` exclusion
 patterns; if `ApiMarkLibraryName` is set, append `--library-name`; if

@@ -42,8 +42,8 @@ sections:
               API information that can be scanned quickly by humans and AI tools.
             tests: [IMarkdownWriter_WriteTable_ValidArgs_DoesNotThrow]
           - id: ApiMarkCore-IMarkdownWriter-WriteTableRejectEmptyHeaders
-            title: IMarkdownWriter shall reject an empty headers array with
-              ArgumentException when WriteTable is called.
+            title: IMarkdownWriter shall reject an empty headers array with ArgumentException
+              when WriteTable is called.
             justification: |
               A table with no header columns is not valid GFM syntax; implementations must
               enforce this constraint consistently so callers receive a clear diagnostic
@@ -51,8 +51,8 @@ sections:
             tests:
               - FileMarkdownWriter_WriteTable_EmptyHeaders_ThrowsArgumentException
           - id: ApiMarkCore-IMarkdownWriter-WriteTableRejectMismatchedRowLength
-            title: IMarkdownWriter shall reject a row whose column count differs from the
-              headers array length with ArgumentException when WriteTable is called.
+            title: IMarkdownWriter shall reject a row whose column count differs from
+              the headers array length with ArgumentException when WriteTable is called.
             justification: |
               A row with a different number of cells than the header produces a structurally
               invalid pipe table. Implementations must enforce this constraint so callers
@@ -102,21 +102,19 @@ sections:
               which is not meaningful Markdown. Implementations must enforce this
               constraint so callers receive a clear diagnostic instead of silently
               generating malformed output.
-            tests:
-              - FileMarkdownWriter_WriteHeading_EmptyText_ThrowsArgumentException
+            tests: [FileMarkdownWriter_WriteHeading_EmptyText_ThrowsArgumentException]
           - id: ApiMarkCore-IMarkdownWriter-WriteLinkRejectEmptyText
-            title: IMarkdownWriter shall reject an empty link text string with
-              ArgumentException when WriteLink is called.
+            title: IMarkdownWriter shall reject an empty link text string with ArgumentException
+              when WriteLink is called.
             justification: |
               A link with no visible label (e.g. "[](path)") is not navigable and
               indicates a generator defect. Implementations must enforce this constraint
               so callers receive a clear diagnostic rather than silently generating
               unusable navigation links.
-            tests:
-              - FileMarkdownWriter_WriteLink_EmptyText_ThrowsArgumentException
+            tests: [FileMarkdownWriter_WriteLink_EmptyText_ThrowsArgumentException]
           - id: ApiMarkCore-IMarkdownWriter-WriteTableRejectNullRowElements
-            title: IMarkdownWriter shall reject a rows sequence containing a null element
-              with ArgumentException when WriteTable is called.
+            title: IMarkdownWriter shall reject a rows sequence containing a null
+              element with ArgumentException when WriteTable is called.
             justification: |
               A null row reference within the rows enumerable cannot be rendered as table
               cells. Implementations must detect and reject null row elements before
@@ -125,8 +123,8 @@ sections:
             tests:
               - FileMarkdownWriter_WriteTable_NullRowElement_ThrowsArgumentException
           - id: ApiMarkCore-IMarkdownWriter-WriteTableRejectNullHeaderElements
-            title: IMarkdownWriter shall reject a headers array containing a null element
-              with ArgumentException when WriteTable is called.
+            title: IMarkdownWriter shall reject a headers array containing a null
+              element with ArgumentException when WriteTable is called.
             justification: |
               A null element in the headers array cannot produce a valid column label in a
               pipe-delimited table. Implementations must detect and reject null header

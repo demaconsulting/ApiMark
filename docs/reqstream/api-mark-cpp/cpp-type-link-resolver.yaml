@@ -22,8 +22,7 @@ sections:
               - ApiMarkCpp-CppTypeLinkResolver-LinkifyPrimitiveType
               - ApiMarkCpp-CppTypeLinkResolver-LinkifyStdType
               - ApiMarkCpp-CppTypeLinkResolver-LinkifyExternalTypeTracking
-            tests:
-              - CppTypeLinkResolver_Linkify_ExactQualifiedMatch_EmitsLink
+            tests: [CppTypeLinkResolver_Linkify_ExactQualifiedMatch_EmitsLink]
           - id: ApiMarkCpp-CppTypeLinkResolver-LinkifyExactQualifiedMatch
             title: >-
               CppTypeLinkResolver.Linkify shall emit a Markdown link when the stripped
@@ -41,35 +40,32 @@ sections:
               type name when exactly one known type has that short name.
             justification: |
               Short-name fallback improves readability when a unique target exists.
-            tests:
-              - CppTypeLinkResolver_Linkify_UnambiguousShortName_EmitsLink
+            tests: [CppTypeLinkResolver_Linkify_UnambiguousShortName_EmitsLink]
           - id: ApiMarkCpp-CppTypeLinkResolver-LinkifyAmbiguousShortName
             title: >-
               CppTypeLinkResolver.Linkify shall leave an unqualified type name unchanged
               when two or more known types share that short name.
             justification: |
               Ambiguous links would point to non-deterministic destinations and must be avoided.
-            tests:
-              - CppTypeLinkResolver_Linkify_AmbiguousShortName_EmitsPlainText
+            tests: [CppTypeLinkResolver_Linkify_AmbiguousShortName_EmitsPlainText]
           - id: ApiMarkCpp-CppTypeLinkResolver-LinkifyPrimitiveType
             title: CppTypeLinkResolver.Linkify shall leave primitive types unchanged.
             justification: |
               Primitive types are not documentation pages and must remain plain text.
-            tests:
-              - CppTypeLinkResolver_Linkify_PrimitiveType_ReturnsUnchanged
+            tests: [CppTypeLinkResolver_Linkify_PrimitiveType_ReturnsUnchanged]
           - id: ApiMarkCpp-CppTypeLinkResolver-LinkifyStdType
             title: >-
               CppTypeLinkResolver.Linkify shall leave std:: types unchanged.
             justification: |
               Standard-library types are outside the generated documentation tree.
-            tests:
-              - CppTypeLinkResolver_Linkify_StdType_ReturnsUnchanged
+            tests: [CppTypeLinkResolver_Linkify_StdType_ReturnsUnchanged]
           - id: ApiMarkCpp-CppTypeLinkResolver-LinkifyExternalTypeTracking
             title: >-
-              CppTypeLinkResolver.Linkify shall accumulate an external type entry when
-              no known type matches and the stripped type has a non-empty non-std namespace.
+              CppTypeLinkResolver.Linkify shall accumulate an external type entry
+              when
+              no known type matches and the stripped type has a non-empty non-std
+              namespace.
             justification: |
               External type tracking lets page writers emit a concise External Types
               section without cluttering each individual table cell.
-            tests:
-              - CppTypeLinkResolver_Linkify_ExternalType_AddsToExternalTypesSet
+            tests: [CppTypeLinkResolver_Linkify_ExternalType_AddsToExternalTypesSet]
