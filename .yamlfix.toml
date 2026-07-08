@@ -1,4 +1,5 @@
 # YAML Auto-Fix Configuration
+line_length = 10000
 preserve_quotes = true
 sequence_style = "keep_style"
 whitelines = 1

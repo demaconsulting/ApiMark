@@ -8,6 +8,8 @@ globs: ["docs/design/**/*.md"]
 
 - **`technical-documentation.md`** - General technical documentation standards
 - **`software-items.md`** - Software categorization (System/Subsystem/Unit/OTS/Shared Package)
+- **`sysml2-modeling.md`** - SysML2 model and view conventions feeding the Software Structure
+  section
 
 # Folder Structure
 
@@ -37,7 +39,8 @@ Must include:
 
 - **Purpose**: audience and compliance drivers
 - **Scope**: items covered and explicitly excluded (no test projects)
-- **Software Structure**: text tree showing all Systems/Subsystems/Units/OTS/Shared items
+- **Software Structure**: diagram(s) rendered from the SysML2 model under `docs/sysml2/`,
+  per `sysml2-modeling.md` — not a hand-maintained text tree
 - **Folder Layout**: text tree showing source folder structure
 - **Companion Artifact Structure**: parallel paths for requirements, design, verification, source, tests
 - **References** _(if applicable)_: external standards or specifications - only in `introduction.md`

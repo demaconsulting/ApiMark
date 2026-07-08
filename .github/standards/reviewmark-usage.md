@@ -20,7 +20,8 @@ review, organizes them into review-sets, and generates review plans and reports.
 
 - **Lint Configuration**: `dotnet reviewmark --lint`
 - **Elaborate Review-Set**: `dotnet reviewmark --elaborate {review-set}`
-- **Generate Plan**: `dotnet reviewmark --plan docs/code_review_plan/generated/plan.md --enforce` (exits non-zero if any files are uncovered)
+- **Generate Plan**: `dotnet reviewmark --plan docs/code_review_plan/generated/plan.md --enforce`
+  (exits non-zero if any files are uncovered)
 
 ## Repository Structure
 
@@ -39,6 +40,7 @@ needs-review:
   - "!**/obj/**"
   - "requirements.yaml"
   - "docs/reqstream/**/*.yaml"
+  - "docs/sysml2/**/*.sysml"
   - "README.md"
   - "docs/user_guide/**/*.md"
   - "docs/design/**/*.md"
@@ -97,7 +99,7 @@ as global context.
 | `{SystemName}-AllRequirements` | Parent system design doc + `docs/reqstream/{system-name}.yaml` |
 | `{SystemName}-{UnitName}` (direct unit) | Parent system design doc + parent system requirements |
 | `{SystemName}-{SubsystemName}` (subsystem) | Parent system design doc + parent system requirements |
-| `{SystemName}-{SubsystemName}-{UnitName}` (unit under subsystem) | System + subsystem design docs, system + subsystem requirements |
+| `{SystemName}-{SubsystemName}-{UnitName}` (unit under subsystem) | System + subsystem design docs + requirements |
 
 # Review-Set Organization
 
@@ -119,13 +121,16 @@ placeholders are always PascalCase (e.g., `{SystemName}`).
 
 ## `Decomposition` Review (only one per repository)
 
-- **Purpose**: Proves that the software items tree breakdown logically addresses the user-facing promise; the structural mirror of the decomposition decision
+- **Purpose**: Proves that the software items tree breakdown logically addresses the user-facing
+  promise; the structural mirror of the decomposition decision
 - **Title**: "Review that {SystemName} Decomposition Addresses the Stated Purpose"
 - **ID**: `Decomposition` (no system prefix — one per repository)
-- **Scope**: introduction.md (the decomposition narrative) and requirements.yaml (the structural tree); no system-level detail
+- **Scope**: introduction.md (the decomposition narrative), the SysML2 model (the
+  authoritative structural tree), and requirements.yaml; no system-level detail
 - **File Path Patterns**:
   - Root requirements: `requirements.yaml`
   - Design introduction: `docs/design/introduction.md`
+  - SysML2 model: `docs/sysml2/**/*.sysml`
 - **Context Files**: `README.md`, `docs/user_guide/**/*.md`
 
 ## `{SystemName}-Architecture` Review (one per system)
@@ -205,7 +210,8 @@ placeholders are always PascalCase (e.g., `{SystemName}`).
   - Tests (C# example): `test/{SystemName}.Tests[/{SubsystemName}...]/{UnitName}Tests.cs`
   - Source (snake_case C++ example): `src/{system_name}[/{subsystem_name}...]/{unit_name}.cpp`
   - Tests (snake_case C++ example): `test/{system_name}_tests[/{subsystem_name}...]/{unit_name}_tests.cpp`
-- **Context Files**: Parent system design + requirements; add subsystem design + requirements for each subsystem level above the unit.
+- **Context Files**: Parent system design + requirements; add subsystem design +
+  requirements for each subsystem level above the unit.
 
 ## `OTS-{OtsName}` Review (one per OTS item)
 
