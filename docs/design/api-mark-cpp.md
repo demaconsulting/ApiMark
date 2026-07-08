@@ -1,6 +1,6 @@
 # ApiMarkCpp
 
-![ApiMarkCpp Structure](generated/ApiMarkCppView.svg)
+![ApiMarkCpp Structure](ApiMarkCppView.svg)
 
 <!-- All sections below are MANDATORY. If a section does not apply, write
      "N/A - {justification}" rather than removing it. -->

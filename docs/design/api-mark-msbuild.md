@@ -1,6 +1,6 @@
 # ApiMarkMsbuild
 
-![ApiMarkMsbuild Structure](generated/ApiMarkMsbuildView.svg)
+![ApiMarkMsbuild Structure](ApiMarkMsbuildView.svg)
 
 <!-- All sections below are MANDATORY. If a section does not apply, write
      "N/A - {justification}" rather than removing it. -->

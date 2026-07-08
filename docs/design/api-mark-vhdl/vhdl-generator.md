@@ -1,6 +1,6 @@
 ## VhdlGenerator
 
-![VhdlGenerator Structure](../generated/ApiMarkVhdlView.svg)
+![VhdlGenerator Structure](ApiMarkVhdlView.svg)
 
 <!-- All sections below are MANDATORY. If a section does not apply, write
      "N/A - {justification}" rather than removing it. -->

@@ -1,6 +1,6 @@
 ## FileMarkdownWriter
 
-![FileMarkdownWriter Structure](../generated/ApiMarkCoreView.svg)
+![FileMarkdownWriter Structure](ApiMarkCoreView.svg)
 
 <!-- All sections below are MANDATORY. If a section does not apply, write
      "N/A - {justification}" rather than removing it. -->

@@ -1,6 +1,6 @@
 ## Program
 
-![Program Structure](../generated/ApiMarkToolView.svg)
+![Program Structure](ApiMarkToolView.svg)
 
 <!-- All sections below are MANDATORY. If a section does not apply, write
      "N/A - {justification}" rather than removing it. -->

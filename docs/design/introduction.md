@@ -47,7 +47,7 @@ diagram below by SysML2Tools as part of the build pipeline. AI agents should que
 SysML2 model directly (see the `sysml2tools-query` skill) rather than parsing this
 diagram or the prose below.
 
-![Software Structure](generated/SoftwareStructureView.svg)
+![Software Structure](SoftwareStructureView.svg)
 
 ## Folder Layout
 
@@ -69,127 +69,23 @@ src/
 
 Each local software item has corresponding artifacts in parallel directory trees:
 
-- Requirements: `docs/reqstream/api-mark-core.yaml`, `docs/reqstream/api-mark-core/{item}.yaml`,  `docs/reqstream/api-mark-dot-net.yaml`,
-  `docs/reqstream/api-mark-dot-net/dot-net-generator.yaml`,
-  `docs/reqstream/api-mark-dot-net/type-name-simplifier.yaml`,
-  `docs/reqstream/api-mark-dot-net/dot-net-ast-model.yaml`,
-  `docs/reqstream/api-mark-dot-net/dot-net-emitter.yaml`,
-  `docs/reqstream/api-mark-dot-net/dot-net-emitter-gradual-disclosure.yaml`,
-  `docs/reqstream/api-mark-dot-net/dot-net-emitter-single-file.yaml`,
-  `docs/reqstream/api-mark-dot-net/type-link-resolver.yaml`,
-  `docs/reqstream/api-mark-dot-net/xml-doc-reader.yaml`,
-  `docs/reqstream/api-mark-cpp.yaml`,
-  `docs/reqstream/api-mark-cpp/cpp-generator.yaml`,
-  `docs/reqstream/api-mark-cpp/cpp-ast-model.yaml`,
-  `docs/reqstream/api-mark-cpp/clang-ast-parser.yaml`,
-  `docs/reqstream/api-mark-cpp/cpp-emitter.yaml`,
-  `docs/reqstream/api-mark-cpp/cpp-emitter-gradual-disclosure.yaml`,
-  `docs/reqstream/api-mark-cpp/cpp-emitter-single-file.yaml`,
-  `docs/reqstream/api-mark-cpp/cpp-type-link-resolver.yaml`,
-  `docs/reqstream/api-mark-vhdl.yaml`,
-  `docs/reqstream/api-mark-vhdl/vhdl-generator.yaml`,
-  `docs/reqstream/api-mark-vhdl/vhdl-ast-model.yaml`,
-  `docs/reqstream/api-mark-vhdl/vhdl-ast-parser.yaml`,
-  `docs/reqstream/api-mark-vhdl/vhdl-emitter.yaml`,
-  `docs/reqstream/api-mark-vhdl/vhdl-emitter-gradual-disclosure.yaml`,
-  `docs/reqstream/api-mark-vhdl/vhdl-emitter-single-file.yaml`,
-  `docs/reqstream/api-mark-msbuild.yaml`, `docs/reqstream/api-mark-msbuild/{item}.yaml`,
-  `docs/reqstream/api-mark-tool.yaml`, `docs/reqstream/api-mark-tool/{item}.yaml`
-- Design: `docs/design/api-mark-core.md`, `docs/design/api-mark-core/{item}.md`,
-  `docs/design/api-mark-dot-net.md`,
-  `docs/design/api-mark-dot-net/dot-net-generator.md`,
-  `docs/design/api-mark-dot-net/type-name-simplifier.md`,
-  `docs/design/api-mark-dot-net/dot-net-ast-model.md`,
-  `docs/design/api-mark-dot-net/dot-net-emitter.md`,
-  `docs/design/api-mark-dot-net/dot-net-emitter-gradual-disclosure.md`,
-  `docs/design/api-mark-dot-net/dot-net-emitter-single-file.md`,
-  `docs/design/api-mark-dot-net/type-link-resolver.md`,
-  `docs/design/api-mark-dot-net/xml-doc-reader.md`,
-  `docs/design/api-mark-cpp.md`,
-  `docs/design/api-mark-cpp/cpp-generator.md`,
-  `docs/design/api-mark-cpp/cpp-ast-model.md`,
-  `docs/design/api-mark-cpp/clang-ast-parser.md`,
-  `docs/design/api-mark-cpp/cpp-emitter.md`,
-  `docs/design/api-mark-cpp/cpp-emitter-gradual-disclosure.md`,
-  `docs/design/api-mark-cpp/cpp-emitter-single-file.md`,
-  `docs/design/api-mark-cpp/cpp-type-link-resolver.md`,
-  `docs/design/api-mark-vhdl.md`,
-  `docs/design/api-mark-vhdl/vhdl-generator.md`,
-  `docs/design/api-mark-vhdl/vhdl-ast-model.md`,
-  `docs/design/api-mark-vhdl/vhdl-ast-parser.md`,
-  `docs/design/api-mark-vhdl/vhdl-emitter.md`,
-  `docs/design/api-mark-vhdl/vhdl-emitter-gradual-disclosure.md`,
-  `docs/design/api-mark-vhdl/vhdl-emitter-single-file.md`,
-  `docs/design/api-mark-msbuild.md`, `docs/design/api-mark-msbuild/{item}.md`,
-  `docs/design/api-mark-tool.md`, `docs/design/api-mark-tool/{item}.md`
-- Verification: `docs/verification/api-mark-core.md`, `docs/verification/api-mark-core/{item}.md`,
-  `docs/verification/api-mark-dot-net.md`,
-  `docs/verification/api-mark-dot-net/dot-net-generator.md`,
-  `docs/verification/api-mark-dot-net/type-name-simplifier.md`,
-  `docs/verification/api-mark-dot-net/dot-net-ast-model.md`,
-  `docs/verification/api-mark-dot-net/dot-net-emitter.md`,
-  `docs/verification/api-mark-dot-net/dot-net-emitter-gradual-disclosure.md`,
-  `docs/verification/api-mark-dot-net/dot-net-emitter-single-file.md`,
-  `docs/verification/api-mark-dot-net/type-link-resolver.md`,
-  `docs/verification/api-mark-dot-net/xml-doc-reader.md`,
-  `docs/verification/api-mark-cpp.md`,
-  `docs/verification/api-mark-cpp/cpp-generator.md`,
-  `docs/verification/api-mark-cpp/cpp-ast-model.md`,
-  `docs/verification/api-mark-cpp/clang-ast-parser.md`,
-  `docs/verification/api-mark-cpp/cpp-emitter.md`,
-  `docs/verification/api-mark-cpp/cpp-emitter-gradual-disclosure.md`,
-  `docs/verification/api-mark-cpp/cpp-emitter-single-file.md`,
-  `docs/verification/api-mark-cpp/cpp-type-link-resolver.md`,
-  `docs/verification/api-mark-vhdl.md`,
-  `docs/verification/api-mark-vhdl/vhdl-generator.md`,
-  `docs/verification/api-mark-vhdl/vhdl-ast-model.md`,
-  `docs/verification/api-mark-vhdl/vhdl-ast-parser.md`,
-  `docs/verification/api-mark-vhdl/vhdl-emitter.md`,
-  `docs/verification/api-mark-vhdl/vhdl-emitter-gradual-disclosure.md`,
-  `docs/verification/api-mark-vhdl/vhdl-emitter-single-file.md`,
-  `docs/verification/api-mark-msbuild.md`, `docs/verification/api-mark-msbuild/{item}.md`,
-  `docs/verification/api-mark-tool.md`, `docs/verification/api-mark-tool/{item}.md`
-- Source: `src/ApiMark.Core/`, `src/ApiMark.DotNet/`, `src/ApiMark.Cpp/`, `src/ApiMark.Vhdl/`,
-  `src/ApiMark.MSBuild/`, `src/ApiMark.Tool/`
-- Tests: `test/ApiMark.Core.TestHelpers/`, `test/ApiMark.Core.Tests/`, `test/ApiMark.DotNet.Tests/`,
-  `test/ApiMark.Cpp.Tests/`, `test/ApiMark.Vhdl.Tests/`,
-  `test/ApiMark.MSBuild.Tests/`, `test/ApiMark.MSBuild.PackageTests/`, `test/ApiMark.Tool.Tests/`
-- Fixtures: `test/ApiMark.DotNet.Fixtures/`, `test/ApiMark.Cpp.Fixtures/`
+- Requirements: `docs/reqstream/{system-name}.yaml`,
+  `docs/reqstream/{system-name}/{subsystem}/{item}.yaml`
+- Design: `docs/design/{system-name}.md`,
+  `docs/design/{system-name}/{subsystem}/{item}.md`
+- Verification: `docs/verification/{system-name}.md`,
+  `docs/verification/{system-name}/{subsystem}/{item}.md`
+- Source: `src/ApiMark.{SystemName}/{Subsystem}/{Item}.cs`
+- Tests: `test/ApiMark.{SystemName}.Tests/{Subsystem}/{Item}Tests.cs`
+
+Fixtures used by generator tests live in `test/ApiMark.DotNet.Fixtures/` and
+`test/ApiMark.Cpp.Fixtures/`.
 
 OTS items have integration/usage design documentation parallel to system folders:
 
-- Design: `docs/design/ots/mono-cecil.md`
-- Verification: `docs/verification/ots/mono-cecil.md`
-
-And for clang:
-
-- Requirements: `docs/reqstream/ots/clang.yaml`
-- Design: `docs/design/ots/clang.md`
-- Verification: `docs/verification/ots/clang.md`
-
-And for DemaConsulting.TestResults:
-
-- Requirements: `docs/reqstream/ots/dema-consulting-test-results.yaml`
-- Design: `docs/design/ots/dema-consulting-test-results.md`
-- Verification: `docs/verification/ots/dema-consulting-test-results.md`
-
-And for ANTLR4:
-
-- Requirements: `docs/reqstream/ots/antlr4.yaml`
-- Design: `docs/design/ots/antlr4.md`
-- Verification: `docs/verification/ots/antlr4.md`
-
-And for Microsoft.Extensions.FileSystemGlobbing:
-
-- Requirements: `docs/reqstream/ots/file-system-globbing.yaml`
-- Design: `docs/design/ots/file-system-globbing.md`
-- Verification: `docs/verification/ots/file-system-globbing.md`
-
-And for cpp-ast-net (archived):
-
-- Requirements: `docs/reqstream/ots/cpp-ast-net.yaml`
-- Design: `docs/design/ots/cpp-ast-net.md`
-- Verification: `docs/verification/ots/cpp-ast-net.md`
+- Requirements: `docs/reqstream/ots/{ots-name}.yaml`
+- Design: `docs/design/ots/{ots-name}.md`
+- Verification: `docs/verification/ots/{ots-name}.md`
 
 Review-sets: defined in `.reviewmark.yaml`
 
