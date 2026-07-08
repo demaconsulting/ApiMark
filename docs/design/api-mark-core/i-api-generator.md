@@ -1,5 +1,7 @@
 ## IApiGenerator
 
+![IApiGenerator Structure](../generated/ApiMarkCoreView.svg)
+
 <!-- All sections below are MANDATORY. If a section does not apply, write
      "N/A - {justification}" rather than removing it. -->
 

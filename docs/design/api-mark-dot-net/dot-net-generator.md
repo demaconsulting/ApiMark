@@ -1,5 +1,7 @@
 ## DotNetGenerator
 
+![DotNetGenerator Structure](../generated/ApiMarkDotNetView.svg)
+
 <!-- All sections below are MANDATORY. If a section does not apply, write
      "N/A - {justification}" rather than removing it. -->
 

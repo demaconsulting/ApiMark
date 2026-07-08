@@ -1,5 +1,7 @@
 # ApiMarkVhdl
 
+![ApiMarkVhdl Structure](generated/ApiMarkVhdlView.svg)
+
 <!-- All sections below are MANDATORY. If a section does not apply, write
      "N/A - {justification}" rather than removing it. -->
 

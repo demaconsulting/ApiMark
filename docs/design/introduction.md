@@ -1,5 +1,7 @@
 # Introduction
 
+![Software Structure](generated/SoftwareStructureView.svg)
+
 ApiMark generates compact, AI-friendly API reference documentation in Markdown from
 source code and its associated metadata (XML doc comments, header files, docstrings,
 etc.). The output is designed for gradual disclosure: an AI can read a lightweight

@@ -7,6 +7,7 @@ needs-review:
   - '**/*.cs'  # All C# source and test files
   - '**/*.targets'  # MSBuild targets files
   - docs/reqstream/**/*.yaml  # Requirements files
+  - docs/sysml2/**/*.sysml  # SysML2 architecture model files
   - docs/design/**/*.md  # Design documentation files
   - docs/verification/**/*.md  # Verification documentation files
   - docs/user_guide/**/*.md  # User guide documentation
@@ -37,6 +38,7 @@ reviews:
     paths:
       - requirements.yaml
       - docs/design/introduction.md
+      - docs/sysml2/**/*.sysml
 
   # ApiMarkCore - Specials
   - id: ApiMark-Core-Architecture
