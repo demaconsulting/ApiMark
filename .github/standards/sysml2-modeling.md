@@ -127,17 +127,14 @@ Views control what gets rendered into diagrams for the design document. Use name
 package {SystemName} {
     view SoftwareStructureView {
         expose {SystemName};         // whole package: system + subsystems + units
-        render asTreeDiagram;
     }
 
     view {SystemName}View {
         expose {SystemName}System;   // system def only, not expanded into subsystems
-        render asTreeDiagram;
     }
 
     view {SubsystemName}View {
         expose {SubsystemName};      // one subsystem def only
-        render asTreeDiagram;
     }
 }
 ```
@@ -145,7 +142,7 @@ package {SystemName} {
 **Critical distinction** (do not confuse these — this cost significant trial-and-error to
 discover): `expose <name>;` is what scopes a rendered diagram's content (the union of the
 named element's containment subtree). `render <kind>;` selects a rendering *style* (e.g.
-`asTreeDiagram`) — it has **no effect on scope**. `expose` is only legal inside a named
+`asInterconnectionDiagram`) — it has **no effect on scope**. `expose` is only legal inside a named
 `view Name { ... }` **usage**; it is a syntax/semantic error inside a `view def Name { ... }`
 **definition**. `expose` targets must be `::`-qualified or locally-resolvable names, not
 dotted member-access chains (`expose foo.bar;` is invalid — use `expose Bar;`).
