@@ -13,56 +13,47 @@ package ApiMarkCore {
         expose ApiMarkVhdl;
         expose ApiMarkMsbuild;
         expose ApiMarkTool;
-        render asTreeDiagram;
     }
 
     view ApiMarkCoreView {
         expose ApiMarkCoreSystem;
-        render asTreeDiagram;
     }
 }
 
 package ApiMarkDotNet {
     view ApiMarkDotNetView {
         expose ApiMarkDotNetSystem;
-        render asTreeDiagram;
     }
 }
 
 package ApiMarkCpp {
     view ApiMarkCppView {
         expose ApiMarkCppSystem;
-        render asTreeDiagram;
     }
 }
 
 package ApiMarkVhdl {
     view ApiMarkVhdlView {
         expose ApiMarkVhdlSystem;
-        render asTreeDiagram;
     }
 }
 
 package ApiMarkMsbuild {
     view ApiMarkMsbuildView {
         expose ApiMarkMsbuildSystem;
-        render asTreeDiagram;
     }
 }
 
 package ApiMarkTool {
     view ApiMarkToolView {
         expose ApiMarkToolSystem;
-        render asTreeDiagram;
     }
 
     view CliView {
         expose CliSubsystem;
-        render asTreeDiagram;
     }
 
     view SelfTestView {
         expose SelfTestSubsystem;
-        render asTreeDiagram;
     }
 }
