@@ -1,7 +1,5 @@
 # Introduction
 
-![Software Structure](generated/SoftwareStructureView.svg)
-
 ApiMark generates compact, AI-friendly API reference documentation in Markdown from
 source code and its associated metadata (XML doc comments, header files, docstrings,
 etc.). The output is designed for gradual disclosure: an AI can read a lightweight
@@ -44,64 +42,12 @@ configuration; the internal design of OTS items is also excluded.
 
 ## Software Structure
 
-```text
-ApiMarkCore (System)
-├── IApiGenerator (Unit)
-├── IApiEmitter (Unit)
-├── EmitConfig + OutputFormat (Unit)
-├── IContext (Unit)
-├── IMarkdownWriterFactory (Unit)
-├── FileMarkdownWriterFactory (Unit)
-├── IMarkdownWriter (Unit)
-├── FileMarkdownWriter (Unit)
-├── PathHelpers (Unit)
-└── GlobFileCollector (Unit)
+The software structure is modeled in SysML2 under `docs/sysml2/` and rendered to the
+diagram below by SysML2Tools as part of the build pipeline. AI agents should query the
+SysML2 model directly (see the `sysml2tools-query` skill) rather than parsing this
+diagram or the prose below.
 
-ApiMarkDotNet (System)
-├── DotNetGenerator (Unit)
-├── DotNetAstModel (Unit)
-├── DotNetEmitter (Unit)
-├── DotNetEmitterGradualDisclosure (Unit)
-├── DotNetEmitterSingleFile (Unit)
-├── TypeLinkResolver (Unit)
-├── XmlDocReader (Unit)
-└── TypeNameSimplifier (Unit)
-
-ApiMarkCpp (System)
-├── CppGenerator (Unit)
-├── CppAstModel (Unit)
-├── ClangAstParser (Unit)
-├── CppEmitter (Unit)
-├── CppEmitterGradualDisclosure (Unit)
-├── CppEmitterSingleFile (Unit)
-└── CppTypeLinkResolver (Unit)
-
-ApiMarkVhdl (System)
-├── VhdlGenerator (Unit)
-├── VhdlAstModel (Unit)
-├── VhdlAstParser (Unit)
-├── VhdlEmitter (Unit)
-├── VhdlEmitterGradualDisclosure (Unit)
-└── VhdlEmitterSingleFile (Unit)
-
-ApiMarkMsbuild (System)
-└── ApiMarkTask (Unit)
-
-ApiMarkTool (System)
-├── Cli (Subsystem)
-│   └── Context (Unit)
-├── SelfTest (Subsystem)
-│   └── Validation (Unit)
-└── Program (Unit)
-
-OTS Dependencies:
-├── Mono.Cecil (OTS)
-├── DemaConsulting.TestResults (OTS)
-├── clang -ast-dump=json (OTS)
-├── Antlr4.Runtime.Standard / ANTLR4 vhdl2008 grammar (OTS)
-├── Microsoft.Extensions.FileSystemGlobbing (OTS)
-└── cpp-ast-net (OTS) [archived]
-```
+![Software Structure](generated/SoftwareStructureView.svg)
 
 ## Folder Layout
 
