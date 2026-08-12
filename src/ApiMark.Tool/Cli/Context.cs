@@ -110,6 +110,20 @@ internal sealed class Context : IContext, IDisposable
     public string[] Excludes { get; private init; } = [];
 
     /// <summary>
+    ///     Gets the documentation-coverage enforcement visibility tier for the .NET language
+    ///     subcommand. Valid values are <c>Public</c>, <c>PublicAndProtected</c>, and <c>All</c>.
+    ///     Defaults to <see langword="null"/> — enforcement is disabled unless this option is
+    ///     explicitly supplied.
+    /// </summary>
+    public string? EnforceDocs { get; private init; }
+
+    /// <summary>
+    ///     Gets the severity applied when documentation-coverage enforcement finds undocumented
+    ///     items. Valid values are <c>Warning</c> and <c>Error</c>. Defaults to <c>Warning</c>.
+    /// </summary>
+    public string EnforceDocsSeverity { get; private init; } = "Warning";
+
+    /// <summary>
     ///     Gets the library name used as the top-level heading in C++ documentation.
     ///     Optional — when <see langword="null"/>, the tool defaults to the output directory name.
     /// </summary>
@@ -192,6 +206,8 @@ internal sealed class Context : IContext, IDisposable
             Visibility = parser.Visibility,
             IncludeObsolete = parser.IncludeObsolete,
             Excludes = [.. parser.Excludes],
+            EnforceDocs = parser.EnforceDocs,
+            EnforceDocsSeverity = parser.EnforceDocsSeverity,
             LibraryName = parser.LibraryName,
             LibraryDescription = parser.LibraryDescription,
             Defines = parser.Defines,
@@ -387,6 +403,17 @@ internal sealed class Context : IContext, IDisposable
         public List<string> Excludes { get; } = new List<string>();
 
         /// <summary>
+        ///     Gets the documentation-coverage enforcement visibility tier value.
+        ///     <see langword="null"/> when <c>--enforce-docs</c> was not supplied (enforcement disabled).
+        /// </summary>
+        public string? EnforceDocs { get; private set; }
+
+        /// <summary>
+        ///     Gets the documentation-coverage enforcement severity value.
+        /// </summary>
+        public string EnforceDocsSeverity { get; private set; } = "Warning";
+
+        /// <summary>
         ///     Gets the library name for the C++ documentation root heading.
         ///     Optional — when <see langword="null"/>, the tool derives it from the output directory.
         /// </summary>
@@ -551,6 +578,14 @@ internal sealed class Context : IContext, IDisposable
                         Excludes.Add(pattern);
                         return index + 1;
                     }
+
+                case "--enforce-docs":
+                    EnforceDocs = GetRequiredStringArgument(arg, args, index, "an enforcement visibility value argument");
+                    return index + 1;
+
+                case "--enforce-docs-severity":
+                    EnforceDocsSeverity = GetRequiredStringArgument(arg, args, index, "an enforcement severity value argument");
+                    return index + 1;
 
                 case "--library-name":
                     LibraryName = GetRequiredStringArgument(arg, args, index, "a library name argument");

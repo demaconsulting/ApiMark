@@ -59,6 +59,8 @@ Local items:
 - **XmlDocReader**: unit verification that XML documentation files produced by the C# compiler are
   parsed and indexed correctly for use during emission.
 - **TypeNameSimplifier**: unit verification of the seven-rule CLR type-name simplification logic.
+- **DocumentationCoverageChecker**: unit verification of the documentation-coverage scan that
+  identifies undocumented types and members at a caller-supplied enforcement visibility tier.
 - **ApiMarkVhdl**: system-level verification of the VHDL documentation generation pipeline.
 - **VhdlGenerator**: unit verification of source-file discovery via glob patterns, `--!` doc-comment
   extraction, and Markdown output generation.
@@ -148,6 +150,7 @@ Local items have parallel artifacts in:
   `docs/reqstream/api-mark-dot-net/dot-net-emitter-single-file.yaml`,
   `docs/reqstream/api-mark-dot-net/type-link-resolver.yaml`,
   `docs/reqstream/api-mark-dot-net/xml-doc-reader.yaml`,
+  `docs/reqstream/api-mark-dot-net/documentation-coverage-checker.yaml`,
   `docs/reqstream/api-mark-vhdl.yaml`,
   `docs/reqstream/api-mark-vhdl/vhdl-generator.yaml`,
   `docs/reqstream/api-mark-vhdl/vhdl-ast-model.yaml`,
@@ -186,6 +189,7 @@ Local items have parallel artifacts in:
   `docs/design/api-mark-dot-net/dot-net-emitter-single-file.md`,
   `docs/design/api-mark-dot-net/type-link-resolver.md`,
   `docs/design/api-mark-dot-net/xml-doc-reader.md`,
+  `docs/design/api-mark-dot-net/documentation-coverage-checker.md`,
   `docs/design/api-mark-vhdl.md`,
   `docs/design/api-mark-vhdl/vhdl-generator.md`,
   `docs/design/api-mark-vhdl/vhdl-ast-model.md`,
@@ -224,6 +228,7 @@ Local items have parallel artifacts in:
   `docs/verification/api-mark-dot-net/dot-net-emitter-single-file.md`,
   `docs/verification/api-mark-dot-net/type-link-resolver.md`,
   `docs/verification/api-mark-dot-net/xml-doc-reader.md`,
+  `docs/verification/api-mark-dot-net/documentation-coverage-checker.md`,
   `docs/verification/api-mark-vhdl.md`,
   `docs/verification/api-mark-vhdl/vhdl-generator.md`,
   `docs/verification/api-mark-vhdl/vhdl-ast-model.md`,

@@ -53,6 +53,11 @@ on non-Windows environments.
   side effects.
 - When `ApiMarkOutputs` is non-empty, the task spawns one child process per item in the
   `ApiMarkOutput` item group.
+- For .NET and C++ projects, `ApiMarkEnforceDocs` and `ApiMarkEnforceDocsSeverity` are forwarded
+  as `--enforce-docs` and `--enforce-docs-severity` respectively when set, and are omitted when
+  not set, since cpp documentation-coverage enforcement uses the same MSBuild properties as
+  dotnet. VHDL has no MSBuild wiring at all today; VHDL enforcement is reachable only through the
+  `ApiMark.Tool` CLI directly.
 
 ## Test Scenarios
 
@@ -159,3 +164,19 @@ non-empty, `Execute` spawns one child process per item in the `ApiMarkOutput` it
 applying per-item metadata overrides for `OutputDir`, `Format`, and `Visibility` so that
 multiple documentation artifacts are produced in a single build invocation. This scenario is
 tested by `ApiMarkTask_Execute_WithMultipleOutputs_RunsToolForEachOutput`.
+
+**Documentation coverage enforcement properties are forwarded for both .NET and C++**: Verifies
+that `ApiMarkEnforceDocs` and `ApiMarkEnforceDocsSeverity` are forwarded to the spawned tool as
+`--enforce-docs` and `--enforce-docs-severity` for both .NET and C++ projects when set, that the
+severity argument is omitted when only `ApiMarkEnforceDocs` is set, and that both arguments are
+omitted entirely when neither property is set — identically for both languages, since cpp
+documentation-coverage enforcement uses the same MSBuild properties as dotnet. These scenarios
+are tested by
+`ApiMarkTask_DotNet_SpawnsToolWithEnforceDocsArguments`,
+`ApiMarkTask_DotNet_WithoutEnforceDocsProperties_OmitsEnforceDocsArguments`,
+`ApiMarkTask_DotNet_WithEnforceDocsOnly_OmitsSeverityArgument`,
+`ApiMarkTask_Cpp_WithEnforceDocsProperties_ForwardsEnforceDocsArguments`,
+`ApiMarkTask_Cpp_WithoutEnforceDocsProperties_OmitsEnforceDocsArguments`, and
+`ApiMarkTask_Cpp_WithEnforceDocsOnly_OmitsSeverityArgument`. End-to-end `.targets` wiring is
+verified by
+`ApiMarkMsbuild_NuGetPackage_DotNetProject_EnforceDocs_FailsBuildOnUndocumentedApi`.

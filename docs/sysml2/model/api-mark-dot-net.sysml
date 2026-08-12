@@ -22,5 +22,6 @@ package ApiMarkDotNet {
         part xmlDocReader : XmlDocReader;
         part typeNameSimplifier : TypeNameSimplifier;
         part monoCecil : MonoCecil;
+        part documentationCoverageChecker : DocumentationCoverageChecker;
     }
 }

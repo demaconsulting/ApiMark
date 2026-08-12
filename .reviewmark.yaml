@@ -179,6 +179,19 @@ reviews:
       - docs/verification/api-mark-core/glob-file-collector.md
       - src/ApiMark.Core/GlobFileCollector.cs
       - test/ApiMark.Core.Tests/GlobFileCollectorTests.cs
+  - id: ApiMark-Core-IDocumentationCoverageCapable
+    title: Review that ApiMark Core IDocumentationCoverageCapable Implementation is
+      Correct
+    context:
+      - docs/design/api-mark-core.md
+      - docs/reqstream/api-mark-core.yaml
+    paths:
+      - docs/reqstream/api-mark-core/i-documentation-coverage-capable.yaml
+      - docs/design/api-mark-core/i-documentation-coverage-capable.md
+      - docs/verification/api-mark-core/i-documentation-coverage-capable.md
+      - src/ApiMark.Core/IDocumentationCoverageCapable.cs
+      - src/ApiMark.Core/DocumentationCoverageResult.cs
+      - test/ApiMark.Core.Tests/IDocumentationCoverageCapableTests.cs
 
   # ApiMarkDotNet - Specials
   - id: ApiMark-DotNet-Architecture
@@ -287,6 +300,18 @@ reviews:
       - docs/verification/api-mark-dot-net/xml-doc-reader.md
       - src/ApiMark.DotNet/XmlDocReader.cs
       - test/ApiMark.DotNet.Tests/XmlDocReaderTests.cs
+  - id: ApiMark-DotNet-DocumentationCoverageChecker
+    title: Review that ApiMark DotNet DocumentationCoverageChecker Implementation
+      is Correct
+    context:
+      - docs/design/api-mark-dot-net.md
+      - docs/reqstream/api-mark-dot-net.yaml
+    paths:
+      - docs/reqstream/api-mark-dot-net/documentation-coverage-checker.yaml
+      - docs/design/api-mark-dot-net/documentation-coverage-checker.md
+      - docs/verification/api-mark-dot-net/documentation-coverage-checker.md
+      - src/ApiMark.DotNet/DocumentationCoverageChecker.cs
+      - test/ApiMark.DotNet.Tests/DocumentationCoverageCheckerTests.cs
   - id: ApiMark-DotNet-TypeLinkResolver
     title: Review that ApiMark DotNet TypeLinkResolver Implementation is Correct
     context:
@@ -412,6 +437,17 @@ reviews:
       - src/ApiMark.Cpp/CppAst/ClangAstParser.cs
       - test/ApiMark.Cpp.Fixtures/**/*.h
       - test/ApiMark.Cpp.Tests/ClangAstParserTests.cs
+  - id: ApiMark-Cpp-DocumentationCoverageChecker
+    title: Review that ApiMark Cpp DocumentationCoverageChecker Implementation is
+      Correct
+    context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
+    paths:
+      - docs/reqstream/api-mark-cpp/documentation-coverage-checker.yaml
+      - docs/design/api-mark-cpp/documentation-coverage-checker.md
+      - docs/verification/api-mark-cpp/documentation-coverage-checker.md
+      - src/ApiMark.Cpp/DocumentationCoverageChecker.cs
+      - src/ApiMark.Cpp/CppGeneratorOptions.cs
+      - test/ApiMark.Cpp.Tests/DocumentationCoverageCheckerTests.cs
 
   # ApiMarkVhdl - Specials
   - id: ApiMark-Vhdl-Architecture
@@ -519,6 +555,20 @@ reviews:
       - src/ApiMark.Vhdl/VhdlAst/VhdlAstParser.cs
       - test/ApiMark.Vhdl.Tests/Fixtures/counter.vhd
       - test/ApiMark.Vhdl.Tests/VhdlAstParserTests.cs
+  - id: ApiMark-Vhdl-DocumentationCoverageChecker
+    title: Review that ApiMark Vhdl DocumentationCoverageChecker Implementation is
+      Correct
+    context:
+      - docs/design/api-mark-vhdl.md
+      - docs/reqstream/api-mark-vhdl.yaml
+    paths:
+      - docs/reqstream/api-mark-vhdl/documentation-coverage-checker.yaml
+      - docs/design/api-mark-vhdl/documentation-coverage-checker.md
+      - docs/verification/api-mark-vhdl/documentation-coverage-checker.md
+      - src/ApiMark.Vhdl/DocumentationCoverageChecker.cs
+      - src/ApiMark.Vhdl/VhdlGeneratorOptions.cs
+      - test/ApiMark.Vhdl.Tests/DocumentationCoverageCheckerTests.cs
+      - test/ApiMark.Vhdl.Tests/Fixtures/undocumented.vhd
 
   # ApiMarkMSBuild - Specials
   - id: ApiMark-MSBuild-Architecture

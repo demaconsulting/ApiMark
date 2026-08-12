@@ -1,0 +1,61 @@
+---
+# DocumentationCoverageChecker unit requirements
+sections:
+  - title: ApiMarkDotNet Requirements
+    sections:
+      - title: DocumentationCoverageChecker Requirements
+        requirements:
+          - id: ApiMarkDotNet-DocumentationCoverageChecker-ScanAtVisibilityTier
+            title: DocumentationCoverageChecker shall scan a parsed assembly for types
+              and members lacking a non-empty XML doc `<summary>`, at a caller-supplied
+              visibility tier independent of the emission visibility tier.
+            justification: |
+              Enforcement projects may want to check documentation completeness at a
+              different visibility tier than the one used for Markdown emission (for
+              example, emitting Public docs while enforcing PublicAndProtected
+              coverage). Re-deriving the three-way visibility switch locally, rather
+              than reusing DotNetEmitter's emission-scoped instance methods, keeps the
+              two concerns independent.
+            tests:
+              - Check_FullyDocumentedScope_ReportsZeroViolations
+              - Check_RealFixtureDoc_ReportsUndocumentedMethod
+              - Check_PublicAndProtectedTier_IncludesProtectedMembersNotSeenAtPublicTier
+          - id: ApiMarkDotNet-DocumentationCoverageChecker-DetectMissingSummaryByKind
+            title: DocumentationCoverageChecker shall classify each undocumented item
+              it finds by kind (type, method, property, field, or event) and report its
+              fully-qualified display name.
+            justification: |
+              A documentation-coverage report is only actionable if it names exactly
+              which type or member is missing a summary and what kind of API element
+              it is, so a user can navigate directly to the offending symbol.
+            tests:
+              - Check_TypeMissingSummary_ReportsTypeViolation
+              - Check_MethodMissingSummary_ReportsMethodViolation
+              - Check_PropertyMissingSummary_ReportsPropertyViolation
+              - Check_FieldMissingSummary_ReportsFieldViolation
+              - Check_EventMissingSummary_ReportsEventViolation
+          - id: ApiMarkDotNet-DocumentationCoverageChecker-RecurseNestedTypes
+            title: DocumentationCoverageChecker shall recurse into nested types visible
+              at the same enforcement tier and check their members as well.
+            justification: |
+              Nested types are part of the public API surface just like top-level
+              types; omitting them from the enforcement scan would let undocumented
+              nested types and members silently pass the check.
+            tests:
+              - Check_NestedTypeFullyDocumented_ChecksBothLevelsWithZeroViolations
+              - Check_NestedTypeMemberMissingSummary_ReportsViolationOnNestedType
+          - id: ApiMarkDotNet-DocumentationCoverageChecker-ApplyExcludePatternsAndObsoleteFilter
+            title: DocumentationCoverageChecker shall honor the same exclude-pattern
+              and obsolete-inclusion filters used for Markdown emission, and shall never
+              check a NamespaceDoc carrier type.
+            justification: |
+              Enforcement should respect the same namespace/type exclusions and
+              obsolete-member policy already configured for emission so that types
+              intentionally left out of generated documentation are not flagged as
+              violations, and so that the internal NamespaceDoc convention is never
+              mistaken for an undocumented public type.
+            tests:
+              - Check_ExcludePatternMatchesType_TypeIsNotChecked
+              - Check_IncludeObsoleteFalse_SkipsObsoleteType
+              - Check_IncludeObsoleteTrue_ScansObsoleteTypeAndReportsMissingSummary
+              - Check_NamespaceDocCarrier_IsNeverChecked

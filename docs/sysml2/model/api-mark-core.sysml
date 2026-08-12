@@ -24,5 +24,6 @@ package ApiMarkCore {
         part pathHelpers : PathHelpers;
         part globFileCollector : GlobFileCollector;
         part fileSystemGlobbing : FileSystemGlobbing;
+        part iDocumentationCoverageCapable : IDocumentationCoverageCapable;
     }
 }

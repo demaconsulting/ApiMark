@@ -30,6 +30,8 @@ flowchart TD
     IApiEmitter --> |Emit uses| IMarkdownWriterFactory
     IApiEmitter --> |Emit uses| EmitConfig
     IApiEmitter --> |Emit uses| IContext
+    IDocumentationCoverageCapable --> |returns| DocumentationCoverageResult
+    DocumentationCoverageResult --> |contains| UndocumentedApiItem
 ```
 
 ApiMarkDotNet, ApiMarkCpp, and ApiMarkVhdl each implement IApiGenerator. The `Parse`
@@ -41,6 +43,10 @@ and never calls IApiGenerator in-process. PathHelpers remains an internal
 utility used by ApiMarkCore implementations rather than a public dependency
 surface. GlobFileCollector is a public static utility consumed by ApiMarkCpp
 and ApiMarkVhdl to discover source files using glob patterns.
+`IDocumentationCoverageCapable` is an optional capability interface implemented
+by `DotNetGenerator`, `CppGenerator`, and `VhdlGenerator`; ApiMarkTool tests for
+it via `generator is IDocumentationCoverageCapable` to keep the
+`--enforce-docs` CLI wiring language-agnostic.
 
 ## External Interfaces
 
@@ -119,6 +125,53 @@ configuration for the emit stage.
   signatures.
 - *Constraints*: Each method appends content to the current output file in call
   order; callers invoke methods in document order and dispose the writer when done.
+
+**IDocumentationCoverageCapable (provided)**: Optional capability interface for
+language generators that support documentation-coverage enforcement.
+
+- *Type*: In-process .NET public API.
+- *Role*: Provider — ApiMarkCore publishes this interface; ApiMarkDotNet's
+  `DotNetGenerator`, ApiMarkCpp's `CppGenerator`, and ApiMarkVhdl's
+  `VhdlGenerator` implement it; ApiMarkTool consumes it via
+  `generator is IDocumentationCoverageCapable` rather than downcasting to a
+  specific language generator type, keeping the `--enforce-docs` CLI wiring
+  language-agnostic.
+- *Contract*: `DocumentationCoverageResult CheckDocumentationCoverage(string?
+  enforceTier)` — scans the API surface parsed by the most recent `Parse` call
+  for declarations missing a documentation summary, at the tier identified by
+  `enforceTier` (or the implementation's own configured default when
+  `enforceTier` is null/empty).
+- *Constraints*: each implementation owns parsing and validating its own
+  `enforceTier` vocabulary — .NET and C++ interpret it as a three-tier
+  visibility (`Public`, `PublicAndProtected`, `All`) mapped onto their
+  respective accessibility models; VHDL has no visibility concept at all, so
+  it accepts the same three-word vocabulary purely for CLI consistency but
+  treats all three values identically. Implementations throw
+  `ArgumentException` for an unrecognized tier value and
+  `InvalidOperationException` when called before `Parse` has completed or when
+  no enforcement tier is configured by either the parameter or the
+  implementation's own options.
+
+**DocumentationCoverageResult / UndocumentedApiItem (provided)**: Shared,
+language-agnostic result types for a documentation-coverage scan.
+
+- *Type*: In-process .NET public API (`DocumentationCoverageResult` is a
+  sealed class; `UndocumentedApiItem` is a sealed record).
+- *Role*: Provider — ApiMarkCore publishes these types; every
+  `IDocumentationCoverageCapable` implementation returns
+  `DocumentationCoverageResult`; ApiMarkTool's
+  `Program.ReportDocumentationCoverage` consumes it to print violations and
+  set the process exit code.
+- *Contract*: `DocumentationCoverageResult(IReadOnlyList<UndocumentedApiItem>
+  undocumentedItems, int checkedCount)` — `UndocumentedItems`,
+  `CheckedCount`, `UndocumentedCount`, and `HasViolations` expose the scan
+  outcome. `UndocumentedApiItem(string Kind, string DisplayName)` — `Kind` is
+  a plain, language-owned display label (e.g. `"Type"`, `"Function"`,
+  `"Entity"`) rather than a shared enum across languages, since the only
+  consumer of `Kind` (`Program.cs`) interpolates it directly into a display
+  string without switching on it.
+- *Constraints*: immutable once constructed; `Kind` values are not validated
+  against a shared vocabulary — each language checker defines its own set.
 
 ### Internal Utilities
 

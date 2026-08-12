@@ -53,9 +53,13 @@ included if they already exist on disk at pack time.
 ## See Also
 
 See the _.NET Documentation_ section for C#-specific MSBuild properties such as
-`ApiMarkAssemblyPath`, `ApiMarkXmlDocPath`, `ApiMarkVisibility`, and
-`ApiMarkIncludeObsolete`.
+`ApiMarkAssemblyPath`, `ApiMarkXmlDocPath`, `ApiMarkVisibility`,
+`ApiMarkIncludeObsolete`, and the opt-in `ApiMarkEnforceDocs`/
+`ApiMarkEnforceDocsSeverity` documentation-coverage enforcement properties.
 
 See the _C++ Documentation_ section for C++-specific MSBuild properties such as
 `ApiMarkIncludePaths`, `ApiMarkApiHeaders`, `ApiMarkDefines`, `ApiMarkCppStandard`,
-and `ApiMarkClangPath`.
+`ApiMarkClangPath`, and the opt-in `ApiMarkEnforceDocs`/`ApiMarkEnforceDocsSeverity`
+documentation-coverage enforcement properties (supported for `cpp` alongside
+`dotnet` — VHDL documentation-coverage enforcement is CLI-only today, since
+VHDL has no MSBuild task support at all).

@@ -133,3 +133,20 @@ sections:
           - GlobFileCollector_Collect_ExclusionPattern_RemovesMatchedFiles
           - GlobFileCollector_Collect_NonExistentRoot_ReturnsEmptyWithoutThrowing
           - GlobFileCollector_Collect_OverlappingPatterns_ReturnsSortedDeduplicated
+      - id: ApiMarkCore-IDocumentationCoverageCapable-ProvideEnforcementContract
+        title: ApiMark Core shall provide an optional documentation-coverage
+          enforcement capability interface that language generators can
+          implement to expose a language-agnostic coverage scan to callers.
+        justification: |
+          ApiMark supports opt-in documentation-coverage enforcement
+          (`--enforce-docs`) across multiple languages (dotnet, cpp, vhdl).
+          A shared capability interface lets ApiMarkTool detect and invoke
+          enforcement via `generator is IDocumentationCoverageCapable`
+          instead of downcasting to a specific language generator type,
+          keeping the CLI wiring language-agnostic as new languages adopt
+          the capability.
+        children:
+          - ApiMarkCore-IDocumentationCoverageCapable-DefineCheckDocumentationCoverageMethod
+          - ApiMarkCore-DocumentationCoverageResult-ProvideSharedResultType
+        tests:
+          - ApiMarkCore_DocumentationCoverageContract_SupportedLanguage_CanBeInvoked

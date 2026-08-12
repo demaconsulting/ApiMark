@@ -838,4 +838,87 @@ public sealed class ContextTests
         // Act / Assert: a flag token supplied as an option value must throw ArgumentException
         Assert.Throws<ArgumentException>(() => Context.Create(args));
     }
+
+    /// <summary>
+    ///     Validates that <c>--enforce-docs</c> sets the <see cref="Context.EnforceDocs"/>
+    ///     property to the supplied value.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithEnforceDocsOption_SetsEnforceDocs()
+    {
+        // Arrange: supply an enforcement visibility value
+        var args = new[] { "--enforce-docs", "PublicAndProtected" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: EnforceDocs property must match the supplied value
+        Assert.Equal("PublicAndProtected", context.EnforceDocs);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="Context.EnforceDocs"/> is <see langword="null"/> when
+    ///     <c>--enforce-docs</c> is never supplied, i.e. enforcement is disabled by default.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithoutEnforceDocsOption_LeavesEnforceDocsNull()
+    {
+        // Arrange: no --enforce-docs flag supplied
+        var args = new[] { "dotnet" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: EnforceDocs must remain unset (enforcement disabled)
+        Assert.Null(context.EnforceDocs);
+    }
+
+    /// <summary>
+    ///     Validates that <c>--enforce-docs-severity</c> sets the
+    ///     <see cref="Context.EnforceDocsSeverity"/> property to the supplied value.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithEnforceDocsSeverityOption_SetsEnforceDocsSeverity()
+    {
+        // Arrange: supply an enforcement severity value
+        var args = new[] { "--enforce-docs-severity", "Error" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: EnforceDocsSeverity property must match the supplied value
+        Assert.Equal("Error", context.EnforceDocsSeverity);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="Context.EnforceDocsSeverity"/> defaults to
+    ///     <c>"Warning"</c> when <c>--enforce-docs-severity</c> is never supplied.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithoutEnforceDocsSeverityOption_DefaultsToWarning()
+    {
+        // Arrange: no --enforce-docs-severity flag supplied
+        var args = new[] { "dotnet" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: EnforceDocsSeverity must default to Warning
+        Assert.Equal("Warning", context.EnforceDocsSeverity);
+    }
+
+    /// <summary>
+    ///     Validates that supplying a flag token (starting with <c>'-'</c>) as the value
+    ///     of <c>--enforce-docs</c> throws <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithFlagValueForEnforceDocs_ThrowsArgumentException()
+    {
+        // Arrange: supply a flag token as the --enforce-docs value — the parser must reject
+        // it rather than silently consuming the flag as a visibility value
+        var args = new[] { "--enforce-docs", "--silent" };
+
+        // Act / Assert: a flag token supplied as an option value must throw ArgumentException
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
+    }
 }

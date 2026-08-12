@@ -563,5 +563,539 @@ public class ProgramTests
             }
         }
     }
+
+    /// <summary>
+    ///     Builds <c>--exclude</c> arguments that remove every top-level fixture type except
+    ///     <paramref name="keepFullName"/>, scoping a documentation-coverage scan down to a
+    ///     single, deterministic type without modifying the shared fixtures project.
+    /// </summary>
+    /// <param name="keepFullName">The fully-qualified fixture type name to keep visible.</param>
+    /// <returns>A flat list of alternating <c>--exclude</c>/pattern argument pairs.</returns>
+    private static string[] ExcludeAllFixtureTypesExcept(string keepFullName) =>
+        typeof(SampleClass).Assembly.GetTypes()
+            .Where(t => !t.IsNested)
+            .Select(t => t.FullName!.Replace('+', '.'))
+            .Where(fullName => fullName != keepFullName)
+            .SelectMany(fullName => new[] { "--exclude", fullName })
+            .ToArray();
+
+    /// <summary>
+    ///     Validates that <c>--enforce-docs</c> with the default <c>Warning</c> severity reports
+    ///     undocumented items to standard output but still exits with code 0.
+    /// </summary>
+    [Fact]
+    public void Program_Main_EnforceDocsWarningSeverity_ReportsViolationsButExitsZero()
+    {
+        // Arrange: scope the scan to SampleClass only, whose Refresh method and implicit
+        // constructor are intentionally undocumented in the real fixture XML doc
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalOut = Console.Out;
+        using var outWriter = new StringWriter();
+
+        try
+        {
+            Console.SetOut(outWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "dotnet",
+                "--assembly", assemblyPath,
+                "--xml-doc", xmlDocPath,
+                "--output", outputDir,
+                "--enforce-docs", "Public",
+                .. ExcludeAllFixtureTypesExcept("ApiMark.DotNet.Fixtures.SampleClass"),
+            ]);
+
+            // Assert: default severity (Warning) reports but does not fail the build
+            Assert.Equal(0, exitCode);
+            Assert.Contains("[Undocumented]", outWriter.ToString(), StringComparison.Ordinal);
+            Assert.Contains("Refresh", outWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <c>--enforce-docs-severity Error</c> causes a non-zero exit code and an
+    ///     error message when undocumented items are found.
+    /// </summary>
+    [Fact]
+    public void Program_Main_EnforceDocsErrorSeverity_ReturnsNonZeroExitCode()
+    {
+        // Arrange: same scope as the warning-severity test, but with Error severity
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalOut = Console.Out;
+        var originalError = Console.Error;
+        using var outWriter = new StringWriter();
+        using var errorWriter = new StringWriter();
+
+        try
+        {
+            Console.SetOut(outWriter);
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "dotnet",
+                "--assembly", assemblyPath,
+                "--xml-doc", xmlDocPath,
+                "--output", outputDir,
+                "--enforce-docs", "Public",
+                "--enforce-docs-severity", "Error",
+                .. ExcludeAllFixtureTypesExcept("ApiMark.DotNet.Fixtures.SampleClass"),
+            ]);
+
+            // Assert: Error severity must fail the build when violations are found
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("undocumented", errorWriter.ToString(), StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Console.SetError(originalError);
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <c>--enforce-docs</c> exits with code 0 and reports zero undocumented
+    ///     items when the scoped type is fully documented.
+    /// </summary>
+    [Fact]
+    public void Program_Main_EnforceDocsNoViolations_ExitsZeroAndReportsZeroUndocumented()
+    {
+        // Arrange: scope the scan to OuterClass (and its nested Inner type), both of which
+        // declare fully documented, explicit constructors
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalOut = Console.Out;
+        using var outWriter = new StringWriter();
+
+        try
+        {
+            Console.SetOut(outWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "dotnet",
+                "--assembly", assemblyPath,
+                "--xml-doc", xmlDocPath,
+                "--output", outputDir,
+                "--enforce-docs", "Public",
+                "--enforce-docs-severity", "Error",
+                .. ExcludeAllFixtureTypesExcept("ApiMark.DotNet.Fixtures.OuterClass"),
+            ]);
+
+            // Assert: fully-documented scope must exit zero even with Error severity configured
+            Assert.Equal(0, exitCode);
+            Assert.Contains("Documentation coverage: 0 undocumented", outWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that supplying an unrecognized <c>--enforce-docs</c> value exits with a
+    ///     non-zero code and writes an error message containing the invalid value.
+    /// </summary>
+    [Fact]
+    public void Program_Main_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode()
+    {
+        // Arrange
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+
+        try
+        {
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "dotnet",
+                "--assembly", assemblyPath,
+                "--xml-doc", xmlDocPath,
+                "--output", outputDir,
+                "--enforce-docs", "InvalidTier",
+            ]);
+
+            // Assert
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("InvalidTier", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that supplying an unrecognized <c>--enforce-docs-severity</c> value exits
+    ///     with a non-zero code and writes an error message containing the invalid value.
+    /// </summary>
+    [Fact]
+    public void Program_Main_WithInvalidEnforceDocsSeverityValue_ReturnsNonZeroExitCode()
+    {
+        // Arrange
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+
+        try
+        {
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "dotnet",
+                "--assembly", assemblyPath,
+                "--xml-doc", xmlDocPath,
+                "--output", outputDir,
+                "--enforce-docs", "Public",
+                "--enforce-docs-severity", "InvalidSeverity",
+            ]);
+
+            // Assert
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("InvalidSeverity", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that an unrecognized <c>--enforce-docs</c> value is validated for the
+    ///     <c>cpp</c> subcommand (no longer a no-op — see the removed
+    ///     <c>Program_Main_EnforceDocsWithCppSubcommand_PrintsInformationalNote</c> and
+    ///     <c>Program_Main_InvalidEnforceDocsValueWithCppSubcommand_DoesNotThrowForEnforceDocs</c>
+    ///     tests) and exits with a non-zero code before clang is ever invoked, since validation
+    ///     happens in <c>CreateGenerator</c> before <c>Parse</c> runs.
+    /// </summary>
+    [Fact]
+    public void Program_Main_Cpp_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode()
+    {
+        // Arrange
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+
+        try
+        {
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "cpp",
+                "--includes", ".",
+                "--output", outputDir,
+                "--enforce-docs", "NotARealVisibilityTier",
+            ]);
+
+            // Assert: the invalid value is now validated (and rejected) for cpp too
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("NotARealVisibilityTier", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <c>--enforce-docs</c> with the default <c>Warning</c> severity reports
+    ///     undocumented VHDL items to standard output but still exits with code 0.
+    /// </summary>
+    [Fact]
+    public void Program_Main_Vhdl_EnforceDocsWarningSeverity_ReportsViolationsButExitsZero()
+    {
+        // Arrange: an entity with no doc comment, scoped to a single temp source file
+        var sourceDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(sourceDir);
+        var sourceFile = Path.Join(sourceDir, "undocumented.vhd");
+        File.WriteAllText(sourceFile, """
+            LIBRARY ieee;
+            USE ieee.std_logic_1164.ALL;
+
+            ENTITY undocumented_entity IS
+                PORT (
+                    y : OUT STD_LOGIC
+                );
+            END ENTITY undocumented_entity;
+            """);
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalOut = Console.Out;
+        using var outWriter = new StringWriter();
+
+        try
+        {
+            Console.SetOut(outWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "vhdl",
+                "--source", Path.Join(sourceDir, "*.vhd"),
+                "--output", outputDir,
+                "--enforce-docs", "Public",
+            ]);
+
+            // Assert: default severity (Warning) reports but does not fail the build
+            Assert.Equal(0, exitCode);
+            Assert.Contains("[Undocumented]", outWriter.ToString(), StringComparison.Ordinal);
+            Assert.Contains("undocumented_entity", outWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Directory.Delete(sourceDir, recursive: true);
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <c>--enforce-docs-severity Error</c> causes a non-zero exit code and an
+    ///     error message when undocumented VHDL items are found.
+    /// </summary>
+    [Fact]
+    public void Program_Main_Vhdl_EnforceDocsErrorSeverity_ReturnsNonZeroExitCode()
+    {
+        // Arrange: same undocumented entity as the warning-severity test, but with Error severity
+        var sourceDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(sourceDir);
+        var sourceFile = Path.Join(sourceDir, "undocumented.vhd");
+        File.WriteAllText(sourceFile, """
+            LIBRARY ieee;
+            USE ieee.std_logic_1164.ALL;
+
+            ENTITY undocumented_entity IS
+                PORT (
+                    y : OUT STD_LOGIC
+                );
+            END ENTITY undocumented_entity;
+            """);
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalOut = Console.Out;
+        var originalError = Console.Error;
+        using var outWriter = new StringWriter();
+        using var errorWriter = new StringWriter();
+
+        try
+        {
+            Console.SetOut(outWriter);
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "vhdl",
+                "--source", Path.Join(sourceDir, "*.vhd"),
+                "--output", outputDir,
+                "--enforce-docs", "Public",
+                "--enforce-docs-severity", "Error",
+            ]);
+
+            // Assert: Error severity must fail the build when violations are found
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("undocumented", errorWriter.ToString(), StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Console.SetError(originalError);
+            Directory.Delete(sourceDir, recursive: true);
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <c>--enforce-docs</c> exits with code 0 and reports zero undocumented
+    ///     items when the VHDL source is fully documented.
+    /// </summary>
+    [Fact]
+    public void Program_Main_Vhdl_EnforceDocsNoViolations_ExitsZeroAndReportsZeroUndocumented()
+    {
+        // Arrange: fully-documented entity
+        var sourceDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(sourceDir);
+        var sourceFile = Path.Join(sourceDir, "documented.vhd");
+        File.WriteAllText(sourceFile, """
+            LIBRARY ieee;
+            USE ieee.std_logic_1164.ALL;
+
+            --! @brief A fully documented entity.
+            ENTITY documented_entity IS
+                PORT (
+                    y : OUT STD_LOGIC --! The output signal.
+                );
+            END ENTITY documented_entity;
+            """);
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalOut = Console.Out;
+        using var outWriter = new StringWriter();
+
+        try
+        {
+            Console.SetOut(outWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "vhdl",
+                "--source", Path.Join(sourceDir, "*.vhd"),
+                "--output", outputDir,
+                "--enforce-docs", "Public",
+                "--enforce-docs-severity", "Error",
+            ]);
+
+            // Assert: fully-documented source must exit zero even with Error severity configured
+            Assert.Equal(0, exitCode);
+            Assert.Contains("Documentation coverage: 0 undocumented", outWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Directory.Delete(sourceDir, recursive: true);
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that supplying an unrecognized <c>--enforce-docs</c> value for the
+    ///     <c>vhdl</c> subcommand exits with a non-zero code and writes an error message
+    ///     containing the invalid value, mirroring dotnet's and cpp's validation.
+    /// </summary>
+    [Fact]
+    public void Program_Main_Vhdl_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode()
+    {
+        // Arrange
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+
+        try
+        {
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "vhdl",
+                "--source", "*.vhd",
+                "--output", outputDir,
+                "--enforce-docs", "NotARealVisibilityTier",
+            ]);
+
+            // Assert
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("NotARealVisibilityTier", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <c>Public</c>, <c>PublicAndProtected</c>, and <c>All</c> are all
+    ///     accepted for the <c>vhdl</c> subcommand and behave identically, since VHDL has no
+    ///     visibility/accessibility concept (see <c>ApiMark.Vhdl.DocumentationCoverageChecker</c>).
+    /// </summary>
+    [Theory]
+    [InlineData("Public")]
+    [InlineData("PublicAndProtected")]
+    [InlineData("All")]
+    public void Program_Main_Vhdl_AllThreeEnforceTierValues_AreAcceptedAndReportSameCount(string tier)
+    {
+        // Arrange
+        var sourceDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(sourceDir);
+        var sourceFile = Path.Join(sourceDir, "undocumented.vhd");
+        File.WriteAllText(sourceFile, """
+            LIBRARY ieee;
+            USE ieee.std_logic_1164.ALL;
+
+            ENTITY undocumented_entity IS
+                PORT (
+                    y : OUT STD_LOGIC
+                );
+            END ENTITY undocumented_entity;
+            """);
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalOut = Console.Out;
+        using var outWriter = new StringWriter();
+
+        try
+        {
+            Console.SetOut(outWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "vhdl",
+                "--source", Path.Join(sourceDir, "*.vhd"),
+                "--output", outputDir,
+                "--enforce-docs", tier,
+            ]);
+
+            // Assert: every recognized tier value is accepted and reports the same violation count
+            Assert.Equal(0, exitCode);
+            Assert.Contains("Documentation coverage: 2 undocumented", outWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Directory.Delete(sourceDir, recursive: true);
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
 }
 

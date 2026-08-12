@@ -14,10 +14,17 @@ namespace ApiMark.Cpp;
 ///     and per-member detail pages for every visible member. Not thread-safe; construct and use
 ///     one instance per generation run.
 /// </remarks>
-public sealed class CppGenerator : IApiGenerator
+public sealed class CppGenerator : IApiGenerator, IDocumentationCoverageCapable
 {
     /// <summary>Configuration controlling which headers, roots, visibility, and other parse options to apply.</summary>
     private readonly CppGeneratorOptions _options;
+
+    /// <summary>
+    ///     The namespace declarations collected by <see cref="Parse"/>, cached so
+    ///     <see cref="CheckDocumentationCoverage"/> can be called afterward without re-parsing.
+    ///     <see langword="null"/> until <see cref="Parse"/> completes successfully.
+    /// </summary>
+    private SortedDictionary<string, CppEmitter.NamespaceDeclarations>? _namespaceDecls;
 
     /// <summary>
     ///     Initializes a new instance of <see cref="CppGenerator"/> with the specified options.
@@ -86,6 +93,11 @@ public sealed class CppGenerator : IApiGenerator
     {
         ArgumentNullException.ThrowIfNull(context);
 
+        // Clear any cache retained from a previous successful parse before attempting a new
+        // one, so a failed retry cannot leave CheckDocumentationCoverage reading stale
+        // declarations from an earlier, unrelated parse.
+        _namespaceDecls = null;
+
         // Collect candidate header files from all configured public include roots
         var headerFiles = CollectHeaderFiles();
 
@@ -128,7 +140,77 @@ public sealed class CppGenerator : IApiGenerator
 
         var cppResolver = new CppTypeLinkResolver(knownTypes);
 
+        // Cache the parsed namespace declarations so CheckDocumentationCoverage can be
+        // called after Parse returns.
+        _namespaceDecls = namespaceDecls;
+
         return new CppEmitter(_options, namespaceDecls, cppResolver);
+    }
+
+    /// <summary>
+    ///     Scans the namespace declarations parsed by the most recent <see cref="Parse"/> call for
+    ///     classes, functions, fields, enums, and type aliases lacking a Doxygen summary, at the
+    ///     visibility tier identified by <paramref name="enforceTier"/>.
+    /// </summary>
+    /// <remarks>
+    ///     Must be called after <see cref="Parse"/> returns. The enforcement tier is independent
+    ///     of <see cref="CppGeneratorOptions.Visibility"/> — the two options may differ.
+    ///     <para>
+    ///     <paramref name="enforceTier"/> is parsed case-insensitively into <see cref="ApiVisibility"/>.
+    ///     When <see langword="null"/> or empty, <see cref="CppGeneratorOptions.EnforceDocsVisibility"/>
+    ///     is used instead, preserving the options-driven construction style for direct API callers
+    ///     that pre-populate the option rather than passing the tier through this method.
+    ///     </para>
+    /// </remarks>
+    /// <param name="enforceTier">
+    ///     The enforcement visibility tier as a string (<c>"Public"</c>, <c>"PublicAndProtected"</c>,
+    ///     or <c>"All"</c>), or <see langword="null"/>/empty to fall back to
+    ///     <see cref="CppGeneratorOptions.EnforceDocsVisibility"/>.
+    /// </param>
+    /// <returns>
+    ///     A <see cref="DocumentationCoverageResult"/> describing every undocumented item found.
+    /// </returns>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when called before <see cref="Parse"/> has completed successfully, or when neither
+    ///     <paramref name="enforceTier"/> nor <see cref="CppGeneratorOptions.EnforceDocsVisibility"/>
+    ///     is set.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="enforceTier"/> is set but not a recognized <see cref="ApiVisibility"/> value.
+    /// </exception>
+    public DocumentationCoverageResult CheckDocumentationCoverage(string? enforceTier)
+    {
+        if (_namespaceDecls is null)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(CheckDocumentationCoverage)} must be called after {nameof(Parse)} has completed successfully.");
+        }
+
+        ApiVisibility visibility;
+        if (!string.IsNullOrEmpty(enforceTier))
+        {
+            // Enum.TryParse alone accepts numeric strings (e.g. "999") and produces an
+            // undefined ApiVisibility value, so Enum.IsDefined guards against silently
+            // treating out-of-range numeric input as a valid tier.
+            if (!Enum.TryParse(enforceTier, ignoreCase: true, out visibility) || !Enum.IsDefined(visibility))
+            {
+                throw new ArgumentException(
+                    $"Invalid --enforce-docs value '{enforceTier}'. " +
+                    $"Valid values are: {string.Join(", ", Enum.GetNames<ApiVisibility>())}.");
+            }
+        }
+        else if (_options.EnforceDocsVisibility is not null)
+        {
+            visibility = _options.EnforceDocsVisibility.Value;
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                $"{nameof(CheckDocumentationCoverage)} requires an enforcement tier, either via the " +
+                $"{nameof(enforceTier)} parameter or {nameof(CppGeneratorOptions.EnforceDocsVisibility)}.");
+        }
+
+        return DocumentationCoverageChecker.Check(_namespaceDecls, visibility, _options.IncludeDeprecated);
     }
 
     // =========================================================================

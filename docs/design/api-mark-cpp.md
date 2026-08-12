@@ -23,6 +23,15 @@ through the ApiMarkCore interfaces. The system contains the following units:
 - **CppEmitterSingleFile** — writes all documentation into one `api.md` file.
 - **CppTypeLinkResolver** — resolves intra-library type links and tracks external
   types.
+- **DocumentationCoverageChecker** — scans parsed namespace declarations for
+  declarations missing a Doxygen summary at a caller-supplied enforcement
+  tier, powering the opt-in `--enforce-docs` CLI flag and `ApiMarkEnforceDocs`
+  MSBuild property. See the CppGenerator DocumentationCoverageChecker design
+  document for the scan algorithm.
+  **Known limitation**: unlike the .NET checker, this checker has no
+  exclude-pattern support, because `CppGeneratorOptions` has no
+  namespace/type exclude-pattern option today (only file-selection glob
+  patterns).
 
 ```mermaid
 flowchart TD
@@ -44,6 +53,7 @@ flowchart TD
     CppEmitterGradualDisclosure --> CppTypeLinkResolver
     CppEmitterGradualDisclosure --> IMarkdownWriterFactory
     CppEmitterSingleFile --> IMarkdownWriterFactory
+    CppGenerator --> DocumentationCoverageChecker
 ```
 
 ## External Interfaces
@@ -57,6 +67,20 @@ flowchart TD
   requested Markdown layout.
 - *Constraints*: callers must provide a valid `CppGeneratorOptions`; `Emit` throws
   `ArgumentNullException` when the writer factory is null.
+
+### IDocumentationCoverageCapable (provided)
+
+- *Type*: in-process .NET interface (ApiMarkCore).
+- *Role*: provider.
+- *Contract*: `CppGenerator.CheckDocumentationCoverage(string? enforceTier)`
+  returns a `DocumentationCoverageResult` describing declarations missing a
+  Doxygen summary. Powers the opt-in `--enforce-docs`/`--enforce-docs-severity`
+  CLI flags and `ApiMarkEnforceDocs`/`ApiMarkEnforceDocsSeverity` MSBuild
+  properties for the `cpp` language.
+- *Constraints*: must be called after `Parse()` has completed successfully;
+  throws `ArgumentException` for an unrecognized tier value and
+  `InvalidOperationException` when called before `Parse()` or when no
+  enforcement tier is configured.
 
 ### clang (consumed)
 

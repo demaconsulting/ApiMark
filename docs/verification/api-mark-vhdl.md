@@ -33,6 +33,11 @@ additional toolchain dependency is required — the ANTLR4 runtime is a NuGet pa
   inline on the entity detail page (not as separate files), including source-filename attribution.
 - The single-file emitter creates exactly one file.
 - The parser throws `InvalidOperationException` when given a file with invalid VHDL syntax.
+- `DocumentationCoverageChecker` scans entities, generics, ports, packages, and
+  their exported members (the VHDL public interface) for a missing
+  documentation summary, at the `--enforce-docs` visibility tier; see the
+  DocumentationCoverageChecker verification document under this subsystem for
+  full acceptance criteria and test scenarios.
 
 ## Test Scenarios
 
@@ -116,3 +121,11 @@ correctly from source. Tested by
 counter fixture has a non-empty inline --! doc comment, confirming that inline trailing
 comments are associated with generic declarations as well as port declarations. Tested by
 `VhdlAstParser_Parse_CounterFixture_GenericsHaveInlineDocComments`.
+
+**Documentation-coverage enforcement scans the VHDL public interface**: Verifies that
+`VhdlGenerator.CheckDocumentationCoverage` reports missing summaries on entities,
+generics, ports, packages, and their exported members, treats the `Public`,
+`PublicAndProtected`, and `All` enforcement tiers identically (since VHDL has no
+visibility concept), and never flags architecture-internal signals, variables, or
+processes (out of scope for v1). Full test-by-test detail is documented in the
+DocumentationCoverageChecker verification document under this subsystem.

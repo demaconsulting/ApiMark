@@ -14,6 +14,7 @@ sections:
           - ApiMarkTool-Program-AcceptLanguageArgument
           - ApiMarkTool-Program-DispatchToGenerator
           - ApiMarkTool-Program-SupportDotNetOptions
+          - ApiMarkTool-Program-EnforceDocumentationCoverage
           - ApiMarkTool-Program-SupportCppOptions
           - ApiMarkTool-Program-SupportVhdlOptions
           - ApiMarkTool-Program-SupportVersionOption

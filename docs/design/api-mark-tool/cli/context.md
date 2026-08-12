@@ -41,6 +41,9 @@ argument array.
 | `CppStandard` | `string?` | `null` | C++ language standard from `--cpp-standard` (e.g. `c++17`); optional, tool defaults to `c++17` when null |
 | `ClangPath` | `string?` | `null` | Explicit clang executable path from `--clang-path`; optional, auto-discovered when null |
 | `Format` | `OutputFormat` | `GradualDisclosure` | Output format from `--format` (`gradual` → `GradualDisclosure`, `single-file` → `SingleFile`) |
+| `Excludes` | `string[]` | `[]` | Wildcard patterns accumulated from repeated `--exclude` invocations |
+| `EnforceDocs` | `string?` | `null` | Enforcement visibility tier from `--enforce-docs` (`Public`, `PublicAndProtected`, or `All`); absent disables enforcement |
+| `EnforceDocsSeverity` | `string` | `"Warning"` | Enforcement severity from `--enforce-docs-severity` (`Warning` or `Error`) |
 
 **Private fields**:
 
@@ -67,7 +70,11 @@ construction path.
   a single pattern string (which may start with `!`) to the `ApiHeaders`
   list, preserving order for gitignore-style evaluation; each `--source` flag
   appends a single glob pattern string (which may start with `!`) to the
-  `Sources` list, preserving order for gitignore-style evaluation.
+  `Sources` list, preserving order for gitignore-style evaluation; each
+  `--exclude` flag appends a single wildcard pattern string to the `Excludes`
+  list. `--enforce-docs` and `--enforce-docs-severity` each take a single
+  string value with no accumulation semantics — later flags overwrite
+  earlier ones, matching `--visibility` and `--output`.
 - *Preconditions*: `args` must be non-null.
 - *Postconditions*: All properties reflect the parsed argument values;
   log file is open if `--log` was specified.

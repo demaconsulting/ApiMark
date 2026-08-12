@@ -20,4 +20,10 @@ sections:
           - ApiMarkVhdl-VhdlEmitter
           - ApiMarkVhdl-VhdlEmitterGradualDisclosure
           - ApiMarkVhdl-VhdlEmitterSingleFile
+          - ApiMarkVhdl-DocumentationCoverageChecker-ScanPublicInterfaceOnly
+          - ApiMarkVhdl-DocumentationCoverageChecker-ExcludeArchitectureInternals
+          - ApiMarkVhdl-DocumentationCoverageChecker-TreatAllThreeTiersIdentically
+          - ApiMarkVhdl-DocumentationCoverageChecker-FallBackToConfiguredTierWhenParameterOmitted
+          - ApiMarkVhdl-DocumentationCoverageChecker-RejectUnrecognizedEnforceTier
+          - ApiMarkVhdl-DocumentationCoverageChecker-RequireParseBeforeCheck
         tests: [VhdlGenerator_Generate_FixtureFile_CreatesApiEntrypoint]

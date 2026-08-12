@@ -33,6 +33,8 @@ apimark dotnet [options]
 | `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `Public`) |
 | `--include-obsolete` | Include obsolete members in generated output |
 | `--exclude <pattern>` | Exclude namespaces/types matching a wildcard pattern (repeatable) |
+| `--enforce-docs <value>` | Enable documentation-coverage enforcement at the given visibility tier: `Public`, `PublicAndProtected`, `All` (default: disabled) |
+| `--enforce-docs-severity <value>` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build) (default: `Warning`) |
 
 ## Documented Constructs
 
@@ -87,6 +89,54 @@ namespace. For example, `--exclude "Antlr4.*"` excludes every namespace and
 type under `Antlr4`. A namespace whose every type is excluded (whether by
 `--exclude` or by the visibility/obsolete filters above) does not appear in
 any generated index or page.
+
+## Documentation Coverage Enforcement
+
+ApiMark can enforce that your public API surface (or a broader visibility tier)
+carries an XML doc `<summary>`, in addition to generating documentation from
+whatever comments exist today. This is opt-in and disabled by default.
+
+Pass `--enforce-docs <tier>` to enable the check, where `<tier>` is one of:
+
+- `Public` — flags public types and members missing a `<summary>`.
+- `PublicAndProtected` — flags public and protected types and members.
+- `All` — flags every type and member regardless of access modifier.
+
+This enforcement tier is independent of `--visibility`, which only controls
+what gets emitted into the generated Markdown; you can, for example, generate
+`Public`-only documentation while enforcing coverage at the `All` tier to
+catch undocumented internal helpers before they become public.
+
+By default, undocumented items are reported to the console but do not fail
+the build (`--enforce-docs-severity Warning`, the default). Pass
+`--enforce-docs-severity Error` to fail the build (non-zero exit code) when
+one or more undocumented items are found:
+
+```text
+apimark dotnet --assembly MyLib.dll --xml-doc MyLib.xml --output docs \
+  --enforce-docs Public --enforce-docs-severity Error
+```
+
+The console report lists every undocumented type or member found, followed by
+a summary count, for example:
+
+```text
+Documentation coverage check:
+  [Undocumented] Type: MyLib.Widgets.Gadget
+  [Undocumented] Method: MyLib.Widgets.Gadget.Reset()
+Documentation coverage: 2 undocumented of 42 checked.
+```
+
+Types and members are excluded from the check exactly as they are excluded
+from generated output: obsolete items are skipped unless `--include-obsolete`
+is also specified, and `--exclude` patterns apply identically. A type/member
+is considered "documented" when it has a non-empty `<summary>` element;
+completeness of `<param>`, `<returns>`, or `<exception>` tags is not checked.
+
+`--enforce-docs` and `--enforce-docs-severity` are also available for the
+`cpp` and `vhdl` subcommands (see the C++ and VHDL user guides), each with a
+scan scoped to what that language's parser understands as a documentable
+declaration.
 
 ## Doc Comments
 
@@ -171,6 +221,8 @@ After the next `dotnet build`, documentation is written to `$(MSBuildProjectDire
 | `ApiMarkVisibility` | `Public` | Visibility filter: `Public`, `PublicAndProtected`, `All` |
 | `ApiMarkIncludeObsolete` | `false` | Include `[Obsolete]` members in generated output |
 | `ApiMarkExclude` | (empty) | Semicolon-separated wildcard patterns identifying namespaces/types to exclude, e.g. `Antlr4.*;MyNamespace.Generated.*` |
+| `ApiMarkEnforceDocs` | (unset) | Enforcement visibility tier for documentation-coverage checking: `Public`, `PublicAndProtected`, `All`; omitted disables enforcement |
+| `ApiMarkEnforceDocsSeverity` | `Warning` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build); only takes effect when `ApiMarkEnforceDocs` is also set |
 
 See the *MSBuild Integration* section for common properties (`ApiMarkOutputDir`,
 `ApiMarkFormat`, `DisableApiMark`, `ApiMarkPackDocs`) that apply to all project types.

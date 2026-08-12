@@ -37,6 +37,10 @@ up after itself. No other external files, services, or configuration are require
 - `--clang-path` sets `ClangPath` to the supplied path.
 - `--format` accepts `gradual` and `single-file`; defaults to `GradualDisclosure`; invalid values throw
   `ArgumentException`.
+- `--enforce-docs` sets `EnforceDocs` to the supplied visibility-tier string; absent, it
+  remains `null` (enforcement disabled).
+- `--enforce-docs-severity` sets `EnforceDocsSeverity` to the supplied value; absent, it
+  defaults to `"Warning"`.
 
 #### Test Scenarios
 
@@ -179,3 +183,19 @@ that the parser rejects flag tokens as string-valued option values.
 **`Context_Create_WithFlagValueForLog_ThrowsArgumentException`**: `["--log", "--silent"]`
 — a flag token supplied as the `--log` value — throws `ArgumentException`, confirming
 that the parser rejects flag tokens as string-valued option values.
+
+**`Context_Create_WithEnforceDocsOption_SetsEnforceDocs`**: `--enforce-docs PublicAndProtected`
+→ `EnforceDocs = "PublicAndProtected"`.
+
+**`Context_Create_WithoutEnforceDocsOption_LeavesEnforceDocsNull`**: No `--enforce-docs`
+argument → `EnforceDocs = null` (enforcement disabled by default).
+
+**`Context_Create_WithEnforceDocsSeverityOption_SetsEnforceDocsSeverity`**:
+`--enforce-docs-severity Error` → `EnforceDocsSeverity = "Error"`.
+
+**`Context_Create_WithoutEnforceDocsSeverityOption_DefaultsToWarning`**: No
+`--enforce-docs-severity` argument → `EnforceDocsSeverity = "Warning"` (documented default).
+
+**`Context_Create_WithFlagValueForEnforceDocs_ThrowsArgumentException`**:
+`["--enforce-docs", "--silent"]` — a flag token supplied as the `--enforce-docs` value —
+throws `ArgumentException`.

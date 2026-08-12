@@ -64,6 +64,22 @@ non-empty, trimmed entry is forwarded as an individual `--exclude` flag by
 `AppendDotNetArguments`, mirroring the `ApiMarkIncludePaths` → `--includes` loop
 structure used for `cpp`. Optional — when empty, nothing is excluded.
 
+**ApiMarkTask.ApiMarkEnforceDocs**: `string?` — MSBuild property
+`$(ApiMarkEnforceDocs)`; for the `dotnet` and `cpp` languages, the enforcement
+visibility tier for documentation-coverage checking. Accepted values:
+`Public`, `PublicAndProtected`, `All`. Optional — when not set, the
+`--enforce-docs` flag is omitted entirely by `AppendDotNetArguments`/
+`AppendCppArguments` and enforcement stays disabled, preserving existing
+build behavior for every project that does not opt in to this feature. VHDL
+enforcement is CLI-only — `ApiMarkTask` has no VHDL language support at all
+today, so this property has no effect for VHDL builds.
+
+**ApiMarkTask.ApiMarkEnforceDocsSeverity**: `string?` — MSBuild property
+`$(ApiMarkEnforceDocsSeverity)`; for the `dotnet` and `cpp` languages, and only
+meaningful when `ApiMarkEnforceDocs` is also set. Accepted values: `Warning`,
+`Error`. Optional — when not set, the `--enforce-docs-severity` flag is
+omitted and the tool applies its own default of `Warning`.
+
 **ApiMarkTask.ApiMarkIncludePaths**: `string` — MSBuild property
 `$(ApiMarkIncludePaths)`; for the `cpp` language, a semicolon-separated list of
 include directory paths. Each entry is forwarded as an individual `--includes`
@@ -170,17 +186,30 @@ child process per item using metadata overrides for `OutputDir`, `Format`, and
 `Visibility`; otherwise build the argument list from scalar MSBuild properties
 according to language-specific mapping (for `dotnet`, append `--assembly` and
 `--xml-doc`, then split `ApiMarkExclude` on `;` and emit one `--exclude` flag
-per non-empty trimmed entry; for `cpp`, split `ApiMarkIncludePaths` on
+per non-empty trimmed entry, then append `--enforce-docs`
+`ApiMarkEnforceDocs` when non-empty and `--enforce-docs-severity`
+`ApiMarkEnforceDocsSeverity` when non-empty (each flag independently omitted
+when its property is unset); for `cpp`, split `ApiMarkIncludePaths` on
 `;` and emit one `--includes` flag per entry; split `ApiMarkApiHeaders` on `;` and
 emit one `--api-headers` flag per entry, order-preserved including `!` exclusion
 patterns; if `ApiMarkLibraryName` is set, append `--library-name`; if
 `ApiMarkLibraryDescription` is set, append `--library-description`; if
 `ApiMarkDefines` is set, convert semicolons to commas and append `--defines`; if
 `ApiMarkCppStandard` is set, append `--cpp-standard`; if `ApiMarkClangPath` is set,
-append `--clang-path`; if `ApiMarkFormat` is set, append `--format`); start the
+append `--clang-path`; then append `--enforce-docs`/`--enforce-docs-severity` using
+the same non-empty checks as the `dotnet` path, since cpp documentation-coverage
+enforcement uses the identical MSBuild properties; if `ApiMarkFormat` is set,
+append `--format`); start the
 child process and pipe stdout lines as MSBuild messages and stderr lines as MSBuild
 errors; wait for exit; return true if exit code is zero, otherwise log an error
 with the exit code and return false.
+
+The `.targets` file forwards `$(ApiMarkEnforceDocs)` and
+`$(ApiMarkEnforceDocsSeverity)` into the `ApiMarkTask` invocation's
+`ApiMarkEnforceDocs`/`ApiMarkEnforceDocsSeverity` task parameters alongside the
+other scalar MSBuild properties, so both the `dotnet` and `cpp` project types
+reach this enforcement path through normal package consumption (not just
+when the task is invoked directly in isolation).
 
 **ApiMarkTask.ExecuteAllOutputs** (private): Iterates `ApiMarkOutputs` and spawns
 one child process per item.

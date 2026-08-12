@@ -126,4 +126,17 @@ public sealed class CppGeneratorOptions
     ///     without mutating the process working directory.
     /// </summary>
     public string? WorkingDirectory { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the documentation-coverage enforcement visibility tier, independent of
+    ///     <see cref="Visibility"/> (which controls emission). Defaults to <see langword="null"/>,
+    ///     meaning enforcement is disabled unless a tier is supplied directly to
+    ///     <see cref="CppGenerator.CheckDocumentationCoverage"/>.
+    /// </summary>
+    /// <remarks>
+    ///     Mirrors <c>DotNetGeneratorOptions.EnforceDocsVisibility</c>. A project may, for
+    ///     example, emit only <see cref="ApiVisibility.Public"/> documentation while enforcing
+    ///     <see cref="ApiVisibility.PublicAndProtected"/> documentation coverage, or vice versa.
+    /// </remarks>
+    public ApiVisibility? EnforceDocsVisibility { get; set; }
 }

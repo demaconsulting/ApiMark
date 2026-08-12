@@ -33,6 +33,22 @@ output directory. No external service, privileged configuration, or network acce
   because member headings in single-file output are at `depth+3` and depth 4 would produce H7.
 - `--format gradual --depth 4` is accepted and returns exit code zero (the single-file depth
   constraint does not apply to the gradual-disclosure format).
+- `apimark dotnet --enforce-docs <tier>` with `--enforce-docs-severity Warning` (the default)
+  reports undocumented API items to the console but still returns exit code zero.
+- `apimark dotnet --enforce-docs <tier> --enforce-docs-severity Error` returns a non-zero
+  exit code when violations are found, and the error message reports the undocumented count.
+- `apimark dotnet --enforce-docs <tier> --enforce-docs-severity Error` returns exit code zero
+  when no violations are found, even though severity is `Error`.
+- An invalid `--enforce-docs` value returns a non-zero exit code with a diagnostic naming
+  the invalid value, for the `dotnet`, `cpp`, and `vhdl` subcommands alike.
+- An invalid `--enforce-docs-severity` value returns a non-zero exit code with a diagnostic
+  naming the invalid value.
+- `apimark vhdl --enforce-docs <tier>` with `--enforce-docs-severity Warning` (the default)
+  reports undocumented VHDL entities/ports/generics/packages to the console but still
+  returns exit code zero.
+- `apimark vhdl --enforce-docs <tier> --enforce-docs-severity Error` returns a non-zero exit
+  code when violations are found, and returns exit code zero when no violations are found,
+  mirroring the dotnet behavior via the same `IDocumentationCoverageCapable` dispatch path.
 
 ### Test Scenarios
 
@@ -112,3 +128,73 @@ scenario is tested by `Program_Main_WithSingleFileFormatAndDepth4_ReturnsNonZero
 `--format gradual --depth 4` with a valid dotnet subcommand exits with code zero, confirming
 that the single-file depth constraint is not applied to the gradual-disclosure format. This
 scenario is tested by `Program_Main_WithGradualFormatAndDepth4_ExitsZero`.
+
+**Enforce-docs with Warning severity reports violations but exits zero**: Verifies that
+`apimark dotnet --enforce-docs <tier>` with the default `Warning` severity prints the
+documentation-coverage scan (including undocumented item lines and the summary counts) to
+stdout but still returns exit code zero, confirming that warn-only enforcement never fails
+an otherwise-successful build. This scenario is tested by
+`Program_Main_EnforceDocsWarningSeverity_ReportsViolationsButExitsZero`.
+
+**Enforce-docs with Error severity returns non-zero exit code**: Verifies that
+`apimark dotnet --enforce-docs <tier> --enforce-docs-severity Error` returns a non-zero exit
+code and writes an error message reporting the undocumented count when violations are found,
+confirming that error-severity enforcement gates the build via the existing
+`Context.WriteError`/`ExitCode` mechanism. This scenario is tested by
+`Program_Main_EnforceDocsErrorSeverity_ReturnsNonZeroExitCode`.
+
+**Enforce-docs with no violations exits zero and reports zero undocumented**: Verifies that
+when the scoped scan finds no undocumented items, the tool exits zero and reports zero
+undocumented items even when severity is `Error`, confirming that `WriteError` is only
+invoked when `HasViolations` is `true`. This scenario is tested by
+`Program_Main_EnforceDocsNoViolations_ExitsZeroAndReportsZeroUndocumented`.
+
+**Invalid --enforce-docs value returns non-zero exit code**: Verifies that an unrecognized
+`--enforce-docs` visibility value causes `CreateGenerator` to throw `ArgumentException`,
+which is caught and routed to `context.WriteError`, and that the resulting error message
+includes the invalid value supplied. This scenario is tested by
+`Program_Main_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode`.
+
+**Invalid --enforce-docs-severity value returns non-zero exit code**: Verifies that an
+unrecognized `--enforce-docs-severity` value causes `ReportDocumentationCoverage` to throw
+`ArgumentException`, which is caught and routed to `context.WriteError`, and that the
+resulting error message includes the invalid value supplied. This scenario is tested by
+`Program_Main_WithInvalidEnforceDocsSeverityValue_ReturnsNonZeroExitCode`.
+
+**Invalid --enforce-docs value is rejected for the cpp subcommand**: Verifies that an
+unrecognized `--enforce-docs` value supplied alongside the `cpp` subcommand is validated in
+`CreateGenerator` before `Parse` runs (and therefore before clang is ever invoked), exiting
+with a non-zero code and an error message naming the invalid value, confirming that
+documentation-coverage enforcement dispatches through `IDocumentationCoverageCapable`
+uniformly rather than being dotnet-only. This scenario is tested by
+`Program_Main_Cpp_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode`.
+
+**Enforce-docs with Warning severity reports VHDL violations but exits zero**: Verifies that
+`apimark vhdl --enforce-docs <tier>` with the default `Warning` severity prints the
+documentation-coverage scan for undocumented entities/ports/generics/packages to stdout but
+still returns exit code zero, mirroring the dotnet behavior through the same
+`IDocumentationCoverageCapable` dispatch path. This scenario is tested by
+`Program_Main_Vhdl_EnforceDocsWarningSeverity_ReportsViolationsButExitsZero`.
+
+**Enforce-docs with Error severity returns non-zero exit code for VHDL**: Verifies that
+`apimark vhdl --enforce-docs <tier> --enforce-docs-severity Error` returns a non-zero exit
+code when violations are found, confirming that error-severity enforcement gates the VHDL
+build the same way it gates the dotnet build. This scenario is tested by
+`Program_Main_Vhdl_EnforceDocsErrorSeverity_ReturnsNonZeroExitCode`.
+
+**Enforce-docs with no VHDL violations exits zero and reports zero undocumented**: Verifies
+that when the scoped VHDL scan finds no undocumented items, the tool exits zero and reports
+zero undocumented items even when severity is `Error`. This scenario is tested by
+`Program_Main_Vhdl_EnforceDocsNoViolations_ExitsZeroAndReportsZeroUndocumented`.
+
+**Invalid --enforce-docs value returns non-zero exit code for VHDL**: Verifies that supplying
+an unrecognized `--enforce-docs` value for the `vhdl` subcommand exits with a non-zero code
+and writes an error message containing the invalid value, mirroring the dotnet and cpp
+validation behavior. This scenario is tested by
+`Program_Main_Vhdl_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode`.
+
+**All three VHDL enforcement tiers are accepted and behave identically**: Verifies that
+`Public`, `PublicAndProtected`, and `All` are all accepted for the `vhdl` subcommand and
+report the same undocumented count, since VHDL has no visibility/accessibility concept and
+accepts the shared three-word vocabulary purely for CLI consistency. This scenario is tested
+by `Program_Main_Vhdl_AllThreeEnforceTierValues_AreAcceptedAndReportSameCount`.

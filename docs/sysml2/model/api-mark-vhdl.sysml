@@ -20,5 +20,6 @@ package ApiMarkVhdl {
         part vhdlEmitterGradualDisclosure : VhdlEmitterGradualDisclosure;
         part vhdlEmitterSingleFile : VhdlEmitterSingleFile;
         part antlr4RuntimeStandard : Antlr4RuntimeStandard;
+        part documentationCoverageChecker : DocumentationCoverageChecker;
     }
 }

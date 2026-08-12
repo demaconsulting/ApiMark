@@ -962,6 +962,54 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     }
 
     /// <summary>
+    ///     Validates that a relative <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> entry is
+    ///     resolved against the process's current working directory when
+    ///     <see cref="CppGeneratorOptions.WorkingDirectory"/> is left null, confirming the documented
+    ///     fallback behavior rather than throwing or silently matching nothing.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_ApiHeaderPatterns_NullWorkingDirectory_FallsBackToCurrentDirectory()
+    {
+        // Arrange: WorkingDirectory is intentionally left null so the generator must fall back to
+        // Directory.GetCurrentDirectory(). Temporarily change the process CWD to the parent of the
+        // include root so the relative pattern below resolves the same way the WorkingDirectory-set
+        // tests above do.
+        var workingDirectory = Path.GetDirectoryName(FixturePaths.GetFixtureIncludeDir())!;
+        var absoluteSampleClassPath = Path.Join(FixturePaths.GetFixtureNamespaceDir(), "SampleClass.h");
+        var relativePattern = Path.GetRelativePath(workingDirectory, absoluteSampleClassPath);
+        var originalCurrentDirectory = Directory.GetCurrentDirectory();
+
+        try
+        {
+            Directory.SetCurrentDirectory(workingDirectory);
+
+            var options = new CppGeneratorOptions
+            {
+                LibraryName = "Fixtures",
+                PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+                ApiHeaderPatterns = [relativePattern],
+                WorkingDirectory = null,
+            };
+            var factory = new InMemoryMarkdownWriterFactory();
+            var generator = new CppGenerator(options);
+
+            // Act
+            generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+            // Assert: SampleClass page must exist because its header was selected by the relative
+            // pattern resolved from the process current directory fallback
+            Assert.True(
+                factory.Writers.ContainsKey("fixtures/SampleClass"),
+                "Expected SampleClass page when WorkingDirectory is null and the pattern falls back to the current directory");
+        }
+        finally
+        {
+            // Restore the process CWD so other tests are not affected
+            Directory.SetCurrentDirectory(originalCurrentDirectory);
+        }
+    }
+
+    /// <summary>
     ///     Validates that the type page for a <c>final</c> class contains the <c>final</c>
     ///     keyword in its signature block so that AI readers immediately know the class
     ///     cannot be used as a base class.

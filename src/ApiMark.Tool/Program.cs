@@ -197,17 +197,35 @@ internal static class Program
             return;
         }
 
+        // --enforce-docs is validated per-subcommand in CreateGenerator, then applied uniformly
+        // below via IDocumentationCoverageCapable for whichever language generator is active.
+
         try
         {
-            // Construct the generator, parse symbols, then emit using the configured format
+            // Construct the generator and parse symbols first; documentation coverage (when
+            // requested) must be checked before Emit, which disposes the parsed assembly
             var generator = CreateGenerator(context);
+            var emitter = generator.Parse(context);
+
+            if (!string.IsNullOrEmpty(context.EnforceDocs) && generator is IDocumentationCoverageCapable coverageCapable)
+            {
+                ReportDocumentationCoverage(context, coverageCapable.CheckDocumentationCoverage(context.EnforceDocs));
+            }
+            else if (!string.IsNullOrEmpty(context.EnforceDocs))
+            {
+                // Defensive fallback: unreachable today since dotnet, cpp, and vhdl all
+                // implement IDocumentationCoverageCapable, but keeps a future 4th language
+                // generator that does not implement the interface from failing outright.
+                context.WriteLine("Note: --enforce-docs is not supported for this generator; ignoring.");
+            }
+
             var factory = new FileMarkdownWriterFactory(context.Output!);
             var emitConfig = new EmitConfig
             {
                 Format = context.Format,
                 HeadingDepth = context.HeadingDepth,
             };
-            generator.Parse(context).Emit(factory, emitConfig, context);
+            emitter.Emit(factory, emitConfig, context);
         }
         // Catch all generator construction and execution errors so failures produce
         // clean non-zero exits without an unhandled-exception stack trace
@@ -215,6 +233,52 @@ internal static class Program
         {
             context.WriteError($"Error: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    ///     Writes the documentation-coverage scan results to the context output stream, and
+    ///     signals a build failure via <see cref="Context.WriteError"/> when the configured
+    ///     severity is <c>Error</c> and at least one violation was found.
+    /// </summary>
+    /// <param name="context">The CLI context used to write output and, potentially, an error.</param>
+    /// <param name="result">The documentation coverage scan result.</param>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <see cref="Context.EnforceDocsSeverity"/> is not a recognized value.
+    /// </exception>
+    private static void ReportDocumentationCoverage(Context context, DocumentationCoverageResult result)
+    {
+        if (!Enum.TryParse<EnforcementSeverity>(context.EnforceDocsSeverity, ignoreCase: true, out var severity))
+        {
+            throw new ArgumentException(
+                $"Invalid --enforce-docs-severity value '{context.EnforceDocsSeverity}'. " +
+                $"Valid values are: {string.Join(", ", Enum.GetNames<EnforcementSeverity>())}.");
+        }
+
+        context.WriteLine("Documentation coverage check:");
+        foreach (var item in result.UndocumentedItems)
+        {
+            context.WriteLine($"  [Undocumented] {item.Kind}: {item.DisplayName}");
+        }
+
+        context.WriteLine($"Documentation coverage: {result.UndocumentedCount} undocumented of {result.CheckedCount} checked.");
+
+        // Only a single summary line goes through WriteError (which sets ExitCode = 1) — per-item
+        // WriteError calls would be disproportionately noisy for what is, in essence, one failure
+        if (result.HasViolations && severity == EnforcementSeverity.Error)
+        {
+            context.WriteError(
+                $"Error: {result.UndocumentedCount} undocumented API item(s) found (--enforce-docs-severity Error).");
+        }
+    }
+
+    /// <summary>Severity applied when documentation-coverage enforcement finds undocumented items.</summary>
+    private enum EnforcementSeverity
+    {
+        /// <summary>Undocumented items are reported but do not fail the build.</summary>
+        Warning,
+
+        /// <summary>Undocumented items are reported and cause the build to fail.</summary>
+        Error,
     }
 
     /// <summary>
@@ -256,6 +320,57 @@ internal static class Program
 
         var cppLibraryName = !string.IsNullOrEmpty(context.LibraryName) ? context.LibraryName : defaultLibraryName;
 
+        // Parse the optional --enforce-docs enforcement tier; absent/empty means enforcement is
+        // disabled (each generator's own EnforceDocsVisibility option stays null). Validated
+        // per-subcommand here so an invalid value fails fast, before Parse runs, for all three
+        // languages uniformly.
+        DotNetApiVisibility? enforceDocsVisibility = null;
+        CppApiVisibility? cppEnforceDocsVisibility = null;
+        string? vhdlEnforceDocsVisibility = null;
+        if (!string.IsNullOrEmpty(context.EnforceDocs))
+        {
+            switch (context.Language)
+            {
+                case "dotnet":
+                    if (!Enum.TryParse<DotNetApiVisibility>(context.EnforceDocs, ignoreCase: true, out var parsedDotNetTier))
+                    {
+                        throw new ArgumentException(
+                            $"Invalid --enforce-docs value '{context.EnforceDocs}'. " +
+                            $"Valid values are: {string.Join(", ", Enum.GetNames<DotNetApiVisibility>())}.");
+                    }
+
+                    enforceDocsVisibility = parsedDotNetTier;
+                    break;
+
+                case "cpp":
+                    if (!Enum.TryParse<CppApiVisibility>(context.EnforceDocs, ignoreCase: true, out var parsedCppTier))
+                    {
+                        throw new ArgumentException(
+                            $"Invalid --enforce-docs value '{context.EnforceDocs}'. " +
+                            $"Valid values are: {string.Join(", ", Enum.GetNames<CppApiVisibility>())}.");
+                    }
+
+                    cppEnforceDocsVisibility = parsedCppTier;
+                    break;
+
+                case "vhdl":
+                    // VHDL has no visibility/accessibility concept: Public, PublicAndProtected,
+                    // and All are all accepted (using the same vocabulary as dotnet/cpp purely
+                    // for a consistent CLI experience and error message) but behave identically —
+                    // see ApiMark.Vhdl.DocumentationCoverageChecker. The parsed enum value itself
+                    // is discarded; only the raw string is forwarded to VhdlGeneratorOptions.
+                    if (!Enum.TryParse<DotNetApiVisibility>(context.EnforceDocs, ignoreCase: true, out _))
+                    {
+                        throw new ArgumentException(
+                            $"Invalid --enforce-docs value '{context.EnforceDocs}'. " +
+                            $"Valid values are: {string.Join(", ", Enum.GetNames<DotNetApiVisibility>())}.");
+                    }
+
+                    vhdlEnforceDocsVisibility = context.EnforceDocs;
+                    break;
+            }
+        }
+
         return context.Language switch
         {
             // Construct a DotNetGenerator from the dotnet-specific options
@@ -266,6 +381,7 @@ internal static class Program
                 Visibility = visibility,
                 IncludeObsolete = context.IncludeObsolete,
                 ExcludePatterns = context.Excludes,
+                EnforceDocsVisibility = enforceDocsVisibility,
             }),
 
             // Construct a CppGenerator from the cpp-specific options; cast visibility via its
@@ -282,6 +398,7 @@ internal static class Program
                 Visibility = (CppApiVisibility)(int)visibility,
                 IncludeDeprecated = context.IncludeObsolete,
                 ClangPath = context.ClangPath,
+                EnforceDocsVisibility = cppEnforceDocsVisibility,
             }),
 
             // Construct a VhdlGenerator from the vhdl-specific options
@@ -290,6 +407,7 @@ internal static class Program
                 LibraryName = !string.IsNullOrEmpty(context.LibraryName) ? context.LibraryName : defaultLibraryName,
                 Description = context.LibraryDescription ?? string.Empty,
                 Sources = new List<string>(context.Sources),
+                EnforceDocsVisibility = vhdlEnforceDocsVisibility,
             }),
 
             // Any other token is an unrecognized subcommand
@@ -339,6 +457,8 @@ internal static class Program
         context.WriteLine("  --visibility <value>       Visibility filter: Public, PublicAndProtected, All (default: Public)");
         context.WriteLine("  --include-obsolete         Include obsolete members in generated output");
         context.WriteLine("  --exclude <pattern>        Exclude namespaces/types matching a wildcard pattern (repeatable)");
+        context.WriteLine("  --enforce-docs <value>     Enforce XML doc <summary> coverage at a visibility tier: Public, PublicAndProtected, All (default: disabled)");
+        context.WriteLine("  --enforce-docs-severity <v> Severity when --enforce-docs finds violations: Warning, Error (default: Warning)");
         context.WriteLine("");
         context.WriteLine("cpp options:");
         context.WriteLine("  --includes <path>          Include directory for clang -I (repeatable, required)");

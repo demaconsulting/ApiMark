@@ -70,16 +70,21 @@ src/
 Each local software item has corresponding artifacts in parallel directory trees:
 
 - Requirements: `docs/reqstream/{system-name}.yaml`,
+  `docs/reqstream/{system-name}/{item}.yaml` (top-level units / single-unit systems),
   `docs/reqstream/{system-name}/{subsystem}/{item}.yaml`
 - Design: `docs/design/{system-name}.md`,
+  `docs/design/{system-name}/{item}.md` (top-level units / single-unit systems),
   `docs/design/{system-name}/{subsystem}/{item}.md`
 - Verification: `docs/verification/{system-name}.md`,
+  `docs/verification/{system-name}/{item}.md` (top-level units / single-unit systems),
   `docs/verification/{system-name}/{subsystem}/{item}.md`
-- Source: `src/ApiMark.{SystemName}/{Subsystem}/{Item}.cs`
-- Tests: `test/ApiMark.{SystemName}.Tests/{Subsystem}/{Item}Tests.cs`
+- Source: `src/ApiMark.{SystemName}/{Item}.cs` (top-level units),
+  `src/ApiMark.{SystemName}/{Subsystem}/{Item}.cs`
+- Tests: `test/ApiMark.{SystemName}.Tests/{Item}Tests.cs` (top-level units),
+  `test/ApiMark.{SystemName}.Tests/{Subsystem}/{Item}Tests.cs`
 
-Fixtures used by generator tests live in `test/ApiMark.DotNet.Fixtures/` and
-`test/ApiMark.Cpp.Fixtures/`.
+Fixtures used by generator tests live in `test/ApiMark.DotNet.Fixtures/`,
+`test/ApiMark.Cpp.Fixtures/`, and `test/ApiMark.Vhdl.Tests/Fixtures/`.
 
 OTS items have integration/usage design documentation parallel to system folders:
 

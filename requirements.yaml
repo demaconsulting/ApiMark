@@ -12,6 +12,7 @@ includes:
   - docs/reqstream/api-mark-core/file-markdown-writer.yaml
   - docs/reqstream/api-mark-core/path-helpers.yaml
   - docs/reqstream/api-mark-core/glob-file-collector.yaml
+  - docs/reqstream/api-mark-core/i-documentation-coverage-capable.yaml
   - docs/reqstream/api-mark-dot-net.yaml
   - docs/reqstream/api-mark-dot-net/dot-net-generator.yaml
   - docs/reqstream/api-mark-dot-net/type-name-simplifier.yaml
@@ -21,6 +22,7 @@ includes:
   - docs/reqstream/api-mark-dot-net/dot-net-emitter-single-file.yaml
   - docs/reqstream/api-mark-dot-net/type-link-resolver.yaml
   - docs/reqstream/api-mark-dot-net/xml-doc-reader.yaml
+  - docs/reqstream/api-mark-dot-net/documentation-coverage-checker.yaml
   - docs/reqstream/api-mark-msbuild.yaml
   - docs/reqstream/api-mark-msbuild/api-mark-task.yaml
   - docs/reqstream/api-mark-tool.yaml
@@ -38,6 +40,7 @@ includes:
   - docs/reqstream/api-mark-cpp/cpp-emitter-gradual-disclosure.yaml
   - docs/reqstream/api-mark-cpp/cpp-emitter-single-file.yaml
   - docs/reqstream/api-mark-cpp/cpp-type-link-resolver.yaml
+  - docs/reqstream/api-mark-cpp/documentation-coverage-checker.yaml
   - docs/reqstream/api-mark-vhdl.yaml
   - docs/reqstream/api-mark-vhdl/vhdl-generator.yaml
   - docs/reqstream/api-mark-vhdl/vhdl-ast-model.yaml
@@ -45,6 +48,7 @@ includes:
   - docs/reqstream/api-mark-vhdl/vhdl-emitter.yaml
   - docs/reqstream/api-mark-vhdl/vhdl-emitter-gradual-disclosure.yaml
   - docs/reqstream/api-mark-vhdl/vhdl-emitter-single-file.yaml
+  - docs/reqstream/api-mark-vhdl/documentation-coverage-checker.yaml
   - docs/reqstream/ots/clang.yaml
   - docs/reqstream/ots/antlr4.yaml
   - docs/reqstream/ots/cpp-ast-net.yaml

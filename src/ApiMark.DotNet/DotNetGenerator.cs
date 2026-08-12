@@ -12,10 +12,24 @@ namespace ApiMark.DotNet;
 ///     with developer-authored content from the XML documentation file to produce a gradual-disclosure
 ///     Markdown tree. Not thread-safe; construct and use one instance per generation run.
 /// </remarks>
-public sealed class DotNetGenerator : IApiGenerator
+public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapable
 {
     /// <summary>Configuration controlling which assembly, XML doc, and visibility filter to use.</summary>
     private readonly DotNetGeneratorOptions _options;
+
+    /// <summary>
+    ///     The assembly parsed by <see cref="Parse"/>, cached so <see cref="CheckDocumentationCoverage"/>
+    ///     can be called afterward without re-reading the assembly. <see langword="null"/> until
+    ///     <see cref="Parse"/> completes successfully.
+    /// </summary>
+    private AssemblyDefinition? _assembly;
+
+    /// <summary>
+    ///     The XML documentation index built by <see cref="Parse"/>, cached so
+    ///     <see cref="CheckDocumentationCoverage"/> can reuse it without re-parsing the XML doc file.
+    ///     <see langword="null"/> until <see cref="Parse"/> completes successfully.
+    /// </summary>
+    private XmlDocReader? _xmlDocs;
 
     /// <summary>Initializes a new instance of <see cref="DotNetGenerator"/> with the specified options.</summary>
     /// <remarks>
@@ -136,6 +150,11 @@ public sealed class DotNetGenerator : IApiGenerator
 
             var resolver = new TypeLinkResolver(rootNamespaces);
 
+            // Cache the parsed assembly and XML doc index so CheckDocumentationCoverage can be
+            // called after Parse returns and before Emit disposes the assembly.
+            _assembly = assembly;
+            _xmlDocs = xmlDocs;
+
             return new DotNetEmitter(new DotNetAstModel(
                 assembly,
                 xmlDocs,
@@ -151,6 +170,76 @@ public sealed class DotNetGenerator : IApiGenerator
             assembly.Dispose();
             throw;
         }
+    }
+
+    /// <summary>
+    ///     Scans the assembly parsed by the most recent <see cref="Parse"/> call for types and
+    ///     members lacking an XML doc <c>&lt;summary&gt;</c>, at the visibility tier identified by
+    ///     <paramref name="enforceTier"/>.
+    /// </summary>
+    /// <remarks>
+    ///     Must be called after <see cref="Parse"/> returns and before the returned
+    ///     <see cref="IApiEmitter.Emit"/> is invoked, because <c>Emit</c> disposes the parsed
+    ///     assembly once it completes. The enforcement tier is independent of
+    ///     <see cref="DotNetGeneratorOptions.Visibility"/> — the two options may differ.
+    ///     <para>
+    ///     <paramref name="enforceTier"/> is parsed case-insensitively into <see cref="ApiVisibility"/>.
+    ///     When <see langword="null"/> or empty, <see cref="DotNetGeneratorOptions.EnforceDocsVisibility"/>
+    ///     is used instead, preserving the options-driven construction style for direct API callers
+    ///     that pre-populate the option rather than passing the tier through this method.
+    ///     </para>
+    /// </remarks>
+    /// <param name="enforceTier">
+    ///     The enforcement visibility tier as a string (<c>"Public"</c>, <c>"PublicAndProtected"</c>,
+    ///     or <c>"All"</c>), or <see langword="null"/>/empty to fall back to
+    ///     <see cref="DotNetGeneratorOptions.EnforceDocsVisibility"/>.
+    /// </param>
+    /// <returns>
+    ///     A <see cref="DocumentationCoverageResult"/> describing every undocumented item found.
+    /// </returns>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when called before <see cref="Parse"/> has completed successfully, or when neither
+    ///     <paramref name="enforceTier"/> nor <see cref="DotNetGeneratorOptions.EnforceDocsVisibility"/>
+    ///     is set.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="enforceTier"/> is set but not a recognized <see cref="ApiVisibility"/> value.
+    /// </exception>
+    public DocumentationCoverageResult CheckDocumentationCoverage(string? enforceTier)
+    {
+        if (_assembly is null || _xmlDocs is null)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(CheckDocumentationCoverage)} must be called after {nameof(Parse)} has completed successfully.");
+        }
+
+        ApiVisibility visibility;
+        if (!string.IsNullOrEmpty(enforceTier))
+        {
+            if (!Enum.TryParse(enforceTier, ignoreCase: true, out visibility))
+            {
+                throw new ArgumentException(
+                    $"Invalid --enforce-docs value '{enforceTier}'. " +
+                    $"Valid values are: {string.Join(", ", Enum.GetNames<ApiVisibility>())}.");
+            }
+        }
+        else if (_options.EnforceDocsVisibility is not null)
+        {
+            visibility = _options.EnforceDocsVisibility.Value;
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                $"{nameof(CheckDocumentationCoverage)} requires an enforcement tier, either via the " +
+                $"{nameof(enforceTier)} parameter or {nameof(DotNetGeneratorOptions.EnforceDocsVisibility)}.");
+        }
+
+        return DocumentationCoverageChecker.Check(
+            _assembly,
+            _xmlDocs,
+            visibility,
+            _options.IncludeObsolete,
+            _options.ExcludePatterns);
     }
 
     /// <summary>
@@ -578,7 +667,13 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <param name="patterns">The wildcard patterns to compile. May be <see langword="null"/> or empty, and
     /// may contain <see langword="null"/> or whitespace-only entries, which are ignored.</param>
     /// <returns>The compiled regular expressions, in the same order as the non-empty entries of <paramref name="patterns"/>.</returns>
-    private static List<Regex> CompileExcludePatterns(IReadOnlyList<string>? patterns) =>
+    /// <remarks>
+    ///     Widened from <see langword="private"/> to <see langword="internal"/> so that
+    ///     <see cref="DocumentationCoverageChecker"/> (same assembly) can reuse the same
+    ///     exclude-pattern compilation logic instead of duplicating it. This does not change
+    ///     the public API surface of <see cref="DotNetGenerator"/>.
+    /// </remarks>
+    internal static List<Regex> CompileExcludePatterns(IReadOnlyList<string>? patterns) =>
         (patterns ?? [])
             .Where(p => !string.IsNullOrWhiteSpace(p))
             .Select(p => p.Trim())
@@ -594,7 +689,13 @@ public sealed class DotNetGenerator : IApiGenerator
     /// <param name="type">The candidate type.</param>
     /// <param name="excludePatterns">The compiled exclude patterns (from <see cref="CompileExcludePatterns"/>).</param>
     /// <returns><see langword="true"/> if the type should be excluded; otherwise, <see langword="false"/>.</returns>
-    private static bool IsExcluded(TypeDefinition type, IReadOnlyList<Regex> excludePatterns)
+    /// <remarks>
+    ///     Widened from <see langword="private"/> to <see langword="internal"/> so that
+    ///     <see cref="DocumentationCoverageChecker"/> (same assembly) can reuse the same
+    ///     exclude-pattern matching logic instead of duplicating it. This does not change
+    ///     the public API surface of <see cref="DotNetGenerator"/>.
+    /// </remarks>
+    internal static bool IsExcluded(TypeDefinition type, IReadOnlyList<Regex> excludePatterns)
     {
         if (excludePatterns.Count == 0)
         {
@@ -653,4 +754,18 @@ public sealed class DotNetGeneratorOptions
     ///     are derived from the same filtered type set.
     /// </remarks>
     public IReadOnlyList<string> ExcludePatterns { get; set; } = [];
+
+    /// <summary>
+    ///     Gets or sets the visibility tier at which XML doc <c>&lt;summary&gt;</c> coverage is
+    ///     enforced, or <see langword="null"/> to disable enforcement entirely. Defaults to
+    ///     <see langword="null"/> (disabled).
+    /// </summary>
+    /// <remarks>
+    ///     This is a completely independent option from <see cref="Visibility"/> (which controls
+    ///     Markdown emission). A project may, for example, emit only <see cref="ApiVisibility.Public"/>
+    ///     documentation while enforcing <see cref="ApiVisibility.PublicAndProtected"/> documentation
+    ///     coverage, or vice versa. Use <see cref="DotNetGenerator.CheckDocumentationCoverage"/> to
+    ///     run the check once this option is set.
+    /// </remarks>
+    public ApiVisibility? EnforceDocsVisibility { get; set; }
 }

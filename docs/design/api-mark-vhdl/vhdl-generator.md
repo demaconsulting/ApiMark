@@ -26,6 +26,12 @@ configured glob patterns to enumerate VHDL source files, delegates parsing to
   produces no matched files.
 - `WorkingDirectory`: `string?` — the base directory for glob evaluation. When `null`,
   defaults to `Directory.GetCurrentDirectory()`.
+- `EnforceDocsVisibility`: `string?` — optional documentation-coverage
+  enforcement tier string (`"Public"`/`"PublicAndProtected"`/`"All"`).
+  Defaults to `null` (enforcement disabled). Unlike the .NET and C++ options
+  types, this is stored as a raw string rather than an `ApiVisibility` enum,
+  since VHDL has no corresponding visibility enum to parse into — see the
+  VhdlGenerator DocumentationCoverageChecker design document.
 
 ### Key Methods
 
@@ -54,27 +60,57 @@ returns a ready-to-emit `VhdlEmitter`.
      --source patterns."` via `context.WriteError` and return an empty `VhdlEmitter`.
   4. Call `VhdlAstParser.Parse(filePath)` for each matched file path, emitting
      `context.WriteLine($"Parsing {file}")` before each parse call.
-  5. Construct and return `new VhdlEmitter(options, fileModels)`.
+  5. Cache the parsed file models on the generator instance so
+     `CheckDocumentationCoverage` can be called afterward without re-parsing.
+  6. Construct and return `new VhdlEmitter(options, fileModels)`.
+
+**VhdlGenerator.CheckDocumentationCoverage** (`IDocumentationCoverageCapable`):
+scans the file models cached by the most recent `Parse` call for entities,
+ports, generics, packages, and package-level exports lacking a documentation
+summary. See the VhdlGenerator DocumentationCoverageChecker design document
+for the scan algorithm and the public-interface-only scope decision.
+
+- *Parameters*: `string? enforceTier` — the enforcement tier string
+  (`"Public"`/`"PublicAndProtected"`/`"All"`, case-insensitive), or
+  `null`/empty to fall back to `VhdlGeneratorOptions.EnforceDocsVisibility`.
+- *Returns*: a `DocumentationCoverageResult` describing every undocumented
+  declaration found.
+- *Preconditions*: must be called after `Parse` has completed.
+- *Postconditions*: the parsed tier value itself is discarded beyond
+  validation — VHDL has no visibility concept, so all three recognized
+  values enable the identical public-interface-only check.
 
 ### Error Handling
 
 - `ArgumentNullException` — thrown by the constructor when `options` is null, and by
   `Parse` when `context` is null.
 - `ArgumentException` — thrown by the constructor when `LibraryName` is null or
-  whitespace.
+  whitespace; thrown by `CheckDocumentationCoverage` when the enforcement tier is
+  set but not one of `Public`, `PublicAndProtected`, or `All` (case-insensitive).
 - File-level parse errors are caught per file: a warning is emitted via
   `context.WriteError` and the file is skipped, so a single malformed file does not
   abort the entire parse run.
+- `InvalidOperationException` — thrown by `CheckDocumentationCoverage` when called
+  before `Parse`, or when no enforcement tier is configured via either the
+  parameter or `VhdlGeneratorOptions.EnforceDocsVisibility`.
 
 ### Dependencies
 
 - **VhdlAstParser** (internal) — called once per matched source file.
 - **VhdlEmitter** (internal) — constructed and returned from `Parse`.
 - **IApiGenerator** (ApiMarkCore) — the interface this class implements.
+- **IDocumentationCoverageCapable** (ApiMarkCore) — the capability interface this
+  class implements.
+- **DocumentationCoverageChecker** (internal) — performs the actual scan on
+  behalf of `CheckDocumentationCoverage`.
 - **GlobFileCollector** (ApiMarkCore) — used to evaluate `Sources` glob patterns
   and return sorted, deduplicated file paths.
 
 ### Callers
 
 - **ApiMark host / CLI** — constructs `VhdlGenerator` with a `VhdlGeneratorOptions`
-  instance and calls `Parse` to obtain an `IApiEmitter`.
+  instance, calls `Parse` to obtain an `IApiEmitter`, and — when `--enforce-docs`
+  is configured — calls `CheckDocumentationCoverage` via the
+  `IDocumentationCoverageCapable` interface. VHDL enforcement is CLI-only today:
+  `ApiMarkTask` (MSBuild) has no VHDL language support at all, so
+  `CheckDocumentationCoverage` is reachable only through the `ApiMark.Tool` CLI.

@@ -24,6 +24,8 @@ service, network dependency, or machine-specific configuration is required.
 - Every visible member receives a dedicated detail page or is combined onto a shared collision page, and is linked from the type page.
 - Visibility filtering excludes members outside the selected audience.
 - Obsolete member filtering correctly excludes or includes deprecated APIs based on the IncludeObsolete option.
+- Documentation coverage enforcement correctly identifies undocumented types and members at the
+  configured enforcement visibility tier, independent of the emission visibility tier.
 
 ## Test Scenarios
 
@@ -50,3 +52,9 @@ documentation data during the generation pipeline.
 system renders primitive aliases, nullable forms, generic arguments, and common collection types
 into concise C#-friendly display text across a representative set of method signatures. This
 scenario is tested by `ApiMarkDotNet_TypeNames_CommonSignatures_RenderReadably`.
+
+**Documentation coverage enforcement identifies undocumented API surface**: Verifies that scanning
+a representative assembly and XML documentation file at a caller-supplied enforcement visibility
+tier reports every type and member lacking a non-empty `<summary>`, independent of the emission
+visibility tier. See `docs/verification/api-mark-dot-net/documentation-coverage-checker.md` for the
+unit-level scenarios.

@@ -69,6 +69,8 @@
       ApiMarkDefines="$(ApiMarkDefines)"
       ApiMarkCppStandard="$(ApiMarkCppStandard)"
       ApiMarkClangPath="$(ApiMarkClangPath)"
+      ApiMarkEnforceDocs="$(ApiMarkEnforceDocs)"
+      ApiMarkEnforceDocsSeverity="$(ApiMarkEnforceDocsSeverity)"
       ApiMarkOutputs="@(ApiMarkOutput)"
       ToolDllPath="$(_ApiMarkToolDllPath)" />
   </Target>

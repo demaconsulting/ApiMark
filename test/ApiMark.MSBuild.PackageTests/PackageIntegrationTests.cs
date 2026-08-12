@@ -184,6 +184,43 @@ public class PackageIntegrationTests
     }
 
     /// <summary>
+    ///     Validates that <c>ApiMarkEnforceDocs</c>/<c>ApiMarkEnforceDocsSeverity</c> reach
+    ///     <c>ApiMark.Tool</c> through the real <c>.targets</c>-driven package path, failing the
+    ///     build when an undocumented public member is present at <c>Error</c> severity.
+    /// </summary>
+    /// <remarks>
+    ///     This is the wiring proof that the unit-level <c>ApiMarkTaskTests</c> cannot provide:
+    ///     it exercises the actual <c>DemaConsulting.ApiMark.MSBuild.targets</c> property binding,
+    ///     not just <c>ApiMarkTask.BuildArguments</c> in isolation. Before the <c>.targets</c> file
+    ///     forwarded these two MSBuild properties into the <c>ApiMarkTask</c> invocation, this
+    ///     build would succeed regardless of the undocumented member because the enforcement flags
+    ///     never reached the task.
+    /// </remarks>
+    [Fact]
+    public void ApiMarkMsbuild_NuGetPackage_DotNetProject_EnforceDocs_FailsBuildOnUndocumentedApi()
+    {
+        var packagesDir = SkipIfPackageAbsent();
+
+        RunInIsolation(packagesDir, "DotNet/SampleLibEnforceDocs", "SampleLib.csproj", workDir =>
+        {
+            var outputDir = Path.Join(workDir, "api");
+            var result = RunProcess(
+                "dotnet",
+                $"build SampleLib.csproj --configuration Release " +
+                $"-p:ApiMarkOutputDir=\"{outputDir}\" " +
+                "-p:ApiMarkEnforceDocs=Public " +
+                "-p:ApiMarkEnforceDocsSeverity=Error",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                result.ExitCode != 0,
+                "dotnet build unexpectedly succeeded with an undocumented public member and " +
+                $"--enforce-docs-severity Error.\nstdout:\n{result.Output}\nstderr:\n{result.Error}");
+        });
+    }
+
+    /// <summary>
     ///     Skips the calling test if the pre-built <c>DemaConsulting.ApiMark.MSBuild</c> package is
     ///     absent, and returns the packages directory path when present.
     /// </summary>

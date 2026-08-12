@@ -144,10 +144,162 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
-    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> appends the <c>--output</c>
-    ///     flag with the value of <see cref="ApiMarkTask.ApiMarkOutputDir"/> when that property
-    ///     is set.
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> forwards
+    ///     <see cref="ApiMarkTask.ApiMarkEnforceDocs"/> and
+    ///     <see cref="ApiMarkTask.ApiMarkEnforceDocsSeverity"/> as <c>--enforce-docs</c> and
+    ///     <c>--enforce-docs-severity</c> flags when the language is <c>dotnet</c>.
     /// </summary>
+    [Fact]
+    public void ApiMarkTask_DotNet_SpawnsToolWithEnforceDocsArguments()
+    {
+        // Arrange: configure both enforcement properties for a dotnet invocation
+        var task = new ApiMarkTask
+        {
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/path/api.dll",
+            ApiMarkXmlDocPath = "/some/path/api.xml",
+            ApiMarkEnforceDocs = "PublicAndProtected",
+            ApiMarkEnforceDocsSeverity = "Error",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet");
+
+        // Assert: both enforcement flags must appear with their configured values
+        var argList = args.ToList();
+        Assert.Contains("--enforce-docs", argList);
+        Assert.Equal("PublicAndProtected", argList[argList.IndexOf("--enforce-docs") + 1]);
+        Assert.Contains("--enforce-docs-severity", argList);
+        Assert.Equal("Error", argList[argList.IndexOf("--enforce-docs-severity") + 1]);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> omits <c>--enforce-docs</c>
+    ///     and <c>--enforce-docs-severity</c> entirely when the corresponding properties are
+    ///     not set, preserving the existing opt-in default (enforcement disabled).
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_DotNet_WithoutEnforceDocsProperties_OmitsEnforceDocsArguments()
+    {
+        // Arrange: neither enforcement property is set
+        var task = new ApiMarkTask
+        {
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/path/api.dll",
+            ApiMarkXmlDocPath = "/some/path/api.xml",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet");
+
+        // Assert: neither flag should be forwarded when the properties are unset
+        Assert.DoesNotContain("--enforce-docs", args);
+        Assert.DoesNotContain("--enforce-docs-severity", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> forwards only
+    ///     <c>--enforce-docs</c> (without <c>--enforce-docs-severity</c>) when only
+    ///     <see cref="ApiMarkTask.ApiMarkEnforceDocs"/> is configured, so the tool's own
+    ///     <c>Warning</c> default applies.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_DotNet_WithEnforceDocsOnly_OmitsSeverityArgument()
+    {
+        // Arrange: only ApiMarkEnforceDocs is set — severity left to the tool's own default
+        var task = new ApiMarkTask
+        {
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/path/api.dll",
+            ApiMarkXmlDocPath = "/some/path/api.xml",
+            ApiMarkEnforceDocs = "Public",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet");
+
+        // Assert
+        Assert.Contains("--enforce-docs", args);
+        Assert.DoesNotContain("--enforce-docs-severity", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> forwards
+    ///     <c>--enforce-docs</c> and <c>--enforce-docs-severity</c> when the language is
+    ///     <c>cpp</c>, since documentation-coverage enforcement is now supported for cpp as
+    ///     well as dotnet (see <c>AppendCppArguments</c>).
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_WithEnforceDocsProperties_ForwardsEnforceDocsArguments()
+    {
+        // Arrange: enforcement properties set for a cpp invocation
+        var task = new ApiMarkTask
+        {
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include1",
+            ApiMarkEnforceDocs = "Public",
+            ApiMarkEnforceDocsSeverity = "Error",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: both enforcement flags must appear with their configured values
+        var argList = args.ToList();
+        Assert.Contains("--enforce-docs", argList);
+        Assert.Equal("Public", argList[argList.IndexOf("--enforce-docs") + 1]);
+        Assert.Contains("--enforce-docs-severity", argList);
+        Assert.Equal("Error", argList[argList.IndexOf("--enforce-docs-severity") + 1]);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> omits <c>--enforce-docs</c>
+    ///     and <c>--enforce-docs-severity</c> entirely for cpp when the corresponding
+    ///     properties are not set, preserving the opt-in default (enforcement disabled).
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_WithoutEnforceDocsProperties_OmitsEnforceDocsArguments()
+    {
+        // Arrange: neither enforcement property is set
+        var task = new ApiMarkTask
+        {
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include1",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: neither flag should be forwarded when the properties are unset
+        Assert.DoesNotContain("--enforce-docs", args);
+        Assert.DoesNotContain("--enforce-docs-severity", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> forwards only
+    ///     <c>--enforce-docs</c> (without <c>--enforce-docs-severity</c>) for cpp when only
+    ///     <see cref="ApiMarkTask.ApiMarkEnforceDocs"/> is configured, so the tool's own
+    ///     <c>Warning</c> default applies.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_WithEnforceDocsOnly_OmitsSeverityArgument()
+    {
+        // Arrange: only ApiMarkEnforceDocs is set — severity left to the tool's own default
+        var task = new ApiMarkTask
+        {
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include1",
+            ApiMarkEnforceDocs = "Public",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert
+        Assert.Contains("--enforce-docs", args);
+        Assert.DoesNotContain("--enforce-docs-severity", args);
+    }
+
     [Fact]
     public void ApiMarkTask_OutputDir_ForwardedToToolAsOutputArgument()
     {

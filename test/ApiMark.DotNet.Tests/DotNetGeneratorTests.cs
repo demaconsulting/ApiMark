@@ -2235,4 +2235,61 @@ public class DotNetGeneratorTests
         // Act / Assert
         Assert.Throws<ArgumentNullException>(() => generator.Parse(null!));
     }
+
+    /// <summary>Validates that <see cref="DotNetGenerator.CheckDocumentationCoverage"/> throws when called before <see cref="DotNetGenerator.Parse"/>.</summary>
+    [Fact]
+    public void DotNetGenerator_CheckDocumentationCoverage_BeforeParse_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        var options = BuildOptions();
+        options.EnforceDocsVisibility = ApiVisibility.Public;
+        var generator = new DotNetGenerator(options);
+
+        // Act / Assert
+        var ex = Assert.Throws<InvalidOperationException>(() => generator.CheckDocumentationCoverage(null));
+        Assert.Contains(nameof(DotNetGenerator.Parse), ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.CheckDocumentationCoverage"/> throws when
+    ///     <see cref="DotNetGeneratorOptions.EnforceDocsVisibility"/> was never configured.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_CheckDocumentationCoverage_EnforceDocsVisibilityNotSet_ThrowsInvalidOperationException()
+    {
+        // Arrange — EnforceDocsVisibility deliberately left null (disabled)
+        var generator = new DotNetGenerator(BuildOptions());
+        generator.Parse(new InMemoryContext());
+
+        // Act / Assert
+        var ex = Assert.Throws<InvalidOperationException>(() => generator.CheckDocumentationCoverage(null));
+        Assert.Contains(nameof(DotNetGeneratorOptions.EnforceDocsVisibility), ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.CheckDocumentationCoverage"/> can be called
+    ///     between <see cref="DotNetGenerator.Parse"/> and <see cref="IApiEmitter.Emit"/>, and
+    ///     returns a result consistent with <see cref="DocumentationCoverageChecker"/> directly.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_CheckDocumentationCoverage_AfterParse_ReturnsViolationsAndAllowsSubsequentEmit()
+    {
+        // Arrange
+        var options = BuildOptions();
+        options.EnforceDocsVisibility = ApiVisibility.Public;
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(options);
+
+        // Act
+        var emitter = generator.Parse(new InMemoryContext());
+        var result = generator.CheckDocumentationCoverage(null);
+
+        // Assert — SampleClass.Refresh is intentionally undocumented in the real fixture XML doc
+        Assert.True(result.HasViolations);
+        Assert.Contains(result.UndocumentedItems, i => i.DisplayName.Contains("Refresh", StringComparison.Ordinal));
+
+        // Assert — Emit can still be invoked normally after the coverage check runs
+        emitter.Emit(factory, new EmitConfig(), new InMemoryContext());
+        Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleClass"));
+    }
 }
