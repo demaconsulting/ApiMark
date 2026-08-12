@@ -338,8 +338,12 @@ internal sealed class ClangAstParser
     ///     Unlike the other discovery options, plain PATH/file existence cannot confirm xcrun
     ///     will actually resolve a clang: <c>xcrun</c> itself may be present (it ships with
     ///     macOS) while no Xcode or Command Line Tools package is installed, in which case
-    ///     <c>xcrun -find clang</c> fails with a non-zero exit code. Any exception or failure
-    ///     is treated as "clang not available" rather than propagated.
+    ///     <c>xcrun -find clang</c> fails with a non-zero exit code. stdout and stderr are read
+    ///     concurrently (matching <see cref="RunProcess"/>) to avoid a pipe deadlock, and the
+    ///     wait is bounded by <see cref="XcrunProbeTimeoutMilliseconds"/> so a hung or slow
+    ///     <c>xcrun</c> (e.g. a first-run license prompt) cannot block this synchronous
+    ///     pre-flight check indefinitely; the process is killed if it does not exit in time.
+    ///     Any exception or failure is treated as "clang not available" rather than propagated.
     /// </remarks>
     /// <returns><see langword="true"/> when <c>xcrun -find clang</c> succeeds.</returns>
     private static bool TryProbeXcrunClang()
@@ -363,9 +367,23 @@ internal sealed class ClangAstParser
                 return false;
             }
 
-            var output = proc.StandardOutput.ReadToEnd().Trim();
-            proc.WaitForExit();
+            // Read stdout and stderr concurrently — reading them sequentially can deadlock
+            // when one pipe's buffer fills while the other is not being drained (see RunProcess)
+            var stdoutTask = proc.StandardOutput.ReadToEndAsync();
+            var stderrTask = proc.StandardError.ReadToEndAsync();
 
+            if (!proc.WaitForExit(XcrunProbeTimeoutMilliseconds))
+            {
+                // xcrun did not exit within the timeout; kill it and report unavailable rather
+                // than blocking this synchronous pre-flight check indefinitely
+                TryKillProcess(proc);
+                return false;
+            }
+
+            // stderr is drained (but not inspected) purely to prevent a pipe deadlock; only
+            // stdout is relevant to the discovery result
+            var output = stdoutTask.Result.Trim();
+            _ = stderrTask.Result;
             return proc.ExitCode == 0 && !string.IsNullOrEmpty(output);
         }
         // Any failure to start or query xcrun means clang cannot be confirmed available;
@@ -373,6 +391,29 @@ internal sealed class ClangAstParser
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
             return false;
+        }
+    }
+
+    /// <summary>
+    ///     Maximum time to wait for <c>xcrun -find clang</c> to exit before treating it as hung
+    ///     and reporting clang as unavailable.
+    /// </summary>
+    private const int XcrunProbeTimeoutMilliseconds = 5000;
+
+    /// <summary>
+    ///     Best-effort kill of a process that failed to exit within the probe timeout; any
+    ///     failure to kill (e.g. the process has already exited) is silently ignored.
+    /// </summary>
+    /// <param name="process">The process to terminate.</param>
+    private static void TryKillProcess(Process process)
+    {
+        try
+        {
+            process.Kill(entireProcessTree: true);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException)
+        {
+            // Process may have already exited between the timeout and this call; ignore
         }
     }
 
