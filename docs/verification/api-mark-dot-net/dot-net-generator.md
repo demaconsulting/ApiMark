@@ -51,6 +51,13 @@ network dependency, or privileged configuration is needed.
 - A NamespaceDoc carrier's `<remarks>` and `<example>` content are surfaced on the namespace
   page in addition to the summary.
 - A type whose `<remarks>` contains a `<list>` renders the list as Markdown in generated output.
+- `CheckDocumentationCoverage` throws `InvalidOperationException` when called before `Parse`
+  has completed successfully.
+- `CheckDocumentationCoverage` throws `InvalidOperationException` when
+  `EnforceDocsVisibility` has not been set.
+- `CheckDocumentationCoverage` can be called after `Parse` returns and before `Emit` is
+  invoked, returning a `DocumentationCoverageResult`, without interfering with a subsequent
+  successful `Emit` call.
 
 ### Test Scenarios
 
@@ -233,3 +240,25 @@ member detail page contains an External Types section listing any non-System ext
 referenced in its parameters or return type, confirming that readers have the context needed
 to identify external dependencies without opening source code. This scenario is tested by
 `DotNetGenerator_Generate_ExternalNonSystemParameterType_EmitsExternalTypesSection`.
+
+**CheckDocumentationCoverage before Parse throws InvalidOperationException**: Verifies
+that calling `CheckDocumentationCoverage` on a freshly constructed generator (before
+`Parse` has been called) throws `InvalidOperationException`, protecting against a
+programming error where the mandatory Parse-then-CheckDocumentationCoverage-then-Emit
+ordering is violated. This scenario is tested by
+`DotNetGenerator_CheckDocumentationCoverage_BeforeParse_ThrowsInvalidOperationException`.
+
+**CheckDocumentationCoverage without EnforceDocsVisibility throws
+InvalidOperationException**: Verifies that calling `CheckDocumentationCoverage` after a
+successful `Parse` but with `EnforceDocsVisibility` left at its default `null` value
+throws `InvalidOperationException`, since a caller invoking the method without having
+opted in to enforcement indicates a configuration error. This scenario is tested by
+`DotNetGenerator_CheckDocumentationCoverage_EnforceDocsVisibilityNotSet_ThrowsInvalidOperationException`.
+
+**CheckDocumentationCoverage after Parse returns violations and allows subsequent Emit**:
+Verifies the mandatory calling contract end-to-end: with `EnforceDocsVisibility` set,
+`CheckDocumentationCoverage` can be called after `Parse` returns and before `Emit` is
+invoked, returns a non-null `DocumentationCoverageResult`, and does not interfere with a
+subsequent `Emit` call completing successfully — proving the parsed assembly is not
+disposed or otherwise mutated by the coverage check. This scenario is tested by
+`DotNetGenerator_CheckDocumentationCoverage_AfterParse_ReturnsViolationsAndAllowsSubsequentEmit`.

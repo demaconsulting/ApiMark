@@ -42,6 +42,26 @@ OTS items are consumed in two ways, depending on their delivery mechanism:
 Error conditions from OTS items propagate as exceptions (or diagnostic messages for CLI tools) to the
 consuming unit, which is responsible for logging and surfacing them appropriately.
 
+## Consuming Systems
+
+Each OTS item is integrated by exactly one local system, which owns the consuming unit and the
+error-handling responsibility described above:
+
+- **Mono.Cecil**: consumed by ApiMarkDotNet (`DotNetGenerator`, `DocumentationCoverageChecker`) for
+  assembly metadata reading; see the Mono.Cecil OTS design.
+- **clang**: consumed by ApiMarkCpp (`ClangAstParser`) for C++ AST extraction; see the clang OTS
+  design.
+- **Antlr4.Runtime.Standard / ANTLR4 vhdl2008 grammar**: consumed by ApiMarkVhdl (`VhdlAstParser`)
+  for VHDL parsing; see the Antlr4 OTS design.
+- **Microsoft.Extensions.FileSystemGlobbing**: consumed by ApiMarkCore (`GlobFileCollector`) for
+  glob-based file discovery, shared by the VHDL generator; see the Microsoft.Extensions.FileSystemGlobbing
+  OTS design.
+- **DemaConsulting.TestResults**: consumed by ApiMarkTool (`Program`, via the SelfTest subsystem's
+  `Validation` unit) to serialize `--validate` self-validation results to TRX or JUnit XML; see the
+  DemaConsulting.TestResults OTS design.
+- **cpp-ast-net** (archived): previously consumed by ApiMarkCpp; retained for historical reference
+  only and no longer integrated by any current system.
+
 ## Qualification Strategy
 
 OTS items are qualified by relying on vendor test suites and the integration tests

@@ -5,16 +5,16 @@ sections:
     sections:
       - title: XmlDocReader Requirements
         requirements:
-          - id: ApiMarkDotNet-XmlDocReader-ParseAndIndexXmlDocumentation
-            title: XmlDocReader shall read assembly documentation data from a .NET
-              XML documentation file.
+          - id: ApiMarkDotNet-XmlDocReader-ProvideMemberDocumentationFromXmlFile
+            title: XmlDocReader shall provide the summary, remarks, parameters, returns,
+              exceptions, and example content for any member documented in a .NET XML
+              documentation file, given that member's documentation identifier.
             justification: |
-              Assembly documentation comes from compiler-produced XML files. XmlDocReader
-              parses and indexes all documentation metadata — including summary, remarks,
-              parameters, returns, exceptions, and examples — on construction, ensuring
-              each per-member lookup during emit uses direct index access rather than a
-              linear scan and keeping generation time proportional to the number of
-              documented members.
+              Assembly documentation comes from compiler-produced XML files. Every
+              per-member lookup used during emission — summary, remarks, parameters,
+              returns, exceptions, and examples — must be available immediately after
+              construction so DotNetEmitter can render developer-authored content for
+              each type and member.
             tests:
               - XmlDocReader_Constructor_FileDoesNotExist_ThrowsFileNotFoundException
               - XmlDocReader_GetSummary_MemberPresent_ReturnsTrimmedText

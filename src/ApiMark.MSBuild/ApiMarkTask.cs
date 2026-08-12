@@ -119,6 +119,32 @@ public class ApiMarkTask : Task
     public string? ApiMarkExclude { get; set; }
 
     /// <summary>
+    ///     Gets or sets the visibility tier at which XML doc <c>&lt;summary&gt;</c> coverage is
+    ///     enforced.
+    /// </summary>
+    /// <remarks>
+    ///     Used for the <c>dotnet</c> language only. Maps to <c>$(ApiMarkEnforceDocs)</c>.
+    ///     Accepted values: <c>Public</c>, <c>PublicAndProtected</c>, <c>All</c>. Optional — when
+    ///     not set, the <c>--enforce-docs</c> flag is omitted and enforcement stays disabled
+    ///     (this is a brand-new opt-in feature, so its absence must never change existing build
+    ///     behavior).
+    /// </remarks>
+    public string? ApiMarkEnforceDocs { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the severity applied when documentation-coverage enforcement finds
+    ///     undocumented items.
+    /// </summary>
+    /// <remarks>
+    ///     Used for the <c>dotnet</c> language only, and only takes effect when
+    ///     <see cref="ApiMarkEnforceDocs"/> is also set. Maps to
+    ///     <c>$(ApiMarkEnforceDocsSeverity)</c>. Accepted values: <c>Warning</c>, <c>Error</c>.
+    ///     Optional — when not set, the <c>--enforce-docs-severity</c> flag is omitted and the
+    ///     tool applies its own default of <c>Warning</c>.
+    /// </remarks>
+    public string? ApiMarkEnforceDocsSeverity { get; set; }
+
+    /// <summary>
     ///     Gets or sets the semicolon-separated list of include directory paths for C++ documentation.
     /// </summary>
     /// <remarks>
@@ -304,6 +330,20 @@ public class ApiMarkTask : Task
                 args.Add("--exclude");
                 args.Add(entry);
             }
+        }
+
+        // Forward documentation-coverage enforcement options — dotnet-only, mirroring how
+        // ApiMarkExclude is dotnet-only
+        if (!string.IsNullOrEmpty(ApiMarkEnforceDocs))
+        {
+            args.Add("--enforce-docs");
+            args.Add(ApiMarkEnforceDocs!);
+        }
+
+        if (!string.IsNullOrEmpty(ApiMarkEnforceDocsSeverity))
+        {
+            args.Add("--enforce-docs-severity");
+            args.Add(ApiMarkEnforceDocsSeverity!);
         }
     }
 

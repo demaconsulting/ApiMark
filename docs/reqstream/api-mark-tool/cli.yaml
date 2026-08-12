@@ -25,6 +25,9 @@ sections:
               - ApiMarkTool-Cli-Context-ParseFormatOption
               - ApiMarkTool-Cli-Context-ParseClangPath
               - ApiMarkTool-Cli-Context-ParseVhdlSourceOptions
+              - ApiMarkTool-Cli-Context-ParseExcludes
+              - ApiMarkTool-Cli-Context-ParseEnforceDocsOption
+              - ApiMarkTool-Cli-Context-ParseEnforceDocsSeverityOption
               - ApiMarkTool-Cli-SuppressOutputWhenSilent
               - ApiMarkTool-Cli-RouteOutputThroughContext
             tests: [Context_Cli_ParsesAllGlobalFlags]

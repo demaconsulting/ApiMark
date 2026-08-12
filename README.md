@@ -27,6 +27,7 @@ type page — consuming only as much context as the task requires.
 - 🗂️ **Multiple Output Formats** - Gradual-disclosure (file-per-type) or single `api.md` via `--format`
 - 💡 **Example Code Blocks** - `<example><code>` (C#) and `@code`/`@endcode` (Doxygen) blocks rendered in output
 - 🔷 **C#/.NET Support** - Mono.Cecil + XML documentation comments
+- 📝 **Documentation Coverage Enforcement** - opt-in `--enforce-docs` warns or fails the build on undocumented public/protected/internal/private .NET API surface
 - ➕ **C++ Support** - `clang -ast-dump=json` + Doxygen-style comments
 - 🔶 **VHDL Support** - Entities, packages, and subprograms from ANTLR4 vhdl2008 grammar + `--!` doc comments
 - 🔧 **MSBuild Integration** - Auto-documents `.csproj` and `.vcxproj` builds

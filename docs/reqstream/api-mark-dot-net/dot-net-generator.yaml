@@ -13,13 +13,13 @@ sections:
               locate both the compiled API surface and the compiler-produced XML
               documentation that describes it.
             tests: [DotNetGenerator_Constructor_AcceptsAssemblyAndXmlPaths]
-          - id: ApiMarkDotNet-DotNetGenerator-ReadAssemblyMetadataWithoutLoading
-            title: DotNetGenerator shall read type and member information from .NET
-              assemblies without loading them into the current process.
+          - id: ApiMarkDotNet-DotNetGenerator-DiscoverTypesAndMembers
+            title: DotNetGenerator shall discover types and members from a compiled .NET
+              assembly and make them available for markdown generation.
             justification: |
-              Assembly inspection must avoid loading the target library into the current
-              process so documentation generation can run reliably against arbitrary
-              build outputs and dependency graphs.
+              Assembly inspection must reliably surface the compiled API surface so
+              documentation generation can run against arbitrary build outputs and
+              dependency graphs.
             tests: [DotNetGenerator_ReadAssembly_WithMonoCecil_ReturnsTypesAndMembers]
           - id: ApiMarkDotNet-DotNetGenerator-ReadXmlDocumentationComments
             title: DotNetGenerator shall read XML documentation comments from the
@@ -139,14 +139,14 @@ sections:
               context.WriteLine call. Rejecting null eagerly gives the caller a precise,
               actionable failure.
             tests: [DotNetGenerator_Parse_NullContext_ThrowsArgumentNullException]
-          - id: ApiMarkDotNet-DotNetGenerator-BuildInheritanceChainForInheritDoc
-            title: DotNetGenerator shall build and supply an inheritance chain map
-              from assembly metadata to XmlDocReader to enable bare inheritdoc resolution.
+          - id: ApiMarkDotNet-DotNetGenerator-ResolveBareInheritdocFromBaseTypes
+            title: DotNetGenerator shall resolve bare inheritdoc elements (without a cref
+              attribute) to documentation inherited from the base type or interface.
             justification: |
-              Bare inheritdoc elements (without a cref attribute) require an inheritance
-              chain map to resolve the correct base documentation. Building this map at
-              parse time from Mono.Cecil metadata allows XmlDocReader to resolve inherited
-              documentation without accessing the assembly again during emit.
+              Bare inheritdoc elements (without a cref attribute) rely on the type's
+              inheritance relationships to find the correct base documentation, so a
+              member documented only via bare inheritdoc must still render the
+              inherited summary and parameter descriptions in the generated output.
             tests:
               - DotNetGenerator_Generate_SampleImplementationNameMemberPage_UsesInheritedSummary
               - DotNetGenerator_Generate_SampleImplementationExecuteMemberPage_UsesInheritedSummaryAndParamDescription

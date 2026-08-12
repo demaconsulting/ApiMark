@@ -71,10 +71,41 @@ the generator, and calls `Parse` then `Emit`.
   `--format` and `--depth`) that can only be evaluated after the full argument list is parsed.
   The single-file emitters render member headings at `depth+3`; a depth above 3 would
   produce H7+ headings unsupported by CommonMark.
+- Documentation-coverage enforcement is dotnet-only: when `--enforce-docs` is set and
+  `Language` is not `"dotnet"`, `RunToolLogic` writes an informational
+  `context.WriteLine` note and otherwise proceeds normally (never calls
+  `context.WriteError`) — an otherwise-valid cpp/vhdl build must never fail because
+  of a flag that does not apply to it. When `Language` is `"dotnet"` and
+  `--enforce-docs` is set, `RunToolLogic` calls `generator.Parse(context)` first,
+  then (before constructing the `IMarkdownWriterFactory` or calling `Emit`) calls
+  `dotNetGenerator.CheckDocumentationCoverage()` and passes the result to
+  `ReportDocumentationCoverage`. This ordering is mandatory: `Emit` disposes the
+  parsed assembly, so the coverage check must run strictly between `Parse` and
+  `Emit`.
 - Calls `CreateGenerator(context)`, then `generator.Parse(context)` to get an
   `IApiEmitter`, then `emitter.Emit(factory, emitConfig, context)` where
   `emitConfig` is constructed from `context.Format` and `context.HeadingDepth`.
   All exceptions are caught and routed to `context.WriteError`.
+
+**Program.ReportDocumentationCoverage** (private static): Writes the
+documentation-coverage scan results to the context output stream, and signals
+a build failure via `context.WriteError` when the configured severity is
+`Error` and at least one violation was found.
+
+- _Parameters_: `Context context`; `DocumentationCoverageResult result` — the
+  scan result from `DotNetGenerator.CheckDocumentationCoverage`.
+- _Algorithm_: Parses `context.EnforceDocsSeverity` into the private
+  `EnforcementSeverity` enum (`Warning`, `Error`), throwing `ArgumentException`
+  for an unrecognized value. Writes one line per undocumented item, followed
+  by a single summary line reporting the undocumented/checked counts. Calls
+  `context.WriteError` exactly once — never per item — only when
+  `result.HasViolations` is `true` and severity is `Error`; this keeps the
+  console output proportionate to a single logical failure rather than
+  flooding the error channel with one entry per undocumented item.
+- _Reporting scope_: Console-only for v1 — there is no new results-file
+  format; enforcement reuses the existing `Context.WriteError`/`ExitCode`
+  mechanism that already gates the process exit code for every other kind of
+  tool error.
 
 **Program.CreateGenerator** (private static): Constructs and returns an
 `IApiGenerator` configured from the parsed context.
@@ -95,6 +126,13 @@ the generator, and calls `Parse` then `Emit`.
 - For the `vhdl` language, `VhdlGeneratorOptions` is populated with `Sources`
   (from `context.Sources`), `LibraryName` (from `context.LibraryName`, same
   fallback as C++), and `Description` (from `context.LibraryDescription`).
+- For the `dotnet` language, `DotNetGeneratorOptions.EnforceDocsVisibility` is
+  set from `context.EnforceDocs` when non-empty: the string is parsed as an
+  `ApiVisibility` value (case-insensitive), throwing `ArgumentException` with
+  the invalid value included in the message when parsing fails. When
+  `context.EnforceDocs` is absent, `EnforceDocsVisibility` remains `null` and
+  enforcement stays disabled — the same conservative-default reasoning
+  applied to every other opt-in CLI flag.
 
 **Program.PrintBanner** (private static): Prints the application banner (tool name,
 version, copyright line, and a blank line).
@@ -110,6 +148,10 @@ and returns exit code 1. Log file open failures throw `InvalidOperationException
 handled the same way. Generator construction and execution errors inside
 `RunToolLogic` are caught locally and routed to `context.WriteError` so that
 `context.ExitCode` becomes 1 without an unhandled-exception stack trace.
+An invalid `--enforce-docs` value throws `ArgumentException` from
+`CreateGenerator`; an invalid `--enforce-docs-severity` value throws
+`ArgumentException` from `ReportDocumentationCoverage` — both are caught by
+the same `try`/`catch` in `RunToolLogic` and routed to `context.WriteError`.
 Unexpected exceptions propagated out of `Main` are written to `Console.Error` and
 re-thrown.
 
@@ -128,7 +170,9 @@ re-thrown.
 - **EmitConfig** — Program constructs an `EmitConfig` from `Context.Format` and
   `Context.HeadingDepth` before calling `IApiEmitter.Emit` — see EmitConfig Unit Design.
 - **DotNetGenerator** — Program constructs `DotNetGenerator` for the `dotnet`
-  language subcommand — see DotNetGenerator Unit Design.
+  language subcommand, and calls `DotNetGenerator.CheckDocumentationCoverage()`
+  between `Parse` and `Emit` when `--enforce-docs` was specified — see
+  DotNetGenerator Unit Design.
 - **CppGenerator** (ApiMarkCpp) — instantiated for the `cpp` subcommand — see
   ApiMarkCpp Component Design.
 - **VhdlGenerator** (ApiMarkVhdl) — instantiated for the `vhdl` subcommand — see

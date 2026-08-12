@@ -34,6 +34,11 @@ MSBuild and VC++ tools installed; those tests skip gracefully when the package i
 - `ApiMarkIncludeObsolete` is forwarded as `--include-obsolete` when true.
 - For the `dotnet` language, `ApiMarkExclude` is split on `;` and each non-empty
   trimmed entry is forwarded as a separate `--exclude` argument.
+- For the `dotnet` language, `ApiMarkEnforceDocs` is forwarded as `--enforce-docs` and
+  `ApiMarkEnforceDocsSeverity` is forwarded as `--enforce-docs-severity`, each omitted
+  independently when its corresponding property is not set.
+- For the `cpp` language, `ApiMarkEnforceDocs`/`ApiMarkEnforceDocsSeverity` are never
+  forwarded, even when set, because enforcement forwarding is dotnet-only.
 - `DisableApiMark` suppresses tool invocation and returns true with no side effects.
 - A non-zero exit code from the spawned tool causes Execute to return false and log a
   MSBuild error.
@@ -200,3 +205,28 @@ non-empty, `Execute` delegates to `ExecuteAllOutputs` and calls `RunToolProcess`
 per item in the `ApiMarkOutput` item group, using per-item metadata to override scalar
 properties for each invocation. This scenario is tested by
 `ApiMarkTask_Execute_WithMultipleOutputs_RunsToolForEachOutput`.
+
+**DotNet tool invocation forwards enforce-docs arguments**: Verifies that when both
+`ApiMarkEnforceDocs` and `ApiMarkEnforceDocsSeverity` are set, the spawned `dotnet`
+subcommand includes `--enforce-docs <value>` and `--enforce-docs-severity <value>`
+arguments matching the configured properties. This scenario is tested by
+`ApiMarkTask_DotNet_SpawnsToolWithEnforceDocsArguments`.
+
+**DotNet tool invocation omits enforce-docs arguments when properties are unset**:
+Verifies that when neither `ApiMarkEnforceDocs` nor `ApiMarkEnforceDocsSeverity` is
+set, the spawned `dotnet` command contains neither `--enforce-docs` nor
+`--enforce-docs-severity`, preserving existing build behavior for projects that do
+not opt in to this feature. This scenario is tested by
+`ApiMarkTask_DotNet_WithoutEnforceDocsProperties_OmitsEnforceDocsArguments`.
+
+**DotNet tool invocation omits severity argument when only enforce-docs is set**:
+Verifies that when `ApiMarkEnforceDocs` is set but `ApiMarkEnforceDocsSeverity` is
+not, the spawned command includes `--enforce-docs` but omits
+`--enforce-docs-severity` entirely, relying on the tool's own default of `Warning`.
+This scenario is tested by `ApiMarkTask_DotNet_WithEnforceDocsOnly_OmitsSeverityArgument`.
+
+**Cpp tool invocation never forwards enforce-docs arguments**: Verifies that even when
+`ApiMarkEnforceDocs`/`ApiMarkEnforceDocsSeverity` are set on a `cpp`-language task
+invocation, neither `--enforce-docs` nor `--enforce-docs-severity` is forwarded to the
+spawned tool, confirming that enforcement forwarding is dotnet-only. This scenario is
+tested by `ApiMarkTask_Cpp_WithEnforceDocsProperties_DoesNotForwardEnforceDocsArguments`.

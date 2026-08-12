@@ -34,6 +34,22 @@ sections:
               reference or the build pipeline, mirroring how ApiMarkIncludePaths forwards
               repeated --includes flags for C++ builds.
             tests: [ApiMarkTask_DotNet_SpawnsToolWithCorrectExcludeArguments]
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardEnforceDocsProperties
+            title: ApiMarkTask shall forward the ApiMarkEnforceDocs and
+              ApiMarkEnforceDocsSeverity properties to the tool as --enforce-docs and
+              --enforce-docs-severity arguments for .NET builds only, omitting either
+              flag entirely when the corresponding property is not set.
+            justification: |
+              Build authors need to opt in to documentation-coverage enforcement (and
+              its severity) from the project file, matching the CLI vocabulary exactly.
+              Forwarding only from the dotnet argument path (not the cpp path) keeps the
+              feature scoped to the language it applies to, mirroring how other
+              dotnet-only options are forwarded.
+            tests:
+              - ApiMarkTask_DotNet_SpawnsToolWithEnforceDocsArguments
+              - ApiMarkTask_DotNet_WithoutEnforceDocsProperties_OmitsEnforceDocsArguments
+              - ApiMarkTask_DotNet_WithEnforceDocsOnly_OmitsSeverityArgument
+              - ApiMarkTask_Cpp_WithEnforceDocsProperties_DoesNotForwardEnforceDocsArguments
           - id: ApiMarkMsbuild-ApiMarkTask-SpawnToolForCpp
             title: ApiMarkTask shall spawn ApiMark.Tool with the cpp subcommand and
               pass include paths for C++ builds.

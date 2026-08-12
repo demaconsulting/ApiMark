@@ -28,6 +28,7 @@ sections:
           - ApiMarkMsbuild-ApiMarkTask-AutoPopulateIncludePaths
           - ApiMarkMsbuild-ApiMarkTask-SkipWhenDotNetXmlDocPathNotSet
           - ApiMarkMsbuild-ApiMarkTask-ForwardFormatProperty
+          - ApiMarkMsbuild-ApiMarkTask-ForwardEnforceDocsProperties
           - ApiMarkMsbuild-ApiMarkTask-SupportOutputsItemGroup
         tests:
           - ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoDocumentsOnBuild

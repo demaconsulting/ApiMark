@@ -24,6 +24,11 @@ required.
   code and an actionable error message.
 - The `apimark dotnet` subcommand generates the expected Markdown tree for a sample assembly.
 - The `vhdl` subcommand is verified at the Program unit level; see the *ApiMarkTool Program* section.
+- Documentation coverage enforcement (`--enforce-docs` / `--enforce-docs-severity`) reports
+  undocumented items and exits zero at `Warning` severity, fails the build at `Error` severity
+  when violations are found, exits zero with zero reported violations for a fully documented
+  scope, rejects invalid `--enforce-docs` / `--enforce-docs-severity` values with a non-zero
+  exit code, and is a graceful no-op (informational note, no build failure) for `cpp` and `vhdl`.
 
 ## Test Scenarios
 
@@ -46,3 +51,39 @@ without needing to inspect generated output. This scenario is tested by
 dispatch into generation when required input files are missing and instead reports the problem
 clearly with a non-zero exit code. This scenario is tested by
 `Program_Main_WithMissingAssembly_PrintsErrorAndFails`.
+
+**Documentation coverage enforcement reports violations at Warning severity without failing the
+build**: Verifies that `--enforce-docs` with the default `Warning` severity writes each
+undocumented item and a summary count to standard output but still exits 0. This scenario is
+tested by `Program_Main_EnforceDocsWarningSeverity_ReportsViolationsButExitsZero`.
+
+**Documentation coverage enforcement fails the build at Error severity**: Verifies that
+`--enforce-docs-severity Error` causes a non-zero exit code and an error message on standard
+error when undocumented items are found. This scenario is tested by
+`Program_Main_EnforceDocsErrorSeverity_ReturnsNonZeroExitCode`.
+
+**Documentation coverage enforcement exits zero for a fully documented scope**: Verifies that
+`--enforce-docs` with `--enforce-docs-severity Error` still exits 0 and reports zero undocumented
+items when the scanned scope is fully documented, confirming the build only fails when
+violations actually exist. This scenario is tested by
+`Program_Main_EnforceDocsNoViolations_ExitsZeroAndReportsZeroUndocumented`.
+
+**Invalid `--enforce-docs` value is rejected**: Verifies that an unrecognized `--enforce-docs`
+visibility-tier value exits with a non-zero code and an error message naming the invalid value.
+This scenario is tested by `Program_Main_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode`.
+
+**Invalid `--enforce-docs-severity` value is rejected**: Verifies that an unrecognized
+`--enforce-docs-severity` value exits with a non-zero code and an error message naming the
+invalid value. This scenario is tested by
+`Program_Main_WithInvalidEnforceDocsSeverityValue_ReturnsNonZeroExitCode`.
+
+**Documentation coverage enforcement is a graceful no-op for cpp**: Verifies that supplying
+`--enforce-docs` for the `cpp` subcommand prints an informational note rather than failing an
+otherwise-valid build. This scenario is tested by
+`Program_Main_EnforceDocsWithCppSubcommand_PrintsInformationalNote`.
+
+**Invalid `--enforce-docs` value does not affect cpp/vhdl builds**: Verifies that an unrecognized
+`--enforce-docs` value is never parsed or validated for the `cpp` (or `vhdl`) subcommand — the
+informational note is printed and the invalid value never appears in error output, confirming
+the flag is inert outside `dotnet`. This scenario is tested by
+`Program_Main_InvalidEnforceDocsValueWithCppSubcommand_DoesNotThrowForEnforceDocs`.

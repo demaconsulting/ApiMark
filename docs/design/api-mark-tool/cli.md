@@ -29,7 +29,8 @@ can be tested independently.
   properties (`Version`, `Help`, `Silent`, `Validate`, `Language`,
   `Assembly`, `XmlDoc`, `Includes`, `ApiHeaders`, `Sources`, `Output`, `Visibility`,
   `IncludeObsolete`, `ResultsFile`, `HeadingDepth`, `Format`, `LibraryName`,
-  `LibraryDescription`, `Defines`, `CppStandard`, `ClangPath`, `ExitCode`)
+  `LibraryDescription`, `Defines`, `CppStandard`, `ClangPath`, `Excludes`,
+  `EnforceDocs`, `EnforceDocsSeverity`, `ExitCode`)
   and provides `WriteLine` and `WriteError` for all program output routing.
 
 **Consumed**:
@@ -48,7 +49,8 @@ first positional non-flag token (a token that does not start with `-`) is
 captured as the language subcommand. Language-specific options (`--assembly`,
 `--xml-doc`, `--includes`, `--api-headers`, `--source`, `--output`, `--visibility`,
 `--include-obsolete`, `--library-name`, `--library-description`, `--defines`,
-`--cpp-standard`, `--clang-path`) may appear anywhere in the argument list after the
+`--cpp-standard`, `--clang-path`, `--exclude`, `--enforce-docs`,
+`--enforce-docs-severity`) may appear anywhere in the argument list after the
 language token is recognized.
 
 `Context` implements `IDisposable` to release the optional log file writer

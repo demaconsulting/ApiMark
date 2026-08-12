@@ -287,6 +287,18 @@ reviews:
       - docs/verification/api-mark-dot-net/xml-doc-reader.md
       - src/ApiMark.DotNet/XmlDocReader.cs
       - test/ApiMark.DotNet.Tests/XmlDocReaderTests.cs
+  - id: ApiMark-DotNet-DocumentationCoverageChecker
+    title: Review that ApiMark DotNet DocumentationCoverageChecker Implementation
+      is Correct
+    context:
+      - docs/design/api-mark-dot-net.md
+      - docs/reqstream/api-mark-dot-net.yaml
+    paths:
+      - docs/reqstream/api-mark-dot-net/documentation-coverage-checker.yaml
+      - docs/design/api-mark-dot-net/documentation-coverage-checker.md
+      - docs/verification/api-mark-dot-net/documentation-coverage-checker.md
+      - src/ApiMark.DotNet/DocumentationCoverageChecker.cs
+      - test/ApiMark.DotNet.Tests/DocumentationCoverageCheckerTests.cs
   - id: ApiMark-DotNet-TypeLinkResolver
     title: Review that ApiMark DotNet TypeLinkResolver Implementation is Correct
     context:

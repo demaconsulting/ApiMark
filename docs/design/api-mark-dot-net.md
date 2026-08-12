@@ -9,17 +9,22 @@
 
 ApiMarkDotNet provides C#/.NET language support. It reads a compiled .NET assembly
 and its associated XML documentation file, then produces the Markdown output
-defined by the Core interfaces. The system contains eight units:
+defined by the Core interfaces. The system contains nine units:
 
 - **DotNetGenerator** — reads the assembly via Mono.Cecil, processes XML doc
   comments, applies visibility filtering, builds an inheritance chain map from
   assembly metadata, and returns a DotNetEmitter ready for emission. The
-  inheritance chain map is also used to render direct base-type and interface
-  inheritance in type signatures (not only for `<inheritdoc>` resolution).
+  inheritance chain map is used solely to resolve bare `<inheritdoc />`
+  elements; direct base-type and interface inheritance rendered in type
+  signatures is built directly from `TypeDefinition.BaseType` and
+  `TypeDefinition.Interfaces`, not from the inheritance chain map.
   During `Parse`, DotNetGenerator recognizes `internal static class NamespaceDoc`
   carrier classes, excludes them from type listings, and promotes their XML
   `<summary>`, `<remarks>`, and `<example>` content to the namespace description
-  dictionary.
+  dictionary. When `DotNetGeneratorOptions.EnforceDocsVisibility` is set, the
+  optional `CheckDocumentationCoverage` method (called strictly between `Parse`
+  and `Emit`) delegates to `DocumentationCoverageChecker` to scan for missing
+  XML doc summaries at the configured enforcement visibility tier.
 - **DotNetAstModel** — immutable data class holding all parsed assembly data
   (namespaces, types, XML docs, resolver, options) produced by DotNetGenerator.Parse.
 - **DotNetEmitter** — IApiEmitter dispatcher; reads EmitConfig.Format and forwards
@@ -40,6 +45,10 @@ defined by the Core interfaces. The system contains eight units:
 - **XmlDocReader** — reads and indexes a .NET XML documentation file for fast
   member-level lookups; resolves `<inheritdoc />` references using the inheritance
   chain map supplied by DotNetGenerator.
+- **DocumentationCoverageChecker** — scans a parsed assembly for types/members
+  missing an XML doc `<summary>` at a caller-supplied visibility tier that is
+  independent of the emission Visibility tier, powering the opt-in
+  `--enforce-docs`/`ApiMarkEnforceDocs` documentation-coverage enforcement feature.
 
 Three support types — `ApiVisibility`, `DotNetGeneratorOptions`, and `ExternalTypeInfo` —
 are defined alongside their owning units in `DotNetGenerator.cs` and `TypeLinkResolver.cs`
@@ -50,6 +59,8 @@ flowchart TD
     DotNetGenerator --> DotNetAstModel
     DotNetGenerator --> XmlDocReader
     DotNetGenerator --> MonoCecil["Mono.Cecil (OTS)"]
+    DotNetGenerator --> DocumentationCoverageChecker
+    DocumentationCoverageChecker --> XmlDocReader
     DotNetEmitter --> DotNetEmitterGradualDisclosure
     DotNetEmitter --> DotNetEmitterSingleFile
     DotNetEmitter --> IMarkdownWriterFactory
@@ -158,6 +169,18 @@ N/A - not a safety-classified software item.
    PDF compilation). A global external-type list stripped of per-member context provides
    little navigational value in that format; external type information is most useful when
    scoped to the individual page on which the type appears.
+
+9. When the caller has set `DotNetGeneratorOptions.EnforceDocsVisibility`, it calls
+   `DotNetGenerator.CheckDocumentationCoverage()` after `Parse` returns and before
+   calling `Emit` — this ordering is mandatory because `DotNetEmitter.Emit` disposes
+   the parsed `AssemblyDefinition` at the end of its `using` block.
+   `CheckDocumentationCoverage` delegates to `DocumentationCoverageChecker.Check`,
+   which re-derives its own visibility/obsolete/exclude-pattern filter chain (using
+   the enforcement tier, which may differ from the emission Visibility tier) and
+   returns a `DocumentationCoverageResult` describing every type/member missing an
+   XML doc `<summary>`. The caller (ApiMarkTool's `Program.ReportDocumentationCoverage`)
+   reports the result to the console and fails the build only when severity is
+   `Error` and violations were found.
 
 ## Design Constraints
 

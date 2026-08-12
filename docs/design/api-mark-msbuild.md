@@ -20,10 +20,11 @@ to target a modern .NET framework freely — using libraries that do not support
 targets `netstandard2.0` for full compatibility with both .NET Framework MSBuild (Visual
 Studio) and the .NET SDK MSBuild (`dotnet build`).
 
-The NuGet package `ApiMark.MSBuild` bundles both the task assembly and the
-pre-compiled `ApiMark.Tool` DLL and its dependencies under `tools/net8.0/`. The
-`.targets` file wires `ApiMarkTask` into `AfterTargets="Build"` and sets the
-`ToolDllPath` property to the bundled tool location.
+The NuGet package `ApiMark.MSBuild` bundles the task assembly under
+`tasks/netstandard2.0/` and the pre-compiled `ApiMark.Tool` DLL and its
+dependencies under `tools/net8.0/`. The `.targets` file wires `ApiMarkTask`
+into `AfterTargets="Build"` and sets the `ToolDllPath` property to the
+bundled tool location.
 
 When `ApiMarkPackDocs` is set to `true`, the `.targets` file also hooks the
 `_ApiMarkIncludeDocsInPackage` target into `TargetsForTfmSpecificContentInPackage`

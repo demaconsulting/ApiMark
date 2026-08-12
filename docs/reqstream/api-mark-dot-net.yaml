@@ -12,7 +12,7 @@ sections:
           developer-authored descriptions that belong in the markdown output.
         children:
           - ApiMarkDotNet-DotNetGenerator-AcceptAssemblyAndXmlInputs
-          - ApiMarkDotNet-DotNetGenerator-ReadAssemblyMetadataWithoutLoading
+          - ApiMarkDotNet-DotNetGenerator-DiscoverTypesAndMembers
           - ApiMarkDotNet-DotNetGenerator-ReadXmlDocumentationComments
           - ApiMarkDotNet-DotNetGenerator-FilterByVisibility
           - ApiMarkDotNet-DotNetGenerator-IncludeObsoleteApisWhenRequested
@@ -24,7 +24,7 @@ sections:
           - ApiMarkDotNet-DotNetGenerator-RejectMissingXmlDocPath
           - ApiMarkDotNet-DotNetGenerator-RejectNullOptions
           - ApiMarkDotNet-DotNetGenerator-RejectNullContext
-          - ApiMarkDotNet-DotNetGenerator-BuildInheritanceChainForInheritDoc
+          - ApiMarkDotNet-DotNetGenerator-ResolveBareInheritdocFromBaseTypes
           - ApiMarkDotNet-DotNetAstModel-HoldParsedAssemblyData
           - ApiMarkDotNet-DotNetEmitter-DispatchToFormatSpecificEmitter
           - ApiMarkDotNet-DotNetEmitter-RejectNullArguments
@@ -61,7 +61,7 @@ sections:
           - ApiMarkDotNet-TypeLinkResolver-RenderArrayTypesWithSuffix
           - ApiMarkDotNet-TypeLinkResolver-RenderGenericTypesWithTypeArguments
           - ApiMarkDotNet-TypeLinkResolver-UnwrapNullableValueTypes
-          - ApiMarkDotNet-XmlDocReader-ParseAndIndexXmlDocumentation
+          - ApiMarkDotNet-XmlDocReader-ProvideMemberDocumentationFromXmlFile
           - ApiMarkDotNet-XmlDocReader-RenderXmlDocLists
           - ApiMarkDotNet-XmlDocReader-InheritDoc
         tests: [ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown]
@@ -81,3 +81,20 @@ sections:
           - ApiMarkDotNet-TypeNameSimplifier-SimplifyGenericArgumentsRecursively
           - ApiMarkDotNet-TypeNameSimplifier-AppendNullableReferenceSuffix
         tests: [ApiMarkDotNet_TypeNames_CommonSignatures_RenderReadably]
+      - id: ApiMarkDotNet-EnforceDocumentationCoverage
+        title: ApiMarkDotNet shall optionally check parsed assemblies for missing XML
+          doc summaries at a caller-selected visibility tier, independent of Markdown
+          emission.
+        justification: |
+          Users have asked whether ApiMark can enforce API documentation completeness
+          — warning or failing a build when public (or optionally protected, internal,
+          or private) types/members lack XML doc comments — rather than only
+          generating docs from whatever comments already exist. Different projects
+          want to enforce documentation completeness at different visibility tiers.
+        children:
+          - ApiMarkDotNet-DocumentationCoverageChecker-ScanAtVisibilityTier
+          - ApiMarkDotNet-DocumentationCoverageChecker-DetectMissingSummaryByKind
+          - ApiMarkDotNet-DocumentationCoverageChecker-RecurseNestedTypes
+          - ApiMarkDotNet-DocumentationCoverageChecker-ApplyExcludePatternsAndObsoleteFilter
+        tests: [ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown]
+

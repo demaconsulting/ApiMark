@@ -208,3 +208,23 @@ sections:
                 tests:
                   - Context_Create_WithExcludeOption_SetsExcludes
                   - Context_Create_WithRepeatedExcludeFlags_AccumulatesAllPatternsInOrder
+              - id: ApiMarkTool-Cli-Context-ParseEnforceDocsOption
+                title: Context shall parse --enforce-docs into the EnforceDocs property,
+                  which is null when the option is absent, meaning enforcement is disabled.
+                justification: |
+                  Documentation-coverage enforcement is opt-in: the flag must be absent by
+                  default so existing invocations remain unaffected.
+                tests:
+                  - Context_Create_WithEnforceDocsOption_SetsEnforceDocs
+                  - Context_Create_WithoutEnforceDocsOption_LeavesEnforceDocsNull
+                  - Context_Create_WithFlagValueForEnforceDocs_ThrowsArgumentException
+              - id: ApiMarkTool-Cli-Context-ParseEnforceDocsSeverityOption
+                title: Context shall parse --enforce-docs-severity into the
+                  EnforceDocsSeverity property, defaulting to "Warning" when absent.
+                justification: |
+                  The severity must default to a non-breaking Warning rather than Error
+                  so that adopting the --enforce-docs flag alone never fails an existing
+                  build.
+                tests:
+                  - Context_Create_WithEnforceDocsSeverityOption_SetsEnforceDocsSeverity
+                  - Context_Create_WithoutEnforceDocsSeverityOption_DefaultsToWarning

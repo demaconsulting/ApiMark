@@ -21,6 +21,7 @@ includes:
   - docs/reqstream/api-mark-dot-net/dot-net-emitter-single-file.yaml
   - docs/reqstream/api-mark-dot-net/type-link-resolver.yaml
   - docs/reqstream/api-mark-dot-net/xml-doc-reader.yaml
+  - docs/reqstream/api-mark-dot-net/documentation-coverage-checker.yaml
   - docs/reqstream/api-mark-msbuild.yaml
   - docs/reqstream/api-mark-msbuild/api-mark-task.yaml
   - docs/reqstream/api-mark-tool.yaml

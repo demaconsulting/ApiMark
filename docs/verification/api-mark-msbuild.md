@@ -53,6 +53,9 @@ on non-Windows environments.
   side effects.
 - When `ApiMarkOutputs` is non-empty, the task spawns one child process per item in the
   `ApiMarkOutput` item group.
+- For .NET projects, `ApiMarkEnforceDocs` and `ApiMarkEnforceDocsSeverity` are forwarded as
+  `--enforce-docs` and `--enforce-docs-severity` respectively when set, and are omitted when
+  not set; for non-.NET (e.g. C++) projects, these properties are never forwarded to the tool.
 
 ## Test Scenarios
 
@@ -159,3 +162,14 @@ non-empty, `Execute` spawns one child process per item in the `ApiMarkOutput` it
 applying per-item metadata overrides for `OutputDir`, `Format`, and `Visibility` so that
 multiple documentation artifacts are produced in a single build invocation. This scenario is
 tested by `ApiMarkTask_Execute_WithMultipleOutputs_RunsToolForEachOutput`.
+
+**Documentation coverage enforcement properties are forwarded for .NET, never for C++**: Verifies
+that `ApiMarkEnforceDocs` and `ApiMarkEnforceDocsSeverity` are forwarded to the spawned tool as
+`--enforce-docs` and `--enforce-docs-severity` for .NET projects when set, that the severity
+argument is omitted when only `ApiMarkEnforceDocs` is set, that both arguments are omitted
+entirely when neither property is set, and that neither argument is ever forwarded for C++
+projects even when both properties are set. These scenarios are tested by
+`ApiMarkTask_DotNet_SpawnsToolWithEnforceDocsArguments`,
+`ApiMarkTask_DotNet_WithoutEnforceDocsProperties_OmitsEnforceDocsArguments`,
+`ApiMarkTask_DotNet_WithEnforceDocsOnly_OmitsSeverityArgument`, and
+`ApiMarkTask_Cpp_WithEnforceDocsProperties_DoesNotForwardEnforceDocsArguments`.

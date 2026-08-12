@@ -61,6 +61,13 @@ Defaults to an empty list. Each pattern is matched (case-sensitive, ordinal)
 against a candidate type's full namespace-qualified name and its containing
 namespace; a match on either excludes the type.
 
+**DotNetGeneratorOptions.EnforceDocsVisibility**: `ApiVisibility?` — nullable
+enforcement visibility tier for documentation-coverage checking. Defaults to
+`null` (enforcement disabled). Independent of `Visibility`; the enforcement
+tier may differ from the emission tier. When set, the caller may invoke
+`CheckDocumentationCoverage()` after `Parse` to scan for missing XML doc
+summaries at this tier.
+
 **ExternalTypeInfo**: See `TypeLinkResolver` design for the `ExternalTypeInfo` data record.
 
 **DotNetAstModel** (internal sealed class): Holds all pre-parsed assembly data
@@ -121,6 +128,31 @@ memory and returns a `DotNetEmitter` ready to emit.
   obsolete-only namespaces when `IncludeObsolete` is false.
 - *TypeLinkResolver scope*: `TypeLinkResolver` is constructed with `rootNamespaces` only (not all namespaces), which constrains which type references can produce intra-assembly Markdown links; types whose namespace does not map to a known root namespace path fall back to plain text.
 - *NamespaceDoc selection*: When multiple `NamespaceDoc` carrier types exist in the same namespace, `BuildNamespaceDescription` selects the first non-empty summary, the first non-empty remarks, and the first non-empty example parts independently via `FirstOrDefault`; the historical "first non-empty summary wins" behavior is preserved and extended to remarks and examples.
+- *Coverage-check caching*: `Parse` caches the parsed `AssemblyDefinition` and
+  constructed `XmlDocReader` into private fields (`_assembly`, `_xmlDocs`) so
+  that a later `CheckDocumentationCoverage()` call can reuse them without
+  re-parsing the assembly or XML doc file.
+
+**DotNetGenerator.CheckDocumentationCoverage**: Scans the assembly parsed by
+the most recent `Parse` call for types and members lacking an XML doc
+`<summary>`, at the visibility tier configured by
+`DotNetGeneratorOptions.EnforceDocsVisibility`.
+
+- *Returns*: `DocumentationCoverageResult` — describing every undocumented
+  item found and the total number of items checked.
+- *Preconditions*: Must be called after `Parse` returns and before the
+  returned `IApiEmitter.Emit` is invoked, because `Emit` disposes the parsed
+  assembly once it completes. `EnforceDocsVisibility` must be set.
+- *Postconditions*: Does not mutate the parsed assembly or XML doc index;
+  may be called multiple times with the same result.
+- *Exceptions*: Throws `InvalidOperationException` when called before `Parse`
+  has completed successfully, or when `EnforceDocsVisibility` is `null`.
+- *Delegation*: Forwards to `DocumentationCoverageChecker.Check`, passing the
+  cached assembly, XML doc reader, the configured enforcement visibility,
+  `IncludeObsolete`, and `ExcludePatterns` — the enforcement tier is entirely
+  independent of `Visibility` and may be evaluated differently from the
+  emission filter chain. See DocumentationCoverageChecker Design for the
+  scanning algorithm.
 
 **DotNetGenerator.BuildInheritanceChain** (private static): Builds a member-ID to ordered
 base-member-ID map from Mono.Cecil metadata for use during `<inheritdoc />` resolution.
@@ -156,7 +188,12 @@ if absent. It then checks whether `XmlDocPath` exists, throwing `FileNotFoundExc
 absent. Only after both checks pass does it invoke Mono.Cecil to open the assembly. Missing
 XML documentation entries for a member produce empty documentation fields rather than an error.
 `ArgumentNullException` is thrown by the `DotNetGenerator` constructor when `options`
-is null.
+is null. `CheckDocumentationCoverage` throws `InvalidOperationException` when called
+before `Parse` has completed successfully, or when `EnforceDocsVisibility` is not set —
+both are programming errors on the caller's part rather than data errors, so they are
+not translated into an exit-code path themselves; `Program` validates
+`EnforceDocsVisibility`/`--enforce-docs` earlier during argument parsing so this
+exception is not expected to surface through the CLI in normal operation.
 
 ### Dependencies
 
@@ -174,6 +211,9 @@ is null.
   creates DotNetEmitter, which owns this dependency.)
 - **XmlDocReader** — DotNetGenerator constructs an XmlDocReader from XmlDocPath during
   Parse to parse and index the XML documentation file for indexed per-member lookups.
+- **DocumentationCoverageChecker** — `CheckDocumentationCoverage` delegates to this
+  unit's `Check` static method, passing the cached parsed assembly, XML doc reader,
+  and the `EnforceDocsVisibility`/`IncludeObsolete`/`ExcludePatterns` options.
 - **TypeLinkResolver** — constructed during Parse with `rootNamespaces` and stored in
   `DotNetAstModel.Resolver` for use during emission.
 - **Mono.Cecil** — used to read assembly metadata without loading the assembly into
