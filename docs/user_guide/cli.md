@@ -33,7 +33,11 @@ the full option reference and usage details for each language subcommand.
 
 The `--validate` flag runs ApiMark's built-in self-validation suite without generating
 any API documentation. Use this in CI to verify that the installed tool is functioning
-correctly.
+correctly. In addition to basic version/help checks, the suite exercises the real
+DotNet, C++, and VHDL documentation generators end to end against small embedded
+sample sources. The C++ check is automatically skipped (not failed) when no clang
+installation can be found — install LLVM clang or set `APIMARK_CLANG_PATH` to include
+it in validation.
 
 ```bash
 apimark --validate
@@ -46,8 +50,10 @@ apimark --validate --results results/apimark.trx
 ```
 
 The `--results` option accepts either a `.trx` file path (Visual Studio Test Results
-format) or an `.xml` file path (JUnit-compatible XML). The exit code is non-zero if
-any validation test fails.
+format) or an `.xml` file path (JUnit-compatible XML). The summary output includes
+`Total Tests`, `Passed`, `Skipped`, and `Failed` counts. The exit code is non-zero if
+any validation test fails; skipped tests (such as the C++ check when clang is
+unavailable) never affect the exit code.
 
 ## Platform Support
 

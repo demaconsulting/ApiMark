@@ -43,15 +43,25 @@ internal static partial class Validation
         RunVersionTest(context, testResults);
         RunHelpTest(context, testResults);
 
+        // Run functional generator tests
+        RunDotNetGenerationTest(context, testResults);
+        RunCppGenerationTest(context, testResults);
+        RunVhdlGenerationTest(context, testResults);
+
         // Calculate totals
         var totalTests = testResults.Results.Count;
         var passedTests = testResults.Results.Count(t => t.Outcome == DemaConsulting.TestResults.TestOutcome.Passed);
         var failedTests = testResults.Results.Count(t => t.Outcome == DemaConsulting.TestResults.TestOutcome.Failed);
+        // DemaConsulting.TestResults.TestOutcome has no dedicated "Skipped" value; NotExecuted is
+        // used to represent tests that were intentionally skipped (e.g. clang unavailable) rather
+        // than failed. NotExecuted is never counted toward failedTests or the exit code.
+        var skippedTests = testResults.Results.Count(t => t.Outcome == DemaConsulting.TestResults.TestOutcome.NotExecuted);
 
         // Print summary
         context.WriteLine("");
         context.WriteLine($"Total Tests: {totalTests}");
         context.WriteLine($"Passed: {passedTests}");
+        context.WriteLine($"Skipped: {skippedTests}");
         if (failedTests > 0)
         {
             context.WriteError($"Failed: {failedTests}");

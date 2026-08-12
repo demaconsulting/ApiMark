@@ -435,8 +435,10 @@ reviews:
       - docs/design/api-mark-cpp/clang-ast-parser.md
       - docs/verification/api-mark-cpp/clang-ast-parser.md
       - src/ApiMark.Cpp/CppAst/ClangAstParser.cs
+      - src/ApiMark.Cpp/CppAst/ClangDiscovery.cs
       - test/ApiMark.Cpp.Fixtures/**/*.h
       - test/ApiMark.Cpp.Tests/ClangAstParserTests.cs
+      - test/ApiMark.Cpp.Tests/ClangDiscoveryTests.cs
   - id: ApiMark-Cpp-DocumentationCoverageChecker
     title: Review that ApiMark Cpp DocumentationCoverageChecker Implementation is
       Correct

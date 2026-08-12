@@ -19,4 +19,9 @@ sections:
               - ApiMarkTool-SelfTest-Validation-WriteResultsFileOnRequest
               - ApiMarkTool-SelfTest-Validation-SetExitCodeOnFailure
               - ApiMarkTool-SelfTest-Validation-RejectUnsupportedExtension
+              - ApiMarkTool-SelfTest-Validation-RunDotNetGenerationTest
+              - ApiMarkTool-SelfTest-Validation-RunCppGenerationTest
+              - ApiMarkTool-SelfTest-Validation-RunVhdlGenerationTest
+              - ApiMarkTool-SelfTest-Validation-SkipCppWhenClangUnavailable
+              - ApiMarkTool-SelfTest-Validation-ReportSkippedCount
             tests: [Validation_Run_WithValidContext_ExitsZero]

@@ -65,3 +65,19 @@ correctly filters out non-error output and returns no false positives. Tested by
 **Known integration-only gap**: Non-zero exit and malformed JSON paths are not isolated by the
 current implementation without adding a process seam, so those behaviors remain covered only by
 real-process integration when reproducible in environment-specific failure cases.
+
+### ClangDiscovery
+
+`ClangDiscovery.IsAvailable` is unit-tested in
+`test/ApiMark.Cpp.Tests/ClangDiscoveryTests.cs`. It shares the exact discovery logic used by
+`ClangAstParser.Parse` (via the internal `TryFindClangExecutable` helper), so its return value
+always matches whether `Parse` would succeed or throw for the same inputs.
+
+- `IsAvailable(clangPath)` returns `false` (never throws) when an explicit nonexistent path is
+  supplied. Tested by `ClangDiscovery_IsAvailable_WithNonexistentExplicitPath_ReturnsFalse`.
+- `IsAvailable()` returns `false` (never throws) when `APIMARK_CLANG_PATH` points at a
+  nonexistent path and no explicit path is supplied. Tested by
+  `ClangDiscovery_IsAvailable_WithBogusEnvironmentVariable_ReturnsFalse`.
+- `IsAvailable()`'s result is consistent with `ClangAstParser.Parse`'s actual behavior: when
+  unavailable, `Parse` throws `InvalidOperationException` mentioning clang. Tested by
+  `ClangDiscovery_IsAvailable_MatchesActualDiscoveryOutcome`.

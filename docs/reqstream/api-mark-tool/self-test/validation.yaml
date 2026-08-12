@@ -51,3 +51,53 @@ sections:
                   it with a non-zero exit code and a clear message lets the caller detect
                   and correct the configuration error without inspecting partial output.
                 tests: [Validation_Run_WithUnsupportedResultsExtension_SetsExitCodeToOne]
+              - id: ApiMarkTool-SelfTest-Validation-RunDotNetGenerationTest
+                title: Validation shall run the real DotNetGenerator Parse/Emit pipeline
+                  against a sample assembly and verify the generated Markdown contains
+                  expected content.
+                justification: |
+                  Exercising the actual generator end to end (rather than just the CLI
+                  dispatch path) confirms the DotNet documentation generation feature is
+                  functional in the deployed tool binary, not merely that the process runs.
+                tests:
+                  - Validation_Run_WritesFunctionalGenerationTestResults
+                  - Validation_Run_WithValidContext_ExitsZero
+              - id: ApiMarkTool-SelfTest-Validation-RunCppGenerationTest
+                title: Validation shall run the real CppGenerator Parse/Emit pipeline
+                  against a tiny embedded sample header and verify the generated Markdown
+                  contains expected content, when clang is available.
+                justification: |
+                  Exercising the actual C++ generator end to end confirms the C++
+                  documentation generation feature is functional in the deployed tool
+                  binary whenever a clang toolchain is present.
+                tests:
+                  - Validation_Run_WritesFunctionalGenerationTestResults
+                  - Validation_Run_WithValidContext_ExitsZero
+              - id: ApiMarkTool-SelfTest-Validation-RunVhdlGenerationTest
+                title: Validation shall run the real VhdlGenerator Parse/Emit pipeline
+                  against a tiny embedded sample VHDL entity and verify the generated
+                  Markdown contains expected content.
+                justification: |
+                  VHDL parsing has no external tool dependency, so this test can always
+                  run and confirms the VHDL documentation generation feature is functional
+                  in the deployed tool binary on every platform.
+                tests:
+                  - Validation_Run_WritesFunctionalGenerationTestResults
+                  - Validation_Run_WithValidContext_ExitsZero
+              - id: ApiMarkTool-SelfTest-Validation-SkipCppWhenClangUnavailable
+                title: Validation shall record the C++ generation test as skipped
+                  (not failed) and must not set ExitCode to a non-zero value when
+                  clang cannot be located.
+                justification: |
+                  Requiring clang for every environment running --validate would make
+                  self-validation unreliable on machines without a C++ toolchain;
+                  skipping (rather than failing) the C++ test preserves a useful,
+                  non-blocking signal while still validating C++ support when possible.
+                tests: [Validation_Run_CppGenerationSkippedWhenClangUnavailable]
+              - id: ApiMarkTool-SelfTest-Validation-ReportSkippedCount
+                title: 'Validation shall print a "Skipped: N" line in its summary output reflecting the number of self-tests recorded as skipped.'
+                justification: |
+                  Operators and CI logs need visibility into how many self-tests were
+                  skipped (as distinct from passed or failed) so that a skip is not
+                  silently mistaken for either a pass or the absence of that test.
+                tests: [Validation_Run_WritesSkippedSummaryLine]
