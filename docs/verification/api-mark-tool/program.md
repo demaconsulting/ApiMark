@@ -40,15 +40,15 @@ output directory. No external service, privileged configuration, or network acce
 - `apimark dotnet --enforce-docs <tier> --enforce-docs-severity Error` returns exit code zero
   when no violations are found, even though severity is `Error`.
 - An invalid `--enforce-docs` value returns a non-zero exit code with a diagnostic naming
-  the invalid value.
+  the invalid value, for the `dotnet`, `cpp`, and `vhdl` subcommands alike.
 - An invalid `--enforce-docs-severity` value returns a non-zero exit code with a diagnostic
   naming the invalid value.
-- `--enforce-docs` with the `cpp` subcommand does not fail the build; instead, an
-  informational note is printed and generation proceeds normally.
-- `--enforce-docs` with the `vhdl` subcommand does not fail the build; instead, an
-  informational note is printed and generation proceeds normally.
-- An invalid `--enforce-docs` value supplied alongside the `cpp` subcommand is never parsed or
-  validated — the informational note is printed and the invalid value never causes a failure.
+- `apimark vhdl --enforce-docs <tier>` with `--enforce-docs-severity Warning` (the default)
+  reports undocumented VHDL entities/ports/generics/packages to the console but still
+  returns exit code zero.
+- `apimark vhdl --enforce-docs <tier> --enforce-docs-severity Error` returns a non-zero exit
+  code when violations are found, and returns exit code zero when no violations are found,
+  mirroring the dotnet behavior via the same `IDocumentationCoverageCapable` dispatch path.
 
 ### Test Scenarios
 
@@ -161,24 +161,40 @@ unrecognized `--enforce-docs-severity` value causes `ReportDocumentationCoverage
 resulting error message includes the invalid value supplied. This scenario is tested by
 `Program_Main_WithInvalidEnforceDocsSeverityValue_ReturnsNonZeroExitCode`.
 
-**Enforce-docs with cpp subcommand prints an informational note**: Verifies that supplying
-`--enforce-docs <tier>` alongside the `cpp` subcommand does not fail the build; instead, an
-informational note referencing the ignored language is written via `context.WriteLine` and
-generation proceeds and exits zero, confirming that documentation-coverage enforcement is
-dotnet-only and gracefully no-ops for languages it does not support. This scenario is tested
-by `Program_Main_EnforceDocsWithCppSubcommand_PrintsInformationalNote`.
+**Invalid --enforce-docs value is rejected for the cpp subcommand**: Verifies that an
+unrecognized `--enforce-docs` value supplied alongside the `cpp` subcommand is validated in
+`CreateGenerator` before `Parse` runs (and therefore before clang is ever invoked), exiting
+with a non-zero code and an error message naming the invalid value, confirming that
+documentation-coverage enforcement dispatches through `IDocumentationCoverageCapable`
+uniformly rather than being dotnet-only. This scenario is tested by
+`Program_Main_Cpp_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode`.
 
-**Enforce-docs with vhdl subcommand prints an informational note**: Verifies that supplying
-`--enforce-docs <tier>` alongside the `vhdl` subcommand does not fail the build; instead, the
-same informational note is written via `context.WriteLine` and generation proceeds and exits
-zero, confirming that the dotnet-only no-op behavior applies uniformly to every non-dotnet
-subcommand, not just `cpp`. This scenario is tested by
-`Program_Main_EnforceDocsWithVhdlSubcommand_PrintsInformationalNote`.
+**Enforce-docs with Warning severity reports VHDL violations but exits zero**: Verifies that
+`apimark vhdl --enforce-docs <tier>` with the default `Warning` severity prints the
+documentation-coverage scan for undocumented entities/ports/generics/packages to stdout but
+still returns exit code zero, mirroring the dotnet behavior through the same
+`IDocumentationCoverageCapable` dispatch path. This scenario is tested by
+`Program_Main_Vhdl_EnforceDocsWarningSeverity_ReportsViolationsButExitsZero`.
 
-**Invalid --enforce-docs value does not affect cpp builds**: Verifies that an unrecognized
-`--enforce-docs` value is never parsed or validated for the `cpp` subcommand — the
-informational note is printed and the invalid value never appears in error output, confirming
-the flag is inert (including its validation) outside `dotnet`. This is a regression test for a
-bug where an invalid value threw an `ArgumentException` despite the printed "ignoring" note.
-This scenario is tested by
-`Program_Main_InvalidEnforceDocsValueWithCppSubcommand_DoesNotThrowForEnforceDocs`.
+**Enforce-docs with Error severity returns non-zero exit code for VHDL**: Verifies that
+`apimark vhdl --enforce-docs <tier> --enforce-docs-severity Error` returns a non-zero exit
+code when violations are found, confirming that error-severity enforcement gates the VHDL
+build the same way it gates the dotnet build. This scenario is tested by
+`Program_Main_Vhdl_EnforceDocsErrorSeverity_ReturnsNonZeroExitCode`.
+
+**Enforce-docs with no VHDL violations exits zero and reports zero undocumented**: Verifies
+that when the scoped VHDL scan finds no undocumented items, the tool exits zero and reports
+zero undocumented items even when severity is `Error`. This scenario is tested by
+`Program_Main_Vhdl_EnforceDocsNoViolations_ExitsZeroAndReportsZeroUndocumented`.
+
+**Invalid --enforce-docs value returns non-zero exit code for VHDL**: Verifies that supplying
+an unrecognized `--enforce-docs` value for the `vhdl` subcommand exits with a non-zero code
+and writes an error message containing the invalid value, mirroring the dotnet and cpp
+validation behavior. This scenario is tested by
+`Program_Main_Vhdl_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode`.
+
+**All three VHDL enforcement tiers are accepted and behave identically**: Verifies that
+`Public`, `PublicAndProtected`, and `All` are all accepted for the `vhdl` subcommand and
+report the same undocumented count, since VHDL has no visibility/accessibility concept and
+accepts the shared three-word vocabulary purely for CLI consistency. This scenario is tested
+by `Program_Main_Vhdl_AllThreeEnforceTierValues_AreAcceptedAndReportSameCount`.

@@ -26,6 +26,8 @@ words:
   - Dema
   - dllexport
   - docstrings
+  - downcast
+  - downcasting
   - fileassert
   - frontmatter
   - ANTLR

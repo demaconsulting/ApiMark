@@ -104,11 +104,11 @@ public class DocumentationCoverageCheckerTests
         // Assert — type + Name, Title, DefaultName, NameChanged, GetGreeting, Reset, Refresh, ctor
         Assert.Equal(9, result.CheckedCount);
         Assert.Equal(2, result.UndocumentedCount);
-        Assert.Contains(result.UndocumentedItems, i => i is { Kind: UndocumentedApiItemKind.Method, DisplayName: "ApiMark.DotNet.Fixtures.SampleClass.Refresh()" });
-        Assert.Contains(result.UndocumentedItems, i => i is { Kind: UndocumentedApiItemKind.Method, DisplayName: "ApiMark.DotNet.Fixtures.SampleClass.SampleClass()" });
+        Assert.Contains(result.UndocumentedItems, i => i is { Kind: "Method", DisplayName: "ApiMark.DotNet.Fixtures.SampleClass.Refresh()" });
+        Assert.Contains(result.UndocumentedItems, i => i is { Kind: "Method", DisplayName: "ApiMark.DotNet.Fixtures.SampleClass.SampleClass()" });
     }
 
-    /// <summary>Validates that a type missing a summary is reported as an <see cref="UndocumentedApiItemKind.Type"/> violation.</summary>
+    /// <summary>Validates that a type missing a summary is reported as an <see cref=""Type""/> violation.</summary>
     [Fact]
     public void Check_TypeMissingSummary_ReportsTypeViolation()
     {
@@ -137,7 +137,7 @@ public class DocumentationCoverageCheckerTests
             // Assert — type + Value + Compute + ctor
             Assert.Equal(4, result.CheckedCount);
             var violation = Assert.Single(result.UndocumentedItems);
-            Assert.Equal(UndocumentedApiItemKind.Type, violation.Kind);
+            Assert.Equal("Type", violation.Kind);
             Assert.Equal("ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass", violation.DisplayName);
         }
         finally
@@ -146,7 +146,7 @@ public class DocumentationCoverageCheckerTests
         }
     }
 
-    /// <summary>Validates that a method missing a summary is reported as an <see cref="UndocumentedApiItemKind.Method"/> violation.</summary>
+    /// <summary>Validates that a method missing a summary is reported as an <see cref=""Method""/> violation.</summary>
     [Fact]
     public void Check_MethodMissingSummary_ReportsMethodViolation()
     {
@@ -175,7 +175,7 @@ public class DocumentationCoverageCheckerTests
             // Assert
             Assert.Equal(4, result.CheckedCount);
             var violation = Assert.Single(result.UndocumentedItems);
-            Assert.Equal(UndocumentedApiItemKind.Method, violation.Kind);
+            Assert.Equal("Method", violation.Kind);
             Assert.Equal("ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass.Compute(int)", violation.DisplayName);
         }
         finally
@@ -184,7 +184,7 @@ public class DocumentationCoverageCheckerTests
         }
     }
 
-    /// <summary>Validates that a property missing a summary is reported as an <see cref="UndocumentedApiItemKind.Property"/> violation.</summary>
+    /// <summary>Validates that a property missing a summary is reported as an <see cref=""Property""/> violation.</summary>
     [Fact]
     public void Check_PropertyMissingSummary_ReportsPropertyViolation()
     {
@@ -213,7 +213,7 @@ public class DocumentationCoverageCheckerTests
             // Assert
             Assert.Equal(4, result.CheckedCount);
             var violation = Assert.Single(result.UndocumentedItems);
-            Assert.Equal(UndocumentedApiItemKind.Property, violation.Kind);
+            Assert.Equal("Property", violation.Kind);
             Assert.Equal("ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass.Value", violation.DisplayName);
         }
         finally
@@ -222,7 +222,7 @@ public class DocumentationCoverageCheckerTests
         }
     }
 
-    /// <summary>Validates that a field missing a summary is reported as an <see cref="UndocumentedApiItemKind.Field"/> violation.</summary>
+    /// <summary>Validates that a field missing a summary is reported as an <see cref=""Field""/> violation.</summary>
     [Fact]
     public void Check_FieldMissingSummary_ReportsFieldViolation()
     {
@@ -266,7 +266,7 @@ public class DocumentationCoverageCheckerTests
             // Assert
             Assert.Equal(9, result.CheckedCount);
             var violation = Assert.Single(result.UndocumentedItems);
-            Assert.Equal(UndocumentedApiItemKind.Field, violation.Kind);
+            Assert.Equal("Field", violation.Kind);
             Assert.Equal("ApiMark.DotNet.Fixtures.SampleClass.DefaultName", violation.DisplayName);
         }
         finally
@@ -275,7 +275,7 @@ public class DocumentationCoverageCheckerTests
         }
     }
 
-    /// <summary>Validates that an event missing a summary is reported as an <see cref="UndocumentedApiItemKind.Event"/> violation.</summary>
+    /// <summary>Validates that an event missing a summary is reported as an <see cref=""Event""/> violation.</summary>
     [Fact]
     public void Check_EventMissingSummary_ReportsEventViolation()
     {
@@ -319,7 +319,7 @@ public class DocumentationCoverageCheckerTests
             // Assert
             Assert.Equal(9, result.CheckedCount);
             var violation = Assert.Single(result.UndocumentedItems);
-            Assert.Equal(UndocumentedApiItemKind.Event, violation.Kind);
+            Assert.Equal("Event", violation.Kind);
             Assert.Equal("ApiMark.DotNet.Fixtures.SampleClass.NameChanged", violation.DisplayName);
         }
         finally
@@ -380,7 +380,7 @@ public class DocumentationCoverageCheckerTests
             // Assert
             Assert.Equal(6, result.CheckedCount);
             var violation = Assert.Single(result.UndocumentedItems);
-            Assert.Equal(UndocumentedApiItemKind.Method, violation.Kind);
+            Assert.Equal("Method", violation.Kind);
             Assert.Equal("ApiMark.DotNet.Fixtures.OuterClass.Inner.Inner(int)", violation.DisplayName);
         }
         finally
@@ -450,8 +450,8 @@ public class DocumentationCoverageCheckerTests
             // PublicAndProtected tier additionally sees ProtectedProp and ProtectedMethod, both undocumented
             Assert.Equal(5, publicAndProtectedResult.CheckedCount);
             Assert.Equal(2, publicAndProtectedResult.UndocumentedCount);
-            Assert.Contains(publicAndProtectedResult.UndocumentedItems, i => i is { Kind: UndocumentedApiItemKind.Property, DisplayName: "ApiMark.DotNet.Fixtures.ProtectedMembersClass.ProtectedProp" });
-            Assert.Contains(publicAndProtectedResult.UndocumentedItems, i => i is { Kind: UndocumentedApiItemKind.Method, DisplayName: "ApiMark.DotNet.Fixtures.ProtectedMembersClass.ProtectedMethod(int)" });
+            Assert.Contains(publicAndProtectedResult.UndocumentedItems, i => i is { Kind: "Property", DisplayName: "ApiMark.DotNet.Fixtures.ProtectedMembersClass.ProtectedProp" });
+            Assert.Contains(publicAndProtectedResult.UndocumentedItems, i => i is { Kind: "Method", DisplayName: "ApiMark.DotNet.Fixtures.ProtectedMembersClass.ProtectedMethod(int)" });
         }
         finally
         {
@@ -519,7 +519,7 @@ public class DocumentationCoverageCheckerTests
             // Assert — type + ctor + OldMethod
             Assert.Equal(3, result.CheckedCount);
             var violation = Assert.Single(result.UndocumentedItems);
-            Assert.Equal(UndocumentedApiItemKind.Method, violation.Kind);
+            Assert.Equal("Method", violation.Kind);
             Assert.Equal("ApiMark.DotNet.Fixtures.ObsoleteClass.OldMethod()", violation.DisplayName);
         }
         finally
@@ -551,7 +551,7 @@ public class DocumentationCoverageCheckerTests
         // is the sole (expected) violation.
         Assert.Equal(3, result.CheckedCount);
         var violation = Assert.Single(result.UndocumentedItems);
-        Assert.Equal(UndocumentedApiItemKind.Method, violation.Kind);
+        Assert.Equal("Method", violation.Kind);
         Assert.Equal("ApiMark.DotNet.Fixtures.Inner.RemarksOnly.RemarksOnlyNamespaceClass.RemarksOnlyNamespaceClass()", violation.DisplayName);
     }
 }

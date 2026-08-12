@@ -37,19 +37,23 @@ sections:
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardEnforceDocsProperties
             title: ApiMarkTask shall forward the ApiMarkEnforceDocs and
               ApiMarkEnforceDocsSeverity properties to the tool as --enforce-docs and
-              --enforce-docs-severity arguments for .NET builds only, omitting either
+              --enforce-docs-severity arguments for .NET and C++ builds, omitting either
               flag entirely when the corresponding property is not set.
             justification: |
               Build authors need to opt in to documentation-coverage enforcement (and
               its severity) from the project file, matching the CLI vocabulary exactly.
-              Forwarding only from the dotnet argument path (not the cpp path) keeps the
-              feature scoped to the language it applies to, mirroring how other
-              dotnet-only options are forwarded.
+              Forwarding from both the dotnet and cpp argument paths keeps the feature
+              consistent across every language ApiMarkTask supports, and the .targets
+              file binds both MSBuild properties into the task invocation so real NuGet
+              package consumers reach this behavior, not just direct task construction.
             tests:
               - ApiMarkTask_DotNet_SpawnsToolWithEnforceDocsArguments
               - ApiMarkTask_DotNet_WithoutEnforceDocsProperties_OmitsEnforceDocsArguments
               - ApiMarkTask_DotNet_WithEnforceDocsOnly_OmitsSeverityArgument
-              - ApiMarkTask_Cpp_WithEnforceDocsProperties_DoesNotForwardEnforceDocsArguments
+              - ApiMarkTask_Cpp_WithEnforceDocsProperties_ForwardsEnforceDocsArguments
+              - ApiMarkTask_Cpp_WithoutEnforceDocsProperties_OmitsEnforceDocsArguments
+              - ApiMarkTask_Cpp_WithEnforceDocsOnly_OmitsSeverityArgument
+              - ApiMarkMsbuild_NuGetPackage_DotNetProject_EnforceDocs_FailsBuildOnUndocumentedApi
           - id: ApiMarkMsbuild-ApiMarkTask-SpawnToolForCpp
             title: ApiMarkTask shall spawn ApiMark.Tool with the cpp subcommand and
               pass include paths for C++ builds.

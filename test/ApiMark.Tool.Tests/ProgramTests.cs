@@ -798,35 +798,40 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Validates that <c>--enforce-docs</c> is a graceful no-op for the <c>cpp</c> subcommand,
-    ///     printing an informational note rather than failing an otherwise-valid build.
+    ///     Validates that an unrecognized <c>--enforce-docs</c> value is validated for the
+    ///     <c>cpp</c> subcommand (no longer a no-op — see the removed
+    ///     <c>Program_Main_EnforceDocsWithCppSubcommand_PrintsInformationalNote</c> and
+    ///     <c>Program_Main_InvalidEnforceDocsValueWithCppSubcommand_DoesNotThrowForEnforceDocs</c>
+    ///     tests) and exits with a non-zero code before clang is ever invoked, since validation
+    ///     happens in <c>CreateGenerator</c> before <c>Parse</c> runs.
     /// </summary>
     [Fact]
-    public void Program_Main_EnforceDocsWithCppSubcommand_PrintsInformationalNote()
+    public void Program_Main_Cpp_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode()
     {
-        // Arrange: --enforce-docs is dotnet-only; cpp must not fail because of it
+        // Arrange
         var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
-        var originalOut = Console.Out;
-        using var outWriter = new StringWriter();
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
 
         try
         {
-            Console.SetOut(outWriter);
+            Console.SetError(errorWriter);
 
             // Act
-            _ = Program.Main([
+            var exitCode = Program.Main([
                 "cpp",
                 "--includes", ".",
                 "--output", outputDir,
-                "--enforce-docs", "Public",
+                "--enforce-docs", "NotARealVisibilityTier",
             ]);
 
-            // Assert: the informational note must be printed regardless of the cpp scan's outcome
-            Assert.Contains("--enforce-docs is only supported for the dotnet subcommand", outWriter.ToString(), StringComparison.Ordinal);
+            // Assert: the invalid value is now validated (and rejected) for cpp too
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("NotARealVisibilityTier", errorWriter.ToString(), StringComparison.Ordinal);
         }
         finally
         {
-            Console.SetOut(originalOut);
+            Console.SetError(originalError);
             if (Directory.Exists(outputDir))
             {
                 Directory.Delete(outputDir, recursive: true);
@@ -835,13 +840,26 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Validates that <c>--enforce-docs</c> is a graceful no-op for the <c>vhdl</c> subcommand,
-    ///     printing an informational note rather than failing an otherwise-valid build.
+    ///     Validates that <c>--enforce-docs</c> with the default <c>Warning</c> severity reports
+    ///     undocumented VHDL items to standard output but still exits with code 0.
     /// </summary>
     [Fact]
-    public void Program_Main_EnforceDocsWithVhdlSubcommand_PrintsInformationalNote()
+    public void Program_Main_Vhdl_EnforceDocsWarningSeverity_ReportsViolationsButExitsZero()
     {
-        // Arrange: --enforce-docs is dotnet-only; vhdl must not fail because of it
+        // Arrange: an entity with no doc comment, scoped to a single temp source file
+        var sourceDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(sourceDir);
+        var sourceFile = Path.Join(sourceDir, "undocumented.vhd");
+        File.WriteAllText(sourceFile, """
+            LIBRARY ieee;
+            USE ieee.std_logic_1164.ALL;
+
+            ENTITY undocumented_entity IS
+                PORT (
+                    y : OUT STD_LOGIC
+                );
+            END ENTITY undocumented_entity;
+            """);
         var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
         var originalOut = Console.Out;
         using var outWriter = new StringWriter();
@@ -851,19 +869,22 @@ public class ProgramTests
             Console.SetOut(outWriter);
 
             // Act
-            _ = Program.Main([
+            var exitCode = Program.Main([
                 "vhdl",
-                "--source", "*.vhd",
+                "--source", Path.Join(sourceDir, "*.vhd"),
                 "--output", outputDir,
                 "--enforce-docs", "Public",
             ]);
 
-            // Assert: the informational note must be printed regardless of the vhdl scan's outcome
-            Assert.Contains("--enforce-docs is only supported for the dotnet subcommand", outWriter.ToString(), StringComparison.Ordinal);
+            // Assert: default severity (Warning) reports but does not fail the build
+            Assert.Equal(0, exitCode);
+            Assert.Contains("[Undocumented]", outWriter.ToString(), StringComparison.Ordinal);
+            Assert.Contains("undocumented_entity", outWriter.ToString(), StringComparison.Ordinal);
         }
         finally
         {
             Console.SetOut(originalOut);
+            Directory.Delete(sourceDir, recursive: true);
             if (Directory.Exists(outputDir))
             {
                 Directory.Delete(outputDir, recursive: true);
@@ -872,18 +893,26 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Validates that an unrecognized <c>--enforce-docs</c> value is never parsed/validated
-    ///     for the <c>cpp</c> subcommand: the flag is a no-op outside <c>dotnet</c> (regression
-    ///     test for a bug where an invalid value threw an <see cref="ArgumentException"/> despite
-    ///     the printed "ignoring" note). This does not assert overall exit code because the cpp
-    ///     subcommand may independently fail for unrelated environmental reasons (for example,
-    ///     clang not being installed); it only asserts that the invalid enforce-docs value itself
-    ///     is not the cause of any failure.
+    ///     Validates that <c>--enforce-docs-severity Error</c> causes a non-zero exit code and an
+    ///     error message when undocumented VHDL items are found.
     /// </summary>
     [Fact]
-    public void Program_Main_InvalidEnforceDocsValueWithCppSubcommand_DoesNotThrowForEnforceDocs()
+    public void Program_Main_Vhdl_EnforceDocsErrorSeverity_ReturnsNonZeroExitCode()
     {
-        // Arrange: --enforce-docs is dotnet-only; an invalid value must not be parsed for cpp
+        // Arrange: same undocumented entity as the warning-severity test, but with Error severity
+        var sourceDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(sourceDir);
+        var sourceFile = Path.Join(sourceDir, "undocumented.vhd");
+        File.WriteAllText(sourceFile, """
+            LIBRARY ieee;
+            USE ieee.std_logic_1164.ALL;
+
+            ENTITY undocumented_entity IS
+                PORT (
+                    y : OUT STD_LOGIC
+                );
+            END ENTITY undocumented_entity;
+            """);
         var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
         var originalOut = Console.Out;
         var originalError = Console.Error;
@@ -896,22 +925,172 @@ public class ProgramTests
             Console.SetError(errorWriter);
 
             // Act
-            _ = Program.Main([
-                "cpp",
-                "--includes", ".",
+            var exitCode = Program.Main([
+                "vhdl",
+                "--source", Path.Join(sourceDir, "*.vhd"),
                 "--output", outputDir,
-                "--enforce-docs", "NotARealVisibilityTier",
+                "--enforce-docs", "Public",
+                "--enforce-docs-severity", "Error",
             ]);
 
-            // Assert: the note is printed, and the invalid enforce-docs value is never parsed —
-            // so it must not appear in any error output (any failure must come from elsewhere)
-            Assert.Contains("--enforce-docs is only supported for the dotnet subcommand", outWriter.ToString(), StringComparison.Ordinal);
-            Assert.DoesNotContain("NotARealVisibilityTier", errorWriter.ToString(), StringComparison.Ordinal);
+            // Assert: Error severity must fail the build when violations are found
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("undocumented", errorWriter.ToString(), StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
             Console.SetOut(originalOut);
             Console.SetError(originalError);
+            Directory.Delete(sourceDir, recursive: true);
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <c>--enforce-docs</c> exits with code 0 and reports zero undocumented
+    ///     items when the VHDL source is fully documented.
+    /// </summary>
+    [Fact]
+    public void Program_Main_Vhdl_EnforceDocsNoViolations_ExitsZeroAndReportsZeroUndocumented()
+    {
+        // Arrange: fully-documented entity
+        var sourceDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(sourceDir);
+        var sourceFile = Path.Join(sourceDir, "documented.vhd");
+        File.WriteAllText(sourceFile, """
+            LIBRARY ieee;
+            USE ieee.std_logic_1164.ALL;
+
+            --! @brief A fully documented entity.
+            ENTITY documented_entity IS
+                PORT (
+                    y : OUT STD_LOGIC --! The output signal.
+                );
+            END ENTITY documented_entity;
+            """);
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalOut = Console.Out;
+        using var outWriter = new StringWriter();
+
+        try
+        {
+            Console.SetOut(outWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "vhdl",
+                "--source", Path.Join(sourceDir, "*.vhd"),
+                "--output", outputDir,
+                "--enforce-docs", "Public",
+                "--enforce-docs-severity", "Error",
+            ]);
+
+            // Assert: fully-documented source must exit zero even with Error severity configured
+            Assert.Equal(0, exitCode);
+            Assert.Contains("Documentation coverage: 0 undocumented", outWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Directory.Delete(sourceDir, recursive: true);
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that supplying an unrecognized <c>--enforce-docs</c> value for the
+    ///     <c>vhdl</c> subcommand exits with a non-zero code and writes an error message
+    ///     containing the invalid value, mirroring dotnet's and cpp's validation.
+    /// </summary>
+    [Fact]
+    public void Program_Main_Vhdl_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode()
+    {
+        // Arrange
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+
+        try
+        {
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "vhdl",
+                "--source", "*.vhd",
+                "--output", outputDir,
+                "--enforce-docs", "NotARealVisibilityTier",
+            ]);
+
+            // Assert
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("NotARealVisibilityTier", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <c>Public</c>, <c>PublicAndProtected</c>, and <c>All</c> are all
+    ///     accepted for the <c>vhdl</c> subcommand and behave identically, since VHDL has no
+    ///     visibility/accessibility concept (see <c>ApiMark.Vhdl.DocumentationCoverageChecker</c>).
+    /// </summary>
+    [Theory]
+    [InlineData("Public")]
+    [InlineData("PublicAndProtected")]
+    [InlineData("All")]
+    public void Program_Main_Vhdl_AllThreeEnforceTierValues_AreAcceptedAndReportSameCount(string tier)
+    {
+        // Arrange
+        var sourceDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(sourceDir);
+        var sourceFile = Path.Join(sourceDir, "undocumented.vhd");
+        File.WriteAllText(sourceFile, """
+            LIBRARY ieee;
+            USE ieee.std_logic_1164.ALL;
+
+            ENTITY undocumented_entity IS
+                PORT (
+                    y : OUT STD_LOGIC
+                );
+            END ENTITY undocumented_entity;
+            """);
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalOut = Console.Out;
+        using var outWriter = new StringWriter();
+
+        try
+        {
+            Console.SetOut(outWriter);
+
+            // Act
+            var exitCode = Program.Main([
+                "vhdl",
+                "--source", Path.Join(sourceDir, "*.vhd"),
+                "--output", outputDir,
+                "--enforce-docs", tier,
+            ]);
+
+            // Assert: every recognized tier value is accepted and reports the same violation count
+            Assert.Equal(0, exitCode);
+            Assert.Contains("Documentation coverage: 2 undocumented", outWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Directory.Delete(sourceDir, recursive: true);
             if (Directory.Exists(outputDir))
             {
                 Directory.Delete(outputDir, recursive: true);

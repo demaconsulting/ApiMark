@@ -46,6 +46,10 @@ single-file or gradual-disclosure Markdown output.
   `CppEmitter` during emission.
 - `IncludeDeprecated`: `bool` — parse-time declaration filter controlling whether
   deprecated classes, free functions, enums, and type aliases are retained.
+- `EnforceDocsVisibility`: `ApiVisibility?` — optional documentation-coverage
+  enforcement tier, independent of `Visibility` (which controls emission).
+  Defaults to `null` (enforcement disabled). See the CppGenerator
+  DocumentationCoverageChecker design document.
 
 ### Key Methods
 
@@ -69,7 +73,9 @@ parse-time deprecated filter, builds the known-type map, and returns a
   free functions, enums, and type aliases from the selected headers; deprecated
   declarations are excluded during `CollectResultNamespace` when
   `IncludeDeprecated` is false; class-member visibility filtering is deferred to
-  `CppEmitter` helper methods at emit time.
+  `CppEmitter` helper methods at emit time. The parsed namespace declarations are
+  additionally cached on the generator instance so `CheckDocumentationCoverage`
+  can be called afterward without re-parsing.
 - *Algorithm*: `CollectHeaderFiles()` builds the selected header set; a temporary
   combined header includes every selected file; `ClangAstParser.Parse` returns
   `CppCompilationResult`; `CheckForErrors` separates public-header failures from
@@ -80,6 +86,21 @@ parse-time deprecated filter, builds the known-type map, and returns a
   (non-library, non-`std`) types encountered during `CppEmitter` execution; the
   emitter renders them in an `External Types` section on each affected page.
 
+**CppGenerator.CheckDocumentationCoverage** (`IDocumentationCoverageCapable`):
+scans the namespace declarations cached by the most recent `Parse` call for
+declarations lacking a Doxygen summary, at a caller-supplied enforcement tier
+independent of `Visibility`. See the CppGenerator DocumentationCoverageChecker
+design document for the scan algorithm.
+
+- *Parameters*: `string? enforceTier` — the enforcement tier
+  (`"Public"`/`"PublicAndProtected"`/`"All"`), or `null`/empty to fall back to
+  `CppGeneratorOptions.EnforceDocsVisibility`.
+- *Returns*: a `DocumentationCoverageResult` describing every undocumented
+  declaration found.
+- *Preconditions*: must be called after `Parse` has completed successfully.
+- *Postconditions*: does not mutate any cached parse state; may be called
+  multiple times with different tiers.
+
 ### External Interfaces
 
 #### IApiGenerator (provided)
@@ -89,6 +110,17 @@ parse-time deprecated filter, builds the known-type map, and returns a
 - *Contract*: `Parse(IContext)` returns an `IApiEmitter` (implemented by `CppEmitter`).
 - *Constraints*: `options` must not be null; `LibraryName` must be non-empty;
   `PublicIncludeRoots` must contain at least one entry.
+
+#### IDocumentationCoverageCapable (provided)
+
+- *Type*: in-process .NET interface (ApiMarkCore).
+- *Role*: provider.
+- *Contract*: `CheckDocumentationCoverage(string? enforceTier)` returns a
+  `DocumentationCoverageResult`.
+- *Constraints*: must be called after `Parse` has completed successfully; throws
+  `ArgumentException` for an unrecognized `enforceTier` value and
+  `InvalidOperationException` when called before `Parse` or when no tier is
+  configured via either the parameter or `CppGeneratorOptions.EnforceDocsVisibility`.
 
 #### IContext (consumed)
 
@@ -102,15 +134,19 @@ parse-time deprecated filter, builds the known-type map, and returns a
 - `ArgumentNullException` — thrown by the constructor when `options` is null; thrown
   by `Parse` when `context` is null.
 - `ArgumentException` — thrown by the constructor when `LibraryName` is empty or
-  `PublicIncludeRoots` is empty.
+  `PublicIncludeRoots` is empty; thrown by `CheckDocumentationCoverage` when
+  `enforceTier` is set but not a recognized `ApiVisibility` value.
 - `DirectoryNotFoundException` — thrown when a configured include root does not
   exist and default header enumeration is used.
 - `InvalidOperationException` — propagated when clang cannot be located, emits no
-  usable JSON, or public headers produce hard parse failures.
+  usable JSON, or public headers produce hard parse failures; thrown by
+  `CheckDocumentationCoverage` when called before `Parse`, or when neither
+  `enforceTier` nor `CppGeneratorOptions.EnforceDocsVisibility` is set.
 
 ### Dependencies
 
 - **IApiGenerator** — implemented from ApiMarkCore.
+- **IDocumentationCoverageCapable** — implemented from ApiMarkCore.
 - **CppAstModel** — immutable record types received from `ClangAstParser` and
   stored while building the known-type map and grouping namespaces.
 - **GlobFileCollector** — performs gitignore-style header selection.
@@ -118,9 +154,13 @@ parse-time deprecated filter, builds the known-type map, and returns a
 - **CppEmitter** — returned by `Parse` to emit Markdown output.
 - **CppTypeLinkResolver** — constructed from the flattened known-type map and
   passed into `CppEmitter`.
+- **DocumentationCoverageChecker** — performs the actual documentation-coverage
+  scan on behalf of `CheckDocumentationCoverage`.
 - **clang** — consumed indirectly through `ClangAstParser`.
 
 ### Callers
 
-- **Program** — constructs `CppGenerator` from CLI or MSBuild options and calls
-  `Parse` before invoking `IApiEmitter.Emit`.
+- **Program** — constructs `CppGenerator` from CLI or MSBuild options, calls
+  `Parse` before invoking `IApiEmitter.Emit`, and — when `--enforce-docs` is
+  configured — calls `CheckDocumentationCoverage` between `Parse` and `Emit`
+  via the `IDocumentationCoverageCapable` interface.

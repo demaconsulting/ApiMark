@@ -32,6 +32,11 @@ Tests require the fixture headers and a system clang installation accessible on 
 - Absolute `ApiHeaderPatterns` glob patterns are forwarded directly to `GlobFileCollector`
   without WorkingDirectory resolution, allowing headers outside the project tree to be
   documented.
+- The constructor rejects a null `CppGeneratorOptions` argument.
+- Generation throws `DirectoryNotFoundException` when a configured public include root does
+  not exist on disk.
+- When `CppGeneratorOptions.WorkingDirectory` is null or empty, relative `ApiHeaderPatterns`
+  entries are resolved from the process's current working directory instead.
 - Doxygen `@code`/`@endcode` blocks are rendered as fenced `cpp` code blocks on both
   gradual-disclosure member pages and single-file output.
 - `api.md` lists all namespaces with a declaration count column for AI navigation scope.
@@ -64,6 +69,28 @@ resolved from the current working directory. Tested by
 **Null context rejected by Parse**: Verifies that passing a null `IContext` to
 `CppGenerator.Parse` throws `ArgumentNullException` before any file I/O is attempted.
 Tested by `CppGenerator_Parse_NullContext_ThrowsArgumentNullException`.
+
+**Null options rejected by constructor**: Verifies that constructing a `CppGenerator`
+with a null `CppGeneratorOptions` argument throws `ArgumentNullException` immediately,
+satisfying the include-root/parse-options acceptance requirement's guard against a
+missing configuration object. Tested by
+`CppGenerator_Constructor_NullOptions_ThrowsArgumentNullException`.
+
+**Nonexistent include root rejected during generation**: Verifies that a configured
+`PublicIncludeRoots` entry that does not exist on disk causes generation to throw
+`DirectoryNotFoundException`, satisfying the include-root/parse-options acceptance
+requirement's guard against a misconfigured include root. Tested by
+`CppGenerator_Generate_NonexistentIncludeRoot_ThrowsDirectoryNotFoundException`.
+
+**CWD-relative header patterns fall back to the current working directory**: Verifies
+that a relative `ApiHeaderPatterns` entry is resolved from
+`CppGeneratorOptions.WorkingDirectory` when set, and falls back to
+`Directory.GetCurrentDirectory()` when `WorkingDirectory` is null, so relative patterns
+remain usable without requiring callers to set `WorkingDirectory` explicitly. Tested by
+`CppGenerator_Generate_ApiHeaderPatterns_CwdRelativePattern_OnlyMatchingFilesDocumented`,
+`CppGenerator_Generate_ApiHeaderPatterns_CwdRelativeExclusionPattern_ExcludesMatchingFiles`,
+and
+`CppGenerator_Generate_ApiHeaderPatterns_NullWorkingDirectory_FallsBackToCurrentDirectory`.
 
 **Ownership filtering limited to configured public roots**: Verifies that only declarations
 whose source file falls under a configured `PublicIncludeRoot` appear in the generated

@@ -21,10 +21,12 @@ defined by the Core interfaces. The system contains nine units:
   During `Parse`, DotNetGenerator recognizes `internal static class NamespaceDoc`
   carrier classes, excludes them from type listings, and promotes their XML
   `<summary>`, `<remarks>`, and `<example>` content to the namespace description
-  dictionary. When `DotNetGeneratorOptions.EnforceDocsVisibility` is set, the
-  optional `CheckDocumentationCoverage` method (called strictly between `Parse`
-  and `Emit`) delegates to `DocumentationCoverageChecker` to scan for missing
-  XML doc summaries at the configured enforcement visibility tier.
+  dictionary. DotNetGenerator implements `ApiMark.Core.IDocumentationCoverageCapable`;
+  its `CheckDocumentationCoverage(string? enforceTier)` method (called strictly
+  between `Parse` and `Emit`) delegates to `DocumentationCoverageChecker` to scan
+  for missing XML doc summaries at the configured enforcement visibility tier,
+  falling back to `DotNetGeneratorOptions.EnforceDocsVisibility` when
+  `enforceTier` is null or empty.
 - **DotNetAstModel** — immutable data class holding all parsed assembly data
   (namespaces, types, XML docs, resolver, options) produced by DotNetGenerator.Parse.
 - **DotNetEmitter** — IApiEmitter dispatcher; reads EmitConfig.Format and forwards
@@ -89,6 +91,26 @@ ApiMarkCore; parsing is separated from emit via the two-stage pipeline.
 - *Constraints*: DotNetGeneratorOptions must be fully populated before calling
   Parse; AssemblyPath and XmlDocPath must both reference files that exist on disk.
 
+**IDocumentationCoverageCapable (provided)**: DotNetGenerator implements this
+capability interface from ApiMarkCore, shared with CppGenerator and
+VhdlGenerator so ApiMarkTool can enable `--enforce-docs` without a
+language-specific downcast.
+
+- *Type*: In-process .NET public API.
+- *Role*: Provider — ApiMarkTool calls `CheckDocumentationCoverage` when
+  `--enforce-docs` is configured, detecting the capability via
+  `generator is IDocumentationCoverageCapable`.
+- *Contract*: `CheckDocumentationCoverage(string? enforceTier)` returns a
+  `DocumentationCoverageResult` (now defined in `ApiMark.Core`, shared across
+  all three language checkers) describing types/members missing an XML doc
+  `<summary>`.
+- *Constraints*: must be called strictly between `Parse()` returning and
+  `Emit()` being called, because `DotNetEmitter.Emit` disposes the parsed
+  `AssemblyDefinition` at the end of its `using` block; throws
+  `ArgumentException` for an unrecognized tier value and
+  `InvalidOperationException` when called before `Parse()` or when no
+  enforcement tier is configured.
+
 **Mono.Cecil (consumed)**: DotNetGenerator uses Mono.Cecil to read assembly metadata.
 
 - *Type*: In-process .NET public API (NuGet package).
@@ -120,6 +142,9 @@ emits progress messages through it during `Parse`.
 
 - **Mono.Cecil**: used for reading .NET assembly metadata without loading the
   assembly into the current process — see Mono.Cecil Integration Design.
+- **ApiMarkCore**: `IDocumentationCoverageCapable`, `DocumentationCoverageResult`,
+  and `UndocumentedApiItem` (relocated from this project so `ApiMark.Cpp` and
+  `ApiMark.Vhdl` can share the same result shape).
 
 ## Risk Control Measures
 

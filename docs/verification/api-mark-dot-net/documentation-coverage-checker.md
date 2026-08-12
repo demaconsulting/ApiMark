@@ -68,7 +68,7 @@ violation. This scenario is tested by
 
 **Type missing a summary is reported as a Type violation**: Verifies that a
 type with no `<summary>` element produces an `UndocumentedApiItem` with
-`Kind == UndocumentedApiItemKind.Type` and the type's full name as
+`Kind == "Type"` and the type's full name as
 `DisplayName`. This scenario is tested by
 `Check_TypeMissingSummary_ReportsTypeViolation`.
 

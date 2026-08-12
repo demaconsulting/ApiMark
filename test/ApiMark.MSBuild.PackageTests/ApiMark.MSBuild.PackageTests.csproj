@@ -19,8 +19,13 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
   </ItemGroup>
 
-  <!-- Copy fixture files to the test output directory so tests can locate them at runtime -->
+  <!-- Copy fixture files to the test output directory so tests can locate them at runtime.
+       Fixture .cs files belong to sample projects built out-of-process by MSBuild during the
+       tests, not to this test assembly itself, so they must be excluded from the default
+       Compile glob to avoid duplicate-type compile errors between fixture projects that
+       intentionally reuse type/namespace names (e.g. SampleLib.SampleClass). -->
   <ItemGroup>
+    <Compile Remove="Fixtures\**\*.cs" />
     <Content Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

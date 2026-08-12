@@ -16,15 +16,15 @@ without changing what gets emitted into the generated Markdown.
 
 ### Data Model
 
-**DocumentationCoverageResult** (public sealed class): The immutable result
-of a `Check` scan. Exposes `UndocumentedItems` (the list of violations),
-`CheckedCount` (total types/members examined, documented or not),
-`UndocumentedCount`, and `HasViolations`.
-
-**UndocumentedApiItem** (public record): A single violation — `Kind`
-(`UndocumentedApiItemKind`: `Type`, `Method`, `Property`, `Field`, `Event`) and
-`DisplayName` (fully qualified type name, or `Type.Member` for a member, using
-the same display-name formatting as `DotNetEmitter`).
+Reuses the shared `ApiMark.Core.DocumentationCoverageResult` and
+`ApiMark.Core.UndocumentedApiItem` types (relocated from this project into
+`ApiMark.Core` so that `ApiMark.Cpp` and `ApiMark.Vhdl` can share the same
+result shape — see the IDocumentationCoverageCapable design document under
+the ApiMarkCore subsystem).
+`Kind` values produced by this checker: `Type`, `Method`, `Property`, `Field`,
+`Event`. `Kind` is a plain `string` rather than an enum, since each language
+checker owns its own vocabulary of declaration kinds and the sole consumer
+(`Program.cs`) only interpolates it into a display string.
 
 **"Documented" bar (v1)**: A type or member is considered documented when
 `XmlDocReader.GetSummary` returns a non-null, non-whitespace string for its
@@ -80,7 +80,8 @@ caller-supplied parameter that may differ from it.
 
 **ToKind** (private): Maps a Mono.Cecil member definition
 (`MethodDefinition`, `PropertyDefinition`, `FieldDefinition`,
-`EventDefinition`) to the corresponding `UndocumentedApiItemKind`.
+`EventDefinition`) to the corresponding `Kind` string label (`"Method"`,
+`"Property"`, `"Field"`, `"Event"`).
 
 ### Error Handling
 
@@ -106,11 +107,13 @@ ever invoked.
   compilation (`CompileExcludePatterns`) and matching (`IsExcluded`).
 - **XmlDocReader** — used to look up each candidate type/member's `<summary>`
   text via `GetSummary`.
+- **ApiMark.Core** — `DocumentationCoverageResult`, `UndocumentedApiItem`.
 
 ### Callers
 
-- **DotNetGenerator.CheckDocumentationCoverage** — the sole caller. Must be
-  invoked strictly between `Parse()` returning and `Emit()` being called,
+- **DotNetGenerator.CheckDocumentationCoverage** (implements
+  `IDocumentationCoverageCapable` from `ApiMark.Core`) — the sole caller. Must
+  be invoked strictly between `Parse()` returning and `Emit()` being called,
   because `DotNetEmitter.Emit` disposes the parsed `AssemblyDefinition` via a
   `using` block that wraps its entire body. Throws `InvalidOperationException`
   when called before `Parse()` or when `EnforceDocsVisibility` was not

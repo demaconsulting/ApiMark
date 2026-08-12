@@ -12,7 +12,7 @@ namespace ApiMark.DotNet;
 ///     with developer-authored content from the XML documentation file to produce a gradual-disclosure
 ///     Markdown tree. Not thread-safe; construct and use one instance per generation run.
 /// </remarks>
-public sealed class DotNetGenerator : IApiGenerator
+public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapable
 {
     /// <summary>Configuration controlling which assembly, XML doc, and visibility filter to use.</summary>
     private readonly DotNetGeneratorOptions _options;
@@ -174,23 +174,38 @@ public sealed class DotNetGenerator : IApiGenerator
 
     /// <summary>
     ///     Scans the assembly parsed by the most recent <see cref="Parse"/> call for types and
-    ///     members lacking an XML doc <c>&lt;summary&gt;</c>, at the visibility tier configured by
-    ///     <see cref="DotNetGeneratorOptions.EnforceDocsVisibility"/>.
+    ///     members lacking an XML doc <c>&lt;summary&gt;</c>, at the visibility tier identified by
+    ///     <paramref name="enforceTier"/>.
     /// </summary>
     /// <remarks>
     ///     Must be called after <see cref="Parse"/> returns and before the returned
     ///     <see cref="IApiEmitter.Emit"/> is invoked, because <c>Emit</c> disposes the parsed
     ///     assembly once it completes. The enforcement tier is independent of
     ///     <see cref="DotNetGeneratorOptions.Visibility"/> — the two options may differ.
+    ///     <para>
+    ///     <paramref name="enforceTier"/> is parsed case-insensitively into <see cref="ApiVisibility"/>.
+    ///     When <see langword="null"/> or empty, <see cref="DotNetGeneratorOptions.EnforceDocsVisibility"/>
+    ///     is used instead, preserving the options-driven construction style for direct API callers
+    ///     that pre-populate the option rather than passing the tier through this method.
+    ///     </para>
     /// </remarks>
+    /// <param name="enforceTier">
+    ///     The enforcement visibility tier as a string (<c>"Public"</c>, <c>"PublicAndProtected"</c>,
+    ///     or <c>"All"</c>), or <see langword="null"/>/empty to fall back to
+    ///     <see cref="DotNetGeneratorOptions.EnforceDocsVisibility"/>.
+    /// </param>
     /// <returns>
     ///     A <see cref="DocumentationCoverageResult"/> describing every undocumented item found.
     /// </returns>
     /// <exception cref="InvalidOperationException">
-    ///     Thrown when called before <see cref="Parse"/> has completed successfully, or when
-    ///     <see cref="DotNetGeneratorOptions.EnforceDocsVisibility"/> is <see langword="null"/>.
+    ///     Thrown when called before <see cref="Parse"/> has completed successfully, or when neither
+    ///     <paramref name="enforceTier"/> nor <see cref="DotNetGeneratorOptions.EnforceDocsVisibility"/>
+    ///     is set.
     /// </exception>
-    public DocumentationCoverageResult CheckDocumentationCoverage()
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="enforceTier"/> is set but not a recognized <see cref="ApiVisibility"/> value.
+    /// </exception>
+    public DocumentationCoverageResult CheckDocumentationCoverage(string? enforceTier)
     {
         if (_assembly is null || _xmlDocs is null)
         {
@@ -198,16 +213,31 @@ public sealed class DotNetGenerator : IApiGenerator
                 $"{nameof(CheckDocumentationCoverage)} must be called after {nameof(Parse)} has completed successfully.");
         }
 
-        if (_options.EnforceDocsVisibility is null)
+        ApiVisibility visibility;
+        if (!string.IsNullOrEmpty(enforceTier))
+        {
+            if (!Enum.TryParse(enforceTier, ignoreCase: true, out visibility))
+            {
+                throw new ArgumentException(
+                    $"Invalid --enforce-docs value '{enforceTier}'. " +
+                    $"Valid values are: {string.Join(", ", Enum.GetNames<ApiVisibility>())}.");
+            }
+        }
+        else if (_options.EnforceDocsVisibility is not null)
+        {
+            visibility = _options.EnforceDocsVisibility.Value;
+        }
+        else
         {
             throw new InvalidOperationException(
-                $"{nameof(CheckDocumentationCoverage)} requires {nameof(DotNetGeneratorOptions.EnforceDocsVisibility)} to be set.");
+                $"{nameof(CheckDocumentationCoverage)} requires an enforcement tier, either via the " +
+                $"{nameof(enforceTier)} parameter or {nameof(DotNetGeneratorOptions.EnforceDocsVisibility)}.");
         }
 
         return DocumentationCoverageChecker.Check(
             _assembly,
             _xmlDocs,
-            _options.EnforceDocsVisibility.Value,
+            visibility,
             _options.IncludeObsolete,
             _options.ExcludePatterns);
     }

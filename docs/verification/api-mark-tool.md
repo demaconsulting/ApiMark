@@ -28,7 +28,8 @@ required.
   undocumented items and exits zero at `Warning` severity, fails the build at `Error` severity
   when violations are found, exits zero with zero reported violations for a fully documented
   scope, rejects invalid `--enforce-docs` / `--enforce-docs-severity` values with a non-zero
-  exit code, and is a graceful no-op (informational note, no build failure) for `cpp` and `vhdl`.
+  exit code, and is dispatched polymorphically for `dotnet`, `cpp`, and `vhdl` alike via
+  `IDocumentationCoverageCapable` rather than being a dotnet-only behavior.
 
 ## Test Scenarios
 
@@ -77,13 +78,9 @@ This scenario is tested by `Program_Main_WithInvalidEnforceDocsValue_ReturnsNonZ
 invalid value. This scenario is tested by
 `Program_Main_WithInvalidEnforceDocsSeverityValue_ReturnsNonZeroExitCode`.
 
-**Documentation coverage enforcement is a graceful no-op for cpp**: Verifies that supplying
-`--enforce-docs` for the `cpp` subcommand prints an informational note rather than failing an
-otherwise-valid build. This scenario is tested by
-`Program_Main_EnforceDocsWithCppSubcommand_PrintsInformationalNote`.
-
-**Invalid `--enforce-docs` value does not affect cpp/vhdl builds**: Verifies that an unrecognized
-`--enforce-docs` value is never parsed or validated for the `cpp` (or `vhdl`) subcommand — the
-informational note is printed and the invalid value never appears in error output, confirming
-the flag is inert outside `dotnet`. This scenario is tested by
-`Program_Main_InvalidEnforceDocsValueWithCppSubcommand_DoesNotThrowForEnforceDocs`.
+**Documentation coverage enforcement dispatches polymorphically to cpp and vhdl**: Verifies
+that `--enforce-docs` for the `cpp` subcommand is fully enforced (not a no-op) via
+`IDocumentationCoverageCapable`, returning a non-zero exit code for an invalid value exactly
+like `dotnet`. This scenario is tested at the Program unit level by
+`Program_Main_Cpp_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode` and the full suite of
+`Program_Main_Vhdl_*` tests; see the *ApiMarkTool Program* section for the complete list.

@@ -2246,7 +2246,7 @@ public class DotNetGeneratorTests
         var generator = new DotNetGenerator(options);
 
         // Act / Assert
-        var ex = Assert.Throws<InvalidOperationException>(() => generator.CheckDocumentationCoverage());
+        var ex = Assert.Throws<InvalidOperationException>(() => generator.CheckDocumentationCoverage(null));
         Assert.Contains(nameof(DotNetGenerator.Parse), ex.Message, StringComparison.Ordinal);
     }
 
@@ -2262,7 +2262,7 @@ public class DotNetGeneratorTests
         generator.Parse(new InMemoryContext());
 
         // Act / Assert
-        var ex = Assert.Throws<InvalidOperationException>(() => generator.CheckDocumentationCoverage());
+        var ex = Assert.Throws<InvalidOperationException>(() => generator.CheckDocumentationCoverage(null));
         Assert.Contains(nameof(DotNetGeneratorOptions.EnforceDocsVisibility), ex.Message, StringComparison.Ordinal);
     }
 
@@ -2282,7 +2282,7 @@ public class DotNetGeneratorTests
 
         // Act
         var emitter = generator.Parse(new InMemoryContext());
-        var result = generator.CheckDocumentationCoverage();
+        var result = generator.CheckDocumentationCoverage(null);
 
         // Assert — SampleClass.Refresh is intentionally undocumented in the real fixture XML doc
         Assert.True(result.HasViolations);

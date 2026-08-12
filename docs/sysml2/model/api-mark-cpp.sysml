@@ -21,5 +21,6 @@ package ApiMarkCpp {
         part cppEmitterSingleFile : CppEmitterSingleFile;
         part cppTypeLinkResolver : CppTypeLinkResolver;
         part clang : Clang;
+        part documentationCoverageChecker : DocumentationCoverageChecker;
     }
 }

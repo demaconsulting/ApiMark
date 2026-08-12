@@ -33,6 +33,9 @@ unit tests.
   empty; bare-star segments apply language-extension filtering; absolute patterns work
   independently of working directory; exclusions remove files; non-existent roots
   return empty without throwing; results are sorted and deduplicated.
+- `IDocumentationCoverageCapable` implementations satisfy the contract and can be
+  invoked through the interface reference; `DocumentationCoverageResult` correctly
+  derives `UndocumentedCount` and `HasViolations` from the supplied item list.
 
 ## Test Scenarios
 
@@ -87,3 +90,18 @@ out-of-range heading depths are rejected. This scenario is tested by
 `EmitConfig_DefaultFormat_IsGradualDisclosure`, `EmitConfig_DefaultHeadingDepth_IsOne`,
 `EmitConfig_HeadingDepth_BelowMinimum_ThrowsArgumentOutOfRangeException`, and
 `EmitConfig_HeadingDepth_AboveMaximum_ThrowsArgumentOutOfRangeException`.
+
+**Documentation-coverage capability contract is satisfied**: Verifies that a
+language-generator implementation compiles against the
+`IDocumentationCoverageCapable` interface and can be invoked through an
+interface reference, confirming the contract is correctly defined for
+`DotNetGenerator`, `CppGenerator`, and `VhdlGenerator` to fulfill. This
+scenario is tested by
+`ApiMarkCore_DocumentationCoverageContract_SupportedLanguage_CanBeInvoked`.
+
+**DocumentationCoverageResult derives counts correctly**: Verifies that
+`DocumentationCoverageResult.UndocumentedCount` and `HasViolations` are
+correctly derived from the supplied `UndocumentedApiItem` list, both when
+violations are present and when the list is empty. This scenario is tested by
+`DocumentationCoverageResult_WithUndocumentedItems_DerivesCountsCorrectly` and
+`DocumentationCoverageResult_WithNoUndocumentedItems_HasViolationsIsFalse`.

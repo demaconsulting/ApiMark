@@ -133,10 +133,10 @@ is also specified, and `--exclude` patterns apply identically. A type/member
 is considered "documented" when it has a non-empty `<summary>` element;
 completeness of `<param>`, `<returns>`, or `<exception>` tags is not checked.
 
-`--enforce-docs` and `--enforce-docs-severity` apply only to the `dotnet`
-subcommand. Specifying them for the `cpp` or `vhdl` subcommands has no effect
-beyond an informational console note — an otherwise-valid build for those
-languages is never failed because of a flag that does not apply to them.
+`--enforce-docs` and `--enforce-docs-severity` are also available for the
+`cpp` and `vhdl` subcommands (see the C++ and VHDL user guides), each with a
+scan scoped to what that language's parser understands as a documentable
+declaration.
 
 ## Doc Comments
 

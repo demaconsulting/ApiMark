@@ -34,13 +34,17 @@ sections:
               - Program_Main_DotNetWithExcludeFlag_ExcludesMatchingTypeFromOutput
           - id: ApiMarkTool-Program-EnforceDocumentationCoverage
             title: Program shall support --enforce-docs and --enforce-docs-severity for
-              the dotnet subcommand, reporting a documentation-coverage scan to the
-              console after Parse and before Emit, failing the build only when severity
-              is Error and violations were found.
+              the dotnet, cpp, and vhdl subcommands, dispatching polymorphically to
+              whichever generator implements IDocumentationCoverageCapable, reporting a
+              documentation-coverage scan to the console after Parse and before Emit,
+              failing the build only when severity is Error and violations were found.
             justification: |
               Documentation-coverage enforcement must run between Parse and Emit because
-              Emit disposes the parsed assembly. Console-only reporting reuses the
-              existing Context.WriteError/ExitCode mechanism instead of introducing a new
+              Emit disposes parsed generator state (for example, the DotNet assembly).
+              Dispatching through IDocumentationCoverageCapable rather than a per-language
+              switch keeps Program language-agnostic as new generators adopt the
+              capability. Console-only reporting reuses the existing
+              Context.WriteError/ExitCode mechanism instead of introducing a new
               results-file format.
             tests:
               - Program_Main_EnforceDocsWarningSeverity_ReportsViolationsButExitsZero
@@ -48,17 +52,11 @@ sections:
               - Program_Main_EnforceDocsNoViolations_ExitsZeroAndReportsZeroUndocumented
               - Program_Main_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode
               - Program_Main_WithInvalidEnforceDocsSeverityValue_ReturnsNonZeroExitCode
-          - id: ApiMarkTool-Program-EnforceDocumentationCoverageNoOpForNonDotNet
-            title: Program shall treat --enforce-docs and --enforce-docs-severity as a
-              graceful no-op (printing an informational note, never failing the build)
-              for the cpp and vhdl subcommands.
-            justification: |
-              The dotnet-only scope with a graceful no-op for other languages ensures an
-              otherwise-valid cpp or vhdl build never fails because of a flag that does
-              not apply to it.
-            tests:
-              - Program_Main_EnforceDocsWithCppSubcommand_PrintsInformationalNote
-              - Program_Main_EnforceDocsWithVhdlSubcommand_PrintsInformationalNote
+              - Program_Main_Cpp_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode
+              - Program_Main_Vhdl_EnforceDocsWarningSeverity_ReportsViolationsButExitsZero
+              - Program_Main_Vhdl_EnforceDocsErrorSeverity_ReturnsNonZeroExitCode
+              - Program_Main_Vhdl_EnforceDocsNoViolations_ExitsZeroAndReportsZeroUndocumented
+              - Program_Main_Vhdl_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode
           - id: ApiMarkTool-Program-SupportCppOptions
             title: Program shall support the cpp language with --includes, --output,
               --visibility, --include-obsolete, --library-name, --library-description,

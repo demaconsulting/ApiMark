@@ -41,4 +41,19 @@ public sealed class VhdlGeneratorOptions
     ///     is used at parse time. Set this in tests to anchor patterns to the fixture directory.
     /// </summary>
     public string? WorkingDirectory { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the documentation-coverage enforcement tier string. Defaults to
+    ///     <see langword="null"/>, meaning enforcement is disabled unless a tier is supplied
+    ///     directly to <see cref="VhdlGenerator.CheckDocumentationCoverage"/>.
+    /// </summary>
+    /// <remarks>
+    ///     VHDL has no accessibility/visibility concept, so any recognized value
+    ///     (<c>Public</c>, <c>PublicAndProtected</c>, <c>All</c>) enables the same
+    ///     public-interface-only check — the value itself is accepted purely for CLI vocabulary
+    ///     consistency with the .NET and C++ subcommands. Stored as a raw string, unlike
+    ///     <c>DotNetGeneratorOptions.EnforceDocsVisibility</c>/<c>CppGeneratorOptions.EnforceDocsVisibility</c>,
+    ///     because there is no corresponding enum to parse into.
+    /// </remarks>
+    public string? EnforceDocsVisibility { get; set; }
 }

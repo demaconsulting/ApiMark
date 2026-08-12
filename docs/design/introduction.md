@@ -83,8 +83,8 @@ Each local software item has corresponding artifacts in parallel directory trees
 - Tests: `test/ApiMark.{SystemName}.Tests/{Item}Tests.cs` (top-level units),
   `test/ApiMark.{SystemName}.Tests/{Subsystem}/{Item}Tests.cs`
 
-Fixtures used by generator tests live in `test/ApiMark.DotNet.Fixtures/` and
-`test/ApiMark.Cpp.Fixtures/`.
+Fixtures used by generator tests live in `test/ApiMark.DotNet.Fixtures/`,
+`test/ApiMark.Cpp.Fixtures/`, and `test/ApiMark.Vhdl.Tests/Fixtures/`.
 
 OTS items have integration/usage design documentation parallel to system folders:
 

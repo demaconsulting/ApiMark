@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+
+    <!--
+      Required: tells the C# compiler to emit an XML documentation file alongside the
+      assembly. ApiMark reads this file to extract /// summary and remarks comments; without
+      it ApiMark still runs but member descriptions will be empty.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Package identity — required for dotnet pack -->
+    <PackageId>SampleLibEnforceDocs</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>DEMA Consulting</Authors>
+    <!-- NU5125: readme omitted intentionally for this minimal fixture -->
+    <!-- CS1591: this fixture intentionally leaves a public member undocumented to exercise
+         --enforce-docs; suppressing the compiler's own missing-XML-doc warning keeps the
+         build focused on ApiMark's enforcement rather than the C# compiler's. -->
+    <NoWarn>$(NoWarn);NU5125;CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Pulls in the ApiMark MSBuild task. After build, it spawns ApiMark.Tool to read the
+      compiled assembly and XML doc file and write Markdown under $(ApiMarkOutputDir)
+      (defaults to $(MSBuildProjectDirectory)\api).
+    -->
+    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.0.0" />
+  </ItemGroup>
+</Project>

@@ -31,6 +31,16 @@ by the Core interfaces. The system contains the following units:
   rendered inline on entity detail pages, plus an `api.md` index page.
 - **VhdlEmitterSingleFile** — writes all documentation into a single `api.md`
   file using heading levels offset by `EmitConfig.HeadingDepth`.
+- **DocumentationCoverageChecker** — scans parsed file models for entities,
+  ports, generics, packages, and package-level exports missing a
+  documentation summary, powering the opt-in `--enforce-docs` CLI flag.
+  **Known v1 simplifications**: public-interface-only (VHDL has no visibility
+  tiers — `Public`/`PublicAndProtected`/`All` are all accepted but behave
+  identically); architecture-internal signals/processes are not checked
+  (not parsed into the AST model today — a deferred future enhancement);
+  CLI-only (no MSBuild support, since `ApiMarkTask` has no VHDL language
+  support at all). See the VhdlGenerator DocumentationCoverageChecker design
+  document.
 
 ```mermaid
 flowchart TD
@@ -41,6 +51,7 @@ flowchart TD
     VhdlEmitter --> VhdlEmitterGradualDisclosure
     VhdlEmitter --> VhdlEmitterSingleFile
     VhdlEmitter --> IMarkdownWriterFactory
+    VhdlGenerator --> DocumentationCoverageChecker
 ```
 
 VhdlGenerator depends on VhdlAstParser and the ApiMarkCore interfaces.
@@ -76,6 +87,21 @@ ANTLR4 parser to parse VHDL-2008 source files.
   Comments and whitespace are discarded via `-> skip` rules; doc comments are
   extracted by pre-processing source lines before parsing.
 - *Constraints*: The ANTLR-generated files in `VhdlAst/Antlr/` must not be modified.
+
+**IDocumentationCoverageCapable (provided)**: VhdlGenerator implements
+IDocumentationCoverageCapable from ApiMarkCore.
+
+- *Type*: In-process .NET public API.
+- *Role*: Provider — ApiMarkTool calls `CheckDocumentationCoverage` when
+  `--enforce-docs` is configured for the `vhdl` subcommand.
+- *Contract*: `CheckDocumentationCoverage(string? enforceTier)` returns a
+  `DocumentationCoverageResult` describing declarations missing a
+  documentation summary, scoped to entities, ports, generics, packages, and
+  package-level exports only (see the VhdlGenerator DocumentationCoverageChecker
+  design document).
+- *Constraints*: must be called after `Parse()`; CLI-only today — `ApiMarkTask`
+  (MSBuild) has no VHDL language support and therefore never calls this
+  interface.
 
 ## Dependencies
 

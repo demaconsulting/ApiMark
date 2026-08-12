@@ -96,5 +96,4 @@ sections:
           - ApiMarkDotNet-DocumentationCoverageChecker-DetectMissingSummaryByKind
           - ApiMarkDotNet-DocumentationCoverageChecker-RecurseNestedTypes
           - ApiMarkDotNet-DocumentationCoverageChecker-ApplyExcludePatternsAndObsoleteFilter
-        tests: [ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown]
-
+        tests: [DotNetGenerator_CheckDocumentationCoverage_AfterParse_ReturnsViolationsAndAllowsSubsequentEmit]

@@ -37,8 +37,14 @@ MSBuild and VC++ tools installed; those tests skip gracefully when the package i
 - For the `dotnet` language, `ApiMarkEnforceDocs` is forwarded as `--enforce-docs` and
   `ApiMarkEnforceDocsSeverity` is forwarded as `--enforce-docs-severity`, each omitted
   independently when its corresponding property is not set.
-- For the `cpp` language, `ApiMarkEnforceDocs`/`ApiMarkEnforceDocsSeverity` are never
-  forwarded, even when set, because enforcement forwarding is dotnet-only.
+- For the `cpp` language, `ApiMarkEnforceDocs` is forwarded as `--enforce-docs` and
+  `ApiMarkEnforceDocsSeverity` is forwarded as `--enforce-docs-severity` using the same
+  independent-omission rule as `dotnet`, since cpp documentation-coverage enforcement
+  uses the identical MSBuild properties and CLI flags.
+- The `.targets` file binds `$(ApiMarkEnforceDocs)` and `$(ApiMarkEnforceDocsSeverity)`
+  into the `ApiMarkTask` invocation alongside every other scalar MSBuild property, so
+  real NuGet package consumers (not just direct task unit tests) can reach cpp and
+  dotnet enforcement.
 - `DisableApiMark` suppresses tool invocation and returns true with no side effects.
 - A non-zero exit code from the spawned tool causes Execute to return false and log a
   MSBuild error.
@@ -225,8 +231,35 @@ not, the spawned command includes `--enforce-docs` but omits
 `--enforce-docs-severity` entirely, relying on the tool's own default of `Warning`.
 This scenario is tested by `ApiMarkTask_DotNet_WithEnforceDocsOnly_OmitsSeverityArgument`.
 
-**Cpp tool invocation never forwards enforce-docs arguments**: Verifies that even when
-`ApiMarkEnforceDocs`/`ApiMarkEnforceDocsSeverity` are set on a `cpp`-language task
-invocation, neither `--enforce-docs` nor `--enforce-docs-severity` is forwarded to the
-spawned tool, confirming that enforcement forwarding is dotnet-only. This scenario is
-tested by `ApiMarkTask_Cpp_WithEnforceDocsProperties_DoesNotForwardEnforceDocsArguments`.
+**Cpp tool invocation forwards enforce-docs arguments**: Verifies that when both
+`ApiMarkEnforceDocs` and `ApiMarkEnforceDocsSeverity` are set on a `cpp`-language task
+invocation, the spawned command includes `--enforce-docs <value>` and
+`--enforce-docs-severity <value>` arguments matching the configured properties,
+confirming that documentation-coverage enforcement forwarding is supported for cpp,
+not just dotnet. This scenario is tested by
+`ApiMarkTask_Cpp_WithEnforceDocsProperties_ForwardsEnforceDocsArguments`.
+
+**Cpp tool invocation omits enforce-docs arguments when properties are unset**:
+Verifies that when neither `ApiMarkEnforceDocs` nor `ApiMarkEnforceDocsSeverity` is set
+on a `cpp`-language task invocation, the spawned command contains neither
+`--enforce-docs` nor `--enforce-docs-severity`, preserving existing build behavior for
+cpp projects that do not opt in to this feature. This scenario is tested by
+`ApiMarkTask_Cpp_WithoutEnforceDocsProperties_OmitsEnforceDocsArguments`.
+
+**Cpp tool invocation omits severity argument when only enforce-docs is set**:
+Verifies that when `ApiMarkEnforceDocs` is set but `ApiMarkEnforceDocsSeverity` is not,
+on a `cpp`-language task invocation, the spawned command includes `--enforce-docs` but
+omits `--enforce-docs-severity` entirely, relying on the tool's own default of
+`Warning`. This scenario is tested by
+`ApiMarkTask_Cpp_WithEnforceDocsOnly_OmitsSeverityArgument`.
+
+**MSBuild package wiring forwards enforce-docs to a real dotnet build**: End-to-end
+package integration test that builds a fixture `.csproj` referencing the packaged
+`DemaConsulting.ApiMark.MSBuild` NuGet package with `-p:ApiMarkEnforceDocs=Public
+-p:ApiMarkEnforceDocsSeverity=Error` against a fixture containing an intentionally
+undocumented public member, and asserts that the real `dotnet build` invocation fails
+— proving the `.targets` file actually binds these two MSBuild properties into the
+task invocation, which the task-level unit tests above cannot verify because they
+construct `ApiMarkTask` directly rather than going through the `.targets` import. This
+scenario is tested by
+`ApiMarkMsbuild_NuGetPackage_DotNetProject_EnforceDocs_FailsBuildOnUndocumentedApi`.

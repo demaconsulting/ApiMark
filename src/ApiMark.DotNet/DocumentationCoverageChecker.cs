@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using ApiMark.Core;
 using Mono.Cecil;
 
 namespace ApiMark.DotNet;
@@ -97,7 +98,7 @@ internal static class DocumentationCoverageChecker
         checkedCount++;
         if (string.IsNullOrWhiteSpace(xmlDocs.GetSummary(DotNetEmitter.BuildTypeId(type))))
         {
-            undocumented.Add(new UndocumentedApiItem(UndocumentedApiItemKind.Type, type.FullName.Replace('/', '.')));
+            undocumented.Add(new UndocumentedApiItem("Type", type.FullName.Replace('/', '.')));
         }
 
         foreach (var member in GetVisibleMembers(type, visibility, includeObsolete))
@@ -194,64 +195,15 @@ internal static class DocumentationCoverageChecker
         _ => DotNetEmitter.IsMemberPublic(member),
     };
 
-    /// <summary>Maps a Mono.Cecil member definition to its <see cref="UndocumentedApiItemKind"/>.</summary>
+    /// <summary>Maps a Mono.Cecil member definition to its display <c>Kind</c> label.</summary>
     /// <param name="member">The member to classify.</param>
-    /// <returns>The corresponding <see cref="UndocumentedApiItemKind"/> value.</returns>
-    private static UndocumentedApiItemKind ToKind(IMemberDefinition member) => member switch
+    /// <returns>The corresponding kind label (e.g. <c>"Method"</c>, <c>"Property"</c>).</returns>
+    private static string ToKind(IMemberDefinition member) => member switch
     {
-        MethodDefinition => UndocumentedApiItemKind.Method,
-        PropertyDefinition => UndocumentedApiItemKind.Property,
-        FieldDefinition => UndocumentedApiItemKind.Field,
-        EventDefinition => UndocumentedApiItemKind.Event,
-        _ => UndocumentedApiItemKind.Method,
+        MethodDefinition => "Method",
+        PropertyDefinition => "Property",
+        FieldDefinition => "Field",
+        EventDefinition => "Event",
+        _ => "Method",
     };
-}
-
-/// <summary>Identifies the kind of API element an <see cref="UndocumentedApiItem"/> represents.</summary>
-public enum UndocumentedApiItemKind
-{
-    /// <summary>A type (class, struct, interface, enum, or delegate).</summary>
-    Type,
-
-    /// <summary>A method, including constructors and operator overloads.</summary>
-    Method,
-
-    /// <summary>A property.</summary>
-    Property,
-
-    /// <summary>A field.</summary>
-    Field,
-
-    /// <summary>An event.</summary>
-    Event,
-}
-
-/// <summary>Describes a single type or member found to be missing an XML doc <c>&lt;summary&gt;</c>.</summary>
-/// <param name="Kind">The kind of API element that is undocumented.</param>
-/// <param name="DisplayName">The fully qualified type name, or <c>Type.Member</c> name for a member.</param>
-public sealed record UndocumentedApiItem(UndocumentedApiItemKind Kind, string DisplayName);
-
-/// <summary>The result of a <see cref="DocumentationCoverageChecker.Check"/> scan.</summary>
-public sealed class DocumentationCoverageResult
-{
-    /// <summary>Initializes a new instance of <see cref="DocumentationCoverageResult"/>.</summary>
-    /// <param name="undocumentedItems">The undocumented items found during the scan.</param>
-    /// <param name="checkedCount">The total number of types and members checked.</param>
-    internal DocumentationCoverageResult(IReadOnlyList<UndocumentedApiItem> undocumentedItems, int checkedCount)
-    {
-        UndocumentedItems = undocumentedItems;
-        CheckedCount = checkedCount;
-    }
-
-    /// <summary>Gets the list of types and members found to be missing an XML doc summary.</summary>
-    public IReadOnlyList<UndocumentedApiItem> UndocumentedItems { get; }
-
-    /// <summary>Gets the total number of types and members checked, documented or not.</summary>
-    public int CheckedCount { get; }
-
-    /// <summary>Gets the number of undocumented items found.</summary>
-    public int UndocumentedCount => UndocumentedItems.Count;
-
-    /// <summary>Gets a value indicating whether any undocumented items were found.</summary>
-    public bool HasViolations => UndocumentedCount > 0;
 }

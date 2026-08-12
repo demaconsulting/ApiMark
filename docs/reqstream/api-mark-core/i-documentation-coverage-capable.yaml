@@ -1,0 +1,78 @@
+---
+# IDocumentationCoverageCapable unit requirements
+sections:
+  - title: ApiMarkCore Requirements
+    sections:
+      - title: IDocumentationCoverageCapable Requirements
+        requirements:
+          - id: ApiMarkCore-IDocumentationCoverageCapable-DefineCheckDocumentationCoverageMethod
+            title: IDocumentationCoverageCapable shall define a
+              CheckDocumentationCoverage method that accepts a nullable
+              enforcement-tier string and returns a DocumentationCoverageResult.
+            justification: |
+              Language generators need a single, consistently shaped entry
+              point for documentation-coverage enforcement so ApiMarkTool can
+              invoke it through the interface without knowing the concrete
+              generator type.
+            tests: [ApiMarkCore_DocumentationCoverageContract_SupportedLanguage_CanBeInvoked]
+          - id: ApiMarkCore-IDocumentationCoverageCapable-FallBackToConfiguredTierWhenParameterOmitted
+            title: Each IDocumentationCoverageCapable implementation shall fall
+              back to its own construction-time configured enforcement tier
+              when the enforceTier parameter is null or empty, rather than
+              rejecting the call.
+            justification: |
+              Direct API callers construct a generator with
+              EnforceDocsVisibility already set and expect
+              CheckDocumentationCoverage() to honor that configuration
+              without also having to pass the same tier through the method
+              parameter, mirroring the existing options-driven construction
+              style used elsewhere in each generator.
+            tests:
+              - CppGenerator_CheckDocumentationCoverage_NullEnforceTier_FallsBackToOptionsValue
+              - CppGenerator_CheckDocumentationCoverage_EmptyStringEnforceTier_FallsBackToOptionsValue
+              - VhdlGenerator_CheckDocumentationCoverage_NullEnforceTier_FallsBackToOptionsValue
+              - DotNetGenerator_CheckDocumentationCoverage_AfterParse_ReturnsViolationsAndAllowsSubsequentEmit
+          - id: ApiMarkCore-IDocumentationCoverageCapable-RejectUnrecognizedEnforceTier
+            title: Each IDocumentationCoverageCapable implementation shall
+              throw ArgumentException when a non-null, non-empty enforceTier
+              value does not match its enforcement vocabulary.
+            justification: |
+              A misspelled or unsupported --enforce-docs value must fail
+              fast with an actionable error rather than silently falling
+              back to a default tier or an undefined enum value, so
+              misconfiguration is caught immediately instead of producing a
+              misleading enforcement result.
+            tests:
+              - CppGenerator_CheckDocumentationCoverage_InvalidEnforceTier_ThrowsArgumentException
+              - VhdlGenerator_CheckDocumentationCoverage_InvalidEnforceTier_ThrowsArgumentException
+              - Program_Main_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode
+          - id: ApiMarkCore-IDocumentationCoverageCapable-RequireParseBeforeCheck
+            title: Each IDocumentationCoverageCapable implementation shall
+              throw InvalidOperationException when CheckDocumentationCoverage
+              is called before Parse has completed successfully, or when no
+              enforcement tier is configured by either the method parameter
+              or the implementation's own options.
+            justification: |
+              CheckDocumentationCoverage reads state cached by Parse, so
+              calling it first (or without any enforcement tier configured
+              at all) is a programming error that must surface immediately
+              rather than reading stale or absent state.
+            tests:
+              - CppGenerator_CheckDocumentationCoverage_BeforeParse_ThrowsInvalidOperationException
+              - CppGenerator_CheckDocumentationCoverage_NoTierConfigured_ThrowsInvalidOperationException
+              - VhdlGenerator_CheckDocumentationCoverage_BeforeParse_ThrowsInvalidOperationException
+              - VhdlGenerator_CheckDocumentationCoverage_NoTierConfigured_ThrowsInvalidOperationException
+              - DotNetGenerator_CheckDocumentationCoverage_BeforeParse_ThrowsInvalidOperationException
+              - DotNetGenerator_CheckDocumentationCoverage_EnforceDocsVisibilityNotSet_ThrowsInvalidOperationException
+          - id: ApiMarkCore-DocumentationCoverageResult-ProvideSharedResultType
+            title: ApiMarkCore shall provide a shared, language-agnostic
+              DocumentationCoverageResult/UndocumentedApiItem result type used
+              by every IDocumentationCoverageCapable implementation.
+            justification: |
+              Sharing one result shape across dotnet, cpp, and vhdl checkers
+              keeps ApiMarkTool's reporting logic
+              (Program.ReportDocumentationCoverage) entirely language-agnostic,
+              and avoids each language re-declaring an equivalent type.
+            tests:
+              - DocumentationCoverageResult_WithUndocumentedItems_DerivesCountsCorrectly
+              - DocumentationCoverageResult_WithNoUndocumentedItems_HasViolationsIsFalse

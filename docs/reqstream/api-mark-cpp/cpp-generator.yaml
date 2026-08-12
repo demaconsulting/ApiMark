@@ -18,6 +18,9 @@ sections:
             tests:
               - CppGenerator_Constructor_NullOptions_ThrowsArgumentNullException
               - CppGenerator_Generate_NonexistentIncludeRoot_ThrowsDirectoryNotFoundException
+              - CppGenerator_Generate_ApiHeaderPatterns_CwdRelativePattern_OnlyMatchingFilesDocumented
+              - CppGenerator_Generate_ApiHeaderPatterns_CwdRelativeExclusionPattern_ExcludesMatchingFiles
+              - CppGenerator_Generate_ApiHeaderPatterns_NullWorkingDirectory_FallsBackToCurrentDirectory
           - id: ApiMarkCpp-CppGenerator-ParseHeadersViaClang
             title: CppGenerator shall parse public header files via clang -ast-dump=json
               to obtain a fully resolved C++ AST.

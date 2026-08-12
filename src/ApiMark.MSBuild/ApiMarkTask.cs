@@ -123,11 +123,13 @@ public class ApiMarkTask : Task
     ///     enforced.
     /// </summary>
     /// <remarks>
-    ///     Used for the <c>dotnet</c> language only. Maps to <c>$(ApiMarkEnforceDocs)</c>.
+    ///     Used for the <c>dotnet</c> and <c>cpp</c> languages. Maps to <c>$(ApiMarkEnforceDocs)</c>.
     ///     Accepted values: <c>Public</c>, <c>PublicAndProtected</c>, <c>All</c>. Optional — when
     ///     not set, the <c>--enforce-docs</c> flag is omitted and enforcement stays disabled
     ///     (this is a brand-new opt-in feature, so its absence must never change existing build
-    ///     behavior).
+    ///     behavior). VHDL enforcement is CLI-only — <c>ApiMarkTask</c> has no VHDL language
+    ///     support at all today, so this property has no effect for VHDL builds; use the
+    ///     <c>ApiMark.Tool</c> CLI directly for VHDL documentation-coverage enforcement.
     /// </remarks>
     public string? ApiMarkEnforceDocs { get; set; }
 
@@ -136,11 +138,12 @@ public class ApiMarkTask : Task
     ///     undocumented items.
     /// </summary>
     /// <remarks>
-    ///     Used for the <c>dotnet</c> language only, and only takes effect when
+    ///     Used for the <c>dotnet</c> and <c>cpp</c> languages, and only takes effect when
     ///     <see cref="ApiMarkEnforceDocs"/> is also set. Maps to
     ///     <c>$(ApiMarkEnforceDocsSeverity)</c>. Accepted values: <c>Warning</c>, <c>Error</c>.
     ///     Optional — when not set, the <c>--enforce-docs-severity</c> flag is omitted and the
-    ///     tool applies its own default of <c>Warning</c>.
+    ///     tool applies its own default of <c>Warning</c>. Has no effect for VHDL builds (see
+    ///     <see cref="ApiMarkEnforceDocs"/>).
     /// </remarks>
     public string? ApiMarkEnforceDocsSeverity { get; set; }
 
@@ -332,8 +335,8 @@ public class ApiMarkTask : Task
             }
         }
 
-        // Forward documentation-coverage enforcement options — dotnet-only, mirroring how
-        // ApiMarkExclude is dotnet-only
+        // Forward documentation-coverage enforcement options — shared with cpp (see
+        // AppendCppArguments); mirrors how ApiMarkExclude is dotnet-only
         if (!string.IsNullOrEmpty(ApiMarkEnforceDocs))
         {
             args.Add("--enforce-docs");
@@ -428,6 +431,20 @@ public class ApiMarkTask : Task
         {
             args.Add("--clang-path");
             args.Add(ApiMarkClangPath!);
+        }
+
+        // Forward documentation-coverage enforcement options — now supported for cpp as well
+        // as dotnet, mirroring AppendDotNetArguments's block.
+        if (!string.IsNullOrEmpty(ApiMarkEnforceDocs))
+        {
+            args.Add("--enforce-docs");
+            args.Add(ApiMarkEnforceDocs!);
+        }
+
+        if (!string.IsNullOrEmpty(ApiMarkEnforceDocsSeverity))
+        {
+            args.Add("--enforce-docs-severity");
+            args.Add(ApiMarkEnforceDocsSeverity!);
         }
     }
 

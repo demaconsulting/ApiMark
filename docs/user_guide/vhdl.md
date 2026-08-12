@@ -22,6 +22,8 @@ apimark vhdl [options]
 | `--format <value>` | Output format: `gradual` (file-per-entity) or `single-file` (single `api.md`) (default: `gradual`) |
 | `--library-name <name>` | Library name used as the top-level heading (default: output directory name) |
 | `--library-description <d>` | Optional description for the library `api.md` introduction |
+| `--enforce-docs <value>` | Enable documentation-coverage enforcement: `Public`, `PublicAndProtected`, `All` (default: disabled). All three values are accepted for CLI consistency with `dotnet`/`cpp` but behave identically — see *Documentation Coverage Enforcement* below |
+| `--enforce-docs-severity <value>` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build) (default: `Warning`) |
 
 ## File Discovery
 
@@ -161,3 +163,41 @@ All content is written to a single `api.md` file using a flat heading hierarchy:
 Single-file output is best suited for contexts where a complete, linear reference is
 preferred over a navigable multi-file tree, such as attaching documentation to a chat
 context window.
+
+## Documentation Coverage Enforcement
+
+ApiMark can enforce that entities, ports, generics, packages, and package-level
+exported declarations carry a documentation summary, in addition to generating
+documentation from whatever comments exist today. This is opt-in and disabled
+by default.
+
+Pass `--enforce-docs <tier>` to enable the check, where `<tier>` is one of
+`Public`, `PublicAndProtected`, or `All`. **All three values are accepted but
+behave identically for VHDL** — VHDL has no accessibility/visibility concept
+analogous to C#/C++ access modifiers, so the three-value vocabulary exists
+purely for CLI consistency with the `dotnet` and `cpp` subcommands.
+
+By default, undocumented items are reported to the console but do not fail
+the build (`--enforce-docs-severity Warning`, the default). Pass
+`--enforce-docs-severity Error` to fail the build (non-zero exit code) when
+one or more undocumented items are found:
+
+```text
+apimark vhdl --source "src/**/*" --output docs/api \
+  --enforce-docs Public --enforce-docs-severity Error
+```
+
+### Known v1 Limitations
+
+- **Public-interface-only scope.** The check covers entities (and their
+  generics/ports), architectures (their own summary only), and packages (and
+  their exported types, constants, components, and subprogram declarations).
+- **Architecture internals are NOT checked.** Signals, variables, and
+  processes declared inside an architecture body are not parsed into the
+  ApiMark VHDL AST model today, so they cannot be — and are not — enforced.
+  This is a deliberate v1 scope decision, not a bug. Enforcing documentation
+  on architecture-internal declarations is a deferred future enhancement.
+- **CLI-only — no MSBuild support.** There is no MSBuild task support for
+  VHDL projects at all (see *Prerequisites* above), so
+  `--enforce-docs`/`--enforce-docs-severity` are reachable only through the
+  `apimark vhdl` CLI command directly, never through an MSBuild property.

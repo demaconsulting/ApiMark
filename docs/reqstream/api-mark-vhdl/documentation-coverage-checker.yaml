@@ -1,0 +1,84 @@
+---
+# DocumentationCoverageChecker unit requirements
+sections:
+  - title: ApiMarkVhdl Requirements
+    sections:
+      - title: DocumentationCoverageChecker Requirements
+        requirements:
+          - id: ApiMarkVhdl-DocumentationCoverageChecker-ScanPublicInterfaceOnly
+            title: DocumentationCoverageChecker shall scan entities (and their
+              generics and ports), architectures (their own summary only),
+              and packages (and their exported types, constants, components,
+              and subprogram declarations) for a missing documentation
+              summary.
+            justification: |
+              VHDL has no accessibility/visibility concept, so enforcement is
+              scoped to the public-interface-shaped declarations that are
+              already parsed into the AST model, rather than a caller-tunable
+              visibility tier as in the .NET and C++ checkers.
+            tests:
+              - Check_FullyDocumentedFiles_ReportsZeroViolations
+              - Check_UndocumentedEntity_ReportsEntityGenericAndPortViolations
+              - Check_UndocumentedPackage_ReportsPackageAndMemberViolations
+          - id: ApiMarkVhdl-DocumentationCoverageChecker-ExcludeArchitectureInternals
+            title: DocumentationCoverageChecker shall NOT check
+              architecture-internal signals, variables, or processes, since
+              they are not parsed into the VHDL AST model today.
+            justification: |
+              This is a deliberate, documented v1 scope boundary rather than
+              a bug: VhdlArchitectureDecl carries only its own summary today,
+              with no internal-declaration model to walk. Enforcing
+              documentation on architecture internals is a deferred future
+              enhancement, tracked in the design documentation.
+            tests:
+              - Check_ArchitectureInternalSignal_IsNeverFlagged
+          - id: ApiMarkVhdl-DocumentationCoverageChecker-TreatAllThreeTiersIdentically
+            title: VhdlGenerator.CheckDocumentationCoverage shall accept
+              Public, PublicAndProtected, and All as valid enforcement-tier
+              values (for CLI vocabulary consistency with dotnet and cpp) but
+              treat all three identically, since VHDL has no visibility
+              concept.
+            justification: |
+              A consistent three-value CLI vocabulary across all three
+              languages avoids surprising users who switch between
+              subcommands, even though VHDL cannot distinguish visibility
+              tiers.
+            tests:
+              - Check_AllThreeEnforceTiers_ProduceIdenticalResults
+          - id: ApiMarkVhdl-DocumentationCoverageChecker-FallBackToConfiguredTierWhenParameterOmitted
+            title: VhdlGenerator.CheckDocumentationCoverage shall fall back to
+              VhdlGeneratorOptions.EnforceDocsVisibility when no tier
+              parameter is supplied.
+            justification: |
+              Direct API callers construct a generator with
+              EnforceDocsVisibility already set and expect
+              CheckDocumentationCoverage() to honor that configuration
+              without also having to pass the same tier through the method
+              parameter.
+            tests:
+              - VhdlGenerator_CheckDocumentationCoverage_NullEnforceTier_FallsBackToOptionsValue
+          - id: ApiMarkVhdl-DocumentationCoverageChecker-RejectUnrecognizedEnforceTier
+            title: VhdlGenerator.CheckDocumentationCoverage shall reject an
+              unrecognized enforcement-tier value with ArgumentException.
+            justification: |
+              A misspelled or unsupported --enforce-docs value must fail
+              fast with an actionable error rather than silently falling
+              back to a default tier, so misconfiguration is caught
+              immediately instead of producing a misleading enforcement
+              result.
+            tests:
+              - VhdlGenerator_CheckDocumentationCoverage_InvalidEnforceTier_ThrowsArgumentException
+          - id: ApiMarkVhdl-DocumentationCoverageChecker-RequireParseBeforeCheck
+            title: VhdlGenerator.CheckDocumentationCoverage shall throw
+              InvalidOperationException when called before Parse has
+              completed successfully, or when no enforcement tier is
+              configured by either the method parameter or
+              VhdlGeneratorOptions.EnforceDocsVisibility.
+            justification: |
+              CheckDocumentationCoverage reads state cached by Parse, so
+              calling it first (or without any enforcement tier configured
+              at all) is a programming error that must surface immediately
+              rather than reading stale or absent state.
+            tests:
+              - VhdlGenerator_CheckDocumentationCoverage_BeforeParse_ThrowsInvalidOperationException
+              - VhdlGenerator_CheckDocumentationCoverage_NoTierConfigured_ThrowsInvalidOperationException

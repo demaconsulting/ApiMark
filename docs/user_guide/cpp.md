@@ -42,6 +42,8 @@ apimark cpp [options]
 | `--clang-path <path>` | Path to clang executable (default: auto-discovered, see *Prerequisites*) |
 | `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `Public`) |
 | `--include-obsolete` | Include deprecated members in generated output |
+| `--enforce-docs <value>` | Enable documentation-coverage enforcement at the given visibility tier: `Public`, `PublicAndProtected`, `All` (default: disabled) |
+| `--enforce-docs-severity <value>` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build) (default: `Warning`) |
 
 ## File Discovery
 
@@ -214,6 +216,44 @@ Single-file output is best suited for contexts where a complete, linear referenc
 preferred over a navigable multi-file tree, such as attaching documentation to a chat
 context window.
 
+## Documentation Coverage Enforcement
+
+ApiMark can enforce that your public API surface (or a broader visibility tier)
+carries a Doxygen `@brief`/summary, in addition to generating documentation from
+whatever comments exist today. This is opt-in and disabled by default.
+
+Pass `--enforce-docs <tier>` to enable the check, where `<tier>` is one of:
+
+- `Public` — flags public classes, functions, fields, enums, and type aliases missing a summary.
+- `PublicAndProtected` — additionally flags protected class members.
+- `All` — flags every declaration regardless of access specifier.
+
+This enforcement tier is independent of `--visibility`, which only controls
+what gets emitted into the generated Markdown; you can, for example, generate
+`Public`-only documentation while enforcing coverage at the `All` tier to
+catch undocumented internal helpers before they become public.
+
+By default, undocumented items are reported to the console but do not fail
+the build (`--enforce-docs-severity Warning`, the default). Pass
+`--enforce-docs-severity Error` to fail the build (non-zero exit code) when
+one or more undocumented items are found:
+
+```text
+apimark cpp --includes include/ --output docs/api \
+  --enforce-docs Public --enforce-docs-severity Error
+```
+
+Declarations are excluded from the check exactly as they are excluded from
+generated output: `[[deprecated]]` declarations are skipped unless
+`--include-obsolete` is also specified. A declaration is considered
+"documented" when it has a non-empty Doxygen `@brief`/summary; completeness
+of `@param`/`@return`/`@throws` tags is not checked.
+
+Unlike the `dotnet` subcommand, the `cpp` subcommand has no `--exclude`
+equivalent — `CppGeneratorOptions` only supports file-selection glob patterns
+(`--api-headers`), not a namespace/type exclude-pattern option. Declarations
+in headers matched by `--api-headers` are always in scope for enforcement.
+
 ## MSBuild Integration
 
 Add the `DemaConsulting.ApiMark.MSBuild` NuGet package to your `.vcxproj`:
@@ -242,6 +282,8 @@ include structures, generated headers, or complex NuGet arrangements, use the
 | `ApiMarkClangPath` | *(auto-discovered)* | Path to clang executable; overrides PATH / xcrun / vswhere discovery |
 | `ApiMarkVisibility` | `Public` | Visibility filter: `Public`, `PublicAndProtected`, `All` |
 | `ApiMarkIncludeObsolete` | `false` | Include deprecated members in generated output |
+| `ApiMarkEnforceDocs` | (unset) | Enforcement visibility tier for documentation-coverage checking: `Public`, `PublicAndProtected`, `All`; omitted disables enforcement |
+| `ApiMarkEnforceDocsSeverity` | `Warning` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build); only takes effect when `ApiMarkEnforceDocs` is also set |
 
 See the *MSBuild Integration* section for common properties (`ApiMarkOutputDir`,
 `ApiMarkFormat`, `DisableApiMark`) that apply to all project types.

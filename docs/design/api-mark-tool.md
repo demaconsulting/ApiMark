@@ -43,10 +43,12 @@ users or CI pipelines.
   Supported subcommands: `dotnet`, `cpp`, `vhdl`.
   Options for `dotnet`: `--assembly <path>`, `--xml-doc <path>`, `--output <dir>`,
   `--visibility <value>`, `--include-obsolete`, `--exclude <pattern>` (repeatable;
-  wildcard namespace/type exclusion patterns), `--enforce-docs <value>` (dotnet-only;
+  wildcard namespace/type exclusion patterns), `--enforce-docs <value>` (accepted for
+  all three languages, though VHDL enforcement covers only the public interface —
+  entities, ports, generics, packages, and exports;
   values: `Public`, `PublicAndProtected`, `All`; enables documentation-coverage
   enforcement at the given visibility tier; disabled by default), `--enforce-docs-severity
-  <value>` (dotnet-only; values: `Warning` (default), `Error`; controls whether
+  <value>` (values: `Warning` (default), `Error`; controls whether
   violations found by `--enforce-docs` fail the build).
   Options for `cpp`: `--includes <path>` (repeatable), `--api-headers <pattern>`
   (repeatable, ordered, supports `!` exclusion patterns),
@@ -57,10 +59,10 @@ users or CI pipelines.
   `--output <dir>`, `--library-name <name>`, `--library-description <text>`.
   Standard flags are valid anywhere in the argument list,
   before or after the language subcommand (single-pass parser). `--enforce-docs` and
-  `--enforce-docs-severity` are accepted (parsed into `Context`) regardless of
-  subcommand, but are only validated and acted upon for `dotnet`; supplying them for
-  `cpp` or `vhdl` writes an informational note to standard output and is otherwise a
-  no-op — it never fails the build for a language that does not support the feature.
+  `--enforce-docs-severity` are validated per-subcommand and, when the constructed
+  generator implements `IDocumentationCoverageCapable`, dispatched polymorphically to
+  scan and report undocumented items — this applies uniformly to `dotnet`, `cpp`, and
+  `vhdl`; see the ApiMarkTool Program design document for the full dispatch flow.
 - *Constraints*: Exits non-zero on error; writes a descriptive message to stderr;
   writes Markdown files to the directory specified by `--output`.
 
@@ -111,13 +113,12 @@ N/A - not a safety-classified software item.
 5. Program creates a `FileMarkdownWriterFactory` for the output directory, builds an
    `EmitConfig` from the parsed context (using `--format` and `--depth`), calls
    `IApiGenerator.Parse(context)` to obtain an `IApiEmitter`, then — strictly between
-   `Parse` and `Emit`, while the parsed assembly is still available — checks
-   documentation coverage when `--enforce-docs` was supplied for the `dotnet`
-   subcommand, and finally calls `IApiEmitter.Emit(factory, emitConfig, context)`.
-   For `cpp` and `vhdl`, supplying `--enforce-docs` writes an informational note to
-   standard output and the coverage check step is skipped entirely (no-op); it never
-   fails the build for a language that does not support the feature.
-6. When the documentation-coverage check runs (`dotnet` only), violations are written
+   `Parse` and `Emit`, while the parsed generator state is still available — checks
+   documentation coverage when `--enforce-docs` was supplied and the constructed
+   generator implements `IDocumentationCoverageCapable` (true for `dotnet`, `cpp`,
+   and `vhdl` alike), and finally calls
+   `IApiEmitter.Emit(factory, emitConfig, context)`.
+6. When the documentation-coverage check runs, violations are written
    to standard output; if `--enforce-docs-severity Error` was specified and at least
    one violation was found, Program reports a build failure via the same non-zero
    exit path used for other errors.
