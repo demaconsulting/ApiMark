@@ -15,11 +15,18 @@ log content against expected patterns. Three functional generation tests
 invoke each language generator's real `Parse`/`Emit` pipeline
 (`DotNetGenerator`, `CppGenerator`, `VhdlGenerator`) directly against a tiny
 embedded sample source, and verify the generated Markdown contains expected
-content — mirroring `Program.RunToolLogic`. The C++ generation test is
-gated on clang availability (via `ApiMark.Cpp.CppAst.ClangDiscovery`) and is
-recorded as skipped, not failed, when clang cannot be located. Results are
-accumulated in a `TestResults` collection and optionally written to a
-`.trx` or `.xml` file.
+content — mirroring `Program.RunToolLogic`. One functional enforcement test
+invokes `VhdlGenerator.CheckDocumentationCoverage` against a sample source
+containing one documented and one deliberately undocumented declaration,
+verifying enforcement correctly detects the violation — mirroring the
+`--enforce-docs` wiring in `Program.RunToolLogic`. Every generator call is
+routed through a silent, log-capturing child `Context` (not the outer
+validation context), so the generators' own informational output (e.g.
+"Parsing assembly: ..." or "Found N types...") never interleaves with the
+pass/fail transcript. The C++ generation test is gated on clang availability
+(via `ApiMark.Cpp.CppAst.ClangDiscovery`) and is recorded as skipped, not
+failed, when clang cannot be located. Results are accumulated in a
+`TestResults` collection and optionally written to a `.trx` or `.xml` file.
 
 #### Data Model
 
@@ -45,8 +52,9 @@ created via `CreateTestResult(testName)` and collected in a
   5. Call `RunDotNetGenerationTest(context, testResults)`.
   6. Call `RunCppGenerationTest(context, testResults)`.
   7. Call `RunVhdlGenerationTest(context, testResults)`.
-  8. Print summary (total, passed, skipped, failed counts).
-  9. If `context.ResultsFile` is set, call `WriteResultsFile`.
+  8. Call `RunEnforceDocsTest(context, testResults)`.
+  9. Print summary (total, passed, skipped, failed counts).
+  10. If `context.ResultsFile` is set, call `WriteResultsFile`.
 - *Preconditions*: `context` must be non-null.
 - *Postconditions*: All self-tests have run; results are written to context;
   `context.ExitCode` is `1` if any test failed. Skipped tests (recorded with
@@ -81,8 +89,11 @@ created via `CreateTestResult(testName)` and collected in a
   `ApiMark.Tool` assembly (`typeof(Program).Assembly.Location`) and its
   sibling `.xml` doc file (present because `GenerateDocumentationFile=true`),
   with `Visibility = ApiVisibility.All` since the tool's own types are internal.
-- Calls `new DotNetGenerator(options).Parse(context)` then `emitter.Emit(...)`
-  with `OutputFormat.SingleFile` into a `TemporaryDirectory`.
+- Creates a silent, log-capturing child `Context` (via
+  `Context.Create(["--silent", "--log", logFile])`) so the generator's own
+  informational output does not interleave with the validation transcript.
+- Calls `new DotNetGenerator(options).Parse(genContext)` then
+  `emitter.Emit(...)` with `OutputFormat.SingleFile` into a `TemporaryDirectory`.
 - Verifies the generated Markdown contains `"Program"` and `"ApiMark.Tool"`.
 - Appends a `TestResult` named `"ApiMark_DotNetGeneration"` to `testResults`.
 
@@ -94,8 +105,10 @@ created via `CreateTestResult(testName)` and collected in a
   never affects `context.ExitCode`), and returns early.
 - When clang is available, writes a tiny embedded sample header (a
   documented struct with one documented member) to a `TemporaryDirectory`,
-  constructs `CppGeneratorOptions` pointing at it, calls
-  `new CppGenerator(options).Parse(context)` then `emitter.Emit(...)`.
+  constructs `CppGeneratorOptions` pointing at it. Creates a silent,
+  log-capturing child `Context` so the generator's own informational output
+  does not interleave with the validation transcript. Calls
+  `new CppGenerator(options).Parse(genContext)` then `emitter.Emit(...)`.
 - Verifies the generated Markdown contains the sample type name and its
   documentation summary text.
 - Appends a `TestResult` named `"ApiMark_CppGeneration"` to `testResults`.
@@ -104,13 +117,32 @@ created via `CreateTestResult(testName)` and collected in a
 
 - Writes a minimal valid VHDL entity (with `--!` doc comments on the entity
   and one port/generic) to a `TemporaryDirectory`, constructs
-  `VhdlGeneratorOptions` referencing it, calls
-  `new VhdlGenerator(options).Parse(context)` then `emitter.Emit(...)`.
+  `VhdlGeneratorOptions` referencing it. Creates a silent, log-capturing
+  child `Context` so the generator's own informational output does not
+  interleave with the validation transcript. Calls
+  `new VhdlGenerator(options).Parse(genContext)` then `emitter.Emit(...)`.
 - Verifies the generated Markdown contains the entity name and its
   documented port/generic text.
 - No clang-style gating: VHDL parsing is entirely in-process via an
   embedded ANTLR4 grammar, with no external tool dependency.
 - Appends a `TestResult` named `"ApiMark_VhdlGeneration"` to `testResults`.
+
+**RunEnforceDocsTest(Context context, TestResults testResults)** — Private static.
+
+- Writes a tiny embedded VHDL entity with one documented port (`clk`) and
+  one deliberately undocumented port (`rst`) to a `TemporaryDirectory`,
+  constructs `VhdlGeneratorOptions` referencing it. VHDL is used (rather
+  than .NET or C++) because it needs no external tool and its sample source
+  is entirely self-contained.
+- Creates a silent, log-capturing child `Context` so the generator's own
+  informational output does not interleave with the validation transcript.
+- Calls `new VhdlGenerator(options).Parse(genContext)` then
+  `generator.CheckDocumentationCoverage("Public")` — the same
+  `IDocumentationCoverageCapable` API `Program.RunToolLogic` calls when
+  `--enforce-docs` is supplied on the command line.
+- Verifies the result reports a violation for the undocumented `rst` port
+  and does *not* report a violation for the documented `clk` port.
+- Appends a `TestResult` named `"ApiMark_EnforceDocs"` to `testResults`.
 
 **WriteResultsFile(Context context, TestResults testResults)** — Private static.
 
@@ -172,7 +204,9 @@ created via `CreateTestResult(testName)` and collected in a
 - **Program** — called with child contexts to exercise the dispatch path.
 - **DotNetGenerator / CppGenerator / VhdlGenerator** (`ApiMark.DotNet`,
   `ApiMark.Cpp`, `ApiMark.Vhdl`) — invoked directly via `IApiGenerator.Parse`
-  and `IApiEmitter.Emit` in the three functional generation tests.
+  and `IApiEmitter.Emit` in the three functional generation tests, and via
+  `IDocumentationCoverageCapable.CheckDocumentationCoverage` (on
+  `VhdlGenerator`) in the enforcement test.
 - **ApiMark.Cpp.CppAst.ClangDiscovery** — public pre-flight helper used to
   detect clang availability before running the C++ functional test, sharing
   the same discovery logic as `ClangAstParser`.

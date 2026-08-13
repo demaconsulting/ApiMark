@@ -48,6 +48,9 @@ internal static partial class Validation
         RunCppGenerationTest(context, testResults);
         RunVhdlGenerationTest(context, testResults);
 
+        // Run documentation-coverage enforcement test
+        RunEnforceDocsTest(context, testResults);
+
         // Calculate totals
         var totalTests = testResults.Results.Count;
         var passedTests = testResults.Results.Count(t => t.Outcome == DemaConsulting.TestResults.TestOutcome.Passed);

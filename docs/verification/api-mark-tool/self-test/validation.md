@@ -10,7 +10,9 @@ is used except for one scenario that overrides the `APIMARK_CLANG_PATH`
 environment variable with a nonexistent path (restored in a `finally` block) to
 force the clang-unavailable skip path deterministically. Tests exercise the full
 `Validation.Run` path, including the real `DotNetGenerator`, `CppGenerator`, and
-`VhdlGenerator` pipelines invoked by the functional generation self-tests.
+`VhdlGenerator` pipelines invoked by the functional generation self-tests, and
+the `VhdlGenerator.CheckDocumentationCoverage` call invoked by the enforcement
+self-test.
 
 #### Test Environment
 
@@ -23,15 +25,18 @@ configuration is required.
 - All `ValidationTests` tests pass with zero failures.
 - `Validation.Run` returns with `ExitCode = 0` when all self-tests pass or are skipped.
 - A `.trx` results file is created and contains TRX XML when `--results *.trx` is used,
-  and round-trips all five test names and outcomes.
+  and round-trips all six test names and outcomes.
 - A `.xml` results file is created when `--results *.xml` is used, and round-trips all
-  five test names and outcomes.
+  six test names and outcomes.
 - An unsupported results extension causes `ExitCode = 1`.
 - Output log always mentions `"ApiMark_VersionDisplay"`, `"ApiMark_HelpDisplay"`,
-  `"ApiMark_DotNetGeneration"`, `"ApiMark_CppGeneration"`, and `"ApiMark_VhdlGeneration"`.
+  `"ApiMark_DotNetGeneration"`, `"ApiMark_CppGeneration"`, `"ApiMark_VhdlGeneration"`,
+  and `"ApiMark_EnforceDocs"`.
 - Output summary always includes a `"Skipped: N"` line.
 - The `ApiMark_CppGeneration` test is recorded as `NotExecuted` (skipped), not `Failed`,
   and does not affect `ExitCode`, when clang cannot be located.
+- The `ApiMark_EnforceDocs` test detects the intentionally undocumented declaration in
+  its embedded sample source and passes.
 
 #### Test Scenarios
 
@@ -39,12 +44,12 @@ configuration is required.
 `Validation.Run(context)` → `ExitCode = 0`.
 
 **`Validation_Run_WithResultsTrxFile_CreatesTrxFile`**: `--results *.trx` →
-file created; deserializes to 5 results including `ApiMark_DotNetGeneration` and
-`ApiMark_VhdlGeneration` as `Passed`, and `ApiMark_CppGeneration` as `Passed` or
-`NotExecuted` depending on clang availability.
+file created; deserializes to 6 results including `ApiMark_DotNetGeneration`,
+`ApiMark_VhdlGeneration`, and `ApiMark_EnforceDocs` as `Passed`, and
+`ApiMark_CppGeneration` as `Passed` or `NotExecuted` depending on clang availability.
 
 **`Validation_Run_WithResultsXmlFile_CreatesXmlFile`**: `--results *.xml` →
-file created; deserializes with the same 5-result content as the TRX scenario above.
+file created; deserializes with the same 6-result content as the TRX scenario above.
 
 **`Validation_Run_WithUnsupportedResultsExtension_SetsExitCodeToOne`**: `--results *.json`
 → `ExitCode = 1`.
@@ -54,7 +59,8 @@ file created; deserializes with the same 5-result content as the TRX scenario ab
 
 **`Validation_Run_WritesFunctionalGenerationTestResults`**: log output contains all
 three functional generation test names (`ApiMark_DotNetGeneration`,
-`ApiMark_CppGeneration`, `ApiMark_VhdlGeneration`).
+`ApiMark_CppGeneration`, `ApiMark_VhdlGeneration`) and the enforcement test name
+(`ApiMark_EnforceDocs`).
 
 **`Validation_Run_WritesSkippedSummaryLine`**: summary output matches `Skipped: \d+`
 regardless of clang availability.
@@ -62,6 +68,9 @@ regardless of clang availability.
 **`Validation_Run_CppGenerationSkippedWhenClangUnavailable`**: forces clang discovery to
 fail by overriding `APIMARK_CLANG_PATH` with a nonexistent path → `ApiMark_CppGeneration`
 recorded as `NotExecuted` and `ExitCode` remains `0`.
+
+**`Validation_Run_EnforceDocsTestPasses`**: `--results *.trx` → `ApiMark_EnforceDocs`
+recorded as `Passed` and `ExitCode` remains `0`.
 
 **`Validation_Run_NullContext_ThrowsArgumentNullException`**: `Validation.Run(null)` →
 `ArgumentNullException` thrown.

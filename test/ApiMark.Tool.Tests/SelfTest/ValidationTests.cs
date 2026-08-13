@@ -45,11 +45,12 @@ public sealed class ValidationTests
             Assert.True(File.Exists(trxPath), "TRX results file must be created");
             var trxContent = File.ReadAllText(trxPath);
             var trxResults = TrxSerializer.Deserialize(trxContent);
-            Assert.Equal(5, trxResults.Results.Count);
+            Assert.Equal(6, trxResults.Results.Count);
             Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_VersionDisplay" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_HelpDisplay" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_DotNetGeneration" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_VhdlGeneration" && r.Outcome == TestOutcome.Passed);
+            Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_EnforceDocs" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(
                 trxResults.Results,
                 r => r.Name == "ApiMark_CppGeneration" &&
@@ -85,11 +86,12 @@ public sealed class ValidationTests
             Assert.True(File.Exists(xmlPath), "XML results file must be created");
             var xmlContent = File.ReadAllText(xmlPath);
             var xmlResults = JUnitSerializer.Deserialize(xmlContent);
-            Assert.Equal(5, xmlResults.Results.Count);
+            Assert.Equal(6, xmlResults.Results.Count);
             Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_VersionDisplay" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_HelpDisplay" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_DotNetGeneration" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_VhdlGeneration" && r.Outcome == TestOutcome.Passed);
+            Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_EnforceDocs" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(
                 xmlResults.Results,
                 r => r.Name == "ApiMark_CppGeneration" &&
@@ -189,7 +191,8 @@ public sealed class ValidationTests
             Assert.Multiple(
                 () => Assert.Contains("ApiMark_DotNetGeneration", output),
                 () => Assert.Contains("ApiMark_CppGeneration", output),
-                () => Assert.Contains("ApiMark_VhdlGeneration", output));
+                () => Assert.Contains("ApiMark_VhdlGeneration", output),
+                () => Assert.Contains("ApiMark_EnforceDocs", output));
         }
         finally
         {
@@ -265,6 +268,41 @@ public sealed class ValidationTests
         finally
         {
             Environment.SetEnvironmentVariable(ClangPathEnvVar, originalValue);
+            if (File.Exists(trxPath))
+            {
+                File.Delete(trxPath);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that the enforce-docs functional self-test passes, confirming that the
+    ///     documentation-coverage checker correctly detects an intentionally undocumented
+    ///     declaration in the embedded sample source.
+    /// </summary>
+    [Fact]
+    public void Validation_Run_EnforceDocsTestPasses()
+    {
+        // Arrange
+        var trxPath = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".trx");
+
+        try
+        {
+            using var context = Context.Create(["--validate", "--silent", "--results", trxPath]);
+
+            // Act
+            Validation.Run(context);
+
+            // Assert: the enforce-docs test must pass and must not affect the overall exit code
+            Assert.Equal(0, context.ExitCode);
+            var trxContent = File.ReadAllText(trxPath);
+            var trxResults = TrxSerializer.Deserialize(trxContent);
+            Assert.Contains(
+                trxResults.Results,
+                r => r.Name == "ApiMark_EnforceDocs" && r.Outcome == TestOutcome.Passed);
+        }
+        finally
+        {
             if (File.Exists(trxPath))
             {
                 File.Delete(trxPath);

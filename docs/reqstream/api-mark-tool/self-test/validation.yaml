@@ -101,3 +101,30 @@ sections:
                   skipped (as distinct from passed or failed) so that a skip is not
                   silently mistaken for either a pass or the absence of that test.
                 tests: [Validation_Run_WritesSkippedSummaryLine]
+              - id: ApiMarkTool-SelfTest-Validation-RunEnforceDocsTest
+                title: Validation shall run the real VhdlGenerator
+                  CheckDocumentationCoverage pipeline against a sample source with one
+                  documented and one deliberately undocumented declaration, and verify
+                  the undocumented declaration is detected while the documented one is not.
+                justification: |
+                  Exercising the actual documentation-coverage enforcement path end to
+                  end (rather than just the CLI dispatch path) confirms the
+                  --enforce-docs feature is functional in the deployed tool binary, not
+                  merely that the process runs. VHDL is used because it needs no
+                  external tool dependency, so this test can always run.
+                tests:
+                  - Validation_Run_EnforceDocsTestPasses
+                  - Validation_Run_WritesFunctionalGenerationTestResults
+                  - Validation_Run_WithValidContext_ExitsZero
+              - id: ApiMarkTool-SelfTest-Validation-SuppressGeneratorOutput
+                title: Validation shall route each functional generator's own
+                  informational output to a silent, log-capturing child Context so it
+                  does not interleave with the pass/fail transcript.
+                justification: |
+                  Generators emit their own progress diagnostics (e.g. "Parsing
+                  assembly: ..." or "Found N types...") as part of normal operation;
+                  surfacing that output directly in --validate's transcript would make
+                  the pass/fail summary noisy and harder to read at a glance.
+                tests:
+                  - Validation_Run_WithValidContext_ExitsZero
+                  - Validation_Run_WritesFunctionalGenerationTestResults
