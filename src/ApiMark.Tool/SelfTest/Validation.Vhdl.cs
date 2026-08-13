@@ -17,6 +17,10 @@ internal static partial class Validation
     /// <remarks>
     ///     VHDL parsing is performed entirely in-process via an embedded ANTLR4 grammar, so
     ///     unlike the C++ functional test, no external tool availability check is required.
+    ///     The generator's own informational <c>WriteLine</c> output (e.g. "Parsing ...") is
+    ///     routed to a silent, log-capturing child <see cref="Context"/> rather than the outer
+    ///     validation <paramref name="context"/>, so it never interleaves with the pass/fail
+    ///     transcript.
     /// </remarks>
     /// <param name="context">The context for output.</param>
     /// <param name="testResults">The test results collection to append results to.</param>
@@ -28,6 +32,7 @@ internal static partial class Validation
         try
         {
             using var tempDir = new TemporaryDirectory();
+            var logFile = Path.Join(tempDir.DirectoryPath, "vhdl-generation.log");
 
             const string SampleVhdl =
                 "--! @brief Self-test counter entity.\n" +
@@ -49,12 +54,16 @@ internal static partial class Validation
                 Sources = [sourcePath],
             };
 
+            // Route the generator's own informational output to a silent, log-capturing child
+            // context so it doesn't interleave with the validation transcript.
+            using var genContext = Context.Create(["--silent", "--log", logFile]);
+
             var generator = new VhdlGenerator(options);
-            var emitter = generator.Parse(context);
+            var emitter = generator.Parse(genContext);
 
             var outputDir = Path.Join(tempDir.DirectoryPath, "out");
             var factory = new FileMarkdownWriterFactory(outputDir);
-            emitter.Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, context);
+            emitter.Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, genContext);
 
             var markdown = File.ReadAllText(Path.Join(outputDir, "api.md"));
             if (markdown.Contains("apimark_sample_counter") && markdown.Contains("Width of the counter data bus in bits"))
