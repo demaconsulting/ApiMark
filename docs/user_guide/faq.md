@@ -136,7 +136,10 @@ apimark --validate --results results/apimark.trx
 ```
 
 The `--results` flag writes a `.trx` or `.xml` results file compatible with most
-CI test reporters. The exit code is non-zero if any validation test fails.
+CI test reporters. The suite exercises the real DotNet, C++, and VHDL generators
+against small sample sources in addition to basic version/help checks; the C++
+check is skipped (not failed) when clang is unavailable, so it does not affect
+the exit code. The exit code is non-zero if any validation test fails.
 
 ### ApiMark is slowing down my build
 
