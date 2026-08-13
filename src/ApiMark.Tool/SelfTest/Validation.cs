@@ -48,8 +48,10 @@ internal static partial class Validation
         RunCppGenerationTest(context, testResults);
         RunVhdlGenerationTest(context, testResults);
 
-        // Run documentation-coverage enforcement test
-        RunEnforceDocsTest(context, testResults);
+        // Run documentation-coverage enforcement tests
+        RunDotNetEnforceDocsTest(context, testResults);
+        RunCppEnforceDocsTest(context, testResults);
+        RunVhdlEnforceDocsTest(context, testResults);
 
         // Calculate totals
         var totalTests = testResults.Results.Count;

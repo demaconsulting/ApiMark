@@ -85,15 +85,15 @@ sections:
                   - Validation_Run_WritesFunctionalGenerationTestResults
                   - Validation_Run_WithValidContext_ExitsZero
               - id: ApiMarkTool-SelfTest-Validation-SkipCppWhenClangUnavailable
-                title: Validation shall record the C++ generation test as skipped
-                  (not failed) and must not set ExitCode to a non-zero value when
-                  clang cannot be located.
+                title: Validation shall record the C++ generation and C++ enforcement
+                  tests as skipped (not failed) and must not set ExitCode to a
+                  non-zero value when clang cannot be located.
                 justification: |
                   Requiring clang for every environment running --validate would make
                   self-validation unreliable on machines without a C++ toolchain;
-                  skipping (rather than failing) the C++ test preserves a useful,
+                  skipping (rather than failing) the C++ tests preserves a useful,
                   non-blocking signal while still validating C++ support when possible.
-                tests: [Validation_Run_CppGenerationSkippedWhenClangUnavailable]
+                tests: [Validation_Run_CppTestsSkippedWhenClangUnavailable]
               - id: ApiMarkTool-SelfTest-Validation-ReportSkippedCount
                 title: 'Validation shall print a "Skipped: N" line in its summary output reflecting the number of self-tests recorded as skipped.'
                 justification: |
@@ -101,7 +101,37 @@ sections:
                   skipped (as distinct from passed or failed) so that a skip is not
                   silently mistaken for either a pass or the absence of that test.
                 tests: [Validation_Run_WritesSkippedSummaryLine]
-              - id: ApiMarkTool-SelfTest-Validation-RunEnforceDocsTest
+              - id: ApiMarkTool-SelfTest-Validation-RunDotNetEnforceDocsTest
+                title: Validation shall run the real DotNetGenerator
+                  CheckDocumentationCoverage pipeline against the tool's own already-built
+                  assembly and verify the checker completes with internally consistent
+                  counts.
+                justification: |
+                  Exercising the actual documentation-coverage enforcement path end to
+                  end (rather than just the CLI dispatch path) confirms the
+                  --enforce-docs feature is functional for DotNet in the deployed tool
+                  binary, not merely that the process runs. The tool's own assembly is
+                  reused (as with RunDotNetGenerationTest) since its exact undocumented
+                  count varies by build configuration and target framework.
+                tests:
+                  - Validation_Run_DotNetEnforceDocsTestPasses
+                  - Validation_Run_WritesFunctionalGenerationTestResults
+                  - Validation_Run_WithValidContext_ExitsZero
+              - id: ApiMarkTool-SelfTest-Validation-RunCppEnforceDocsTest
+                title: Validation shall run the real CppGenerator
+                  CheckDocumentationCoverage pipeline against a tiny embedded sample
+                  struct with one documented and one deliberately undocumented field,
+                  and verify the undocumented field is detected while the documented
+                  one is not, when clang is available.
+                justification: |
+                  Exercising the actual documentation-coverage enforcement path end to
+                  end confirms the --enforce-docs feature is functional for C++ in the
+                  deployed tool binary whenever a clang toolchain is present.
+                tests:
+                  - Validation_Run_CppTestsSkippedWhenClangUnavailable
+                  - Validation_Run_WritesFunctionalGenerationTestResults
+                  - Validation_Run_WithValidContext_ExitsZero
+              - id: ApiMarkTool-SelfTest-Validation-RunVhdlEnforceDocsTest
                 title: Validation shall run the real VhdlGenerator
                   CheckDocumentationCoverage pipeline against a sample source with one
                   documented and one deliberately undocumented declaration, and verify
@@ -109,11 +139,11 @@ sections:
                 justification: |
                   Exercising the actual documentation-coverage enforcement path end to
                   end (rather than just the CLI dispatch path) confirms the
-                  --enforce-docs feature is functional in the deployed tool binary, not
-                  merely that the process runs. VHDL is used because it needs no
-                  external tool dependency, so this test can always run.
+                  --enforce-docs feature is functional for VHDL in the deployed tool
+                  binary, not merely that the process runs. VHDL is used because it
+                  needs no external tool dependency, so this test can always run.
                 tests:
-                  - Validation_Run_EnforceDocsTestPasses
+                  - Validation_Run_VhdlEnforceDocsTestPasses
                   - Validation_Run_WritesFunctionalGenerationTestResults
                   - Validation_Run_WithValidContext_ExitsZero
               - id: ApiMarkTool-SelfTest-Validation-SuppressGeneratorOutput

@@ -5,7 +5,7 @@ using ApiMark.Vhdl;
 namespace ApiMark.Tool.SelfTest;
 
 /// <summary>
-///     Provides the documentation-coverage enforcement (<c>--enforce-docs</c>) functional
+///     Provides the VHDL documentation-coverage enforcement (<c>--enforce-docs</c>) functional
 ///     self-validation test for ApiMark Tool.
 /// </summary>
 internal static partial class Validation
@@ -18,10 +18,10 @@ internal static partial class Validation
     ///     documented port unreported.
     /// </summary>
     /// <remarks>
-    ///     VHDL is used for this test (rather than .NET or C++) because its sample source is
-    ///     entirely self-contained and requires no external tool (unlike C++, which needs clang),
-    ///     letting this test run unconditionally alongside <see cref="RunVhdlGenerationTest"/>.
-    ///     This test exercises <see cref="IDocumentationCoverageCapable.CheckDocumentationCoverage"/>
+    ///     VHDL is used for this test because its sample source is entirely self-contained and
+    ///     requires no external tool (unlike C++, which needs clang), letting this test run
+    ///     unconditionally alongside <see cref="RunVhdlGenerationTest"/>. This test exercises
+    ///     <see cref="IDocumentationCoverageCapable.CheckDocumentationCoverage"/>
     ///     directly (the same API <c>Program.RunToolLogic</c> calls when <c>--enforce-docs</c> is
     ///     supplied on the command line) rather than re-invoking the full CLI argument-parsing
     ///     path, since that path is already covered by <c>ArgumentParserTests</c> and
@@ -32,10 +32,10 @@ internal static partial class Validation
     /// </remarks>
     /// <param name="context">The context for output.</param>
     /// <param name="testResults">The test results collection to append results to.</param>
-    private static void RunEnforceDocsTest(Context context, DemaConsulting.TestResults.TestResults testResults)
+    private static void RunVhdlEnforceDocsTest(Context context, DemaConsulting.TestResults.TestResults testResults)
     {
         var startTime = DateTime.UtcNow;
-        var test = CreateTestResult("ApiMark_EnforceDocs");
+        var test = CreateTestResult("ApiMark_VhdlEnforceDocs");
 
         try
         {
@@ -75,21 +75,21 @@ internal static partial class Validation
             if (result.HasViolations && foundUndocumentedRst && !foundDocumentedClk)
             {
                 test.Outcome = DemaConsulting.TestResults.TestOutcome.Passed;
-                context.WriteLine("✓ ApiMark_EnforceDocs - Passed");
+                context.WriteLine("✓ ApiMark_VhdlEnforceDocs - Passed");
             }
             else
             {
                 test.Outcome = DemaConsulting.TestResults.TestOutcome.Failed;
                 test.ErrorMessage = "Documentation-coverage enforcement did not report expected results";
                 context.WriteError(
-                    "✗ ApiMark_EnforceDocs - Failed: Documentation-coverage enforcement did not report expected results");
+                    "✗ ApiMark_VhdlEnforceDocs - Failed: Documentation-coverage enforcement did not report expected results");
             }
         }
         // Generic catch is justified here as this is a test framework — any exception should be
         // recorded as a test failure to ensure robust test execution and reporting.
         catch (Exception ex)
         {
-            HandleTestException(test, context, "ApiMark_EnforceDocs", ex);
+            HandleTestException(test, context, "ApiMark_VhdlEnforceDocs", ex);
         }
 
         FinalizeTestResult(test, startTime, testResults);

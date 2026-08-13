@@ -45,15 +45,20 @@ public sealed class ValidationTests
             Assert.True(File.Exists(trxPath), "TRX results file must be created");
             var trxContent = File.ReadAllText(trxPath);
             var trxResults = TrxSerializer.Deserialize(trxContent);
-            Assert.Equal(6, trxResults.Results.Count);
+            Assert.Equal(8, trxResults.Results.Count);
             Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_VersionDisplay" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_HelpDisplay" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_DotNetGeneration" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_VhdlGeneration" && r.Outcome == TestOutcome.Passed);
-            Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_EnforceDocs" && r.Outcome == TestOutcome.Passed);
+            Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_DotNetEnforceDocs" && r.Outcome == TestOutcome.Passed);
+            Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_VhdlEnforceDocs" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(
                 trxResults.Results,
                 r => r.Name == "ApiMark_CppGeneration" &&
+                     (r.Outcome == TestOutcome.Passed || r.Outcome == TestOutcome.NotExecuted));
+            Assert.Contains(
+                trxResults.Results,
+                r => r.Name == "ApiMark_CppEnforceDocs" &&
                      (r.Outcome == TestOutcome.Passed || r.Outcome == TestOutcome.NotExecuted));
         }
         finally
@@ -86,15 +91,20 @@ public sealed class ValidationTests
             Assert.True(File.Exists(xmlPath), "XML results file must be created");
             var xmlContent = File.ReadAllText(xmlPath);
             var xmlResults = JUnitSerializer.Deserialize(xmlContent);
-            Assert.Equal(6, xmlResults.Results.Count);
+            Assert.Equal(8, xmlResults.Results.Count);
             Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_VersionDisplay" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_HelpDisplay" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_DotNetGeneration" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_VhdlGeneration" && r.Outcome == TestOutcome.Passed);
-            Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_EnforceDocs" && r.Outcome == TestOutcome.Passed);
+            Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_DotNetEnforceDocs" && r.Outcome == TestOutcome.Passed);
+            Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_VhdlEnforceDocs" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(
                 xmlResults.Results,
                 r => r.Name == "ApiMark_CppGeneration" &&
+                     (r.Outcome == TestOutcome.Passed || r.Outcome == TestOutcome.NotExecuted));
+            Assert.Contains(
+                xmlResults.Results,
+                r => r.Name == "ApiMark_CppEnforceDocs" &&
                      (r.Outcome == TestOutcome.Passed || r.Outcome == TestOutcome.NotExecuted));
         }
         finally
@@ -192,7 +202,9 @@ public sealed class ValidationTests
                 () => Assert.Contains("ApiMark_DotNetGeneration", output),
                 () => Assert.Contains("ApiMark_CppGeneration", output),
                 () => Assert.Contains("ApiMark_VhdlGeneration", output),
-                () => Assert.Contains("ApiMark_EnforceDocs", output));
+                () => Assert.Contains("ApiMark_DotNetEnforceDocs", output),
+                () => Assert.Contains("ApiMark_CppEnforceDocs", output),
+                () => Assert.Contains("ApiMark_VhdlEnforceDocs", output));
         }
         finally
         {
@@ -234,12 +246,12 @@ public sealed class ValidationTests
     }
 
     /// <summary>
-    ///     Validates that the C++ functional test is Skipped (not Failed) and does not affect
-    ///     the exit code when clang cannot be located, by forcing <c>APIMARK_CLANG_PATH</c> to
-    ///     point at a nonexistent path for the duration of the test.
+    ///     Validates that the C++ functional tests (generation and enforcement) are Skipped
+    ///     (not Failed) and do not affect the exit code when clang cannot be located, by forcing
+    ///     <c>APIMARK_CLANG_PATH</c> to point at a nonexistent path for the duration of the test.
     /// </summary>
     [Fact]
-    public void Validation_Run_CppGenerationSkippedWhenClangUnavailable()
+    public void Validation_Run_CppTestsSkippedWhenClangUnavailable()
     {
         // Arrange: force clang discovery to fail by overriding the env var with a bogus path;
         // restore the original value in `finally` to avoid poisoning other tests in the run
@@ -256,7 +268,7 @@ public sealed class ValidationTests
             // Act
             Validation.Run(context);
 
-            // Assert: the C++ test must be recorded as NotExecuted (skipped), and the overall
+            // Assert: both C++ tests must be recorded as NotExecuted (skipped), and the overall
             // exit code must remain 0 since a skip is not a failure
             Assert.Equal(0, context.ExitCode);
             var trxContent = File.ReadAllText(trxPath);
@@ -264,6 +276,9 @@ public sealed class ValidationTests
             Assert.Contains(
                 trxResults.Results,
                 r => r.Name == "ApiMark_CppGeneration" && r.Outcome == TestOutcome.NotExecuted);
+            Assert.Contains(
+                trxResults.Results,
+                r => r.Name == "ApiMark_CppEnforceDocs" && r.Outcome == TestOutcome.NotExecuted);
         }
         finally
         {
@@ -276,12 +291,12 @@ public sealed class ValidationTests
     }
 
     /// <summary>
-    ///     Validates that the enforce-docs functional self-test passes, confirming that the
-    ///     documentation-coverage checker correctly detects an intentionally undocumented
-    ///     declaration in the embedded sample source.
+    ///     Validates that the DotNet enforce-docs functional self-test passes, confirming that
+    ///     the documentation-coverage checker runs end to end against the tool's own assembly
+    ///     and reports internally consistent counts.
     /// </summary>
     [Fact]
-    public void Validation_Run_EnforceDocsTestPasses()
+    public void Validation_Run_DotNetEnforceDocsTestPasses()
     {
         // Arrange
         var trxPath = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".trx");
@@ -299,7 +314,42 @@ public sealed class ValidationTests
             var trxResults = TrxSerializer.Deserialize(trxContent);
             Assert.Contains(
                 trxResults.Results,
-                r => r.Name == "ApiMark_EnforceDocs" && r.Outcome == TestOutcome.Passed);
+                r => r.Name == "ApiMark_DotNetEnforceDocs" && r.Outcome == TestOutcome.Passed);
+        }
+        finally
+        {
+            if (File.Exists(trxPath))
+            {
+                File.Delete(trxPath);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that the VHDL enforce-docs functional self-test passes, confirming that the
+    ///     documentation-coverage checker correctly detects an intentionally undocumented
+    ///     declaration in the embedded sample source.
+    /// </summary>
+    [Fact]
+    public void Validation_Run_VhdlEnforceDocsTestPasses()
+    {
+        // Arrange
+        var trxPath = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".trx");
+
+        try
+        {
+            using var context = Context.Create(["--validate", "--silent", "--results", trxPath]);
+
+            // Act
+            Validation.Run(context);
+
+            // Assert: the enforce-docs test must pass and must not affect the overall exit code
+            Assert.Equal(0, context.ExitCode);
+            var trxContent = File.ReadAllText(trxPath);
+            var trxResults = TrxSerializer.Deserialize(trxContent);
+            Assert.Contains(
+                trxResults.Results,
+                r => r.Name == "ApiMark_VhdlEnforceDocs" && r.Outcome == TestOutcome.Passed);
         }
         finally
         {

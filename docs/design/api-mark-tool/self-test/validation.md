@@ -15,16 +15,20 @@ log content against expected patterns. Three functional generation tests
 invoke each language generator's real `Parse`/`Emit` pipeline
 (`DotNetGenerator`, `CppGenerator`, `VhdlGenerator`) directly against a tiny
 embedded sample source, and verify the generated Markdown contains expected
-content — mirroring `Program.RunToolLogic`. One functional enforcement test
-invokes `VhdlGenerator.CheckDocumentationCoverage` against a sample source
-containing one documented and one deliberately undocumented declaration,
-verifying enforcement correctly detects the violation — mirroring the
-`--enforce-docs` wiring in `Program.RunToolLogic`. Every generator call is
-routed through a silent, log-capturing child `Context` (not the outer
-validation context), so the generators' own informational output (e.g.
-"Parsing assembly: ..." or "Found N types...") never interleaves with the
-pass/fail transcript. The C++ generation test is gated on clang availability
-(via `ApiMark.Cpp.CppAst.ClangDiscovery`) and is recorded as skipped, not
+content — mirroring `Program.RunToolLogic`. Three functional enforcement tests
+invoke each language generator's real `CheckDocumentationCoverage` pipeline
+(`DotNetGenerator`, `CppGenerator`, `VhdlGenerator`) — the C++ and VHDL tests
+run against a sample source containing one documented and one deliberately
+undocumented declaration and verify enforcement correctly detects the
+violation; the DotNet test reuses the tool's own already-built assembly (see
+`RunDotNetGenerationTest`) and verifies the checker runs to completion with
+internally consistent counts — mirroring the `--enforce-docs` wiring in
+`Program.RunToolLogic`. Every generator call is routed through a silent,
+log-capturing child `Context` (not the outer validation context), so the
+generators' own informational output (e.g. "Parsing assembly: ..." or "Found
+N types...") never interleaves with the pass/fail transcript. The C++
+generation and C++ enforcement tests are each gated on clang availability
+(via `ApiMark.Cpp.CppAst.ClangDiscovery`) and are recorded as skipped, not
 failed, when clang cannot be located. Results are accumulated in a
 `TestResults` collection and optionally written to a `.trx` or `.xml` file.
 
@@ -52,13 +56,15 @@ created via `CreateTestResult(testName)` and collected in a
   5. Call `RunDotNetGenerationTest(context, testResults)`.
   6. Call `RunCppGenerationTest(context, testResults)`.
   7. Call `RunVhdlGenerationTest(context, testResults)`.
-  8. Call `RunEnforceDocsTest(context, testResults)`.
-  9. Print summary (total, passed, skipped, failed counts).
-  10. If `context.ResultsFile` is set, call `WriteResultsFile`.
+  8. Call `RunDotNetEnforceDocsTest(context, testResults)`.
+  9. Call `RunCppEnforceDocsTest(context, testResults)`.
+  10. Call `RunVhdlEnforceDocsTest(context, testResults)`.
+  11. Print summary (total, passed, skipped, failed counts).
+  12. If `context.ResultsFile` is set, call `WriteResultsFile`.
 - *Preconditions*: `context` must be non-null.
 - *Postconditions*: All self-tests have run; results are written to context;
   `context.ExitCode` is `1` if any test failed. Skipped tests (recorded with
-  `TestOutcome.NotExecuted`, e.g. the C++ test when clang is unavailable)
+  `TestOutcome.NotExecuted`, e.g. the C++ tests when clang is unavailable)
   never set `context.ExitCode` to `1`.
 
 **RunVersionTest(Context context, TestResults testResults)** — Private static.
@@ -127,13 +133,47 @@ created via `CreateTestResult(testName)` and collected in a
   embedded ANTLR4 grammar, with no external tool dependency.
 - Appends a `TestResult` named `"ApiMark_VhdlGeneration"` to `testResults`.
 
-**RunEnforceDocsTest(Context context, TestResults testResults)** — Private static.
+**RunDotNetEnforceDocsTest(Context context, TestResults testResults)** — Private static.
+
+- Constructs `DotNetGeneratorOptions` pointing at the currently-executing
+  `ApiMark.Tool` assembly and its sibling `.xml` doc file, with
+  `Visibility = ApiVisibility.All` (same self-referencing approach as
+  `RunDotNetGenerationTest`; see its remarks for rationale). Creates a silent,
+  log-capturing child `Context` so the generator's own informational output
+  does not interleave with the validation transcript.
+- Calls `new DotNetGenerator(options).Parse(genContext)` then
+  `generator.CheckDocumentationCoverage("All")` — the same
+  `IDocumentationCoverageCapable` API `Program.RunToolLogic` calls when
+  `--enforce-docs` is supplied on the command line.
+- Verifies the checker completes and reports internally consistent counts
+  (`CheckedCount > 0` and `UndocumentedCount <= CheckedCount`), rather than
+  asserting an exact violation count, since the tool's own already-built
+  assembly's undocumented-item count varies by build configuration and
+  target framework.
+- Appends a `TestResult` named `"ApiMark_DotNetEnforceDocs"` to `testResults`.
+
+**RunCppEnforceDocsTest(Context context, TestResults testResults)** — Private static.
+
+- First calls `ApiMark.Cpp.CppAst.ClangDiscovery.IsAvailable()`. When
+  `false`, sets the test outcome to `TestOutcome.NotExecuted`, writes a
+  skip message via `context.WriteLine` (never `WriteError`), and returns early.
+- When clang is available, writes a tiny embedded sample header (a struct
+  with one documented member and one deliberately undocumented member) to a
+  `TemporaryDirectory`, constructs `CppGeneratorOptions` pointing at it.
+  Creates a silent, log-capturing child `Context` so the generator's own
+  informational output does not interleave with the validation transcript.
+- Calls `new CppGenerator(options).Parse(genContext)` then
+  `generator.CheckDocumentationCoverage("Public")`.
+- Verifies the result reports a violation for the undocumented member and
+  does *not* report a violation for the documented member.
+- Appends a `TestResult` named `"ApiMark_CppEnforceDocs"` to `testResults`.
+
+**RunVhdlEnforceDocsTest(Context context, TestResults testResults)** — Private static.
 
 - Writes a tiny embedded VHDL entity with one documented port (`clk`) and
   one deliberately undocumented port (`rst`) to a `TemporaryDirectory`,
-  constructs `VhdlGeneratorOptions` referencing it. VHDL is used (rather
-  than .NET or C++) because it needs no external tool and its sample source
-  is entirely self-contained.
+  constructs `VhdlGeneratorOptions` referencing it. VHDL is used because it
+  needs no external tool and its sample source is entirely self-contained.
 - Creates a silent, log-capturing child `Context` so the generator's own
   informational output does not interleave with the validation transcript.
 - Calls `new VhdlGenerator(options).Parse(genContext)` then
@@ -142,7 +182,7 @@ created via `CreateTestResult(testName)` and collected in a
   `--enforce-docs` is supplied on the command line.
 - Verifies the result reports a violation for the undocumented `rst` port
   and does *not* report a violation for the documented `clk` port.
-- Appends a `TestResult` named `"ApiMark_EnforceDocs"` to `testResults`.
+- Appends a `TestResult` named `"ApiMark_VhdlEnforceDocs"` to `testResults`.
 
 **WriteResultsFile(Context context, TestResults testResults)** — Private static.
 
@@ -205,11 +245,12 @@ created via `CreateTestResult(testName)` and collected in a
 - **DotNetGenerator / CppGenerator / VhdlGenerator** (`ApiMark.DotNet`,
   `ApiMark.Cpp`, `ApiMark.Vhdl`) — invoked directly via `IApiGenerator.Parse`
   and `IApiEmitter.Emit` in the three functional generation tests, and via
-  `IDocumentationCoverageCapable.CheckDocumentationCoverage` (on
-  `VhdlGenerator`) in the enforcement test.
+  `IDocumentationCoverageCapable.CheckDocumentationCoverage` in the three
+  functional enforcement tests.
 - **ApiMark.Cpp.CppAst.ClangDiscovery** — public pre-flight helper used to
-  detect clang availability before running the C++ functional test, sharing
-  the same discovery logic as `ClangAstParser`.
+  detect clang availability before running the C++ generation and C++
+  enforcement functional tests, sharing the same discovery logic as
+  `ClangAstParser`.
 - **DemaConsulting.TestResults** — `TestResults`, `TestResult`, `TestOutcome`,
   `TrxSerializer`, and `JUnitSerializer` are used to build, accumulate, and
   serialize test results. `TestOutcome` has no dedicated "skipped" value;
