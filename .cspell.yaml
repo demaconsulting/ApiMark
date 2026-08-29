@@ -49,6 +49,7 @@ words:
   - libext
   - linkified
   - linkifies
+  - linkifying
   - Linkification
   - Linkify
   - linkify
@@ -87,6 +88,7 @@ words:
   - slnx
   - stdarg
   - stddef
+  - NOSONAR
   - sonar
   - sonarmark
   - subclassable
