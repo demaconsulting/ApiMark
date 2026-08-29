@@ -478,7 +478,8 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
 
         targets.AddRange(accessor.Overrides
             .Select(overrideRef => MapAccessorReferenceToPropertyId(overrideRef, prefix))
-            .Where(propId => propId != null && !targets.Contains(propId, StringComparer.Ordinal))!);
+            .OfType<string>()
+            .Where(propId => !targets.Contains(propId, StringComparer.Ordinal)));
     }
 
     /// <summary>
@@ -558,7 +559,8 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
 
         targets.AddRange(accessor.Overrides
             .Select(overrideRef => MapAccessorReferenceToEventId(overrideRef, prefix))
-            .Where(evId => evId != null && !targets.Contains(evId, StringComparer.Ordinal))!);
+            .OfType<string>()
+            .Where(evId => !targets.Contains(evId, StringComparer.Ordinal)));
     }
 
     /// <summary>
