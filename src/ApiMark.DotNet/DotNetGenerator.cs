@@ -295,7 +295,7 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
     /// </remarks>
     /// <param name="assembly">The assembly to inspect.</param>
     /// <returns>Read-only dictionary mapping derived member IDs to their base member ID lists.</returns>
-    private static Dictionary<string, IReadOnlyList<string>> BuildInheritanceChain(AssemblyDefinition assembly)
+    private static IReadOnlyDictionary<string, IReadOnlyList<string>> BuildInheritanceChain(AssemblyDefinition assembly)
     {
         var chain = new Dictionary<string, List<string>>(StringComparer.Ordinal);
 

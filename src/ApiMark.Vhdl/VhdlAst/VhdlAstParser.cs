@@ -558,7 +558,7 @@ internal static class VhdlAstParser
 
             var objDecls = ifaceDecls
                 .Select(iface => iface.interface_object_declaration())
-                .Where(objDecl => objDecl != null);
+                .OfType<vhdl2008Parser.Interface_object_declarationContext>();
 
             foreach (var objDecl in objDecls)
             {

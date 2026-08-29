@@ -16,9 +16,10 @@ namespace ApiMark.DotNet;
 /// <param name="NamespaceName">Fully qualified namespace name for signature simplification.</param>
 /// <param name="NamespaceFolderPath">File-system folder path for the namespace.</param>
 /// <param name="SharedExternalTypes">
-///     Shared throw-away accumulator passed to all <see cref="TypeLinkResolver.Linkify"/> calls.
-///     Never populated because <c>generateLinks</c> is <c>false</c>; reused across all parameters
-///     and members to avoid allocating a new set per <c>Linkify</c> call.
+///     Shared accumulator passed to all <see cref="TypeLinkResolver.Linkify"/> calls. Non-System
+///     external types are still tracked into it regardless of <c>generateLinks</c>, but the
+///     single-file emitter never reads it back; reused across all parameters and members to
+///     avoid allocating a new set per <c>Linkify</c> call.
 /// </param>
 internal sealed record SingleFileMemberContext(
     IMarkdownWriter Writer,
