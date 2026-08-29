@@ -91,58 +91,113 @@ public static class GlobFileCollector
 
         foreach (var pattern in patterns)
         {
-            // Parse the exclusion prefix and trim the pattern body
-            var isExclusion = pattern.StartsWith('!');
-            var patternBody = isExclusion ? pattern.Substring(1).Trim() : pattern.Trim();
-
-            if (patternBody.Length == 0)
-            {
-                continue;
-            }
-
-            // Determine the filesystem root and the glob tail for this pattern
-            var (root, globTail) = ParsePattern(patternBody, workingDirectory);
-
-            if (globTail.Length == 0)
-            {
-                // No glob portion — root is a literal path; resolve on-disk casing so
-                // the path key is consistent with paths returned by Matcher.GetResultsInFullPath
-                if (extensions.Contains(Path.GetExtension(root)))
-                {
-                    var onDisk = ResolveOnDiskPath(root);
-                    if (onDisk != null)
-                    {
-                        AccumulateResults(collected, [onDisk], isExclusion);
-                    }
-                }
-
-                continue;
-            }
-
-            if (!Directory.Exists(root))
-            {
-                continue;
-            }
-
-            // Determine whether extension inference is needed (bare-star final segment)
-            var needsExtensionFilter = HasBareStarFinalSegment(globTail);
-
-            // Run the glob matcher against the resolved filesystem root
-            var matcher = new Matcher(StringComparison.OrdinalIgnoreCase);
-            matcher.AddInclude(globTail.Replace('\\', '/'));
-            var results = matcher.GetResultsInFullPath(root);
-
-            // Apply language-extension filter when the final segment is a bare wildcard
-            if (needsExtensionFilter)
-            {
-                results = results.Where(f => extensions.Contains(Path.GetExtension(f)));
-            }
-
-            // Accumulate: include patterns add files; exclusion patterns remove them
-            AccumulateResults(collected, results, isExclusion);
+            ProcessPattern(pattern, workingDirectory, extensions, collected);
         }
 
         return collected.OrderBy(f => f, StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>
+    ///     Processes a single glob pattern (inclusion or exclusion), updating
+    ///     <paramref name="collected"/> in place with the matching files.
+    /// </summary>
+    /// <param name="pattern">The raw pattern, possibly prefixed with <c>!</c> for exclusion.</param>
+    /// <param name="workingDirectory">Absolute path used as the root for relative patterns.</param>
+    /// <param name="extensions">Extensions used to filter bare-star matches and literal paths.</param>
+    /// <param name="collected">The mutable set of collected file paths to update in-place.</param>
+    private static void ProcessPattern(
+        string pattern,
+        string workingDirectory,
+        HashSet<string> extensions,
+        HashSet<string> collected)
+    {
+        // Parse the exclusion prefix and trim the pattern body
+        var isExclusion = pattern.StartsWith('!');
+        var patternBody = isExclusion ? pattern.Substring(1).Trim() : pattern.Trim();
+
+        if (patternBody.Length == 0)
+        {
+            return;
+        }
+
+        // Determine the filesystem root and the glob tail for this pattern
+        var (root, globTail) = ParsePattern(patternBody, workingDirectory);
+
+        if (globTail.Length == 0)
+        {
+            // No glob portion — root is a literal path
+            ProcessLiteralPattern(root, extensions, collected, isExclusion);
+            return;
+        }
+
+        if (!Directory.Exists(root))
+        {
+            return;
+        }
+
+        ProcessGlobPattern(root, globTail, extensions, collected, isExclusion);
+    }
+
+    /// <summary>
+    ///     Resolves a literal (non-glob) absolute pattern root, adding or removing it from
+    ///     <paramref name="collected"/> when its extension matches <paramref name="extensions"/>.
+    /// </summary>
+    /// <param name="root">The literal absolute file path.</param>
+    /// <param name="extensions">Extensions used to filter the literal path.</param>
+    /// <param name="collected">The mutable set of collected file paths to update in-place.</param>
+    /// <param name="isExclusion">When <see langword="true"/>, removes the resolved path instead of adding it.</param>
+    private static void ProcessLiteralPattern(
+        string root,
+        HashSet<string> extensions,
+        HashSet<string> collected,
+        bool isExclusion)
+    {
+        // Resolve on-disk casing so the path key is consistent with paths returned by
+        // Matcher.GetResultsInFullPath
+        if (!extensions.Contains(Path.GetExtension(root)))
+        {
+            return;
+        }
+
+        var onDisk = ResolveOnDiskPath(root);
+        if (onDisk != null)
+        {
+            AccumulateResults(collected, [onDisk], isExclusion);
+        }
+    }
+
+    /// <summary>
+    ///     Runs the glob matcher for a pattern that has a non-empty glob tail, adding or
+    ///     removing the matching files from <paramref name="collected"/>.
+    /// </summary>
+    /// <param name="root">The resolved, existing filesystem root directory.</param>
+    /// <param name="globTail">The glob tail to pass to <see cref="Matcher"/>.</param>
+    /// <param name="extensions">Extensions used to filter bare-star matches.</param>
+    /// <param name="collected">The mutable set of collected file paths to update in-place.</param>
+    /// <param name="isExclusion">When <see langword="true"/>, removes the matched files instead of adding them.</param>
+    private static void ProcessGlobPattern(
+        string root,
+        string globTail,
+        HashSet<string> extensions,
+        HashSet<string> collected,
+        bool isExclusion)
+    {
+        // Determine whether extension inference is needed (bare-star final segment)
+        var needsExtensionFilter = HasBareStarFinalSegment(globTail);
+
+        // Run the glob matcher against the resolved filesystem root
+        var matcher = new Matcher(StringComparison.OrdinalIgnoreCase);
+        matcher.AddInclude(globTail.Replace('\\', '/'));
+        var results = matcher.GetResultsInFullPath(root);
+
+        // Apply language-extension filter when the final segment is a bare wildcard
+        if (needsExtensionFilter)
+        {
+            results = results.Where(f => extensions.Contains(Path.GetExtension(f)));
+        }
+
+        // Accumulate: include patterns add files; exclusion patterns remove them
+        AccumulateResults(collected, results, isExclusion);
     }
 
     /// <summary>

@@ -27,6 +27,15 @@ internal sealed class CppEmitterGradualDisclosure
         ["Operators (namespace)", "`{Namespace}/operators.md`"],
     ];
 
+    /// <summary>Prefix identifying a C++ operator overload function name.</summary>
+    private const string OperatorNamePrefix = "operator";
+
+    /// <summary>Column/heading label for a member's return-value documentation.</summary>
+    private const string ReturnsLabel = "Returns";
+
+    /// <summary>Column/heading label for a table or section listing operator overloads.</summary>
+    private const string OperatorsLabel = "Operators";
+
     /// <summary>Parent emitter providing options and shared helper methods.</summary>
     private readonly CppEmitter _emitter;
 
@@ -92,10 +101,10 @@ internal sealed class CppEmitterGradualDisclosure
             // to the same file name so all operators share a single operators.md page
             // instead of producing individual colliding files
             var nsOperatorFunctions = nsDecls.FreeFunctions
-                .Where(fn => fn.Name.StartsWith("operator", StringComparison.Ordinal))
+                .Where(fn => fn.Name.StartsWith(OperatorNamePrefix, StringComparison.Ordinal))
                 .ToList();
             foreach (var fn in nsDecls.FreeFunctions
-                .Where(fn => !fn.Name.StartsWith("operator", StringComparison.Ordinal)))
+                .Where(fn => !fn.Name.StartsWith(OperatorNamePrefix, StringComparison.Ordinal)))
             {
                 WriteFreeFunctionPage(factory, nsKey, nsDecls.DisplayName, fn, _cppResolver);
             }
@@ -235,10 +244,10 @@ internal sealed class CppEmitterGradualDisclosure
         // Partition methods into operator overloads and regular methods; operator overloads are
         // grouped onto a single operators.md page to prevent file-name collisions
         var operatorMethods = visibleMethods
-            .Where(m => m.Name.StartsWith("operator", StringComparison.Ordinal))
+            .Where(m => m.Name.StartsWith(OperatorNamePrefix, StringComparison.Ordinal))
             .ToList();
         var regularMethods = visibleMethods
-            .Where(m => !m.Name.StartsWith("operator", StringComparison.Ordinal))
+            .Where(m => !m.Name.StartsWith(OperatorNamePrefix, StringComparison.Ordinal))
             .ToList();
 
         // Build a flat list of all visible members for case-insensitive collision detection
@@ -347,7 +356,7 @@ internal sealed class CppEmitterGradualDisclosure
     private static void ProcessClassConstructorMember(
         CppTypePageWriteContext ctx,
         CppFunction ctor,
-        IReadOnlyDictionary<string, List<object>> caseInsensitiveGroups,
+        Dictionary<string, List<object>> caseInsensitiveGroups,
         HashSet<string> writtenKeys,
         List<string[]> ctorRows)
     {
@@ -383,7 +392,7 @@ internal sealed class CppEmitterGradualDisclosure
     private static void ProcessClassMethodMember(
         CppTypePageWriteContext ctx,
         CppFunction method,
-        IReadOnlyDictionary<string, List<object>> caseInsensitiveGroups,
+        Dictionary<string, List<object>> caseInsensitiveGroups,
         HashSet<string> writtenKeys,
         List<string[]> methodRows,
         SortedSet<CppExternalTypeInfo> externalTypes)
@@ -422,7 +431,7 @@ internal sealed class CppEmitterGradualDisclosure
     private static void ProcessClassFieldMember(
         CppTypePageWriteContext ctx,
         CppField field,
-        IReadOnlyDictionary<string, List<object>> caseInsensitiveGroups,
+        Dictionary<string, List<object>> caseInsensitiveGroups,
         HashSet<string> writtenKeys,
         List<string[]> fieldRows,
         SortedSet<CppExternalTypeInfo> externalTypes)
@@ -458,7 +467,7 @@ internal sealed class CppEmitterGradualDisclosure
     private void WriteClassMemberTables(
         IMarkdownWriter writer,
         CppTypePageWriteContext ctx,
-        IReadOnlyList<CppFunction> operatorMethods,
+        List<CppFunction> operatorMethods,
         List<string[]> ctorRows,
         List<string[]> methodRows,
         List<string[]> fieldRows,
@@ -474,7 +483,7 @@ internal sealed class CppEmitterGradualDisclosure
         if (methodRows.Count > 0)
         {
             writer.WriteHeading(2, "Methods");
-            writer.WriteTable(new[] { "Member", "Returns", CppEmitter.DescriptionColumnHeader }, methodRows);
+            writer.WriteTable(new[] { "Member", ReturnsLabel, CppEmitter.DescriptionColumnHeader }, methodRows);
         }
 
         if (fieldRows.Count > 0)
@@ -488,9 +497,9 @@ internal sealed class CppEmitterGradualDisclosure
         if (operatorMethods.Count > 0)
         {
             WriteClassOperatorsPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, operatorMethods, ctx.CppResolver);
-            writer.WriteHeading(2, "Operators");
+            writer.WriteHeading(2, OperatorsLabel);
             writer.WriteTable(
-                new[] { "Operators", CppEmitter.DescriptionColumnHeader },
+                new[] { OperatorsLabel, CppEmitter.DescriptionColumnHeader },
                 new[] { new[] { $"[operators]({ctx.Class.Name}/operators.md)", "Operator overloads" } });
         }
 
@@ -569,7 +578,7 @@ internal sealed class CppEmitterGradualDisclosure
     {
         var opsCurrentFolder = $"{nsKey}/{cls.Name}";
         using var writer = factory.CreateMarkdown(opsCurrentFolder, "operators");
-        writer.WriteHeading(1, "Operators");
+        writer.WriteHeading(1, OperatorsLabel);
         // Emit the qualified class name comment and #include directive from the first operator
         // that has source location information — gives readers context without browsing headers
         var qualifiedClassName = string.IsNullOrEmpty(nsDisplayName)
@@ -609,7 +618,7 @@ internal sealed class CppEmitterGradualDisclosure
     {
         var opsCurrentFolder = nsKey;
         using var writer = factory.CreateMarkdown(nsKey, "operators");
-        writer.WriteHeading(1, "Operators");
+        writer.WriteHeading(1, OperatorsLabel);
         // Emit the qualified name comment and #include directive from the first operator that
         // has source location information so readers know which header to include
         var firstWithLocation = operators.FirstOrDefault(op => op.Location != null);
@@ -728,7 +737,7 @@ internal sealed class CppEmitterGradualDisclosure
         {
             // Always linkify/track the return type even when a doc description is present
             var linkedReturnType = cppResolver.Linkify(returnTypeName, currentFolder, externalTypes)!;
-            writer.WriteHeading(parametersHeadingLevel, "Returns");
+            writer.WriteHeading(parametersHeadingLevel, ReturnsLabel);
             var returnDescription = CppEmitter.GetReturnDescription(fn.Doc);
             writer.WriteParagraph(!string.IsNullOrEmpty(returnDescription) ? returnDescription : linkedReturnType);
         }
@@ -846,7 +855,7 @@ internal sealed class CppEmitterGradualDisclosure
             {
                 // Always linkify/track the return type even when a doc description is present
                 var linkedReturnType = ctx.CppResolver.Linkify(returnTypeName, ctx.CurrentFolder, ctx.ExternalTypes)!;
-                writer.WriteHeading(ctx.ParametersHeadingLevel, "Returns");
+                writer.WriteHeading(ctx.ParametersHeadingLevel, ReturnsLabel);
                 var returnDescription = CppEmitter.GetReturnDescription(method.Doc);
                 writer.WriteParagraph(!string.IsNullOrEmpty(returnDescription) ? returnDescription : linkedReturnType);
             }
@@ -1106,17 +1115,17 @@ internal sealed class CppEmitterGradualDisclosure
         // such as operator+, operator-, and operator<< all sanitize to the same file name and
         // must be grouped onto a single operators.md page to avoid file-name collisions
         var regularFreeFunctions = nsDecls.FreeFunctions
-            .Where(fn => !fn.Name.StartsWith("operator", StringComparison.Ordinal))
+            .Where(fn => !fn.Name.StartsWith(OperatorNamePrefix, StringComparison.Ordinal))
             .ToList();
         var operatorFreeFunctions = nsDecls.FreeFunctions
-            .Where(fn => fn.Name.StartsWith("operator", StringComparison.Ordinal))
+            .Where(fn => fn.Name.StartsWith(OperatorNamePrefix, StringComparison.Ordinal))
             .ToList();
 
         // Regular free-function table — one row per owned free function, sorted alphabetically
         if (regularFreeFunctions.Count > 0)
         {
             writer.WriteHeading(2, "Functions");
-            var fnHeaders = new[] { "Function", "Returns", CppEmitter.DescriptionColumnHeader };
+            var fnHeaders = new[] { "Function", ReturnsLabel, CppEmitter.DescriptionColumnHeader };
             var fnRows = regularFreeFunctions
                 .OrderBy(f => f.Name, StringComparer.Ordinal)
                 .Select(fn =>
@@ -1136,9 +1145,9 @@ internal sealed class CppEmitterGradualDisclosure
         // can navigate to all operator overloads without hitting file-name collision pages
         if (operatorFreeFunctions.Count > 0)
         {
-            writer.WriteHeading(2, "Operators");
+            writer.WriteHeading(2, OperatorsLabel);
             writer.WriteTable(
-                new[] { "Operators", CppEmitter.DescriptionColumnHeader },
+                new[] { OperatorsLabel, CppEmitter.DescriptionColumnHeader },
                 new[] { new[] { $"[operators]({nsKey}/operators.md)", "Operator overloads" } });
         }
 

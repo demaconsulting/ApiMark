@@ -175,6 +175,24 @@ internal sealed class VhdlEmitterSingleFile
     {
         writer.WriteHeading(depth + 2, pkg.Name);
 
+        EmitPackageSummary(writer, pkg, fileName);
+        EmitPackageTypes(writer, pkg, depth);
+        EmitPackageConstants(writer, pkg, depth);
+        EmitPackageComponents(writer, pkg, depth);
+
+        // Emit subprograms as individual sub-sections at depth+3 — each subprogram replaces the old table row
+        foreach (var s in pkg.Subprograms)
+        {
+            EmitSubprogramSection(writer, s, depth);
+        }
+    }
+
+    /// <summary>Emits the attribution line, summary, and optional extended details for a package.</summary>
+    /// <param name="writer">Markdown writer to emit into.</param>
+    /// <param name="pkg">The package declaration to emit.</param>
+    /// <param name="fileName">Base filename of the source file containing this package declaration.</param>
+    private static void EmitPackageSummary(IMarkdownWriter writer, VhdlPackageDecl pkg, string fileName)
+    {
         // Attribution: kind and source file
         writer.WriteParagraph($"*Package declared in `{fileName}`*");
 
@@ -188,77 +206,95 @@ internal sealed class VhdlEmitterSingleFile
         {
             writer.WriteParagraph(pkgDetails);
         }
+    }
 
-        // Emit types in paragraph-per-type format: bold name, em-dash, definition, then summary
-        if (pkg.Types.Count > 0)
+    /// <summary>Emits the types section in paragraph-per-type format: bold name, em-dash, definition, then summary.</summary>
+    /// <param name="writer">Markdown writer to emit into.</param>
+    /// <param name="pkg">The package declaration whose types are emitted.</param>
+    /// <param name="depth">Base heading depth for the library root; the types heading uses depth+3.</param>
+    private static void EmitPackageTypes(IMarkdownWriter writer, VhdlPackageDecl pkg, int depth)
+    {
+        if (pkg.Types.Count == 0)
         {
-            writer.WriteHeading(depth + 3, "Types");
-            foreach (var t in pkg.Types)
-            {
-                // First paragraph: bold name, em-dash, backtick-wrapped definition
-                writer.WriteParagraph($"**{t.Name}** — `{t.Definition}`");
-
-                // Second paragraph: summary or placeholder
-                var typeSummary = VhdlEmitter.GetSummary(t.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder;
-                writer.WriteParagraph(typeSummary);
-
-                // Optional extended details paragraph
-                var typeDetails = t.Doc?.Details;
-                if (!string.IsNullOrEmpty(typeDetails))
-                {
-                    writer.WriteParagraph(typeDetails);
-                }
-            }
+            return;
         }
 
-        // Emit constants in paragraph-per-constant format: bold name, colon, type, optional value, then summary
-        if (pkg.Constants.Count > 0)
+        writer.WriteHeading(depth + 3, "Types");
+        foreach (var t in pkg.Types)
         {
-            writer.WriteHeading(depth + 3, "Constants");
-            foreach (var c in pkg.Constants)
+            // First paragraph: bold name, em-dash, backtick-wrapped definition
+            writer.WriteParagraph($"**{t.Name}** — `{t.Definition}`");
+
+            // Second paragraph: summary or placeholder
+            var typeSummary = VhdlEmitter.GetSummary(t.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder;
+            writer.WriteParagraph(typeSummary);
+
+            // Optional extended details paragraph
+            var typeDetails = t.Doc?.Details;
+            if (!string.IsNullOrEmpty(typeDetails))
             {
-                // First paragraph: bold name, colon, backtick-wrapped type, equals and backtick-wrapped value if present
-                var constHeader = string.IsNullOrEmpty(c.Value)
-                    ? $"**{c.Name}** : `{c.TypeName}`"
-                    : $"**{c.Name}** : `{c.TypeName}` = `{c.Value}`";
-                writer.WriteParagraph(constHeader);
-
-                // Second paragraph: summary or placeholder
-                var constSummary = VhdlEmitter.GetSummary(c.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder;
-                writer.WriteParagraph(constSummary);
-
-                // Optional extended details paragraph
-                var constDetails = c.Doc?.Details;
-                if (!string.IsNullOrEmpty(constDetails))
-                {
-                    writer.WriteParagraph(constDetails);
-                }
+                writer.WriteParagraph(typeDetails);
             }
         }
+    }
 
-        // Emit components in paragraph-per-component format: bold name followed by summary on same line
-        if (pkg.Components.Count > 0)
+    /// <summary>Emits the constants section in paragraph-per-constant format: bold name, colon, type, optional value, then summary.</summary>
+    /// <param name="writer">Markdown writer to emit into.</param>
+    /// <param name="pkg">The package declaration whose constants are emitted.</param>
+    /// <param name="depth">Base heading depth for the library root; the constants heading uses depth+3.</param>
+    private static void EmitPackageConstants(IMarkdownWriter writer, VhdlPackageDecl pkg, int depth)
+    {
+        if (pkg.Constants.Count == 0)
         {
-            writer.WriteHeading(depth + 3, "Components");
-            foreach (var c in pkg.Components)
-            {
-                // Single paragraph: bold component name em-dashed with summary to avoid standalone-bold MD036
-                var compSummary = VhdlEmitter.GetSummary(c.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder;
-                writer.WriteParagraph($"**{c.Name}** — {compSummary}");
-
-                // Optional extended details paragraph
-                var compDetails = c.Doc?.Details;
-                if (!string.IsNullOrEmpty(compDetails))
-                {
-                    writer.WriteParagraph(compDetails);
-                }
-            }
+            return;
         }
 
-        // Emit subprograms as individual sub-sections at depth+3 — each subprogram replaces the old table row
-        foreach (var s in pkg.Subprograms)
+        writer.WriteHeading(depth + 3, "Constants");
+        foreach (var c in pkg.Constants)
         {
-            EmitSubprogramSection(writer, s, depth);
+            // First paragraph: bold name, colon, backtick-wrapped type, equals and backtick-wrapped value if present
+            var constHeader = string.IsNullOrEmpty(c.Value)
+                ? $"**{c.Name}** : `{c.TypeName}`"
+                : $"**{c.Name}** : `{c.TypeName}` = `{c.Value}`";
+            writer.WriteParagraph(constHeader);
+
+            // Second paragraph: summary or placeholder
+            var constSummary = VhdlEmitter.GetSummary(c.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder;
+            writer.WriteParagraph(constSummary);
+
+            // Optional extended details paragraph
+            var constDetails = c.Doc?.Details;
+            if (!string.IsNullOrEmpty(constDetails))
+            {
+                writer.WriteParagraph(constDetails);
+            }
+        }
+    }
+
+    /// <summary>Emits the components section in paragraph-per-component format: bold name followed by summary on same line.</summary>
+    /// <param name="writer">Markdown writer to emit into.</param>
+    /// <param name="pkg">The package declaration whose components are emitted.</param>
+    /// <param name="depth">Base heading depth for the library root; the components heading uses depth+3.</param>
+    private static void EmitPackageComponents(IMarkdownWriter writer, VhdlPackageDecl pkg, int depth)
+    {
+        if (pkg.Components.Count == 0)
+        {
+            return;
+        }
+
+        writer.WriteHeading(depth + 3, "Components");
+        foreach (var c in pkg.Components)
+        {
+            // Single paragraph: bold component name em-dashed with summary to avoid standalone-bold MD036
+            var compSummary = VhdlEmitter.GetSummary(c.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder;
+            writer.WriteParagraph($"**{c.Name}** — {compSummary}");
+
+            // Optional extended details paragraph
+            var compDetails = c.Doc?.Details;
+            if (!string.IsNullOrEmpty(compDetails))
+            {
+                writer.WriteParagraph(compDetails);
+            }
         }
     }
 

@@ -139,23 +139,54 @@ internal sealed class CppEmitterSingleFile
             writer.WriteParagraph($"Nested type of `{parentClassName}`.");
         }
 
-        // Emit the class signature block when a source location is available
-        var sourceFile = cls.Location?.File;
-        if (!string.IsNullOrEmpty(sourceFile))
-        {
-            var includePath = _emitter.GetIncludePath(sourceFile);
-            var qualifiedName = string.IsNullOrEmpty(nsDisplay) ? cls.Name : $"{nsDisplay}::{cls.Name}";
-            var sigParts = new List<string> { $"// {qualifiedName}" };
-            var templateDecl = CppEmitter.BuildTemplateDeclaration(cls);
-            if (!string.IsNullOrEmpty(templateDecl))
-            {
-                sigParts.Add(templateDecl);
-            }
+        WriteSingleFileClassSignature(writer, nsDisplay, cls);
+        WriteSingleFileClassDocBlock(writer, cls);
+        WriteSingleFileClassMembers(writer, depth, nsDisplay, cls);
+        WriteSingleFileClassTypeAliases(writer, depth, nsDisplay, cls);
 
-            sigParts.Add($"#include \"{includePath}\"");
-            writer.WriteSignature("cpp", string.Join("\n", sigParts));
+        // Emit nested classes as peer H{depth+2} sections with a parent-context note
+        foreach (var nested in cls.NestedClasses.OrderBy(n => n.Name, StringComparer.Ordinal))
+        {
+            WriteSingleFileClassSection(writer, depth, nsDisplay, nested, cls.Name);
+        }
+    }
+
+    /// <summary>
+    ///     Emits the fenced C++ signature block for a class (qualified name comment, optional
+    ///     template declaration, and <c>#include</c> directive) when a source location is available.
+    /// </summary>
+    /// <param name="writer">Markdown writer to write to.</param>
+    /// <param name="nsDisplay">Display name of the enclosing namespace.</param>
+    /// <param name="cls">The class whose signature to emit.</param>
+    private void WriteSingleFileClassSignature(IMarkdownWriter writer, string nsDisplay, CppClass cls)
+    {
+        var sourceFile = cls.Location?.File;
+        if (string.IsNullOrEmpty(sourceFile))
+        {
+            return;
         }
 
+        var includePath = _emitter.GetIncludePath(sourceFile);
+        var qualifiedName = string.IsNullOrEmpty(nsDisplay) ? cls.Name : $"{nsDisplay}::{cls.Name}";
+        var sigParts = new List<string> { $"// {qualifiedName}" };
+        var templateDecl = CppEmitter.BuildTemplateDeclaration(cls);
+        if (!string.IsNullOrEmpty(templateDecl))
+        {
+            sigParts.Add(templateDecl);
+        }
+
+        sigParts.Add($"#include \"{includePath}\"");
+        writer.WriteSignature("cpp", string.Join("\n", sigParts));
+    }
+
+    /// <summary>
+    ///     Emits the summary (always), details, <c>@note</c> blockquote, and <c>@code</c>
+    ///     example block for a class's documentation comment.
+    /// </summary>
+    /// <param name="writer">Markdown writer to write to.</param>
+    /// <param name="cls">The class whose documentation to emit.</param>
+    private static void WriteSingleFileClassDocBlock(IMarkdownWriter writer, CppClass cls)
+    {
         // Summary (always emitted)
         var typeSummary = CppEmitter.GetSummary(cls.Doc);
         writer.WriteParagraph(!string.IsNullOrEmpty(typeSummary) ? typeSummary : CppEmitter.NoDescriptionPlaceholder);
@@ -179,7 +210,18 @@ internal sealed class CppEmitterSingleFile
         {
             writer.WriteCodeBlock("cpp", typeExample);
         }
+    }
 
+    /// <summary>
+    ///     Emits the compact member bullet list and H{depth+3} sections for each visible
+    ///     constructor, method, and field of a class.
+    /// </summary>
+    /// <param name="writer">Markdown writer to write to.</param>
+    /// <param name="depth">Heading depth offset from the library-level heading.</param>
+    /// <param name="nsDisplay">Display name of the enclosing namespace.</param>
+    /// <param name="cls">The class whose members to emit.</param>
+    private void WriteSingleFileClassMembers(IMarkdownWriter writer, int depth, string nsDisplay, CppClass cls)
+    {
         // Collect visible members — include operators so they appear alongside other members
         var visibleCtors = _emitter.GetVisibleConstructors(cls).OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
         var visibleMethods = _emitter.GetVisibleMethods(cls)
@@ -191,24 +233,35 @@ internal sealed class CppEmitterSingleFile
             .Concat(visibleFields.Cast<object>())
             .ToList();
 
-        if (allMembers.Count > 0)
+        if (allMembers.Count == 0)
         {
-            // Compact bullet list (no anchor links — names can collide across types in single file)
-            var bulletLines = allMembers.Select(member =>
-            {
-                var (displayName, memberSummary) = GetMemberDisplayAndSummary(member, cls.Name);
-                return $"- **{displayName}**: {memberSummary}";
-            });
-            writer.WriteParagraph(string.Join("\n", bulletLines));
-
-            // Emit each member as an H{depth+3} section
-            foreach (var member in allMembers)
-            {
-                WriteSingleFileMemberSection(writer, depth, nsDisplay, member, cls.Name);
-            }
+            return;
         }
 
-        // Emit class-scoped type aliases as H{depth+3} sub-entries below the member sections
+        // Compact bullet list (no anchor links — names can collide across types in single file)
+        var bulletLines = allMembers.Select(member =>
+        {
+            var (displayName, memberSummary) = GetMemberDisplayAndSummary(member, cls.Name);
+            return $"- **{displayName}**: {memberSummary}";
+        });
+        writer.WriteParagraph(string.Join("\n", bulletLines));
+
+        // Emit each member as an H{depth+3} section
+        foreach (var member in allMembers)
+        {
+            WriteSingleFileMemberSection(writer, depth, nsDisplay, member, cls.Name);
+        }
+    }
+
+    /// <summary>
+    ///     Emits class-scoped type aliases as H{depth+3} sub-entries below the member sections.
+    /// </summary>
+    /// <param name="writer">Markdown writer to write to.</param>
+    /// <param name="depth">Heading depth offset from the library-level heading.</param>
+    /// <param name="nsDisplay">Display name of the enclosing namespace.</param>
+    /// <param name="cls">The class whose type aliases to emit.</param>
+    private static void WriteSingleFileClassTypeAliases(IMarkdownWriter writer, int depth, string nsDisplay, CppClass cls)
+    {
         var classScope = string.IsNullOrEmpty(nsDisplay) ? cls.Name : $"{nsDisplay}::{cls.Name}";
         foreach (var alias in cls.TypeAliases.OrderBy(a => a.Name, StringComparer.Ordinal))
         {
@@ -218,12 +271,6 @@ internal sealed class CppEmitterSingleFile
             writer.WriteSignature("cpp", $"// {aliasQualifiedName}\nusing {alias.Name} = {simplifiedUnderlying};");
             var aliasSummary = CppEmitter.GetSummary(alias.Doc);
             writer.WriteParagraph(!string.IsNullOrEmpty(aliasSummary) ? aliasSummary : CppEmitter.NoDescriptionPlaceholder);
-        }
-
-        // Emit nested classes as peer H{depth+2} sections with a parent-context note
-        foreach (var nested in cls.NestedClasses.OrderBy(n => n.Name, StringComparer.Ordinal))
-        {
-            WriteSingleFileClassSection(writer, depth, nsDisplay, nested, cls.Name);
         }
     }
 
@@ -340,63 +387,94 @@ internal sealed class CppEmitterSingleFile
         switch (member)
         {
             case CppFunction fn:
-                {
-                    // Build fully-qualified comment + unqualified signature — matches gradual page style
-                    var qualifiedName = string.IsNullOrEmpty(nsDisplay)
-                        ? $"{className}::{fn.Name}"
-                        : $"{nsDisplay}::{className}::{fn.Name}";
-                    var fnSig = CppEmitter.BuildMethodSignature(fn);
-                    writer.WriteSignature("cpp", $"// {qualifiedName}\n{fnSig}");
-
-                    writer.WriteParagraph(!string.IsNullOrEmpty(memberSummary) ? memberSummary : CppEmitter.NoDescriptionPlaceholder);
-
-                    if (fn.Parameters.Count > 0)
-                    {
-                        WriteSingleFileParametersTable(writer, fn);
-                    }
-
-                    // Returns section for non-void non-constructor methods
-                    if (!fn.IsConstructor)
-                    {
-                        var returnTypeName = CppEmitter.SimplifyTypeName(fn.ReturnTypeName);
-                        if (!string.Equals(returnTypeName, "void", StringComparison.Ordinal))
-                        {
-                            var returnDescription = CppEmitter.GetReturnDescription(fn.Doc);
-                            writer.WriteParagraph(
-                                $"**Returns:** {(!string.IsNullOrEmpty(returnDescription) ? returnDescription : returnTypeName)}");
-                        }
-                    }
-
-                    // Emit @code example block when present
-                    var fnExample = CppEmitter.GetExample(fn.Doc);
-                    if (!string.IsNullOrEmpty(fnExample))
-                    {
-                        writer.WriteCodeBlock("cpp", fnExample);
-                    }
-
-                    break;
-                }
+                WriteSingleFileFunctionMemberBody(writer, nsDisplay, className, fn, memberSummary);
+                break;
 
             case CppField field:
-                {
-                    // Build fully-qualified comment + field declaration — matches gradual page style
-                    var qualifiedFieldName = string.IsNullOrEmpty(nsDisplay)
-                        ? $"{className}::{field.Name}"
-                        : $"{nsDisplay}::{className}::{field.Name}";
-                    var fieldSig = $"{CppEmitter.SimplifyTypeName(field.TypeName)} {field.Name};";
-                    writer.WriteSignature("cpp", $"// {qualifiedFieldName}\n{fieldSig}");
+                WriteSingleFileFieldMemberBody(writer, nsDisplay, className, field, memberSummary);
+                break;
+        }
+    }
 
-                    writer.WriteParagraph(!string.IsNullOrEmpty(memberSummary) ? memberSummary : CppEmitter.NoDescriptionPlaceholder);
+    /// <summary>
+    ///     Emits the signature, summary, parameters table, returns note, and code example
+    ///     for a single function/method member section.
+    /// </summary>
+    /// <param name="writer">Markdown writer to write to.</param>
+    /// <param name="nsDisplay">Display name of the enclosing namespace.</param>
+    /// <param name="className">The declaring class name, used to build the qualified name comment.</param>
+    /// <param name="fn">The function/method to emit.</param>
+    /// <param name="memberSummary">The resolved summary text (or placeholder) for the member.</param>
+    private static void WriteSingleFileFunctionMemberBody(
+        IMarkdownWriter writer,
+        string nsDisplay,
+        string className,
+        CppFunction fn,
+        string memberSummary)
+    {
+        // Build fully-qualified comment + unqualified signature — matches gradual page style
+        var qualifiedName = string.IsNullOrEmpty(nsDisplay)
+            ? $"{className}::{fn.Name}"
+            : $"{nsDisplay}::{className}::{fn.Name}";
+        var fnSig = CppEmitter.BuildMethodSignature(fn);
+        writer.WriteSignature("cpp", $"// {qualifiedName}\n{fnSig}");
 
-                    // Emit @code example block when present
-                    var fieldExample = CppEmitter.GetExample(field.Doc);
-                    if (!string.IsNullOrEmpty(fieldExample))
-                    {
-                        writer.WriteCodeBlock("cpp", fieldExample);
-                    }
+        writer.WriteParagraph(!string.IsNullOrEmpty(memberSummary) ? memberSummary : CppEmitter.NoDescriptionPlaceholder);
 
-                    break;
-                }
+        if (fn.Parameters.Count > 0)
+        {
+            WriteSingleFileParametersTable(writer, fn);
+        }
+
+        // Returns section for non-void non-constructor methods
+        if (!fn.IsConstructor)
+        {
+            var returnTypeName = CppEmitter.SimplifyTypeName(fn.ReturnTypeName);
+            if (!string.Equals(returnTypeName, "void", StringComparison.Ordinal))
+            {
+                var returnDescription = CppEmitter.GetReturnDescription(fn.Doc);
+                writer.WriteParagraph(
+                    $"**Returns:** {(!string.IsNullOrEmpty(returnDescription) ? returnDescription : returnTypeName)}");
+            }
+        }
+
+        // Emit @code example block when present
+        var fnExample = CppEmitter.GetExample(fn.Doc);
+        if (!string.IsNullOrEmpty(fnExample))
+        {
+            writer.WriteCodeBlock("cpp", fnExample);
+        }
+    }
+
+    /// <summary>
+    ///     Emits the declaration, summary, and code example for a single field member section.
+    /// </summary>
+    /// <param name="writer">Markdown writer to write to.</param>
+    /// <param name="nsDisplay">Display name of the enclosing namespace.</param>
+    /// <param name="className">The declaring class name, used to build the qualified name comment.</param>
+    /// <param name="field">The field to emit.</param>
+    /// <param name="memberSummary">The resolved summary text (or placeholder) for the member.</param>
+    private static void WriteSingleFileFieldMemberBody(
+        IMarkdownWriter writer,
+        string nsDisplay,
+        string className,
+        CppField field,
+        string memberSummary)
+    {
+        // Build fully-qualified comment + field declaration — matches gradual page style
+        var qualifiedFieldName = string.IsNullOrEmpty(nsDisplay)
+            ? $"{className}::{field.Name}"
+            : $"{nsDisplay}::{className}::{field.Name}";
+        var fieldSig = $"{CppEmitter.SimplifyTypeName(field.TypeName)} {field.Name};";
+        writer.WriteSignature("cpp", $"// {qualifiedFieldName}\n{fieldSig}");
+
+        writer.WriteParagraph(!string.IsNullOrEmpty(memberSummary) ? memberSummary : CppEmitter.NoDescriptionPlaceholder);
+
+        // Emit @code example block when present
+        var fieldExample = CppEmitter.GetExample(field.Doc);
+        if (!string.IsNullOrEmpty(fieldExample))
+        {
+            writer.WriteCodeBlock("cpp", fieldExample);
         }
     }
 

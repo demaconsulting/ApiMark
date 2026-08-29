@@ -1,0 +1,43 @@
+Fix CodeQL and SonarCloud code-quality issues
+
+Addresses all 14 CodeQL findings, 73 SonarCloud code smells, and the 1
+security hotspot reported by the "Build Documents" CI job's quality
+reports (CodeQL Quality Report / SonarCloud Quality Report).
+
+Security hotspot:
+- DotNetGenerator.cs: added an explicit timeout to the Regex call to
+  resolve the new_security_hotspots_reviewed quality-gate failure.
+
+CodeQL (14/14):
+- Extracted a complex boolean condition into named local variables
+  (cs/complex-condition).
+- Converted 5 imperative loops that only projected values into
+  `.Select()` LINQ expressions (cs/linq/missed-select).
+- Bundled the ref parameters of HandleBlockCommandComment into a state
+  object (cs/too-many-ref-parameters).
+- Replaced 7 ambiguous `Path.Combine` calls in test files with
+  `Path.Join` to remove root-drive ambiguity (cs/path-combine).
+
+SonarCloud (73 smells):
+- Refactored ~28 methods flagged for cognitive complexity (S3776) by
+  extracting helper methods.
+- Replaced repeated string literals with named constants (S1192).
+- Narrowed several interface-typed locals to their concrete types
+  where safe (CA1859).
+- Grouped clusters of related parameters into parameter objects to
+  resolve S107 (too many parameters).
+- Fixed misc CA1847, CA1816, xUnit2032 findings.
+- Removed redundant null-forgiving operators (S8969), keeping two
+  documented as false positives where the compiler cannot prove
+  non-null.
+- Documented the clang PATH lookup (S4036) as an intentional,
+  overridable design (APIMARK_CLANG_PATH) rather than a vulnerability.
+
+No test-framework packages (xunit.v3, coverlet.collector) were
+touched. Build is clean with 0 warnings/0 errors; test pass counts are
+unchanged from baseline (pre-existing environment-only failures in
+ApiMark.Cpp.Tests and ApiMark.MSBuild.PackageTests, caused by clang not
+being installed in this local environment, are unaffected by these
+changes and reproduce identically on main).
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>

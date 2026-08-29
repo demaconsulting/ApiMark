@@ -8,6 +8,32 @@ using static ApiMark.DotNet.DotNetEmitter;
 namespace ApiMark.DotNet;
 
 /// <summary>
+///     Mutable accumulators for the per-kind member table rows and external type references
+///     collected while writing a single type page. Used to reduce the parameter count on the
+///     member-processing helpers in <see cref="DotNetEmitterGradualDisclosure"/>.
+/// </summary>
+internal sealed class MemberRowBuckets
+{
+    /// <summary>Gets the accumulated constructor table rows.</summary>
+    internal List<string[]> ConstructorRows { get; } = [];
+
+    /// <summary>Gets the accumulated property table rows.</summary>
+    internal List<string[]> PropertyRows { get; } = [];
+
+    /// <summary>Gets the accumulated method table rows.</summary>
+    internal List<string[]> MethodRows { get; } = [];
+
+    /// <summary>Gets the accumulated field table rows.</summary>
+    internal List<string[]> FieldRows { get; } = [];
+
+    /// <summary>Gets the accumulated event table rows.</summary>
+    internal List<string[]> EventRows { get; } = [];
+
+    /// <summary>Gets the accumulated external type references found in type-column cells on the page.</summary>
+    internal SortedSet<ExternalTypeInfo> ExternalTypes { get; } = [];
+}
+
+/// <summary>
 ///     Writes the complete gradual-disclosure Markdown tree for a .NET assembly:
 ///     one assembly index page, one namespace summary page per namespace, one type page
 ///     per visible type, and one detail page per visible member.
@@ -18,6 +44,12 @@ namespace ApiMark.DotNet;
 /// </remarks>
 internal sealed class DotNetEmitterGradualDisclosure
 {
+    /// <summary>Fenced code block / signature language identifier for C# content.</summary>
+    private const string CSharpLanguageId = "csharp";
+
+    /// <summary>Column header used for member-name table columns across type and combined pages.</summary>
+    private const string MemberColumnHeader = "Member";
+
     /// <summary>Parent emitter providing shared helper methods and the data model.</summary>
     private readonly DotNetEmitter _emitter;
 
@@ -96,7 +128,7 @@ internal sealed class DotNetEmitterGradualDisclosure
             new[] { "Child namespace", "`{ParentPath}/{ChildName}.md`" },
             new[] { "Type", "`{NamespacePath}/{TypeName}.md`" },
             new[] { "Nested type", "`{NamespacePath}/{TypeName}/{NestedTypeName}.md`" },
-            new[] { "Member", "`{NamespacePath}/{TypeName}/{MemberName}.md`" },
+            new[] { MemberColumnHeader, "`{NamespacePath}/{TypeName}/{MemberName}.md`" },
             new[] { "Operators", "`{NamespacePath}/{TypeName}/operators.md`" },
         };
         apiWriter.WriteTable(conventionHeaders, conventionRows);
@@ -156,6 +188,27 @@ internal sealed class DotNetEmitterGradualDisclosure
         return string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
     }
 
+    /// <summary>
+    ///     Emits a sequence of structured example parts, rendering code parts as fenced C#
+    ///     code blocks and prose parts as paragraphs.
+    /// </summary>
+    /// <param name="writer">The Markdown writer to emit into.</param>
+    /// <param name="parts">The example parts to render, each flagged as code or prose.</param>
+    private static void WriteExampleParts(IMarkdownWriter writer, IEnumerable<(bool IsCode, string Content)> parts)
+    {
+        foreach (var (isCode, content) in parts)
+        {
+            if (isCode)
+            {
+                writer.WriteCodeBlock(CSharpLanguageId, content);
+            }
+            else
+            {
+                writer.WriteParagraph(content);
+            }
+        }
+    }
+
     // =========================================================================
     // Namespace page writer
     // =========================================================================
@@ -193,17 +246,7 @@ internal sealed class DotNetEmitterGradualDisclosure
                 nsWriter.WriteParagraph(nsDescription.Remarks);
             }
 
-            foreach (var (isCode, content) in nsDescription.ExampleParts)
-            {
-                if (isCode)
-                {
-                    nsWriter.WriteCodeBlock("csharp", content);
-                }
-                else
-                {
-                    nsWriter.WriteParagraph(content);
-                }
-            }
+            WriteExampleParts(nsWriter, nsDescription.ExampleParts);
         }
 
         // List immediate child namespaces (gradual disclosure — one level at a time)
@@ -265,9 +308,57 @@ internal sealed class DotNetEmitterGradualDisclosure
         using var typeWriter = ctx.Factory.CreateMarkdown(ctx.NamespaceFolderPath, FlattenArity(ctx.Type.Name));
         typeWriter.WriteHeading(1, StripArity(ctx.Type.Name));
 
+        WriteTypeHeaderSections(typeWriter, ctx);
+
+        // Delegates carry all their useful information in the declaration signature —
+        // the compiler-injected Invoke/BeginInvoke/EndInvoke methods and the synthetic
+        // (object, IntPtr) constructor are implementation noise that should never appear
+        // in public API docs, analogous to how enum backing fields are suppressed.
+        if (IsDelegate(ctx.Type))
+        {
+            return;
+        }
+
+        var (members, operatorMethods) = CollectTypePageMembers(ctx.Type);
+        if (members.Count == 0 && operatorMethods.Count == 0)
+        {
+            return;
+        }
+
+        var buckets = new MemberRowBuckets();
+        ProcessTypeMembers(ctx, members, buckets);
+
+        // Emit grouped sub-tables in the canonical order: Constructors, Properties, Methods, Fields, Events.
+        // Each section is only emitted when at least one member of that kind is present.
+        WriteMemberRowSections(typeWriter, buckets);
+
+        // Emit Operators section when the type has operator overloads — all operators share
+        // a single page to prevent file-name collisions between op_Addition, op_Subtraction, etc.
+        if (operatorMethods.Count > 0)
+        {
+            WriteTypeOperatorsSection(typeWriter, ctx, operatorMethods);
+        }
+
+        // Emit Nested Types section when the type has visible nested types — each nested type
+        // receives a dedicated page under the containing type's folder so the documentation
+        // hierarchy mirrors the C# type hierarchy
+        WriteNestedTypesSection(typeWriter, ctx);
+
+        // Emit the External Types section when any non-standard external types were referenced
+        WriteExternalTypesSection(typeWriter, buckets.ExternalTypes);
+    }
+
+    /// <summary>
+    ///     Writes the C# signature, summary, remarks, and structured example blocks that make
+    ///     up the header of a type page.
+    /// </summary>
+    /// <param name="typeWriter">The Markdown writer for the type page.</param>
+    /// <param name="ctx">The type-page context.</param>
+    private static void WriteTypeHeaderSections(IMarkdownWriter typeWriter, TypePageWriteContext ctx)
+    {
         // Emit the C# declaration signature so readers can see the type kind, modifiers, and direct inheritance
         var typeSignature = BuildTypeSignature(ctx.Type, ctx.NamespaceName);
-        typeWriter.WriteSignature("csharp", typeSignature);
+        typeWriter.WriteSignature(CSharpLanguageId, typeSignature);
 
         var typeMemberId = BuildTypeId(ctx.Type);
 
@@ -282,29 +373,20 @@ internal sealed class DotNetEmitterGradualDisclosure
         }
 
         // Emit structured example blocks for this type
-        foreach (var (isCode, content) in ctx.XmlDocs.GetExampleParts(typeMemberId))
-        {
-            if (isCode)
-            {
-                typeWriter.WriteCodeBlock("csharp", content);
-            }
-            else
-            {
-                typeWriter.WriteParagraph(content);
-            }
-        }
+        WriteExampleParts(typeWriter, ctx.XmlDocs.GetExampleParts(typeMemberId));
+    }
 
-        // Delegates carry all their useful information in the declaration signature —
-        // the compiler-injected Invoke/BeginInvoke/EndInvoke methods and the synthetic
-        // (object, IntPtr) constructor are implementation noise that should never appear
-        // in public API docs, analogous to how enum backing fields are suppressed.
-        if (IsDelegate(ctx.Type))
-        {
-            return;
-        }
-
+    /// <summary>
+    ///     Collects the visible members of <paramref name="type"/> ordered with constructors
+    ///     first then alphabetically, separating operator overload methods (which share a
+    ///     single <c>operators.md</c> page) from the remaining members.
+    /// </summary>
+    /// <param name="type">The type whose members to collect.</param>
+    /// <returns>The non-operator members and the operator methods, each deterministically ordered.</returns>
+    private (List<IMemberDefinition> Members, List<MethodDefinition> OperatorMethods) CollectTypePageMembers(TypeDefinition type)
+    {
         // Collect visible members: constructors first, then alphabetically
-        var allMembers = _emitter.GetVisibleMembers(ctx.Type)
+        var allMembers = _emitter.GetVisibleMembers(type)
             .OrderBy(m => m.Name == DotNetEmitter.ConstructorMethodName ? 0 : 1)
             .ThenBy(m => m.Name)
             .ToList();
@@ -323,11 +405,19 @@ internal sealed class DotNetEmitterGradualDisclosure
             .Where(m => !(m is MethodDefinition md && IsOperator(md)))
             .ToList();
 
-        if (members.Count == 0 && operatorMethods.Count == 0)
-        {
-            return;
-        }
+        return (members, operatorMethods);
+    }
 
+    /// <summary>
+    ///     Groups <paramref name="members"/> by case-insensitive sanitized file name and
+    ///     processes each member exactly once, writing individual, overload, or combined
+    ///     pages as appropriate and accumulating table rows into <paramref name="buckets"/>.
+    /// </summary>
+    /// <param name="ctx">The type-page context.</param>
+    /// <param name="members">Non-operator visible members of the type, already ordered.</param>
+    /// <param name="buckets">Row accumulators and external-type tracker for the type page.</param>
+    private static void ProcessTypeMembers(TypePageWriteContext ctx, List<IMemberDefinition> members, MemberRowBuckets buckets)
+    {
         // Build a case-insensitive map of all members by their sanitized file name to detect
         // collisions between members whose names differ only in case (e.g. field "name" and
         // property "Name"). Members sharing a lowercase key are combined onto a single page.
@@ -348,16 +438,6 @@ internal sealed class DotNetEmitterGradualDisclosure
         // are documented exactly once while their table rows are still emitted individually
         var writtenLowerKeys = new HashSet<string>(StringComparer.Ordinal);
 
-        // Accumulate rows into per-kind buckets for the grouped sub-table output
-        var constructorRows = new List<string[]>();
-        var propertyRows = new List<string[]>();
-        var methodRows = new List<string[]>();
-        var fieldRows = new List<string[]>();
-        var eventRows = new List<string[]>();
-
-        // Accumulate external type references found in all type-column cells on this page
-        var externalTypes = new SortedSet<ExternalTypeInfo>();
-
         // Emit one page per unique lowercase key and one table row per visible member.
         // Members whose sanitized file names collide case-insensitively share a combined page
         // named after the lowercase key; all their table rows link to that shared page.
@@ -368,7 +448,7 @@ internal sealed class DotNetEmitterGradualDisclosure
 
             if (group.Count == 1)
             {
-                ProcessSingleMember(ctx, member, constructorRows, propertyRows, methodRows, fieldRows, eventRows, externalTypes);
+                ProcessSingleMember(ctx, member, buckets);
             }
             else if (IsPureMethodOverloadGroup(group, ctx.Type))
             {
@@ -377,90 +457,108 @@ internal sealed class DotNetEmitterGradualDisclosure
                     continue;
                 }
 
-                ProcessOverloadGroup(ctx, group, constructorRows, methodRows, externalTypes);
+                ProcessOverloadGroup(ctx, group, buckets.ConstructorRows, buckets.MethodRows, buckets.ExternalTypes);
             }
             else
             {
-                ProcessCollisionMember(ctx, member, group, lowerKey, writtenLowerKeys, constructorRows, propertyRows, methodRows, fieldRows, eventRows, externalTypes);
+                ProcessCollisionMember(ctx, member, group, lowerKey, writtenLowerKeys, buckets);
             }
         }
+    }
 
-        // Emit grouped sub-tables in the canonical order: Constructors, Properties, Methods, Fields, Events.
-        // Each section is only emitted when at least one member of that kind is present.
-        if (constructorRows.Count > 0)
+    /// <summary>
+    ///     Emits grouped sub-tables for a type page in the canonical order: Constructors,
+    ///     Properties, Methods, Fields, Events. Each section is only emitted when at least
+    ///     one member of that kind is present.
+    /// </summary>
+    /// <param name="typeWriter">The Markdown writer for the type page.</param>
+    /// <param name="buckets">The accumulated per-kind member table rows.</param>
+    private static void WriteMemberRowSections(IMarkdownWriter typeWriter, MemberRowBuckets buckets)
+    {
+        if (buckets.ConstructorRows.Count > 0)
         {
             typeWriter.WriteHeading(2, "Constructors");
 
             // Constructors omit the Type/Returns column — they have no meaningful return type
-            typeWriter.WriteTable(new[] { "Member", DotNetEmitter.DescriptionColumnHeader }, constructorRows);
+            typeWriter.WriteTable(new[] { MemberColumnHeader, DotNetEmitter.DescriptionColumnHeader }, buckets.ConstructorRows);
         }
 
-        if (propertyRows.Count > 0)
+        if (buckets.PropertyRows.Count > 0)
         {
             typeWriter.WriteHeading(2, "Properties");
-            typeWriter.WriteTable(new[] { "Member", "Type", DotNetEmitter.DescriptionColumnHeader }, propertyRows);
+            typeWriter.WriteTable(new[] { MemberColumnHeader, "Type", DotNetEmitter.DescriptionColumnHeader }, buckets.PropertyRows);
         }
 
-        if (methodRows.Count > 0)
+        if (buckets.MethodRows.Count > 0)
         {
             typeWriter.WriteHeading(2, "Methods");
 
             // Use "Returns" instead of "Type" for the method type column — more accurate for return values
-            typeWriter.WriteTable(new[] { "Member", "Returns", DotNetEmitter.DescriptionColumnHeader }, methodRows);
+            typeWriter.WriteTable(new[] { MemberColumnHeader, "Returns", DotNetEmitter.DescriptionColumnHeader }, buckets.MethodRows);
         }
 
-        if (fieldRows.Count > 0)
+        if (buckets.FieldRows.Count > 0)
         {
             typeWriter.WriteHeading(2, "Fields");
-            typeWriter.WriteTable(new[] { "Member", "Type", DotNetEmitter.DescriptionColumnHeader }, fieldRows);
+            typeWriter.WriteTable(new[] { MemberColumnHeader, "Type", DotNetEmitter.DescriptionColumnHeader }, buckets.FieldRows);
         }
 
-        if (eventRows.Count > 0)
+        if (buckets.EventRows.Count > 0)
         {
             typeWriter.WriteHeading(2, "Events");
-            typeWriter.WriteTable(new[] { "Member", "Type", DotNetEmitter.DescriptionColumnHeader }, eventRows);
+            typeWriter.WriteTable(new[] { MemberColumnHeader, "Type", DotNetEmitter.DescriptionColumnHeader }, buckets.EventRows);
         }
+    }
 
-        // Emit Operators section when the type has operator overloads — all operators share
-        // a single page to prevent file-name collisions between op_Addition, op_Subtraction, etc.
-        if (operatorMethods.Count > 0)
-        {
-            WriteTypeOperatorsPage(ctx.Factory, ctx.NamespaceName, ctx.NamespaceFolderPath, ctx.Type, operatorMethods, ctx.XmlDocs, ctx.Resolver);
-            typeWriter.WriteHeading(2, "Operators");
-            typeWriter.WriteTable(
-                new[] { "Member", DotNetEmitter.DescriptionColumnHeader },
-                new[] { new[] { $"[Operators]({FlattenArity(ctx.Type.Name)}/operators.md)", "Operator overloads" } });
-        }
+    /// <summary>
+    ///     Writes the shared operators page for <paramref name="operatorMethods"/> and the
+    ///     Operators summary section linking to it from the type page.
+    /// </summary>
+    /// <param name="typeWriter">The Markdown writer for the type page.</param>
+    /// <param name="ctx">The type-page context.</param>
+    /// <param name="operatorMethods">The type's operator overload methods; must be non-empty.</param>
+    private static void WriteTypeOperatorsSection(IMarkdownWriter typeWriter, TypePageWriteContext ctx, List<MethodDefinition> operatorMethods)
+    {
+        WriteTypeOperatorsPage(ctx.Factory, ctx.NamespaceName, ctx.NamespaceFolderPath, ctx.Type, operatorMethods, ctx.XmlDocs, ctx.Resolver);
+        typeWriter.WriteHeading(2, "Operators");
+        typeWriter.WriteTable(
+            new[] { MemberColumnHeader, DotNetEmitter.DescriptionColumnHeader },
+            new[] { new[] { $"[Operators]({FlattenArity(ctx.Type.Name)}/operators.md)", "Operator overloads" } });
+    }
 
-        // Emit Nested Types section when the type has visible nested types — each nested type
-        // receives a dedicated page under the containing type's folder so the documentation
-        // hierarchy mirrors the C# type hierarchy
+    /// <summary>
+    ///     Writes the Nested Types summary table and recursively writes a dedicated page for
+    ///     each visible nested type of <paramref name="ctx"/>'s type, when any exist.
+    /// </summary>
+    /// <param name="typeWriter">The Markdown writer for the type page.</param>
+    /// <param name="ctx">The type-page context.</param>
+    private void WriteNestedTypesSection(IMarkdownWriter typeWriter, TypePageWriteContext ctx)
+    {
         var visibleNestedTypes = _emitter.GetVisibleNestedTypes(ctx.Type).ToList();
-        if (visibleNestedTypes.Count > 0)
+        if (visibleNestedTypes.Count == 0)
         {
-            typeWriter.WriteHeading(2, "Nested Types");
-            var nestedTypeHeaders = new[] { "Type", DotNetEmitter.DescriptionColumnHeader };
-            var nestedTypeRows = visibleNestedTypes.Select(nested =>
-            {
-                var nestedTypeId = BuildTypeId(nested);
-                var nestedSummary = ctx.XmlDocs.GetSummary(nestedTypeId) ?? DotNetEmitter.NoDescriptionPlaceholder;
-                var nestedDisplayName = StripArity(nested.Name);
-                var nestedLink = $"{FlattenArity(ctx.Type.Name)}/{FlattenArity(nested.Name)}.md";
-                return new[] { $"[{nestedDisplayName}]({nestedLink})", nestedSummary };
-            });
-            typeWriter.WriteTable(nestedTypeHeaders, nestedTypeRows);
-
-            // Recursively write a dedicated page for each visible nested type under the
-            // containing type's folder, mirroring the C# type nesting hierarchy
-            var nestedFolderPath = $"{ctx.NamespaceFolderPath}/{FlattenArity(ctx.Type.Name)}";
-            foreach (var nested in visibleNestedTypes)
-            {
-                WriteTypePage(new TypePageWriteContext(ctx.Factory, ctx.NamespaceName, nestedFolderPath, nested, ctx.XmlDocs, ctx.Resolver));
-            }
+            return;
         }
 
-        // Emit the External Types section when any non-standard external types were referenced
-        WriteExternalTypesSection(typeWriter, externalTypes);
+        typeWriter.WriteHeading(2, "Nested Types");
+        var nestedTypeHeaders = new[] { "Type", DotNetEmitter.DescriptionColumnHeader };
+        var nestedTypeRows = visibleNestedTypes.Select(nested =>
+        {
+            var nestedTypeId = BuildTypeId(nested);
+            var nestedSummary = ctx.XmlDocs.GetSummary(nestedTypeId) ?? DotNetEmitter.NoDescriptionPlaceholder;
+            var nestedDisplayName = StripArity(nested.Name);
+            var nestedLink = $"{FlattenArity(ctx.Type.Name)}/{FlattenArity(nested.Name)}.md";
+            return new[] { $"[{nestedDisplayName}]({nestedLink})", nestedSummary };
+        });
+        typeWriter.WriteTable(nestedTypeHeaders, nestedTypeRows);
+
+        // Recursively write a dedicated page for each visible nested type under the
+        // containing type's folder, mirroring the C# type nesting hierarchy
+        var nestedFolderPath = $"{ctx.NamespaceFolderPath}/{FlattenArity(ctx.Type.Name)}";
+        foreach (var nested in visibleNestedTypes)
+        {
+            WriteTypePage(new TypePageWriteContext(ctx.Factory, ctx.NamespaceName, nestedFolderPath, nested, ctx.XmlDocs, ctx.Resolver));
+        }
     }
 
     // =========================================================================
@@ -525,7 +623,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         string namespaceName,
         string namespaceFolderPath,
         TypeDefinition type,
-        IReadOnlyList<MethodDefinition> overloads,
+        List<MethodDefinition> overloads,
         XmlDocReader xmlDocs,
         TypeLinkResolver resolver)
     {
@@ -671,7 +769,7 @@ internal sealed class DotNetEmitterGradualDisclosure
     ///     have the same exact file name; <see langword="false"/> otherwise.
     /// </returns>
     private static bool IsPureMethodOverloadGroup(
-        IReadOnlyList<IMemberDefinition> group,
+        List<IMemberDefinition> group,
         TypeDefinition type)
     {
         // All members must be methods — mixed kinds are never pure overload groups
@@ -701,7 +799,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         EventDefinition => "Event",
         MethodDefinition m when m.Name == DotNetEmitter.ConstructorMethodName => "Constructor",
         MethodDefinition => "Method",
-        _ => "Member",
+        _ => MemberColumnHeader,
     };
 
     /// <summary>
@@ -715,27 +813,17 @@ internal sealed class DotNetEmitterGradualDisclosure
     /// </remarks>
     /// <param name="ctx">The type-page context containing factory, namespace, type, and resolver.</param>
     /// <param name="member">The single member to document.</param>
-    /// <param name="constructorRows">Accumulator for constructor table rows.</param>
-    /// <param name="propertyRows">Accumulator for property table rows.</param>
-    /// <param name="methodRows">Accumulator for method table rows.</param>
-    /// <param name="fieldRows">Accumulator for field table rows.</param>
-    /// <param name="eventRows">Accumulator for event table rows.</param>
-    /// <param name="externalTypes">External type reference accumulator for the current type page.</param>
+    /// <param name="buckets">Row accumulators and external-type tracker for the current type page.</param>
     private static void ProcessSingleMember(
         TypePageWriteContext ctx,
         IMemberDefinition member,
-        List<string[]> constructorRows,
-        List<string[]> propertyRows,
-        List<string[]> methodRows,
-        List<string[]> fieldRows,
-        List<string[]> eventRows,
-        SortedSet<ExternalTypeInfo> externalTypes)
+        MemberRowBuckets buckets)
     {
         var memberId = BuildMemberId(member);
         var memberSummary = ctx.XmlDocs.GetSummary(memberId) ?? DotNetEmitter.NoDescriptionPlaceholder;
         var memberTypeRef = GetMemberTypeRef(member);
         var memberTypeName = memberTypeRef != null
-            ? ctx.Resolver.Linkify(memberTypeRef, ctx.NamespaceFolderPath, ctx.NamespaceName, externalTypes, IsMemberTypeNullableAnnotated(member))
+            ? ctx.Resolver.Linkify(memberTypeRef, ctx.NamespaceFolderPath, ctx.NamespaceName, buckets.ExternalTypes, IsMemberTypeNullableAnnotated(member))
             : string.Empty;
         var memberDisplayName = GetMemberDisplayName(member);
         var sanitizedName = GetSanitizedMemberFileName(member, ctx.Type);
@@ -747,11 +835,11 @@ internal sealed class DotNetEmitterGradualDisclosure
             var isConstructor = singleMethod.Name == DotNetEmitter.ConstructorMethodName;
             if (isConstructor)
             {
-                constructorRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberSummary });
+                buckets.ConstructorRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberSummary });
             }
             else
             {
-                methodRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                buckets.MethodRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
             }
         }
         else
@@ -760,13 +848,13 @@ internal sealed class DotNetEmitterGradualDisclosure
             switch (member)
             {
                 case PropertyDefinition:
-                    propertyRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                    buckets.PropertyRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
                     break;
                 case FieldDefinition:
-                    fieldRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                    buckets.FieldRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
                     break;
                 case EventDefinition:
-                    eventRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
+                    buckets.EventRows.Add(new[] { $"[{memberDisplayName}]({memberPageLink})", memberTypeName, memberSummary });
                     break;
             }
         }
@@ -842,24 +930,14 @@ internal sealed class DotNetEmitterGradualDisclosure
     /// <param name="group">All members sharing the same lowercase collision key.</param>
     /// <param name="lowerKey">The shared lowercase file name key.</param>
     /// <param name="writtenLowerKeys">Tracks keys whose combined page has already been written.</param>
-    /// <param name="constructorRows">Accumulator for constructor table rows.</param>
-    /// <param name="propertyRows">Accumulator for property table rows.</param>
-    /// <param name="methodRows">Accumulator for method table rows.</param>
-    /// <param name="fieldRows">Accumulator for field table rows.</param>
-    /// <param name="eventRows">Accumulator for event table rows.</param>
-    /// <param name="externalTypes">External type reference accumulator for the current type page.</param>
+    /// <param name="buckets">Row accumulators and external-type tracker for the current type page.</param>
     private static void ProcessCollisionMember(
         TypePageWriteContext ctx,
         IMemberDefinition member,
         IReadOnlyList<IMemberDefinition> group,
         string lowerKey,
         HashSet<string> writtenLowerKeys,
-        List<string[]> constructorRows,
-        List<string[]> propertyRows,
-        List<string[]> methodRows,
-        List<string[]> fieldRows,
-        List<string[]> eventRows,
-        SortedSet<ExternalTypeInfo> externalTypes)
+        MemberRowBuckets buckets)
     {
         var memberLink = $"{FlattenArity(ctx.Type.Name)}/{lowerKey}.md";
 
@@ -874,7 +952,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         var memberSummary = ctx.XmlDocs.GetSummary(memberId) ?? DotNetEmitter.NoDescriptionPlaceholder;
         var memberTypeRef = GetMemberTypeRef(member);
         var memberTypeName = memberTypeRef != null
-            ? ctx.Resolver.Linkify(memberTypeRef, ctx.NamespaceFolderPath, ctx.NamespaceName, externalTypes, IsMemberTypeNullableAnnotated(member))
+            ? ctx.Resolver.Linkify(memberTypeRef, ctx.NamespaceFolderPath, ctx.NamespaceName, buckets.ExternalTypes, IsMemberTypeNullableAnnotated(member))
             : string.Empty;
         var memberDisplayName = GetMemberDisplayName(member);
 
@@ -884,22 +962,22 @@ internal sealed class DotNetEmitterGradualDisclosure
                 var isConstructor = m.Name == DotNetEmitter.ConstructorMethodName;
                 if (isConstructor)
                 {
-                    constructorRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberSummary });
+                    buckets.ConstructorRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberSummary });
                 }
                 else
                 {
-                    methodRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
+                    buckets.MethodRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
                 }
 
                 break;
             case PropertyDefinition:
-                propertyRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
+                buckets.PropertyRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
                 break;
             case FieldDefinition:
-                fieldRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
+                buckets.FieldRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
                 break;
             case EventDefinition:
-                eventRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
+                buckets.EventRows.Add(new[] { $"[{memberDisplayName}]({memberLink})", memberTypeName, memberSummary });
                 break;
         }
     }
@@ -924,7 +1002,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         MethodDocContext ctx)
     {
         var signature = BuildMemberSignature(member, ctx.NamespaceName);
-        writer.WriteSignature("csharp", signature);
+        writer.WriteSignature(CSharpLanguageId, signature);
 
         var summary = ctx.XmlDocs.GetSummary(memberId);
         writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : DotNetEmitter.NoDescriptionPlaceholder);
@@ -949,17 +1027,7 @@ internal sealed class DotNetEmitterGradualDisclosure
             writer.WriteParagraph(remarks);
         }
 
-        foreach (var (isCode, content) in ctx.XmlDocs.GetExampleParts(memberId))
-        {
-            if (isCode)
-            {
-                writer.WriteCodeBlock("csharp", content);
-            }
-            else
-            {
-                writer.WriteParagraph(content);
-            }
-        }
+        WriteExampleParts(writer, ctx.XmlDocs.GetExampleParts(memberId));
     }
 
     /// <summary>
@@ -983,7 +1051,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         MethodDocContext ctx)
     {
         var signature = BuildMethodSignature(method, ctx.NamespaceName);
-        memberWriter.WriteSignature("csharp", signature);
+        memberWriter.WriteSignature(CSharpLanguageId, signature);
 
         // Always emit a summary paragraph — use the placeholder when no doc is present
         var summary = ctx.XmlDocs.GetSummary(memberId);
@@ -1024,17 +1092,7 @@ internal sealed class DotNetEmitterGradualDisclosure
             memberWriter.WriteParagraph(remarks);
         }
 
-        foreach (var (isCode, content) in ctx.XmlDocs.GetExampleParts(memberId))
-        {
-            if (isCode)
-            {
-                memberWriter.WriteCodeBlock("csharp", content);
-            }
-            else
-            {
-                memberWriter.WriteParagraph(content);
-            }
-        }
+        WriteExampleParts(memberWriter, ctx.XmlDocs.GetExampleParts(memberId));
     }
 
     /// <summary>

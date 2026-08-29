@@ -42,7 +42,7 @@ public class DocumentationCoverageCheckerTests
     /// <param name="assembly">The fixture assembly to scope.</param>
     /// <param name="keepFullNames">Fully-qualified type names to keep visible to the scan.</param>
     /// <returns>Exact-match exclude patterns for every other top-level type.</returns>
-    private static IReadOnlyList<string> ExcludeAllExcept(AssemblyDefinition assembly, params string[] keepFullNames) =>
+    private static List<string> ExcludeAllExcept(AssemblyDefinition assembly, params string[] keepFullNames) =>
         assembly.MainModule.Types
             .Where(t => !t.IsNested)
             .Select(t => t.FullName.Replace('/', '.'))

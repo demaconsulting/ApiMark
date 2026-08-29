@@ -230,7 +230,7 @@ public class CppEmitterTests
         // Arrange: emitter whose include root is the fixture include directory
         var (emitter, _, _) = BuildMinimalEmitter();
         var root = FixturePaths.GetFixtureIncludeDir();
-        var headerFile = Path.Combine(root, "mylib", "widget.h");
+        var headerFile = Path.Join(root, "mylib", "widget.h");
 
         // Act
         var result = emitter.GetIncludePath(headerFile);
@@ -248,7 +248,7 @@ public class CppEmitterTests
     {
         // Arrange: header path completely outside any configured include root
         var (emitter, _, _) = BuildMinimalEmitter();
-        var headerFile = Path.Combine(Path.GetTempPath(), "standalone.h");
+        var headerFile = Path.Join(Path.GetTempPath(), "standalone.h");
 
         // Act
         var result = emitter.GetIncludePath(headerFile);

@@ -135,7 +135,7 @@ internal sealed class TypeLinkResolver
         // appending "?" when the annotation indicates the parameter itself is nullable
         if (typeRef is GenericParameter genericParam)
         {
-            return isNullableAnnotated ? genericParam.Name + "?" : genericParam.Name;
+            return LinkifyGenericParameter(genericParam, isNullableAnnotated);
         }
 
         // Handle Nullable<T> → T? by recursing on the inner type with the nullable flag set
@@ -149,9 +149,7 @@ internal sealed class TypeLinkResolver
         // Handle array types by resolving the element type and appending the rank-aware suffix
         if (typeRef is ArrayType arrayType)
         {
-            var elementText = Linkify(arrayType.ElementType, currentFolder, contextNamespace, externalTypes);
-            var suffix = "[" + new string(',', arrayType.Rank - 1) + "]";
-            return isNullableAnnotated ? elementText + suffix + "?" : elementText + suffix;
+            return LinkifyArrayType(arrayType, currentFolder, contextNamespace, externalTypes, isNullableAnnotated);
         }
 
         // Handle generic instance types: linkify the container when intra-assembly, else track external
@@ -164,8 +162,7 @@ internal sealed class TypeLinkResolver
         if (PrimitiveFullNames.Contains(typeRef.FullName) ||
             typeRef.FullName == "System.Nullable`1")
         {
-            var alias = TypeNameSimplifier.Simplify(typeRef, contextNamespace);
-            return isNullableAnnotated ? alias + "?" : alias;
+            return LinkifyPrimitiveType(typeRef, contextNamespace, isNullableAnnotated);
         }
 
         // Intra-assembly types get a relative Markdown link to their documentation page
@@ -175,6 +172,53 @@ internal sealed class TypeLinkResolver
         }
 
         // Non-System external types are tracked for the External Types section
+        return LinkifyExternalType(typeRef, externalTypes, isNullableAnnotated);
+    }
+
+    /// <summary>Renders a generic type parameter (e.g. <c>T</c>, <c>TKey</c>) as plain text.</summary>
+    /// <param name="genericParam">The generic parameter reference.</param>
+    /// <param name="isNullableAnnotated">Whether the parameter itself is annotated nullable.</param>
+    /// <returns>The parameter name, with a trailing <c>?</c> when nullable-annotated.</returns>
+    private static string LinkifyGenericParameter(GenericParameter genericParam, bool isNullableAnnotated) =>
+        isNullableAnnotated ? genericParam.Name + "?" : genericParam.Name;
+
+    /// <summary>Resolves an array type by linkifying its element type and appending the rank-aware suffix.</summary>
+    /// <param name="arrayType">The array type reference.</param>
+    /// <param name="currentFolder">Folder path of the containing Markdown file.</param>
+    /// <param name="contextNamespace">Namespace context for name simplification.</param>
+    /// <param name="externalTypes">Accumulator for external type references.</param>
+    /// <param name="isNullableAnnotated">Whether the nullable-reference annotation is present.</param>
+    /// <returns>A Markdown cell string for the array type.</returns>
+    private string LinkifyArrayType(
+        ArrayType arrayType,
+        string currentFolder,
+        string contextNamespace,
+        ISet<ExternalTypeInfo> externalTypes,
+        bool isNullableAnnotated)
+    {
+        var elementText = Linkify(arrayType.ElementType, currentFolder, contextNamespace, externalTypes);
+        var suffix = "[" + new string(',', arrayType.Rank - 1) + "]";
+        return isNullableAnnotated ? elementText + suffix + "?" : elementText + suffix;
+    }
+
+    /// <summary>Renders a primitive type (or the open <c>Nullable&lt;&gt;</c> type) as its simplified C# alias.</summary>
+    /// <param name="typeRef">The primitive type reference.</param>
+    /// <param name="contextNamespace">Namespace context for name simplification.</param>
+    /// <param name="isNullableAnnotated">Whether the nullable-reference annotation is present.</param>
+    /// <returns>The simplified alias, with a trailing <c>?</c> when nullable-annotated.</returns>
+    private static string LinkifyPrimitiveType(TypeReference typeRef, string contextNamespace, bool isNullableAnnotated)
+    {
+        var alias = TypeNameSimplifier.Simplify(typeRef, contextNamespace);
+        return isNullableAnnotated ? alias + "?" : alias;
+    }
+
+    /// <summary>Tracks a non-System external type reference and renders its simplified name.</summary>
+    /// <param name="typeRef">The external type reference.</param>
+    /// <param name="externalTypes">Accumulator for external type references.</param>
+    /// <param name="isNullableAnnotated">Whether the nullable-reference annotation is present.</param>
+    /// <returns>The simplified type name, with a trailing <c>?</c> when nullable-annotated.</returns>
+    private static string LinkifyExternalType(TypeReference typeRef, ISet<ExternalTypeInfo> externalTypes, bool isNullableAnnotated)
+    {
         TrackExternalType(typeRef, externalTypes);
         var name = TypeNameSimplifier.StripArity(typeRef.Name);
         return isNullableAnnotated ? name + "?" : name;

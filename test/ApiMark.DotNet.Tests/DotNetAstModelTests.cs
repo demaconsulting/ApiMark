@@ -124,8 +124,8 @@ public class DotNetAstModelTests
         var model = emitter.Model;
 
         // Assert: each collection-type property must satisfy IReadOnly* at runtime
-        Assert.IsAssignableFrom<IReadOnlyList<string>>(model.AllNamespaces);
-        Assert.IsAssignableFrom<IReadOnlyDictionary<string, IReadOnlyList<Mono.Cecil.TypeDefinition>>>(model.ByNamespace);
-        Assert.IsAssignableFrom<IReadOnlyList<string>>(model.RootNamespaces);
+        Assert.IsType<IReadOnlyList<string>>(model.AllNamespaces, exactMatch: false);
+        Assert.IsType<IReadOnlyDictionary<string, IReadOnlyList<Mono.Cecil.TypeDefinition>>>(model.ByNamespace, exactMatch: false);
+        Assert.IsType<IReadOnlyList<string>>(model.RootNamespaces, exactMatch: false);
     }
 }

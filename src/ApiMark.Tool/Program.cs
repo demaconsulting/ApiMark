@@ -29,6 +29,15 @@ namespace ApiMark.Tool;
 /// </remarks>
 internal static class Program
 {
+    /// <summary>The <c>dotnet</c> language subcommand identifier.</summary>
+    private const string DotNetLanguageId = "dotnet";
+
+    /// <summary>The <c>cpp</c> language subcommand identifier.</summary>
+    private const string CppLanguageId = "cpp";
+
+    /// <summary>The <c>vhdl</c> language subcommand identifier.</summary>
+    private const string VhdlLanguageId = "vhdl";
+
     /// <summary>
     ///     Gets the application version string.
     /// </summary>
@@ -134,53 +143,8 @@ internal static class Program
     /// <param name="context">The context containing parsed options and program state.</param>
     private static void RunToolLogic(Context context)
     {
-        // Require a language subcommand before validating language-specific options
-        if (string.IsNullOrEmpty(context.Language))
+        if (!ValidateRequiredOptions(context))
         {
-            context.WriteError("Error: No language subcommand specified.");
-            PrintHelp(context);
-            return;
-        }
-
-        // Require --output for every language subcommand
-        if (string.IsNullOrEmpty(context.Output))
-        {
-            context.WriteError("Error: --output is required.");
-            PrintHelp(context);
-            return;
-        }
-
-        // Validate dotnet-specific required options before constructing the generator
-        if (context.Language == "dotnet" && string.IsNullOrEmpty(context.Assembly))
-        {
-            context.WriteError("Error: --assembly is required for the dotnet subcommand.");
-            PrintHelp(context);
-            return;
-        }
-
-        if (context.Language == "dotnet" && string.IsNullOrEmpty(context.XmlDoc))
-        {
-            context.WriteError("Error: --xml-doc is required for the dotnet subcommand.");
-            PrintHelp(context);
-            return;
-        }
-
-        // Validate cpp-specific required options before constructing the generator.
-        // Whitespace-only entries in the Includes array are treated as absent for this check.
-        if (context.Language == "cpp" && !context.Includes.Any(s => !string.IsNullOrWhiteSpace(s)))
-        {
-            context.WriteError("Error: --includes is required for the cpp subcommand.");
-            PrintHelp(context);
-            return;
-        }
-
-        // Validate vhdl-specific required options: at least one non-empty, non-exclusion --source
-        // pattern must be provided so the generator has something to scan.
-        if (context.Language == "vhdl" &&
-            !context.Sources.Any(s => !s.StartsWith('!') && !string.IsNullOrWhiteSpace(s)))
-        {
-            context.WriteError("Error: at least one non-exclusion --source pattern is required for the vhdl subcommand.");
-            PrintHelp(context);
             return;
         }
 
@@ -219,6 +183,9 @@ internal static class Program
                 context.WriteLine("Note: --enforce-docs is not supported for this generator; ignoring.");
             }
 
+            // Output was already confirmed non-null and non-empty earlier in this method by the
+            // required-options check; the null-forgiving operator below suppresses a nullable
+            // warning the compiler cannot resolve across that separate validation step.
             var factory = new FileMarkdownWriterFactory(context.Output!);
             var emitConfig = new EmitConfig
             {
@@ -233,6 +200,67 @@ internal static class Program
         {
             context.WriteError($"Error: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    ///     Validates the language subcommand and its required options, writing an error and the
+    ///     help text when a required option is missing.
+    /// </summary>
+    /// <param name="context">The context containing parsed options and program state.</param>
+    /// <returns><see langword="true"/> when all required options are present; otherwise <see langword="false"/>.</returns>
+    private static bool ValidateRequiredOptions(Context context)
+    {
+        // Require a language subcommand before validating language-specific options
+        if (string.IsNullOrEmpty(context.Language))
+        {
+            context.WriteError("Error: No language subcommand specified.");
+            PrintHelp(context);
+            return false;
+        }
+
+        // Require --output for every language subcommand
+        if (string.IsNullOrEmpty(context.Output))
+        {
+            context.WriteError("Error: --output is required.");
+            PrintHelp(context);
+            return false;
+        }
+
+        // Validate dotnet-specific required options before constructing the generator
+        if (context.Language == DotNetLanguageId && string.IsNullOrEmpty(context.Assembly))
+        {
+            context.WriteError("Error: --assembly is required for the dotnet subcommand.");
+            PrintHelp(context);
+            return false;
+        }
+
+        if (context.Language == DotNetLanguageId && string.IsNullOrEmpty(context.XmlDoc))
+        {
+            context.WriteError("Error: --xml-doc is required for the dotnet subcommand.");
+            PrintHelp(context);
+            return false;
+        }
+
+        // Validate cpp-specific required options before constructing the generator.
+        // Whitespace-only entries in the Includes array are treated as absent for this check.
+        if (context.Language == CppLanguageId && !context.Includes.Any(s => !string.IsNullOrWhiteSpace(s)))
+        {
+            context.WriteError("Error: --includes is required for the cpp subcommand.");
+            PrintHelp(context);
+            return false;
+        }
+
+        // Validate vhdl-specific required options: at least one non-empty, non-exclusion --source
+        // pattern must be provided so the generator has something to scan.
+        if (context.Language == VhdlLanguageId &&
+            !context.Sources.Any(s => !s.StartsWith('!') && !string.IsNullOrWhiteSpace(s)))
+        {
+            context.WriteError("Error: at least one non-exclusion --source pattern is required for the vhdl subcommand.");
+            PrintHelp(context);
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -324,57 +352,13 @@ internal static class Program
         // disabled (each generator's own EnforceDocsVisibility option stays null). Validated
         // per-subcommand here so an invalid value fails fast, before Parse runs, for all three
         // languages uniformly.
-        DotNetApiVisibility? enforceDocsVisibility = null;
-        CppApiVisibility? cppEnforceDocsVisibility = null;
-        string? vhdlEnforceDocsVisibility = null;
-        if (!string.IsNullOrEmpty(context.EnforceDocs))
-        {
-            switch (context.Language)
-            {
-                case "dotnet":
-                    if (!Enum.TryParse<DotNetApiVisibility>(context.EnforceDocs, ignoreCase: true, out var parsedDotNetTier))
-                    {
-                        throw new ArgumentException(
-                            $"Invalid --enforce-docs value '{context.EnforceDocs}'. " +
-                            $"Valid values are: {string.Join(", ", Enum.GetNames<DotNetApiVisibility>())}.");
-                    }
-
-                    enforceDocsVisibility = parsedDotNetTier;
-                    break;
-
-                case "cpp":
-                    if (!Enum.TryParse<CppApiVisibility>(context.EnforceDocs, ignoreCase: true, out var parsedCppTier))
-                    {
-                        throw new ArgumentException(
-                            $"Invalid --enforce-docs value '{context.EnforceDocs}'. " +
-                            $"Valid values are: {string.Join(", ", Enum.GetNames<CppApiVisibility>())}.");
-                    }
-
-                    cppEnforceDocsVisibility = parsedCppTier;
-                    break;
-
-                case "vhdl":
-                    // VHDL has no visibility/accessibility concept: Public, PublicAndProtected,
-                    // and All are all accepted (using the same vocabulary as dotnet/cpp purely
-                    // for a consistent CLI experience and error message) but behave identically —
-                    // see ApiMark.Vhdl.DocumentationCoverageChecker. The parsed enum value itself
-                    // is discarded; only the raw string is forwarded to VhdlGeneratorOptions.
-                    if (!Enum.TryParse<DotNetApiVisibility>(context.EnforceDocs, ignoreCase: true, out _))
-                    {
-                        throw new ArgumentException(
-                            $"Invalid --enforce-docs value '{context.EnforceDocs}'. " +
-                            $"Valid values are: {string.Join(", ", Enum.GetNames<DotNetApiVisibility>())}.");
-                    }
-
-                    vhdlEnforceDocsVisibility = context.EnforceDocs;
-                    break;
-            }
-        }
+        var (enforceDocsVisibility, cppEnforceDocsVisibility, vhdlEnforceDocsVisibility) =
+            ResolveEnforceDocsTiers(context);
 
         return context.Language switch
         {
             // Construct a DotNetGenerator from the dotnet-specific options
-            "dotnet" => new DotNetGenerator(new DotNetGeneratorOptions
+            DotNetLanguageId => new DotNetGenerator(new DotNetGeneratorOptions
             {
                 AssemblyPath = context.Assembly ?? string.Empty,
                 XmlDocPath = context.XmlDoc ?? string.Empty,
@@ -387,7 +371,7 @@ internal static class Program
             // Construct a CppGenerator from the cpp-specific options; cast visibility via its
             // integer ordinal because ApiMark.Cpp.ApiVisibility mirrors ApiMark.DotNet.ApiVisibility
             // with identical values and the projects must not depend on each other
-            "cpp" => new CppGenerator(new CppGeneratorOptions
+            CppLanguageId => new CppGenerator(new CppGeneratorOptions
             {
                 LibraryName = cppLibraryName,
                 Description = context.LibraryDescription ?? string.Empty,
@@ -402,7 +386,7 @@ internal static class Program
             }),
 
             // Construct a VhdlGenerator from the vhdl-specific options
-            "vhdl" => new VhdlGenerator(new VhdlGeneratorOptions
+            VhdlLanguageId => new VhdlGenerator(new VhdlGeneratorOptions
             {
                 LibraryName = !string.IsNullOrEmpty(context.LibraryName) ? context.LibraryName : defaultLibraryName,
                 Description = context.LibraryDescription ?? string.Empty,
@@ -414,6 +398,70 @@ internal static class Program
             _ => throw new NotSupportedException(
                 $"Unrecognized language subcommand '{context.Language}'."),
         };
+    }
+
+    /// <summary>
+    ///     Parses the optional <c>--enforce-docs</c> value into the per-language enforcement tier
+    ///     understood by whichever generator matches <see cref="Context.Language"/>.
+    /// </summary>
+    /// <param name="context">The context containing parsed options and program state.</param>
+    /// <returns>
+    ///     A tuple of the parsed dotnet, cpp, and vhdl enforcement tiers; at most one is
+    ///     non-<see langword="null"/>, matching <see cref="Context.Language"/>. All three are
+    ///     <see langword="null"/> when <see cref="Context.EnforceDocs"/> is not set.
+    /// </returns>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <see cref="Context.EnforceDocs"/> is set but is not a recognized
+    ///     visibility tier for the active language.
+    /// </exception>
+    private static (DotNetApiVisibility? DotNet, CppApiVisibility? Cpp, string? Vhdl) ResolveEnforceDocsTiers(
+        Context context)
+    {
+        if (string.IsNullOrEmpty(context.EnforceDocs))
+        {
+            return (null, null, null);
+        }
+
+        switch (context.Language)
+        {
+            case DotNetLanguageId:
+                return (ParseEnforceDocsTier<DotNetApiVisibility>(context.EnforceDocs), null, null);
+
+            case CppLanguageId:
+                return (null, ParseEnforceDocsTier<CppApiVisibility>(context.EnforceDocs), null);
+
+            case VhdlLanguageId:
+                // VHDL has no visibility/accessibility concept: Public, PublicAndProtected,
+                // and All are all accepted (using the same vocabulary as dotnet/cpp purely
+                // for a consistent CLI experience and error message) but behave identically —
+                // see ApiMark.Vhdl.DocumentationCoverageChecker. The parsed enum value itself
+                // is discarded; only the raw string is forwarded to VhdlGeneratorOptions.
+                ParseEnforceDocsTier<DotNetApiVisibility>(context.EnforceDocs);
+                return (null, null, context.EnforceDocs);
+
+            default:
+                return (null, null, null);
+        }
+    }
+
+    /// <summary>
+    ///     Parses <paramref name="enforceDocs"/> into <typeparamref name="TEnum"/>, throwing a
+    ///     descriptive <see cref="ArgumentException"/> when the value is not recognized.
+    /// </summary>
+    /// <typeparam name="TEnum">The visibility enumeration to parse into.</typeparam>
+    /// <param name="enforceDocs">The raw <c>--enforce-docs</c> value to parse.</param>
+    /// <returns>The parsed enumeration value.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="enforceDocs"/> is not a recognized value.</exception>
+    private static TEnum ParseEnforceDocsTier<TEnum>(string enforceDocs) where TEnum : struct, Enum
+    {
+        if (!Enum.TryParse<TEnum>(enforceDocs, ignoreCase: true, out var parsed))
+        {
+            throw new ArgumentException(
+                $"Invalid --enforce-docs value '{enforceDocs}'. " +
+                $"Valid values are: {string.Join(", ", Enum.GetNames<TEnum>())}.");
+        }
+
+        return parsed;
     }
 
     /// <summary>

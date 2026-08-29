@@ -20,7 +20,11 @@ public class TypeLinkResolverTests : IDisposable
     }
 
     /// <summary>Disposes the loaded assembly after each test.</summary>
-    public void Dispose() => _assembly.Dispose();
+    public void Dispose()
+    {
+        _assembly.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     /// <summary>Validates that a null type reference returns an empty string.</summary>
     [Fact]

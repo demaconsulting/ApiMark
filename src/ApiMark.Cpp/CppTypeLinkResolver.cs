@@ -140,45 +140,71 @@ internal sealed class CppTypeLinkResolver
 
         // Check for an exact qualified-name match first, then fall back to short-name matching
         var pageKey = FindPageKey(stripped);
-
         if (pageKey != null)
         {
             // Intra-library type: replace only the base type token in the original string,
             // preserving qualifiers (const, *, &, etc.) around the link
-            var from = currentFolder.Length > 0 ? currentFolder : ".";
-            var relativePath = Path.GetRelativePath(from, pageKey + ".md").Replace('\\', '/');
-            var shortName = stripped.Contains("::", StringComparison.Ordinal)
-                ? stripped[(stripped.LastIndexOf("::", StringComparison.Ordinal) + 2)..]
-                : stripped;
-            var linked = $"[{shortName}]({relativePath})";
-
-            // Position-aware single-site replacement: search for shortName only in the
-            // portion of cppTypeString before the first '<'. This prevents looking inside
-            // template arguments — which may contain qualified names sharing a prefix with
-            // shortName (e.g. ns::Foo<ns::FooBar> must not linkify FooBar instead of Foo).
-            // LastIndexOf within that slice naturally lands on the correct token site.
-            var ltPos = cppTypeString.IndexOf('<', StringComparison.Ordinal);
-            var searchRange = ltPos >= 0 ? cppTypeString[..ltPos] : cppTypeString;
-            var idx = searchRange.LastIndexOf(shortName, StringComparison.Ordinal);
-            if (idx < 0)
-            {
-                // Fallback: should never happen in practice, but avoid silent corruption
-                return cppTypeString;
-            }
-
-            return cppTypeString[..idx] + linked + cppTypeString[(idx + shortName.Length)..];
+            return BuildIntraLibraryLink(cppTypeString, currentFolder, stripped, pageKey);
         }
 
         // External type with a namespace: track for the External Types section
-        var ns = ExtractNamespace(stripped);
-        if (!string.IsNullOrEmpty(ns) && ns != "std" && !ns.StartsWith("std::", StringComparison.Ordinal))
+        TrackExternalType(stripped, externalTypes);
+        return cppTypeString;
+    }
+
+    /// <summary>
+    ///     Builds the Markdown-linked replacement for <paramref name="cppTypeString"/> once
+    ///     <paramref name="stripped"/> has been resolved to <paramref name="pageKey"/>, replacing
+    ///     only the base type token and preserving surrounding qualifiers (const, *, &amp;, etc.).
+    /// </summary>
+    /// <param name="cppTypeString">The original, unstripped C++ type string.</param>
+    /// <param name="currentFolder">The folder path of the Markdown file that will contain the link.</param>
+    /// <param name="stripped">The base type name after qualifier removal.</param>
+    /// <param name="pageKey">The resolved documentation page key for <paramref name="stripped"/>.</param>
+    /// <returns>The type string with the base type token replaced by a Markdown link.</returns>
+    private static string BuildIntraLibraryLink(string cppTypeString, string currentFolder, string stripped, string pageKey)
+    {
+        var from = currentFolder.Length > 0 ? currentFolder : ".";
+        var relativePath = Path.GetRelativePath(from, pageKey + ".md").Replace('\\', '/');
+        var shortName = stripped.Contains("::", StringComparison.Ordinal)
+            ? stripped[(stripped.LastIndexOf("::", StringComparison.Ordinal) + 2)..]
+            : stripped;
+        var linked = $"[{shortName}]({relativePath})";
+
+        // Position-aware single-site replacement: search for shortName only in the
+        // portion of cppTypeString before the first '<'. This prevents looking inside
+        // template arguments — which may contain qualified names sharing a prefix with
+        // shortName (e.g. ns::Foo<ns::FooBar> must not linkify FooBar instead of Foo).
+        // LastIndexOf within that slice naturally lands on the correct token site.
+        var ltPos = cppTypeString.IndexOf('<', StringComparison.Ordinal);
+        var searchRange = ltPos >= 0 ? cppTypeString[..ltPos] : cppTypeString;
+        var idx = searchRange.LastIndexOf(shortName, StringComparison.Ordinal);
+        if (idx < 0)
         {
-            var lastSep = stripped.LastIndexOf("::", StringComparison.Ordinal);
-            var shortName = lastSep >= 0 ? stripped[(lastSep + 2)..] : stripped;
-            externalTypes.Add(new CppExternalTypeInfo(shortName, ns));
+            // Fallback: should never happen in practice, but avoid silent corruption
+            return cppTypeString;
         }
 
-        return cppTypeString;
+        return cppTypeString[..idx] + linked + cppTypeString[(idx + shortName.Length)..];
+    }
+
+    /// <summary>
+    ///     Records <paramref name="stripped"/> as a non-std external type reference in
+    ///     <paramref name="externalTypes"/> when it is qualified by a non-<c>std</c> namespace.
+    /// </summary>
+    /// <param name="stripped">The base type name after qualifier removal.</param>
+    /// <param name="externalTypes">Mutable set that accumulates external type references.</param>
+    private static void TrackExternalType(string stripped, ISet<CppExternalTypeInfo> externalTypes)
+    {
+        var ns = ExtractNamespace(stripped);
+        if (string.IsNullOrEmpty(ns) || ns == "std" || ns.StartsWith("std::", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var lastSep = stripped.LastIndexOf("::", StringComparison.Ordinal);
+        var shortName = lastSep >= 0 ? stripped[(lastSep + 2)..] : stripped;
+        externalTypes.Add(new CppExternalTypeInfo(shortName, ns));
     }
 
     /// <summary>
@@ -238,27 +264,15 @@ internal sealed class CppTypeLinkResolver
         {
             var previous = s;
 
-            // Remove leading cv-qualifiers until no more remain, regardless of order
-            if (s.StartsWith("const ", StringComparison.Ordinal))
-            {
-                s = s[6..].TrimStart();
-            }
+            s = TrimLeadingCvQualifiers(s).TrimEnd();
 
-            if (s.StartsWith("volatile ", StringComparison.Ordinal))
+            // Remove one trailing reference/pointer/cv-qualifier per iteration; the loop
+            // repeats so multiple trailing qualifiers (e.g. "* const") are fully stripped
+            if (TryTrimOneTrailingQualifier(s, out var afterTrailingTrim))
             {
-                s = s[9..].TrimStart();
+                s = afterTrailingTrim;
+                continue;
             }
-
-            // Remove trailing reference, pointer, and trailing cv-qualifiers iteratively
-            s = s.TrimEnd();
-            if (s.EndsWith(" &&", StringComparison.Ordinal)) { s = s[..^3].TrimEnd(); continue; }
-            if (s.EndsWith("&&", StringComparison.Ordinal)) { s = s[..^2].TrimEnd(); continue; }
-            if (s.EndsWith(" &", StringComparison.Ordinal)) { s = s[..^2].TrimEnd(); continue; }
-            if (s.EndsWith('&')) { s = s[..^1].TrimEnd(); continue; }
-            if (s.EndsWith(" *", StringComparison.Ordinal)) { s = s[..^2].TrimEnd(); continue; }
-            if (s.EndsWith('*')) { s = s[..^1].TrimEnd(); continue; }
-            if (s.EndsWith(" const", StringComparison.OrdinalIgnoreCase)) { s = s[..^6].TrimEnd(); continue; }
-            if (s.EndsWith(" volatile", StringComparison.OrdinalIgnoreCase)) { s = s[..^9].TrimEnd(); continue; }
 
             if (s == previous)
             {
@@ -274,6 +288,51 @@ internal sealed class CppTypeLinkResolver
         }
 
         return s;
+    }
+
+    /// <summary>
+    ///     Removes leading <c>const</c> and <c>volatile</c> cv-qualifiers from a type string,
+    ///     regardless of order.
+    /// </summary>
+    /// <param name="s">The type string to strip leading qualifiers from.</param>
+    /// <returns>The type string with leading cv-qualifiers removed.</returns>
+    private static string TrimLeadingCvQualifiers(string s)
+    {
+        // Remove leading cv-qualifiers until no more remain, regardless of order
+        if (s.StartsWith("const ", StringComparison.Ordinal))
+        {
+            s = s[6..].TrimStart();
+        }
+
+        if (s.StartsWith("volatile ", StringComparison.Ordinal))
+        {
+            s = s[9..].TrimStart();
+        }
+
+        return s;
+    }
+
+    /// <summary>
+    ///     Attempts to remove a single trailing reference, pointer, or cv-qualifier token
+    ///     (<c>&amp;&amp;</c>, <c>&amp;</c>, <c>*</c>, <c>const</c>, <c>volatile</c>) from
+    ///     the end of a type string.
+    /// </summary>
+    /// <param name="s">The type string to strip a trailing qualifier from.</param>
+    /// <param name="trimmed">The type string with the matched trailing qualifier removed.</param>
+    /// <returns><see langword="true"/> when a trailing qualifier was matched and removed.</returns>
+    private static bool TryTrimOneTrailingQualifier(string s, out string trimmed)
+    {
+        if (s.EndsWith(" &&", StringComparison.Ordinal)) { trimmed = s[..^3].TrimEnd(); return true; }
+        if (s.EndsWith("&&", StringComparison.Ordinal)) { trimmed = s[..^2].TrimEnd(); return true; }
+        if (s.EndsWith(" &", StringComparison.Ordinal)) { trimmed = s[..^2].TrimEnd(); return true; }
+        if (s.EndsWith('&')) { trimmed = s[..^1].TrimEnd(); return true; }
+        if (s.EndsWith(" *", StringComparison.Ordinal)) { trimmed = s[..^2].TrimEnd(); return true; }
+        if (s.EndsWith('*')) { trimmed = s[..^1].TrimEnd(); return true; }
+        if (s.EndsWith(" const", StringComparison.OrdinalIgnoreCase)) { trimmed = s[..^6].TrimEnd(); return true; }
+        if (s.EndsWith(" volatile", StringComparison.OrdinalIgnoreCase)) { trimmed = s[..^9].TrimEnd(); return true; }
+
+        trimmed = s;
+        return false;
     }
 
     /// <summary>

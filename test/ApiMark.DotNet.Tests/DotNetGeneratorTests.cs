@@ -1932,7 +1932,7 @@ public class DotNetGeneratorTests
         // Assert: H4 is a member heading — constructor or method contains parentheses
         Assert.Contains(
             headings,
-            h => h.Level == 4 && h.Text.Contains("(", StringComparison.Ordinal));
+            h => h.Level == 4 && h.Text.Contains('('));
 
         // Assert: no group headings — single-file format emits members directly without section labels
         Assert.DoesNotContain(headings, h => h.Text == "Constructors");

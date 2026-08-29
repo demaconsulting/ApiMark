@@ -1559,7 +1559,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         // Assert: H4 is a member heading — methods contain parentheses
         Assert.Contains(
             headings,
-            h => h.Level == 4 && h.Text.Contains("(", StringComparison.Ordinal));
+            h => h.Level == 4 && h.Text.Contains('('));
 
         // Assert: no group headings — single-file format emits members directly without section labels
         Assert.DoesNotContain(headings, h => h.Text == "Constructors");
@@ -1630,7 +1630,7 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     {
         // Arrange: build an absolute path to SampleClass.h and pass it as the only pattern
         var absoluteHeaderPath = Path.GetFullPath(
-            Path.Combine(FixturePaths.GetFixtureNamespaceDir(), "SampleClass.h"));
+            Path.Join(FixturePaths.GetFixtureNamespaceDir(), "SampleClass.h"));
 
         var options = new CppGeneratorOptions
         {

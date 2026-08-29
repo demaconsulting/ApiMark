@@ -359,7 +359,7 @@ public class VhdlAstParserTests
     public void VhdlAstParser_Parse_InvalidVhdl_ThrowsInvalidOperationException()
     {
         // Arrange: write deliberately invalid VHDL content to a temp file
-        var tempFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".vhd");
+        var tempFile = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".vhd");
         try
         {
             File.WriteAllText(tempFile, "this is not valid vhdl syntax!!!");
