@@ -191,57 +191,83 @@ internal static class VhdlAstParser
         private List<VhdlPortDoc> ParsePortInterfaceDeclaration(
             vhdl2008Parser.Interface_declarationContext iface)
         {
-            var result = new List<VhdlPortDoc>();
             var signalDecl = iface.interface_object_declaration()?.interface_signal_declaration();
-
             if (signalDecl != null)
             {
-                var identifiers = signalDecl.identifier_list()?.identifier();
-                if (identifiers == null)
-                {
-                    return result;
-                }
-
-                // Extract direction — default is IN per VHDL-2008 §6.5.2
-                var modeCtx = signalDecl.mode_rule();
-                var direction = "IN";
-                if (modeCtx != null)
-                {
-                    if (modeCtx.OUT() != null)
-                    {
-                        direction = "OUT";
-                    }
-                    else if (modeCtx.INOUT() != null)
-                    {
-                        direction = "INOUT";
-                    }
-                    else if (modeCtx.BUFFER() != null)
-                    {
-                        direction = "BUFFER";
-                    }
-                    else
-                    {
-                        direction = "IN";
-                    }
-                }
-
-                var typeName = GetSourceRange(signalDecl.subtype_indication());
-                var inlineDoc = ExtractInlineTrailingComment(signalDecl.Stop.Line);
-                foreach (var ident in identifiers)
-                {
-                    result.Add(new VhdlPortDoc(ident.GetText(), direction, typeName, inlineDoc));
-                }
-
-                return result;
+                return ParseSignalPortDeclaration(signalDecl);
             }
 
             // Fallback: ANTLR may parse `name : IN type` as interface_constant_declaration
             var constDecl = iface.interface_object_declaration()?.interface_constant_declaration();
-            if (constDecl == null)
+            return constDecl != null ? ParseConstantPortDeclaration(constDecl) : [];
+        }
+
+        /// <summary>
+        ///     Parses an <c>interface_signal_declaration</c> port form into zero or more
+        ///     <see cref="VhdlPortDoc"/> records — one per identifier.
+        /// </summary>
+        /// <param name="signalDecl">The signal interface declaration context to parse.</param>
+        /// <returns>A sequence of <see cref="VhdlPortDoc"/> records, or an empty sequence when no identifiers are present.</returns>
+        private List<VhdlPortDoc> ParseSignalPortDeclaration(
+            vhdl2008Parser.Interface_signal_declarationContext signalDecl)
+        {
+            var result = new List<VhdlPortDoc>();
+            var identifiers = signalDecl.identifier_list()?.identifier();
+            if (identifiers == null)
             {
                 return result;
             }
 
+            var direction = ExtractPortDirection(signalDecl.mode_rule());
+            var typeName = GetSourceRange(signalDecl.subtype_indication());
+            var inlineDoc = ExtractInlineTrailingComment(signalDecl.Stop.Line);
+            foreach (var ident in identifiers)
+            {
+                result.Add(new VhdlPortDoc(ident.GetText(), direction, typeName, inlineDoc));
+            }
+
+            return result;
+        }
+
+        /// <summary>Extracts the port direction from a mode rule context, defaulting to <c>IN</c> per VHDL-2008 §6.5.2.</summary>
+        /// <param name="modeCtx">The mode rule context, or <see langword="null"/> when no mode was specified.</param>
+        /// <returns>One of <c>IN</c>, <c>OUT</c>, <c>INOUT</c>, or <c>BUFFER</c>.</returns>
+        private static string ExtractPortDirection(vhdl2008Parser.Mode_ruleContext? modeCtx)
+        {
+            if (modeCtx == null)
+            {
+                return "IN";
+            }
+
+            if (modeCtx.OUT() != null)
+            {
+                return "OUT";
+            }
+
+            if (modeCtx.INOUT() != null)
+            {
+                return "INOUT";
+            }
+
+            if (modeCtx.BUFFER() != null)
+            {
+                return "BUFFER";
+            }
+
+            return "IN";
+        }
+
+        /// <summary>
+        ///     Parses the fallback <c>interface_constant_declaration</c> port form into zero or
+        ///     more <see cref="VhdlPortDoc"/> records — one per identifier — always assigning
+        ///     direction <c>IN</c>.
+        /// </summary>
+        /// <param name="constDecl">The constant interface declaration context to parse.</param>
+        /// <returns>A sequence of <see cref="VhdlPortDoc"/> records, or an empty sequence when no identifiers are present.</returns>
+        private List<VhdlPortDoc> ParseConstantPortDeclaration(
+            vhdl2008Parser.Interface_constant_declarationContext constDecl)
+        {
+            var result = new List<VhdlPortDoc>();
             var constIdentifiers = constDecl.identifier_list()?.identifier();
             if (constIdentifiers == null)
             {
@@ -287,65 +313,7 @@ internal static class VhdlAstParser
             {
                 foreach (var item in items)
                 {
-                    var fullTypeDecl = item.type_declaration()?.full_type_declaration();
-                    if (fullTypeDecl != null)
-                    {
-                        var typeName = fullTypeDecl.identifier().GetText();
-                        var definition = GetSourceRange(fullTypeDecl.type_definition());
-                        var typeDoc = ExtractPrecedingDocComment(item.Start.Line);
-                        types.Add(new VhdlTypeDecl(typeName, definition, typeDoc));
-                        continue;
-                    }
-
-                    var subtypeDecl = item.subtype_declaration();
-                    if (subtypeDecl != null)
-                    {
-                        var typeName = subtypeDecl.identifier().GetText();
-                        var definition = GetSourceRange(subtypeDecl.subtype_indication());
-                        var typeDoc = ExtractPrecedingDocComment(item.Start.Line);
-                        types.Add(new VhdlTypeDecl(typeName, definition, typeDoc));
-                        continue;
-                    }
-
-                    var constDecl = item.constant_declaration();
-                    if (constDecl != null)
-                    {
-                        var constTypeName = GetSourceRange(constDecl.subtype_indication());
-                        var value = constDecl.expression() != null ? GetSourceRange(constDecl.expression()) : null;
-                        var constDoc = ExtractPrecedingDocComment(item.Start.Line);
-                        var identifiers = constDecl.identifier_list()?.identifier();
-                        if (identifiers != null)
-                        {
-                            foreach (var ident in identifiers)
-                            {
-                                constants.Add(new VhdlConstantDecl(ident.GetText(), constTypeName, value, constDoc));
-                            }
-                        }
-                        continue;
-                    }
-
-                    var compDecl = item.component_declaration();
-                    if (compDecl != null)
-                    {
-                        var compName = compDecl.identifier(0).GetText();
-                        var compDoc = ExtractPrecedingDocComment(item.Start.Line);
-                        components.Add(new VhdlComponentDecl(compName, compDoc));
-                        continue;
-                    }
-
-                    var subprogramDecl = item.subprogram_declaration();
-                    if (subprogramDecl != null)
-                    {
-                        var spec = subprogramDecl.subprogram_specification();
-                        if (spec != null)
-                        {
-                            var decl = ParseSubprogramDecl(item, spec);
-                            if (decl != null)
-                            {
-                                subprograms.Add(decl);
-                            }
-                        }
-                    }
+                    ParsePackageDeclarativeItem(item, types, constants, components, subprograms);
                 }
             }
 
@@ -353,6 +321,152 @@ internal static class VhdlAstParser
 
             // Do not visit children of package_declaration
             return null;
+        }
+
+        /// <summary>
+        ///     Parses a single package declarative item and appends the resulting declaration to
+        ///     whichever list matches the declaration form found (full type, subtype, constant,
+        ///     component, or subprogram). Items matching no recognized form are ignored.
+        /// </summary>
+        /// <param name="item">The package declarative item to parse.</param>
+        /// <param name="types">Collects type and subtype declarations found in the item.</param>
+        /// <param name="constants">Collects constant declarations found in the item.</param>
+        /// <param name="components">Collects component declarations found in the item.</param>
+        /// <param name="subprograms">Collects subprogram declarations found in the item.</param>
+        private void ParsePackageDeclarativeItem(
+            vhdl2008Parser.Package_declarative_itemContext item,
+            List<VhdlTypeDecl> types,
+            List<VhdlConstantDecl> constants,
+            List<VhdlComponentDecl> components,
+            List<VhdlSubprogramDecl> subprograms)
+        {
+            var fullTypeDecl = ParseFullTypeDeclaration(item);
+            if (fullTypeDecl != null)
+            {
+                types.Add(fullTypeDecl);
+                return;
+            }
+
+            var subtypeDecl = ParseSubtypeDeclaration(item);
+            if (subtypeDecl != null)
+            {
+                types.Add(subtypeDecl);
+                return;
+            }
+
+            if (item.constant_declaration() != null)
+            {
+                ParseAndAddConstantDeclaration(item, constants);
+                return;
+            }
+
+            if (item.component_declaration() != null)
+            {
+                ParseAndAddComponentDeclaration(item, components);
+                return;
+            }
+
+            ParseAndAddSubprogramDeclaration(item, subprograms);
+        }
+
+        /// <summary>Parses a full type declaration (e.g. <c>type t is ...</c>) into a <see cref="VhdlTypeDecl"/>.</summary>
+        /// <param name="item">The package declarative item to parse.</param>
+        /// <returns>The parsed type declaration, or <see langword="null"/> when the item is not a full type declaration.</returns>
+        private VhdlTypeDecl? ParseFullTypeDeclaration(vhdl2008Parser.Package_declarative_itemContext item)
+        {
+            var fullTypeDecl = item.type_declaration()?.full_type_declaration();
+            if (fullTypeDecl == null)
+            {
+                return null;
+            }
+
+            var typeName = fullTypeDecl.identifier().GetText();
+            var definition = GetSourceRange(fullTypeDecl.type_definition());
+            var typeDoc = ExtractPrecedingDocComment(item.Start.Line);
+            return new VhdlTypeDecl(typeName, definition, typeDoc);
+        }
+
+        /// <summary>Parses a subtype declaration (e.g. <c>subtype t is ...</c>) into a <see cref="VhdlTypeDecl"/>.</summary>
+        /// <param name="item">The package declarative item to parse.</param>
+        /// <returns>The parsed type declaration, or <see langword="null"/> when the item is not a subtype declaration.</returns>
+        private VhdlTypeDecl? ParseSubtypeDeclaration(vhdl2008Parser.Package_declarative_itemContext item)
+        {
+            var subtypeDecl = item.subtype_declaration();
+            if (subtypeDecl == null)
+            {
+                return null;
+            }
+
+            var typeName = subtypeDecl.identifier().GetText();
+            var definition = GetSourceRange(subtypeDecl.subtype_indication());
+            var typeDoc = ExtractPrecedingDocComment(item.Start.Line);
+            return new VhdlTypeDecl(typeName, definition, typeDoc);
+        }
+
+        /// <summary>Parses a constant declaration item and appends one <see cref="VhdlConstantDecl"/> per identifier.</summary>
+        /// <param name="item">The package declarative item containing the constant declaration.</param>
+        /// <param name="constants">Collects the parsed constant declarations.</param>
+        private void ParseAndAddConstantDeclaration(
+            vhdl2008Parser.Package_declarative_itemContext item,
+            List<VhdlConstantDecl> constants)
+        {
+            var constDecl = item.constant_declaration();
+            if (constDecl == null)
+            {
+                return;
+            }
+
+            var constTypeName = GetSourceRange(constDecl.subtype_indication());
+            var value = constDecl.expression() != null ? GetSourceRange(constDecl.expression()) : null;
+            var constDoc = ExtractPrecedingDocComment(item.Start.Line);
+            var identifiers = constDecl.identifier_list()?.identifier();
+            if (identifiers == null)
+            {
+                return;
+            }
+
+            foreach (var ident in identifiers)
+            {
+                constants.Add(new VhdlConstantDecl(ident.GetText(), constTypeName, value, constDoc));
+            }
+        }
+
+        /// <summary>Parses a component declaration item and appends the resulting <see cref="VhdlComponentDecl"/>.</summary>
+        /// <param name="item">The package declarative item containing the component declaration.</param>
+        /// <param name="components">Collects the parsed component declaration.</param>
+        private void ParseAndAddComponentDeclaration(
+            vhdl2008Parser.Package_declarative_itemContext item,
+            List<VhdlComponentDecl> components)
+        {
+            var compDecl = item.component_declaration();
+            if (compDecl == null)
+            {
+                return;
+            }
+
+            var compName = compDecl.identifier(0).GetText();
+            var compDoc = ExtractPrecedingDocComment(item.Start.Line);
+            components.Add(new VhdlComponentDecl(compName, compDoc));
+        }
+
+        /// <summary>Parses a subprogram declaration item and appends the resulting <see cref="VhdlSubprogramDecl"/>.</summary>
+        /// <param name="item">The package declarative item containing the subprogram declaration.</param>
+        /// <param name="subprograms">Collects the parsed subprogram declaration.</param>
+        private void ParseAndAddSubprogramDeclaration(
+            vhdl2008Parser.Package_declarative_itemContext item,
+            List<VhdlSubprogramDecl> subprograms)
+        {
+            var spec = item.subprogram_declaration()?.subprogram_specification();
+            if (spec == null)
+            {
+                return;
+            }
+
+            var decl = ParseSubprogramDecl(item, spec);
+            if (decl != null)
+            {
+                subprograms.Add(decl);
+            }
         }
 
         /// <summary>
@@ -442,14 +556,12 @@ internal static class VhdlAstParser
                 return parameters;
             }
 
-            foreach (var iface in ifaceDecls)
-            {
-                var objDecl = iface.interface_object_declaration();
-                if (objDecl == null)
-                {
-                    continue;
-                }
+            var objDecls = ifaceDecls
+                .Select(iface => iface.interface_object_declaration())
+                .OfType<vhdl2008Parser.Interface_object_declarationContext>();
 
+            foreach (var objDecl in objDecls)
+            {
                 // Try interface_signal_declaration first: `[SIGNAL] identifiers : [mode] subtype`
                 var signalDecl = objDecl.interface_signal_declaration();
                 if (signalDecl != null)

@@ -77,6 +77,29 @@ internal sealed record NamespaceDocContext(
     TypeLinkResolver Resolver);
 
 /// <summary>
+///     Bundles all constructor arguments for <see cref="DotNetAstModel"/> so that the parsed
+///     assembly data produced by <see cref="DotNetGenerator.Parse"/> can be passed as a single
+///     value rather than as individual parameters.
+/// </summary>
+/// <param name="Assembly">Assembly definition; ownership is transferred to the model.</param>
+/// <param name="XmlDocs">Pre-built XML documentation reader.</param>
+/// <param name="AllNamespaces">All namespace names in alphabetical order.</param>
+/// <param name="ByNamespace">Visible types grouped by namespace.</param>
+/// <param name="RootNamespaces">Root namespaces identified during parse.</param>
+/// <param name="NamespaceDescriptions">Namespace descriptions from NamespaceDoc carriers.</param>
+/// <param name="Resolver">Type link resolver for gradual-disclosure output.</param>
+/// <param name="Options">Generator configuration options.</param>
+internal sealed record DotNetAstModelArgs(
+    AssemblyDefinition Assembly,
+    XmlDocReader XmlDocs,
+    IReadOnlyList<string> AllNamespaces,
+    IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>> ByNamespace,
+    IReadOnlyList<string> RootNamespaces,
+    IReadOnlyDictionary<string, NamespaceDescription> NamespaceDescriptions,
+    TypeLinkResolver Resolver,
+    DotNetGeneratorOptions Options);
+
+/// <summary>
 ///     Holds all pre-parsed .NET assembly data needed during the emit phase.
 /// </summary>
 /// <remarks>
@@ -88,32 +111,17 @@ internal sealed class DotNetAstModel
     /// <summary>
     ///     Initializes a new <see cref="DotNetAstModel"/> with all data required for emission.
     /// </summary>
-    /// <param name="assembly">Assembly definition; ownership is transferred to this model.</param>
-    /// <param name="xmlDocs">Pre-built XML documentation reader.</param>
-    /// <param name="allNamespaces">All namespace names in alphabetical order.</param>
-    /// <param name="byNamespace">Visible types grouped by namespace.</param>
-    /// <param name="rootNamespaces">Root namespaces identified during parse.</param>
-    /// <param name="namespaceDescriptions">Namespace descriptions from NamespaceDoc carriers.</param>
-    /// <param name="resolver">Type link resolver for gradual-disclosure output.</param>
-    /// <param name="options">Generator configuration options.</param>
-    internal DotNetAstModel(
-        AssemblyDefinition assembly,
-        XmlDocReader xmlDocs,
-        IReadOnlyList<string> allNamespaces,
-        IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>> byNamespace,
-        IReadOnlyList<string> rootNamespaces,
-        IReadOnlyDictionary<string, NamespaceDescription> namespaceDescriptions,
-        TypeLinkResolver resolver,
-        DotNetGeneratorOptions options)
+    /// <param name="args">Bundled constructor arguments; see <see cref="DotNetAstModelArgs"/>.</param>
+    internal DotNetAstModel(DotNetAstModelArgs args)
     {
-        Assembly = assembly;
-        XmlDocs = xmlDocs;
-        AllNamespaces = allNamespaces;
-        ByNamespace = byNamespace;
-        RootNamespaces = rootNamespaces;
-        NamespaceDescriptions = namespaceDescriptions;
-        Resolver = resolver;
-        Options = options;
+        Assembly = args.Assembly;
+        XmlDocs = args.XmlDocs;
+        AllNamespaces = args.AllNamespaces;
+        ByNamespace = args.ByNamespace;
+        RootNamespaces = args.RootNamespaces;
+        NamespaceDescriptions = args.NamespaceDescriptions;
+        Resolver = args.Resolver;
+        Options = args.Options;
     }
 
     /// <summary>Gets the assembly definition held open for the duration of emit.</summary>

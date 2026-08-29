@@ -141,12 +141,12 @@ public class VhdlGeneratorTests
     public void VhdlGenerator_Parse_InvalidVhdlFile_EmitsErrorAndSkipsFile()
     {
         // Arrange: create a temp directory with one valid and one invalid .vhd file
-        var tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        var tempDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(tempDir);
         try
         {
-            File.WriteAllText(Path.Combine(tempDir, "valid.vhd"), "ENTITY minimal IS\nEND ENTITY minimal;\n");
-            File.WriteAllText(Path.Combine(tempDir, "invalid.vhd"), "this is not valid vhdl syntax!!!");
+            File.WriteAllText(Path.Join(tempDir, "valid.vhd"), "ENTITY minimal IS\nEND ENTITY minimal;\n");
+            File.WriteAllText(Path.Join(tempDir, "invalid.vhd"), "this is not valid vhdl syntax!!!");
             var options = new VhdlGeneratorOptions
             {
                 LibraryName = "TestLib",

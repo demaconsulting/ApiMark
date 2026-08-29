@@ -17,7 +17,7 @@ public class VhdlEmitterTests
         var emitter = new VhdlEmitter(options, []);
 
         // Assert: VhdlEmitter must be assignable to IApiEmitter
-        Assert.IsAssignableFrom<IApiEmitter>(emitter);
+        Assert.IsType<IApiEmitter>(emitter, exactMatch: false);
     }
 
     /// <summary>Validates that passing null factory to Emit throws ArgumentNullException.</summary>

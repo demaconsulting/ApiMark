@@ -238,32 +238,46 @@ public sealed class XmlDocReader
     public IReadOnlyList<(bool IsCode, string Content)> GetExampleParts(string memberId)
     {
         var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
-        if (member == null)
-        {
-            return Array.Empty<(bool, string)>();
-        }
-
-        var el = member.Element("example");
+        var el = member?.Element("example");
         if (el == null)
         {
             return Array.Empty<(bool, string)>();
         }
 
         // When no <code> children exist, treat the entire value as a single code block
-        if (!el.Elements("code").Any())
-        {
-            var text = DedentCode(el.Value);
-            return string.IsNullOrEmpty(text)
-                ? Array.Empty<(bool, string)>()
-                : [(true, text)];
-        }
+        return el.Elements("code").Any()
+            ? BuildMixedExampleParts(el)
+            : BuildSingleCodeExamplePart(el);
+    }
 
-        // Mixed content: process child nodes in order, separating <code> blocks from prose.
-        // Consecutive non-<code> nodes (text nodes and inline elements such as <see>, <c>,
-        // <paramref>) are accumulated into a shared StringBuilder and flushed as a single
-        // prose part when a <code> block or the end of the sequence is reached. This ensures
-        // inline references within a prose run are rendered coherently via AppendNodeText /
-        // AppendElementText rather than being emitted as isolated, broken fragments.
+    /// <summary>
+    ///     Builds a single-part example result by treating the entire <paramref name="el"/> value
+    ///     as one code block. Used when the <c>&lt;example&gt;</c> element has no <c>&lt;code&gt;</c> children.
+    /// </summary>
+    /// <param name="el">The <c>&lt;example&gt;</c> element.</param>
+    /// <returns>A single-element code part list, or an empty list when the dedented text is empty.</returns>
+    private static IReadOnlyList<(bool IsCode, string Content)> BuildSingleCodeExamplePart(XElement el)
+    {
+        var text = DedentCode(el.Value);
+        return string.IsNullOrEmpty(text)
+            ? Array.Empty<(bool, string)>()
+            : [(true, text)];
+    }
+
+    /// <summary>
+    ///     Builds ordered example parts from an <c>&lt;example&gt;</c> element containing a mix of
+    ///     <c>&lt;code&gt;</c> blocks and prose (text nodes, <c>&lt;para&gt;</c>, and inline elements).
+    /// </summary>
+    /// <remarks>
+    ///     Consecutive non-<c>&lt;code&gt;</c> nodes are accumulated and rendered together into a
+    ///     single prose part via the same <c>AppendNodeText</c> / <c>AppendElementText</c> pipeline
+    ///     used by other documentation accessors. This preserves inline references and inline code
+    ///     within a prose run rather than emitting them as isolated, broken fragments.
+    /// </remarks>
+    /// <param name="el">The <c>&lt;example&gt;</c> element.</param>
+    /// <returns>Ordered list of (IsCode, Content) parts.</returns>
+    private static List<(bool IsCode, string Content)> BuildMixedExampleParts(XElement el)
+    {
         var parts = new List<(bool IsCode, string Content)>();
         var proseBuilder = new StringBuilder();
 
@@ -354,51 +368,76 @@ public sealed class XmlDocReader
             return member;
         }
 
-        var cref = inheritdoc.Attribute("cref")?.Value;
-        if (string.IsNullOrWhiteSpace(cref))
-        {
-            cref = null;
-        }
-        var path = inheritdoc.Attribute("path")?.Value;
-
-        // Determine the source member: explicit cref takes priority over bare chain lookup
-        XElement? source = null;
-        if (cref != null)
-        {
-            // Explicit cref target — recurse in case the target itself also inherits
-            source = ResolveMemberElement(cref, visited);
-        }
-        else if (_inheritanceChain != null && _inheritanceChain.TryGetValue(memberId, out var targets))
-        {
-            // Bare inheritdoc — try each candidate in priority order, stop at first hit.
-            // Use a branch-local copy of visited for each candidate so that failed
-            // traversals in one branch do not poison the visited set seen by sibling
-            // candidates in the same priority list.
-            foreach (var target in targets)
-            {
-                var branchVisited = new HashSet<string>(visited, StringComparer.Ordinal);
-                source = ResolveMemberElement(target, branchVisited);
-                if (source != null)
-                {
-                    break;
-                }
-            }
-        }
-
+        var source = ResolveInheritdocSource(memberId, inheritdoc, visited);
         if (source == null)
         {
             return null;
         }
 
-        if (string.IsNullOrWhiteSpace(path))
-        {
+        var path = inheritdoc.Attribute("path")?.Value;
+        return string.IsNullOrWhiteSpace(path)
             // Absent or whitespace path — treat as no filter and return the full resolved source
-            return source;
+            ? source
+            : ApplyInheritdocPathFilter(source, path);
+    }
+
+    /// <summary>
+    ///     Determines the source member for an <c>&lt;inheritdoc /&gt;</c> element: an explicit
+    ///     <c>cref</c> target takes priority, otherwise each candidate in the injected inheritance
+    ///     chain is tried in priority order.
+    /// </summary>
+    /// <param name="memberId">The member ID that carries the <c>&lt;inheritdoc /&gt;</c> element.</param>
+    /// <param name="inheritdoc">The <c>&lt;inheritdoc /&gt;</c> element.</param>
+    /// <param name="visited">Set of member IDs visited on the current resolution path.</param>
+    /// <returns>The resolved source element, or <c>null</c> when no valid target is found.</returns>
+    private XElement? ResolveInheritdocSource(string memberId, XElement inheritdoc, HashSet<string> visited)
+    {
+        var cref = inheritdoc.Attribute("cref")?.Value;
+        if (string.IsNullOrWhiteSpace(cref))
+        {
+            cref = null;
         }
 
-        // Apply the XPath path filter to the resolved source element and wrap matching nodes
-        // in a synthetic <member> element so callers can use the same child-extraction logic
-        // regardless of whether a path filter was applied.
+        if (cref != null)
+        {
+            // Explicit cref target — recurse in case the target itself also inherits
+            return ResolveMemberElement(cref, visited);
+        }
+
+        if (_inheritanceChain == null || !_inheritanceChain.TryGetValue(memberId, out var targets))
+        {
+            return null;
+        }
+
+        // Bare inheritdoc — try each candidate in priority order, stop at first hit.
+        // Use a branch-local copy of visited for each candidate so that failed
+        // traversals in one branch do not poison the visited set seen by sibling
+        // candidates in the same priority list.
+        foreach (var target in targets)
+        {
+            var branchVisited = new HashSet<string>(visited, StringComparer.Ordinal);
+            var source = ResolveMemberElement(target, branchVisited);
+            if (source != null)
+            {
+                return source;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    ///     Applies an <c>&lt;inheritdoc path="..."/&gt;</c> XPath filter to <paramref name="source"/>
+    ///     and wraps matching nodes in a synthetic <c>&lt;member&gt;</c> element.
+    /// </summary>
+    /// <param name="source">The resolved inheritdoc source element.</param>
+    /// <param name="path">The XPath expression from the <c>path</c> attribute.</param>
+    /// <returns>
+    ///     A synthetic <c>&lt;member&gt;</c> element wrapping the matched nodes, or <c>null</c>
+    ///     when the XPath expression is invalid or matches no nodes.
+    /// </returns>
+    private static XElement? ApplyInheritdocPathFilter(XElement source, string path)
+    {
         // Guard against invalid XPath expressions in the XML doc file — degrade gracefully to null
         // rather than crashing documentation generation.
         List<XElement> matched;
@@ -615,10 +654,8 @@ public sealed class XmlDocReader
         }
 
         var marker = ordered ? "1." : "-";
-        foreach (var item in element.Elements("item"))
+        foreach (var itemText in element.Elements("item").Select(item => FormatTermDescription(RenderTermDescription(item))))
         {
-            var itemText = FormatTermDescription(RenderTermDescription(item));
-
             // Skip items that render to no text (for example an empty <description>) so no
             // stray "- "/"1. " marker line is emitted for an item with nothing to show
             if (string.IsNullOrWhiteSpace(itemText))

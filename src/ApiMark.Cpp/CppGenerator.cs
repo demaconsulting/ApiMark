@@ -351,7 +351,23 @@ public sealed class CppGenerator : IApiGenerator, IDocumentationCoverageCapable
             : qualName.Replace("::", ".", StringComparison.Ordinal);
         var displayName = string.IsNullOrEmpty(qualName) ? CppEmitter.GlobalNamespaceKey : qualName;
 
-        // Collect owned classes, applying the deprecated filter
+        CollectNamespaceClasses(ns, result, nsKey, displayName);
+        CollectNamespaceFreeFunctions(ns, result, nsKey, displayName);
+        CollectNamespaceEnums(ns, result, nsKey, displayName);
+        CollectNamespaceTypeAliases(ns, result, nsKey, displayName);
+    }
+
+    /// <summary>Collects owned classes from <paramref name="ns"/> into <paramref name="result"/>, applying the deprecated filter.</summary>
+    /// <param name="ns">The namespace declaration to collect from.</param>
+    /// <param name="result">Dictionary that accumulates declarations grouped by namespace key.</param>
+    /// <param name="nsKey">The file-path-compatible namespace key.</param>
+    /// <param name="displayName">The C++ qualified namespace name used as the Markdown page heading.</param>
+    private void CollectNamespaceClasses(
+        CppNamespaceDecl ns,
+        SortedDictionary<string, CppEmitter.NamespaceDeclarations> result,
+        string nsKey,
+        string displayName)
+    {
         foreach (var cls in ns.Classes)
         {
             if (!_options.IncludeDeprecated && cls.IsDeprecated)
@@ -362,8 +378,19 @@ public sealed class CppGenerator : IApiGenerator, IDocumentationCoverageCapable
             EnsureNamespace(result, nsKey, displayName, ns.Doc);
             result[nsKey].Classes.Add(cls);
         }
+    }
 
-        // Collect owned free functions, applying the deprecated filter
+    /// <summary>Collects owned free functions from <paramref name="ns"/> into <paramref name="result"/>, applying the deprecated filter.</summary>
+    /// <param name="ns">The namespace declaration to collect from.</param>
+    /// <param name="result">Dictionary that accumulates declarations grouped by namespace key.</param>
+    /// <param name="nsKey">The file-path-compatible namespace key.</param>
+    /// <param name="displayName">The C++ qualified namespace name used as the Markdown page heading.</param>
+    private void CollectNamespaceFreeFunctions(
+        CppNamespaceDecl ns,
+        SortedDictionary<string, CppEmitter.NamespaceDeclarations> result,
+        string nsKey,
+        string displayName)
+    {
         foreach (var fn in ns.FreeFunctions)
         {
             if (!_options.IncludeDeprecated && fn.IsDeprecated)
@@ -374,8 +401,19 @@ public sealed class CppGenerator : IApiGenerator, IDocumentationCoverageCapable
             EnsureNamespace(result, nsKey, displayName, ns.Doc);
             result[nsKey].FreeFunctions.Add(fn);
         }
+    }
 
-        // Collect owned enums, applying the deprecated filter
+    /// <summary>Collects owned enums from <paramref name="ns"/> into <paramref name="result"/>, applying the deprecated filter.</summary>
+    /// <param name="ns">The namespace declaration to collect from.</param>
+    /// <param name="result">Dictionary that accumulates declarations grouped by namespace key.</param>
+    /// <param name="nsKey">The file-path-compatible namespace key.</param>
+    /// <param name="displayName">The C++ qualified namespace name used as the Markdown page heading.</param>
+    private void CollectNamespaceEnums(
+        CppNamespaceDecl ns,
+        SortedDictionary<string, CppEmitter.NamespaceDeclarations> result,
+        string nsKey,
+        string displayName)
+    {
         foreach (var en in ns.Enums)
         {
             if (!_options.IncludeDeprecated && en.IsDeprecated)
@@ -386,8 +424,19 @@ public sealed class CppGenerator : IApiGenerator, IDocumentationCoverageCapable
             EnsureNamespace(result, nsKey, displayName, ns.Doc);
             result[nsKey].Enums.Add(en);
         }
+    }
 
-        // Collect owned type aliases, applying the deprecated filter
+    /// <summary>Collects owned type aliases from <paramref name="ns"/> into <paramref name="result"/>, applying the deprecated filter.</summary>
+    /// <param name="ns">The namespace declaration to collect from.</param>
+    /// <param name="result">Dictionary that accumulates declarations grouped by namespace key.</param>
+    /// <param name="nsKey">The file-path-compatible namespace key.</param>
+    /// <param name="displayName">The C++ qualified namespace name used as the Markdown page heading.</param>
+    private void CollectNamespaceTypeAliases(
+        CppNamespaceDecl ns,
+        SortedDictionary<string, CppEmitter.NamespaceDeclarations> result,
+        string nsKey,
+        string displayName)
+    {
         foreach (var alias in ns.TypeAliases)
         {
             if (!_options.IncludeDeprecated && alias.IsDeprecated)

@@ -5,6 +5,32 @@ using static ApiMark.DotNet.DotNetEmitter;
 namespace ApiMark.DotNet;
 
 /// <summary>
+///     Bundles the per-member rendering context that is constant across all member sections
+///     written for a single type in single-file output. Used to reduce the parameter count on
+///     <see cref="DotNetEmitterSingleFile"/>'s member-section helper.
+/// </summary>
+/// <param name="Writer">The shared single-file Markdown writer.</param>
+/// <param name="Depth">Top-level heading depth from <see cref="EmitConfig.HeadingDepth"/>.</param>
+/// <param name="XmlDocs">XML documentation reader for lookups.</param>
+/// <param name="Resolver">No-link type resolver for parameter type cells.</param>
+/// <param name="NamespaceName">Fully qualified namespace name for signature simplification.</param>
+/// <param name="NamespaceFolderPath">File-system folder path for the namespace.</param>
+/// <param name="SharedExternalTypes">
+///     Shared accumulator passed to all <see cref="TypeLinkResolver.Linkify"/> calls. Non-System
+///     external types are still tracked into it regardless of <c>generateLinks</c>, but the
+///     single-file emitter never reads it back; reused across all parameters and members to
+///     avoid allocating a new set per <c>Linkify</c> call.
+/// </param>
+internal sealed record SingleFileMemberContext(
+    IMarkdownWriter Writer,
+    int Depth,
+    XmlDocReader XmlDocs,
+    TypeLinkResolver Resolver,
+    string NamespaceName,
+    string NamespaceFolderPath,
+    SortedSet<ExternalTypeInfo> SharedExternalTypes);
+
+/// <summary>
 ///     Writes all .NET API documentation into a single <c>api.md</c> file using heading
 ///     levels offset by <see cref="EmitConfig.HeadingDepth"/>.
 /// </summary>
@@ -14,6 +40,9 @@ namespace ApiMark.DotNet;
 /// </remarks>
 internal sealed class DotNetEmitterSingleFile
 {
+    /// <summary>Fenced code block / signature language identifier for C# content.</summary>
+    private const string CSharpLanguageId = "csharp";
+
     /// <summary>Parent emitter providing shared helper methods and the data model.</summary>
     private readonly DotNetEmitter _emitter;
 
@@ -90,27 +119,7 @@ internal sealed class DotNetEmitterSingleFile
             // the type-level rendering in WriteSingleFileTypeSections
             if (_model.NamespaceDescriptions.TryGetValue(namespaceName, out var nsDescription))
             {
-                if (!string.IsNullOrEmpty(nsDescription.Summary))
-                {
-                    writer.WriteParagraph(nsDescription.Summary);
-                }
-
-                if (!string.IsNullOrEmpty(nsDescription.Remarks))
-                {
-                    writer.WriteParagraph(nsDescription.Remarks);
-                }
-
-                foreach (var (isCode, content) in nsDescription.ExampleParts)
-                {
-                    if (isCode)
-                    {
-                        writer.WriteCodeBlock("csharp", content);
-                    }
-                    else
-                    {
-                        writer.WriteParagraph(content);
-                    }
-                }
+                WriteNamespaceDescription(writer, nsDescription);
             }
 
             if (!_model.ByNamespace.TryGetValue(namespaceName, out var nsTypes) || nsTypes.Count == 0)
@@ -123,6 +132,48 @@ internal sealed class DotNetEmitterSingleFile
             foreach (var type in nsTypes)
             {
                 WriteSingleFileTypeSections(writer, depth, namespaceName, namespaceFolderPath, type, noLinkResolver, sharedExternalTypes);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Emits the summary, remarks, and structured example parts sourced from a NamespaceDoc
+    ///     carrier class, mirroring the type-level rendering in <see cref="WriteSingleFileTypeSections"/>.
+    /// </summary>
+    /// <param name="writer">The shared single-file Markdown writer.</param>
+    /// <param name="nsDescription">The namespace description to render.</param>
+    private static void WriteNamespaceDescription(IMarkdownWriter writer, NamespaceDescription nsDescription)
+    {
+        if (!string.IsNullOrEmpty(nsDescription.Summary))
+        {
+            writer.WriteParagraph(nsDescription.Summary);
+        }
+
+        if (!string.IsNullOrEmpty(nsDescription.Remarks))
+        {
+            writer.WriteParagraph(nsDescription.Remarks);
+        }
+
+        WriteExampleParts(writer, nsDescription.ExampleParts);
+    }
+
+    /// <summary>
+    ///     Emits a sequence of structured example parts, rendering code parts as fenced C#
+    ///     code blocks and prose parts as paragraphs.
+    /// </summary>
+    /// <param name="writer">The shared single-file Markdown writer.</param>
+    /// <param name="parts">The example parts to render, each flagged as code or prose.</param>
+    private static void WriteExampleParts(IMarkdownWriter writer, IEnumerable<(bool IsCode, string Content)> parts)
+    {
+        foreach (var (isCode, content) in parts)
+        {
+            if (isCode)
+            {
+                writer.WriteCodeBlock(CSharpLanguageId, content);
+            }
+            else
+            {
+                writer.WriteParagraph(content);
             }
         }
     }
@@ -163,7 +214,7 @@ internal sealed class DotNetEmitterSingleFile
 
         // Emit the C# declaration signature as a fenced code block
         var typeSignature = BuildTypeSignature(type, namespaceName);
-        writer.WriteSignature("csharp", typeSignature);
+        writer.WriteSignature(CSharpLanguageId, typeSignature);
 
         var typeMemberId = BuildTypeId(type);
 
@@ -178,17 +229,7 @@ internal sealed class DotNetEmitterSingleFile
         }
 
         // Emit structured example blocks for this type
-        foreach (var (isCode, content) in _model.XmlDocs.GetExampleParts(typeMemberId))
-        {
-            if (isCode)
-            {
-                writer.WriteCodeBlock("csharp", content);
-            }
-            else
-            {
-                writer.WriteParagraph(content);
-            }
-        }
+        WriteExampleParts(writer, _model.XmlDocs.GetExampleParts(typeMemberId));
 
         // Delegates carry all their information in the declaration; no member listing is needed
         if (IsDelegate(type))
@@ -215,19 +256,18 @@ internal sealed class DotNetEmitterSingleFile
             writer.WriteParagraph(string.Join("\n", bulletLines));
 
             // H{depth+3} section for each member
+            var memberContext = new SingleFileMemberContext(
+                writer,
+                depth,
+                _model.XmlDocs,
+                resolver,
+                namespaceName,
+                namespaceFolderPath,
+                sharedExternalTypes);
             foreach (var member in allMembers)
             {
                 var memberId = BuildMemberId(member);
-                WriteSingleFileMemberSection(
-                    writer,
-                    depth,
-                    member,
-                    memberId,
-                    _model.XmlDocs,
-                    resolver,
-                    namespaceName,
-                    namespaceFolderPath,
-                    sharedExternalTypes);
+                WriteSingleFileMemberSection(memberContext, member, memberId);
             }
         }
 
@@ -239,84 +279,58 @@ internal sealed class DotNetEmitterSingleFile
     ///     Emits an H{depth+3} section for a single member, including the C# signature,
     ///     summary, parameter table (for methods), returns, exceptions, and example blocks.
     /// </summary>
-    /// <param name="writer">The shared single-file Markdown writer.</param>
-    /// <param name="depth">Top-level heading depth from <see cref="EmitConfig.HeadingDepth"/>.</param>
+    /// <param name="context">Shared single-file rendering context constant across all members.</param>
     /// <param name="member">The member definition to document.</param>
     /// <param name="memberId">Pre-computed XML doc member identifier for <paramref name="member"/>.</param>
-    /// <param name="xmlDocs">XML documentation reader for lookups.</param>
-    /// <param name="resolver">No-link type resolver for parameter type cells.</param>
-    /// <param name="namespaceName">Fully qualified namespace name for signature simplification.</param>
-    /// <param name="namespaceFolderPath">File-system folder path for the namespace.</param>
-    /// <param name="sharedExternalTypes">
-    ///     Shared throw-away accumulator passed to all <see cref="TypeLinkResolver.Linkify"/> calls.
-    ///     Never populated because <c>generateLinks</c> is <c>false</c>; reused across all parameters
-    ///     and members to avoid allocating a new set per <c>Linkify</c> call.
-    /// </param>
     private static void WriteSingleFileMemberSection(
-        IMarkdownWriter writer,
-        int depth,
+        SingleFileMemberContext context,
         IMemberDefinition member,
-        string memberId,
-        XmlDocReader xmlDocs,
-        TypeLinkResolver resolver,
-        string namespaceName,
-        string namespaceFolderPath,
-        SortedSet<ExternalTypeInfo> sharedExternalTypes)
+        string memberId)
     {
         var displayName = GetMemberDisplayName(member);
-        writer.WriteHeading(depth + 3, displayName);
+        context.Writer.WriteHeading(context.Depth + 3, displayName);
 
         // Emit the C# declaration signature as a fenced code block
-        var signature = BuildMemberSignature(member, namespaceName);
-        writer.WriteSignature("csharp", signature);
+        var signature = BuildMemberSignature(member, context.NamespaceName);
+        context.Writer.WriteSignature(CSharpLanguageId, signature);
 
         // Always emit a summary paragraph — use the placeholder when no doc is present
-        var summary = xmlDocs.GetSummary(memberId);
-        writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : DotNetEmitter.NoDescriptionPlaceholder);
+        var summary = context.XmlDocs.GetSummary(memberId);
+        context.Writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : DotNetEmitter.NoDescriptionPlaceholder);
 
         // Emit parameter table for methods with parameters
         if (member is MethodDefinition method && method.HasParameters)
         {
-            var paramDocs = xmlDocs.GetParams(memberId);
+            var paramDocs = context.XmlDocs.GetParams(memberId);
             var paramHeaders = new[] { "Parameter", "Type", DotNetEmitter.DescriptionColumnHeader };
             var paramRows = method.Parameters.Select(p =>
             {
                 var desc = paramDocs.FirstOrDefault(pd => pd.Name == p.Name).Description ?? NoDescriptionPlaceholder;
-                var typeName = resolver.Linkify(p.ParameterType, namespaceFolderPath, namespaceName,
+                var typeName = context.Resolver.Linkify(p.ParameterType, context.NamespaceFolderPath, context.NamespaceName,
                     // Shared throw-away accumulator — generateLinks is false so it is never populated or read
-                    sharedExternalTypes);
+                    context.SharedExternalTypes);
                 return new[] { p.Name, typeName, desc };
             });
-            writer.WriteTable(paramHeaders, paramRows);
+            context.Writer.WriteTable(paramHeaders, paramRows);
         }
 
-        var returns = xmlDocs.GetReturns(memberId);
+        var returns = context.XmlDocs.GetReturns(memberId);
         if (!string.IsNullOrEmpty(returns))
         {
-            writer.WriteParagraph($"**Returns:** {returns}");
+            context.Writer.WriteParagraph($"**Returns:** {returns}");
         }
 
         // Emit exception table when documented exceptions exist
-        var exceptions = xmlDocs.GetExceptionDetails(memberId);
+        var exceptions = context.XmlDocs.GetExceptionDetails(memberId);
         if (exceptions.Count > 0)
         {
             var exHeaders = new[] { "Exception", DotNetEmitter.DescriptionColumnHeader };
             var exRows = exceptions.Select(e => new[] { e.Type, e.Description ?? string.Empty });
-            writer.WriteTable(exHeaders, exRows);
+            context.Writer.WriteTable(exHeaders, exRows);
         }
 
         // Emit structured example blocks for this member
-        foreach (var (isCode, content) in xmlDocs.GetExampleParts(memberId))
-        {
-            if (isCode)
-            {
-                writer.WriteCodeBlock("csharp", content);
-            }
-            else
-            {
-                writer.WriteParagraph(content);
-            }
-        }
+        WriteExampleParts(context.Writer, context.XmlDocs.GetExampleParts(memberId));
     }
 
     /// <summary>

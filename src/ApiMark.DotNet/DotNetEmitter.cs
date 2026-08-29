@@ -223,28 +223,42 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns><c>true</c> when the member is public or protected.</returns>
     internal static bool IsMemberPublicOrProtected(IMemberDefinition member) => member switch
     {
-        MethodDefinition m => m.IsPublic || m.IsFamily || m.IsFamilyOrAssembly,
+        MethodDefinition m => IsMethodPublicOrProtected(m),
         PropertyDefinition p => IsPropertyPublicOrProtected(p),
         FieldDefinition f => f.IsPublic || f.IsFamily || f.IsFamilyOrAssembly,
         EventDefinition e => IsEventAddMethodPublicOrProtected(e),
         _ => false,
     };
 
+    /// <summary>Returns <c>true</c> when <paramref name="method"/> is public, family, or family-or-assembly accessible.</summary>
+    /// <param name="method">The method to inspect, or <see langword="null"/>.</param>
+    /// <returns><c>true</c> when <paramref name="method"/> is not <see langword="null"/> and is public or protected.</returns>
+    private static bool IsMethodPublicOrProtected(MethodDefinition? method)
+    {
+        if (method is null)
+        {
+            return false;
+        }
+
+        var isPublic = method.IsPublic;
+        var isFamily = method.IsFamily;
+        var isFamilyOrAssembly = method.IsFamilyOrAssembly;
+        return isPublic || isFamily || isFamilyOrAssembly;
+    }
+
     /// <summary>Returns <c>true</c> when <paramref name="e"/>'s add-accessor is public or protected.</summary>
     /// <param name="e">The event to inspect.</param>
     /// <returns><c>true</c> when the add-accessor is public, family, or family-or-assembly accessible.</returns>
     private static bool IsEventAddMethodPublicOrProtected(EventDefinition e) =>
-        (e.AddMethod?.IsPublic ?? false) ||
-        (e.AddMethod?.IsFamily ?? false) ||
-        (e.AddMethod?.IsFamilyOrAssembly ?? false);
+        IsMethodPublicOrProtected(e.AddMethod);
 
     /// <summary>Returns <c>true</c> when <paramref name="p"/> has a public or protected getter or setter.</summary>
     /// <param name="p">The property to inspect.</param>
     /// <returns><c>true</c> when at least one accessor is publicly or protected-family accessible.</returns>
     internal static bool IsPropertyPublicOrProtected(PropertyDefinition p)
     {
-        var getterVisible = p.GetMethod != null && (p.GetMethod.IsPublic || p.GetMethod.IsFamily || p.GetMethod.IsFamilyOrAssembly);
-        var setterVisible = p.SetMethod != null && (p.SetMethod.IsPublic || p.SetMethod.IsFamily || p.SetMethod.IsFamilyOrAssembly);
+        var getterVisible = IsMethodPublicOrProtected(p.GetMethod);
+        var setterVisible = IsMethodPublicOrProtected(p.SetMethod);
         return getterVisible || setterVisible;
     }
 
@@ -687,7 +701,7 @@ internal sealed class DotNetEmitter : IApiEmitter
             prop.PropertyType,
             contextNamespace,
             HasNullableAnnotation(prop.CustomAttributes));
-        var accessibility = GetAccessibilityKeyword(MostPermissiveAccessor(prop.GetMethod, prop.SetMethod)!);
+        var accessibility = GetAccessibilityKeyword(MostPermissiveAccessor(prop.GetMethod, prop.SetMethod));
         var accessors = BuildPropertyAccessors(prop);
         return $"{accessibility} {typeName} {prop.Name} {{ {accessors} }}";
     }
@@ -709,7 +723,7 @@ internal sealed class DotNetEmitter : IApiEmitter
 
         // Determine the property-level accessibility from the most permissive accessor so that
         // a "public … { protected get; set; }" property renders as "public" — not "protected"
-        var propertyAccessibility = GetAccessibilityKeyword(MostPermissiveAccessor(prop.GetMethod, prop.SetMethod)!);
+        var propertyAccessibility = GetAccessibilityKeyword(MostPermissiveAccessor(prop.GetMethod, prop.SetMethod));
 
         if (prop.GetMethod != null)
         {

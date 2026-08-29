@@ -319,35 +319,12 @@ public class ApiMarkTask : Task
 
         // Emit one --exclude flag per pattern entry — each semicolon-delimited entry becomes
         // a separate repeatable --exclude argument
-        if (!string.IsNullOrEmpty(ApiMarkExclude))
-        {
-            // Manually trim each entry — StringSplitOptions.TrimEntries is not
-            // available in netstandard2.0 which this assembly targets
-            foreach (var entry in ApiMarkExclude!.Split(';').Select(e => e.Trim()))
-            {
-                if (string.IsNullOrEmpty(entry))
-                {
-                    continue;
-                }
-
-                args.Add("--exclude");
-                args.Add(entry);
-            }
-        }
+        AppendDelimitedRepeatableArgs(args, "--exclude", ApiMarkExclude);
 
         // Forward documentation-coverage enforcement options — shared with cpp (see
         // AppendCppArguments); mirrors how ApiMarkExclude is dotnet-only
-        if (!string.IsNullOrEmpty(ApiMarkEnforceDocs))
-        {
-            args.Add("--enforce-docs");
-            args.Add(ApiMarkEnforceDocs!);
-        }
-
-        if (!string.IsNullOrEmpty(ApiMarkEnforceDocsSeverity))
-        {
-            args.Add("--enforce-docs-severity");
-            args.Add(ApiMarkEnforceDocsSeverity!);
-        }
+        AppendOptionalArg(args, "--enforce-docs", ApiMarkEnforceDocs);
+        AppendOptionalArg(args, "--enforce-docs-severity", ApiMarkEnforceDocsSeverity);
     }
 
     /// <summary>
@@ -364,88 +341,80 @@ public class ApiMarkTask : Task
 
         // Emit one --includes flag per path entry — each semicolon-delimited entry becomes
         // a separate repeatable --includes argument so paths with spaces are unambiguous
-        if (!string.IsNullOrEmpty(ApiMarkIncludePaths))
-        {
-            // Manually trim each entry — StringSplitOptions.TrimEntries is not
-            // available in netstandard2.0 which this assembly targets
-            foreach (var entry in ApiMarkIncludePaths!.Split(';').Select(e => e.Trim()))
-            {
-                if (string.IsNullOrEmpty(entry))
-                {
-                    continue;
-                }
-
-                args.Add("--includes");
-                args.Add(entry);
-            }
-        }
+        AppendDelimitedRepeatableArgs(args, "--includes", ApiMarkIncludePaths);
 
         // Emit one --api-headers flag per pattern entry, order-preserved including ! exclusion patterns
-        if (!string.IsNullOrEmpty(ApiMarkApiHeaders))
-        {
-            // Manually trim each entry — StringSplitOptions.TrimEntries is not
-            // available in netstandard2.0 which this assembly targets
-            foreach (var entry in ApiMarkApiHeaders!.Split(';').Select(e => e.Trim()))
-            {
-                if (string.IsNullOrEmpty(entry))
-                {
-                    continue;
-                }
-
-                args.Add("--api-headers");
-                args.Add(entry);
-            }
-        }
+        AppendDelimitedRepeatableArgs(args, "--api-headers", ApiMarkApiHeaders);
 
         // Library name (defaults to project name via .targets)
-        if (!string.IsNullOrEmpty(ApiMarkLibraryName))
-        {
-            args.Add("--library-name");
-            args.Add(ApiMarkLibraryName!);
-        }
+        AppendOptionalArg(args, "--library-name", ApiMarkLibraryName);
 
         // Optional library description
-        if (!string.IsNullOrEmpty(ApiMarkLibraryDescription))
-        {
-            args.Add("--library-description");
-            args.Add(ApiMarkLibraryDescription!);
-        }
+        AppendOptionalArg(args, "--library-description", ApiMarkLibraryDescription);
 
         // Preprocessor defines — semicolons converted to commas
         if (!string.IsNullOrEmpty(ApiMarkDefines))
         {
-            var commaDefines = ApiMarkDefines!.Replace(';', ',');
-            args.Add("--defines");
-            args.Add(commaDefines);
+            AppendOptionalArg(args, "--defines", ApiMarkDefines!.Replace(';', ','));
         }
 
         // C++ standard
-        if (!string.IsNullOrEmpty(ApiMarkCppStandard))
-        {
-            args.Add("--cpp-standard");
-            args.Add(ApiMarkCppStandard!);
-        }
+        AppendOptionalArg(args, "--cpp-standard", ApiMarkCppStandard);
 
         // Optional: explicit clang path
-        if (!string.IsNullOrEmpty(ApiMarkClangPath))
-        {
-            args.Add("--clang-path");
-            args.Add(ApiMarkClangPath!);
-        }
+        AppendOptionalArg(args, "--clang-path", ApiMarkClangPath);
 
         // Forward documentation-coverage enforcement options — now supported for cpp as well
         // as dotnet, mirroring AppendDotNetArguments's block.
-        if (!string.IsNullOrEmpty(ApiMarkEnforceDocs))
+        AppendOptionalArg(args, "--enforce-docs", ApiMarkEnforceDocs);
+        AppendOptionalArg(args, "--enforce-docs-severity", ApiMarkEnforceDocsSeverity);
+    }
+
+    /// <summary>
+    ///     Splits <paramref name="delimitedValue"/> on <c>;</c>, trims each entry, and appends
+    ///     <paramref name="flagName"/> followed by the entry for every non-empty result —
+    ///     producing one repeatable CLI flag occurrence per entry.
+    /// </summary>
+    /// <param name="args">The argument list being built.</param>
+    /// <param name="flagName">The repeatable CLI flag name (e.g. <c>--includes</c>).</param>
+    /// <param name="delimitedValue">The raw semicolon-delimited value, or <see langword="null"/>/empty when absent.</param>
+    private static void AppendDelimitedRepeatableArgs(List<string> args, string flagName, string? delimitedValue)
+    {
+        if (string.IsNullOrEmpty(delimitedValue))
         {
-            args.Add("--enforce-docs");
-            args.Add(ApiMarkEnforceDocs!);
+            return;
         }
 
-        if (!string.IsNullOrEmpty(ApiMarkEnforceDocsSeverity))
+        // Manually trim each entry — StringSplitOptions.TrimEntries is not
+        // available in netstandard2.0 which this assembly targets
+        foreach (var entry in delimitedValue!.Split(';').Select(e => e.Trim()))
         {
-            args.Add("--enforce-docs-severity");
-            args.Add(ApiMarkEnforceDocsSeverity!);
+            if (string.IsNullOrEmpty(entry))
+            {
+                continue;
+            }
+
+            args.Add(flagName);
+            args.Add(entry);
         }
+    }
+
+    /// <summary>
+    ///     Appends <paramref name="flagName"/> followed by <paramref name="value"/> when
+    ///     <paramref name="value"/> is non-null and non-empty; a no-op otherwise.
+    /// </summary>
+    /// <param name="args">The argument list being built.</param>
+    /// <param name="flagName">The CLI flag name (e.g. <c>--library-name</c>).</param>
+    /// <param name="value">The optional value, or <see langword="null"/>/empty when absent.</param>
+    private static void AppendOptionalArg(List<string> args, string flagName, string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return;
+        }
+
+        args.Add(flagName);
+        args.Add(value!);
     }
 
     /// <summary>
@@ -652,7 +621,7 @@ public class ApiMarkTask : Task
         };
 
         // First argument is the tool DLL path, followed by the language-specific arguments
-        psi.ArgumentList.Add(ToolDllPath!);
+        psi.ArgumentList.Add(ToolDllPath);
         foreach (var arg in toolArgs)
         {
             psi.ArgumentList.Add(arg);

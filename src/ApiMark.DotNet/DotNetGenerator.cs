@@ -155,7 +155,7 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             _assembly = assembly;
             _xmlDocs = xmlDocs;
 
-            return new DotNetEmitter(new DotNetAstModel(
+            return new DotNetEmitter(new DotNetAstModel(new DotNetAstModelArgs(
                 assembly,
                 xmlDocs,
                 allNamespaces,
@@ -163,7 +163,7 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
                 rootNamespaces,
                 namespaceDescriptions,
                 resolver,
-                _options));
+                _options)));
         }
         catch
         {
@@ -367,38 +367,55 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         var targets = new List<string>();
 
         // Explicit overrides (covers explicit interface implementations such as IFoo.Bar())
-        foreach (var overrideRef in method.Overrides)
+        targets.AddRange(method.Overrides
+            .Select(BuildMethodIdFromReference)
+            .Where(targetId => !string.IsNullOrEmpty(targetId)));
+
+        AddBaseClassVirtualOverride(method, type, targets);
+        AddInterfaceMethodImplementations(method, type, targets);
+
+        return targets;
+    }
+
+    /// <summary>
+    ///     Inserts the base-class virtual method ID at the front of <paramref name="targets"/> when
+    ///     <paramref name="method"/> occupies a slot from a base-class virtual member.
+    /// </summary>
+    /// <param name="method">The method to inspect.</param>
+    /// <param name="type">The declaring type.</param>
+    /// <param name="targets">The target list to update.</param>
+    private static void AddBaseClassVirtualOverride(MethodDefinition method, TypeDefinition type, List<string> targets)
+    {
+        if (!method.IsVirtual || method.IsNewSlot || type.BaseType == null)
         {
-            var targetId = BuildMethodIdFromReference(overrideRef);
-            if (!string.IsNullOrEmpty(targetId))
-            {
-                targets.Add(targetId);
-            }
+            return;
         }
 
-        // Implicit virtual override — the method occupies a slot from a base-class virtual
-        if (method.IsVirtual && !method.IsNewSlot && type.BaseType != null)
+        try
         {
-            try
+            var baseTypeDef = type.BaseType.Resolve();
+            var baseMethod = baseTypeDef != null ? FindMatchingMethodDefinition(baseTypeDef, method) : null;
+            if (baseMethod != null)
             {
-                var baseTypeDef = type.BaseType.Resolve();
-                if (baseTypeDef != null)
-                {
-                    var baseMethod = FindMatchingMethodDefinition(baseTypeDef, method);
-                    if (baseMethod != null)
-                    {
-                        // Base class override takes priority — insert at front
-                        targets.Insert(0, DotNetEmitter.BuildMethodId(baseMethod));
-                    }
-                }
-            }
-            catch (AssemblyResolutionException)
-            {
-                // Base type is in an external assembly — skip base-class override mapping
+                // Base class override takes priority — insert at front
+                targets.Insert(0, DotNetEmitter.BuildMethodId(baseMethod));
             }
         }
+        catch (AssemblyResolutionException)
+        {
+            // Base type is in an external assembly — skip base-class override mapping
+        }
+    }
 
-        // Implicit interface implementations — method name and signature match an interface member
+    /// <summary>
+    ///     Appends implicit interface method implementation IDs to <paramref name="targets"/> where
+    ///     <paramref name="method"/>'s name and signature match an interface member.
+    /// </summary>
+    /// <param name="method">The method to inspect.</param>
+    /// <param name="type">The declaring type.</param>
+    /// <param name="targets">The target list to update.</param>
+    private static void AddInterfaceMethodImplementations(MethodDefinition method, TypeDefinition type, List<string> targets)
+    {
         foreach (var iface in type.Interfaces)
         {
             try
@@ -424,8 +441,6 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
                 // Interface is in an external assembly — skip
             }
         }
-
-        return targets;
     }
 
     /// <summary>
@@ -440,31 +455,42 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         var targets = new List<string>();
 
         // Explicit accessor overrides map back to the owning interface property
-        if (property.GetMethod != null)
+        AddPropertyAccessorOverrides(property.GetMethod, "get_", targets);
+        AddPropertyAccessorOverrides(property.SetMethod, "set_", targets);
+        AddInterfacePropertyImplementation(property, type, targets);
+
+        return targets;
+    }
+
+    /// <summary>
+    ///     Appends explicit accessor override property IDs for <paramref name="accessor"/> (a property
+    ///     get or set method) to <paramref name="targets"/>.
+    /// </summary>
+    /// <param name="accessor">The property accessor method, or <c>null</c> when absent.</param>
+    /// <param name="prefix">The accessor prefix ("get_" or "set_") used to map back to a property ID.</param>
+    /// <param name="targets">The target list to update.</param>
+    private static void AddPropertyAccessorOverrides(MethodDefinition? accessor, string prefix, List<string> targets)
+    {
+        if (accessor == null)
         {
-            foreach (var overrideRef in property.GetMethod.Overrides)
-            {
-                var propId = MapAccessorReferenceToPropertyId(overrideRef, "get_");
-                if (propId != null && !targets.Contains(propId, StringComparer.Ordinal))
-                {
-                    targets.Add(propId);
-                }
-            }
+            return;
         }
 
-        if (property.SetMethod != null)
-        {
-            foreach (var overrideRef in property.SetMethod.Overrides)
-            {
-                var propId = MapAccessorReferenceToPropertyId(overrideRef, "set_");
-                if (propId != null && !targets.Contains(propId, StringComparer.Ordinal))
-                {
-                    targets.Add(propId);
-                }
-            }
-        }
+        targets.AddRange(accessor.Overrides
+            .Select(overrideRef => MapAccessorReferenceToPropertyId(overrideRef, prefix))
+            .OfType<string>()
+            .Where(propId => !targets.Contains(propId, StringComparer.Ordinal)));
+    }
 
-        // Implicit interface implementation — property name and type match an interface property
+    /// <summary>
+    ///     Appends the implicit interface property implementation ID to <paramref name="targets"/> where
+    ///     <paramref name="property"/>'s name and type match an interface property.
+    /// </summary>
+    /// <param name="property">The property to inspect.</param>
+    /// <param name="type">The declaring type.</param>
+    /// <param name="targets">The target list to update.</param>
+    private static void AddInterfacePropertyImplementation(PropertyDefinition property, TypeDefinition type, List<string> targets)
+    {
         foreach (var iface in type.Interfaces)
         {
             try
@@ -496,8 +522,6 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
                 // Interface is in an external assembly — skip
             }
         }
-
-        return targets;
     }
 
     /// <summary>
@@ -512,31 +536,42 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         var targets = new List<string>();
 
         // Explicit accessor overrides map back to the owning interface event
-        if (ev.AddMethod != null)
+        AddEventAccessorOverrides(ev.AddMethod, "add_", targets);
+        AddEventAccessorOverrides(ev.RemoveMethod, "remove_", targets);
+        AddInterfaceEventImplementation(ev, type, targets);
+
+        return targets;
+    }
+
+    /// <summary>
+    ///     Appends explicit accessor override event IDs for <paramref name="accessor"/> (an event
+    ///     add or remove method) to <paramref name="targets"/>.
+    /// </summary>
+    /// <param name="accessor">The event accessor method, or <c>null</c> when absent.</param>
+    /// <param name="prefix">The accessor prefix ("add_" or "remove_") used to map back to an event ID.</param>
+    /// <param name="targets">The target list to update.</param>
+    private static void AddEventAccessorOverrides(MethodDefinition? accessor, string prefix, List<string> targets)
+    {
+        if (accessor == null)
         {
-            foreach (var overrideRef in ev.AddMethod.Overrides)
-            {
-                var evId = MapAccessorReferenceToEventId(overrideRef, "add_");
-                if (evId != null && !targets.Contains(evId, StringComparer.Ordinal))
-                {
-                    targets.Add(evId);
-                }
-            }
+            return;
         }
 
-        if (ev.RemoveMethod != null)
-        {
-            foreach (var overrideRef in ev.RemoveMethod.Overrides)
-            {
-                var evId = MapAccessorReferenceToEventId(overrideRef, "remove_");
-                if (evId != null && !targets.Contains(evId, StringComparer.Ordinal))
-                {
-                    targets.Add(evId);
-                }
-            }
-        }
+        targets.AddRange(accessor.Overrides
+            .Select(overrideRef => MapAccessorReferenceToEventId(overrideRef, prefix))
+            .OfType<string>()
+            .Where(evId => !targets.Contains(evId, StringComparer.Ordinal)));
+    }
 
-        // Implicit interface implementation — event name and type match an interface event
+    /// <summary>
+    ///     Appends the implicit interface event implementation ID to <paramref name="targets"/> where
+    ///     <paramref name="ev"/>'s name and type match an interface event.
+    /// </summary>
+    /// <param name="ev">The event to inspect.</param>
+    /// <param name="type">The declaring type.</param>
+    /// <param name="targets">The target list to update.</param>
+    private static void AddInterfaceEventImplementation(EventDefinition ev, TypeDefinition type, List<string> targets)
+    {
         foreach (var iface in type.Interfaces)
         {
             try
@@ -568,8 +603,6 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
                 // Interface is in an external assembly — skip
             }
         }
-
-        return targets;
     }
 
     /// <summary>
@@ -678,7 +711,7 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             .Where(p => !string.IsNullOrWhiteSpace(p))
             .Select(p => p.Trim())
             .Select(p => "^" + string.Join(".*", p.Split('*').Select(Regex.Escape)) + "$")
-            .Select(p => new Regex(p, RegexOptions.Compiled | RegexOptions.CultureInvariant))
+            .Select(p => new Regex(p, RegexOptions.Compiled | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
             .ToList();
 
     /// <summary>
