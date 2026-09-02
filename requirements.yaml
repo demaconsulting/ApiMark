@@ -1,5 +1,11 @@
 ---
 # Root requirements file
+# root-tags: any requirement not (transitively) linked as a child of a requirement
+# tagged with one of these tags is reported as an orphan by
+# `dotnet reqstream --requirements requirements.yaml --enforce`. This catches
+# low-level implementation requirements (and tests/code) that were added without
+# ever being connected to user-visible functionality.
+root-tags: [system, quality]
 includes:
   - docs/reqstream/api-mark-core.yaml
   - docs/reqstream/api-mark-core/i-api-generator.yaml
@@ -31,6 +37,7 @@ includes:
   - docs/reqstream/api-mark-tool/cli/context.yaml
   - docs/reqstream/api-mark-tool/self-test.yaml
   - docs/reqstream/api-mark-tool/self-test/validation.yaml
+  - docs/reqstream/quality.yaml
   - docs/reqstream/ots/mono-cecil.yaml
   - docs/reqstream/api-mark-cpp.yaml
   - docs/reqstream/api-mark-cpp/cpp-generator.yaml

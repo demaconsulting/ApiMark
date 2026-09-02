@@ -6,6 +6,7 @@ sections:
       - id: ApiMarkMsbuild-ApiMarkTask-IntegrateWithMsbuild
         title: ApiMarkMsbuild shall integrate ApiMark documentation generation as
           an MSBuild task for both .csproj and .vcxproj builds.
+        tags: [system]
         justification: |
           Teams using C# and C++ need documentation generation to run automatically
           during normal builds so the published API reference stays aligned with the
@@ -30,12 +31,21 @@ sections:
           - ApiMarkMsbuild-ApiMarkTask-ForwardFormatProperty
           - ApiMarkMsbuild-ApiMarkTask-ForwardEnforceDocsProperties
           - ApiMarkMsbuild-ApiMarkTask-SupportOutputsItemGroup
+          - ApiMarkMsbuild-ApiMarkTask-ForwardExcludePatterns
+          - ApiMarkMsbuild-ApiMarkTask-OverrideOutputProperties
+          - ApiMarkMsbuild-ApiMarkTask-RestoreOutputProperties
+          - ApiMarkMsbuild-ApiMarkTask-ResolveDotNetFromEnvironment
+          - ApiMarkMsbuild-ApiMarkTask-ReportMissingDotNetExe
+          - ApiMarkMsbuild-ApiMarkTask-SurfaceToolExitCode
+          - ApiMarkMsbuild-ApiMarkTask-ForwardStdoutToLog
+          - ApiMarkMsbuild-ApiMarkTask-ForwardStderrErrors
         tests:
           - ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoDocumentsOnBuild
           - windows@ApiMarkMsbuild_NuGetPackage_CppVcxprojProject_AutoDocumentsOnBuild
       - id: ApiMarkMsbuild-IncludeDocsInNuGetPackage
         title: ApiMarkMsbuild shall support an opt-in ApiMarkPackDocs property that,
           when set to true, includes generated documentation in the NuGet package.
+        tags: [system]
         justification: |
           Projects that distribute API documentation alongside their library need a single
           opt-in flag to bundle the generated markdown in the NuGet package so consumers

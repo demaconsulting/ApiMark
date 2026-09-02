@@ -24,4 +24,8 @@ sections:
               - ApiMarkTool-SelfTest-Validation-RunVhdlGenerationTest
               - ApiMarkTool-SelfTest-Validation-SkipCppWhenClangUnavailable
               - ApiMarkTool-SelfTest-Validation-ReportSkippedCount
+              - ApiMarkTool-SelfTest-Validation-RunDotNetEnforceDocsTest
+              - ApiMarkTool-SelfTest-Validation-RunCppEnforceDocsTest
+              - ApiMarkTool-SelfTest-Validation-RunVhdlEnforceDocsTest
+              - ApiMarkTool-SelfTest-Validation-SuppressGeneratorOutput
             tests: [Validation_Run_WithValidContext_ExitsZero]
