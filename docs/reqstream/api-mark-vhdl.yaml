@@ -6,6 +6,7 @@ sections:
       - id: ApiMarkVhdl-VhdlGenerator-GenerateDocumentationFromVhdlSources
         title: ApiMarkVhdl shall generate API documentation from VHDL source files
           and their --! doc comments.
+        tags: [system]
         justification: |
           ApiMark needs to document VHDL IP cores from .vhd source files so that AI agents
           and developers can browse entity interfaces, generics, ports, and architectures
@@ -26,4 +27,7 @@ sections:
           - ApiMarkVhdl-DocumentationCoverageChecker-FallBackToConfiguredTierWhenParameterOmitted
           - ApiMarkVhdl-DocumentationCoverageChecker-RejectUnrecognizedEnforceTier
           - ApiMarkVhdl-DocumentationCoverageChecker-RequireParseBeforeCheck
+          - ApiMarkVhdl-VhdlGenerator-ValidatesLibraryName
+          - ApiMarkVhdl-VhdlGenerator-ReportParseErrors
+          - ApiMarkVhdl-VhdlAstParser-RejectInvalidSyntax
         tests: [VhdlGenerator_Generate_FixtureFile_CreatesApiEntrypoint]

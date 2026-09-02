@@ -1,0 +1,85 @@
+---
+# Quality/process requirements grouping ApiMark's use of off-the-shelf (OTS)
+# dependencies. These requirements exist so that OTS-derived requirements
+# (which describe capabilities ApiMark relies on from third-party libraries,
+# not user-visible ApiMark functionality) are not reported as orphans by
+# `dotnet reqstream --requirements requirements.yaml --enforce`.
+sections:
+  - title: Quality Requirements
+    requirements:
+      - id: Quality-DotNetParsing-RelyOnMonoCecil
+        title: ApiMark shall rely on Mono.Cecil to read .NET assembly metadata without
+          loading assemblies into the current process.
+        tags: [quality]
+        justification: |
+          ApiMarkDotNet's generator depends on Mono.Cecil's reflection-free assembly
+          reading capability. This grouping requirement links the Mono.Cecil OTS
+          requirements to the quality root so they participate in orphan detection
+          without being falsely reported as disconnected from ApiMark's functionality.
+        children:
+          - MonoCecil-Assembly-ReadWithoutLoading
+          - MonoCecil-Assembly-ExposeTypeMetadata
+          - MonoCecil-Assembly-ExposeMemberSignatures
+          - MonoCecil-Assembly-ExposeAccessibilityModifiers
+      - id: Quality-CppParsing-RelyOnClangAndCppAstNet
+        title: ApiMark shall rely on the Clang compiler and CppAstNet to parse C++
+          headers into an abstract syntax tree that ApiMark can inspect.
+        tags: [quality]
+        justification: |
+          ApiMarkCpp's generator depends on the Clang executable to dump a parseable
+          AST from C++ headers, and on CppAstNet to expose that AST as a .NET API.
+          This grouping requirement links those OTS requirements to the quality root
+          so they participate in orphan detection without being falsely reported as
+          disconnected from ApiMark's functionality.
+        children:
+          - Clang-Executable-Discoverable
+          - Clang-AstDump-ProducesParseableJson
+          - Clang-AstDump-ExposesDeclarationProvenance
+          - Clang-AstDump-ExposesDocComments
+          - Clang-AstDump-ExposesTypesAndMembers
+          - CppAstNet-Headers-ParseWithoutBuild
+          - CppAstNet-Headers-ExposeDeclarationProvenance
+          - CppAstNet-Headers-ExposeTypesAndMembers
+          - CppAstNet-Headers-ExposeDocComments
+          - CppAstNet-Headers-AcceptParseOptions
+      - id: Quality-VhdlParsing-RelyOnAntlr4
+        title: ApiMark shall rely on an ANTLR4-generated parser to parse VHDL-2008
+          source files.
+        tags: [quality]
+        justification: |
+          ApiMarkVhdl's generator depends on an ANTLR4-generated parser to recognize
+          VHDL-2008 entities, architectures, and packages, and to extract their doc
+          comments. This grouping requirement links the ANTLR4 OTS requirements to
+          the quality root so they participate in orphan detection without being
+          falsely reported as disconnected from ApiMark's functionality.
+        children:
+          - Antlr4-GeneratedParser-ParseVhdl2008Entities
+          - Antlr4-GeneratedParser-ExtractDocComments
+      - id: Quality-TestReporting-RelyOnDemaConsultingTestResults
+        title: ApiMark's self-test infrastructure shall rely on DemaConsulting.TestResults
+          to record and serialize test outcomes.
+        tags: [quality]
+        justification: |
+          ApiMarkTool's SelfTest subsystem depends on DemaConsulting.TestResults to
+          record pass/fail outcomes and serialize them to TRX and JUnit formats for
+          consumption by CI systems. This grouping requirement links those OTS
+          requirements to the quality root so they participate in orphan detection
+          without being falsely reported as disconnected from ApiMark's functionality.
+        children:
+          - DemaConsultingTestResults-Results-RecordTestOutcomes
+          - DemaConsultingTestResults-Results-SerializeToTrx
+          - DemaConsultingTestResults-Results-SerializeToJUnit
+      - id: Quality-FileDiscovery-RelyOnFileSystemGlobbing
+        title: ApiMark shall rely on Microsoft.Extensions.FileSystemGlobbing to match
+          source files against include and exclude glob patterns.
+        tags: [quality]
+        justification: |
+          ApiMarkCore's GlobFileCollector depends on Microsoft.Extensions.FileSystemGlobbing
+          to match include patterns, apply exclusion patterns, and handle non-existent
+          roots. This grouping requirement links those OTS requirements to the quality
+          root so they participate in orphan detection without being falsely reported
+          as disconnected from ApiMark's functionality.
+        children:
+          - FileSystemGlobbing-Matcher-MatchIncludePatterns
+          - FileSystemGlobbing-Matcher-ApplyExclusionPatterns
+          - FileSystemGlobbing-Matcher-HandleNonExistentRoot

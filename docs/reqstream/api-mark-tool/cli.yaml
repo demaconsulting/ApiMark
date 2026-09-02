@@ -28,6 +28,7 @@ sections:
               - ApiMarkTool-Cli-Context-ParseExcludes
               - ApiMarkTool-Cli-Context-ParseEnforceDocsOption
               - ApiMarkTool-Cli-Context-ParseEnforceDocsSeverityOption
+              - ApiMarkTool-Cli-Context-RejectFlagAsOptionValue
               - ApiMarkTool-Cli-SuppressOutputWhenSilent
               - ApiMarkTool-Cli-RouteOutputThroughContext
             tests: [Context_Cli_ParsesAllGlobalFlags]

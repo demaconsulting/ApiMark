@@ -7,6 +7,7 @@ sections:
         title: ApiMarkCore shall provide a two-stage language-generator contract (Parse
           + Emit) that callers can use to invoke any supported language module with
           a configurable output format.
+        tags: [system]
         justification: |
           ApiMark needs a common contract so the CLI and any build integration can
           trigger documentation generation without knowing the implementation details
@@ -21,6 +22,7 @@ sections:
         title: ApiMarkCore shall provide a minimal output channel interface that language
           generators can use to emit informational and error messages without depending
           on Console.
+        tags: [system]
         justification: |
           ApiMark generators need to emit diagnostic output without depending on
           Console directly, so the channel can be captured, suppressed, or
@@ -29,10 +31,13 @@ sections:
         children:
           - ApiMarkCore-IContext-DefineWriteLineMethod
           - ApiMarkCore-IContext-DefineWriteErrorMethod
+          - ApiMarkCore-IContext-RejectNullWriteLine
+          - ApiMarkCore-IContext-RejectNullWriteError
         tests: [InMemoryContext_WriteLineAndWriteError_RouteToSeparateChannels]
       - id: ApiMarkCore-IMarkdownWriterFactory-ProvideMarkdownWriterFactoryInterface
         title: ApiMarkCore shall provide a factory interface for creating per-file
           Markdown writers so that language generators are decoupled from the file-system.
+        tags: [system]
         justification: |
           Decoupling generators from the file-system via a factory contract allows
           the same generator code to write to disk in production and to memory in
@@ -44,10 +49,19 @@ sections:
           - ApiMarkCore-IMarkdownWriterFactory-RejectEmptyOutputDirectory
           - ApiMarkCore-IMarkdownWriterFactory-RejectWhitespaceOutputDirectory
           - ApiMarkCore-IMarkdownWriterFactory-EnsureOutputDirectory
+          - ApiMarkCore-FileMarkdownWriterFactory-RejectNullOutputDirectory
+          - ApiMarkCore-FileMarkdownWriterFactory-RejectEmptyOutputDirectory
+          - ApiMarkCore-FileMarkdownWriterFactory-RejectWhitespaceOutputDirectory
+          - ApiMarkCore-FileMarkdownWriterFactory-RejectNullName
+          - ApiMarkCore-FileMarkdownWriterFactory-RejectEmptyName
+          - ApiMarkCore-FileMarkdownWriterFactory-RejectWhitespaceName
+          - ApiMarkCore-FileMarkdownWriterFactory-SupportRootLevelFiles
+          - ApiMarkCore-FileMarkdownWriterFactory-CreateOutputDirectoryOnUse
         tests: [ApiMarkCore_WriterFactory_CanCreate_RootAndSubfolderWriters]
       - id: ApiMarkCore-IMarkdownWriter-ProvideMarkdownOutputInterface
         title: ApiMarkCore shall provide a markdown output interface for writing individual
           documentation files.
+        tags: [system]
         justification: |
           A shared markdown-writing abstraction keeps the generated document shape
           consistent while allowing output helpers to evolve without changing each
@@ -62,10 +76,43 @@ sections:
           - ApiMarkCore-IMarkdownWriter-DefineWriteLink
           - ApiMarkCore-IMarkdownWriter-WriteHeadingRejectInvalidLevel
           - ApiMarkCore-IMarkdownWriter-ThrowObjectDisposedAfterDispose
+          - ApiMarkCore-IMarkdownWriter-WriteTableRejectEmptyHeaders
+          - ApiMarkCore-IMarkdownWriter-WriteTableRejectMismatchedRowLength
+          - ApiMarkCore-IMarkdownWriter-WriteHeadingRejectEmptyText
+          - ApiMarkCore-IMarkdownWriter-WriteLinkRejectEmptyText
+          - ApiMarkCore-IMarkdownWriter-WriteTableRejectNullRowElements
+          - ApiMarkCore-IMarkdownWriter-WriteTableRejectNullHeaderElements
+          - ApiMarkCore-IMarkdownWriter-WriteTableRejectNullCellElements
+          - ApiMarkCore-FileMarkdownWriter-WriteHeadingAsAtxSyntax
+          - ApiMarkCore-FileMarkdownWriter-WriteSignatureAsCodeFence
+          - ApiMarkCore-FileMarkdownWriter-WriteParagraphAsText
+          - ApiMarkCore-FileMarkdownWriter-WriteTableAsPipeTable
+          - ApiMarkCore-FileMarkdownWriter-WriteCodeBlockAsCodeFence
+          - ApiMarkCore-FileMarkdownWriter-WriteLinkAsMarkdownLink
+          - ApiMarkCore-FileMarkdownWriter-FlushAndCloseOnDispose
+          - ApiMarkCore-FileMarkdownWriter-WriteHeadingRejectInvalidLevel
+          - ApiMarkCore-FileMarkdownWriter-ThrowObjectDisposedAfterDispose
+          - ApiMarkCore-FileMarkdownWriter-RejectNullSignatureLanguage
+          - ApiMarkCore-FileMarkdownWriter-RejectNullSignatureCode
+          - ApiMarkCore-FileMarkdownWriter-RejectNullParagraphText
+          - ApiMarkCore-FileMarkdownWriter-RejectNullTableHeaders
+          - ApiMarkCore-FileMarkdownWriter-RejectNullTableRows
+          - ApiMarkCore-FileMarkdownWriter-RejectNullCodeBlockLanguage
+          - ApiMarkCore-FileMarkdownWriter-RejectNullCodeBlockCode
+          - ApiMarkCore-FileMarkdownWriter-RejectNullLinkText
+          - ApiMarkCore-FileMarkdownWriter-RejectNullLinkRelativePath
+          - ApiMarkCore-FileMarkdownWriter-RejectEmptyHeaders
+          - ApiMarkCore-FileMarkdownWriter-RejectMismatchedRowLength
+          - ApiMarkCore-FileMarkdownWriter-RejectEmptyHeadingText
+          - ApiMarkCore-FileMarkdownWriter-RejectEmptyLinkText
+          - ApiMarkCore-FileMarkdownWriter-RejectNullRowElements
+          - ApiMarkCore-FileMarkdownWriter-RejectNullHeaderElements
+          - ApiMarkCore-FileMarkdownWriter-RejectNullCellElements
         tests: [InMemoryMarkdownWriter_Write_AllOperations_RecordsInOrder]
       - id: ApiMarkCore-PathHelpers-ProvideSafePathCombinationHelper
         title: ApiMarkCore shall provide an internal helper for safely combining caller-supplied
           relative path segments with a trusted base path.
+        tags: [system]
         justification: |
           ApiMark needs one auditable place to enforce path-safety rules so file-based
           helpers do not each implement their own traversal checks inconsistently.
@@ -80,6 +127,7 @@ sections:
           - PathHelpers_SafePathCombine_NullBasePath_ThrowsArgumentNullException
       - id: ApiMarkCore-ProvideEmitterContract
         title: ApiMark Core shall provide a well-defined emitter contract.
+        tags: [system]
         justification: |
           ApiMark needs a contract interface for the Emit stage so that language
           generators can produce Markdown output without depending on a concrete
@@ -90,11 +138,15 @@ sections:
           - ApiMarkCore-IApiEmitter-ProduceApiMdEntrypoint
           - ApiMarkCore-IApiEmitter-SupportGradualDisclosure
           - ApiMarkCore-IApiEmitter-SupportSingleFile
+          - ApiMarkCore-IApiEmitter-RejectNullFactory
+          - ApiMarkCore-IApiEmitter-RejectNullConfig
+          - ApiMarkCore-IApiEmitter-RejectNullContext
         tests:
           - IApiEmitter_Emit_WithGradualDisclosure_ProducesMultipleFiles
           - IApiEmitter_Emit_WithSingleFile_ProducesSingleApiMd
       - id: ApiMarkCore-ProvideEmitConfiguration
         title: ApiMark Core shall provide an emit configuration contract.
+        tags: [system]
         justification: |
           Callers (CLI, MSBuild task) need to communicate the desired output format
           and heading depth to the emitter at emit time without coupling those choices
@@ -102,6 +154,7 @@ sections:
         children:
           - ApiMarkCore-EmitConfig-DefineFormat
           - ApiMarkCore-EmitConfig-DefineHeadingDepth
+          - ApiMarkCore-EmitConfig-ValidateHeadingDepthRange
         tests:
           - EmitConfig_DefaultFormat_IsGradualDisclosure
           - EmitConfig_DefaultHeadingDepth_IsOne
@@ -111,6 +164,7 @@ sections:
       - id: ApiMarkCore-GlobFileCollector-ProvideGlobFileCollector
         title: ApiMark Core shall provide a shared utility for discovering files from
           the filesystem using gitignore-style glob patterns.
+        tags: [system]
         justification: |
           Multiple language generators (C++ and VHDL) need to discover source files
           based on caller-supplied glob patterns. Providing a shared, tested utility
@@ -137,6 +191,7 @@ sections:
         title: ApiMark Core shall provide an optional documentation-coverage
           enforcement capability interface that language generators can
           implement to expose a language-agnostic coverage scan to callers.
+        tags: [system]
         justification: |
           ApiMark supports opt-in documentation-coverage enforcement
           (`--enforce-docs`) across multiple languages (dotnet, cpp, vhdl).
@@ -148,5 +203,8 @@ sections:
         children:
           - ApiMarkCore-IDocumentationCoverageCapable-DefineCheckDocumentationCoverageMethod
           - ApiMarkCore-DocumentationCoverageResult-ProvideSharedResultType
+          - ApiMarkCore-IDocumentationCoverageCapable-FallBackToConfiguredTierWhenParameterOmitted
+          - ApiMarkCore-IDocumentationCoverageCapable-RejectUnrecognizedEnforceTier
+          - ApiMarkCore-IDocumentationCoverageCapable-RequireParseBeforeCheck
         tests:
           - ApiMarkCore_DocumentationCoverageContract_SupportedLanguage_CanBeInvoked

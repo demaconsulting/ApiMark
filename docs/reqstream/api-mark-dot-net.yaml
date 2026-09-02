@@ -6,6 +6,7 @@ sections:
       - id: ApiMarkDotNet-GenerateDocumentationFromAssembliesAndXml
         title: ApiMarkDotNet shall generate API documentation from .NET assemblies
           and XML documentation files.
+        tags: [system]
         justification: |
           ApiMark needs to document compiled .NET libraries without requiring source
           code access, using the assembly for API structure and the XML file for the
@@ -15,6 +16,7 @@ sections:
           - ApiMarkDotNet-DotNetGenerator-DiscoverTypesAndMembers
           - ApiMarkDotNet-DotNetGenerator-ReadXmlDocumentationComments
           - ApiMarkDotNet-DotNetGenerator-FilterByVisibility
+          - ApiMarkDotNet-DotNetGenerator-FilterByExcludePattern
           - ApiMarkDotNet-DotNetGenerator-IncludeObsoleteApisWhenRequested
           - ApiMarkDotNet-DotNetGenerator-RecognizeNamespaceDocCarrierClass
           - ApiMarkDotNet-DotNetGenerator-ExcludeNamespaceDocCarrierFromTypeListing
@@ -68,6 +70,7 @@ sections:
       - id: ApiMarkDotNet-TypeNameSimplifier-ProduceReadableTypeNames
         title: ApiMarkDotNet shall render .NET type names in a concise C#-style form
           that is readable in generated documentation.
+        tags: [system]
         justification: |
           Raw CLR type names are noisy and difficult to read, so the .NET system needs
           a consistent simplification policy that keeps signatures compact for both
@@ -85,6 +88,7 @@ sections:
         title: ApiMarkDotNet shall optionally check parsed assemblies for missing XML
           doc summaries at a caller-selected visibility tier, independent of Markdown
           emission.
+        tags: [system]
         justification: |
           Users have asked whether ApiMark can enforce API documentation completeness
           — warning or failing a build when public (or optionally protected, internal,
