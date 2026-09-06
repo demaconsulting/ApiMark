@@ -35,6 +35,7 @@ service or network dependency is needed.
   `protected { get; set; }` without redundant prefixes).
 - `BuildPropertyAccessors` emits `init;` for init-only (C# 9+) property setters.
 - `ToXmlDocTypeName` converts Cecil generic type names (e.g. `List\`1`) to XML doc member-ID format (e.g.`List{T}`) so XML doc lookups use the correct key format.
+- `ToXmlDocTypeName` converts Cecil byref type names (trailing `&`, used for `ref`/`out`/`in` parameters) to XML doc member-ID format (trailing `@`) so XML doc lookups use the correct key format.
 
 ### Test Scenarios
 
@@ -53,11 +54,13 @@ any I/O is attempted. This scenario is tested by
 any I/O is attempted. This scenario is tested by
 `DotNetEmitter_Emit_NullContext_ThrowsArgumentNullException`.
 
-**ToXmlDocTypeName converts Cecil generic notation**: Verifies that
-`DotNetEmitter.ToXmlDocTypeName` converts Cecil-encoded generic instantiations
-(using angle brackets) to the XML doc ID encoding (using curly braces), and that
-nested-type separators are normalized from `/` to `.`. This scenario is tested by
-`DotNetEmitter_ToXmlDocTypeName_ConvertsGenericNotation`.
+**ToXmlDocTypeName converts Cecil-encoded type names to XML doc IDs**: Verifies
+that `DotNetEmitter.ToXmlDocTypeName` converts Cecil-encoded generic
+instantiations (using angle brackets) to the XML doc ID encoding (using curly
+braces), normalizes nested-type separators from `/` to `.`, and converts
+byref parameter types (trailing `&`, used for `ref`/`out`/`in` parameters) to
+the XML doc ID trailing `@` encoding. This scenario is tested by
+`DotNetEmitter_ToXmlDocTypeName_ConvertsCecilEncodingToXmlDocId`.
 
 **GradualDisclosure format produces multiple files**: Verifies that when
 `OutputFormat.GradualDisclosure` is configured the emitter produces more than one
