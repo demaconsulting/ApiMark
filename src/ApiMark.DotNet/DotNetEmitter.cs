@@ -401,16 +401,22 @@ internal sealed class DotNetEmitter : IApiEmitter
     ///     XML doc IDs require <c>TypeName{Arg1,Arg2}</c> — the arity backtick suffix is
     ///     removed and angle brackets are replaced with curly braces. Nested-type separators
     ///     (<c>/</c>) are also normalized to <c>.</c>.
+    ///     Cecil also encodes byref parameters (<c>ref</c>/<c>out</c>/<c>in</c>) with a
+    ///     trailing <c>&amp;</c>, whereas XML doc IDs use a trailing <c>@</c>. Since byref
+    ///     only ever appears as the outermost modifier, this substitution is applied last.
     /// </remarks>
     /// <param name="cecilFullName">The <see cref="Mono.Cecil.TypeReference.FullName"/> value to convert.</param>
     /// <returns>The XML doc parameter type encoding.</returns>
     internal static string ToXmlDocTypeName(string cecilFullName)
     {
-        var sb = new StringBuilder(cecilFullName.Length);
+        var isByRef = cecilFullName.EndsWith('&');
+        var name = isByRef ? cecilFullName[..^1] : cecilFullName;
+
+        var sb = new StringBuilder(name.Length);
         var pos = 0;
-        while (pos < cecilFullName.Length)
+        while (pos < name.Length)
         {
-            var c = cecilFullName[pos];
+            var c = name[pos];
             switch (c)
             {
                 case '/':
@@ -420,7 +426,7 @@ internal sealed class DotNetEmitter : IApiEmitter
                 case '`':
                     // Skip the backtick and any following arity digits — not part of the XML doc type name
                     pos++;
-                    while (pos < cecilFullName.Length && char.IsDigit(cecilFullName[pos]))
+                    while (pos < name.Length && char.IsDigit(name[pos]))
                     {
                         pos++;
                     }
@@ -439,6 +445,11 @@ internal sealed class DotNetEmitter : IApiEmitter
                     pos++;
                     break;
             }
+        }
+
+        if (isByRef)
+        {
+            sb.Append('@');
         }
 
         return sb.ToString();

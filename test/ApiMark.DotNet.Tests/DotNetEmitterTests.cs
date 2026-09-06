@@ -110,7 +110,8 @@ public class DotNetEmitterTests
 
     /// <summary>
     ///     Validates that <see cref="DotNetEmitter.ToXmlDocTypeName"/> converts a Cecil-encoded
-    ///     generic instantiation to the XML doc ID encoding.
+    ///     type name — including generic instantiations, nested types, and byref parameters —
+    ///     to the XML doc ID encoding.
     /// </summary>
     [Theory]
     [InlineData("System.String", "System.String")]
@@ -121,7 +122,11 @@ public class DotNetEmitterTests
                 "System.Collections.Generic.IReadOnlyDictionary{System.String,System.Object}")]
     [InlineData("System.Action`1<System.String>", "System.Action{System.String}")]
     [InlineData("Outer/Inner", "Outer.Inner")]
-    public void DotNetEmitter_ToXmlDocTypeName_ConvertsGenericNotation(string cecilFullName, string expected)
+    [InlineData("System.String&", "System.String@")]
+    [InlineData("System.Int32&", "System.Int32@")]
+    [InlineData("System.Collections.Generic.IEnumerable`1<System.String>&",
+                "System.Collections.Generic.IEnumerable{System.String}@")]
+    public void DotNetEmitter_ToXmlDocTypeName_ConvertsCecilEncodingToXmlDocId(string cecilFullName, string expected)
     {
         // Act
         var result = DotNetEmitter.ToXmlDocTypeName(cecilFullName);
