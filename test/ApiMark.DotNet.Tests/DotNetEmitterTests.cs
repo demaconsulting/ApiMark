@@ -207,6 +207,45 @@ public class DotNetEmitterTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.BuildPropertySignature"/> includes the <c>static</c>
+    ///     modifier for a static property.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_BuildPropertySignature_StaticProperty_ContainsStaticModifier()
+    {
+        // Arrange: load the Label static property from the fixture assembly
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.First(t => t.Name == "StaticFixtureClass");
+        var prop = type.Properties.Single(p => p.Name == "Label");
+
+        // Act
+        var signature = DotNetEmitter.BuildPropertySignature(prop, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Contains("static ", signature, StringComparison.Ordinal);
+        Assert.Equal("public static string Label { get; }", signature);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.BuildPropertySignature"/> does not include the
+    ///     <c>static</c> modifier for an instance property.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_BuildPropertySignature_InstanceProperty_DoesNotContainStaticModifier()
+    {
+        // Arrange: load the instance Name property from the fixture assembly
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.First(t => t.Name == "SampleClass");
+        var prop = type.Properties.Single(p => p.Name == "Name");
+
+        // Act
+        var signature = DotNetEmitter.BuildPropertySignature(prop, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.DoesNotContain("static ", signature, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     Validates that <see cref="DotNetEmitter.IsNamespaceDocCarrier"/> returns
     ///     <see langword="true"/> for the <c>NamespaceDoc</c> carrier class in the fixture assembly.
     /// </summary>
