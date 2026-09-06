@@ -713,8 +713,12 @@ internal sealed class DotNetEmitter : IApiEmitter
             contextNamespace,
             HasNullableAnnotation(prop.CustomAttributes));
         var accessibility = GetAccessibilityKeyword(MostPermissiveAccessor(prop.GetMethod, prop.SetMethod));
+
+        // PropertyDefinition has no IsStatic of its own — whether it is static is determined by
+        // its accessor methods, which always agree for a given property.
+        var staticModifier = (prop.GetMethod?.IsStatic ?? prop.SetMethod?.IsStatic ?? false) ? " static" : string.Empty;
         var accessors = BuildPropertyAccessors(prop);
-        return $"{accessibility} {typeName} {prop.Name} {{ {accessors} }}";
+        return $"{accessibility}{staticModifier} {typeName} {prop.Name} {{ {accessors} }}";
     }
 
     /// <summary>Builds the accessor portion of a property signature (e.g. <c>get; internal set;</c> or <c>get; init;</c> for init-only setters).</summary>
