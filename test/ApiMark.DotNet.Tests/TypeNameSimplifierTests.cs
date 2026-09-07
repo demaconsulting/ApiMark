@@ -66,6 +66,25 @@ public class TypeNameSimplifierTests
         Assert.Equal("string[]", result);
     }
 
+    /// <summary>
+    ///     Validates that a byref parameter type (Cecil's <see cref="ByReferenceType"/>, used for
+    ///     <c>ref</c>/<c>out</c>/<c>in</c> parameters) is unwrapped to its element type name rather
+    ///     than rendering the raw trailing <c>&amp;</c> marker.
+    /// </summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_ByReferenceType_UnwrapsToElementTypeName()
+    {
+        // Arrange: construct a byref wrapper around SampleClass, as Cecil does for ref/out/in parameters
+        var sampleClass = GetType("SampleClass");
+        var byRefType = new ByReferenceType(sampleClass);
+
+        // Act
+        var result = TypeNameSimplifier.Simplify(byRefType, "ApiMark.DotNet.Fixtures");
+
+        // Assert: the "&" marker must not appear in the simplified name
+        Assert.Equal("SampleClass", result);
+    }
+
     /// <summary>Validates that <c>Nullable&lt;T&gt;</c> value types are rendered as <c>T?</c>.</summary>
     [Fact]
     public void TypeNameSimplifier_Simplify_NullableValueTypes_UseQuestionMarkForm()

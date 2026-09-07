@@ -270,6 +270,27 @@ public class TypeLinkResolverTests : IDisposable
     }
 
     /// <summary>
+    ///     Validates that a byref parameter type (Cecil's <see cref="ByReferenceType"/>, used for
+    ///     <c>ref</c>/<c>out</c>/<c>in</c> parameters) resolves to a Markdown link using the
+    ///     un-suffixed element type name — never a dead link to a page named with a trailing <c>&amp;</c>.
+    /// </summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_ByReferenceType_ReturnsLinkWithPlainTypeName()
+    {
+        // Arrange: construct a byref wrapper around SampleClass, as Cecil does for ref/out/in parameters
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"], generateLinks: true);
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+        var typeDef = _assembly.MainModule.Types.First(t => t.Name == "SampleClass");
+        var byRefType = new ByReferenceType(typeDef);
+
+        // Act
+        var result = resolver.Linkify(byRefType, "ApiMark.DotNet.Fixtures", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert: link target and text must not contain "&" — the real page is SampleClass.md
+        Assert.Equal("[SampleClass](SampleClass.md)", result);
+    }
+
+    /// <summary>
     ///     Validates that an array type reference with <paramref name="isNullableAnnotated"/> set to
     ///     <see langword="true"/> produces a result ending with <c>[]?</c> — the array rank suffix
     ///     followed by the nullable marker.

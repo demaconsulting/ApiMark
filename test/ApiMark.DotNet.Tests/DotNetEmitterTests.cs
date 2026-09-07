@@ -246,6 +246,146 @@ public class DotNetEmitterTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.BuildMethodSignature"/> renders an <c>out</c>
+    ///     parameter with the <c>out</c> keyword and the un-suffixed element type name, rather than
+    ///     Cecil's raw byref-marked type name (e.g. <c>ByRefTargetClass&amp;</c>).
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_BuildMethodSignature_OutParameter_RendersOutKeywordAndPlainTypeName()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.First(t => t.Name == "ByRefParameterClass");
+        var method = type.Methods.Single(m => m.Name == "TryResolve");
+
+        // Act
+        var signature = DotNetEmitter.BuildMethodSignature(method, "ApiMark.DotNet.Fixtures");
+
+        // Assert: the out parameter must render as "out ByRefTargetClass value" — never "ByRefTargetClass& value"
+        Assert.Contains("out ByRefTargetClass value", signature, StringComparison.Ordinal);
+        Assert.DoesNotContain("&", signature, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.BuildMethodSignature"/> renders a <c>ref</c>
+    ///     parameter with the <c>ref</c> keyword and the un-suffixed element type name.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_BuildMethodSignature_RefParameter_RendersRefKeywordAndPlainTypeName()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.First(t => t.Name == "ByRefParameterClass");
+        var method = type.Methods.Single(m => m.Name == "Increment");
+
+        // Act
+        var signature = DotNetEmitter.BuildMethodSignature(method, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Contains("ref ByRefTargetClass value", signature, StringComparison.Ordinal);
+        Assert.DoesNotContain("&", signature, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.BuildMethodSignature"/> renders an <c>in</c>
+    ///     parameter with the <c>in</c> keyword and the un-suffixed element type name.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_BuildMethodSignature_InParameter_RendersInKeywordAndPlainTypeName()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.First(t => t.Name == "ByRefParameterClass");
+        var method = type.Methods.Single(m => m.Name == "Inspect");
+
+        // Act
+        var signature = DotNetEmitter.BuildMethodSignature(method, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Contains("in ByRefTargetClass value", signature, StringComparison.Ordinal);
+        Assert.DoesNotContain("&", signature, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.BuildMethodSignature"/> renders a <c>ref</c>-returning
+    ///     method with the <c>ref</c> keyword before the return type, rather than silently dropping it
+    ///     now that <see cref="TypeNameSimplifier"/> unwraps <see cref="Mono.Cecil.ByReferenceType"/>.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_BuildMethodSignature_RefReturningMethod_RendersRefKeywordBeforeReturnType()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.First(t => t.Name == "ByRefParameterClass");
+        var method = type.Methods.Single(m => m.Name == "GetByRef");
+
+        // Act
+        var signature = DotNetEmitter.BuildMethodSignature(method, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Contains("ref ByRefTargetClass GetByRef", signature, StringComparison.Ordinal);
+        Assert.DoesNotContain("&", signature, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.GetReturnRefKeyword"/> returns an empty string for
+    ///     an ordinary by-value return type.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_GetReturnRefKeyword_ByValueReturn_ReturnsEmptyString()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.First(t => t.Name == "ByRefParameterClass");
+        var method = type.Methods.Single(m => m.Name == "TryResolve");
+
+        // Act
+        var keyword = DotNetEmitter.GetReturnRefKeyword(method.ReturnType);
+
+        // Assert
+        Assert.Equal(string.Empty, keyword);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.BuildMethodDisplayName"/> includes the <c>out</c>
+    ///     keyword for a byref parameter in the overload heading text.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_BuildMethodDisplayName_OutParameter_IncludesOutKeyword()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.First(t => t.Name == "ByRefParameterClass");
+        var method = type.Methods.Single(m => m.Name == "TryResolve");
+
+        // Act
+        var displayName = DotNetEmitter.BuildMethodDisplayName(method);
+
+        // Assert
+        Assert.Equal("TryResolve(string, out ByRefTargetClass)", displayName);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.GetRefKindKeyword"/> returns an empty string for
+    ///     an ordinary by-value parameter.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_GetRefKindKeyword_ByValueParameter_ReturnsEmptyString()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.First(t => t.Name == "ByRefParameterClass");
+        var method = type.Methods.Single(m => m.Name == "TryResolve");
+        var nameParam = method.Parameters.Single(p => p.Name == "name");
+
+        // Act
+        var keyword = DotNetEmitter.GetRefKindKeyword(nameParam);
+
+        // Assert
+        Assert.Equal(string.Empty, keyword);
+    }
+
+    /// <summary>
     ///     Validates that <see cref="DotNetEmitter.IsNamespaceDocCarrier"/> returns
     ///     <see langword="true"/> for the <c>NamespaceDoc</c> carrier class in the fixture assembly.
     /// </summary>

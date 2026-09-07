@@ -306,7 +306,7 @@ internal sealed class DotNetEmitterSingleFile
             var paramRows = method.Parameters.Select(p =>
             {
                 var desc = paramDocs.FirstOrDefault(pd => pd.Name == p.Name).Description ?? NoDescriptionPlaceholder;
-                var typeName = context.Resolver.Linkify(p.ParameterType, context.NamespaceFolderPath, context.NamespaceName,
+                var typeName = GetRefKindKeyword(p) + context.Resolver.Linkify(p.ParameterType, context.NamespaceFolderPath, context.NamespaceName,
                     // Shared throw-away accumulator — generateLinks is false so it is never populated or read
                     context.SharedExternalTypes);
                 return new[] { p.Name, typeName, desc };

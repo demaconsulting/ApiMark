@@ -40,11 +40,12 @@ public static class TypeNameSimplifier
     /// <remarks>
     ///     Exists to make generated Markdown signatures readable to C# developers — raw Mono.Cecil type
     ///     names include CLR full names and generic arity suffixes that are unfamiliar in documentation.
-    ///     Seven simplification rules are applied in a fixed priority order: (1) C# primitive aliases,
-    ///     (2) array bracket notation, (3) Nullable&lt;T&gt; → T?, (4) well-known namespace stripping,
-    ///     (5) context namespace prefix stripping, (6) recursive generic argument simplification, and
-    ///     (7) nullable reference annotation suffix. Stateless and thread-safe; no shared mutable state
-    ///     is modified during the call.
+    ///     Eight simplification rules are applied in a fixed priority order: (0) byref parameter type
+    ///     unwrapping (the <c>ref</c>/<c>out</c>/<c>in</c> keyword itself is the caller's responsibility —
+    ///     see <see cref="DotNetEmitter.GetRefKindKeyword"/>), (1) C# primitive aliases, (2) array bracket
+    ///     notation, (3) Nullable&lt;T&gt; → T?, (4) well-known namespace stripping, (5) context namespace
+    ///     prefix stripping, (6) recursive generic argument simplification, and (7) nullable reference
+    ///     annotation suffix. Stateless and thread-safe; no shared mutable state is modified during the call.
     /// </remarks>
     /// <param name="typeRef">The Mono.Cecil type reference to simplify.</param>
     /// <param name="contextNamespace">The namespace of the type that owns this reference, used for prefix stripping.</param>
@@ -71,7 +72,7 @@ public static class TypeNameSimplifier
         return name;
     }
 
-    /// <summary>Applies Rules 1–6 to produce a simplified type name without nullable-reference annotation.</summary>
+    /// <summary>Applies Rules 0–6 to produce a simplified type name without nullable-reference annotation.</summary>
     /// <remarks>
     ///     Exists as a named helper so that <see cref="Simplify"/> can apply Rule 7 (nullable reference
     ///     annotation) as a single post-processing step without duplicating the core switch logic.
@@ -87,6 +88,12 @@ public static class TypeNameSimplifier
     {
         return typeRef switch
         {
+            // Rule 0: byref parameter types (ref/out/in) — Cecil marks these with a trailing "&"
+            // on the type name; the caller is responsible for rendering the ref/out/in keyword,
+            // this rule only unwraps to the underlying element type for display purposes.
+            ByReferenceType byRef
+                => Simplify(byRef.ElementType, contextNamespace),
+
             // Rule 2: array types recurse on the element type; rank-aware suffix (e.g., [] for 1-D, [,] for 2-D)
             ArrayType arr
                 => Simplify(arr.ElementType, contextNamespace) + "[" + new string(',', arr.Rank - 1) + "]",

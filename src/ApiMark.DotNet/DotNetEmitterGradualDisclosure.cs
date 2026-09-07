@@ -1066,7 +1066,7 @@ internal sealed class DotNetEmitterGradualDisclosure
             var paramRows = method.Parameters.Select(p =>
             {
                 var desc = paramDocs.FirstOrDefault(pd => pd.Name == p.Name).Description ?? NoDescriptionPlaceholder;
-                var typeName = ctx.Resolver.Linkify(p.ParameterType, ctx.CurrentFolder, ctx.NamespaceName, ctx.ExternalTypes);
+                var typeName = GetRefKindKeyword(p) + ctx.Resolver.Linkify(p.ParameterType, ctx.CurrentFolder, ctx.NamespaceName, ctx.ExternalTypes);
                 return new[] { p.Name, typeName, desc };
             });
             memberWriter.WriteTable(paramHeaders, paramRows);
