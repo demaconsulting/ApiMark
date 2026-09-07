@@ -551,7 +551,7 @@ internal sealed class DotNetEmitter : IApiEmitter
         }
 
         var parameters = string.Join(", ", invoke.Parameters.Select(p =>
-            $"{TypeNameSimplifier.Simplify(p.ParameterType, contextNamespace)} {p.Name}"));
+            $"{GetRefKindKeyword(p)}{TypeNameSimplifier.Simplify(p.ParameterType, contextNamespace)} {p.Name}"));
 
         return $"public delegate {returnType} {name}({parameters})";
     }
@@ -692,7 +692,7 @@ internal sealed class DotNetEmitter : IApiEmitter
                 p.ParameterType,
                 contextNamespace,
                 HasNullableAnnotation(p.CustomAttributes));
-            return $"{receiverPrefix}{paramType} {p.Name}";
+            return $"{receiverPrefix}{GetRefKindKeyword(p)}{paramType} {p.Name}";
         }));
 
         var accessibility = GetAccessibilityKeyword(method);
@@ -700,6 +700,34 @@ internal sealed class DotNetEmitter : IApiEmitter
         return method.Name == ConstructorMethodName
             ? $"{accessibility} {name}({parameters})"
             : $"{accessibility}{staticModifier} {returnType} {name}({parameters})";
+    }
+
+    /// <summary>
+    ///     Returns the C# reference-kind keyword (<c>out </c>, <c>in </c>, or <c>ref </c>) for a
+    ///     byref parameter, or an empty string for an ordinary by-value parameter.
+    /// </summary>
+    /// <remarks>
+    ///     Mono.Cecil represents any <c>ref</c>/<c>out</c>/<c>in</c> parameter with a
+    ///     <see cref="Mono.Cecil.ByReferenceType"/> parameter type; the specific keyword is
+    ///     recovered from the <see cref="ParameterDefinition.IsOut"/> / <see cref="ParameterDefinition.IsIn"/>
+    ///     flags set by the C# compiler (<c>out</c> sets <c>Out</c>, <c>in</c> sets <c>In</c>,
+    ///     and plain <c>ref</c> sets neither).
+    /// </remarks>
+    /// <param name="parameter">The parameter definition to inspect.</param>
+    /// <returns>The keyword including a trailing space, or <see cref="string.Empty"/>.</returns>
+    internal static string GetRefKindKeyword(ParameterDefinition parameter)
+    {
+        if (parameter.ParameterType is not ByReferenceType)
+        {
+            return string.Empty;
+        }
+
+        if (parameter.IsOut)
+        {
+            return "out ";
+        }
+
+        return parameter.IsIn ? "in " : "ref ";
     }
 
     /// <summary>Builds a human-readable C# property declaration signature.</summary>
@@ -902,7 +930,7 @@ internal sealed class DotNetEmitter : IApiEmitter
 
     /// <summary>
     ///     Builds the full display name for a method overload, including the simplified parameter
-    ///     type list in parentheses (e.g. <c>Process(int, string)</c>).
+    ///     type list in parentheses (e.g. <c>Process(int, string)</c> or <c>TryGet(string, out int)</c>).
     /// </summary>
     /// <param name="method">The method definition to build a display name for.</param>
     /// <returns>A human-readable method name including parenthesized parameter types.</returns>
@@ -910,7 +938,7 @@ internal sealed class DotNetEmitter : IApiEmitter
     {
         var baseName = GetMethodGroupName(method);
         var parameters = string.Join(", ", method.Parameters.Select(p =>
-            TypeNameSimplifier.Simplify(p.ParameterType, method.DeclaringType.Namespace)));
+            $"{GetRefKindKeyword(p)}{TypeNameSimplifier.Simplify(p.ParameterType, method.DeclaringType.Namespace)}"));
         return $"{baseName}({parameters})";
     }
 
@@ -1048,7 +1076,7 @@ internal sealed class DotNetEmitter : IApiEmitter
                 p.ParameterType,
                 contextNamespace,
                 HasNullableAnnotation(p.CustomAttributes));
-            return $"{paramType} {p.Name}";
+            return $"{GetRefKindKeyword(p)}{paramType} {p.Name}";
         }));
 
         return method.Name switch

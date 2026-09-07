@@ -131,6 +131,15 @@ internal sealed class TypeLinkResolver
             return string.Empty;
         }
 
+        // Byref parameter types (ref/out/in) are marked by Cecil with a trailing "&" on the type
+        // name. The ref/out/in keyword itself is the caller's responsibility (see
+        // DotNetEmitter.GetRefKindKeyword) — unwrap to the underlying element type here so both
+        // the display text and the computed link target use the real (un-suffixed) type name.
+        if (typeRef is ByReferenceType byRefType)
+        {
+            return Linkify(byRefType.ElementType, currentFolder, contextNamespace, externalTypes, isNullableAnnotated);
+        }
+
         // Generic type parameters (e.g. T, TKey) are not real types — render as plain text,
         // appending "?" when the annotation indicates the parameter itself is nullable
         if (typeRef is GenericParameter genericParam)
