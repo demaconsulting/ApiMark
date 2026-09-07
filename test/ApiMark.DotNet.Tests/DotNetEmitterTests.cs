@@ -307,6 +307,46 @@ public class DotNetEmitterTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.BuildMethodSignature"/> renders a <c>ref</c>-returning
+    ///     method with the <c>ref</c> keyword before the return type, rather than silently dropping it
+    ///     now that <see cref="TypeNameSimplifier"/> unwraps <see cref="Mono.Cecil.ByReferenceType"/>.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_BuildMethodSignature_RefReturningMethod_RendersRefKeywordBeforeReturnType()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.First(t => t.Name == "ByRefParameterClass");
+        var method = type.Methods.Single(m => m.Name == "GetByRef");
+
+        // Act
+        var signature = DotNetEmitter.BuildMethodSignature(method, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Contains("ref ByRefTargetClass GetByRef", signature, StringComparison.Ordinal);
+        Assert.DoesNotContain("&", signature, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.GetReturnRefKeyword"/> returns an empty string for
+    ///     an ordinary by-value return type.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_GetReturnRefKeyword_ByValueReturn_ReturnsEmptyString()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.First(t => t.Name == "ByRefParameterClass");
+        var method = type.Methods.Single(m => m.Name == "TryResolve");
+
+        // Act
+        var keyword = DotNetEmitter.GetReturnRefKeyword(method.ReturnType);
+
+        // Assert
+        Assert.Equal(string.Empty, keyword);
+    }
+
+    /// <summary>
     ///     Validates that <see cref="DotNetEmitter.BuildMethodDisplayName"/> includes the <c>out</c>
     ///     keyword for a byref parameter in the overload heading text.
     /// </summary>

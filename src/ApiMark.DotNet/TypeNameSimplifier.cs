@@ -72,7 +72,7 @@ public static class TypeNameSimplifier
         return name;
     }
 
-    /// <summary>Applies Rules 1–6 to produce a simplified type name without nullable-reference annotation.</summary>
+    /// <summary>Applies Rules 0–6 to produce a simplified type name without nullable-reference annotation.</summary>
     /// <remarks>
     ///     Exists as a named helper so that <see cref="Simplify"/> can apply Rule 7 (nullable reference
     ///     annotation) as a single post-processing step without duplicating the core switch logic.

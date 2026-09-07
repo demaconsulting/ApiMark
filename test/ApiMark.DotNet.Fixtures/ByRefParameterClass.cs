@@ -38,4 +38,13 @@ public class ByRefParameterClass
     {
         _ = value;
     }
+
+    /// <summary>Returns a reference to the backing field's element.</summary>
+    /// <returns>A reference to the stored value.</returns>
+    public ref ByRefTargetClass GetByRef()
+    {
+        return ref _stored;
+    }
+
+    private ByRefTargetClass _stored = new();
 }

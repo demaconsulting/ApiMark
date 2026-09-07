@@ -553,7 +553,7 @@ internal sealed class DotNetEmitter : IApiEmitter
         var parameters = string.Join(", ", invoke.Parameters.Select(p =>
             $"{GetRefKindKeyword(p)}{TypeNameSimplifier.Simplify(p.ParameterType, contextNamespace)} {p.Name}"));
 
-        return $"public delegate {returnType} {name}({parameters})";
+        return $"public delegate {GetReturnRefKeyword(invoke.ReturnType)}{returnType} {name}({parameters})";
     }
 
     /// <summary>Builds a human-readable C# declaration signature for a type definition.</summary>
@@ -699,8 +699,23 @@ internal sealed class DotNetEmitter : IApiEmitter
         var staticModifier = method.IsStatic && method.Name != ConstructorMethodName ? " static" : string.Empty;
         return method.Name == ConstructorMethodName
             ? $"{accessibility} {name}({parameters})"
-            : $"{accessibility}{staticModifier} {returnType} {name}({parameters})";
+            : $"{accessibility}{staticModifier} {GetReturnRefKeyword(method.ReturnType)}{returnType} {name}({parameters})";
     }
+
+    /// <summary>
+    ///     Returns the C# <c>ref </c> keyword when a method or delegate returns by reference, or an
+    ///     empty string for an ordinary by-value return.
+    /// </summary>
+    /// <remarks>
+    ///     Mono.Cecil represents a <c>ref</c> return with a <see cref="Mono.Cecil.ByReferenceType"/>
+    ///     return type, the same representation used for byref parameters (see
+    ///     <see cref="GetRefKindKeyword"/>). Unlike parameters, C# return values only ever use the
+    ///     plain <c>ref</c> keyword — <c>out</c>/<c>in</c> do not apply to return values.
+    /// </remarks>
+    /// <param name="returnType">The method's raw return type, before <see cref="TypeNameSimplifier"/> is applied.</param>
+    /// <returns>The literal <c>"ref "</c>, or <see cref="string.Empty"/>.</returns>
+    internal static string GetReturnRefKeyword(TypeReference returnType) =>
+        returnType is ByReferenceType ? "ref " : string.Empty;
 
     /// <summary>
     ///     Returns the C# reference-kind keyword (<c>out </c>, <c>in </c>, or <c>ref </c>) for a
