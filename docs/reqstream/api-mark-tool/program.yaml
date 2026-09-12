@@ -39,11 +39,12 @@ sections:
               - Program_Main_DotNetWithExcludeFlag_ExcludesMatchingTypeFromOutput
               - Program_Main_DotNetWithReferencePathsFlag_ResolvesExternalInheritdocInOutput
           - id: ApiMarkTool-Program-EnforceDocumentationCoverage
-            title: Program shall support --enforce-docs and --enforce-docs-severity for
-              the dotnet, cpp, and vhdl subcommands, dispatching polymorphically to
-              whichever generator implements IDocumentationCoverageCapable, reporting a
-              documentation-coverage scan to the console after Parse and before Emit,
-              failing the build only when severity is Error and violations were found.
+            title: Program shall support --enforce-docs and --enforce-docs-severity
+              for the dotnet, cpp, and vhdl subcommands, dispatching polymorphically
+              to whichever generator implements IDocumentationCoverageCapable, reporting
+              a documentation-coverage scan to the console after Parse and before
+              Emit, failing the build only when severity is Error and violations were
+              found.
             justification: |
               Documentation-coverage enforcement must run between Parse and Emit because
               Emit disposes parsed generator state (for example, the DotNet assembly).

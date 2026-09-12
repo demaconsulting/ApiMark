@@ -7,16 +7,18 @@ sections:
         requirements:
           - id: ApiMarkDotNet-ExternalXmlDocResolver-LocateAndCacheReferencedAssemblyDocs
             title: ExternalXmlDocResolver shall locate a referenced assembly's XML
-              documentation file (via a sibling `.xml` file or a `ref/`/`lib/`
-              folder-segment swap fallback), lazily parse it on first use, and cache
-              both per-file and per-member-ID results (including misses) so repeated
-              lookups never re-touch disk.
+              documentation file (via a sibling `.xml` file or a `ref/`/`lib/` folder-segment
+              swap fallback), lazily parse it on first use, and cache both per-file
+              and per-member-ID results (including misses) so repeated lookups never
+              re-touch disk.
             justification: >
               Cross-assembly `<inheritdoc />` resolution needs to find and read a
               referenced assembly's own XML documentation file, but reference-assembly
-              lists can be large (e.g. hundreds of transitive NuGet dependencies) and
+              lists can be large (e.g. hundreds of transitive NuGet dependencies)
+              and
               most of their documentation is never needed by a given generation run.
-              Eagerly parsing every configured reference path up front would waste time
+              Eagerly parsing every configured reference path up front would waste
+              time
               and memory; parsing lazily on first access, and caching both file-level
               parse results and per-member-ID lookup results (including misses),
               ensures the cost is paid at most once per file that is actually consulted.
@@ -36,7 +38,8 @@ sections:
             justification: >
               Failing fast with ArgumentNullException at construction gives callers
               (DotNetGenerator.Parse) a clear, immediate error rather than a deferred
-              NullReferenceException the first time TryGetMember iterates the null list,
+              NullReferenceException the first time TryGetMember iterates the null
+              list,
               consistent with the null-argument-rejection convention used throughout
               ApiMark's constructors and Parse/Emit entry points.
             tests:

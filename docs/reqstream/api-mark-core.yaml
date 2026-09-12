@@ -188,9 +188,9 @@ sections:
           - GlobFileCollector_Collect_NonExistentRoot_ReturnsEmptyWithoutThrowing
           - GlobFileCollector_Collect_OverlappingPatterns_ReturnsSortedDeduplicated
       - id: ApiMarkCore-IDocumentationCoverageCapable-ProvideEnforcementContract
-        title: ApiMark Core shall provide an optional documentation-coverage
-          enforcement capability interface that language generators can
-          implement to expose a language-agnostic coverage scan to callers.
+        title: ApiMark Core shall provide an optional documentation-coverage enforcement
+          capability interface that language generators can implement to expose a
+          language-agnostic coverage scan to callers.
         tags: [system]
         justification: |
           ApiMark supports opt-in documentation-coverage enforcement

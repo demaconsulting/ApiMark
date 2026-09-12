@@ -49,7 +49,8 @@ sections:
             title: >-
               ApiMarkTask's .targets file shall automatically populate
               ApiMarkReferencePaths from the resolved @(ReferencePath) items when
-              ApiMarkReferencePaths is not explicitly set, and shall not override an
+              ApiMarkReferencePaths is not explicitly set, and shall not override
+              an
               explicitly set value.
             justification: |
               Auto-harvesting from @(ReferencePath) (populated by
@@ -64,10 +65,10 @@ sections:
               - ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoPopulatesReferencePathsFromResolvedReferences
               - ApiMarkMsbuild_NuGetPackage_DotNetProject_ExplicitReferencePaths_SuppressesAutoHarvest
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardEnforceDocsProperties
-            title: ApiMarkTask shall forward the ApiMarkEnforceDocs and
-              ApiMarkEnforceDocsSeverity properties to the tool as --enforce-docs and
-              --enforce-docs-severity arguments for .NET and C++ builds, omitting either
-              flag entirely when the corresponding property is not set.
+            title: ApiMarkTask shall forward the ApiMarkEnforceDocs and ApiMarkEnforceDocsSeverity
+              properties to the tool as --enforce-docs and --enforce-docs-severity
+              arguments for .NET and C++ builds, omitting either flag entirely when
+              the corresponding property is not set.
             justification: |
               Build authors need to opt in to documentation-coverage enforcement (and
               its severity) from the project file, matching the CLI vocabulary exactly.

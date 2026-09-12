@@ -7,8 +7,8 @@ sections:
         requirements:
           - id: ApiMarkDotNet-XmlDocReader-ProvideMemberDocumentationFromXmlFile
             title: XmlDocReader shall provide the summary, remarks, parameters, returns,
-              exceptions, and example content for any member documented in a .NET XML
-              documentation file, given that member's documentation identifier.
+              exceptions, and example content for any member documented in a .NET
+              XML documentation file, given that member's documentation identifier.
             justification: |
               Assembly documentation comes from compiler-produced XML files. Every
               per-member lookup used during emission — summary, remarks, parameters,

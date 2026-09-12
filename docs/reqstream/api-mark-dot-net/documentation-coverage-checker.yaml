@@ -22,8 +22,8 @@ sections:
               - Check_PublicAndProtectedTier_IncludesProtectedMembersNotSeenAtPublicTier
           - id: ApiMarkDotNet-DocumentationCoverageChecker-DetectMissingSummaryByKind
             title: DocumentationCoverageChecker shall classify each undocumented item
-              it finds by kind (type, method, property, field, or event) and report its
-              fully-qualified display name.
+              it finds by kind (type, method, property, field, or event) and report
+              its fully-qualified display name.
             justification: |
               A documentation-coverage report is only actionable if it names exactly
               which type or member is missing a summary and what kind of API element
@@ -46,8 +46,8 @@ sections:
               - Check_NestedTypeMemberMissingSummary_ReportsViolationOnNestedType
           - id: ApiMarkDotNet-DocumentationCoverageChecker-ApplyExcludePatternsAndObsoleteFilter
             title: DocumentationCoverageChecker shall honor the same exclude-pattern
-              and obsolete-inclusion filters used for Markdown emission, and shall never
-              check a NamespaceDoc carrier type.
+              and obsolete-inclusion filters used for Markdown emission, and shall
+              never check a NamespaceDoc carrier type.
             justification: |
               Enforcement should respect the same namespace/type exclusions and
               obsolete-member policy already configured for emission so that types

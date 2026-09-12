@@ -14,8 +14,8 @@ sections:
               documentation that describes it.
             tests: [DotNetGenerator_Constructor_AcceptsAssemblyAndXmlPaths]
           - id: ApiMarkDotNet-DotNetGenerator-DiscoverTypesAndMembers
-            title: DotNetGenerator shall discover types and members from a compiled .NET
-              assembly and make them available for markdown generation.
+            title: DotNetGenerator shall discover types and members from a compiled
+              .NET assembly and make them available for markdown generation.
             justification: |
               Assembly inspection must reliably surface the compiled API surface so
               documentation generation can run against arbitrary build outputs and
@@ -140,8 +140,8 @@ sections:
               actionable failure.
             tests: [DotNetGenerator_Parse_NullContext_ThrowsArgumentNullException]
           - id: ApiMarkDotNet-DotNetGenerator-ResolveBareInheritdocFromBaseTypes
-            title: DotNetGenerator shall resolve bare inheritdoc elements (without a cref
-              attribute) to documentation inherited from the base type or interface.
+            title: DotNetGenerator shall resolve bare inheritdoc elements (without
+              a cref attribute) to documentation inherited from the base type or interface.
             justification: |
               Bare inheritdoc elements (without a cref attribute) rely on the type's
               inheritance relationships to find the correct base documentation, so a
@@ -153,8 +153,8 @@ sections:
           - id: ApiMarkDotNet-DotNetGenerator-ResolveInheritdocAcrossReferencedAssemblies
             title: DotNetGenerator shall resolve `<inheritdoc />` elements that target
               base types, interfaces, or members defined in externally referenced
-              assemblies when ReferencePaths is configured, and shall leave such
-              references unresolved without error when ReferencePaths is not configured.
+              assemblies when ReferencePaths is configured, and shall leave such references
+              unresolved without error when ReferencePaths is not configured.
             justification: |
               A type that derives from or implements a base type/interface defined in a
               referenced assembly (such as a NuGet package dependency) commonly documents

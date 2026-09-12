@@ -88,8 +88,8 @@ sections:
           - ApiMarkDotNet-TypeNameSimplifier-AppendNullableReferenceSuffix
         tests: [ApiMarkDotNet_TypeNames_CommonSignatures_RenderReadably]
       - id: ApiMarkDotNet-EnforceDocumentationCoverage
-        title: ApiMarkDotNet shall optionally check parsed assemblies for missing XML
-          doc summaries at a caller-selected visibility tier, independent of Markdown
+        title: ApiMarkDotNet shall optionally check parsed assemblies for missing
+          XML doc summaries at a caller-selected visibility tier, independent of Markdown
           emission.
         tags: [system]
         justification: |
@@ -103,4 +103,5 @@ sections:
           - ApiMarkDotNet-DocumentationCoverageChecker-DetectMissingSummaryByKind
           - ApiMarkDotNet-DocumentationCoverageChecker-RecurseNestedTypes
           - ApiMarkDotNet-DocumentationCoverageChecker-ApplyExcludePatternsAndObsoleteFilter
-        tests: [DotNetGenerator_CheckDocumentationCoverage_AfterParse_ReturnsViolationsAndAllowsSubsequentEmit]
+        tests:
+          - DotNetGenerator_CheckDocumentationCoverage_AfterParse_ReturnsViolationsAndAllowsSubsequentEmit
