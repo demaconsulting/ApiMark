@@ -394,10 +394,17 @@ public class ExternalXmlDocResolverTests
 
             // Configure the SAME underlying file twice: once via a relative path (resolved
             // against the current working directory, switched to `dir` below) and once via its
-            // absolute form.
+            // absolute form. The absolute form is derived from the OS-resolved current directory
+            // (rather than the original `dir` string) because on some platforms (e.g. macOS,
+            // where the OS temp directory lives under a `/var` symlink to `/private/var`)
+            // `Directory.SetCurrentDirectory` resolves symlinks while the original `dir` string
+            // does not — using the resolved directory here keeps both configured forms
+            // consistent with what `Path.GetFullPath` will normalize a relative path against.
             Directory.SetCurrentDirectory(dir);
+            var resolvedDir = Directory.GetCurrentDirectory();
+            var absoluteDllPath = Path.Combine(resolvedDir, "Foo.dll");
             var relativeDllPath = "Foo.dll";
-            var sut = new ExternalXmlDocResolver([relativeDllPath, dllPath]);
+            var sut = new ExternalXmlDocResolver([relativeDllPath, absoluteDllPath]);
 
             // Act: query a member ID that exists in neither file so the resolver must walk every
             // configured reference path (rather than short-circuiting on the first match),
