@@ -38,8 +38,11 @@ MSBuild and VC++ tools installed; those tests skip gracefully when the package i
   non-empty entry is forwarded as a separate `--reference-paths` argument; the
   flag is omitted entirely when the property is null or empty.
 - For .NET projects, when `ApiMarkReferencePaths` is not explicitly set, the `.targets` file
-  automatically populates it from the resolved `@(ReferencePath)` items; an explicitly set
-  value is never overridden.
+  automatically populates it from the resolved `@(ReferencePath)` items; a non-empty
+  explicitly set value is never overridden. Because MSBuild cannot distinguish an unset
+  property from one explicitly set to an empty value outside a target, setting
+  `ApiMarkDisableReferencePathsHarvest=true` is the dedicated opt-out that suppresses
+  auto-harvest even when `ApiMarkReferencePaths` is empty.
 - For the `dotnet` language, `ApiMarkEnforceDocs` is forwarded as `--enforce-docs` and
   `ApiMarkEnforceDocsSeverity` is forwarded as `--enforce-docs-severity`, each omitted
   independently when its corresponding property is not set.
@@ -167,11 +170,19 @@ explicitly set, mirroring how `ApiMarkIncludePaths` is auto-populated from `ClCo
 `AdditionalIncludeDirectories` for C++ builds. This scenario is tested by
 `ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoPopulatesReferencePathsFromResolvedReferences`.
 
-**Explicitly set ReferencePaths suppresses auto-harvest**: End-to-end package integration
-test that verifies an explicitly set `ApiMarkReferencePaths` value (including an explicit
-empty value) is honored and not silently replaced by the `.targets` file's auto-harvested
-`@(ReferencePath)` list. This scenario is tested by
-`ApiMarkMsbuild_NuGetPackage_DotNetProject_ExplicitReferencePaths_SuppressesAutoHarvest`.
+**Explicitly set non-empty ReferencePaths is not overwritten**: End-to-end package
+integration test that verifies a non-empty `ApiMarkReferencePaths` value set explicitly
+via a project property is honored and not silently replaced by the `.targets` file's
+auto-harvested `@(ReferencePath)` list. This scenario is tested by
+`ApiMarkMsbuild_NuGetPackage_DotNetProject_ExplicitReferencePaths_NotOverwritten`.
+
+**Disabling auto-harvest suppresses ReferencePaths even when empty**: End-to-end package
+integration test that verifies `ApiMarkDisableReferencePathsHarvest=true` suppresses the
+`.targets` file's auto-harvest, leaving `ApiMarkReferencePaths` empty. An explicit empty
+value alone cannot signal this because MSBuild cannot distinguish it from a property that
+was never set outside a target; `ApiMarkDisableReferencePathsHarvest` is the real opt-out
+mechanism. This scenario is tested by
+`ApiMarkMsbuild_NuGetPackage_DotNetProject_DisableReferencePathsHarvest_SuppressesAutoHarvest`.
 
 **IncludeObsolete flag is forwarded**: Verifies that when `ApiMarkIncludeObsolete` is set to
 `true`, the `--include-obsolete` flag is added to the spawned tool command. This scenario is

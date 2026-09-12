@@ -68,7 +68,13 @@ public sealed class ExternalXmlDocResolver
     public ExternalXmlDocResolver(IReadOnlyList<string> referenceAssemblyPaths)
     {
         ArgumentNullException.ThrowIfNull(referenceAssemblyPaths);
-        _referenceAssemblyPaths = referenceAssemblyPaths;
+
+        // Snapshot the input rather than holding a reference to the caller's list: if the caller
+        // later mutates the same mutable list instance (e.g. adds a path), this resolver must not
+        // silently observe the change, because doing so would leave already-cached "not found"
+        // member lookups (see _memberCache) stale — they would never be re-searched against the
+        // newly added path.
+        _referenceAssemblyPaths = referenceAssemblyPaths.ToArray();
     }
 
     /// <summary>

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using Xunit;
 
 namespace ApiMark.MSBuild.PackageTests;
@@ -277,7 +278,7 @@ public class PackageIntegrationTests
                 $"dotnet build -getProperty failed (exit {propertyResult.ExitCode}).\n" +
                 $"stdout:\n{propertyResult.Output}\nstderr:\n{propertyResult.Error}");
 
-            var harvestedPaths = propertyResult.Output.Trim();
+            var harvestedPaths = ExtractGetPropertyValue(propertyResult.Output, "ApiMarkReferencePaths");
             Assert.False(
                 string.IsNullOrWhiteSpace(harvestedPaths),
                 "ApiMarkReferencePaths was not auto-populated from @(ReferencePath); " +
@@ -343,11 +344,112 @@ public class PackageIntegrationTests
                 $"dotnet build -getProperty failed (exit {propertyResult.ExitCode}).\n" +
                 $"stdout:\n{propertyResult.Output}\nstderr:\n{propertyResult.Error}");
 
+            var effectiveValue = ExtractGetPropertyValue(propertyResult.Output, "ApiMarkReferencePaths");
             Assert.True(
-                string.IsNullOrWhiteSpace(propertyResult.Output.Trim()),
+                string.IsNullOrWhiteSpace(effectiveValue),
                 "ApiMarkReferencePaths was auto-harvested even though " +
                 $"ApiMarkDisableReferencePathsHarvest=true was set.\n{propertyResult.Output}");
         });
+    }
+
+    /// <summary>
+    ///     Validates that a non-empty <c>ApiMarkReferencePaths</c> value set explicitly via a
+    ///     project property survives the <c>.targets</c> file's auto-harvest logic unchanged.
+    /// </summary>
+    /// <remarks>
+    ///     This is the wiring proof, exercised through the real <c>.targets</c> file rather than
+    ///     the task in isolation, that a user-supplied non-empty <c>ApiMarkReferencePaths</c>
+    ///     value is never overwritten by auto-harvesting from <c>@(ReferencePath)</c>: the
+    ///     auto-harvest <c>ItemGroup</c>/<c>PropertyGroup</c> in the <c>.targets</c> file is
+    ///     conditioned on <c>'$(ApiMarkReferencePaths)' == ''</c>, so a non-empty explicit value
+    ///     must short-circuit that condition and reach <c>ApiMarkTask</c> unmodified. The fixture
+    ///     project references Newtonsoft.Json so that <c>@(ReferencePath)</c> is non-empty and
+    ///     harvesting would otherwise have something to (incorrectly) overwrite the value with.
+    ///     This test asserts the effective post-build <c>ApiMarkReferencePaths</c> property value
+    ///     (queried via <c>dotnet build -getProperty</c>) equals exactly the explicit value
+    ///     supplied on the command line.
+    /// </remarks>
+    [Fact]
+    public void ApiMarkMsbuild_NuGetPackage_DotNetProject_ExplicitReferencePaths_NotOverwritten()
+    {
+        var packagesDir = SkipIfPackageAbsent();
+
+        RunInIsolation(packagesDir, "DotNet/SampleLibWithReference", "SampleLib.csproj", workDir =>
+        {
+            var outputDir = Path.Join(workDir, "api");
+            var explicitReferencePath = Path.Join(workDir, "explicit-reference.dll");
+            File.WriteAllBytes(explicitReferencePath, []);
+
+            var result = RunProcess(
+                "dotnet",
+                $"build SampleLib.csproj --configuration Release " +
+                $"-p:ApiMarkOutputDir=\"{outputDir}\" " +
+                $"-p:ApiMarkReferencePaths=\"{explicitReferencePath}\"",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                result.ExitCode == 0,
+                $"dotnet build failed (exit {result.ExitCode}).\nstdout:\n{result.Output}\nstderr:\n{result.Error}");
+
+            Assert.True(
+                File.Exists(Path.Join(outputDir, "api.md")),
+                $"api.md was not created in '{outputDir}'.\nBuild output:\n{result.Output}");
+
+            // Query the effective ApiMarkReferencePaths value the .targets file computed during
+            // that build, proving the explicit non-empty value survived the auto-harvest
+            // ItemGroup/PropertyGroup unchanged rather than merely not crashing.
+            var propertyResult = RunProcess(
+                "dotnet",
+                "build SampleLib.csproj --configuration Release -t:Build -getProperty:ApiMarkReferencePaths " +
+                $"-p:ApiMarkOutputDir=\"{outputDir}\" -p:ApiMarkReferencePaths=\"{explicitReferencePath}\"",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                propertyResult.ExitCode == 0,
+                $"dotnet build -getProperty failed (exit {propertyResult.ExitCode}).\n" +
+                $"stdout:\n{propertyResult.Output}\nstderr:\n{propertyResult.Error}");
+
+            var effectiveValue = ExtractGetPropertyValue(propertyResult.Output, "ApiMarkReferencePaths");
+            Assert.Equal(explicitReferencePath, effectiveValue);
+        });
+    }
+
+    /// <summary>
+    ///     Extracts the value of a single MSBuild property from the captured stdout of a
+    ///     <c>dotnet build -getProperty:{propertyName}</c> invocation.
+    /// </summary>
+    /// <remarks>
+    ///     When exactly one property is requested, <c>dotnet build -getProperty</c> emits the raw
+    ///     property value as plain text; when combined with other <c>-getProperty</c>/<c>-getItem</c>
+    ///     requests it instead emits a JSON report (<c>{ "Properties": { "Name": "Value" } }</c>).
+    ///     Asserting against the raw captured stdout directly (rather than through this helper) is
+    ///     unreliable because it conflates the property value with the surrounding report/output
+    ///     format, so every test that reads a <c>-getProperty</c> value must extract it through this
+    ///     shared helper instead of trimming and asserting on the whole captured output.
+    /// </remarks>
+    /// <param name="capturedOutput">The captured stdout of the <c>dotnet build -getProperty</c> invocation.</param>
+    /// <param name="propertyName">The MSBuild property name that was requested via <c>-getProperty</c>.</param>
+    /// <returns>The extracted property value, or an empty string when the property is empty/unset.</returns>
+    private static string ExtractGetPropertyValue(string capturedOutput, string propertyName)
+    {
+        var trimmed = capturedOutput.Trim();
+        if (!trimmed.StartsWith('{'))
+        {
+            // Single-property requests are emitted as the raw value with no surrounding report.
+            return trimmed;
+        }
+
+        using var document = JsonDocument.Parse(trimmed);
+        if (document.RootElement.TryGetProperty("Properties", out var properties) &&
+            properties.TryGetProperty(propertyName, out var value))
+        {
+            return value.GetString() ?? string.Empty;
+        }
+
+        throw new InvalidOperationException(
+            $"Property '{propertyName}' was not found in the -getProperty JSON output:\n{capturedOutput}");
     }
 
     /// <summary>

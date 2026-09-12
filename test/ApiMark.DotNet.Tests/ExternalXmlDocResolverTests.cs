@@ -402,6 +402,61 @@ public class ExternalXmlDocResolverTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="ExternalXmlDocResolver"/> snapshots the reference-path list
+    ///     at construction time: mutating the caller's original <see cref="List{T}"/> instance
+    ///     after construction (e.g. adding a new path) must not be observed, because a live
+    ///     reference to the caller's list would let a newly added path silently invalidate the
+    ///     negative per-member cache populated before the mutation.
+    /// </summary>
+    [Fact]
+    public void ExternalXmlDocResolver_TryGetMember_ReferencePathListMutatedAfterConstruction_NewPathNotObserved()
+    {
+        // Arrange
+        var dir = CreateTempDirectory();
+        try
+        {
+            var firstDllPath = Path.Combine(dir, "First.dll");
+            File.WriteAllBytes(firstDllPath, []);
+            WriteXmlDoc(Path.ChangeExtension(firstDllPath, ".xml"), """
+                <member name="T:Foo.Other">
+                    <summary>Unrelated member.</summary>
+                </member>
+                """);
+
+            var mutableReferencePaths = new List<string> { firstDllPath };
+            var sut = new ExternalXmlDocResolver(mutableReferencePaths);
+
+            // Act: first lookup misses and is cached as "not found" while only First.dll is
+            // configured. Then a second reference assembly containing the member is added to the
+            // SAME list instance the resolver was constructed with, and the lookup is repeated —
+            // a resolver holding a live reference to the caller's list would pick up the new path
+            // and find the member; a resolver that snapshotted the list at construction time must
+            // still return null because it never observes the mutation.
+            var beforeMutation = sut.TryGetMember("T:Foo.Target");
+
+            var secondDllPath = Path.Combine(dir, "Second.dll");
+            File.WriteAllBytes(secondDllPath, []);
+            WriteXmlDoc(Path.ChangeExtension(secondDllPath, ".xml"), """
+                <member name="T:Foo.Target">
+                    <summary>Now present, but only via a path added after construction.</summary>
+                </member>
+                """);
+            mutableReferencePaths.Add(secondDllPath);
+
+            var afterMutation = sut.TryGetMember("T:Foo.Target");
+
+            // Assert: both lookups miss because the resolver is immune to mutation of the
+            // original list instance after construction.
+            Assert.Null(beforeMutation);
+            Assert.Null(afterMutation);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>
     ///     Validates that the <see cref="ExternalXmlDocResolver"/> constructor throws
     ///     <see cref="ArgumentNullException"/> when given a null reference-path list.
     /// </summary>

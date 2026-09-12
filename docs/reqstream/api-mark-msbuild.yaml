@@ -34,6 +34,7 @@ sections:
           - ApiMarkMsbuild-ApiMarkTask-ForwardExcludePatterns
           - ApiMarkMsbuild-ApiMarkTask-ForwardReferencePathsProperty
           - ApiMarkMsbuild-ApiMarkTask-AutoPopulateReferencePaths
+          - ApiMarkMsbuild-ApiMarkTask-DisableReferencePathsHarvestOptOut
           - ApiMarkMsbuild-ApiMarkTask-OverrideOutputProperties
           - ApiMarkMsbuild-ApiMarkTask-RestoreOutputProperties
           - ApiMarkMsbuild-ApiMarkTask-ResolveDotNetFromEnvironment

@@ -50,19 +50,38 @@ sections:
               ApiMarkTask's .targets file shall automatically populate
               ApiMarkReferencePaths from the resolved @(ReferencePath) items when
               ApiMarkReferencePaths is not explicitly set, and shall not override
-              an
-              explicitly set value.
+              a non-empty explicitly set value.
             justification: |
               Auto-harvesting from @(ReferencePath) (populated by
               ResolveAssemblyReferences/ResolveProjectReferences) means projects require
               no manual configuration in the common case for cross-assembly
               <inheritdoc/> resolution to work, mirroring how ApiMarkIncludePaths is
               auto-harvested from ClCompile AdditionalIncludeDirectories for C++
-              builds. Explicitly setting the property must suppress auto-harvesting so
-              projects that need finer control (e.g. a curated subset of reference
-              assemblies) are not overridden.
+              builds. Explicitly setting the property to a non-empty value must suppress
+              auto-harvesting so projects that need finer control (e.g. a curated subset
+              of reference assemblies) are not overridden. MSBuild cannot distinguish a
+              property that was never set from one explicitly set to an empty value
+              outside a target, so an empty assignment alone cannot opt out of
+              auto-harvesting; ApiMarkDisableReferencePathsHarvest is the dedicated
+              opt-out for that case (see
+              ApiMarkMsbuild-ApiMarkTask-DisableReferencePathsHarvestOptOut).
             tests:
               - ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoPopulatesReferencePathsFromResolvedReferences
+              - ApiMarkMsbuild_NuGetPackage_DotNetProject_ExplicitReferencePaths_NotOverwritten
+          - id: ApiMarkMsbuild-ApiMarkTask-DisableReferencePathsHarvestOptOut
+            title: >-
+              ApiMarkTask's .targets file shall suppress automatic
+              ApiMarkReferencePaths population when ApiMarkDisableReferencePathsHarvest
+              is true, even when ApiMarkReferencePaths is empty or unset.
+            justification: |
+              MSBuild cannot distinguish "ApiMarkReferencePaths was never set" from
+              "ApiMarkReferencePaths was explicitly set to an empty value" for a plain
+              property assignment outside a target, so an empty-value assignment alone
+              cannot suppress auto-harvesting. Projects that intentionally want no
+              reference paths (rather than merely accepting the harvested default) need
+              a dedicated opt-out property, mirroring the existing DisableApiMark
+              boolean opt-out convention used elsewhere in the .targets file.
+            tests:
               - ApiMarkMsbuild_NuGetPackage_DotNetProject_DisableReferencePathsHarvest_SuppressesAutoHarvest
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardEnforceDocsProperties
             title: ApiMarkTask shall forward the ApiMarkEnforceDocs and ApiMarkEnforceDocsSeverity

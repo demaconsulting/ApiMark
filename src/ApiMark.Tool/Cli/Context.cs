@@ -599,8 +599,8 @@ internal sealed class Context : IContext, IDisposable
                     {
                         // Append each --reference-paths invocation as one referenced assembly
                         // DLL path — repeated --reference-paths flags accumulate the full list
-                        var pattern = GetRequiredStringArgument(arg, args, index, "a reference assembly path argument");
-                        ReferencePaths.Add(pattern);
+                        var path = GetRequiredStringArgument(arg, args, index, "a reference assembly path argument");
+                        ReferencePaths.Add(path);
                         return index + 1;
                     }
 
