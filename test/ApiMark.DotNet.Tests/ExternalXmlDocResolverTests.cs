@@ -174,6 +174,52 @@ public class ExternalXmlDocResolverTests
     }
 
     /// <summary>
+    ///     Validates that the <c>ref/</c>&#8596;<c>lib/</c> folder-segment swap targets the segment
+    ///     nearest the assembly file (the actual NuGet package-layout segment), not an unrelated,
+    ///     earlier path segment that happens to also be named <c>ref</c> or <c>lib</c> — for
+    ///     example a decoy <c>lib</c> folder in the path leading up to a real NuGet package cache
+    ///     directory, mirroring a real-world layout such as
+    ///     <c>/home/lib/.nuget/packages/Pkg/ref/net8.0/Pkg.dll</c>.
+    /// </summary>
+    [Fact]
+    public void ExternalXmlDocResolver_TryGetMember_RefLibFolderSwap_DecoySegmentEarlierInPath_SwapsSegmentNearestDll()
+    {
+        // Arrange: an earlier, unrelated "lib" segment (simulating e.g. "/home/lib/...") sits
+        // before the real NuGet package-layout "ref"/"net8.0" segments nearest the DLL.
+        var dir = CreateTempDirectory();
+        try
+        {
+            var decoyLibDir = Path.Combine(dir, "lib", ".nuget", "packages", "Pkg");
+            var refDir = Path.Combine(decoyLibDir, "ref", "net8.0");
+            var realLibDir = Path.Combine(decoyLibDir, "lib", "net8.0");
+            Directory.CreateDirectory(refDir);
+            Directory.CreateDirectory(realLibDir);
+
+            var refDllPath = Path.Combine(refDir, "Pkg.dll");
+            File.WriteAllBytes(refDllPath, []);
+            WriteXmlDoc(Path.Combine(realLibDir, "Pkg.xml"), """
+                <member name="T:Pkg.Bar">
+                    <summary>Real lib summary text.</summary>
+                </member>
+                """);
+            var sut = new ExternalXmlDocResolver([refDllPath]);
+
+            // Act
+            var member = sut.TryGetMember("T:Pkg.Bar");
+
+            // Assert: resolution must find the XML doc under the "ref"-to-"lib" swap of the
+            // segment nearest the DLL, not a swap of the earlier decoy "lib" segment (which would
+            // produce a nonexistent probe path and leave the member unresolved).
+            Assert.NotNull(member);
+            Assert.Equal("Real lib summary text.", member.Element("summary")?.Value.Trim());
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>
     ///     Validates that <see cref="ExternalXmlDocResolver.TryGetMember"/> searches all
     ///     configured reference paths in order, using the second path's documentation when the
     ///     member is absent from the first path's documentation.

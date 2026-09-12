@@ -95,8 +95,12 @@ generation run. This scenario is tested by
 **Repeated misses are served from the negative cache without re-reading disk**:
 Verifies that once `TryGetMember` has returned `null` for a given member ID, a
 second call for the same member ID does not re-touch the file system — proven by
-deleting the underlying XML file between the first and second call and confirming
-the second call still returns `null` without error. This scenario is tested by
+rewriting the underlying XML file between the first and second call to add a
+matching `<member>` entry for the missed ID, then confirming the second call
+still returns `null`. A non-caching implementation would observe the newly
+added entry and return non-null, so the second call still returning `null`
+proves the negative result came from the cache rather than a fresh disk read.
+This scenario is tested by
 `ExternalXmlDocResolver_TryGetMember_RepeatedMissForSameMember_DoesNotReReadDiskAfterFirstMiss`.
 
 **Constructor rejects a null reference-path list**: Verifies that constructing

@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using System.Xml.Linq;
 
 namespace ApiMark.DotNet;
@@ -28,11 +27,13 @@ namespace ApiMark.DotNet;
 ///     </para>
 ///     <para>
 ///     Known limitation: the <c>ref/</c>&#8596;<c>lib/</c> swap only handles a single matching path
-///     segment named exactly <c>ref</c> or <c>lib</c>; it does not attempt to reconcile differing
-///     target-framework sub-folders (e.g. <c>ref/net8.0/</c> vs <c>lib/netstandard2.0/</c>) beyond
-///     that single segment swap, and it does not search arbitrary additional locations. A NuGet
-///     package that ships its XML documentation in neither the sibling location nor the swapped
-///     <c>ref/</c>/<c>lib/</c> location will simply not have its external members resolved.
+///     segment named exactly <c>ref</c> or <c>lib</c> — specifically, the one nearest the assembly
+///     file (searched from the end of the path backwards, so an unrelated earlier segment that
+///     happens to share the name is never matched instead); it does not attempt to reconcile
+///     differing target-framework sub-folders (e.g. <c>ref/net8.0/</c> vs <c>lib/netstandard2.0/</c>)
+///     beyond that single segment swap, and it does not search arbitrary additional locations. A
+///     NuGet package that ships its XML documentation in neither the sibling location nor the
+///     swapped <c>ref/</c>/<c>lib/</c> location will simply not have its external members resolved.
 ///     </para>
 ///     Instances are not safe for concurrent use from multiple threads because both caches are
 ///     backed by plain, non-thread-safe dictionaries; ApiMark's generation pipeline only ever
@@ -48,7 +49,7 @@ public sealed class ExternalXmlDocResolver
     ///     means "no XML documentation file could be found or parsed for this reference assembly
     ///     path", cached so repeated misses do not re-probe the file system.
     /// </summary>
-    private readonly Dictionary<string, Dictionary<string, XElement>?> _docsByReferencePath = new(FileSystemPathComparer);
+    private readonly Dictionary<string, Dictionary<string, XElement>?> _docsByReferencePath = new(FileSystemPathComparer.Comparer);
 
     /// <summary>
     ///     Cache of resolved member elements keyed by member ID, spanning all configured reference
@@ -56,22 +57,6 @@ public sealed class ExternalXmlDocResolver
     ///     assembly's XML documentation", cached so repeated misses do not re-scan every path.
     /// </summary>
     private readonly Dictionary<string, XElement?> _memberCache = new(StringComparer.Ordinal);
-
-    /// <summary>
-    ///     Returns the <see cref="StringComparer"/> appropriate for file-system path comparisons
-    ///     on the current platform.
-    /// </summary>
-    /// <remarks>
-    ///     Linux file systems are case-sensitive, so <see cref="StringComparer.Ordinal"/> is
-    ///     used there to avoid incorrectly treating paths that differ only in case as duplicates.
-    ///     Windows and macOS default to case-insensitive file systems, so
-    ///     <see cref="StringComparer.OrdinalIgnoreCase"/> is used on those platforms.
-    ///     This mirrors the equivalent helper in <c>ApiMark.Cpp.CppEmitter</c>.
-    /// </remarks>
-    private static StringComparer FileSystemPathComparer =>
-        RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
-            ? StringComparer.Ordinal
-            : StringComparer.OrdinalIgnoreCase;
 
     /// <summary>Initializes a new instance of <see cref="ExternalXmlDocResolver"/>.</summary>
     /// <param name="referenceAssemblyPaths">
@@ -205,11 +190,18 @@ public sealed class ExternalXmlDocResolver
     }
 
     /// <summary>
-    ///     Swaps the first path segment named exactly <c>ref</c> or <c>lib</c> for the other,
+    ///     Swaps the LAST path segment named exactly <c>ref</c> or <c>lib</c> for the other,
     ///     mimicking the folder layout convention used by many NuGet packages where compile-time
     ///     reference assemblies live under <c>ref/</c> and runtime assemblies (often bundled with
     ///     the actual XML documentation) live under <c>lib/</c>, or vice versa.
     /// </summary>
+    /// <remarks>
+    ///     Scans from the end of the path (nearest the assembly file) backwards so that an
+    ///     unrelated, earlier path segment that happens to be named <c>ref</c> or <c>lib</c> (for
+    ///     example a user or drive folder such as <c>/home/lib/.nuget/packages/Pkg/ref/net8.0</c>)
+    ///     is never matched in preference to the actual NuGet package-layout segment, which is
+    ///     always the one closest to the assembly file itself.
+    /// </remarks>
     /// <param name="path">The original assembly path.</param>
     /// <returns>The path with the swapped segment, or <c>null</c> when no <c>ref</c>/<c>lib</c> segment is present.</returns>
     private static string? SwapRefLibSegment(string path)
@@ -217,7 +209,7 @@ public sealed class ExternalXmlDocResolver
         var separators = new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
         var segments = path.Split(separators);
 
-        for (var i = 0; i < segments.Length; i++)
+        for (var i = segments.Length - 1; i >= 0; i--)
         {
             if (string.Equals(segments[i], "ref", StringComparison.OrdinalIgnoreCase))
             {
@@ -235,3 +227,4 @@ public sealed class ExternalXmlDocResolver
         return null;
     }
 }
+

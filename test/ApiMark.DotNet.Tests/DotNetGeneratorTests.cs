@@ -2313,15 +2313,22 @@ public class DotNetGeneratorTests
         // Act
         generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-        // Assert: the derived type's overridden method page must exist and must NOT show the
-        // externally-inherited summary because DescribeBase provides its own override summary
-        // via bare inheritdoc pointing at the external base — the interface method page below
-        // is the one that carries purely-inherited content from the external assembly.
+        // Assert: the interface method page carries purely-inherited content resolved from the
+        // external assembly's interface member.
         Assert.True(
-            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ExternalInheritDocClass/ExternalInterfaceMethod", out var writer),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ExternalInheritDocClass/ExternalInterfaceMethod", out var interfaceWriter),
             "Expected member detail page for ExternalInheritDocClass.ExternalInterfaceMethod");
-        var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
-        Assert.Contains(paragraphs, p => p.Contains("Performs the external interface method's action."));
+        var interfaceParagraphs = interfaceWriter!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(interfaceParagraphs, p => p.Contains("Performs the external interface method's action."));
+
+        // Assert: the overridden method page also resolves its bare inheritdoc against the
+        // external BASE CLASS member (as opposed to the external interface above), proving both
+        // external base-class and external-interface resolution work end-to-end in the same run.
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ExternalInheritDocClass/DescribeBase", out var baseWriter),
+            "Expected member detail page for ExternalInheritDocClass.DescribeBase");
+        var baseParagraphs = baseWriter!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(baseParagraphs, p => p.Contains("Describes the base implementation."));
     }
 
     /// <summary>
@@ -2351,4 +2358,29 @@ public class DotNetGeneratorTests
         var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
         Assert.DoesNotContain(paragraphs, p => p.Contains("Performs the external interface method's action."));
     }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.ResolveReferenceSearchDirectory"/> resolves a
+    ///     bare file name with no directory component (e.g. as produced by
+    ///     <c>--reference-paths External.dll</c>) to the current working directory, rather than
+    ///     an empty string that would be silently filtered out before reaching the Mono.Cecil
+    ///     assembly resolver.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_ResolveReferenceSearchDirectory_BareFileNameWithNoDirectory_ResolvesToCurrentDirectory()
+    {
+        // Arrange: a reference path with no directory separator at all
+        const string bareFileName = "External.dll";
+        var expectedDirectory = Directory.GetCurrentDirectory();
+
+        // Act
+        var resolvedDirectory = DotNetGenerator.ResolveReferenceSearchDirectory(bareFileName);
+
+        // Assert: Path.GetFullPath is applied before Path.GetDirectoryName, so the bare file name
+        // expands against the current working directory first and yields a non-empty directory
+        // equal to it, instead of GetDirectoryName("External.dll") == "" being filtered out.
+        Assert.False(string.IsNullOrEmpty(resolvedDirectory));
+        Assert.Equal(expectedDirectory, resolvedDirectory);
+    }
 }
+

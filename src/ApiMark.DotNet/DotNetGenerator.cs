@@ -58,11 +58,10 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
     ///     distinct, existing directory among <see cref="DotNetGeneratorOptions.ReferencePaths"/>
     ///     entries so that base types/interfaces defined in externally referenced assemblies
     ///     (e.g. NuGet package dependencies) resolve successfully when building the inheritance
-    ///     chain, rather than throwing <see cref="AssemblyResolutionException"/>. This resolver is
-    ///     intentionally not disposed on the success path — <c>ApiMark.Tool</c> is a short-lived,
-    ///     one-shot-per-invocation CLI process, so the small, bounded resource retained by the
-    ///     resolver for the remaining lifetime of the process is an acceptable simplification; it
-    ///     is disposed on the failure path alongside the parsed assembly.
+    ///     chain, rather than throwing <see cref="AssemblyResolutionException"/>. Ownership of
+    ///     this resolver is transferred to the returned <see cref="IApiEmitter"/> on the success
+    ///     path, so it is disposed alongside the parsed assembly once <see cref="IApiEmitter.Emit"/>
+    ///     completes; on the failure path it is disposed here alongside the parsed assembly.
     ///     </para>
     ///     <para>
     ///     The entrypoint <c>api.md</c> lists all namespaces — both root and child — with a
@@ -106,15 +105,16 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         // (e.g. NuGet package dependencies) resolve successfully instead of throwing
         // AssemblyResolutionException — Mono.Cecil's default resolver does not implicitly search
         // the target assembly's own folder, only directories explicitly added here.
-        // Each path is normalized with Path.GetFullPath first so relative paths, "." / ".."
+        // Each path is resolved via ResolveReferenceSearchDirectory so relative paths (including a
+        // bare file name with no directory component at all, e.g. "External.dll"), "." / ".."
         // segments, and mixed directory separators resolve to the same directory consistently.
         var assemblyResolver = new DefaultAssemblyResolver();
         try
         {
             foreach (var directory in _options.ReferencePaths
-                         .Select(path => Path.GetDirectoryName(Path.GetFullPath(path)))
+                         .Select(ResolveReferenceSearchDirectory)
                          .Where(d => !string.IsNullOrEmpty(d) && Directory.Exists(d))
-                         .Distinct(StringComparer.OrdinalIgnoreCase))
+                         .Distinct(FileSystemPathComparer.Comparer))
             {
                 assemblyResolver.AddSearchDirectory(directory!);
             }
@@ -223,6 +223,31 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             throw;
         }
     }
+
+    /// <summary>
+    ///     Resolves the directory that should be added as a Mono.Cecil assembly-resolver search
+    ///     directory for a single configured <see cref="DotNetGeneratorOptions.ReferencePaths"/>
+    ///     entry.
+    /// </summary>
+    /// <remarks>
+    ///     <paramref name="path"/> is normalized with <see cref="Path.GetFullPath(string)"/>
+    ///     <em>before</em> <see cref="Path.GetDirectoryName(string?)"/> is applied, specifically so
+    ///     that a bare file name with no directory component at all (e.g. <c>"External.dll"</c>,
+    ///     as produced by <c>--reference-paths External.dll</c> with no path separator) still
+    ///     yields a non-empty search directory: <c>Path.GetFullPath</c> first expands it against
+    ///     the current working directory (e.g. to <c>"/cwd/External.dll"</c>), whose directory
+    ///     name (<c>"/cwd"</c>) is then non-empty. Calling <c>GetDirectoryName</c> directly on the
+    ///     raw, un-normalized path would instead return an empty string for a bare file name,
+    ///     which the caller's <c>!string.IsNullOrEmpty</c> filter would then silently drop.
+    /// </remarks>
+    /// <param name="path">A single configured reference-assembly path, absolute or relative.</param>
+    /// <returns>
+    ///     The full path to the directory containing <paramref name="path"/>, or <c>null</c> when
+    ///     <paramref name="path"/> has no directory component even after normalization (occurs
+    ///     only for a root path with no file name).
+    /// </returns>
+    internal static string? ResolveReferenceSearchDirectory(string path) =>
+        Path.GetDirectoryName(Path.GetFullPath(path));
 
     /// <summary>
     ///     Scans the assembly parsed by the most recent <see cref="Parse"/> call for types and

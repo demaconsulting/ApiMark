@@ -116,16 +116,20 @@ memory and returns a `DotNetEmitter` ready to emit.
 - *Assembly resolver seeding*: Before reading the assembly, `Parse` constructs a
   Mono.Cecil `DefaultAssemblyResolver` and adds one search directory per distinct,
   existing directory among `ReferencePaths` entries (`Path.GetDirectoryName`,
-  filtered by `Directory.Exists`, deduplicated case-insensitively). This resolver
-  is passed via `ReaderParameters` to `AssemblyDefinition.ReadAssembly`, and is
-  what allows `BuildInheritanceChain`'s `TypeReference.Resolve()` calls to
-  succeed against base types/interfaces defined in externally referenced
-  assemblies (e.g. NuGet package dependencies) instead of throwing
-  `AssemblyResolutionException` — Mono.Cecil's default resolver does not
-  implicitly search the target assembly's own folder, only directories
-  explicitly added this way. The resolver is intentionally not disposed on the
-  success path (see the class-level remarks / Known limitation below); it is
-  disposed on the failure path alongside the parsed assembly.
+  filtered by `Directory.Exists`, deduplicated using the platform-aware
+  filesystem path comparer — case-insensitive on Windows/macOS, case-sensitive
+  on Linux — shared with `ExternalXmlDocResolver`). This resolver is passed via
+  `ReaderParameters` to `AssemblyDefinition.ReadAssembly`, and is what allows
+  `BuildInheritanceChain`'s `TypeReference.Resolve()` calls to succeed against
+  base types/interfaces defined in externally referenced assemblies (e.g. NuGet
+  package dependencies) instead of throwing `AssemblyResolutionException` —
+  Mono.Cecil's default resolver does not implicitly search the target
+  assembly's own folder, only directories explicitly added this way. Resolver
+  ownership is transferred to the returned `DotNetAstModel`/`DotNetEmitter` on
+  the success path, so the resolver is disposed alongside the parsed assembly
+  once `IApiEmitter.Emit` completes; on the failure path (an exception thrown
+  before the model is constructed), `Parse` disposes the resolver itself
+  alongside the parsed assembly.
 - *External XML doc resolver wiring*: When `ReferencePaths` is non-empty, `Parse`
   constructs an `ExternalXmlDocResolver` from it and passes its `TryGetMember`
   method as the `externalMemberLookup` argument to the `XmlDocReader`

@@ -16,6 +16,19 @@ namespace ApiMark.DotNet;
 ///     accesses a single <see cref="XmlDocReader"/> instance from a single thread (each MSBuild
 ///     task invocation spawns an isolated <c>ApiMark.Tool</c> child process), so this is not a
 ///     practical limitation today.
+///     <para>
+///     Known limitation: a bare (<c>cref</c>-less) <c>&lt;inheritdoc /&gt;</c> chain that crosses
+///     two or more assembly boundaries does not resolve. <c>_inheritanceChain</c> is built once,
+///     up front, from the primary assembly's own Cecil metadata only (see
+///     <c>DotNetGenerator.BuildInheritanceChain</c>), so it has no entry for a member that lives in
+///     an externally referenced assembly. A single hop from a primary-assembly member into an
+///     external member (via <c>_externalMemberLookup</c>) works correctly, but if that external
+///     member's own XML doc entry is itself a bare <c>&lt;inheritdoc /&gt;</c> pointing at a
+///     <em>second</em> external member, resolution stops there and returns no content. An explicit
+///     <c>cref</c> at each external hop is unaffected by this limitation and resolves correctly
+///     across any number of hops, because <c>cref</c> targets recurse directly through
+///     <see cref="ResolveMemberElement"/> rather than through <c>_inheritanceChain</c>.
+///     </para>
 /// </remarks>
 public sealed class XmlDocReader
 {
@@ -461,6 +474,15 @@ public sealed class XmlDocReader
     ///     <c>cref</c> target takes priority, otherwise each candidate in the injected inheritance
     ///     chain is tried in priority order.
     /// </summary>
+    /// <remarks>
+    ///     Known limitation: the bare (<c>cref</c>-less) branch below looks up <paramref name="memberId"/>
+    ///     in <c>_inheritanceChain</c>, which only has entries for members of the primary assembly
+    ///     (see the class-level remarks). When <paramref name="memberId"/> identifies a member
+    ///     resolved from an externally referenced assembly and its own <c>&lt;inheritdoc /&gt;</c>
+    ///     is bare, no chain entry exists and this method returns <c>null</c> — a second hop across
+    ///     assembly boundaries is not supported for bare inheritdoc. An explicit <c>cref</c> at the
+    ///     external hop is unaffected, since the branch above recurses directly.
+    /// </remarks>
     /// <param name="memberId">The member ID that carries the <c>&lt;inheritdoc /&gt;</c> element.</param>
     /// <param name="inheritdoc">The <c>&lt;inheritdoc /&gt;</c> element.</param>
     /// <param name="visited">Set of member IDs visited on the current resolution path.</param>

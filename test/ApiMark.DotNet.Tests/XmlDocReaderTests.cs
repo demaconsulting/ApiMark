@@ -1994,6 +1994,58 @@ public class XmlDocReaderTests
     }
 
     /// <summary>
+    ///     Pins down a documented known limitation: when a member is resolved via the external
+    ///     lookup delegate and that external member's own XML doc entry contains a BARE
+    ///     <c>&lt;inheritdoc /&gt;</c> (no <c>cref</c>), resolution cannot continue a second hop
+    ///     into another external member, because <c>_inheritanceChain</c> is built only from the
+    ///     primary assembly's Cecil metadata and has no entry for external members. An explicit
+    ///     <c>cref</c> at the external hop is unaffected and continues to resolve correctly across
+    ///     any number of hops (see the sibling <c>...InheritDocWithCref_ExternalTarget...</c> tests).
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocBareChain_TwoExternalHops_SecondHopUnresolved()
+    {
+        // Arrange: local M.Method (bare inheritdoc) -> external I1.Method (bare inheritdoc, no
+        // local chain entry exists for it) -> external I2.Method (would carry the real summary)
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.Method">
+                <inheritdoc />
+            </member>
+            """);
+        var chain = new Dictionary<string, IReadOnlyList<string>>
+        {
+            ["M:MyNamespace.MyClass.Method"] = new List<string> { "M:External.I1.Method" },
+        };
+        var firstExternalMember = new XElement("member",
+            new XAttribute("name", "M:External.I1.Method"),
+            new XElement("inheritdoc"));
+        var secondExternalMember = new XElement("member",
+            new XAttribute("name", "M:External.I2.Method"),
+            new XElement("summary", "Second-hop external summary text."));
+        XElement? Lookup(string id) => id switch
+        {
+            "M:External.I1.Method" => firstExternalMember,
+            "M:External.I2.Method" => secondExternalMember,
+            _ => null,
+        };
+        try
+        {
+            // Act: resolution reaches the first external hop, but has no inheritance-chain
+            // candidate for it to continue on to the second external hop
+            var reader = new XmlDocReader(path, chain, Lookup);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.Method");
+
+            // Assert: current documented behavior — the second hop is NOT reached, so the
+            // summary is absent rather than "Second-hop external summary text."
+            Assert.Null(summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
     ///     Validates that <see cref="XmlDocReader.GetSummary"/> resolves an explicit
     ///     <c>&lt;inheritdoc cref="..." /&gt;</c> whose target is absent locally, by falling back
     ///     to the injected external member lookup delegate.

@@ -113,6 +113,17 @@ missing from all configured reference paths), the affected `<inheritdoc/>`
 elements are left unresolved (no inherited content), exactly as before this
 capability existed.
 
+**Known limitation**: a bare `<inheritdoc/>` chain that crosses *two or more*
+assembly boundaries is not currently supported. A single hop from your
+primary assembly into an externally referenced assembly resolves correctly,
+but if that external member's own documentation is itself a bare
+`<inheritdoc/>` pointing at a *second* external member, resolution stops at
+the first hop and no content is inherited. If you need documentation to flow
+through more than one external hop, use an explicit `<inheritdoc cref="..."/>`
+at each external hop instead of a bare `<inheritdoc/>` — explicit `cref`
+targets resolve correctly across any number of hops, regardless of how many
+assembly boundaries they cross.
+
 When ApiMark is invoked via MSBuild, `ApiMarkReferencePaths` is normally
 populated automatically from the project's resolved `@(ReferencePath)` items
 (see the *MSBuild Properties* section below), so most projects do not need to

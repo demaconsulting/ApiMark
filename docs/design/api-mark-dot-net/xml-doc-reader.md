@@ -126,6 +126,16 @@ for a given ID by following `<inheritdoc />` recursively with cycle detection.
   cycles without throwing — this cycle detection covers chains that cross the
   local/external boundary, because every recursive call (whether the member was
   found locally or externally) funnels through the same `visited` set.
+- *Known limitation*: `_inheritanceChain` is built only from the primary
+  assembly's Cecil metadata, so it has no entry for a member resolved from an
+  externally referenced assembly. A single bare `<inheritdoc />` hop from a
+  primary-assembly member into an external member resolves correctly, but if
+  that external member's own entry is itself a bare `<inheritdoc />`, the chain
+  lookup for its ID misses and resolution stops there — a bare inheritdoc chain
+  that crosses two or more assembly boundaries is not supported. An explicit
+  `cref` at each external hop is unaffected, since `cref` targets recurse
+  directly through `ResolveMemberElement` rather than through
+  `_inheritanceChain`.
 
 **Whitespace normalization**: `GetDocumentationText` normalizes text by
 collapsing internal whitespace within each line. `GetSingleLineDocumentationText`
