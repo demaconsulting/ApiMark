@@ -96,4 +96,74 @@ public class FileSystemPathComparerTests
             Directory.Delete(root, recursive: true);
         }
     }
+
+    /// <summary>
+    ///     Validates that when two entries coexist in the same directory differing only by case
+    ///     (possible on a case-sensitive file system), <see cref="FileSystemPathComparer.NormalizeCase"/>
+    ///     prefers the exact (ordinal) match over an incidental case-insensitive one, rather than
+    ///     letting unspecified directory-enumeration order decide which entry "wins".
+    /// </summary>
+    [Fact]
+    public void FileSystemPathComparer_NormalizeCase_CaseSensitiveFileSystemWithBothCasings_PrefersExactMatch()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var lower = Path.Combine(root, "foo.dll");
+            var upper = Path.Combine(root, "Foo.dll");
+            File.WriteAllBytes(lower, []);
+            File.WriteAllBytes(upper, []);
+
+            // On a case-insensitive file system, the second write overwrites the same physical
+            // file as the first, leaving only one directory entry — this scenario cannot be
+            // exercised there, so skip rather than assert something meaningless.
+            if (Directory.EnumerateFileSystemEntries(root).Count() < 2)
+            {
+                return;
+            }
+
+            // Act: request the path spelled exactly as the entry actually named "Foo.dll"
+            var normalized = FileSystemPathComparer.NormalizeCase(upper);
+
+            // Assert: the exact match is returned regardless of enumeration order
+            Assert.Equal(upper, normalized, StringComparer.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a caller-supplied <c>directoryEntryCache</c> dictionary, shared across
+    ///     multiple <see cref="FileSystemPathComparer.NormalizeCase"/> calls for paths under the
+    ///     same ancestor directory, still resolves each path correctly — proving the cache reuse
+    ///     added to avoid redundant directory enumeration does not corrupt results for a second,
+    ///     differently-named file once the shared ancestor directory's entries are cached.
+    /// </summary>
+    [Fact]
+    public void FileSystemPathComparer_NormalizeCase_WithSharedDirectoryEntryCache_ResolvesMultipleSiblingPaths()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var actualSubDir = Path.Combine(root, "Shared");
+            Directory.CreateDirectory(actualSubDir);
+            var fileA = Path.Combine(actualSubDir, "A.dll");
+            var fileB = Path.Combine(actualSubDir, "B.dll");
+            File.WriteAllBytes(fileA, []);
+            File.WriteAllBytes(fileB, []);
+
+            var cache = new Dictionary<string, string[]>(FileSystemPathComparer.Comparer);
+            var normalizedA = FileSystemPathComparer.NormalizeCase(Path.Combine(root, "SHARED", "a.dll"), cache);
+            var normalizedB = FileSystemPathComparer.NormalizeCase(Path.Combine(root, "SHARED", "b.dll"), cache);
+
+            Assert.Equal(fileA, normalizedA, StringComparer.Ordinal);
+            Assert.Equal(fileB, normalizedB, StringComparer.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
 }

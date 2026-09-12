@@ -639,13 +639,25 @@ public class ApiMarkTask : Task
     /// </remarks>
     /// <param name="dotnetExe">Full path to the <c>dotnet</c> executable.</param>
     /// <param name="toolArgs">The full logical argument list, as returned by <see cref="BuildArguments"/>/<see cref="BuildArgumentsForOutput"/>.</param>
-    /// <returns><c>true</c> when the process exits with code zero; <c>false</c> otherwise.</returns>
+    /// <returns>
+    ///     <c>true</c> when the process exits with code zero; <c>false</c> when the process fails,
+    ///     or when the response file itself could not be created (e.g. a full temp volume or a
+    ///     permissions failure), matching the existing graceful-failure convention used by every
+    ///     other error path in <see cref="Execute"/> rather than letting the exception propagate
+    ///     unhandled.
+    /// </returns>
     private bool RunToolProcessWithResponseFile(string dotnetExe, IReadOnlyList<string> toolArgs)
     {
-        var transformedArgs = PrepareArgumentsForProcess(toolArgs, out var responseFilePath);
+        string? responseFilePath = null;
         try
         {
+            var transformedArgs = PrepareArgumentsForProcess(toolArgs, out responseFilePath);
             return RunToolProcess(dotnetExe, transformedArgs);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log.LogError($"ApiMark: unable to create the reference-paths response file: {ex.Message}");
+            return false;
         }
         finally
         {

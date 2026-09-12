@@ -47,7 +47,14 @@ via `Directory.EnumerateFileSystemEntries` to resolve the real on-disk casing
 of each path, so two differently-cased spellings of the same file collapse to
 a single cache key. This normalization is best-effort and never throws for a
 not-yet-existing reference path or path segment — it gracefully falls back to
-the as-supplied casing when a segment does not (yet) exist on disk. XML
+the as-supplied casing when a segment does not (yet) exist on disk. A single
+`Dictionary<string, string[]>` directory-entry cache, scoped to this
+constructor call, is shared across every `NormalizeCase` call so that
+reference paths sharing common ancestor directories (e.g. many NuGet package
+assemblies under the same package-cache root) do not each independently
+re-enumerate those same shared directories; the cache is never retained
+beyond the constructor call, so results can never become stale across
+independently constructed `ExternalXmlDocResolver` instances. XML
 *documentation parsing* itself remains fully deferred to first use (see
 `TryGetMember`).
 
@@ -113,6 +120,24 @@ path" (`null` cached in `_docsByReferencePath`) rather than throwing, so a
 single problematic reference assembly cannot fail the entire documentation
 generation run. `TryGetMember` never throws for an unresolved member ID —
 it returns `null`, consistent with `XmlDocReader`'s own miss semantics.
+
+### Known Limitations
+
+XML documentation member IDs carry no assembly identity (see `XmlDocReader`'s
+own known limitation for the analogous local-vs-external case). `_memberCache`
+is keyed only by member ID and spans every configured reference assembly path,
+with the first configured path whose XML documentation file contains the ID
+winning (see `TryGetMember`). If two different referenced assemblies happen to
+define a type or member with an identical XML doc ID — for example, two
+different versions of the same NuGet package both referenced as separate
+assemblies, or aliased/type-forwarded types — a target that should resolve
+against the second assembly could silently receive the first assembly's
+documentation instead. This is considered an acceptable, narrow risk: it
+requires an unusual dependency graph (duplicate or colliding assemblies) that
+is uncommon in practice, and fully closing it would require threading the
+resolved declaring-assembly identity through the external lookup delegate and
+scoping both caches by it — a larger design change than this known-limitation
+note.
 
 ### Dependencies
 

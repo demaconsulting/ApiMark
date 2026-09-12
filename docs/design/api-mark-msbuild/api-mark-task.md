@@ -239,7 +239,13 @@ whether the child process succeeded or failed.
 
 - *Parameters*: `string dotnetExe`, `IReadOnlyList<string> toolArgs` — the full
   logical argument list as returned by `BuildArguments`/`BuildArgumentsForOutput`.
-- *Returns*: `bool` — the result of the inner `RunToolProcess` call.
+- *Returns*: `bool` — `true` when the process exits with code zero; `false`
+  when the process fails, or when the response file itself could not be
+  created (e.g. a full temp volume or a permissions failure) — an `IOException`
+  or `UnauthorizedAccessException` raised while preparing/writing the response
+  file is caught and reported via `Log.LogError`, returning `false`, matching
+  the graceful-failure convention used by every other error path in `Execute`
+  rather than letting the exception propagate unhandled out of the task.
 - *Rationale*: `RunToolProcess` is `protected virtual` and is fully overridden
   (without calling the base implementation) by test subclasses
   (`FailingApiMarkTask`, `RecordingApiMarkTask` in `ApiMarkTaskTests.cs`).
@@ -247,7 +253,10 @@ whether the child process succeeded or failed.
   would mean it never executes under those tests, so the transformation is
   applied here, in the caller, instead. Both `Execute()`'s single-invocation
   path and `ExecuteAllOutputs` call this method rather than `RunToolProcess`
-  directly.
+  directly. `PrepareArgumentsForProcess` is called from inside the `try` block
+  (rather than before it) specifically so that a response-file creation
+  failure is caught by the same handler as a process-launch failure and
+  reported through the same graceful path.
 
 **ApiMarkTask.PrepareArgumentsForProcess** (private static): Rewrites
 consecutive `("--reference-paths", path)` pairs in the full logical argument

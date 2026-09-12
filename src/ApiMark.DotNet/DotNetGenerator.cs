@@ -119,14 +119,20 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         // also a direct library API surface via DotNetGeneratorOptions — because
         // ResolveReferenceSearchDirectory/Path.GetFullPath("") would otherwise resolve a blank
         // entry to the current working directory, a bogus, legitimate-looking search directory.
+        // A single directoryEntryCache dictionary, scoped to this call, is shared across every
+        // NormalizeCase call below for the same reason ExternalXmlDocResolver's constructor
+        // shares one: many reference paths commonly live under the same shared ancestor
+        // directories (e.g. a NuGet package cache root), so caching avoids redundant directory
+        // enumeration without risking staleness across independent Parse calls.
         var assemblyResolver = new DefaultAssemblyResolver();
         try
         {
+            var directoryEntryCache = new Dictionary<string, string[]>(FileSystemPathComparer.Comparer);
             foreach (var directory in _options.ReferencePaths
                          .Where(path => !string.IsNullOrWhiteSpace(path))
                          .Select(ResolveReferenceSearchDirectory)
                          .Where(d => !string.IsNullOrEmpty(d) && Directory.Exists(d))
-                         .Select(d => FileSystemPathComparer.NormalizeCase(d!))
+                         .Select(d => FileSystemPathComparer.NormalizeCase(d!, directoryEntryCache))
                          .Distinct(FileSystemPathComparer.Comparer))
             {
                 assemblyResolver.AddSearchDirectory(directory);

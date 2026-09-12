@@ -106,11 +106,12 @@ public sealed class XmlDocReader
     ///     When <c>null</c>, bare inheritdoc resolution returns <c>null</c> or empty.
     /// </param>
     /// <param name="externalMemberLookup">
-    ///     Optional fallback delegate consulted when a member ID (either the top-level lookup or an
-    ///     <c>&lt;inheritdoc /&gt;</c> resolution target) is not present in this reader's own index.
-    ///     Used to resolve <c>&lt;inheritdoc /&gt;</c> references that target base types or members
-    ///     defined in externally referenced assemblies. When <c>null</c>, no external
-    ///     fallback is attempted and behavior is identical to prior releases.
+    ///     Optional fallback delegate consulted only while resolving an <c>&lt;inheritdoc /&gt;</c>
+    ///     resolution target that is not present in this reader's own index — never for a
+    ///     top-level lookup (e.g. <c>GetSummary</c>/<c>GetRemarks</c>) of a member that is simply
+    ///     undocumented locally. Used to resolve <c>&lt;inheritdoc /&gt;</c> references that target
+    ///     base types or members defined in externally referenced assemblies. When <c>null</c>, no
+    ///     external fallback is attempted and behavior is identical to prior releases.
     /// </param>
     /// <exception cref="FileNotFoundException">Thrown when <paramref name="xmlDocPath"/> does not exist.</exception>
     public XmlDocReader(

@@ -59,13 +59,31 @@ internal static class FileSystemPathComparer
     ///     exist (for example, because the leaf file itself has not been created, or an
     ///     intermediate directory is missing) are left exactly as supplied — normalization is
     ///     best-effort and only corrects segments the file system can actually confirm.
+    ///     <para>
+    ///     When <paramref name="directoryEntryCache"/> is supplied, each parent directory's
+    ///     enumerated entries are memoized in it, keyed by the parent directory's own already-
+    ///     normalized path. This matters because a caller normalizing many paths that share common
+    ///     ancestor directories — for example dozens or hundreds of NuGet package assembly paths
+    ///     that all live under the same package-cache root — would otherwise re-enumerate the same
+    ///     shared directories once per path. Callers that only normalize a single, independent path
+    ///     can omit this parameter (or pass <c>null</c>); the cache is intentionally the caller's
+    ///     responsibility to create and scope (e.g. to one generation run), rather than a
+    ///     process-wide cache here, so results can never become stale across independent calls
+    ///     separated by file-system changes.
+    ///     </para>
     /// </remarks>
     /// <param name="path">An absolute path to normalize.</param>
+    /// <param name="directoryEntryCache">
+    ///     An optional, caller-owned cache of parent-directory entry listings, reused across
+    ///     multiple <see cref="NormalizeCase"/> calls to avoid redundant directory enumeration
+    ///     when many paths share common ancestor directories. Pass <c>null</c> (the default) to
+    ///     normalize a single path with no caching.
+    /// </param>
     /// <returns>
     ///     <paramref name="path"/> with every segment that exists on disk replaced by its actual
     ///     on-disk casing.
     /// </returns>
-    public static string NormalizeCase(string path)
+    public static string NormalizeCase(string path, Dictionary<string, string[]>? directoryEntryCache = null)
     {
         var root = Path.GetPathRoot(path) ?? string.Empty;
         var remainder = path[root.Length..];
@@ -74,7 +92,7 @@ internal static class FileSystemPathComparer
         var current = root;
         foreach (var segment in segments)
         {
-            current = Path.Combine(current, FindActualEntryName(current, segment) ?? segment);
+            current = Path.Combine(current, FindActualEntryName(current, segment, directoryEntryCache) ?? segment);
         }
 
         return current;
@@ -87,35 +105,66 @@ internal static class FileSystemPathComparer
     /// </summary>
     /// <param name="parentDirectory">The directory to search.</param>
     /// <param name="segment">The path segment to resolve.</param>
+    /// <param name="directoryEntryCache">
+    ///     An optional cache of previously enumerated directory entries, keyed by parent
+    ///     directory. See <see cref="NormalizeCase"/> for scoping guidance.
+    /// </param>
     /// <returns>
     ///     The matching entry's actual name, or <c>null</c> when <paramref name="parentDirectory"/>
     ///     does not exist, cannot be enumerated, or contains no entry matching
     ///     <paramref name="segment"/> case-insensitively.
     /// </returns>
-    private static string? FindActualEntryName(string parentDirectory, string segment)
+    private static string? FindActualEntryName(string parentDirectory, string segment, Dictionary<string, string[]>? directoryEntryCache)
     {
-        if (!Directory.Exists(parentDirectory))
+        string[]? cachedEntries = null;
+        var haveCachedEntries = directoryEntryCache is not null && directoryEntryCache.TryGetValue(parentDirectory, out cachedEntries);
+
+        if (!haveCachedEntries)
         {
-            return null;
+            if (!Directory.Exists(parentDirectory))
+            {
+                return null;
+            }
+
+            try
+            {
+                cachedEntries = Directory.EnumerateFileSystemEntries(parentDirectory)
+                    .Select(Path.GetFileName)
+                    .Where(name => name is not null)
+                    .Select(name => name!)
+                    .ToArray();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Directory exists but cannot be enumerated (e.g. permissions); leave this
+                // segment unresolved for the caller to fall back to its supplied casing, without
+                // caching a failure (a transient permissions issue should not be remembered).
+                return null;
+            }
+
+            directoryEntryCache?.Add(parentDirectory, cachedEntries);
         }
 
-        try
+        // Prefer an exact (ordinal) match first: on a case-sensitive file system, two entries
+        // can coexist whose names differ only by case (e.g. "foo.dll" and "Foo.dll"). Falling
+        // through to a case-insensitive match unconditionally would let enumeration order — which
+        // is unspecified — decide which of the two is treated as the "real" casing, silently
+        // resolving to the wrong file. An exact match is always unambiguous and correct regardless
+        // of enumeration order or file-system case sensitivity, so it must win whenever one exists.
+        string? caseInsensitiveMatch = null;
+        foreach (var name in cachedEntries!)
         {
-            foreach (var entry in Directory.EnumerateFileSystemEntries(parentDirectory))
+            if (string.Equals(name, segment, StringComparison.Ordinal))
             {
-                var name = Path.GetFileName(entry);
-                if (string.Equals(name, segment, StringComparison.OrdinalIgnoreCase))
-                {
-                    return name;
-                }
+                return name;
+            }
+
+            if (caseInsensitiveMatch == null && string.Equals(name, segment, StringComparison.OrdinalIgnoreCase))
+            {
+                caseInsensitiveMatch = name;
             }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Directory exists but cannot be enumerated (e.g. permissions); fall back to the
-            // caller-supplied casing for this segment rather than failing normalization entirely.
-        }
 
-        return null;
+        return caseInsensitiveMatch;
     }
 }

@@ -91,9 +91,18 @@ public sealed class ExternalXmlDocResolver
         // because Path.GetFullPath("") resolves to the current working directory — silently
         // turning a blank entry into a bogus, legitimate-looking reference search path that could
         // spuriously match an unrelated XML doc file sitting in the process's CWD.
+        //
+        // A single directoryEntryCache dictionary, scoped to this constructor call, is shared
+        // across every NormalizeCase call below. Reference assembly paths commonly share common
+        // ancestor directories (e.g. many NuGet package assemblies live under the same package
+        // cache root), so without this cache, every configured path would independently
+        // re-enumerate those same shared directories. Scoping the cache to a single constructor
+        // call (rather than a static/process-wide cache) means results can never become stale
+        // across independent ExternalXmlDocResolver instances created at different times.
+        var directoryEntryCache = new Dictionary<string, string[]>(FileSystemPathComparer.Comparer);
         _referenceAssemblyPaths = referenceAssemblyPaths
             .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Select(path => FileSystemPathComparer.NormalizeCase(Path.GetFullPath(path)))
+            .Select(path => FileSystemPathComparer.NormalizeCase(Path.GetFullPath(path), directoryEntryCache))
             .ToArray();
     }
 
