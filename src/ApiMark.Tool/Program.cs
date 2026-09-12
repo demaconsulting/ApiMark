@@ -484,6 +484,11 @@ internal static class Program
     {
         context.WriteLine("Usage: apimark [options] [language [language-options]]");
         context.WriteLine("");
+        context.WriteLine("Any argument may instead be given as @<file>, which is expanded in place into");
+        context.WriteLine("the file's non-blank lines, each treated as one argument — useful for avoiding");
+        context.WriteLine("command-line length limits with a large number of repeated flags (e.g. --reference-paths).");
+        context.WriteLine("An argument value that must itself start with a literal @ can be escaped as @@rest.");
+        context.WriteLine("");
         context.WriteLine("Options:");
         context.WriteLine("  -v, --version              Display version information");
         context.WriteLine("  -?, -h, --help             Display this help message");

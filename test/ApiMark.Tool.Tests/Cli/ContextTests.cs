@@ -404,6 +404,111 @@ public sealed class ContextTests
     }
 
     /// <summary>
+    ///     Validates that an <c>@&lt;file&gt;</c> response-file token expands into multiple parsed
+    ///     arguments, populating <see cref="Context.ReferencePaths"/> with every path listed in the
+    ///     response file, in order.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithResponseFileArgument_ExpandsIntoMultipleReferencePaths()
+    {
+        // Arrange: a response file containing two "--reference-paths"/path line pairs
+        var responseFilePath = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllLines(responseFilePath, new[]
+            {
+                "--reference-paths",
+                "/refs/One.dll",
+                "--reference-paths",
+                "/refs/Two.dll",
+            });
+            var args = new[] { $"@{responseFilePath}" };
+
+            // Act
+            using var context = Context.Create(args);
+
+            // Assert: both reference paths from the response file are populated, in order
+            string[] expectedReferencePaths = ["/refs/One.dll", "/refs/Two.dll"];
+            Assert.Equal(expectedReferencePaths, context.ReferencePaths);
+        }
+        finally
+        {
+            File.Delete(responseFilePath);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that blank lines in an <c>@&lt;file&gt;</c> response file are skipped rather
+    ///     than producing empty/garbage arguments.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithResponseFileContainingBlankLines_SkipsBlankLines()
+    {
+        // Arrange: a response file with blank lines interspersed between real arguments
+        var responseFilePath = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllLines(responseFilePath, new[]
+            {
+                "",
+                "--reference-paths",
+                "   ",
+                "/refs/One.dll",
+                "",
+            });
+            var args = new[] { $"@{responseFilePath}" };
+
+            // Act
+            using var context = Context.Create(args);
+
+            // Assert: the blank lines did not become spurious arguments; the single real path
+            // is populated correctly
+            string[] expectedReferencePaths = ["/refs/One.dll"];
+            Assert.Equal(expectedReferencePaths, context.ReferencePaths);
+        }
+        finally
+        {
+            File.Delete(responseFilePath);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that an <c>@&lt;file&gt;</c> response-file token pointing at a nonexistent
+    ///     file produces a clear <see cref="ArgumentException"/> rather than a confusing downstream
+    ///     failure.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithResponseFileArgumentForMissingFile_ThrowsArgumentException()
+    {
+        // Arrange: a response-file token referencing a path that does not exist
+        var missingPath = Path.Combine(Path.GetTempPath(), "ApiMarkTest_" + Guid.NewGuid().ToString("N") + ".rsp");
+        var args = new[] { $"@{missingPath}" };
+
+        // Act / Assert: a clear, actionable ArgumentException naming the missing path is thrown
+        var ex = Assert.Throws<ArgumentException>(() => Context.Create(args));
+        Assert.Contains(missingPath, ex.Message);
+    }
+
+    /// <summary>
+    ///     Validates that a value legitimately starting with a literal <c>@</c> (e.g. an
+    ///     npm-scoped-style library name) can be passed unambiguously by escaping the leading
+    ///     character as <c>@@</c>, rather than being misinterpreted as a response-file token.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithEscapedAtSignArgument_PassesThroughLiteralValue()
+    {
+        // Arrange: a library-name value that itself starts with '@', escaped as "@@..."
+        var args = new[] { "--library-name", "@@mylib" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: the escape was stripped to a single literal leading '@', and no response-file
+        // expansion (which would have thrown, since "@mylib" is not a real file) occurred
+        Assert.Equal("@mylib", context.LibraryName);
+    }
+
+    /// <summary>
     ///     Validates that an empty argument array produces a Context with all default values.
     /// </summary>
     [Fact]

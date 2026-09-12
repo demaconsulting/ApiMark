@@ -33,7 +33,7 @@ apimark dotnet [options]
 | `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `Public`) |
 | `--include-obsolete` | Include obsolete members in generated output |
 | `--exclude <pattern>` | Exclude namespaces/types matching a wildcard pattern (repeatable) |
-| `--reference-paths <path>` | Path to a referenced assembly DLL, used to resolve cross-assembly `<inheritdoc/>` (repeatable) |
+| `--reference-paths <path>` | Path to a referenced assembly DLL, used to resolve cross-assembly `<inheritdoc/>` (repeatable; also accepts `@<file>` to read paths/flags from a response file, one argument per line) |
 | `--enforce-docs <value>` | Enable documentation-coverage enforcement at the given visibility tier: `Public`, `PublicAndProtected`, `All` (default: disabled) |
 | `--enforce-docs-severity <value>` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build) (default: `Warning`) |
 
@@ -113,16 +113,17 @@ missing from all configured reference paths), the affected `<inheritdoc/>`
 elements are left unresolved (no inherited content), exactly as before this
 capability existed.
 
-**Known limitation**: a bare `<inheritdoc/>` chain that crosses *two or more*
-assembly boundaries is not currently supported. A single hop from your
-primary assembly into an externally referenced assembly resolves correctly,
-but if that external member's own documentation is itself a bare
-`<inheritdoc/>` pointing at a *second* external member, resolution stops at
-the first hop and no content is inherited. If you need documentation to flow
-through more than one external hop, use an explicit `<inheritdoc cref="..."/>`
-at each external hop instead of a bare `<inheritdoc/>` — explicit `cref`
-targets resolve correctly across any number of hops, regardless of how many
-assembly boundaries they cross.
+**Known limitation**: a bare `<inheritdoc/>` that follows a *second* bare
+`<inheritdoc/>` hop after resolving into an externally referenced assembly is
+not currently supported. A single hop from your primary assembly into an
+externally referenced assembly resolves correctly, but if that external
+member's own documentation is itself a bare `<inheritdoc/>` pointing at a
+further member — even one in the very same external assembly — resolution
+stops at that hop and no further content is inherited. If you need
+documentation to flow through more than one hop, use an explicit
+`<inheritdoc cref="..."/>` at each hop instead of a bare `<inheritdoc/>` —
+explicit `cref` targets resolve correctly across any number of hops,
+regardless of how many assembly boundaries they cross.
 
 **Known limitation**: a bare `<inheritdoc/>` placed directly on a *type*
 declaration (a class, interface, or struct) is not currently resolved,
@@ -135,13 +136,18 @@ inheritdoc chain-building mechanism, not something introduced by
 cross-assembly resolution — put the documentation directly on the type, or
 use an explicit `<inheritdoc cref="..."/>` targeting the base type instead.
 
-**Known limitation**: each entry in `ApiMarkReferencePaths` is forwarded to the
-`apimark` tool process as its own `--reference-paths` argument. An extremely
-large number of reference paths could theoretically approach OS command-line
-length limits (for example, roughly 32K characters on Windows). This is the
-same shared risk already inherent in the pre-existing `ApiMarkIncludePaths` →
-`--includes` C++ feature, which forwards its paths the same way; it is not
-specific to cross-assembly `<inheritdoc/>` resolution.
+**Note on command-line length**: each entry in `ApiMarkReferencePaths` is
+logically a `--reference-paths <path>` pair passed to the `apimark` tool
+process. When `ApiMarkReferencePaths` is non-empty, `ApiMarkTask`
+automatically writes the harvested paths to a temporary response file (one
+argument per line) and passes a single `@<file>` argument in place of the
+individual `--reference-paths` pairs, avoiding the OS command-line length
+risk for the common (`dotnet`) case regardless of how many reference paths
+are configured; the response file is deleted once the child process
+completes. `ApiMarkIncludePaths` (C++) is unaffected by this change and
+retains the pre-existing, already-accepted command-line-length risk — an
+extremely large number of include paths could theoretically approach OS
+command-line length limits (for example, roughly 32K characters on Windows).
 
 When ApiMark is invoked via MSBuild, `ApiMarkReferencePaths` is normally
 populated automatically from the project's resolved `@(ReferencePath)` items
@@ -279,7 +285,7 @@ After the next `dotnet build`, documentation is written to `$(MSBuildProjectDire
 | `ApiMarkVisibility` | `Public` | Visibility filter: `Public`, `PublicAndProtected`, `All` |
 | `ApiMarkIncludeObsolete` | `false` | Include `[Obsolete]` members in generated output |
 | `ApiMarkExclude` | (empty) | Semicolon-separated wildcard patterns identifying namespaces/types to exclude, e.g. `Antlr4.*;MyNamespace.Generated.*` |
-| `ApiMarkReferencePaths` | Auto-populated from `@(ReferencePath)` | Semicolon-separated paths to referenced assembly DLLs, used to resolve cross-assembly `<inheritdoc/>`. Auto-populated from the project's resolved `@(ReferencePath)` items when not explicitly set; set explicitly to a non-empty list to override (an extremely large number of paths could theoretically approach OS command-line length limits, the same shared risk as `ApiMarkIncludePaths`) |
+| `ApiMarkReferencePaths` | Auto-populated from `@(ReferencePath)` | Semicolon-separated paths to referenced assembly DLLs, used to resolve cross-assembly `<inheritdoc/>`. Auto-populated from the project's resolved `@(ReferencePath)` items when not explicitly set; set explicitly to a non-empty list to override. When non-empty, `ApiMarkTask` automatically forwards the paths via a temporary `@<file>` response file rather than individual `--reference-paths` arguments, avoiding OS command-line length limits |
 | `ApiMarkDisableReferencePathsHarvest` | `false` | Set to `true` to disable auto-population of `ApiMarkReferencePaths` from `@(ReferencePath)` without providing a replacement list. Needed because MSBuild cannot distinguish "never set" from "explicitly set to empty" for a plain property, so setting `ApiMarkReferencePaths=""` alone does not suppress auto-harvesting |
 | `ApiMarkEnforceDocs` | (unset) | Enforcement visibility tier for documentation-coverage checking: `Public`, `PublicAndProtected`, `All`; omitted disables enforcement |
 | `ApiMarkEnforceDocsSeverity` | `Warning` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build); only takes effect when `ApiMarkEnforceDocs` is also set |

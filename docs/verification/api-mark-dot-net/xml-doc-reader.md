@@ -66,6 +66,7 @@ assembly is needed.
 - A bare `<inheritdoc />` chain candidate absent both locally and externally returns `null`.
 - Cycle detection catches a resolution chain that crosses the local/external boundary.
 - Constructing an `XmlDocReader` without an external member lookup (the 2-arg overload) preserves the prior local-miss behavior exactly.
+- A local member that is simply undocumented (no local entry, no `<inheritdoc />` anywhere) is never satisfied by an incidentally-colliding member ID in the external member lookup delegate, even when one is configured.
 
 ### Test Scenarios
 
@@ -337,3 +338,13 @@ Regression test confirming that the 2-arg constructor overload (no
 a local miss still returns `null` with no external fallback attempted. This
 scenario is tested by
 `XmlDocReader_GetSummary_NoExternalResolverConfigured_LocalMiss_ReturnsNullUnchanged`.
+
+**GetSummary does not consult the external lookup for a top-level, undocumented
+local member**: The external member lookup delegate is only ever consulted
+while resolving an `<inheritdoc />` target (i.e. from within
+`ResolveInheritdocSource`'s recursive calls). A member with no local `<member>`
+entry at all — and therefore no `<inheritdoc />` element to resolve — must
+return `null` from a top-level call such as `GetSummary`, even when the
+external member lookup delegate has a colliding entry with a summary for that
+exact member ID. This scenario is tested by
+`XmlDocReader_GetSummary_LocalMemberUndocumented_ExternalLookupNotConsulted_ReturnsNull`.

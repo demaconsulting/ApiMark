@@ -87,7 +87,12 @@ public sealed class ExternalXmlDocResolver
         // whether the current platform or file system happens to be case-sensitive. A genuinely
         // malformed path is allowed to throw here, same as DotNetGenerator's equivalent
         // normalization.
+        // Blank (null/empty/whitespace-only) entries are filtered out before normalization,
+        // because Path.GetFullPath("") resolves to the current working directory — silently
+        // turning a blank entry into a bogus, legitimate-looking reference search path that could
+        // spuriously match an unrelated XML doc file sitting in the process's CWD.
         _referenceAssemblyPaths = referenceAssemblyPaths
+            .Where(path => !string.IsNullOrWhiteSpace(path))
             .Select(path => FileSystemPathComparer.NormalizeCase(Path.GetFullPath(path)))
             .ToArray();
     }

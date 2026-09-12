@@ -33,6 +33,7 @@ sections:
           - ApiMarkMsbuild-ApiMarkTask-SupportOutputsItemGroup
           - ApiMarkMsbuild-ApiMarkTask-ForwardExcludePatterns
           - ApiMarkMsbuild-ApiMarkTask-ForwardReferencePathsProperty
+          - ApiMarkMsbuild-ApiMarkTask-UseResponseFileForReferencePaths
           - ApiMarkMsbuild-ApiMarkTask-AutoPopulateReferencePaths
           - ApiMarkMsbuild-ApiMarkTask-DisableReferencePathsHarvestOptOut
           - ApiMarkMsbuild-ApiMarkTask-OverrideOutputProperties

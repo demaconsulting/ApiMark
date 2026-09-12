@@ -110,8 +110,16 @@ for a given ID by following `<inheritdoc />` recursively with cycle detection.
 
 - Returns the member element directly when no `<inheritdoc />` child is present.
 - When the member ID is absent from `_members`, falls back to
-  `_externalMemberLookup` (if configured) before treating the ID as unresolved;
-  this fallback is purely additive and does not change any other resolution
+  `_externalMemberLookup` (if configured) ONLY when the caller passed
+  `allowExternalLookup: true` — before treating the ID as unresolved; this
+  fallback is scoped to `<inheritdoc />` target resolution only. Every
+  top-level entry point (`GetSummary`, `GetRemarks`, etc.) calls this method
+  with the default `allowExternalLookup: false`, so a member that is simply
+  undocumented locally is never satisfied by an incidentally-colliding member
+  ID in an externally referenced assembly's XML doc file. Only
+  `ResolveInheritdocSource`'s two recursive call sites (the `cref` branch and
+  the bare-inheritdoc chain-candidate loop) pass `allowExternalLookup: true`.
+  Where the fallback IS consulted, it does not change any other resolution
   semantics (cycle detection, `path` filtering, and cref-then-chain priority
   ordering apply identically to externally-resolved members).
 - When `cref` is present, resolves the named target recursively.
@@ -127,15 +135,16 @@ for a given ID by following `<inheritdoc />` recursively with cycle detection.
   local/external boundary, because every recursive call (whether the member was
   found locally or externally) funnels through the same `visited` set.
 - *Known limitation*: `_inheritanceChain` is built only from the primary
-  assembly's Cecil metadata, so it has no entry for a member resolved from an
-  externally referenced assembly. A single bare `<inheritdoc />` hop from a
+  assembly's Cecil metadata, so it has no entry for any member that was itself
+  resolved via `_externalMemberLookup` — regardless of which assembly that
+  member actually lives in. A single bare `<inheritdoc />` hop from a
   primary-assembly member into an external member resolves correctly, but if
-  that external member's own entry is itself a bare `<inheritdoc />`, the chain
-  lookup for its ID misses and resolution stops there — a bare inheritdoc chain
-  that crosses two or more assembly boundaries is not supported. An explicit
-  `cref` at each external hop is unaffected, since `cref` targets recurse
-  directly through `ResolveMemberElement` rather than through
-  `_inheritanceChain`.
+  that external member's own entry is itself a bare `<inheritdoc />` pointing
+  at a further member, the chain lookup for its ID misses and resolution stops
+  there — a *second bare-inheritdoc hop* after landing in an
+  externally-resolved member is not supported. An explicit `cref` at each hop
+  is unaffected, since `cref` targets recurse directly through
+  `ResolveMemberElement` rather than through `_inheritanceChain`.
 
 **Whitespace normalization**: `GetDocumentationText` normalizes text by
 collapsing internal whitespace within each line. `GetSingleLineDocumentationText`

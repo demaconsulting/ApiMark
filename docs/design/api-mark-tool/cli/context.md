@@ -66,7 +66,20 @@ construction path.
 - *Returns*: A new fully populated `Context` instance.
 - *Algorithm*: Creates an `ArgumentParser`, calls `ParseArguments`, copies
   all parsed values to a new `Context` via property initializers, and
-  optionally opens the log file. Each `--includes` flag appends a single
+  optionally opens the log file. Before any flag parsing occurs, `ParseArguments`
+  expands any `@<file>` response-file tokens found anywhere in `args` into
+  their constituent arguments — one argument per non-blank line of the
+  referenced file, in a single non-recursive pass (a line read from a
+  response file is never itself re-checked for a leading `@`) — so the rest
+  of parsing is unaware of the substitution. This convention lets
+  MSBuild-driven invocations (e.g. a large, harvested `ApiMarkReferencePaths`
+  list) avoid operating-system command-line length limits by writing
+  arguments to a file and passing a single `@<file>` token instead. A leading
+  `@@` escapes a literal leading `@` in an argument value (e.g. a
+  `--library-name` beginning with `@`), stripping exactly one `@` and passing
+  the rest through unexpanded, so a legitimate value is never misinterpreted
+  as a response-file token. Each
+  `--includes` flag appends a single
   directory path to the `Includes` list; each `--api-headers` flag appends
   a single pattern string (which may start with `!`) to the `ApiHeaders`
   list, preserving order for gitignore-style evaluation; each `--source` flag
@@ -80,8 +93,10 @@ construction path.
 - *Preconditions*: `args` must be non-null.
 - *Postconditions*: All properties reflect the parsed argument values;
   log file is open if `--log` was specified.
-- *Exceptions*: `ArgumentException` on unknown flag or missing required
-  value; `InvalidOperationException` if the log file cannot be opened.
+- *Exceptions*: `ArgumentException` on unknown flag, missing required
+  value, or a response-file token (`@<file>`) referencing a file that does
+  not exist or cannot be read; `InvalidOperationException` if the log file
+  cannot be opened.
 
 **`--depth` range and validation**: `--depth` accepts integer values in the range 1–6.
 Values outside 1–6 or non-integer values throw `ArgumentException` during parsing.
@@ -112,6 +127,10 @@ to stderr (in red) and to the log file.
   name in the message.
 - Flags that require a value (e.g., `--assembly`) throw `ArgumentException`
   when the value token is absent.
+- A `@<file>` response-file token referencing a missing or unreadable file
+  throws `ArgumentException` naming the offending response-file path, rather
+  than propagating the underlying `IOException`/`UnauthorizedAccessException`
+  or silently ignoring the token.
 - Log file open failures throw `InvalidOperationException` wrapping the
   original exception with a descriptive message including the file path.
 - No exception is thrown by `WriteError`; errors are communicated through

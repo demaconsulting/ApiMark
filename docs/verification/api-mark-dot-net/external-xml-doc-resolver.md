@@ -32,6 +32,7 @@ itself, only path strings and the sibling/`ref`/`lib`-swapped XML file.
 - `TryGetMember` returns `null` (rather than throwing) when a reference assembly's XML documentation file exists but contains malformed/corrupt XML.
 - A repeated `TryGetMember` miss for the same member ID is served from the negative per-member cache without re-reading the underlying XML documentation file from disk.
 - The constructor throws `ArgumentNullException` when `referenceAssemblyPaths` is `null`.
+- The constructor filters out blank (empty/whitespace-only) reference-path entries rather than normalizing them into a bogus current-working-directory search path.
 
 ### Test Scenarios
 
@@ -108,3 +109,12 @@ This scenario is tested by
 `ArgumentNullException` immediately rather than deferring the failure to the first
 `TryGetMember` call. This scenario is tested by
 `ExternalXmlDocResolver_Constructor_NullReferencePaths_ThrowsArgumentNullException`.
+
+**Constructor filters blank reference-path entries**: Verifies that
+constructing `ExternalXmlDocResolver` with only empty/whitespace-only entries
+does not throw, that `TryGetMember` returns `null` for any member ID, and —
+via reflection on the private `_referenceAssemblyPaths` field — that the
+resulting effective reference-path set is empty, proving the blank entries
+were dropped before normalization rather than resolving to a bogus
+current-working-directory search path. This scenario is tested by
+`ExternalXmlDocResolver_Constructor_BlankAndWhitespacePaths_IgnoredWithoutThrowing`.

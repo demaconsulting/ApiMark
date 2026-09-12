@@ -478,12 +478,91 @@ internal sealed class Context : IContext, IDisposable
             // Validate input
             ArgumentNullException.ThrowIfNull(args);
 
+            // Expand any "@<file>" response-file tokens into their constituent arguments before
+            // the rest of parsing runs, so ParseArgument/its callers are unaware of the
+            // substitution.
+            args = ExpandResponseFileArguments(args);
+
             int i = 0;
             while (i < args.Length)
             {
                 var arg = args[i++];
                 i = ParseArgument(arg, args, i);
             }
+        }
+
+        /// <summary>
+        ///     Expands any <c>@&lt;file&gt;</c> response-file tokens in <paramref name="args"/> into
+        ///     their constituent arguments, one per non-blank line of the referenced file.
+        /// </summary>
+        /// <remarks>
+        ///     This is a single, non-recursive expansion pass: a line read from a response file is
+        ///     never itself re-checked for a leading <c>@</c>. Tokens that do not start with
+        ///     <c>@</c> pass through unchanged. Blank/whitespace-only lines in a response file are
+        ///     skipped so authors can use blank lines for readability without producing empty
+        ///     arguments. This convention exists so that MSBuild-driven invocations (e.g. a large,
+        ///     harvested <c>ApiMarkReferencePaths</c> list) can avoid operating-system command-line
+        ///     length limits by writing arguments to a file and passing a single <c>@&lt;file&gt;</c>
+        ///     token instead.
+        ///     A legitimate argument value that itself needs to start with a literal <c>@</c>
+        ///     (for example a library description or defines value) can be written as
+        ///     <c>@@rest</c>: a leading <c>@@</c> is treated as an escape for a literal leading
+        ///     <c>@</c> and is passed through as <c>@rest</c> without response-file expansion,
+        ///     rather than being misinterpreted as a response-file token. The escape and
+        ///     response-file grammars are not fully orthogonal in one narrow corner case: a
+        ///     response file whose own file name starts with <c>@</c> (e.g. a file literally
+        ///     named <c>@config.rsp</c>) cannot be referenced via this convention, since the
+        ///     token that would name it (<c>@@config.rsp</c>) is instead interpreted as the
+        ///     escaped literal value <c>@config.rsp</c>. This is considered acceptable: such a
+        ///     file name is exceedingly unlikely in practice.
+        /// </remarks>
+        /// <param name="args">The raw, unexpanded command-line arguments.</param>
+        /// <returns>The arguments with any response-file tokens expanded in place.</returns>
+        /// <exception cref="ArgumentException">
+        ///     Thrown when a response-file token references a file that does not exist or cannot be
+        ///     read, naming the offending path.
+        /// </exception>
+        private static string[] ExpandResponseFileArguments(string[] args)
+        {
+            List<string>? expanded = null;
+            for (var i = 0; i < args.Length; i++)
+            {
+                var arg = args[i];
+                if (arg.StartsWith("@@", StringComparison.Ordinal))
+                {
+                    // Escaped literal: "@@rest" means a literal argument "@rest", not a
+                    // response-file token. Strip exactly one leading '@'.
+                    expanded ??= new List<string>(args[..i]);
+                    expanded.Add(arg[1..]);
+                }
+                else if (arg.Length > 1 && arg[0] == '@')
+                {
+                    // Once a response-file token is seen, switch to building an explicit list
+                    // (rather than mutating/returning the original array), copying every prior
+                    // pass-through argument first.
+                    expanded ??= new List<string>(args[..i]);
+
+                    var responseFilePath = arg[1..];
+                    string[] lines;
+                    try
+                    {
+                        lines = File.ReadAllLines(responseFilePath);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        throw new ArgumentException(
+                            $"Unable to read response file '{responseFilePath}': {ex.Message}", ex);
+                    }
+
+                    expanded.AddRange(lines.Where(line => !string.IsNullOrWhiteSpace(line)));
+                }
+                else
+                {
+                    expanded?.Add(arg);
+                }
+            }
+
+            return expanded?.ToArray() ?? args;
         }
 
         /// <summary>

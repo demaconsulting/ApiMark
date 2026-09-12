@@ -17,17 +17,20 @@ namespace ApiMark.DotNet;
 ///     task invocation spawns an isolated <c>ApiMark.Tool</c> child process), so this is not a
 ///     practical limitation today.
 ///     <para>
-///     Known limitation: a bare (<c>cref</c>-less) <c>&lt;inheritdoc /&gt;</c> chain that crosses
-///     two or more assembly boundaries does not resolve. <c>_inheritanceChain</c> is built once,
-///     up front, from the primary assembly's own Cecil metadata only (see
-///     <c>DotNetGenerator.BuildInheritanceChain</c>), so it has no entry for a member that lives in
-///     an externally referenced assembly. A single hop from a primary-assembly member into an
-///     external member (via <c>_externalMemberLookup</c>) works correctly, but if that external
-///     member's own XML doc entry is itself a bare <c>&lt;inheritdoc /&gt;</c> pointing at a
-///     <em>second</em> external member, resolution stops there and returns no content. An explicit
-///     <c>cref</c> at each external hop is unaffected by this limitation and resolves correctly
-///     across any number of hops, because <c>cref</c> targets recurse directly through
-///     <see cref="ResolveMemberElement"/> rather than through <c>_inheritanceChain</c>.
+///     Known limitation: a bare (<c>cref</c>-less) <c>&lt;inheritdoc /&gt;</c> that follows a
+///     <em>second</em> bare-inheritdoc hop after landing in an externally-resolved member does not
+///     resolve. <c>_inheritanceChain</c> is built once, up front, from the primary assembly's own
+///     Cecil metadata only (see <c>DotNetGenerator.BuildInheritanceChain</c>), so it has no entry
+///     for any member that was itself resolved via <c>_externalMemberLookup</c> — regardless of
+///     which assembly that member actually lives in. A single hop from a primary-assembly member
+///     into an external member (via <c>_externalMemberLookup</c>, consulted only while resolving an
+///     <c>&lt;inheritdoc /&gt;</c> target) works correctly, but if that external member's own XML
+///     doc entry is itself a bare <c>&lt;inheritdoc /&gt;</c> pointing at a further member — even one
+///     in the very same external assembly — resolution stops there and returns no content, because
+///     no chain entry exists for the externally-resolved member ID. An explicit <c>cref</c> at each
+///     hop is unaffected by this limitation and resolves correctly across any number of hops,
+///     because <c>cref</c> targets recurse directly through <see cref="ResolveMemberElement"/>
+///     rather than through <c>_inheritanceChain</c>.
 ///     </para>
 /// </remarks>
 public sealed class XmlDocReader
@@ -412,23 +415,39 @@ public sealed class XmlDocReader
     ///     <list type="number">
     ///         <item>If <paramref name="memberId"/> is already in <paramref name="visited"/>, return
     ///               <c>null</c> to break cycles.</item>
-    ///         <item>If the member is absent from the local index, fall back to the injected
-    ///               external member lookup delegate (if any); if that also misses, return
-    ///               <c>null</c>.</item>
+    ///         <item>If the member is absent from the local index and <paramref name="allowExternalLookup"/>
+    ///               is <c>true</c>, fall back to the injected external member lookup delegate (if any);
+    ///               if that also misses (or <paramref name="allowExternalLookup"/> is <c>false</c>),
+    ///               return <c>null</c>.</item>
     ///         <item>If the member has no <c>&lt;inheritdoc /&gt;</c> child, return the member element directly.</item>
     ///         <item>If a <c>cref</c> attribute is present, resolve the cref target recursively.</item>
     ///         <item>Otherwise, try each candidate in the injected inheritance chain in priority order.</item>
     ///         <item>When a <c>path</c> attribute is present, apply it as an XPath expression to the resolved
     ///               source element and return the matches wrapped in a synthetic <c>&lt;member&gt;</c> element.</item>
     ///     </list>
+    ///     <para>
+    ///     The external member lookup delegate is only ever consulted for <c>&lt;inheritdoc /&gt;</c>
+    ///     target resolution — i.e. when <paramref name="allowExternalLookup"/> is passed as <c>true</c>
+    ///     by <see cref="ResolveInheritdocSource"/>'s two recursive call sites. Every top-level entry
+    ///     point (<c>GetSummary</c>, <c>GetRemarks</c>, etc.) calls this method with the default
+    ///     <c>false</c>, so a member that is simply undocumented locally is never satisfied by an
+    ///     incidentally-colliding member ID in an externally referenced assembly's XML doc file.
+    ///     </para>
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier to resolve.</param>
     /// <param name="visited">Set of member IDs visited on the current resolution path; updated in-place.</param>
+    /// <param name="allowExternalLookup">
+    ///     Whether a local miss may fall back to the injected external member lookup delegate.
+    ///     Only <see cref="ResolveInheritdocSource"/>'s recursive calls (resolving an
+    ///     <c>&lt;inheritdoc /&gt;</c> target) pass <c>true</c>; all top-level entry points use the
+    ///     default <c>false</c> so external documentation is never attributed to an unrelated,
+    ///     merely-undocumented local member.
+    /// </param>
     /// <returns>
     ///     The resolved member element (possibly synthetic when a path filter is applied), or
     ///     <c>null</c> when the member is absent, a cycle is detected, or no valid target is found.
     /// </returns>
-    private XElement? ResolveMemberElement(string memberId, HashSet<string> visited)
+    private XElement? ResolveMemberElement(string memberId, HashSet<string> visited, bool allowExternalLookup = false)
     {
         // Cycle detection: stop if this ID has already been visited on the current resolution path
         if (!visited.Add(memberId))
@@ -439,10 +458,11 @@ public sealed class XmlDocReader
         if (!_members.TryGetValue(memberId, out var member))
         {
             // Not found locally — fall back to the external resolver (e.g. a referenced
-            // NuGet assembly's own XML doc file) when one has been configured. This is
-            // purely additive: when no external lookup is configured, behavior is
-            // identical to before (returns null).
-            member = _externalMemberLookup?.Invoke(memberId);
+            // NuGet assembly's own XML doc file) only when explicitly permitted (i.e. this
+            // call is resolving an <inheritdoc/> target). Top-level lookups for a member
+            // that is simply undocumented locally must not be satisfied by an incidentally
+            // colliding external member ID.
+            member = allowExternalLookup ? _externalMemberLookup?.Invoke(memberId) : null;
             if (member == null)
             {
                 return null;
@@ -477,11 +497,15 @@ public sealed class XmlDocReader
     /// <remarks>
     ///     Known limitation: the bare (<c>cref</c>-less) branch below looks up <paramref name="memberId"/>
     ///     in <c>_inheritanceChain</c>, which only has entries for members of the primary assembly
-    ///     (see the class-level remarks). When <paramref name="memberId"/> identifies a member
-    ///     resolved from an externally referenced assembly and its own <c>&lt;inheritdoc /&gt;</c>
-    ///     is bare, no chain entry exists and this method returns <c>null</c> — a second hop across
-    ///     assembly boundaries is not supported for bare inheritdoc. An explicit <c>cref</c> at the
-    ///     external hop is unaffected, since the branch above recurses directly.
+    ///     (see the class-level remarks). When <paramref name="memberId"/> identifies a member that
+    ///     was itself resolved via the external member lookup delegate and its own
+    ///     <c>&lt;inheritdoc /&gt;</c> is bare, no chain entry exists and this method returns
+    ///     <c>null</c> — a second bare-inheritdoc hop after landing in an externally-resolved member
+    ///     is not supported, regardless of which assembly that further target actually lives in. An
+    ///     explicit <c>cref</c> at any hop is unaffected, since the branch above recurses directly.
+    ///     Both recursive calls below pass <c>allowExternalLookup: true</c> because they are, by
+    ///     definition, resolving an <c>&lt;inheritdoc /&gt;</c> target rather than performing a
+    ///     top-level lookup.
     /// </remarks>
     /// <param name="memberId">The member ID that carries the <c>&lt;inheritdoc /&gt;</c> element.</param>
     /// <param name="inheritdoc">The <c>&lt;inheritdoc /&gt;</c> element.</param>
@@ -497,8 +521,9 @@ public sealed class XmlDocReader
 
         if (cref != null)
         {
-            // Explicit cref target — recurse in case the target itself also inherits
-            return ResolveMemberElement(cref, visited);
+            // Explicit cref target — recurse in case the target itself also inherits. This is
+            // resolving an inheritdoc target, so external lookup is permitted.
+            return ResolveMemberElement(cref, visited, allowExternalLookup: true);
         }
 
         if (_inheritanceChain == null || !_inheritanceChain.TryGetValue(memberId, out var targets))
@@ -513,7 +538,7 @@ public sealed class XmlDocReader
         foreach (var target in targets)
         {
             var branchVisited = new HashSet<string>(visited, StringComparer.Ordinal);
-            var source = ResolveMemberElement(target, branchVisited);
+            var source = ResolveMemberElement(target, branchVisited, allowExternalLookup: true);
             if (source != null)
             {
                 return source;

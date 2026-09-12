@@ -42,6 +42,11 @@ up after itself. No other external files, services, or configuration are require
   remains `null` (enforcement disabled).
 - `--enforce-docs-severity` sets `EnforceDocsSeverity` to the supplied value; absent, it
   defaults to `"Warning"`.
+- An `@<file>` token expands into the response file's non-blank lines, one argument per
+  line, before the rest of parsing runs; a `@<file>` token referencing a missing or
+  unreadable file throws `ArgumentException` naming the offending path. A leading `@@`
+  escapes a literal leading `@` in an argument value, passing the value through with
+  exactly one `@` stripped rather than expanding it as a response-file token.
 
 #### Test Scenarios
 
@@ -94,6 +99,25 @@ up after itself. No other external files, services, or configuration are require
 **`Context_Create_WithRepeatedReferencePathsFlags_AccumulatesAllPathsInOrder`**:
 `--reference-paths /refs/One.dll --reference-paths /refs/Two.dll --reference-paths /refs/Three.dll`
 → `ReferencePaths = ["/refs/One.dll", "/refs/Two.dll", "/refs/Three.dll"]`.
+
+**`Context_Create_WithResponseFileArgument_ExpandsIntoMultipleReferencePaths`**: a
+`@<file>` token referencing a response file containing two
+`--reference-paths`/path line pairs → `ReferencePaths` populated with both paths,
+in order.
+
+**`Context_Create_WithResponseFileContainingBlankLines_SkipsBlankLines`**: a
+`@<file>` token referencing a response file with blank/whitespace-only lines
+interspersed between real arguments → the blank lines are skipped and only the
+real path is populated.
+
+**`Context_Create_WithResponseFileArgumentForMissingFile_ThrowsArgumentException`**:
+a `@<file>` token referencing a nonexistent file → `ArgumentException` naming
+the missing path, rather than a confusing downstream failure.
+
+**`Context_Create_WithEscapedAtSignArgument_PassesThroughLiteralValue`**: `--library-name
+@@mylib` → `LibraryName = "@mylib"` (the escaped leading `@@` is
+reduced to a literal `@` and the value is never treated as a response-file
+token, even though `@mylib` is not a real file).
 
 **`Context_Create_WithDepthOption_SetsHeadingDepth`**: `--depth 3` → `HeadingDepth = 3`.
 

@@ -37,9 +37,19 @@ XML documentation", cached so repeated misses do not re-scan every path.
 
 ### Key Methods
 
-**ExternalXmlDocResolver constructor**: Stores the configured reference
-assembly paths. No file system access occurs at construction time — parsing is
-fully deferred to first use (see `TryGetMember`).
+**ExternalXmlDocResolver constructor**: Filters out blank (null, empty, or
+whitespace-only) entries from the supplied reference assembly paths — because
+`Path.GetFullPath("")` resolves to the current working directory, which would
+otherwise become a bogus, legitimate-looking reference path — then normalizes
+and stores the remainder. Normalization performs some file-system access:
+`FileSystemPathComparer.NormalizeCase` enumerates existing parent directories
+via `Directory.EnumerateFileSystemEntries` to resolve the real on-disk casing
+of each path, so two differently-cased spellings of the same file collapse to
+a single cache key. This normalization is best-effort and never throws for a
+not-yet-existing reference path or path segment — it gracefully falls back to
+the as-supplied casing when a segment does not (yet) exist on disk. XML
+*documentation parsing* itself remains fully deferred to first use (see
+`TryGetMember`).
 
 - *Parameters*: `IReadOnlyList<string> referenceAssemblyPaths` — paths to
   referenced assembly DLLs whose sibling XML documentation files should be

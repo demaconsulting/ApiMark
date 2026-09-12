@@ -45,6 +45,26 @@ sections:
             tests:
               - ApiMarkTask_DotNet_SpawnsToolWithCorrectReferencePathArguments
               - ApiMarkTask_DotNet_OmitsReferencePathsFlag_WhenNotSet
+          - id: ApiMarkMsbuild-ApiMarkTask-UseResponseFileForReferencePaths
+            title: >-
+              ApiMarkTask shall substitute the ApiMarkReferencePaths-derived
+              --reference-paths pairs with a single @<file> response-file argument
+              when ApiMarkReferencePaths is non-empty, and shall create no response
+              file when it is empty or unset.
+            justification: |
+              An extremely large, auto-harvested ApiMarkReferencePaths list could
+              theoretically approach operating-system command-line length limits when
+              forwarded as individual --reference-paths flags. Writing the paths to a
+              temporary response file and passing a single @<file> token avoids that
+              risk for the common (dotnet) case. BuildArguments/BuildArgumentsForOutput
+              are left unchanged and continue to return the full logical argument list;
+              the response-file substitution is applied only to the arguments actually
+              passed to the child process, and the response file is deleted once the
+              child process completes, whether it succeeded or failed.
+            tests:
+              - ApiMarkTask_Execute_SmallReferencePathsList_StillSucceedsViaResponseFile
+              - ApiMarkTask_Execute_WithReferencePaths_WritesResponseFileWithExpectedContent
+              - ApiMarkTask_Execute_WithoutReferencePaths_NoResponseFileCreated
           - id: ApiMarkMsbuild-ApiMarkTask-AutoPopulateReferencePaths
             title: >-
               ApiMarkTask's .targets file shall automatically populate

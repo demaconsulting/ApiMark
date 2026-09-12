@@ -114,10 +114,16 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         // against) before deduplication, so two spellings of the same directory that differ only
         // in case collapse to a single search directory regardless of whether the current platform
         // or file system happens to be case-sensitive.
+        // Blank (null/empty/whitespace-only) entries are filtered out first — defense-in-depth
+        // alongside the CLI's own blank-entry filtering in Context.cs, since ReferencePaths is
+        // also a direct library API surface via DotNetGeneratorOptions — because
+        // ResolveReferenceSearchDirectory/Path.GetFullPath("") would otherwise resolve a blank
+        // entry to the current working directory, a bogus, legitimate-looking search directory.
         var assemblyResolver = new DefaultAssemblyResolver();
         try
         {
             foreach (var directory in _options.ReferencePaths
+                         .Where(path => !string.IsNullOrWhiteSpace(path))
                          .Select(ResolveReferenceSearchDirectory)
                          .Where(d => !string.IsNullOrEmpty(d) && Directory.Exists(d))
                          .Select(d => FileSystemPathComparer.NormalizeCase(d!))

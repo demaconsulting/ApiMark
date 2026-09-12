@@ -355,9 +355,10 @@ public class ExternalXmlDocResolverTests
     /// <summary>
     ///     Validates that <see cref="ExternalXmlDocResolver"/> normalizes reference assembly paths
     ///     at construction time so that two different string forms of the SAME underlying file —
-    ///     here, a relative path and its <see cref="Path.GetFullPath(string)"/>-equivalent absolute
-    ///     form — collapse to a single <c>_docsByReferencePath</c> cache key, preserving the
-    ///     documented "parsed at most once" guarantee.
+    ///     here, a canonical absolute path and a second absolute path that lexically collapses to
+    ///     the same location via a <c>..</c> segment — collapse to a single
+    ///     <c>_docsByReferencePath</c> cache key, preserving the documented "parsed at most once"
+    ///     guarantee.
     /// </summary>
     /// <remarks>
     ///     A functional (input/output only) test cannot distinguish this from the pre-fix
@@ -374,7 +375,6 @@ public class ExternalXmlDocResolverTests
     {
         // Arrange
         var dir = CreateTempDirectory();
-        var originalCwd = Directory.GetCurrentDirectory();
         try
         {
             var dllPath = Path.Combine(dir, "Foo.dll");
@@ -385,19 +385,13 @@ public class ExternalXmlDocResolverTests
                 </member>
                 """);
 
-            // Configure the SAME underlying file twice: once via a relative path (resolved
-            // against the current working directory, switched to `dir` below) and once via its
-            // absolute form. The absolute form is derived from the OS-resolved current directory
-            // (rather than the original `dir` string) because on some platforms (e.g. macOS,
-            // where the OS temp directory lives under a `/var` symlink to `/private/var`)
-            // `Directory.SetCurrentDirectory` resolves symlinks while the original `dir` string
-            // does not — using the resolved directory here keeps both configured forms
-            // consistent with what `Path.GetFullPath` will normalize a relative path against.
-            Directory.SetCurrentDirectory(dir);
-            var resolvedDir = Directory.GetCurrentDirectory();
-            var absoluteDllPath = Path.Combine(resolvedDir, "Foo.dll");
-            var relativeDllPath = "Foo.dll";
-            var sut = new ExternalXmlDocResolver([relativeDllPath, absoluteDllPath]);
+            // Configure the SAME underlying file via two different absolute string forms: the
+            // canonical form, and a second form that lexically collapses to the same location via
+            // a "Nested/.." segment — Path.GetFullPath performs this lexical collapse without
+            // requiring the intermediate "Nested" directory to actually exist on disk.
+            var canonicalDllPath = Path.Combine(dir, "Foo.dll");
+            var lexicallyCollapsingDllPath = Path.Combine(dir, "Nested", "..", "Foo.dll");
+            var sut = new ExternalXmlDocResolver([canonicalDllPath, lexicallyCollapsingDllPath]);
 
             // Act: query a member ID that exists in neither file so the resolver must walk every
             // configured reference path (rather than short-circuiting on the first match),
@@ -405,10 +399,10 @@ public class ExternalXmlDocResolverTests
             var miss = sut.TryGetMember("T:Foo.DoesNotExist");
 
             // Assert: the miss lookup behaves as documented, and — the actual point of this test —
-            // the private per-path cache dictionary has exactly ONE entry, proving the relative and
-            // absolute forms of the same path collapsed to a single normalized cache key rather
-            // than being independently cached (and, by extension, independently parsed) as two
-            // distinct reference paths.
+            // the private per-path cache dictionary has exactly ONE entry, proving the two
+            // differently-spelled absolute forms of the same path collapsed to a single normalized
+            // cache key rather than being independently cached (and, by extension, independently
+            // parsed) as two distinct reference paths.
             Assert.Null(miss);
             var cacheField = typeof(ExternalXmlDocResolver).GetField("_docsByReferencePath", BindingFlags.NonPublic | BindingFlags.Instance);
             Assert.NotNull(cacheField);
@@ -417,7 +411,6 @@ public class ExternalXmlDocResolverTests
         }
         finally
         {
-            Directory.SetCurrentDirectory(originalCwd);
             Directory.Delete(dir, recursive: true);
         }
     }
@@ -581,5 +574,28 @@ public class ExternalXmlDocResolverTests
     {
         // Arrange / Act / Assert: constructing with a null list must fail fast
         Assert.Throws<ArgumentNullException>(() => new ExternalXmlDocResolver(null!));
+    }
+
+    /// <summary>
+    ///     Validates that blank (empty/whitespace-only) entries in the reference-path list are
+    ///     filtered out at construction time rather than being normalized into a bogus,
+    ///     legitimate-looking reference path equal to the current working directory (which is
+    ///     what <see cref="Path.GetFullPath(string)"/> would otherwise resolve an empty string to).
+    /// </summary>
+    [Fact]
+    public void ExternalXmlDocResolver_Constructor_BlankAndWhitespacePaths_IgnoredWithoutThrowing()
+    {
+        // Arrange / Act: construct with only empty/whitespace entries, no real paths at all
+        var sut = new ExternalXmlDocResolver(["", "   "]);
+        var member = sut.TryGetMember("T:Anything");
+
+        // Assert: construction does not throw, the lookup misses, and reflection on the private
+        // field proves the blank entries were dropped rather than becoming a bogus CWD-equivalent
+        // search path
+        Assert.Null(member);
+        var pathsField = typeof(ExternalXmlDocResolver).GetField("_referenceAssemblyPaths", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(pathsField);
+        var paths = Assert.IsAssignableFrom<System.Collections.ICollection>(pathsField!.GetValue(sut));
+        Assert.Empty(paths);
     }
 }

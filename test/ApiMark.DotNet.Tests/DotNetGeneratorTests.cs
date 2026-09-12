@@ -2332,6 +2332,36 @@ public class DotNetGeneratorTests
     }
 
     /// <summary>
+    ///     Regression test proving that blank (empty/whitespace-only) entries in
+    ///     <see cref="DotNetGeneratorOptions.ReferencePaths"/> are silently skipped before seeding
+    ///     the Mono.Cecil assembly resolver's search directories, rather than resolving to the
+    ///     current working directory and causing a spurious search directory or a resolution
+    ///     error. The real fixture reference path is still resolved correctly alongside the blank
+    ///     entries.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Parse_ReferencePathsContainsBlankEntries_SkipsBlanksAndResolvesRealPath()
+    {
+        // Arrange: blank/whitespace entries interspersed with the one real reference path
+        var options = BuildOptions();
+        options.ReferencePaths = ["", "   ", FixturePaths.GetExternalFixtureDll()];
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(options);
+
+        // Act: Parse/Emit must complete without throwing despite the blank entries
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the real reference path still resolves inherited documentation normally,
+        // proving the blank entries were skipped rather than causing an error or masking the
+        // real path's search directory
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ExternalInheritDocClass/ExternalInterfaceMethod", out var interfaceWriter),
+            "Expected member detail page for ExternalInheritDocClass.ExternalInterfaceMethod");
+        var interfaceParagraphs = interfaceWriter!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(interfaceParagraphs, p => p.Contains("Performs the external interface method's action."));
+    }
+
+    /// <summary>
     ///     Validates that <see cref="DotNetGenerator.Parse"/> and the subsequent
     ///     <see cref="IApiEmitter.Emit"/> complete without throwing, and leave cross-assembly
     ///     <c>&lt;inheritdoc /&gt;</c> content unresolved (absent), when

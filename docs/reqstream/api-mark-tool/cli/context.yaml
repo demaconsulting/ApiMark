@@ -241,3 +241,21 @@ sections:
                 tests:
                   - Context_Create_WithEnforceDocsSeverityOption_SetsEnforceDocsSeverity
                   - Context_Create_WithoutEnforceDocsSeverityOption_DefaultsToWarning
+              - id: ApiMarkTool-Cli-Context-ExpandResponseFileArguments
+                title: Context shall expand any @<file> response-file tokens in the
+                  raw command-line arguments into their constituent arguments, one
+                  per non-blank line, before the rest of argument parsing runs.
+                justification: |
+                  MSBuild-driven invocations can harvest a very large number of reference
+                  assembly paths for ApiMarkReferencePaths, which risks exceeding operating-system
+                  command-line length limits when forwarded as individual --reference-paths
+                  flags. Supporting an @<file> response-file convention lets ApiMarkTask pass a
+                  single, short argument instead, while Context transparently expands it back
+                  into the full logical argument list before parsing. A leading @@ escapes a
+                  literal leading @ in an argument value (e.g. a library name), so a legitimate
+                  value is never misinterpreted as a response-file token.
+                tests:
+                  - Context_Create_WithResponseFileArgument_ExpandsIntoMultipleReferencePaths
+                  - Context_Create_WithResponseFileContainingBlankLines_SkipsBlankLines
+                  - Context_Create_WithResponseFileArgumentForMissingFile_ThrowsArgumentException
+                  - Context_Create_WithEscapedAtSignArgument_PassesThroughLiteralValue

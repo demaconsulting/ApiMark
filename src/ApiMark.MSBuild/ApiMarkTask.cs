@@ -590,7 +590,7 @@ public class ApiMarkTask : Task
         }
 
         // Single-invocation path: use scalar properties as before
-        return RunToolProcess(dotnetExe, BuildArguments(language));
+        return RunToolProcessWithResponseFile(dotnetExe, BuildArguments(language));
     }
 
     /// <summary>
@@ -615,9 +615,102 @@ public class ApiMarkTask : Task
         // ToList forces all child processes to run before any result is inspected,
         // ensuring failures in one output do not suppress execution of the others.
         var results = ApiMarkOutputs!
-            .Select(o => RunToolProcess(dotnetExe, BuildArgumentsForOutput(language, o)))
+            .Select(o => RunToolProcessWithResponseFile(dotnetExe, BuildArgumentsForOutput(language, o)))
             .ToList();
         return results.All(r => r);
+    }
+
+    /// <summary>
+    ///     Rewrites any <c>("--reference-paths", path)</c> pairs in <paramref name="toolArgs"/>
+    ///     into a single <c>@&lt;file&gt;</c> response-file argument when at least one such pair is
+    ///     present, then invokes <see cref="RunToolProcess"/> with the (possibly transformed)
+    ///     argument list, deleting the response file (if one was created) once the child process
+    ///     has completed, whether it succeeded or failed.
+    /// </summary>
+    /// <remarks>
+    ///     This transformation deliberately happens here — in the callers of
+    ///     <see cref="RunToolProcess"/> — rather than inside <see cref="RunToolProcess"/> itself,
+    ///     because <see cref="RunToolProcess"/> is <c>protected virtual</c> and is fully overridden
+    ///     (without calling the base implementation) by test subclasses. Placing the substitution
+    ///     inside the real <see cref="RunToolProcess"/> body would mean it never executes under
+    ///     test. <see cref="BuildArguments"/>/<see cref="BuildArgumentsForOutput"/> remain
+    ///     completely unchanged and still return the full logical argument list; this method only
+    ///     transforms the arguments actually passed to <see cref="RunToolProcess"/>.
+    /// </remarks>
+    /// <param name="dotnetExe">Full path to the <c>dotnet</c> executable.</param>
+    /// <param name="toolArgs">The full logical argument list, as returned by <see cref="BuildArguments"/>/<see cref="BuildArgumentsForOutput"/>.</param>
+    /// <returns><c>true</c> when the process exits with code zero; <c>false</c> otherwise.</returns>
+    private bool RunToolProcessWithResponseFile(string dotnetExe, IReadOnlyList<string> toolArgs)
+    {
+        var transformedArgs = PrepareArgumentsForProcess(toolArgs, out var responseFilePath);
+        try
+        {
+            return RunToolProcess(dotnetExe, transformedArgs);
+        }
+        finally
+        {
+            if (responseFilePath is not null)
+            {
+                File.Delete(responseFilePath);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Rewrites consecutive <c>("--reference-paths", path)</c> pairs in <paramref name="toolArgs"/>
+    ///     into a single <c>@&lt;file&gt;</c> response-file argument, to avoid operating-system
+    ///     command-line length limits for large, MSBuild-harvested <c>ApiMarkReferencePaths</c>
+    ///     lists.
+    /// </summary>
+    /// <remarks>
+    ///     When no <c>--reference-paths</c> pairs are present, <paramref name="toolArgs"/> is
+    ///     returned unchanged and no temporary file is created — the common/fast path incurs no
+    ///     temp-file I/O. When one or more pairs are present, each referenced path is written on
+    ///     its own line, preceded by a <c>--reference-paths</c> line — matching
+    ///     <c>Context.ExpandResponseFileArguments</c>'s one-argument-per-line convention exactly —
+    ///     to a new temporary file, and the returned argument list has those pairs removed and a
+    ///     single <c>@&lt;file&gt;</c> token appended in their place.
+    /// </remarks>
+    /// <param name="toolArgs">The full logical argument list to transform.</param>
+    /// <param name="responseFilePath">
+    ///     Set to the path of the created response file, or <c>null</c> when no response file was
+    ///     created (no <c>--reference-paths</c> pairs were present).
+    /// </param>
+    /// <returns>The argument list to actually pass to <see cref="RunToolProcess"/>.</returns>
+    private static IReadOnlyList<string> PrepareArgumentsForProcess(IReadOnlyList<string> toolArgs, out string? responseFilePath)
+    {
+        var responseFileLines = new List<string>();
+        var remainingArgs = new List<string>();
+        var i = 0;
+        while (i < toolArgs.Count)
+        {
+            if (toolArgs[i] == "--reference-paths" && i + 1 < toolArgs.Count)
+            {
+                responseFileLines.Add("--reference-paths");
+                responseFileLines.Add(toolArgs[i + 1]);
+                i += 2;
+            }
+            else
+            {
+                remainingArgs.Add(toolArgs[i]);
+                i++;
+            }
+        }
+
+        if (responseFileLines.Count == 0)
+        {
+            responseFilePath = null;
+            return toolArgs;
+        }
+
+        // A GUID-based file name (rather than Path.GetTempFileName, which creates a zero-byte
+        // file up front and returns a short, predictable 8.3-style name) avoids both the small
+        // predictable-name/pre-existing-file race that static analysis flags and any risk of
+        // collision between concurrent builds writing their own response files at the same time.
+        responseFilePath = Path.Join(Path.GetTempPath(), $"apimark_reference_paths_{Guid.NewGuid():N}.rsp");
+        File.WriteAllLines(responseFilePath, responseFileLines);
+        remainingArgs.Add($"@{responseFilePath}");
+        return remainingArgs;
     }
 
     /// <summary>

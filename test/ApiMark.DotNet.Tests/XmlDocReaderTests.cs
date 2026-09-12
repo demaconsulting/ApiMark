@@ -2212,4 +2212,35 @@ public class XmlDocReaderTests
             File.Delete(path);
         }
     }
+
+    /// <summary>
+    ///     Regression test for the fix that scopes the external member lookup delegate to
+    ///     <c>&lt;inheritdoc /&gt;</c> target resolution only: a member that is simply undocumented
+    ///     locally (no <c>&lt;inheritdoc /&gt;</c> at all, and no local <c>&lt;member&gt;</c> entry)
+    ///     must never be satisfied by an incidentally-colliding member ID in the external member
+    ///     lookup delegate.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_LocalMemberUndocumented_ExternalLookupNotConsulted_ReturnsNull()
+    {
+        // Arrange: local XML doc has no entry at all for the target member; the external lookup
+        // delegate DOES have a colliding entry with a summary for that exact ID
+        var path = WriteXmlDoc(string.Empty);
+        var externalMember = new XElement("member",
+            new XAttribute("name", "M:MyNamespace.MyClass.Undocumented"),
+            new XElement("summary", "External summary that must not leak onto the local member."));
+        try
+        {
+            // Act: top-level call, no inheritdoc anywhere in the resolution path
+            var reader = new XmlDocReader(path, null, id => id == "M:MyNamespace.MyClass.Undocumented" ? externalMember : null);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.Undocumented");
+
+            // Assert: the external lookup must not be consulted for a top-level, non-inheritdoc lookup
+            Assert.Null(summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }
