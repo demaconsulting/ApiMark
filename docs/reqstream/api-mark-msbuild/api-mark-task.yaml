@@ -63,7 +63,7 @@ sections:
               assemblies) are not overridden.
             tests:
               - ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoPopulatesReferencePathsFromResolvedReferences
-              - ApiMarkMsbuild_NuGetPackage_DotNetProject_ExplicitReferencePaths_SuppressesAutoHarvest
+              - ApiMarkMsbuild_NuGetPackage_DotNetProject_DisableReferencePathsHarvest_SuppressesAutoHarvest
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardEnforceDocsProperties
             title: ApiMarkTask shall forward the ApiMarkEnforceDocs and ApiMarkEnforceDocsSeverity
               properties to the tool as --enforce-docs and --enforce-docs-severity
