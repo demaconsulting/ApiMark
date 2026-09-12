@@ -366,6 +366,7 @@ internal static class Program
                 IncludeObsolete = context.IncludeObsolete,
                 ExcludePatterns = context.Excludes,
                 EnforceDocsVisibility = enforceDocsVisibility,
+                ReferencePaths = context.ReferencePaths,
             }),
 
             // Construct a CppGenerator from the cpp-specific options; cast visibility via its
@@ -505,6 +506,7 @@ internal static class Program
         context.WriteLine("  --visibility <value>       Visibility filter: Public, PublicAndProtected, All (default: Public)");
         context.WriteLine("  --include-obsolete         Include obsolete members in generated output");
         context.WriteLine("  --exclude <pattern>        Exclude namespaces/types matching a wildcard pattern (repeatable)");
+        context.WriteLine("  --reference-paths <path>   Path to a referenced assembly DLL, used to resolve cross-assembly <inheritdoc/> (repeatable)");
         context.WriteLine("  --enforce-docs <value>     Enforce XML doc <summary> coverage at a visibility tier: Public, PublicAndProtected, All (default: disabled)");
         context.WriteLine("  --enforce-docs-severity <v> Severity when --enforce-docs finds violations: Warning, Error (default: Warning)");
         context.WriteLine("");

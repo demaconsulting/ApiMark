@@ -26,6 +26,7 @@ service, network dependency, or machine-specific configuration is required.
 - Obsolete member filtering correctly excludes or includes deprecated APIs based on the IncludeObsolete option.
 - Documentation coverage enforcement correctly identifies undocumented types and members at the
   configured enforcement visibility tier, independent of the emission visibility tier.
+- Cross-assembly `<inheritdoc/>` resolution correctly resolves `<inheritdoc/>` targets defined in externally referenced assemblies (e.g. NuGet package dependencies) via `ExternalXmlDocResolver`, including graceful degradation when a referenced assembly's XML documentation is absent or corrupt.
 
 ## Test Scenarios
 
@@ -58,3 +59,11 @@ a representative assembly and XML documentation file at a caller-supplied enforc
 tier reports every type and member lacking a non-empty `<summary>`, independent of the emission
 visibility tier. See `docs/verification/api-mark-dot-net/documentation-coverage-checker.md` for the
 unit-level scenarios.
+
+**Cross-assembly inheritdoc resolution uses referenced assemblies' own documentation**:
+Verifies that `<inheritdoc/>` elements targeting base types/members defined outside
+the documented assembly resolve using the referenced assembly's own XML
+documentation file when `DotNetGeneratorOptions.ReferencePaths` is configured. See
+`docs/verification/api-mark-dot-net/external-xml-doc-resolver.md` for the unit-level
+scenarios covering lookup, caching, the `ref/`/`lib/` fallback, and graceful
+degradation on missing/corrupt documentation.

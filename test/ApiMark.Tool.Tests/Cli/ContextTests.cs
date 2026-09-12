@@ -322,6 +322,46 @@ public sealed class ContextTests
     }
 
     /// <summary>
+    ///     Validates that <c>--reference-paths</c> with a single path sets the
+    ///     <see cref="Context.ReferencePaths"/> property to a one-element array containing that path.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithReferencePathsOption_SetsReferencePaths()
+    {
+        // Arrange: supply a single reference assembly path via --reference-paths
+        var args = new[] { "--reference-paths", "/refs/One.dll" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: ReferencePaths property must contain the single supplied path
+        string[] expectedReferencePaths = ["/refs/One.dll"];
+        Assert.Equal(expectedReferencePaths, context.ReferencePaths);
+    }
+
+    /// <summary>
+    ///     Validates that repeated <c>--reference-paths</c> flags accumulate all paths in order.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithRepeatedReferencePathsFlags_AccumulatesAllPathsInOrder()
+    {
+        // Arrange: three separate --reference-paths flags, each with a path
+        var args = new[]
+        {
+            "--reference-paths", "/refs/One.dll",
+            "--reference-paths", "/refs/Two.dll",
+            "--reference-paths", "/refs/Three.dll",
+        };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: all three paths must appear in ReferencePaths in the supplied order
+        string[] expectedReferencePaths = ["/refs/One.dll", "/refs/Two.dll", "/refs/Three.dll"];
+        Assert.Equal(expectedReferencePaths, context.ReferencePaths);
+    }
+
+    /// <summary>
     ///     Validates that an empty argument array produces a Context with all default values.
     /// </summary>
     [Fact]
@@ -349,6 +389,7 @@ public sealed class ContextTests
             () => Assert.Equal(1, context.HeadingDepth),
             () => Assert.Empty(context.Includes),
             () => Assert.Empty(context.Excludes),
+            () => Assert.Empty(context.ReferencePaths),
             () => Assert.Empty(context.ApiHeaders),
             () => Assert.Equal(0, context.ExitCode));
     }

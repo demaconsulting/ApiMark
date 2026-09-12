@@ -110,6 +110,14 @@ internal sealed class Context : IContext, IDisposable
     public string[] Excludes { get; private init; } = [];
 
     /// <summary>
+    ///     Gets the referenced assembly DLL paths for the .NET language subcommand, used to
+    ///     resolve cross-assembly <c>&lt;inheritdoc /&gt;</c> targets. Contains paths collected
+    ///     from repeated <c>--reference-paths</c> invocations. Defaults to an empty array — no
+    ///     cross-assembly resolution unless explicitly supplied.
+    /// </summary>
+    public string[] ReferencePaths { get; private init; } = [];
+
+    /// <summary>
     ///     Gets the documentation-coverage enforcement visibility tier for the .NET language
     ///     subcommand. Valid values are <c>Public</c>, <c>PublicAndProtected</c>, and <c>All</c>.
     ///     Defaults to <see langword="null"/> — enforcement is disabled unless this option is
@@ -206,6 +214,7 @@ internal sealed class Context : IContext, IDisposable
             Visibility = parser.Visibility,
             IncludeObsolete = parser.IncludeObsolete,
             Excludes = [.. parser.Excludes],
+            ReferencePaths = [.. parser.ReferencePaths],
             EnforceDocs = parser.EnforceDocs,
             EnforceDocsSeverity = parser.EnforceDocsSeverity,
             LibraryName = parser.LibraryName,
@@ -403,6 +412,13 @@ internal sealed class Context : IContext, IDisposable
         public List<string> Excludes { get; } = new List<string>();
 
         /// <summary>
+        ///     Gets the referenced assembly DLL paths for the .NET language subcommand.
+        ///     Accumulated by repeated <c>--reference-paths</c> invocations; each invocation
+        ///     appends one path used to resolve cross-assembly <c>&lt;inheritdoc /&gt;</c> targets.
+        /// </summary>
+        public List<string> ReferencePaths { get; } = new List<string>();
+
+        /// <summary>
         ///     Gets the documentation-coverage enforcement visibility tier value.
         ///     <see langword="null"/> when <c>--enforce-docs</c> was not supplied (enforcement disabled).
         /// </summary>
@@ -576,6 +592,15 @@ internal sealed class Context : IContext, IDisposable
                         // — repeated --exclude flags accumulate the full list
                         var pattern = GetRequiredStringArgument(arg, args, index, "a wildcard pattern argument");
                         Excludes.Add(pattern);
+                        return index + 1;
+                    }
+
+                case "--reference-paths":
+                    {
+                        // Append each --reference-paths invocation as one referenced assembly
+                        // DLL path — repeated --reference-paths flags accumulate the full list
+                        var pattern = GetRequiredStringArgument(arg, args, index, "a reference assembly path argument");
+                        ReferencePaths.Add(pattern);
                         return index + 1;
                     }
 

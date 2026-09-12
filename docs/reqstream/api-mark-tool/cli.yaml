@@ -26,6 +26,7 @@ sections:
               - ApiMarkTool-Cli-Context-ParseClangPath
               - ApiMarkTool-Cli-Context-ParseVhdlSourceOptions
               - ApiMarkTool-Cli-Context-ParseExcludes
+              - ApiMarkTool-Cli-Context-ParseReferencePaths
               - ApiMarkTool-Cli-Context-ParseEnforceDocsOption
               - ApiMarkTool-Cli-Context-ParseEnforceDocsSeverityOption
               - ApiMarkTool-Cli-Context-RejectFlagAsOptionValue

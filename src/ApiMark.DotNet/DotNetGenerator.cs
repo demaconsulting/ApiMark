@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using ApiMark.Core;
 using Mono.Cecil;
 
@@ -53,6 +54,17 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
     ///     <see cref="AssemblyDefinition"/> remains open until <see cref="IApiEmitter.Emit"/>
     ///     completes and is then disposed.
     ///     <para>
+    ///     A <see cref="DefaultAssemblyResolver"/> is seeded with one search directory per
+    ///     distinct, existing directory among <see cref="DotNetGeneratorOptions.ReferencePaths"/>
+    ///     entries so that base types/interfaces defined in externally referenced assemblies
+    ///     (e.g. NuGet package dependencies) resolve successfully when building the inheritance
+    ///     chain, rather than throwing <see cref="AssemblyResolutionException"/>. This resolver is
+    ///     intentionally not disposed on the success path — <c>ApiMark.Tool</c> is a short-lived,
+    ///     one-shot-per-invocation CLI process, so the small, bounded resource retained by the
+    ///     resolver for the remaining lifetime of the process is an acceptable simplification; it
+    ///     is disposed on the failure path alongside the parsed assembly.
+    ///     </para>
+    ///     <para>
     ///     The entrypoint <c>api.md</c> lists all namespaces — both root and child — with a
     ///         direct type count column, followed by a file naming and path convention appendix. Each namespace page lists only its immediate child
     ///         namespaces and types, enabling gradual disclosure for AI consumers. Namespace-level
@@ -88,14 +100,39 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         }
 
         context.WriteLine($"Parsing assembly: {Path.GetFileName(_options.AssemblyPath)}");
-        var assembly = AssemblyDefinition.ReadAssembly(_options.AssemblyPath);
+
+        // Seed a Mono.Cecil assembly resolver with the directories of the configured reference
+        // assembly paths so that base types/interfaces defined in externally referenced assemblies
+        // (e.g. NuGet package dependencies) resolve successfully instead of throwing
+        // AssemblyResolutionException — Mono.Cecil's default resolver does not implicitly search
+        // the target assembly's own folder, only directories explicitly added here.
+        var assemblyResolver = new DefaultAssemblyResolver();
+        foreach (var directory in _options.ReferencePaths
+                     .Select(Path.GetDirectoryName)
+                     .Where(d => !string.IsNullOrEmpty(d) && Directory.Exists(d))
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            assemblyResolver.AddSearchDirectory(directory!);
+        }
+
+        var readerParameters = new ReaderParameters { AssemblyResolver = assemblyResolver };
+        var assembly = AssemblyDefinition.ReadAssembly(_options.AssemblyPath, readerParameters);
         try
         {
             // Build the inheritance chain from assembly metadata so that bare <inheritdoc />
             // elements in the XML doc file can be resolved to their base members.
             // This must be done before constructing XmlDocReader.
             var inheritanceChain = BuildInheritanceChain(assembly);
-            var xmlDocs = new XmlDocReader(_options.XmlDocPath, inheritanceChain);
+
+            // Only construct an external XML doc resolver when reference paths are configured —
+            // this keeps the common case (no cross-assembly inheritdoc needed) allocation-free.
+            var externalXmlDocResolver = _options.ReferencePaths.Count > 0
+                ? new ExternalXmlDocResolver(_options.ReferencePaths)
+                : null;
+            Func<string, XElement?>? externalMemberLookup = externalXmlDocResolver != null
+                ? externalXmlDocResolver.TryGetMember
+                : null;
+            var xmlDocs = new XmlDocReader(_options.XmlDocPath, inheritanceChain, externalMemberLookup);
 
             // Build namespace descriptions from the NamespaceDoc convention before filtering
             // visible types so that NamespaceDoc types are available for summary extraction
@@ -168,6 +205,7 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         catch
         {
             assembly.Dispose();
+            assemblyResolver.Dispose();
             throw;
         }
     }
@@ -403,7 +441,9 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         }
         catch (AssemblyResolutionException)
         {
-            // Base type is in an external assembly — skip base-class override mapping
+            // Base type could not be resolved even with configured reference-path search
+            // directories (e.g., an unrestored or genuinely missing dependency) — skip
+            // base-class override mapping defensively
         }
     }
 
@@ -438,7 +478,9 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             }
             catch (AssemblyResolutionException)
             {
-                // Interface is in an external assembly — skip
+                // Interface could not be resolved even with configured reference-path search
+                // directories (e.g., an unrestored or genuinely missing dependency) — skip
+                // defensively
             }
         }
     }
@@ -519,7 +561,9 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             }
             catch (AssemblyResolutionException)
             {
-                // Interface is in an external assembly — skip
+                // Interface could not be resolved even with configured reference-path search
+                // directories (e.g., an unrestored or genuinely missing dependency) — skip
+                // defensively
             }
         }
     }
@@ -600,7 +644,9 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             }
             catch (AssemblyResolutionException)
             {
-                // Interface is in an external assembly — skip
+                // Interface could not be resolved even with configured reference-path search
+                // directories (e.g., an unrestored or genuinely missing dependency) — skip
+                // defensively
             }
         }
     }
@@ -801,4 +847,22 @@ public sealed class DotNetGeneratorOptions
     ///     run the check once this option is set.
     /// </remarks>
     public ApiVisibility? EnforceDocsVisibility { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the paths to referenced assembly DLLs used to resolve cross-assembly
+    ///     <c>&lt;inheritdoc /&gt;</c> targets. Defaults to an empty list (no cross-assembly
+    ///     resolution).
+    /// </summary>
+    /// <remarks>
+    ///     Each entry serves two purposes: (1) its containing directory is added as a Mono.Cecil
+    ///     assembly-resolution search directory so that base types/interfaces defined in the
+    ///     referenced assembly (e.g. a NuGet package dependency) can be resolved while building the
+    ///     inheritance chain, and (2) its own sibling (or <c>ref/</c>/<c>lib/</c>-swapped) XML
+    ///     documentation file is consulted, via <see cref="ExternalXmlDocResolver"/>, when a bare or
+    ///     <c>cref</c>-targeted <c>&lt;inheritdoc /&gt;</c> element cannot be resolved from the
+    ///     assembly currently being documented. Leaving this empty preserves prior behavior exactly:
+    ///     <c>&lt;inheritdoc /&gt;</c> elements targeting external assemblies remain unresolved and
+    ///     the corresponding documentation content is simply absent, with no error.
+    /// </remarks>
+    public IReadOnlyList<string> ReferencePaths { get; set; } = [];
 }

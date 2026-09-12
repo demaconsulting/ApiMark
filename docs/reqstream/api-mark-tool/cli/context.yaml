@@ -208,6 +208,17 @@ sections:
                 tests:
                   - Context_Create_WithExcludeOption_SetsExcludes
                   - Context_Create_WithRepeatedExcludeFlags_AccumulatesAllPatternsInOrder
+              - id: ApiMarkTool-Cli-Context-ParseReferencePaths
+                title: Context shall parse repeated --reference-paths flags and accumulate
+                  each referenced assembly DLL path into the ReferencePaths array in order.
+                justification: |
+                  .NET projects pass one referenced assembly DLL path per --reference-paths
+                  flag; the context must accumulate all supplied paths in order so
+                  DotNetGenerator receives the complete ordered path list needed to resolve
+                  cross-assembly <inheritdoc/> targets.
+                tests:
+                  - Context_Create_WithReferencePathsOption_SetsReferencePaths
+                  - Context_Create_WithRepeatedReferencePathsFlags_AccumulatesAllPathsInOrder
               - id: ApiMarkTool-Cli-Context-ParseEnforceDocsOption
                 title: Context shall parse --enforce-docs into the EnforceDocs property,
                   which is null when the option is absent, meaning enforcement is disabled.

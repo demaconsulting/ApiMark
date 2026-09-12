@@ -34,6 +34,35 @@ sections:
               reference or the build pipeline, mirroring how ApiMarkIncludePaths forwards
               repeated --includes flags for C++ builds.
             tests: [ApiMarkTask_DotNet_SpawnsToolWithCorrectExcludeArguments]
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardReferencePathsProperty
+            title: ApiMarkTask shall forward the ApiMarkReferencePaths property to
+              the tool as repeated --reference-paths flags for .NET builds.
+            justification: |
+              Build authors need cross-assembly <inheritdoc/> resolution to work for
+              referenced assemblies without modifying the NuGet package reference or
+              the build pipeline, mirroring how ApiMarkExclude forwards repeated
+              --exclude flags for .NET builds.
+            tests:
+              - ApiMarkTask_DotNet_SpawnsToolWithCorrectReferencePathArguments
+              - ApiMarkTask_DotNet_OmitsReferencePathsFlag_WhenNotSet
+          - id: ApiMarkMsbuild-ApiMarkTask-AutoPopulateReferencePaths
+            title: >-
+              ApiMarkTask's .targets file shall automatically populate
+              ApiMarkReferencePaths from the resolved @(ReferencePath) items when
+              ApiMarkReferencePaths is not explicitly set, and shall not override an
+              explicitly set value.
+            justification: |
+              Auto-harvesting from @(ReferencePath) (populated by
+              ResolveAssemblyReferences/ResolveProjectReferences) means projects require
+              no manual configuration in the common case for cross-assembly
+              <inheritdoc/> resolution to work, mirroring how ApiMarkIncludePaths is
+              auto-harvested from ClCompile AdditionalIncludeDirectories for C++
+              builds. Explicitly setting the property must suppress auto-harvesting so
+              projects that need finer control (e.g. a curated subset of reference
+              assemblies) are not overridden.
+            tests:
+              - ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoPopulatesReferencePathsFromResolvedReferences
+              - ApiMarkMsbuild_NuGetPackage_DotNetProject_ExplicitReferencePaths_SuppressesAutoHarvest
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardEnforceDocsProperties
             title: ApiMarkTask shall forward the ApiMarkEnforceDocs and
               ApiMarkEnforceDocsSeverity properties to the tool as --enforce-docs and

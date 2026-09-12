@@ -24,5 +24,6 @@
     <ProjectReference Include="..\..\src\ApiMark.DotNet\ApiMark.DotNet.csproj" />
     <ProjectReference Include="..\ApiMark.Core.TestHelpers\ApiMark.Core.TestHelpers.csproj" />
     <ProjectReference Include="..\ApiMark.DotNet.Fixtures\ApiMark.DotNet.Fixtures.csproj" />
+    <ProjectReference Include="..\ApiMark.DotNet.Fixtures.External\ApiMark.DotNet.Fixtures.External.csproj" />
   </ItemGroup>
 </Project>

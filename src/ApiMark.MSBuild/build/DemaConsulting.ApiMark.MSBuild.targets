@@ -51,6 +51,26 @@
       <ApiMarkIncludePaths>@(_ApiMarkIncludeDirs->Distinct())</ApiMarkIncludePaths>
     </PropertyGroup>
 
+    <!--
+      For managed (dotnet) projects, default ApiMarkReferencePaths to the resolved
+      @(ReferencePath) items (populated by ResolveAssemblyReferences/ResolveProjectReferences)
+      when the user has not set it explicitly. This automatically picks up the paths of
+      referenced assemblies (including NuGet package assemblies) so cross-assembly
+      <inheritdoc/> resolution works out of the box. The Exists() condition strips paths that
+      do not exist on disk. Users who need a different set of paths can override
+      ApiMarkReferencePaths with a semicolon-separated list, which suppresses harvesting entirely.
+    -->
+    <ItemGroup Condition="'$(ApiMarkReferencePaths)' == '' and '@(ReferencePath)' != ''">
+      <_ApiMarkRawReferencePaths Include="@(ReferencePath)" />
+      <_ApiMarkReferencePaths Include="@(_ApiMarkRawReferencePaths)"
+                              Condition="'%(_ApiMarkRawReferencePaths.Identity)' != ''
+                                      and Exists('%(_ApiMarkRawReferencePaths.Identity)')" />
+    </ItemGroup>
+
+    <PropertyGroup Condition="'$(ApiMarkReferencePaths)' == '' and '@(ReferencePath)' != ''">
+      <ApiMarkReferencePaths>@(_ApiMarkReferencePaths->Distinct())</ApiMarkReferencePaths>
+    </PropertyGroup>
+
     <ApiMarkTask
       DisableApiMark="$(DisableApiMark)"
       ApiMarkLanguage="$(ApiMarkLanguage)"
@@ -62,6 +82,7 @@
       ApiMarkAssemblyPath="$(ApiMarkAssemblyPath)"
       ApiMarkXmlDocPath="$(ApiMarkXmlDocPath)"
       ApiMarkExclude="$(ApiMarkExclude)"
+      ApiMarkReferencePaths="$(ApiMarkReferencePaths)"
       ApiMarkIncludePaths="$(ApiMarkIncludePaths)"
       ApiMarkApiHeaders="$(ApiMarkApiHeaders)"
       ApiMarkLibraryName="$(ApiMarkLibraryName)"

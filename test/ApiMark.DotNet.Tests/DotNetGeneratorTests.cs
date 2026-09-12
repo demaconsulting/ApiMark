@@ -2292,4 +2292,63 @@ public class DotNetGeneratorTests
         emitter.Emit(factory, new EmitConfig(), new InMemoryContext());
         Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleClass"));
     }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.Parse"/> resolves cross-assembly bare
+    ///     <c>&lt;inheritdoc /&gt;</c> content when <see cref="DotNetGeneratorOptions.ReferencePaths"/>
+    ///     is configured to point at the external "base library" fixture's output — proving the
+    ///     full pipeline: Mono.Cecil assembly-resolver seeding, external base-type/interface
+    ///     resolution while building the inheritance chain, and <see cref="ExternalXmlDocResolver"/>
+    ///     fallback in <see cref="XmlDocReader"/>.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Parse_ExternalBaseWithReferencePaths_ResolvesInheritedDocumentation()
+    {
+        // Arrange
+        var options = BuildOptions();
+        options.ReferencePaths = [FixturePaths.GetExternalFixtureDll()];
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(options);
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the derived type's overridden method page must exist and must NOT show the
+        // externally-inherited summary because DescribeBase provides its own override summary
+        // via bare inheritdoc pointing at the external base — the interface method page below
+        // is the one that carries purely-inherited content from the external assembly.
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ExternalInheritDocClass/ExternalInterfaceMethod", out var writer),
+            "Expected member detail page for ExternalInheritDocClass.ExternalInterfaceMethod");
+        var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Performs the external interface method's action."));
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.Parse"/> and the subsequent
+    ///     <see cref="IApiEmitter.Emit"/> complete without throwing, and leave cross-assembly
+    ///     <c>&lt;inheritdoc /&gt;</c> content unresolved (absent), when
+    ///     <see cref="DotNetGeneratorOptions.ReferencePaths"/> is left at its default empty list —
+    ///     confirming the prior/unchanged behavior and that the defensive
+    ///     <c>AssemblyResolutionException</c> catch in the inheritance-chain builder still holds.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Parse_ExternalBaseWithoutReferencePaths_LeavesInheritDocUnresolved()
+    {
+        // Arrange: ReferencePaths intentionally left at its default empty list
+        var options = BuildOptions();
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(options);
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: Parse/Emit completed without throwing, and the member page exists but does not
+        // carry the externally-inherited summary text
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ExternalInheritDocClass/ExternalInterfaceMethod", out var writer),
+            "Expected member detail page for ExternalInheritDocClass.ExternalInterfaceMethod");
+        var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.DoesNotContain(paragraphs, p => p.Contains("Performs the external interface method's action."));
+    }
 }

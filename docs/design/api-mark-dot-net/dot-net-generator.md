@@ -34,6 +34,9 @@ for format selection and Markdown writing. The split across implementation units
   text. See TypeNameSimplifier Design for full details.
 - **XmlDocReader.cs** — reads and indexes the XML documentation file for indexed
   per-member lookups. See XmlDocReader Design for full details.
+- **ExternalXmlDocResolver.cs** — locates and lazily parses the XML documentation
+  files of externally referenced assemblies for cross-assembly `<inheritdoc />`
+  resolution. See ExternalXmlDocResolver Design for full details.
 
 ### Data Model
 
@@ -68,6 +71,15 @@ tier may differ from the emission tier. Used as the fallback tier when the
 caller invokes `CheckDocumentationCoverage(string? enforceTier)` after `Parse`
 without supplying an explicit `enforceTier` argument.
 
+**DotNetGeneratorOptions.ReferencePaths**: `IReadOnlyList<string>` — paths to
+referenced assembly DLLs (e.g. NuGet package assemblies) used to resolve
+cross-assembly `<inheritdoc />` targets. Defaults to an empty list (no
+cross-assembly resolution — the historical behavior). Each entry's containing
+directory seeds a Mono.Cecil assembly-resolution search directory, and each
+entry's own XML documentation file is consulted, via `ExternalXmlDocResolver`,
+as a fallback when an `<inheritdoc />` element cannot be resolved from the
+assembly currently being documented.
+
 **ExternalTypeInfo**: See `TypeLinkResolver` design for the `ExternalTypeInfo` data record.
 
 **DotNetAstModel** (internal sealed class): Holds all pre-parsed assembly data
@@ -101,6 +113,26 @@ memory and returns a `DotNetEmitter` ready to emit.
  If `BuildInheritanceChain` or `XmlDocReader` construction throws, the
  `AssemblyDefinition` is disposed before the exception propagates (resource leak
  prevention via try/catch).
+- *Assembly resolver seeding*: Before reading the assembly, `Parse` constructs a
+  Mono.Cecil `DefaultAssemblyResolver` and adds one search directory per distinct,
+  existing directory among `ReferencePaths` entries (`Path.GetDirectoryName`,
+  filtered by `Directory.Exists`, deduplicated case-insensitively). This resolver
+  is passed via `ReaderParameters` to `AssemblyDefinition.ReadAssembly`, and is
+  what allows `BuildInheritanceChain`'s `TypeReference.Resolve()` calls to
+  succeed against base types/interfaces defined in externally referenced
+  assemblies (e.g. NuGet package dependencies) instead of throwing
+  `AssemblyResolutionException` — Mono.Cecil's default resolver does not
+  implicitly search the target assembly's own folder, only directories
+  explicitly added this way. The resolver is intentionally not disposed on the
+  success path (see the class-level remarks / Known limitation below); it is
+  disposed on the failure path alongside the parsed assembly.
+- *External XML doc resolver wiring*: When `ReferencePaths` is non-empty, `Parse`
+  constructs an `ExternalXmlDocResolver` from it and passes its `TryGetMember`
+  method as the `externalMemberLookup` argument to the `XmlDocReader`
+  constructor, enabling `<inheritdoc />` elements that target external base
+  types/members to resolve using that reference assembly's own XML
+  documentation file. When `ReferencePaths` is empty, no external resolver is
+  constructed and `XmlDocReader` behaves exactly as before this feature.
 - *NamespaceDoc processing*: After collecting all visible types, `Parse` calls
   `DotNetEmitter.IsNamespaceDocCarrier` on each type. Carrier types (those named
   `NamespaceDoc` with `internal static` modifiers) are excluded from the type
@@ -184,7 +216,15 @@ base-member-ID map from Mono.Cecil metadata for use during `<inheritdoc />` reso
 - *Known limitation*: Complex generic signatures may not always map perfectly to XML-doc
   IDs because Mono.Cecil `FullName` uses `/` for nested-type separators whereas XML-doc
   format uses `.`; resolution failures are silently treated as a no-op. `XmlDocReader`
-  degrades gracefully when a lookup finds no matching chain entry.
+  degrades gracefully when a lookup finds no matching chain entry. Base types/interfaces
+  defined in externally referenced assemblies now resolve successfully when their
+  containing directory is covered by `DotNetGeneratorOptions.ReferencePaths` (see the
+  assembly resolver seeding note in `Parse` above); the `AssemblyResolutionException`
+  catch in `AddBaseClassVirtualOverride`, `AddInterfaceMethodImplementations`,
+  `AddInterfacePropertyImplementation`, and `AddInterfaceEventImplementation` remains
+  only as a defensive fallback for references that are genuinely unresolvable (e.g. an
+  unrestored or missing dependency, or one whose directory was not supplied via
+  `ReferencePaths`) — it is no longer the expected common case for external bases.
 
 ### Error Handling
 
@@ -218,14 +258,24 @@ exceptions are not expected to surface through the CLI in normal operation.
   Mono.Cecil type references to idiomatic C# type names in output. (DotNetGenerator
   creates DotNetEmitter, which owns this dependency.)
 - **XmlDocReader** — DotNetGenerator constructs an XmlDocReader from XmlDocPath during
-  Parse to parse and index the XML documentation file for indexed per-member lookups.
+  Parse to parse and index the XML documentation file for indexed per-member lookups,
+  optionally supplying an `ExternalXmlDocResolver`-backed external member lookup
+  delegate when `ReferencePaths` is non-empty.
+- **ExternalXmlDocResolver** — constructed during `Parse` when `ReferencePaths` is
+  non-empty; locates and lazily parses each reference assembly's own XML
+  documentation file to resolve `<inheritdoc />` targets defined outside the
+  assembly currently being documented. See ExternalXmlDocResolver Design for details.
 - **DocumentationCoverageChecker** — `CheckDocumentationCoverage` delegates to this
   unit's `Check` static method, passing the cached parsed assembly, XML doc reader,
   and the `EnforceDocsVisibility`/`IncludeObsolete`/`ExcludePatterns` options.
 - **TypeLinkResolver** — constructed during Parse with `rootNamespaces` and stored in
   `DotNetAstModel.Resolver` for use during emission.
 - **Mono.Cecil** — used to read assembly metadata without loading the assembly into
-  the current process — see Mono.Cecil Integration Design.
+  the current process — see Mono.Cecil Integration Design. `Parse` additionally
+  constructs a `Mono.Cecil.DefaultAssemblyResolver` seeded with `ReferencePaths`
+  directories and passes it via `ReaderParameters` to `AssemblyDefinition.ReadAssembly`
+  so that base types/interfaces in externally referenced assemblies resolve
+  successfully during inheritance-chain construction.
 
 ### Callers
 

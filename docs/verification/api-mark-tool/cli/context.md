@@ -30,6 +30,7 @@ up after itself. No other external files, services, or configuration are require
 - Flag tokens (starting with `-`) supplied as values for string-valued options are rejected with `ArgumentException`.
 - `--includes` accepts one directory path per flag; repeated flags accumulate paths into `Includes`.
 - `--exclude` accepts one wildcard pattern per flag; repeated flags accumulate patterns into `Excludes` in order.
+- `--reference-paths` accepts one referenced assembly DLL path per flag; repeated flags accumulate paths into `ReferencePaths` in order.
 - `--api-headers` patterns are accumulated in order; `!`-prefixed exclusion patterns are forwarded verbatim.
 - `--source` patterns are accumulated in order; `!`-prefixed exclusion patterns are forwarded verbatim.
 - C++ named options (`--library-name`, `--library-description`, `--defines`, `--cpp-standard`) set their
@@ -87,6 +88,13 @@ up after itself. No other external files, services, or configuration are require
 `--exclude Antlr4.* --exclude Foo.Bar --exclude *.Internal` →
 `Excludes = ["Antlr4.*", "Foo.Bar", "*.Internal"]` (order preserved).
 
+**`Context_Create_WithReferencePathsOption_SetsReferencePaths`**: `--reference-paths /refs/One.dll`
+→ `ReferencePaths = ["/refs/One.dll"]`.
+
+**`Context_Create_WithRepeatedReferencePathsFlags_AccumulatesAllPathsInOrder`**:
+`--reference-paths /refs/One.dll --reference-paths /refs/Two.dll --reference-paths /refs/Three.dll`
+→ `ReferencePaths = ["/refs/One.dll", "/refs/Two.dll", "/refs/Three.dll"]`.
+
 **`Context_Create_WithDepthOption_SetsHeadingDepth`**: `--depth 3` → `HeadingDepth = 3`.
 
 **`Context_Create_WithDepthOptionOutOfRange_ThrowsArgumentException`**: `--depth 0`, `--depth 7`,
@@ -102,7 +110,8 @@ the upper boundary of the valid ATX heading range and must be accepted without e
 `--result results.trx` both set `ResultsFile = "results.trx"` (theory test covering both variants).
 
 **`Context_Create_WithNoArguments_HasDefaultValues`**: Empty args → all properties at
-documented defaults; `ExitCode = 0`, `HeadingDepth = 1`, `Includes` empty.
+documented defaults; `ExitCode = 0`, `HeadingDepth = 1`, `Includes` empty,
+`ReferencePaths` empty.
 
 **`Context_Create_WithUnknownFlag_ThrowsArgumentException`**: `--not-a-flag` →
 `ArgumentException` thrown.

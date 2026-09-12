@@ -58,6 +58,12 @@ network dependency, or privileged configuration is needed.
 - `CheckDocumentationCoverage` can be called after `Parse` returns and before `Emit` is
   invoked, returning a `DocumentationCoverageResult`, without interfering with a subsequent
   successful `Emit` call.
+- When `ReferencePaths` is configured to point at an external "base library" fixture assembly,
+  `<inheritdoc />` content inherited from a base class/interface defined in that external
+  assembly appears in the generated output.
+- When `ReferencePaths` is left empty (the default), `Parse` and `Emit` complete without
+  throwing and cross-assembly `<inheritdoc />` content remains unresolved (absent), preserving
+  prior behavior.
 
 ### Test Scenarios
 
@@ -262,3 +268,21 @@ invoked, returns a non-null `DocumentationCoverageResult`, and does not interfer
 subsequent `Emit` call completing successfully — proving the parsed assembly is not
 disposed or otherwise mutated by the coverage check. This scenario is tested by
 `DotNetGenerator_CheckDocumentationCoverage_AfterParse_ReturnsViolationsAndAllowsSubsequentEmit`.
+
+**Cross-assembly inheritdoc resolves when ReferencePaths is configured**: Verifies that
+`Parse`, seeded with `ReferencePaths` pointing at the `ApiMark.DotNet.Fixtures.External`
+fixture assembly's output, resolves the bare `<inheritdoc />` content on
+`ExternalInheritDocClass.ExternalInterfaceMethod` (implemented from
+`IExternalBaseInterface`, defined in the external fixture assembly) — proving the full
+pipeline: Mono.Cecil assembly-resolver seeding, external base-type/interface resolution
+while building the inheritance chain, and `ExternalXmlDocResolver` fallback in
+`XmlDocReader`. This scenario is tested by
+`DotNetGenerator_Parse_ExternalBaseWithReferencePaths_ResolvesInheritedDocumentation`.
+
+**Cross-assembly inheritdoc remains unresolved when ReferencePaths is empty**: Verifies
+that with `ReferencePaths` left at its default empty list, `Parse` and `Emit` complete
+without throwing (confirming the defensive `AssemblyResolutionException` catch in the
+inheritance-chain builder still holds) and that the `ExternalInterfaceMethod` member page
+does not carry the externally-inherited summary text — the prior/unchanged behavior.
+This scenario is tested by
+`DotNetGenerator_Parse_ExternalBaseWithoutReferencePaths_LeavesInheritDocUnresolved`.

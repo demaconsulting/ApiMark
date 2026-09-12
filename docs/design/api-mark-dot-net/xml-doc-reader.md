@@ -28,6 +28,14 @@ IDs. Supplied by `DotNetGenerator` from Mono.Cecil metadata. Used to resolve
 bare `<inheritdoc />` elements that carry no `cref` attribute. When `null`,
 bare inheritdoc resolution returns `null` or empty rather than throwing.
 
+**_externalMemberLookup** (private `Func<string, XElement?>?`): Optional
+fallback delegate consulted when a member ID is not present in `_members`.
+Typically backed by `ExternalXmlDocResolver.TryGetMember`, supplied by
+`DotNetGenerator` when `DotNetGeneratorOptions.ReferencePaths` is non-empty.
+Enables `<inheritdoc />` resolution to reach base types/members defined in
+externally referenced assemblies (e.g. NuGet package dependencies). When
+`null` (the default), behavior is identical to before this fallback existed.
+
 **Duplicate-key policy**: When duplicate member names appear in the XML doc
 file, the first occurrence is used and subsequent duplicates are silently
 discarded. This is a defensive policy for malformed but real-world XML doc
@@ -41,7 +49,10 @@ member index.
 
 - *Parameters*: `string xmlDocPath` — path to the XML documentation file;
   `IReadOnlyDictionary<string, IReadOnlyList<string>>? inheritanceChain` —
-  optional bare inheritdoc resolution map (defaults to `null`).
+  optional bare inheritdoc resolution map (defaults to `null`);
+  `Func<string, XElement?>? externalMemberLookup` — optional external member
+  lookup fallback for cross-assembly `<inheritdoc />` resolution (defaults to
+  `null`).
 - *Preconditions*: `xmlDocPath` must exist on disk.
 - *Postconditions*: `_members` is populated; all lookups are O(1).
 - *Exceptions*: Throws `FileNotFoundException` when `xmlDocPath` does not exist.
@@ -98,6 +109,11 @@ applied to each code block. Resolves `<inheritdoc />` first.
 for a given ID by following `<inheritdoc />` recursively with cycle detection.
 
 - Returns the member element directly when no `<inheritdoc />` child is present.
+- When the member ID is absent from `_members`, falls back to
+  `_externalMemberLookup` (if configured) before treating the ID as unresolved;
+  this fallback is purely additive and does not change any other resolution
+  semantics (cycle detection, `path` filtering, and cref-then-chain priority
+  ordering apply identically to externally-resolved members).
 - When `cref` is present, resolves the named target recursively.
 - When no `cref` is present, tries each candidate from `_inheritanceChain` in
   order, stopping at the first that yields a result. Each candidate is tried with
@@ -107,7 +123,9 @@ for a given ID by following `<inheritdoc />` recursively with cycle detection.
 - When `path` is present (XPath expression), evaluates it against the resolved
   source element and wraps matching nodes in a synthetic `<member>` element.
 - Maintains a `HashSet<string>` of visited IDs per resolution path to break
-  cycles without throwing.
+  cycles without throwing — this cycle detection covers chains that cross the
+  local/external boundary, because every recursive call (whether the member was
+  found locally or externally) funnels through the same `visited` set.
 
 **Whitespace normalization**: `GetDocumentationText` normalizes text by
 collapsing internal whitespace within each line. `GetSingleLineDocumentationText`
@@ -188,7 +206,9 @@ does not exist. Missing member entries return `null` or an empty collection
 rather than throwing. Duplicate member IDs in the XML file are silently handled
 by the first-wins policy. Cyclic `<inheritdoc />` chains are detected and
 resolved to `null` or empty without throwing. Missing `cref` targets or absent
-chain entries degrade gracefully to `null` or empty.
+chain entries degrade gracefully to `null` or empty. A member ID absent from
+both the local index and the external member lookup delegate (when configured)
+degrades to `null`/empty identically to a purely local miss.
 
 ### Dependencies
 
@@ -199,7 +219,9 @@ chain entries degrade gracefully to `null` or empty.
 ### Callers
 
 - **DotNetGenerator.Parse** — constructs an `XmlDocReader` from the configured
-  `XmlDocPath` and the inheritance chain built from Mono.Cecil metadata.
+  `XmlDocPath`, the inheritance chain built from Mono.Cecil metadata, and (when
+  `DotNetGeneratorOptions.ReferencePaths` is non-empty) an `ExternalXmlDocResolver`
+  instance's `TryGetMember` method as the external member lookup delegate.
 - **DotNetEmitterGradualDisclosure** — calls all getter methods when writing
   member detail pages.
 - **DotNetEmitterSingleFile** — calls getter methods when writing member

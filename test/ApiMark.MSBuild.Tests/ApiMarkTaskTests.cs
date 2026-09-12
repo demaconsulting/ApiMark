@@ -144,6 +144,63 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> emits a separate
+    ///     <c>--reference-paths</c> flag for each path in
+    ///     <see cref="ApiMarkTask.ApiMarkReferencePaths"/> when the property is
+    ///     semicolon-separated, rather than joining them into a single comma-separated value.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_DotNet_SpawnsToolWithCorrectReferencePathArguments()
+    {
+        // Arrange: configure semicolon-separated reference paths for a dotnet invocation
+        var task = new ApiMarkTask
+        {
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/path/api.dll",
+            ApiMarkXmlDocPath = "/some/path/api.xml",
+            ApiMarkReferencePaths = "/refs/One.dll;/refs/Two.dll",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet");
+
+        // Assert: each path must appear as a separate --reference-paths <path> pair
+        var argList = args.ToList();
+        var firstIdx = argList.IndexOf("--reference-paths");
+        var lastIdx = argList.LastIndexOf("--reference-paths");
+        Assert.True(firstIdx >= 0, "--reference-paths must be present");
+        Assert.NotEqual(firstIdx, lastIdx);
+        Assert.Equal("/refs/One.dll", argList[firstIdx + 1]);
+        Assert.Equal("/refs/Two.dll", argList[lastIdx + 1]);
+        Assert.DoesNotContain("/refs/One.dll,/refs/Two.dll", args);
+        Assert.DoesNotContain("/refs/One.dll;/refs/Two.dll", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> omits the
+    ///     <c>--reference-paths</c> flag entirely when
+    ///     <see cref="ApiMarkTask.ApiMarkReferencePaths"/> is null or empty, consistent with how
+    ///     other optional repeatable arguments are omitted when unset.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_DotNet_OmitsReferencePathsFlag_WhenNotSet()
+    {
+        // Arrange: ApiMarkReferencePaths intentionally left unset (null)
+        var task = new ApiMarkTask
+        {
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/path/api.dll",
+            ApiMarkXmlDocPath = "/some/path/api.xml",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet");
+
+        // Assert: no --reference-paths flag is emitted
+        Assert.DoesNotContain("--reference-paths", args);
+    }
+
+    /// <summary>
     ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> forwards
     ///     <see cref="ApiMarkTask.ApiMarkEnforceDocs"/> and
     ///     <see cref="ApiMarkTask.ApiMarkEnforceDocsSeverity"/> as <c>--enforce-docs</c> and

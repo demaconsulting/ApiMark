@@ -64,6 +64,16 @@ non-empty, trimmed entry is forwarded as an individual `--exclude` flag by
 `AppendDotNetArguments`, mirroring the `ApiMarkIncludePaths` → `--includes` loop
 structure used for `cpp`. Optional — when empty, nothing is excluded.
 
+**ApiMarkTask.ApiMarkReferencePaths**: `string?` — MSBuild property
+`$(ApiMarkReferencePaths)`; for the `dotnet` language, a semicolon-separated list of
+referenced assembly DLL paths used to resolve cross-assembly `<inheritdoc />` targets.
+Each non-empty entry is forwarded as an individual `--reference-paths` flag by
+`AppendDotNetArguments`. Optional — when empty, external `<inheritdoc/>` targets are
+not resolved (unchanged prior behavior). Auto-populated by the `.targets` file from
+`@(ReferencePath)` (filtered by `Exists()`, deduplicated via `Distinct()`) when not
+explicitly set by the project; setting the property explicitly suppresses
+auto-harvesting.
+
 **ApiMarkTask.ApiMarkEnforceDocs**: `string?` — MSBuild property
 `$(ApiMarkEnforceDocs)`; for the `dotnet` and `cpp` languages, the enforcement
 visibility tier for documentation-coverage checking. Accepted values:
@@ -186,7 +196,8 @@ child process per item using metadata overrides for `OutputDir`, `Format`, and
 `Visibility`; otherwise build the argument list from scalar MSBuild properties
 according to language-specific mapping (for `dotnet`, append `--assembly` and
 `--xml-doc`, then split `ApiMarkExclude` on `;` and emit one `--exclude` flag
-per non-empty trimmed entry, then append `--enforce-docs`
+per non-empty trimmed entry, then split `ApiMarkReferencePaths` on `;` and emit
+one `--reference-paths` flag per non-empty entry, then append `--enforce-docs`
 `ApiMarkEnforceDocs` when non-empty and `--enforce-docs-severity`
 `ApiMarkEnforceDocsSeverity` when non-empty (each flag independently omitted
 when its property is unset); for `cpp`, split `ApiMarkIncludePaths` on

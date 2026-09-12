@@ -32,6 +32,8 @@ sections:
           - ApiMarkMsbuild-ApiMarkTask-ForwardEnforceDocsProperties
           - ApiMarkMsbuild-ApiMarkTask-SupportOutputsItemGroup
           - ApiMarkMsbuild-ApiMarkTask-ForwardExcludePatterns
+          - ApiMarkMsbuild-ApiMarkTask-ForwardReferencePathsProperty
+          - ApiMarkMsbuild-ApiMarkTask-AutoPopulateReferencePaths
           - ApiMarkMsbuild-ApiMarkTask-OverrideOutputProperties
           - ApiMarkMsbuild-ApiMarkTask-RestoreOutputProperties
           - ApiMarkMsbuild-ApiMarkTask-ResolveDotNetFromEnvironment

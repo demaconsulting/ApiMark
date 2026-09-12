@@ -92,6 +92,57 @@ public class ProgramTests
     }
 
     /// <summary>
+    ///     Validates that invoking the <c>dotnet</c> subcommand with a repeatable
+    ///     <c>--reference-paths</c> flag pointed at the external "base library" fixture assembly
+    ///     resolves cross-assembly <c>&lt;inheritdoc /&gt;</c> content in the generated output.
+    /// </summary>
+    [Fact]
+    public void Program_Main_DotNetWithReferencePathsFlag_ResolvesExternalInheritdocInOutput()
+    {
+        // Arrange: locate the fixture assembly, its XML doc, and the external fixture assembly
+        // copied alongside it in the same test output directory
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
+        var externalAssemblyPath = Path.Join(
+            Path.GetDirectoryName(assemblyPath),
+            "ApiMark.DotNet.Fixtures.External.dll");
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+
+        try
+        {
+            // Act
+            var exitCode = Program.Main([
+                "dotnet",
+                "--assembly", assemblyPath,
+                "--xml-doc", xmlDocPath,
+                "--output", outputDir,
+                "--reference-paths", externalAssemblyPath,
+            ]);
+
+            // Assert: tool exits successfully and the member page carries the
+            // externally-inherited summary text
+            Assert.Equal(0, exitCode);
+            var memberPagePath = Path.Join(
+                outputDir,
+                "ApiMark.DotNet.Fixtures",
+                "ExternalInheritDocClass",
+                "ExternalInterfaceMethod.md");
+            Assert.True(File.Exists(memberPagePath), "Expected ExternalInterfaceMethod.md member page");
+            Assert.Contains(
+                "Performs the external interface method's action.",
+                File.ReadAllText(memberPagePath));
+        }
+        finally
+        {
+            // Clean up the temporary output directory
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
     ///     Validates that supplying an unrecognized <c>--visibility</c> value exits
     ///     with a non-zero code and writes an error message containing the invalid value.
     /// </summary>

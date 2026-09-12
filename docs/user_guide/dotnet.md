@@ -33,6 +33,7 @@ apimark dotnet [options]
 | `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `Public`) |
 | `--include-obsolete` | Include obsolete members in generated output |
 | `--exclude <pattern>` | Exclude namespaces/types matching a wildcard pattern (repeatable) |
+| `--reference-paths <path>` | Path to a referenced assembly DLL, used to resolve cross-assembly `<inheritdoc/>` (repeatable) |
 | `--enforce-docs <value>` | Enable documentation-coverage enforcement at the given visibility tier: `Public`, `PublicAndProtected`, `All` (default: disabled) |
 | `--enforce-docs-severity <value>` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build) (default: `Warning`) |
 
@@ -89,6 +90,33 @@ namespace. For example, `--exclude "Antlr4.*"` excludes every namespace and
 type under `Antlr4`. A namespace whose every type is excluded (whether by
 `--exclude` or by the visibility/obsolete filters above) does not appear in
 any generated index or page.
+
+### Cross-Assembly `<inheritdoc/>` Resolution
+
+A member documented with a bare `<inheritdoc/>` (or an explicit
+`<inheritdoc cref="..."/>`) normally inherits its documentation from a base
+class, base interface, or overridden member within the *same* assembly being
+documented. When the base class or interface instead lives in an externally
+referenced assembly — for example a NuGet package dependency — pass one or
+more `--reference-paths <path>` flags pointing at that assembly's DLL so
+ApiMark can resolve the reference and inherit its documentation too.
+
+For each configured reference path, ApiMark looks for that assembly's XML
+documentation file next to the DLL (the same `<name>.xml` convention used for
+the primary assembly). If no sibling XML file is found, ApiMark also tries
+swapping a `ref`/`lib` path segment (some NuGet packages ship the reference
+assembly under a `ref/` folder but the matching XML documentation only under
+the corresponding `lib/` folder, or vice versa). If ApiMark still cannot find
+documentation for the referenced assembly, or the referenced assembly itself
+cannot be resolved for type-hierarchy purposes (for example, because it is
+missing from all configured reference paths), the affected `<inheritdoc/>`
+elements are left unresolved (no inherited content), exactly as before this
+capability existed.
+
+When ApiMark is invoked via MSBuild, `ApiMarkReferencePaths` is normally
+populated automatically from the project's resolved `@(ReferencePath)` items
+(see the *MSBuild Properties* section below), so most projects do not need to
+set it explicitly.
 
 ## Documentation Coverage Enforcement
 
@@ -221,6 +249,7 @@ After the next `dotnet build`, documentation is written to `$(MSBuildProjectDire
 | `ApiMarkVisibility` | `Public` | Visibility filter: `Public`, `PublicAndProtected`, `All` |
 | `ApiMarkIncludeObsolete` | `false` | Include `[Obsolete]` members in generated output |
 | `ApiMarkExclude` | (empty) | Semicolon-separated wildcard patterns identifying namespaces/types to exclude, e.g. `Antlr4.*;MyNamespace.Generated.*` |
+| `ApiMarkReferencePaths` | Auto-populated from `@(ReferencePath)` | Semicolon-separated paths to referenced assembly DLLs, used to resolve cross-assembly `<inheritdoc/>`. Auto-populated from the project's resolved `@(ReferencePath)` items when not explicitly set; set explicitly to override |
 | `ApiMarkEnforceDocs` | (unset) | Enforcement visibility tier for documentation-coverage checking: `Public`, `PublicAndProtected`, `All`; omitted disables enforcement |
 | `ApiMarkEnforceDocsSeverity` | `Warning` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build); only takes effect when `ApiMarkEnforceDocs` is also set |
 

@@ -119,6 +119,21 @@ public class ApiMarkTask : Task
     public string? ApiMarkExclude { get; set; }
 
     /// <summary>
+    ///     Gets or sets the semicolon-separated list of referenced assembly DLL paths used to
+    ///     resolve cross-assembly <c>&lt;inheritdoc /&gt;</c> targets.
+    /// </summary>
+    /// <remarks>
+    ///     Used for the <c>dotnet</c> language only. Maps to <c>$(ApiMarkReferencePaths)</c>.
+    ///     Each semicolon-delimited entry is forwarded as an individual <c>--reference-paths</c>
+    ///     flag; used to resolve cross-assembly <c>&lt;inheritdoc /&gt;</c> against referenced
+    ///     (including NuGet) assemblies. Optional — when empty, external
+    ///     <c>&lt;inheritdoc /&gt;</c> targets are not resolved (unchanged prior behavior). The
+    ///     <c>.targets</c> file auto-populates this from <c>@(ReferencePath)</c> when not
+    ///     explicitly set.
+    /// </remarks>
+    public string? ApiMarkReferencePaths { get; set; }
+
+    /// <summary>
     ///     Gets or sets the visibility tier at which XML doc <c>&lt;summary&gt;</c> coverage is
     ///     enforced.
     /// </summary>
@@ -304,8 +319,8 @@ public class ApiMarkTask : Task
 
     /// <summary>
     ///     Appends the .NET-specific CLI arguments to <paramref name="args"/>, including the
-    ///     language subcommand (<c>dotnet</c>), <c>--assembly</c>, <c>--xml-doc</c>, and any
-    ///     configured <c>--exclude</c> patterns.
+    ///     language subcommand (<c>dotnet</c>), <c>--assembly</c>, <c>--xml-doc</c>, any
+    ///     configured <c>--exclude</c> patterns, and any configured <c>--reference-paths</c> entries.
     /// </summary>
     /// <param name="args">The argument list being built by <see cref="BuildArguments"/>.</param>
     private void AppendDotNetArguments(List<string> args)
@@ -320,6 +335,11 @@ public class ApiMarkTask : Task
         // Emit one --exclude flag per pattern entry — each semicolon-delimited entry becomes
         // a separate repeatable --exclude argument
         AppendDelimitedRepeatableArgs(args, "--exclude", ApiMarkExclude);
+
+        // Emit one --reference-paths flag per entry — each semicolon-delimited entry becomes
+        // a separate repeatable --reference-paths argument used to resolve cross-assembly
+        // <inheritdoc/> targets
+        AppendDelimitedRepeatableArgs(args, "--reference-paths", ApiMarkReferencePaths);
 
         // Forward documentation-coverage enforcement options — shared with cpp (see
         // AppendCppArguments); mirrors how ApiMarkExclude is dotnet-only

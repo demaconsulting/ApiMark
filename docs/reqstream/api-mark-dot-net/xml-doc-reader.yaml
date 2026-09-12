@@ -59,7 +59,10 @@ sections:
             justification: >
               C# XML documentation supports `<inheritdoc />` to inherit documentation
               from base class members or interface members. ApiMark must resolve these
-              references to provide complete documentation for derived types.
+              references to provide complete documentation for derived types, including
+              when the base class or interface member is defined in an externally
+              referenced assembly (e.g. a NuGet package), via an optional external
+              member lookup fallback.
             tests:
               - XmlDocReader_GetSummary_InheritDocWithCref_ReturnsSummaryFromTarget
               - XmlDocReader_GetRemarks_InheritDocWithCref_ReturnsRemarksFromTarget
@@ -79,3 +82,9 @@ sections:
               - XmlDocReader_GetExample_InheritDocWithCref_ReturnsExampleFromTarget
               - XmlDocReader_GetExampleParts_InheritDocWithCref_ReturnsExamplePartsFromTarget
               - XmlDocReader_GetSummary_InheritDocBare_MultipleChainCandidates_SecondCandidateNotBlockedByFirstsVisited
+              - XmlDocReader_GetSummary_InheritDocBare_ChainCandidateExternal_ResolvesFromExternalResolver
+              - XmlDocReader_GetSummary_InheritDocWithCref_ExternalTarget_ResolvesFromExternalResolver
+              - XmlDocReader_GetSummary_InheritDocWithCrefAndPath_ExternalTarget_AppliesPathFilter
+              - XmlDocReader_GetSummary_InheritDocBare_ExternalCandidateAlsoMissing_ReturnsNull
+              - XmlDocReader_GetSummary_InheritDocChain_CrossesLocalAndExternalBoundary_CycleDetected
+              - XmlDocReader_GetSummary_NoExternalResolverConfigured_LocalMiss_ReturnsNullUnchanged

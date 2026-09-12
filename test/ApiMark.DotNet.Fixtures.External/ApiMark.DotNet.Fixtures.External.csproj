@@ -6,17 +6,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <AssemblyName>ApiMark.DotNet.Fixtures</AssemblyName>
-    <RootNamespace>ApiMark.DotNet.Fixtures</RootNamespace>
+    <AssemblyName>ApiMark.DotNet.Fixtures.External</AssemblyName>
+    <RootNamespace>ApiMark.DotNet.Fixtures.External</RootNamespace>
     <IsPackable>false</IsPackable>
-    <Description>Test fixture assemblies for ApiMark.DotNet integration tests.</Description>
+    <Description>External "base library" test fixture assembly simulating a referenced (e.g. NuGet) assembly, used to test cross-assembly &lt;inheritdoc/&gt; resolution in ApiMark.DotNet integration tests.</Description>
     <Authors>DEMA Consulting</Authors>
     <Company>DEMA Consulting</Company>
   </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\ApiMark.DotNet.Fixtures.External\ApiMark.DotNet.Fixtures.External.csproj" />
-  </ItemGroup>
 </Project>

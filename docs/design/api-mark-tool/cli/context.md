@@ -42,6 +42,7 @@ argument array.
 | `ClangPath` | `string?` | `null` | Explicit clang executable path from `--clang-path`; optional, auto-discovered when null |
 | `Format` | `OutputFormat` | `GradualDisclosure` | Output format from `--format` (`gradual` → `GradualDisclosure`, `single-file` → `SingleFile`) |
 | `Excludes` | `string[]` | `[]` | Wildcard patterns accumulated from repeated `--exclude` invocations |
+| `ReferencePaths` | `string[]` | `[]` | Referenced assembly DLL paths accumulated from repeated `--reference-paths` invocations, used to resolve cross-assembly `<inheritdoc/>` |
 | `EnforceDocs` | `string?` | `null` | Enforcement visibility tier from `--enforce-docs` (`Public`, `PublicAndProtected`, or `All`); absent disables enforcement |
 | `EnforceDocsSeverity` | `string` | `"Warning"` | Enforcement severity from `--enforce-docs-severity` (`Warning` or `Error`) |
 
@@ -72,7 +73,8 @@ construction path.
   appends a single glob pattern string (which may start with `!`) to the
   `Sources` list, preserving order for gitignore-style evaluation; each
   `--exclude` flag appends a single wildcard pattern string to the `Excludes`
-  list. `--enforce-docs` and `--enforce-docs-severity` each take a single
+  list; each `--reference-paths` flag appends a single referenced assembly DLL
+  path to the `ReferencePaths` list. `--enforce-docs` and `--enforce-docs-severity` each take a single
   string value with no accumulation semantics — later flags overwrite
   earlier ones, matching `--visibility` and `--output`.
 - *Preconditions*: `args` must be non-null.

@@ -6,9 +6,15 @@
 each test's arrange step. Each test writes a minimal XML doc file containing only
 the member element required for the assertion, calls the relevant getter, and then
 deletes the file in a `finally` block. No mocking is required; the class has no
-injectable dependencies. Tests exercise each getter independently, plus the
+injectable dependencies other than the optional external member lookup delegate,
+which is exercised with hand-built `XElement` instances and simple lambda
+delegates (no `ExternalXmlDocResolver` instance or file I/O is required for these
+tests — the delegate is the seam under test, not its typical
+`ExternalXmlDocResolver`-backed implementation, which is covered separately in
+`ExternalXmlDocResolverTests.cs`). Tests exercise each getter independently, plus the
 constructor's file-not-found guard, and all four `<inheritdoc />` resolution
-styles (bare, `cref`, `path`, and `cref + path`).
+styles (bare, `cref`, `path`, and `cref + path`), including their cross-assembly
+external-fallback variants.
 
 ### Test Environment
 
@@ -54,6 +60,12 @@ assembly is needed.
 - Bare `<inheritdoc />` with a chain entry pointing to an absent member returns `null`.
 - Multi-hop `cref` chains resolve transitively (A → B → C yields C's docs).
 - A failed first-candidate traversal does not poison the visited set for subsequent candidates in a bare `<inheritdoc />` chain.
+- A bare `<inheritdoc />` chain candidate absent locally resolves via an injected external member lookup delegate.
+- An explicit `cref` target absent locally resolves via an injected external member lookup delegate.
+- The `path` XPath filter applies identically to content resolved from the external member lookup delegate.
+- A bare `<inheritdoc />` chain candidate absent both locally and externally returns `null`.
+- Cycle detection catches a resolution chain that crosses the local/external boundary.
+- Constructing an `XmlDocReader` without an external member lookup (the 2-arg overload) preserves the prior local-miss behavior exactly.
 
 ### Test Scenarios
 
@@ -288,3 +300,40 @@ the branch-local fix, the shared ancestor would be marked as visited during the
 first candidate's traversal, causing the second candidate to be blocked by the cycle
 guard and returning `null` instead of the correct summary. This scenario is tested by
 `XmlDocReader_GetSummary_InheritDocBare_MultipleChainCandidates_SecondCandidateNotBlockedByFirstsVisited`.
+
+**GetSummary resolves a bare inheritdoc chain candidate via the external member
+lookup delegate**: Verifies that when a bare `<inheritdoc />` chain candidate is
+absent from the local index, the injected `externalMemberLookup` delegate is
+consulted and its result used, proving the fallback path added for cross-assembly
+resolution. This scenario is tested by
+`XmlDocReader_GetSummary_InheritDocBare_ChainCandidateExternal_ResolvesFromExternalResolver`.
+
+**GetSummary resolves an explicit cref target via the external member lookup
+delegate**: Verifies that an explicit `<inheritdoc cref="..." />` target absent
+locally resolves via the external member lookup delegate. This scenario is
+tested by `XmlDocReader_GetSummary_InheritDocWithCref_ExternalTarget_ResolvesFromExternalResolver`.
+
+**GetSummary applies the path filter to externally-resolved content**: Verifies
+that `cref` + `path` selects only the filtered section from a target resolved
+via the external member lookup delegate, exactly as it does for locally-resolved
+content. This scenario is tested by
+`XmlDocReader_GetSummary_InheritDocWithCrefAndPath_ExternalTarget_AppliesPathFilter`.
+
+**GetSummary returns null when both local and external candidates are absent**:
+Verifies that a bare `<inheritdoc />` chain candidate missing from both the local
+index and the external member lookup delegate degrades gracefully to `null`
+without throwing. This scenario is tested by
+`XmlDocReader_GetSummary_InheritDocBare_ExternalCandidateAlsoMissing_ReturnsNull`.
+
+**GetSummary detects a cycle that crosses the local/external boundary**: Verifies
+that a local member's bare `<inheritdoc />` resolved externally to a member whose
+own `cref` points back to the original local member is caught by the shared
+`visited` set and returns `null` rather than looping indefinitely. This scenario
+is tested by `XmlDocReader_GetSummary_InheritDocChain_CrossesLocalAndExternalBoundary_CycleDetected`.
+
+**GetSummary preserves prior behavior when no external resolver is configured**:
+Regression test confirming that the 2-arg constructor overload (no
+`externalMemberLookup`) behaves identically to before this feature was added —
+a local miss still returns `null` with no external fallback attempted. This
+scenario is tested by
+`XmlDocReader_GetSummary_NoExternalResolverConfigured_LocalMiss_ReturnsNullUnchanged`.

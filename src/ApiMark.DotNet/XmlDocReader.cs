@@ -6,8 +6,16 @@ namespace ApiMark.DotNet;
 
 /// <summary>Reads and indexes a .NET XML documentation file for fast member-level lookups.</summary>
 /// <remarks>
-///     Safe for concurrent reads after construction; all fields are set once during the constructor
-///     and are never subsequently mutated.
+///     Safe for concurrent reads after construction when no external member lookup is
+///     configured; all of this class's own fields are set once during the constructor and
+///     are never subsequently mutated. When <c>externalMemberLookup</c> is supplied (typically
+///     backed by <see cref="ExternalXmlDocResolver.TryGetMember"/>), concurrent calls into this
+///     reader are only as safe as the supplied delegate: <see cref="ExternalXmlDocResolver"/>
+///     itself is documented as not safe for concurrent use because its internal caches are
+///     plain, non-thread-safe dictionaries. ApiMark's current generation pipeline only ever
+///     accesses a single <see cref="XmlDocReader"/> instance from a single thread (each MSBuild
+///     task invocation spawns an isolated <c>ApiMark.Tool</c> child process), so this is not a
+///     practical limitation today.
 /// </remarks>
 public sealed class XmlDocReader
 {
@@ -22,6 +30,15 @@ public sealed class XmlDocReader
     /// </summary>
     private readonly IReadOnlyDictionary<string, IReadOnlyList<string>>? _inheritanceChain;
 
+    /// <summary>
+    ///     Optional fallback delegate used to resolve a member ID against externally referenced
+    ///     assemblies' XML documentation (e.g. NuGet package dependencies) when the member ID is
+    ///     not present in this reader's own index. Typically backed by
+    ///     <see cref="ExternalXmlDocResolver.TryGetMember"/>. When <c>null</c>, unresolved member
+    ///     IDs simply produce <c>null</c>, matching prior behavior exactly.
+    /// </summary>
+    private readonly Func<string, XElement?>? _externalMemberLookup;
+
     /// <summary>Initializes a new instance of <see cref="XmlDocReader"/> from the given path.</summary>
     /// <remarks>
     ///     When duplicate member names appear in the XML doc file, the first occurrence is used
@@ -35,8 +52,18 @@ public sealed class XmlDocReader
     ///     bare <c>&lt;inheritdoc /&gt;</c> elements that carry no <c>cref</c> attribute.
     ///     When <c>null</c>, bare inheritdoc resolution returns <c>null</c> or empty.
     /// </param>
+    /// <param name="externalMemberLookup">
+    ///     Optional fallback delegate consulted when a member ID (either the top-level lookup or an
+    ///     <c>&lt;inheritdoc /&gt;</c> resolution target) is not present in this reader's own index.
+    ///     Used to resolve <c>&lt;inheritdoc /&gt;</c> references that target base types or members
+    ///     defined in externally referenced assemblies. When <c>null</c> (the default), no external
+    ///     fallback is attempted and behavior is identical to prior releases.
+    /// </param>
     /// <exception cref="FileNotFoundException">Thrown when <paramref name="xmlDocPath"/> does not exist.</exception>
-    public XmlDocReader(string xmlDocPath, IReadOnlyDictionary<string, IReadOnlyList<string>>? inheritanceChain = null)
+    public XmlDocReader(
+        string xmlDocPath,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? inheritanceChain = null,
+        Func<string, XElement?>? externalMemberLookup = null)
     {
         // Verify the file exists before attempting to parse — a missing doc file
         // is a configuration error that callers should handle explicitly
@@ -55,6 +82,7 @@ public sealed class XmlDocReader
             .GroupBy(m => m.Attribute("name")!.Value)
             .ToDictionary(g => g.Key, g => g.First());
         _inheritanceChain = inheritanceChain;
+        _externalMemberLookup = externalMemberLookup;
     }
 
     /// <summary>Returns the trimmed summary text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
@@ -334,7 +362,9 @@ public sealed class XmlDocReader
     ///     <list type="number">
     ///         <item>If <paramref name="memberId"/> is already in <paramref name="visited"/>, return
     ///               <c>null</c> to break cycles.</item>
-    ///         <item>If the member is absent from the index, return <c>null</c>.</item>
+    ///         <item>If the member is absent from the local index, fall back to the injected
+    ///               external member lookup delegate (if any); if that also misses, return
+    ///               <c>null</c>.</item>
     ///         <item>If the member has no <c>&lt;inheritdoc /&gt;</c> child, return the member element directly.</item>
     ///         <item>If a <c>cref</c> attribute is present, resolve the cref target recursively.</item>
     ///         <item>Otherwise, try each candidate in the injected inheritance chain in priority order.</item>
@@ -358,7 +388,15 @@ public sealed class XmlDocReader
 
         if (!_members.TryGetValue(memberId, out var member))
         {
-            return null;
+            // Not found locally — fall back to the external resolver (e.g. a referenced
+            // NuGet assembly's own XML doc file) when one has been configured. This is
+            // purely additive: when no external lookup is configured, behavior is
+            // identical to before (returns null).
+            member = _externalMemberLookup?.Invoke(memberId);
+            if (member == null)
+            {
+                return null;
+            }
         }
 
         var inheritdoc = member.Element("inheritdoc");

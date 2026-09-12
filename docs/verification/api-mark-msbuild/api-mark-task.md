@@ -34,6 +34,12 @@ MSBuild and VC++ tools installed; those tests skip gracefully when the package i
 - `ApiMarkIncludeObsolete` is forwarded as `--include-obsolete` when true.
 - For the `dotnet` language, `ApiMarkExclude` is split on `;` and each non-empty
   trimmed entry is forwarded as a separate `--exclude` argument.
+- For the `dotnet` language, `ApiMarkReferencePaths` is split on `;` and each
+  non-empty entry is forwarded as a separate `--reference-paths` argument; the
+  flag is omitted entirely when the property is null or empty.
+- For .NET projects, when `ApiMarkReferencePaths` is not explicitly set, the `.targets` file
+  automatically populates it from the resolved `@(ReferencePath)` items; an explicitly set
+  value is never overridden.
 - For the `dotnet` language, `ApiMarkEnforceDocs` is forwarded as `--enforce-docs` and
   `ApiMarkEnforceDocsSeverity` is forwarded as `--enforce-docs-severity`, each omitted
   independently when its corresponding property is not set.
@@ -140,6 +146,32 @@ behavior. This scenario is tested by `ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExe
 is not set for a .NET project, the task returns true immediately without spawning any process,
 providing graceful skip behavior for projects that do not generate XML documentation. This
 scenario is tested by `ApiMarkTask_DotNet_EmptyXmlDocPath_SkipsExecution`.
+
+**ReferencePaths are forwarded as individual --reference-paths flags**: Verifies that
+each semicolon-delimited entry in `ApiMarkReferencePaths` is forwarded as its own
+`--reference-paths` flag to the spawned `dotnet` subcommand, enabling cross-assembly
+`<inheritdoc/>` resolution. This scenario is tested by
+`ApiMarkTask_DotNet_SpawnsToolWithCorrectReferencePathArguments`.
+
+**ReferencePaths flag omitted when not set**: Verifies that the `--reference-paths`
+flag is omitted entirely from the spawned command when `ApiMarkReferencePaths` is
+null or empty, preserving existing build behavior for projects that do not opt in
+to cross-assembly `<inheritdoc/>` resolution. This scenario is tested by
+`ApiMarkTask_DotNet_OmitsReferencePathsFlag_WhenNotSet`.
+
+**ReferencePaths auto-populated from resolved @(ReferencePath) items**: End-to-end package
+integration test that verifies `ApiMarkReferencePaths` is correctly defaulted from the
+resolved `@(ReferencePath)` items (populated by `ResolveAssemblyReferences`/
+`ResolveProjectReferences` for a project with a real `PackageReference`) when not
+explicitly set, mirroring how `ApiMarkIncludePaths` is auto-populated from `ClCompile`
+`AdditionalIncludeDirectories` for C++ builds. This scenario is tested by
+`ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoPopulatesReferencePathsFromResolvedReferences`.
+
+**Explicitly set ReferencePaths suppresses auto-harvest**: End-to-end package integration
+test that verifies an explicitly set `ApiMarkReferencePaths` value (including an explicit
+empty value) is honored and not silently replaced by the `.targets` file's auto-harvested
+`@(ReferencePath)` list. This scenario is tested by
+`ApiMarkMsbuild_NuGetPackage_DotNetProject_ExplicitReferencePaths_SuppressesAutoHarvest`.
 
 **IncludeObsolete flag is forwarded**: Verifies that when `ApiMarkIncludeObsolete` is set to
 `true`, the `--include-obsolete` flag is added to the spawned tool command. This scenario is

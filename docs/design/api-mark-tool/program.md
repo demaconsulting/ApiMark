@@ -126,6 +126,11 @@ a build failure via `context.WriteError` when the configured severity is
   `ClangPath`). The `LibraryName` is resolved from `context.LibraryName` when
   set; otherwise it falls back to the last segment of `context.Output`, or
   `"Library"` if the output path is also absent.
+- For the `dotnet` language, `DotNetGeneratorOptions.ReferencePaths` is
+  populated from `context.ReferencePaths` — the accumulated `--reference-paths`
+  values — so `DotNetGenerator` can resolve cross-assembly `<inheritdoc/>`
+  targets against the referenced assemblies alongside the primary assembly and
+  exclude patterns.
 - For the `vhdl` language, `VhdlGeneratorOptions` is populated with `Sources`
   (from `context.Sources`), `LibraryName` (from `context.LibraryName`, same
   fallback as C++), and `Description` (from `context.LibraryDescription`).

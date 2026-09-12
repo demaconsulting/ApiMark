@@ -43,7 +43,9 @@ users or CI pipelines.
   Supported subcommands: `dotnet`, `cpp`, `vhdl`.
   Options for `dotnet`: `--assembly <path>`, `--xml-doc <path>`, `--output <dir>`,
   `--visibility <value>`, `--include-obsolete`, `--exclude <pattern>` (repeatable;
-  wildcard namespace/type exclusion patterns), `--enforce-docs <value>` (accepted for
+  wildcard namespace/type exclusion patterns), `--reference-paths <path>` (repeatable;
+  referenced assembly DLL paths used to resolve cross-assembly `<inheritdoc/>`),
+  `--enforce-docs <value>` (accepted for
   all three languages, though VHDL enforcement covers only the public interface —
   entities, ports, generics, packages, and exports;
   values: `Public`, `PublicAndProtected`, `All`; enables documentation-coverage

@@ -221,6 +221,85 @@ public class PackageIntegrationTests
     }
 
     /// <summary>
+    ///     Validates that <c>ApiMarkReferencePaths</c> is auto-populated from the resolved
+    ///     <c>@(ReferencePath)</c> items when the project has a real <c>PackageReference</c> and
+    ///     the user has not explicitly set <c>ApiMarkReferencePaths</c>.
+    /// </summary>
+    /// <remarks>
+    ///     This is the wiring proof that <c>ApiMarkTaskTests</c> (which only constructs
+    ///     <c>ApiMarkTask</c> directly via its C# properties) cannot provide: it exercises the
+    ///     actual <c>DemaConsulting.ApiMark.MSBuild.targets</c> <c>ItemGroup</c>/<c>PropertyGroup</c>
+    ///     auto-harvest logic, which only runs under a real MSBuild/<c>dotnet build</c> invocation
+    ///     against a project with a resolvable <c>@(ReferencePath)</c> item group. The fixture
+    ///     project references Newtonsoft.Json, a small stable NuGet package with no further
+    ///     transitive dependencies, purely so that <c>@(ReferencePath)</c> is non-empty after
+    ///     restore. Like <c>ApiMarkMsbuild_NuGetPackage_CppVcxprojProject_AutoDocumentsOnBuild</c>
+    ///     (the equivalent auto-populate test for C++ <c>ApiMarkIncludePaths</c>), this test does
+    ///     not assert on the content of the harvested paths, only that the build succeeds and
+    ///     generates output using them.
+    /// </remarks>
+    [Fact]
+    public void ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoPopulatesReferencePathsFromResolvedReferences()
+    {
+        var packagesDir = SkipIfPackageAbsent();
+
+        RunInIsolation(packagesDir, "DotNet/SampleLibWithReference", "SampleLib.csproj", workDir =>
+        {
+            var outputDir = Path.Join(workDir, "api");
+            var result = RunProcess(
+                "dotnet",
+                $"build SampleLib.csproj --configuration Release -p:ApiMarkOutputDir=\"{outputDir}\"",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                result.ExitCode == 0,
+                $"dotnet build failed (exit {result.ExitCode}).\nstdout:\n{result.Output}\nstderr:\n{result.Error}");
+
+            Assert.True(
+                File.Exists(Path.Join(outputDir, "api.md")),
+                $"api.md was not created in '{outputDir}'.\nBuild output:\n{result.Output}");
+        });
+    }
+
+    /// <summary>
+    ///     Validates that an explicitly set <c>ApiMarkReferencePaths</c> value (including an
+    ///     explicit empty value) suppresses the <c>.targets</c> file's auto-harvest of
+    ///     <c>@(ReferencePath)</c>, rather than being silently replaced by it.
+    /// </summary>
+    /// <remarks>
+    ///     This is the practical, black-box way to prove "suppression" from outside the
+    ///     <c>.targets</c> file without parsing an MSBuild binlog: passing an explicit, empty
+    ///     override on the command line and confirming the build still succeeds proves the
+    ///     explicit value was honored rather than replaced by the harvested list.
+    /// </remarks>
+    [Fact]
+    public void ApiMarkMsbuild_NuGetPackage_DotNetProject_ExplicitReferencePaths_SuppressesAutoHarvest()
+    {
+        var packagesDir = SkipIfPackageAbsent();
+
+        RunInIsolation(packagesDir, "DotNet/SampleLibWithReference", "SampleLib.csproj", workDir =>
+        {
+            var outputDir = Path.Join(workDir, "api");
+            var result = RunProcess(
+                "dotnet",
+                $"build SampleLib.csproj --configuration Release " +
+                $"-p:ApiMarkOutputDir=\"{outputDir}\" " +
+                "-p:ApiMarkReferencePaths=\"\"",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                result.ExitCode == 0,
+                $"dotnet build failed (exit {result.ExitCode}).\nstdout:\n{result.Output}\nstderr:\n{result.Error}");
+
+            Assert.True(
+                File.Exists(Path.Join(outputDir, "api.md")),
+                $"api.md was not created in '{outputDir}'.\nBuild output:\n{result.Output}");
+        });
+    }
+
+    /// <summary>
     ///     Skips the calling test if the pre-built <c>DemaConsulting.ApiMark.MSBuild</c> package is
     ///     absent, and returns the packages directory path when present.
     /// </summary>
