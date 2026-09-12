@@ -362,6 +362,48 @@ public sealed class ContextTests
     }
 
     /// <summary>
+    ///     Validates that a whitespace-only <c>--reference-paths</c> value is silently skipped
+    ///     rather than added to <see cref="Context.ReferencePaths"/>, since MSBuild's
+    ///     semicolon-splitting of <c>ApiMarkReferencePaths</c> can realistically produce an empty
+    ///     segment (e.g. a leading/trailing/double semicolon).
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithWhitespaceOnlyReferencePathsValue_DoesNotAddToReferencePaths()
+    {
+        // Arrange: a whitespace-only value alongside two real paths
+        var args = new[]
+        {
+            "--reference-paths", "/refs/One.dll",
+            "--reference-paths", "   ",
+            "--reference-paths", "/refs/Two.dll",
+        };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: only the two real paths appear; the whitespace-only value is skipped
+        string[] expectedReferencePaths = ["/refs/One.dll", "/refs/Two.dll"];
+        Assert.Equal(expectedReferencePaths, context.ReferencePaths);
+    }
+
+    /// <summary>
+    ///     Validates that an empty-string <c>--reference-paths</c> value is silently skipped
+    ///     rather than added to <see cref="Context.ReferencePaths"/>.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithEmptyStringReferencePathsValue_DoesNotAddToReferencePaths()
+    {
+        // Arrange: an empty-string value as the only --reference-paths invocation
+        var args = new[] { "--reference-paths", "" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: no path is added
+        Assert.Empty(context.ReferencePaths);
+    }
+
+    /// <summary>
     ///     Validates that an empty argument array produces a Context with all default values.
     /// </summary>
     [Fact]

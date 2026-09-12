@@ -598,9 +598,19 @@ internal sealed class Context : IContext, IDisposable
                 case "--reference-paths":
                     {
                         // Append each --reference-paths invocation as one referenced assembly
-                        // DLL path — repeated --reference-paths flags accumulate the full list
+                        // DLL path — repeated --reference-paths flags accumulate the full list.
+                        // A blank value is silently skipped rather than added: MSBuild's
+                        // semicolon-splitting of the ApiMarkReferencePaths property can realistically
+                        // produce an empty segment (e.g. a leading/trailing/double semicolon), and an
+                        // empty path would otherwise make ExternalXmlDocResolver probe paths relative
+                        // to the current working directory, potentially picking up an unrelated .xml
+                        // file as if it were external documentation.
                         var path = GetRequiredStringArgument(arg, args, index, "a reference assembly path argument");
-                        ReferencePaths.Add(path);
+                        if (!string.IsNullOrWhiteSpace(path))
+                        {
+                            ReferencePaths.Add(path);
+                        }
+
                         return index + 1;
                     }
 

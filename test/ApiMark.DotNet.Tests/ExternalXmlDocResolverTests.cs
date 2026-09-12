@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Runtime.InteropServices;
 using ApiMark.DotNet;
 using Xunit;
 
@@ -302,6 +304,120 @@ public class ExternalXmlDocResolverTests
         }
         finally
         {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that the <c>ref/</c>&#8596;<c>lib/</c> folder-segment swap uses the
+    ///     platform-aware <see cref="FileSystemPathComparer"/> rather than always matching
+    ///     case-insensitively: a segment spelled with different casing than exactly <c>ref</c>
+    ///     (e.g. <c>REF</c>) must only be treated as the ref/lib segment when the current
+    ///     platform's file system is case-insensitive.
+    /// </summary>
+    [Fact]
+    public void ExternalXmlDocResolver_TryGetMember_RefLibFolderSwap_DifferentCaseSegment_FollowsPlatformComparer()
+    {
+        // Arrange: the ref-side directory segment is spelled "REF" (different case than the
+        // exactly-lowercase "lib" segment created alongside it).
+        var dir = CreateTempDirectory();
+        try
+        {
+            var refDir = Path.Combine(dir, "REF", "net8.0");
+            var libDir = Path.Combine(dir, "lib", "net8.0");
+            Directory.CreateDirectory(refDir);
+            Directory.CreateDirectory(libDir);
+
+            var refDllPath = Path.Combine(refDir, "Foo.dll");
+            File.WriteAllBytes(refDllPath, []);
+            WriteXmlDoc(Path.Combine(libDir, "Foo.xml"), """
+                <member name="T:Foo.Bar">
+                    <summary>Lib summary text.</summary>
+                </member>
+                """);
+            var sut = new ExternalXmlDocResolver([refDllPath]);
+
+            // Act
+            var member = sut.TryGetMember("T:Foo.Bar");
+
+            // Assert: on a case-sensitive file system (Linux), "REF" is not recognized as the
+            // "ref" segment, so the swap must not occur and the member must remain unresolved. On
+            // case-insensitive platforms (Windows/macOS), the swap occurs and the member resolves.
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                Assert.Null(member);
+            }
+            else
+            {
+                Assert.NotNull(member);
+                Assert.Equal("Lib summary text.", member.Element("summary")?.Value.Trim());
+            }
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ExternalXmlDocResolver"/> normalizes reference assembly paths
+    ///     at construction time so that two different string forms of the SAME underlying file —
+    ///     here, a relative path and its <see cref="Path.GetFullPath(string)"/>-equivalent absolute
+    ///     form — collapse to a single <c>_docsByReferencePath</c> cache key, preserving the
+    ///     documented "parsed at most once" guarantee.
+    /// </summary>
+    /// <remarks>
+    ///     A functional (input/output only) test cannot distinguish this from the pre-fix
+    ///     behavior: once either string form is parsed, its resulting member dictionary already
+    ///     contains every member declared in the file, so any subsequent lookup succeeds via the
+    ///     first cached entry regardless of whether the second, differently-spelled path was
+    ///     ever independently cached. The only reliable way to prove the cache key collapsed to
+    ///     one entry (rather than two) is to inspect the private cache dictionary directly via
+    ///     reflection, which this test does using a query that misses (so the resolver must
+    ///     attempt every configured path before giving up, touching both string forms).
+    /// </remarks>
+    [Fact]
+    public void ExternalXmlDocResolver_Constructor_RelativeAndAbsoluteFormsOfSamePath_ShareSingleCacheKey()
+    {
+        // Arrange
+        var dir = CreateTempDirectory();
+        var originalCwd = Directory.GetCurrentDirectory();
+        try
+        {
+            var dllPath = Path.Combine(dir, "Foo.dll");
+            File.WriteAllBytes(dllPath, []);
+            WriteXmlDoc(Path.ChangeExtension(dllPath, ".xml"), """
+                <member name="T:Foo.Bar">
+                    <summary>Summary text.</summary>
+                </member>
+                """);
+
+            // Configure the SAME underlying file twice: once via a relative path (resolved
+            // against the current working directory, switched to `dir` below) and once via its
+            // absolute form.
+            Directory.SetCurrentDirectory(dir);
+            var relativeDllPath = "Foo.dll";
+            var sut = new ExternalXmlDocResolver([relativeDllPath, dllPath]);
+
+            // Act: query a member ID that exists in neither file so the resolver must walk every
+            // configured reference path (rather than short-circuiting on the first match),
+            // populating _docsByReferencePath for both configured entries.
+            var miss = sut.TryGetMember("T:Foo.DoesNotExist");
+
+            // Assert: the miss lookup behaves as documented, and — the actual point of this test —
+            // the private per-path cache dictionary has exactly ONE entry, proving the relative and
+            // absolute forms of the same path collapsed to a single normalized cache key rather
+            // than being independently cached (and, by extension, independently parsed) as two
+            // distinct reference paths.
+            Assert.Null(miss);
+            var cacheField = typeof(ExternalXmlDocResolver).GetField("_docsByReferencePath", BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.NotNull(cacheField);
+            var cache = Assert.IsAssignableFrom<System.Collections.IDictionary>(cacheField!.GetValue(sut));
+            _ = Assert.Single(cache.Keys.Cast<object>());
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(originalCwd);
             Directory.Delete(dir, recursive: true);
         }
     }

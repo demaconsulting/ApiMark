@@ -74,7 +74,15 @@ public sealed class ExternalXmlDocResolver
         // silently observe the change, because doing so would leave already-cached "not found"
         // member lookups (see _memberCache) stale — they would never be re-searched against the
         // newly added path.
-        _referenceAssemblyPaths = referenceAssemblyPaths.ToArray();
+        //
+        // Each path is also normalized with Path.GetFullPath (matching the convention used by
+        // DotNetGenerator.ResolveReferenceSearchDirectory) so that two different string forms of
+        // the same underlying file — e.g. a relative path vs. its absolute form, or paths that
+        // differ only in directory-separator style — collapse to the same _docsByReferencePath
+        // cache key, preserving the "parsed at most once" guarantee documented on this class. A
+        // genuinely malformed path is allowed to throw here, same as DotNetGenerator's equivalent
+        // normalization.
+        _referenceAssemblyPaths = referenceAssemblyPaths.Select(Path.GetFullPath).ToArray();
     }
 
     /// <summary>
@@ -217,13 +225,13 @@ public sealed class ExternalXmlDocResolver
 
         for (var i = segments.Length - 1; i >= 0; i--)
         {
-            if (string.Equals(segments[i], "ref", StringComparison.OrdinalIgnoreCase))
+            if (FileSystemPathComparer.Comparer.Equals(segments[i], "ref"))
             {
                 segments[i] = "lib";
                 return string.Join(Path.DirectorySeparatorChar, segments);
             }
 
-            if (string.Equals(segments[i], "lib", StringComparison.OrdinalIgnoreCase))
+            if (FileSystemPathComparer.Comparer.Equals(segments[i], "lib"))
             {
                 segments[i] = "ref";
                 return string.Join(Path.DirectorySeparatorChar, segments);
