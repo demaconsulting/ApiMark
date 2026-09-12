@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Runtime.InteropServices;
 using ApiMark.DotNet;
 using Xunit;
 
@@ -309,14 +308,16 @@ public class ExternalXmlDocResolverTests
     }
 
     /// <summary>
-    ///     Validates that the <c>ref/</c>&#8596;<c>lib/</c> folder-segment swap uses the
-    ///     platform-aware <see cref="FileSystemPathComparer"/> rather than always matching
-    ///     case-insensitively: a segment spelled with different casing than exactly <c>ref</c>
-    ///     (e.g. <c>REF</c>) must only be treated as the ref/lib segment when the current
-    ///     platform's file system is case-insensitive.
+    ///     Validates that the <c>ref/</c>&#8596;<c>lib/</c> folder-segment swap always matches the
+    ///     <c>ref</c>/<c>lib</c> segment names case-insensitively, regardless of platform or file
+    ///     system: a segment spelled with different casing than exactly <c>ref</c> (e.g.
+    ///     <c>REF</c>) is still recognized, because this check recognizes a known NuGet layout
+    ///     convention token rather than deciding whether two independently supplied real paths
+    ///     name the same on-disk file (see the platform-independence remarks on
+    ///     <see cref="ExternalXmlDocResolver"/>'s private <c>SwapRefLibSegment</c> method).
     /// </summary>
     [Fact]
-    public void ExternalXmlDocResolver_TryGetMember_RefLibFolderSwap_DifferentCaseSegment_FollowsPlatformComparer()
+    public void ExternalXmlDocResolver_TryGetMember_RefLibFolderSwap_DifferentCaseSegment_AlwaysMatchesCaseInsensitively()
     {
         // Arrange: the ref-side directory segment is spelled "REF" (different case than the
         // exactly-lowercase "lib" segment created alongside it).
@@ -340,18 +341,10 @@ public class ExternalXmlDocResolverTests
             // Act
             var member = sut.TryGetMember("T:Foo.Bar");
 
-            // Assert: on a case-sensitive file system (Linux), "REF" is not recognized as the
-            // "ref" segment, so the swap must not occur and the member must remain unresolved. On
-            // case-insensitive platforms (Windows/macOS), the swap occurs and the member resolves.
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                Assert.Null(member);
-            }
-            else
-            {
-                Assert.NotNull(member);
-                Assert.Equal("Lib summary text.", member.Element("summary")?.Value.Trim());
-            }
+            // Assert: "REF" is recognized as the "ref" segment on every platform, so the swap
+            // occurs and the member resolves regardless of the current platform or file system.
+            Assert.NotNull(member);
+            Assert.Equal("Lib summary text.", member.Element("summary")?.Value.Trim());
         }
         finally
         {

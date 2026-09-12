@@ -76,13 +76,20 @@ public sealed class ExternalXmlDocResolver
         // newly added path.
         //
         // Each path is also normalized with Path.GetFullPath (matching the convention used by
-        // DotNetGenerator.ResolveReferenceSearchDirectory) so that two different string forms of
-        // the same underlying file — e.g. a relative path vs. its absolute form, or paths that
-        // differ only in directory-separator style — collapse to the same _docsByReferencePath
-        // cache key, preserving the "parsed at most once" guarantee documented on this class. A
-        // genuinely malformed path is allowed to throw here, same as DotNetGenerator's equivalent
+        // DotNetGenerator.ResolveReferenceSearchDirectory) and then with
+        // FileSystemPathComparer.NormalizeCase, so that two different string forms of the same
+        // underlying file — e.g. a relative path vs. its absolute form, paths that differ only in
+        // directory-separator style, or paths that differ only in case on a case-insensitive file
+        // system — all collapse to the same _docsByReferencePath cache key, preserving the "parsed
+        // at most once" guarantee documented on this class. This is deliberately not an
+        // operating-system-based guess (see FileSystemPathComparer's remarks): resolving the
+        // actual on-disk casing and then comparing case-sensitively is correct regardless of
+        // whether the current platform or file system happens to be case-sensitive. A genuinely
+        // malformed path is allowed to throw here, same as DotNetGenerator's equivalent
         // normalization.
-        _referenceAssemblyPaths = referenceAssemblyPaths.Select(Path.GetFullPath).ToArray();
+        _referenceAssemblyPaths = referenceAssemblyPaths
+            .Select(path => FileSystemPathComparer.NormalizeCase(Path.GetFullPath(path)))
+            .ToArray();
     }
 
     /// <summary>
@@ -215,6 +222,16 @@ public sealed class ExternalXmlDocResolver
     ///     example a user or drive folder such as <c>/home/lib/.nuget/packages/Pkg/ref/net8.0</c>)
     ///     is never matched in preference to the actual NuGet package-layout segment, which is
     ///     always the one closest to the assembly file itself.
+    ///     <para>
+    ///     The segment comparison here is always case-insensitive, regardless of platform or file
+    ///     system, and deliberately does not use <see cref="FileSystemPathComparer"/>: this check
+    ///     recognizes a known NuGet layout convention token (packages always publish these folders
+    ///     as lowercase <c>ref</c>/<c>lib</c>) rather than deciding whether two real, independently
+    ///     supplied paths name the same on-disk file, so there is no ambiguity to resolve by
+    ///     consulting the file system — and the swapped path being constructed does not necessarily
+    ///     exist yet, so there is nothing for <see cref="FileSystemPathComparer.NormalizeCase"/> to
+    ///     resolve against even if it were used here.
+    ///     </para>
     /// </remarks>
     /// <param name="path">The original assembly path.</param>
     /// <returns>The path with the swapped segment, or <c>null</c> when no <c>ref</c>/<c>lib</c> segment is present.</returns>
@@ -225,13 +242,13 @@ public sealed class ExternalXmlDocResolver
 
         for (var i = segments.Length - 1; i >= 0; i--)
         {
-            if (FileSystemPathComparer.Comparer.Equals(segments[i], "ref"))
+            if (string.Equals(segments[i], "ref", StringComparison.OrdinalIgnoreCase))
             {
                 segments[i] = "lib";
                 return string.Join(Path.DirectorySeparatorChar, segments);
             }
 
-            if (FileSystemPathComparer.Comparer.Equals(segments[i], "lib"))
+            if (string.Equals(segments[i], "lib", StringComparison.OrdinalIgnoreCase))
             {
                 segments[i] = "ref";
                 return string.Join(Path.DirectorySeparatorChar, segments);

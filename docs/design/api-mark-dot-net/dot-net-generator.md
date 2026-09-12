@@ -116,9 +116,11 @@ memory and returns a `DotNetEmitter` ready to emit.
 - *Assembly resolver seeding*: Before reading the assembly, `Parse` constructs a
   Mono.Cecil `DefaultAssemblyResolver` and adds one search directory per distinct,
   existing directory among `ReferencePaths` entries (`Path.GetDirectoryName`,
-  filtered by `Directory.Exists`, deduplicated using the platform-aware
-  filesystem path comparer — case-insensitive on Windows/macOS, case-sensitive
-  on Linux — shared with `ExternalXmlDocResolver`). This resolver is passed via
+  filtered by `Directory.Exists`, normalized to its actual on-disk casing via
+  `FileSystemPathComparer.NormalizeCase`, then deduplicated with a case-sensitive
+  comparer — shared with `ExternalXmlDocResolver`; see that unit's design doc for
+  why normalizing real on-disk casing is used instead of an operating-system-based
+  case-sensitivity guess). This resolver is passed via
   `ReaderParameters` to `AssemblyDefinition.ReadAssembly`, and is what allows
   `BuildInheritanceChain`'s `TypeReference.Resolve()` calls to succeed against
   base types/interfaces defined in externally referenced assemblies (e.g. NuGet

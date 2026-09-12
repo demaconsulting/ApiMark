@@ -108,15 +108,22 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         // Each path is resolved via ResolveReferenceSearchDirectory so relative paths (including a
         // bare file name with no directory component at all, e.g. "External.dll"), "." / ".."
         // segments, and mixed directory separators resolve to the same directory consistently.
+        // Directories are also normalized to their actual on-disk casing via
+        // FileSystemPathComparer.NormalizeCase (each has already been confirmed to exist via the
+        // Directory.Exists check below, so normalization always has a real entry to resolve
+        // against) before deduplication, so two spellings of the same directory that differ only
+        // in case collapse to a single search directory regardless of whether the current platform
+        // or file system happens to be case-sensitive.
         var assemblyResolver = new DefaultAssemblyResolver();
         try
         {
             foreach (var directory in _options.ReferencePaths
                          .Select(ResolveReferenceSearchDirectory)
                          .Where(d => !string.IsNullOrEmpty(d) && Directory.Exists(d))
+                         .Select(d => FileSystemPathComparer.NormalizeCase(d!))
                          .Distinct(FileSystemPathComparer.Comparer))
             {
-                assemblyResolver.AddSearchDirectory(directory!);
+                assemblyResolver.AddSearchDirectory(directory);
             }
 
             var readerParameters = new ReaderParameters { AssemblyResolver = assemblyResolver };
