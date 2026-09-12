@@ -83,11 +83,16 @@ documentation file for a reference assembly DLL.
   and checks for a sibling `.xml` file at the swapped location.
 - Returns `null` if neither location yields an existing file.
 
-**SwapRefLibSegment** (private static): Swaps the first path segment named
+**SwapRefLibSegment** (private static): Swaps the last path segment named
 exactly `ref` or `lib` (case-insensitively) for the other, mimicking the
 folder layout convention used by many NuGet packages where compile-time
 reference assemblies live under `ref/` and runtime assemblies (often bundled
-with the actual XML documentation) live under `lib/`, or vice versa. Returns
+with the actual XML documentation) live under `lib/`, or vice versa. Scans
+from the end of the path (nearest the assembly file) backwards so that an
+unrelated, earlier path segment that happens to be named `ref` or `lib` (for
+example a user or drive folder such as `/home/lib/.nuget/packages/Pkg/ref/net8.0`)
+is never matched in preference to the actual NuGet package-layout segment,
+which is always the one closest to the assembly file itself. Returns
 `null` when no `ref`/`lib` segment is present.
 
 ### Error Handling

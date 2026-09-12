@@ -229,6 +229,13 @@ base-member-ID map from Mono.Cecil metadata for use during `<inheritdoc />` reso
   only as a defensive fallback for references that are genuinely unresolvable (e.g. an
   unrestored or missing dependency, or one whose directory was not supplied via
   `ReferencePaths`) — it is no longer the expected common case for external bases.
+- *Known limitation*: `BuildTypeInheritanceEntries` only calls
+  `CollectMethodInheritanceTargets`, `CollectPropertyInheritanceTargets`, and
+  `CollectEventInheritanceTargets` — it never adds a chain entry for the type
+  declaration itself. A bare `<inheritdoc/>` placed directly on a class, interface, or
+  struct is therefore never resolved, whether its base type lives in the same assembly
+  or an externally referenced one. This is a pre-existing limitation of the whole
+  inheritance-chain mechanism, predating and independent of cross-assembly resolution.
 
 ### Error Handling
 

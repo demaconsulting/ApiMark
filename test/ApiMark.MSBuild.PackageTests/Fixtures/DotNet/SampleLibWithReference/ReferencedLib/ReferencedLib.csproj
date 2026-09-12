@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+
+    <!--
+      This project is intentionally NOT part of ApiMark.slnx: it exists solely as a
+      project-reference target for the SampleLibWithReference fixture (copied and built
+      out-of-process by ApiMark.MSBuild.PackageTests), mirroring how the sibling SampleLib*
+      fixture projects are also excluded from the main solution.
+    -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+</Project>

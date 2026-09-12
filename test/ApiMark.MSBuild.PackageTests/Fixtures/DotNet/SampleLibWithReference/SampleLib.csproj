@@ -27,11 +27,23 @@
     <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.0.0" />
 
     <!--
-      A small, stable NuGet package with no further transitive dependencies, referenced solely
-      so that @(ReferencePath) is populated after restore/resolve — this fixture exists to
-      exercise the ApiMarkReferencePaths auto-harvest logic in the .targets file, which requires
-      a real external package reference to produce a non-empty @(ReferencePath) item group.
+      A minimal, dependency-free companion project referenced solely so that @(ReferencePath) is
+      populated after restore/resolve — this fixture exists to exercise the ApiMarkReferencePaths
+      auto-harvest logic in the .targets file, which requires a real resolved reference to produce
+      a non-empty @(ReferencePath) item group. A ProjectReference is used instead of a NuGet
+      PackageReference so this fixture never needs network access to nuget.org: MSBuild's
+      ResolveProjectReferences populates @(ReferencePath)/@(ReferencedPath) from a project
+      reference's output DLL the same way ResolveAssemblyReferences does for a package reference.
     -->
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <ProjectReference Include="ReferencedLib\ReferencedLib.csproj" />
+  </ItemGroup>
+
+  <!--
+    ReferencedLib is a nested companion project (see the ProjectReference above), and the SDK's
+    default Compile glob is recursive, so without this exclusion SampleLib would directly compile
+    ReferencedLib's source files as its own in addition to referencing its built assembly.
+  -->
+  <ItemGroup>
+    <Compile Remove="ReferencedLib\**\*.cs" />
   </ItemGroup>
 </Project>

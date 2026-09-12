@@ -117,7 +117,6 @@ words:
   - Xunit
   - yamlfix
   - binlog
-  - Newtonsoft
 ignorePaths:
   - '**/.git/**'
   - '**/node_modules/**'

@@ -232,14 +232,14 @@ public class PackageIntegrationTests
     ///     actual <c>DemaConsulting.ApiMark.MSBuild.targets</c> <c>ItemGroup</c>/<c>PropertyGroup</c>
     ///     auto-harvest logic, which only runs under a real MSBuild/<c>dotnet build</c> invocation
     ///     against a project with a resolvable <c>@(ReferencePath)</c> item group. The fixture
-    ///     project references Newtonsoft.Json, a small stable NuGet package with no further
-    ///     transitive dependencies, purely so that <c>@(ReferencePath)</c> is non-empty after
-    ///     restore. In addition to the build succeeding and generating output, this test queries
-    ///     the effective <c>ApiMarkReferencePaths</c> property value via
-    ///     <c>dotnet build -getProperty</c> after the build, and asserts it was actually populated
-    ///     with a path pointing at the referenced Newtonsoft.Json assembly — proving the
-    ///     auto-harvest logic ran and picked up the expected reference, not merely that the build
-    ///     did not crash.
+    ///     project references a companion <c>ReferencedLib</c> project (via <c>ProjectReference</c>,
+    ///     not a NuGet package) purely so that <c>@(ReferencePath)</c> is non-empty after restore
+    ///     without requiring any network access. In addition to the build succeeding and
+    ///     generating output, this test queries the effective <c>ApiMarkReferencePaths</c>
+    ///     property value via <c>dotnet build -getProperty</c> after the build, and asserts it was
+    ///     actually populated with a path pointing at the referenced <c>ReferencedLib</c> assembly
+    ///     — proving the auto-harvest logic ran and picked up the expected reference, not merely
+    ///     that the build did not crash.
     /// </remarks>
     [Fact]
     public void ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoPopulatesReferencePathsFromResolvedReferences()
@@ -284,7 +284,7 @@ public class PackageIntegrationTests
                 "ApiMarkReferencePaths was not auto-populated from @(ReferencePath); " +
                 $"expected a non-empty, semicolon-separated list of DLL paths.\n{propertyResult.Output}");
             Assert.Contains(
-                "Newtonsoft.Json",
+                "ReferencedLib",
                 harvestedPaths,
                 StringComparison.OrdinalIgnoreCase);
         });
@@ -363,8 +363,9 @@ public class PackageIntegrationTests
     ///     auto-harvest <c>ItemGroup</c>/<c>PropertyGroup</c> in the <c>.targets</c> file is
     ///     conditioned on <c>'$(ApiMarkReferencePaths)' == ''</c>, so a non-empty explicit value
     ///     must short-circuit that condition and reach <c>ApiMarkTask</c> unmodified. The fixture
-    ///     project references Newtonsoft.Json so that <c>@(ReferencePath)</c> is non-empty and
-    ///     harvesting would otherwise have something to (incorrectly) overwrite the value with.
+    ///     project references a companion <c>ReferencedLib</c> project so that
+    ///     <c>@(ReferencePath)</c> is non-empty and harvesting would otherwise have something to
+    ///     (incorrectly) overwrite the value with.
     ///     This test asserts the effective post-build <c>ApiMarkReferencePaths</c> property value
     ///     (queried via <c>dotnet build -getProperty</c>) equals exactly the explicit value
     ///     supplied on the command line.
