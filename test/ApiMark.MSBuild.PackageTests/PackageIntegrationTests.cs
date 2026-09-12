@@ -240,6 +240,16 @@ public class PackageIntegrationTests
     ///     actually populated with a path pointing at the referenced <c>ReferencedLib</c> assembly
     ///     — proving the auto-harvest logic ran and picked up the expected reference, not merely
     ///     that the build did not crash.
+    ///     <para>
+    ///     Beyond the mechanical harvest proof above, this test also asserts that the harvested
+    ///     path is actually *consumed*: the fixture's <c>SampleLib.Describable</c> type overrides
+    ///     <c>ReferencedLib.ReferencedClass.Describe</c> with a bare <c>&lt;inheritdoc/&gt;</c>, so
+    ///     the generated output can only contain <c>ReferencedClass.Describe</c>'s sentinel summary
+    ///     text if ApiMark's cross-assembly &lt;inheritdoc/&gt; resolution actually opened and
+    ///     parsed <c>ReferencedLib.xml</c> via the harvested reference path — a build that merely
+    ///     harvests the path without forwarding/using it (or a regression that silently drops
+    ///     external inheritdoc resolution) would produce output missing that sentinel text.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoPopulatesReferencePathsFromResolvedReferences()
@@ -287,6 +297,22 @@ public class PackageIntegrationTests
                 "ReferencedLib",
                 harvestedPaths,
                 StringComparison.OrdinalIgnoreCase);
+
+            // Beyond the mechanical harvest proof above, confirm the harvested reference path
+            // was actually consumed: SampleLib.Describable.Describe uses a bare <inheritdoc/>
+            // targeting ReferencedLib.ReferencedClass.Describe, so this sentinel text can only
+            // appear in the generated output if ApiMark's cross-assembly <inheritdoc/>
+            // resolution opened and parsed ReferencedLib.xml via the harvested path. Search all
+            // generated Markdown files (rather than a single known file) because the default
+            // "gradual" format spreads output across per-type/per-member files.
+            var generatedText = string.Join(
+                '\n',
+                Directory.EnumerateFiles(outputDir, "*.md", SearchOption.AllDirectories)
+                    .Select(File.ReadAllText));
+            Assert.Contains(
+                "sentinel description used solely to verify",
+                generatedText,
+                StringComparison.Ordinal);
         });
     }
 

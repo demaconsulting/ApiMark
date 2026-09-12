@@ -8,7 +8,15 @@
       project-reference target for the SampleLibWithReference fixture (copied and built
       out-of-process by ApiMark.MSBuild.PackageTests), mirroring how the sibling SampleLib*
       fixture projects are also excluded from the main solution.
+
+      GenerateDocumentationFile is true (unlike a bare "false" companion project) specifically
+      so that ReferencedLib.xml is emitted alongside ReferencedLib.dll: the auto-harvest test
+      (ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoPopulatesReferencePathsFromResolvedReferences)
+      needs a real external XML doc file to resolve SampleClass's cross-assembly
+      &lt;inheritdoc/&gt; member against, proving the harvested @(ReferencePath) entries are
+      actually consumed by ApiMark's cross-assembly inheritdoc resolution rather than merely
+      forwarded.
     -->
-    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 </Project>
