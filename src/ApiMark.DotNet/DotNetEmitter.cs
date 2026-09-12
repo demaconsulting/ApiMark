@@ -45,8 +45,11 @@ internal sealed class DotNetEmitter : IApiEmitter
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(context);
 
-        // Dispose the assembly after emit regardless of success or failure
+        // Dispose the assembly and its Mono.Cecil assembly resolver after emit regardless of
+        // success or failure — the resolver may still be consulted for lazy metadata resolution
+        // for as long as the assembly is alive, so both must share the same disposal scope.
         using (Model.Assembly)
+        using (Model.AssemblyResolver)
         {
             if (config.Format == OutputFormat.SingleFile)
             {

@@ -233,10 +233,12 @@ public class PackageIntegrationTests
     ///     against a project with a resolvable <c>@(ReferencePath)</c> item group. The fixture
     ///     project references Newtonsoft.Json, a small stable NuGet package with no further
     ///     transitive dependencies, purely so that <c>@(ReferencePath)</c> is non-empty after
-    ///     restore. Like <c>ApiMarkMsbuild_NuGetPackage_CppVcxprojProject_AutoDocumentsOnBuild</c>
-    ///     (the equivalent auto-populate test for C++ <c>ApiMarkIncludePaths</c>), this test does
-    ///     not assert on the content of the harvested paths, only that the build succeeds and
-    ///     generates output using them.
+    ///     restore. In addition to the build succeeding and generating output, this test queries
+    ///     the effective <c>ApiMarkReferencePaths</c> property value via
+    ///     <c>dotnet build -getProperty</c> after the build, and asserts it was actually populated
+    ///     with a path pointing at the referenced Newtonsoft.Json assembly — proving the
+    ///     auto-harvest logic ran and picked up the expected reference, not merely that the build
+    ///     did not crash.
     /// </remarks>
     [Fact]
     public void ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoPopulatesReferencePathsFromResolvedReferences()
@@ -259,22 +261,51 @@ public class PackageIntegrationTests
             Assert.True(
                 File.Exists(Path.Join(outputDir, "api.md")),
                 $"api.md was not created in '{outputDir}'.\nBuild output:\n{result.Output}");
+
+            // Query the effective ApiMarkReferencePaths value the .targets file computed during
+            // that build, proving the auto-harvest ItemGroup/PropertyGroup actually populated it
+            // from @(ReferencePath) rather than merely not crashing.
+            var propertyResult = RunProcess(
+                "dotnet",
+                "build SampleLib.csproj --configuration Release -t:Build -getProperty:ApiMarkReferencePaths " +
+                $"-p:ApiMarkOutputDir=\"{outputDir}\"",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                propertyResult.ExitCode == 0,
+                $"dotnet build -getProperty failed (exit {propertyResult.ExitCode}).\n" +
+                $"stdout:\n{propertyResult.Output}\nstderr:\n{propertyResult.Error}");
+
+            var harvestedPaths = propertyResult.Output.Trim();
+            Assert.False(
+                string.IsNullOrWhiteSpace(harvestedPaths),
+                "ApiMarkReferencePaths was not auto-populated from @(ReferencePath); " +
+                $"expected a non-empty, semicolon-separated list of DLL paths.\n{propertyResult.Output}");
+            Assert.Contains(
+                "Newtonsoft.Json",
+                harvestedPaths,
+                StringComparison.OrdinalIgnoreCase);
         });
     }
 
     /// <summary>
-    ///     Validates that an explicitly set <c>ApiMarkReferencePaths</c> value (including an
-    ///     explicit empty value) suppresses the <c>.targets</c> file's auto-harvest of
-    ///     <c>@(ReferencePath)</c>, rather than being silently replaced by it.
+    ///     Validates that <c>ApiMarkDisableReferencePathsHarvest=true</c> suppresses the
+    ///     <c>.targets</c> file's auto-harvest of <c>@(ReferencePath)</c> into
+    ///     <c>ApiMarkReferencePaths</c>, leaving it empty rather than silently repopulated.
     /// </summary>
     /// <remarks>
-    ///     This is the practical, black-box way to prove "suppression" from outside the
-    ///     <c>.targets</c> file without parsing an MSBuild binlog: passing an explicit, empty
-    ///     override on the command line and confirming the build still succeeds proves the
-    ///     explicit value was honored rather than replaced by the harvested list.
+    ///     MSBuild cannot distinguish a property that was never set from one explicitly set to an
+    ///     empty value (both evaluate to <c>'$(ApiMarkReferencePaths)' == ''</c>), so passing
+    ///     <c>-p:ApiMarkReferencePaths=""</c> alone does not — and cannot — suppress auto-harvest;
+    ///     the real opt-out mechanism is the dedicated <c>ApiMarkDisableReferencePathsHarvest</c>
+    ///     boolean property. This test exercises that real mechanism and proves suppression by
+    ///     querying the effective <c>ApiMarkReferencePaths</c> value via
+    ///     <c>dotnet build -getProperty</c> and asserting it stayed empty, rather than merely
+    ///     checking that the build succeeded.
     /// </remarks>
     [Fact]
-    public void ApiMarkMsbuild_NuGetPackage_DotNetProject_ExplicitReferencePaths_SuppressesAutoHarvest()
+    public void ApiMarkMsbuild_NuGetPackage_DotNetProject_DisableReferencePathsHarvest_SuppressesAutoHarvest()
     {
         var packagesDir = SkipIfPackageAbsent();
 
@@ -285,7 +316,7 @@ public class PackageIntegrationTests
                 "dotnet",
                 $"build SampleLib.csproj --configuration Release " +
                 $"-p:ApiMarkOutputDir=\"{outputDir}\" " +
-                "-p:ApiMarkReferencePaths=\"\"",
+                "-p:ApiMarkDisableReferencePathsHarvest=true",
                 workDir,
                 IsolatedNuGetEnv(workDir));
 
@@ -296,6 +327,26 @@ public class PackageIntegrationTests
             Assert.True(
                 File.Exists(Path.Join(outputDir, "api.md")),
                 $"api.md was not created in '{outputDir}'.\nBuild output:\n{result.Output}");
+
+            // Query the effective ApiMarkReferencePaths value the .targets file computed during
+            // that build, proving auto-harvest was actually suppressed rather than merely not
+            // crashing.
+            var propertyResult = RunProcess(
+                "dotnet",
+                "build SampleLib.csproj --configuration Release -t:Build -getProperty:ApiMarkReferencePaths " +
+                $"-p:ApiMarkOutputDir=\"{outputDir}\" -p:ApiMarkDisableReferencePathsHarvest=true",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                propertyResult.ExitCode == 0,
+                $"dotnet build -getProperty failed (exit {propertyResult.ExitCode}).\n" +
+                $"stdout:\n{propertyResult.Output}\nstderr:\n{propertyResult.Error}");
+
+            Assert.True(
+                string.IsNullOrWhiteSpace(propertyResult.Output.Trim()),
+                "ApiMarkReferencePaths was auto-harvested even though " +
+                $"ApiMarkDisableReferencePathsHarvest=true was set.\n{propertyResult.Output}");
         });
     }
 

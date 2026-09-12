@@ -249,7 +249,8 @@ After the next `dotnet build`, documentation is written to `$(MSBuildProjectDire
 | `ApiMarkVisibility` | `Public` | Visibility filter: `Public`, `PublicAndProtected`, `All` |
 | `ApiMarkIncludeObsolete` | `false` | Include `[Obsolete]` members in generated output |
 | `ApiMarkExclude` | (empty) | Semicolon-separated wildcard patterns identifying namespaces/types to exclude, e.g. `Antlr4.*;MyNamespace.Generated.*` |
-| `ApiMarkReferencePaths` | Auto-populated from `@(ReferencePath)` | Semicolon-separated paths to referenced assembly DLLs, used to resolve cross-assembly `<inheritdoc/>`. Auto-populated from the project's resolved `@(ReferencePath)` items when not explicitly set; set explicitly to override |
+| `ApiMarkReferencePaths` | Auto-populated from `@(ReferencePath)` | Semicolon-separated paths to referenced assembly DLLs, used to resolve cross-assembly `<inheritdoc/>`. Auto-populated from the project's resolved `@(ReferencePath)` items when not explicitly set; set explicitly to a non-empty list to override |
+| `ApiMarkDisableReferencePathsHarvest` | `false` | Set to `true` to disable auto-population of `ApiMarkReferencePaths` from `@(ReferencePath)` without providing a replacement list. Needed because MSBuild cannot distinguish "never set" from "explicitly set to empty" for a plain property, so setting `ApiMarkReferencePaths=""` alone does not suppress auto-harvesting |
 | `ApiMarkEnforceDocs` | (unset) | Enforcement visibility tier for documentation-coverage checking: `Public`, `PublicAndProtected`, `All`; omitted disables enforcement |
 | `ApiMarkEnforceDocsSeverity` | `Warning` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build); only takes effect when `ApiMarkEnforceDocs` is also set |
 

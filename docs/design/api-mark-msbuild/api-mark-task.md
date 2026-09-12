@@ -71,8 +71,15 @@ Each non-empty entry is forwarded as an individual `--reference-paths` flag by
 `AppendDotNetArguments`. Optional — when empty, external `<inheritdoc/>` targets are
 not resolved (unchanged prior behavior). Auto-populated by the `.targets` file from
 `@(ReferencePath)` (filtered by `Exists()`, deduplicated via `Distinct()`) when not
-explicitly set by the project; setting the property explicitly suppresses
-auto-harvesting.
+explicitly set by the project; setting the property explicitly to a non-empty list
+suppresses auto-harvesting for that project.
+<br/>
+MSBuild cannot distinguish a property that was never set from one explicitly set to
+an empty value, so setting `ApiMarkReferencePaths=""` does **not** suppress
+auto-harvesting — the `.targets` file still sees an empty value and repopulates it.
+Projects that need to intentionally disable auto-harvesting (e.g. to pass no
+reference paths at all) must instead set `$(ApiMarkDisableReferencePathsHarvest)` to
+`true`, mirroring the existing `$(DisableApiMark)` boolean opt-out convention.
 
 **ApiMarkTask.ApiMarkEnforceDocs**: `string?` — MSBuild property
 `$(ApiMarkEnforceDocs)`; for the `dotnet` and `cpp` languages, the enforcement

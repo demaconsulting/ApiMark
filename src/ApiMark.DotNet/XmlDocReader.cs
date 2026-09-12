@@ -45,6 +45,43 @@ public sealed class XmlDocReader
     ///     and subsequent duplicates are silently discarded. This is a defensive policy for
     ///     malformed but real-world XML doc files where the compiler emits the same member ID
     ///     more than once (e.g., due to partial-class splits or tooling bugs).
+    ///     <para>
+    ///     This overload's signature is preserved exactly as originally published (before external
+    ///     member lookup support was added) to remain binary-compatible with callers compiled
+    ///     against earlier releases. It delegates to the external-lookup-capable overload with a
+    ///     <c>null</c> lookup, which is equivalent to prior behavior.
+    ///     </para>
+    /// </remarks>
+    /// <param name="xmlDocPath">Path to the XML documentation file.</param>
+    /// <param name="inheritanceChain">
+    ///     Optional map of member ID to ordered list of base member IDs. Used to resolve
+    ///     bare <c>&lt;inheritdoc /&gt;</c> elements that carry no <c>cref</c> attribute.
+    ///     When <c>null</c>, bare inheritdoc resolution returns <c>null</c> or empty.
+    /// </param>
+    /// <exception cref="FileNotFoundException">Thrown when <paramref name="xmlDocPath"/> does not exist.</exception>
+    public XmlDocReader(
+        string xmlDocPath,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? inheritanceChain = null)
+        : this(xmlDocPath, inheritanceChain, externalMemberLookup: null)
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new instance of <see cref="XmlDocReader"/> from the given path, with an
+    ///     optional fallback delegate for resolving member IDs against externally referenced
+    ///     assemblies' XML documentation.
+    /// </summary>
+    /// <remarks>
+    ///     When duplicate member names appear in the XML doc file, the first occurrence is used
+    ///     and subsequent duplicates are silently discarded. This is a defensive policy for
+    ///     malformed but real-world XML doc files where the compiler emits the same member ID
+    ///     more than once (e.g., due to partial-class splits or tooling bugs).
+    ///     <para>
+    ///     Both parameters are required (no defaults) on this overload so that it never overlaps
+    ///     with, or creates ambiguity against, the original 2-parameter overload above — a caller
+    ///     wanting the external lookup fallback must always supply both an inheritance chain
+    ///     (or explicit <c>null</c>) and a lookup delegate.
+    ///     </para>
     /// </remarks>
     /// <param name="xmlDocPath">Path to the XML documentation file.</param>
     /// <param name="inheritanceChain">
@@ -56,14 +93,14 @@ public sealed class XmlDocReader
     ///     Optional fallback delegate consulted when a member ID (either the top-level lookup or an
     ///     <c>&lt;inheritdoc /&gt;</c> resolution target) is not present in this reader's own index.
     ///     Used to resolve <c>&lt;inheritdoc /&gt;</c> references that target base types or members
-    ///     defined in externally referenced assemblies. When <c>null</c> (the default), no external
+    ///     defined in externally referenced assemblies. When <c>null</c>, no external
     ///     fallback is attempted and behavior is identical to prior releases.
     /// </param>
     /// <exception cref="FileNotFoundException">Thrown when <paramref name="xmlDocPath"/> does not exist.</exception>
     public XmlDocReader(
         string xmlDocPath,
-        IReadOnlyDictionary<string, IReadOnlyList<string>>? inheritanceChain = null,
-        Func<string, XElement?>? externalMemberLookup = null)
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? inheritanceChain,
+        Func<string, XElement?>? externalMemberLookup)
     {
         // Verify the file exists before attempting to parse — a missing doc file
         // is a configuration error that callers should handle explicitly

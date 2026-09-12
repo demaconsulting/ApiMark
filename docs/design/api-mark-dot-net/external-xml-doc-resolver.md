@@ -127,5 +127,25 @@ remains absent, with no error.
 
 ### External Interfaces
 
-N/A — this is an internal class with no external interfaces exposed beyond
-its assembly.
+`ExternalXmlDocResolver` is a `public sealed class` with a public constructor
+(`ExternalXmlDocResolver(IReadOnlyList<string> referenceAssemblyPaths)`) and a
+public `TryGetMember(string memberId)` lookup method, so it is part of
+`ApiMark.DotNet`'s public API surface, not an internal implementation detail.
+Its intended consumers are:
+
+- **`DotNetGenerator.Parse`** — the primary production consumer, which
+  constructs an instance from `DotNetGeneratorOptions.ReferencePaths` and
+  wires its `TryGetMember` method into `XmlDocReader` as the external member
+  lookup delegate (see *Collaborators* above).
+- **Test code** (`ExternalXmlDocResolverTests`) — which instantiates the
+  class directly to validate lookup, caching, and `ref`/`lib` fallback
+  behavior in isolation from the rest of the parsing pipeline.
+- **Other `IApiGenerator` implementations or external tooling**, should they
+  need to resolve member documentation across NuGet package boundaries using
+  the same conventions as `ApiMark.DotNet`, since nothing about the type ties
+  it to `DotNetGenerator` internals.
+
+Being public is a deliberate design choice, not an oversight: it keeps the
+class independently testable without relying on `InternalsVisibleTo`, and
+allows it to be reused as a standalone building block by any caller that
+needs `<inheritdoc/>`-style cross-assembly XML doc resolution.

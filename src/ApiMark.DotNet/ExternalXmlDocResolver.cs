@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Xml.Linq;
 
 namespace ApiMark.DotNet;
@@ -47,7 +48,7 @@ public sealed class ExternalXmlDocResolver
     ///     means "no XML documentation file could be found or parsed for this reference assembly
     ///     path", cached so repeated misses do not re-probe the file system.
     /// </summary>
-    private readonly Dictionary<string, Dictionary<string, XElement>?> _docsByReferencePath = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Dictionary<string, XElement>?> _docsByReferencePath = new(FileSystemPathComparer);
 
     /// <summary>
     ///     Cache of resolved member elements keyed by member ID, spanning all configured reference
@@ -55,6 +56,22 @@ public sealed class ExternalXmlDocResolver
     ///     assembly's XML documentation", cached so repeated misses do not re-scan every path.
     /// </summary>
     private readonly Dictionary<string, XElement?> _memberCache = new(StringComparer.Ordinal);
+
+    /// <summary>
+    ///     Returns the <see cref="StringComparer"/> appropriate for file-system path comparisons
+    ///     on the current platform.
+    /// </summary>
+    /// <remarks>
+    ///     Linux file systems are case-sensitive, so <see cref="StringComparer.Ordinal"/> is
+    ///     used there to avoid incorrectly treating paths that differ only in case as duplicates.
+    ///     Windows and macOS default to case-insensitive file systems, so
+    ///     <see cref="StringComparer.OrdinalIgnoreCase"/> is used on those platforms.
+    ///     This mirrors the equivalent helper in <c>ApiMark.Cpp.CppEmitter</c>.
+    /// </remarks>
+    private static StringComparer FileSystemPathComparer =>
+        RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
+            ? StringComparer.Ordinal
+            : StringComparer.OrdinalIgnoreCase;
 
     /// <summary>Initializes a new instance of <see cref="ExternalXmlDocResolver"/>.</summary>
     /// <param name="referenceAssemblyPaths">

@@ -2013,7 +2013,7 @@ public class XmlDocReaderTests
         try
         {
             // Act
-            var reader = new XmlDocReader(path, externalMemberLookup: id => id == "M:External.BaseClass.BaseMethod" ? externalMember : null);
+            var reader = new XmlDocReader(path, null, id => id == "M:External.BaseClass.BaseMethod" ? externalMember : null);
             var summary = reader.GetSummary("M:MyNamespace.MyClass.MyMethod");
 
             // Assert
@@ -2046,7 +2046,7 @@ public class XmlDocReaderTests
         try
         {
             // Act
-            var reader = new XmlDocReader(path, externalMemberLookup: id => id == "M:External.OtherClass.OtherMethod" ? externalMember : null);
+            var reader = new XmlDocReader(path, null, id => id == "M:External.OtherClass.OtherMethod" ? externalMember : null);
             var summary = reader.GetSummary("M:MyNamespace.MyClass.MyMethod");
 
             // Assert: cref + path must select only the summary from the externally-resolved target

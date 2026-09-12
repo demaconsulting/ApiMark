@@ -331,11 +331,18 @@ public class ExternalXmlDocResolverTests
                 """);
             var sut = new ExternalXmlDocResolver([dllPath]);
 
-            // Act: first call is a miss (populates both caches with a negative result), then
-            // delete the underlying XML file, then call again for the same member ID — the
-            // second call must still return null without needing the (now-deleted) file.
+            // Act: first call is a miss (populates both caches with a negative result). Then
+            // rewrite (rather than delete) the underlying XML file so it now DOES contain a
+            // matching entry for the same member ID, and call again for that member ID — a
+            // non-caching implementation that simply re-reads the file would find the new entry
+            // and return non-null, so asserting the second call still returns null proves the
+            // negative result came from the cache rather than a fresh disk read.
             var first = sut.TryGetMember("T:Foo.Missing");
-            File.Delete(xmlPath);
+            WriteXmlDoc(xmlPath, """
+                <member name="T:Foo.Missing">
+                    <summary>Now present, but must not be observed due to caching.</summary>
+                </member>
+                """);
             var second = sut.TryGetMember("T:Foo.Missing");
 
             // Assert

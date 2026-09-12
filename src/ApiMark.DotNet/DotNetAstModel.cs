@@ -82,6 +82,11 @@ internal sealed record NamespaceDocContext(
 ///     value rather than as individual parameters.
 /// </summary>
 /// <param name="Assembly">Assembly definition; ownership is transferred to the model.</param>
+/// <param name="AssemblyResolver">
+///     Mono.Cecil assembly resolver used to resolve externally referenced assemblies during
+///     inheritance analysis and lazy metadata resolution; ownership is transferred to the model
+///     so it can be disposed together with <paramref name="Assembly"/> once emit completes.
+/// </param>
 /// <param name="XmlDocs">Pre-built XML documentation reader.</param>
 /// <param name="AllNamespaces">All namespace names in alphabetical order.</param>
 /// <param name="ByNamespace">Visible types grouped by namespace.</param>
@@ -91,6 +96,7 @@ internal sealed record NamespaceDocContext(
 /// <param name="Options">Generator configuration options.</param>
 internal sealed record DotNetAstModelArgs(
     AssemblyDefinition Assembly,
+    IAssemblyResolver AssemblyResolver,
     XmlDocReader XmlDocs,
     IReadOnlyList<string> AllNamespaces,
     IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>> ByNamespace,
@@ -115,6 +121,7 @@ internal sealed class DotNetAstModel
     internal DotNetAstModel(DotNetAstModelArgs args)
     {
         Assembly = args.Assembly;
+        AssemblyResolver = args.AssemblyResolver;
         XmlDocs = args.XmlDocs;
         AllNamespaces = args.AllNamespaces;
         ByNamespace = args.ByNamespace;
@@ -126,6 +133,12 @@ internal sealed class DotNetAstModel
 
     /// <summary>Gets the assembly definition held open for the duration of emit.</summary>
     internal AssemblyDefinition Assembly { get; }
+
+    /// <summary>
+    ///     Gets the Mono.Cecil assembly resolver used to resolve externally referenced assemblies;
+    ///     held open for the duration of emit and disposed together with <see cref="Assembly"/>.
+    /// </summary>
+    internal IAssemblyResolver AssemblyResolver { get; }
 
     /// <summary>Gets the XML documentation reader for member-level lookups.</summary>
     internal XmlDocReader XmlDocs { get; }
