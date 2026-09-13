@@ -1166,11 +1166,12 @@ public class ApiMarkTaskTests
         Assert.True(result);
         Assert.NotNull(task.LastToolArgs);
         Assert.DoesNotContain(task.LastToolArgs!, a => a.StartsWith('@'));
-        var libraryDescriptionIndex = task.LastToolArgs!.ToList().IndexOf("--library-description");
+        var args = task.LastToolArgs!.ToList();
+        var libraryDescriptionIndex = args.IndexOf("--library-description");
         Assert.True(libraryDescriptionIndex >= 0);
         Assert.Equal("--reference-paths", task.LastToolArgs![libraryDescriptionIndex + 1]);
         Assert.Contains("--defines", task.LastToolArgs!);
-        var definesIndex = task.LastToolArgs!.ToList().IndexOf("--defines");
+        var definesIndex = args.IndexOf("--defines");
         Assert.Equal("FOO", task.LastToolArgs![definesIndex + 1]);
     }
 

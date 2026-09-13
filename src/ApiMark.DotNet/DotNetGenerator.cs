@@ -601,10 +601,18 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
     ///     recorded for <paramref name="targetId"/> yet.
     /// </summary>
     /// <remarks>
-    ///     First-wins is safe here: a given XML doc member ID identifies exactly one real member
-    ///     in exactly one assembly, so every call site that computes a hint for the same
-    ///     <paramref name="targetId"/> is expected to agree; this simply avoids a redundant
-    ///     dictionary write once the (correct) hint is already present.
+    ///     First-wins is a best-effort heuristic, not a guarantee: XML doc member IDs do not carry
+    ///     assembly identity, so in the extremely rare case where two distinct external assemblies
+    ///     both declare a member whose ID is byte-identical to <paramref name="targetId"/> (e.g.
+    ///     two unrelated NuGet packages that happen to define the same namespace, type name, and
+    ///     member signature), only the first-seen assembly's name is retained as the hint here —
+    ///     a later call site whose real target is actually declared in the other assembly would be
+    ///     given the wrong hint. This is deliberately tolerated rather than tracked per call site
+    ///     because <see cref="ExternalXmlDocResolver.TryGetMember(string, string?)"/> treats the
+    ///     hint purely as a fast-path probe with a full-scan fallback, so a wrong hint only
+    ///     produces a wrong result if the wrongly-hinted assembly's XML documentation coincidentally
+    ///     also defines a member with the identical ID — a second, independent collision on top of
+    ///     the first.
     /// </remarks>
     /// <param name="assemblyHints">The declaring-assembly-name hint dictionary to update.</param>
     /// <param name="targetId">The candidate target member ID.</param>

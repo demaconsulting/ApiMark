@@ -98,10 +98,12 @@ while walking the JSON AST.
 - **UpdateCurrentFile / GetCurrentSourceLocation** — preserve source-file and line
   context across clang nodes that omit `loc.file`.
 - **IsOwned** — enforces the selected-header plus include-root ownership rule.
-  Uses `FileSystemPathComparer` / `FileSystemPathComparison` (selecting
-  `OrdinalIgnoreCase` on Windows/macOS and `Ordinal` on Linux) so that header
-  path matching respects the native file-system case-sensitivity of the build
-  host.
+  Uses `ApiMark.Core.PathHelpers.NormalizeCase` to resolve both the source file
+  and each configured public include root to their actual on-disk casing (rather
+  than guessing case sensitivity from the operating system), then compares the
+  normalized results case-sensitively via `PathHelpers.Comparer` so header path
+  matching is correct regardless of the build host's file-system case
+  sensitivity.
 - **GetKind / GetName / GetQualType / GetNsBuilder / BuildNamespaces** — JSON and
   namespace-builder utilities.
 

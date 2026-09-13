@@ -112,10 +112,12 @@ by `WriteFunctionContent`.
   longest matching public include root.
 - **GetMemberBaseName** — returns the class name for constructors and the member
   name for methods or fields.
-- **FileSystemPathComparison** / **FileSystemPathComparer** — static properties that
-  select `OrdinalIgnoreCase` (Windows/macOS) or `Ordinal` (Linux) for all path
-  comparisons in the emitter, ensuring include-path and page-key matching respects
-  native file-system case-sensitivity.
+- **GetIncludePath** normalizes `sourceFile` and each public include root to their
+  actual on-disk casing via `ApiMark.Core.PathHelpers.NormalizeCase` (rather than
+  guessing case sensitivity from the operating system), then compares the
+  normalized results case-sensitively via `PathHelpers.Comparer` so include-path
+  and page-key matching is correct regardless of the build host's file-system case
+  sensitivity.
 - **WriteCombinedMemberPage**: `internal static void WriteCombinedMemberPage(
   IMarkdownWriterFactory factory, string nsKey, string nsDisplayName, CppClass cls,
   string lowerKey, IReadOnlyList<object> members, CppTypeLinkResolver cppResolver)` —

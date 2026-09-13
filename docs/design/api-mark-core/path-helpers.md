@@ -21,8 +21,12 @@ independently by each caller.
 
 ### Data Model
 
-PathHelpers is a `public static` utility with no fields or properties. All behavior
-is stateless and thread-safe.
+PathHelpers is a `public static` utility with no instance fields. It exposes one
+public property, `Comparer`, and two methods. `SafePathCombine` and `Comparer` hold
+no state and are safe to call concurrently. `NormalizeCase` itself holds no instance
+state, but when callers pass a shared `directoryEntryCache` dictionary they are
+responsible for synchronizing their own access to it (e.g. scoping one cache per
+generation run and using it from a single thread).
 
 ### Key Methods
 

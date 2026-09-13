@@ -11,7 +11,12 @@ namespace ApiMark.Core;
 ///     actual on-disk casing so that two differently-cased spellings of the same file or
 ///     directory can be recognized as identical regardless of platform or file-system case
 ///     sensitivity (<see cref="NormalizeCase"/>, <see cref="Comparer"/>).
-///     All members are stateless and thread-safe.
+///     <see cref="SafePathCombine"/> and <see cref="Comparer"/> hold no state and are safe to
+///     call concurrently. <see cref="NormalizeCase"/> itself holds no instance state, but when
+///     callers pass a shared <c>directoryEntryCache</c> dictionary they are responsible for
+///     synchronizing their own access to it (e.g. scoping one cache per generation run and
+///     using it from a single thread); the method does not synchronize access to a
+///     caller-supplied cache on their behalf.
 /// </remarks>
 public static class PathHelpers
 {

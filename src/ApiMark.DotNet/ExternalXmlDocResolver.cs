@@ -46,6 +46,18 @@ public sealed class ExternalXmlDocResolver
     private readonly IReadOnlyList<string> _referenceAssemblyPaths;
 
     /// <summary>
+    ///     Reference assembly paths grouped by their simple file name (no extension, compared
+    ///     case-insensitively), precomputed once in the constructor so that a declaring-assembly
+    ///     hint can be resolved to its candidate path(s) in O(1) instead of scanning
+    ///     <see cref="_referenceAssemblyPaths"/> on every <see cref="TryGetMember(string, string?)"/>
+    ///     call. A list is kept per name (rather than a single path) because two configured
+    ///     reference paths can share the same simple file name (e.g. the same assembly resolved
+    ///     from two different target-framework sub-folders); every path sharing the hinted name is
+    ///     probed, in configured order, before falling back to the full scan.
+    /// </summary>
+    private readonly Dictionary<string, List<string>> _referencePathsByAssemblyName = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     ///     Cache of parsed member indexes keyed by reference assembly path. A <c>null</c> value
     ///     means "no XML documentation file could be found or parsed for this reference assembly
     ///     path", cached so repeated misses do not re-probe the file system.
@@ -53,11 +65,20 @@ public sealed class ExternalXmlDocResolver
     private readonly Dictionary<string, Dictionary<string, XElement>?> _docsByReferencePath = new(PathHelpers.Comparer);
 
     /// <summary>
-    ///     Cache of resolved member elements keyed by member ID, spanning all configured reference
-    ///     assembly paths. A <c>null</c> value means "not found in any configured reference
-    ///     assembly's XML documentation", cached so repeated misses do not re-scan every path.
+    ///     Cache of resolved member elements keyed by a composite of the declaring-assembly hint
+    ///     supplied to <see cref="TryGetMember(string, string?)"/> (or the empty string when none
+    ///     was supplied) and the member ID, spanning all configured reference assembly paths. A
+    ///     <c>null</c> value means "not found in any configured reference assembly's XML
+    ///     documentation", cached so repeated misses do not re-scan every path.
     /// </summary>
-    private readonly Dictionary<string, XElement?> _memberCache = new(StringComparer.Ordinal);
+    /// <remarks>
+    ///     XML documentation member IDs do not carry assembly identity, so in the extremely rare
+    ///     case where two unrelated configured assemblies both declare a member with an identical
+    ///     ID, two calls for that same member ID but different (correct) hints must not share a
+    ///     cache entry — otherwise the result resolved for the first hint would be incorrectly
+    ///     served to the second. Including the hint in the cache key keeps such calls independent.
+    /// </remarks>
+    private readonly Dictionary<(string Hint, string MemberId), XElement?> _memberCache = new();
 
     /// <summary>Initializes a new instance of <see cref="ExternalXmlDocResolver"/>.</summary>
     /// <param name="referenceAssemblyPaths">
@@ -105,6 +126,20 @@ public sealed class ExternalXmlDocResolver
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Select(path => PathHelpers.NormalizeCase(Path.GetFullPath(path), directoryEntryCache))
             .ToArray();
+
+        // Precompute the assembly-simple-name -> path(s) lookup used by the declaring-assembly
+        // hint fast path below, so a hinted lookup never needs to scan _referenceAssemblyPaths.
+        foreach (var path in _referenceAssemblyPaths)
+        {
+            var name = Path.GetFileNameWithoutExtension(path);
+            if (!_referencePathsByAssemblyName.TryGetValue(name, out var paths))
+            {
+                paths = [];
+                _referencePathsByAssemblyName[name] = paths;
+            }
+
+            paths.Add(path);
+        }
     }
 
     /// <summary>
@@ -138,13 +173,15 @@ public sealed class ExternalXmlDocResolver
     ///     though at most one of them could ever actually contain the target.
     ///     <para>
     ///     When <paramref name="declaringAssemblyHint"/> names an assembly whose simple file name
-    ///     (i.e. <see cref="Path.GetFileNameWithoutExtension(string)"/> of one of the configured
+    ///     (i.e. <see cref="Path.GetFileNameWithoutExtension(string)"/> of one or more configured
     ///     reference paths, compared case-insensitively since assembly file names are conventionally
-    ///     stable but not guaranteed to match a strong name's casing exactly) matches a configured
-    ///     reference path, that single path's XML documentation is tried first. If it is found
-    ///     there, no other reference path is ever touched — this is the common case, since the
-    ///     hint (built from Mono.Cecil metadata in <c>DotNetGenerator.BuildInheritanceChain</c>)
-    ///     identifies the actual assembly that declares the candidate member.
+    ///     stable but not guaranteed to match a strong name's casing exactly) matches one or more
+    ///     configured reference paths — resolved via <see cref="_referencePathsByAssemblyName"/>,
+    ///     precomputed once in the constructor for O(1) lookup — those path(s) are tried first, in
+    ///     configured order. If the member is found in any of them, no other reference path is
+    ///     ever touched — this is the common case, since the hint (built from Mono.Cecil metadata
+    ///     in <c>DotNetGenerator.BuildInheritanceChain</c>) identifies the actual assembly that
+    ///     declares the candidate member.
     ///     </para>
     ///     <para>
     ///     If the hint is absent, does not match any configured reference path, or the member is
@@ -154,9 +191,11 @@ public sealed class ExternalXmlDocResolver
     ///     same full, in-order search across every configured reference path as before, so a wrong
     ///     or missing hint never causes a real match to be missed.
     ///     </para>
-    ///     Results (including misses) are cached per <paramref name="memberId"/> regardless of
-    ///     which hint (if any) was supplied for a given call, matching
-    ///     <see cref="TryGetMember(string)"/>'s existing caching behavior.
+    ///     Results (including misses) are cached per (hint, <paramref name="memberId"/>) pair —
+    ///     not per <paramref name="memberId"/> alone — so that in the extremely rare case where
+    ///     two unrelated configured assemblies declare a member with an identical XML doc ID (IDs
+    ///     do not carry assembly identity), a lookup for one hint can never be served the other
+    ///     hint's cached result. See <see cref="_memberCache"/>.
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier (e.g. <c>T:MyNamespace.MyClass</c>) to resolve.</param>
     /// <param name="declaringAssemblyHint">
@@ -166,26 +205,28 @@ public sealed class ExternalXmlDocResolver
     /// <returns>The matching <c>&lt;member&gt;</c> element, or <c>null</c> when not found in any configured reference assembly.</returns>
     public XElement? TryGetMember(string memberId, string? declaringAssemblyHint)
     {
-        if (_memberCache.TryGetValue(memberId, out var cached))
+        var cacheKey = (Hint: declaringAssemblyHint ?? string.Empty, MemberId: memberId);
+        if (_memberCache.TryGetValue(cacheKey, out var cached))
         {
             return cached;
         }
 
         XElement? result = null;
 
-        // Try the hinted reference path first, when one is supplied and matches a configured
-        // path — this is the fast path that avoids probing the entire auto-harvested dependency
-        // set for the common case where the declaring assembly is already known.
-        if (!string.IsNullOrEmpty(declaringAssemblyHint))
+        // Try the hinted reference path(s) first, when a hint is supplied and matches one or
+        // more configured paths (precomputed in the constructor) — this is the fast path that
+        // avoids probing the entire auto-harvested dependency set for the common case where the
+        // declaring assembly is already known.
+        if (!string.IsNullOrEmpty(declaringAssemblyHint)
+            && _referencePathsByAssemblyName.TryGetValue(declaringAssemblyHint, out var hintedPaths))
         {
-            var hintedPath = _referenceAssemblyPaths.FirstOrDefault(path =>
-                string.Equals(Path.GetFileNameWithoutExtension(path), declaringAssemblyHint, StringComparison.OrdinalIgnoreCase));
-            if (hintedPath != null)
+            foreach (var hintedPath in hintedPaths)
             {
                 var hintedMembers = GetOrLoadMembers(hintedPath);
                 if (hintedMembers != null && hintedMembers.TryGetValue(memberId, out var hintedMember))
                 {
                     result = hintedMember;
+                    break;
                 }
             }
         }
@@ -205,7 +246,7 @@ public sealed class ExternalXmlDocResolver
             }
         }
 
-        _memberCache[memberId] = result;
+        _memberCache[cacheKey] = result;
         return result;
     }
 
