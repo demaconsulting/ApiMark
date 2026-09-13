@@ -115,11 +115,56 @@ public sealed class ExternalXmlDocResolver
     ///     Reference assembly paths are searched in the order supplied to the constructor; the
     ///     first path whose XML documentation file contains <paramref name="memberId"/> wins.
     ///     Results (including misses) are cached, so repeated calls with the same
-    ///     <paramref name="memberId"/> never re-parse or re-search.
+    ///     <paramref name="memberId"/> never re-parse or re-search. Equivalent to calling
+    ///     <see cref="TryGetMember(string, string?)"/> with no declaring-assembly hint.
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier (e.g. <c>T:MyNamespace.MyClass</c>) to resolve.</param>
     /// <returns>The matching <c>&lt;member&gt;</c> element, or <c>null</c> when not found in any configured reference assembly.</returns>
-    public XElement? TryGetMember(string memberId)
+    public XElement? TryGetMember(string memberId) => TryGetMember(memberId, declaringAssemblyHint: null);
+
+    /// <summary>
+    ///     Attempts to resolve <paramref name="memberId"/> against the XML documentation files of
+    ///     the configured reference assembly paths, using <paramref name="declaringAssemblyHint"/>
+    ///     (when supplied) to probe the single reference path expected to declare it before
+    ///     falling back to a full search.
+    /// </summary>
+    /// <remarks>
+    ///     With MSBuild's auto-harvested <c>ReferencePaths</c> default, the configured reference
+    ///     assembly list can contain every resolved dependency of a project — often hundreds of
+    ///     transitive NuGet packages, the vast majority of which are unrelated to any given
+    ///     <c>&lt;inheritdoc /&gt;</c> target. Searching every configured path in order (as the
+    ///     parameterless <see cref="TryGetMember(string)"/> overload always does) means a single
+    ///     miss forces every one of those XML documentation files to be located and parsed, even
+    ///     though at most one of them could ever actually contain the target.
+    ///     <para>
+    ///     When <paramref name="declaringAssemblyHint"/> names an assembly whose simple file name
+    ///     (i.e. <see cref="Path.GetFileNameWithoutExtension(string)"/> of one of the configured
+    ///     reference paths, compared case-insensitively since assembly file names are conventionally
+    ///     stable but not guaranteed to match a strong name's casing exactly) matches a configured
+    ///     reference path, that single path's XML documentation is tried first. If it is found
+    ///     there, no other reference path is ever touched — this is the common case, since the
+    ///     hint (built from Mono.Cecil metadata in <c>DotNetGenerator.BuildInheritanceChain</c>)
+    ///     identifies the actual assembly that declares the candidate member.
+    ///     </para>
+    ///     <para>
+    ///     If the hint is absent, does not match any configured reference path, or the member is
+    ///     not found there (for example because the hinted assembly does not ship its documentation
+    ///     in either the sibling or the <c>ref/</c>&#8596;<c>lib/</c>-swapped location — see
+    ///     <see cref="ResolveXmlDocPath"/> — or the hint is stale), resolution falls back to the
+    ///     same full, in-order search across every configured reference path as before, so a wrong
+    ///     or missing hint never causes a real match to be missed.
+    ///     </para>
+    ///     Results (including misses) are cached per <paramref name="memberId"/> regardless of
+    ///     which hint (if any) was supplied for a given call, matching
+    ///     <see cref="TryGetMember(string)"/>'s existing caching behavior.
+    /// </remarks>
+    /// <param name="memberId">The XML doc member identifier (e.g. <c>T:MyNamespace.MyClass</c>) to resolve.</param>
+    /// <param name="declaringAssemblyHint">
+    ///     The simple name (no extension) of the assembly expected to declare
+    ///     <paramref name="memberId"/>, or <c>null</c>/empty when unknown.
+    /// </param>
+    /// <returns>The matching <c>&lt;member&gt;</c> element, or <c>null</c> when not found in any configured reference assembly.</returns>
+    public XElement? TryGetMember(string memberId, string? declaringAssemblyHint)
     {
         if (_memberCache.TryGetValue(memberId, out var cached))
         {
@@ -127,13 +172,36 @@ public sealed class ExternalXmlDocResolver
         }
 
         XElement? result = null;
-        foreach (var referenceAssemblyPath in _referenceAssemblyPaths)
+
+        // Try the hinted reference path first, when one is supplied and matches a configured
+        // path — this is the fast path that avoids probing the entire auto-harvested dependency
+        // set for the common case where the declaring assembly is already known.
+        if (!string.IsNullOrEmpty(declaringAssemblyHint))
         {
-            var members = GetOrLoadMembers(referenceAssemblyPath);
-            if (members != null && members.TryGetValue(memberId, out var member))
+            var hintedPath = _referenceAssemblyPaths.FirstOrDefault(path =>
+                string.Equals(Path.GetFileNameWithoutExtension(path), declaringAssemblyHint, StringComparison.OrdinalIgnoreCase));
+            if (hintedPath != null)
             {
-                result = member;
-                break;
+                var hintedMembers = GetOrLoadMembers(hintedPath);
+                if (hintedMembers != null && hintedMembers.TryGetValue(memberId, out var hintedMember))
+                {
+                    result = hintedMember;
+                }
+            }
+        }
+
+        // Fall back to searching every configured reference path in order — either no usable
+        // hint was supplied, or the hinted path did not actually contain the member.
+        if (result == null)
+        {
+            foreach (var referenceAssemblyPath in _referenceAssemblyPaths)
+            {
+                var members = GetOrLoadMembers(referenceAssemblyPath);
+                if (members != null && members.TryGetValue(memberId, out var member))
+                {
+                    result = member;
+                    break;
+                }
             }
         }
 

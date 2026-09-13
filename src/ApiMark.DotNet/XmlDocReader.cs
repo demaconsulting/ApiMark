@@ -9,7 +9,7 @@ namespace ApiMark.DotNet;
 ///     Safe for concurrent reads after construction when no external member lookup is
 ///     configured; all of this class's own fields are set once during the constructor and
 ///     are never subsequently mutated. When <c>externalMemberLookup</c> is supplied (typically
-///     backed by <see cref="ExternalXmlDocResolver.TryGetMember"/>), concurrent calls into this
+///     backed by <see cref="ExternalXmlDocResolver.TryGetMember(string)"/>), concurrent calls into this
 ///     reader are only as safe as the supplied delegate: <see cref="ExternalXmlDocResolver"/>
 ///     itself is documented as not safe for concurrent use because its internal caches are
 ///     plain, non-thread-safe dictionaries. ApiMark's current generation pipeline only ever
@@ -50,7 +50,7 @@ public sealed class XmlDocReader
     ///     Optional fallback delegate used to resolve a member ID against externally referenced
     ///     assemblies' XML documentation (e.g. NuGet package dependencies) when the member ID is
     ///     not present in this reader's own index. Typically backed by
-    ///     <see cref="ExternalXmlDocResolver.TryGetMember"/>. When <c>null</c>, unresolved member
+    ///     <see cref="ExternalXmlDocResolver.TryGetMember(string)"/>. When <c>null</c>, unresolved member
     ///     IDs simply produce <c>null</c>, matching prior behavior exactly.
     /// </summary>
     private readonly Func<string, XElement?>? _externalMemberLookup;
