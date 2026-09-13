@@ -473,4 +473,41 @@ public sealed class PathHelpersTests
             Directory.Delete(root, recursive: true);
         }
     }
+
+    /// <summary>
+    ///     Validates that <see cref="PathHelpers.NormalizeCase"/> does not accept a single
+    ///     case-insensitive directory-entry match unless the file system itself confirms that the
+    ///     literal, as-supplied spelling actually resolves to something. A pre-populated
+    ///     <c>directoryEntryCache</c> simulates a directory whose only entry ("Foo.dll") differs
+    ///     in case from the requested segment ("foo.dll") but where neither spelling exists as a
+    ///     real file on disk (reproducing what a genuinely case-sensitive file system observes for
+    ///     a coincidentally-named, unrelated entry) — this must not resolve to that unrelated
+    ///     entry, and the caller-supplied casing must be preserved instead.
+    /// </summary>
+    [Fact]
+    public void PathHelpers_NormalizeCase_SingleCaseInsensitiveMatchNotConfirmedOnDisk_PreservesSuppliedCasing()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            // The directory itself need not exist: the cache is pre-populated so no real
+            // enumeration ever occurs, and neither "foo.dll" nor "Foo.dll" is ever actually
+            // created on disk under it.
+            var cache = new Dictionary<string, string[]>(PathHelpers.Comparer)
+            {
+                [root] = ["Foo.dll"],
+            };
+
+            var requestedPath = Path.Combine(root, "foo.dll");
+            var normalized = PathHelpers.NormalizeCase(requestedPath, cache);
+
+            // Assert: the unrelated cached entry is never substituted; the as-supplied casing
+            // is preserved because File.Exists/Directory.Exists for the literal path is false.
+            Assert.Equal(requestedPath, normalized, StringComparer.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
 }
