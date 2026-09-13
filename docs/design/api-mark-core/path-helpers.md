@@ -111,3 +111,11 @@ packages.
 - **ApiMark.DotNet.ExternalXmlDocResolver** — keys its per-reference-path documentation
   cache via `NormalizeCase`/`Comparer` so differently-cased spellings of the same
   reference assembly path collapse to a single cache entry.
+- **ApiMark.Cpp.CppEmitter** — normalizes each declaration's source file and every
+  configured public include root via `NormalizeCase`/`Comparer` in `GetIncludePath` so the
+  longest-matching-root comparison is correct regardless of the build host's file-system
+  case sensitivity.
+- **ApiMark.Cpp.CppAst.ClangAstParser** — normalizes each declaration's source file and
+  every configured public include root via `NormalizeCase`/`Comparer` in `IsOwned` so
+  ownership filtering against `PublicIncludeRoots` and the selected-headers set is correct
+  regardless of the build host's file-system case sensitivity.

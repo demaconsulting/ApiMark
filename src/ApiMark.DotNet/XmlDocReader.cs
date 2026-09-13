@@ -23,7 +23,7 @@ namespace ApiMark.DotNet;
 ///     continue across multiple external hops therefore depends entirely on how completely the
 ///     supplied <c>_inheritanceChain</c> was populated by its caller: <c>DotNetGenerator</c>
 ///     recursively walks resolvable external base types/interfaces (see
-///     <c>DotNetGenerator.BuildTypeInheritanceEntries</c>) when building the chain it passes in,
+///     <c>DotNetGenerator.RecurseBaseTypeInheritanceEntries</c>) when building the chain it passes in,
 ///     so a chain entry commonly does exist for an externally-resolved member whose own base type
 ///     is itself resolvable via Mono.Cecil — allowing a bare <c>&lt;inheritdoc /&gt;</c> to resolve
 ///     across more than one external hop in that case. If the chain has no entry for a given

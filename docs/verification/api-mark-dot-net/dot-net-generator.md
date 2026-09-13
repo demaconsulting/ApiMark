@@ -286,3 +286,13 @@ inheritance-chain builder still holds) and that the `ExternalInterfaceMethod` me
 does not carry the externally-inherited summary text — the prior/unchanged behavior.
 This scenario is tested by
 `DotNetGenerator_Parse_ExternalBaseWithoutReferencePaths_LeavesInheritDocUnresolved`.
+
+**Cross-assembly inheritdoc resolves across two external hops**: Verifies that a bare
+`<inheritdoc />` is followed correctly even when the locally-defined override's immediate
+external base member (`ExternalMidBaseClass.DescribeGrand`) is itself an undocumented
+bare `<inheritdoc />` override — resolution must continue up to
+`ExternalGrandBaseClass.DescribeGrand`, entirely within the externally referenced
+assembly, to find real documentation text. This proves `BuildInheritanceChain` recurses
+into every resolvable external base type/interface rather than stopping after the first
+external hop. This scenario is tested by
+`DotNetGenerator_Parse_ExternalBaseTwoHops_ResolvesInheritedDocumentationAcrossBothHops`.

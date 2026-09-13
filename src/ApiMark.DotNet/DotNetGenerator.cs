@@ -109,11 +109,14 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         // bare file name with no directory component at all, e.g. "External.dll"), "." / ".."
         // segments, and mixed directory separators resolve to the same directory consistently.
         // Directories are also normalized to their actual on-disk casing via
-        // PathHelpers.NormalizeCase (each has already been confirmed to exist via the
-        // Directory.Exists check below, so normalization always has a real entry to resolve
-        // against) before deduplication, so two spellings of the same directory that differ only
-        // in case collapse to a single search directory regardless of whether the current platform
-        // or file system happens to be case-sensitive.
+        // PathHelpers.NormalizeCase before the existence check and deduplication (not after), so
+        // two spellings of the same directory that differ only in case collapse to a single
+        // search directory regardless of whether the current platform or file system happens to
+        // be case-sensitive. Normalizing before the existence check matters on a case-sensitive
+        // file system: NormalizeCase resolves the real on-disk entry via case-insensitive
+        // directory enumeration even when the as-supplied spelling itself would fail a literal
+        // Directory.Exists check, so a configured directory whose case does not match disk exactly
+        // is still recognized and included instead of being silently discarded.
         // Blank (null/empty/whitespace-only) entries are filtered out first — defense-in-depth
         // alongside the CLI's own blank-entry filtering in Context.cs, since ReferencePaths is
         // also a direct library API surface via DotNetGeneratorOptions — because
@@ -131,8 +134,9 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             foreach (var directory in _options.ReferencePaths
                          .Where(path => !string.IsNullOrWhiteSpace(path))
                          .Select(ResolveReferenceSearchDirectory)
-                         .Where(d => !string.IsNullOrEmpty(d) && Directory.Exists(d))
+                         .Where(d => !string.IsNullOrEmpty(d))
                          .Select(d => PathHelpers.NormalizeCase(d!, directoryEntryCache))
+                         .Where(Directory.Exists)
                          .Distinct(PathHelpers.Comparer))
             {
                 assemblyResolver.AddSearchDirectory(directory);
@@ -426,9 +430,27 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         var assemblyHints = new Dictionary<string, string>(StringComparer.Ordinal);
         var visitedTypes = new HashSet<TypeDefinition>();
 
+        // Phase 1: populate every primary-assembly type's own member entries authoritatively
+        // (a straight overwrite is safe here because XML doc IDs are guaranteed unique within a
+        // single assembly) before considering any externally referenced base type or interface.
+        // This guarantees a primary-assembly member's chain entry can never be shadowed later by
+        // an external member that happens to produce an identical XML doc ID — deliberately kept
+        // authoritative because it is what a caller in the primary assembly actually meant.
         foreach (var type in assembly.MainModule.GetTypes())
         {
-            BuildTypeInheritanceEntries(type, chain, assemblyHints, visitedTypes);
+            visitedTypes.Add(type);
+            AddTypeMemberEntries(type, chain, assemblyHints, authoritative: true);
+        }
+
+        // Phase 2: recurse into each primary type's resolved base type and interfaces, however far
+        // up the hierarchy — and across assembly boundaries — that leads, so a bare <inheritdoc />
+        // can still be followed after it first resolves to an externally referenced member that
+        // itself has its own bare <inheritdoc />. Entries contributed here are added only when no
+        // entry already exists for that key (see AddTypeMemberEntries's non-authoritative mode),
+        // so an external member can never overwrite a primary-assembly entry populated in phase 1.
+        foreach (var type in assembly.MainModule.GetTypes())
+        {
+            RecurseBaseTypeInheritanceEntries(type, chain, assemblyHints, visitedTypes);
         }
 
         // Project to the read-only interface expected by XmlDocReader
@@ -441,33 +463,28 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
     }
 
     /// <summary>
-    ///     Populates inheritance entries for all members of <paramref name="type"/> into
-    ///     <paramref name="chain"/>, then recurses into its resolved base type and interfaces
-    ///     (guarded by <paramref name="visitedTypes"/>) so their own members' inheritance entries
-    ///     are populated too, however far up the hierarchy — and across assembly boundaries — that
-    ///     leads.
+    ///     Populates inheritance entries for all methods, properties, and events declared directly
+    ///     on <paramref name="type"/> into <paramref name="chain"/>.
     /// </summary>
     /// <param name="type">The type whose members to inspect.</param>
     /// <param name="chain">The chain dictionary to populate.</param>
     /// <param name="assemblyHints">
     ///     The declaring-assembly-name hint dictionary to populate; see <see cref="BuildInheritanceChain"/>.
     /// </param>
-    /// <param name="visitedTypes">
-    ///     The set of types already processed in this <see cref="BuildInheritanceChain"/> call,
-    ///     preventing infinite recursion on circular-looking hierarchies and redundant reprocessing
-    ///     of a common ancestor type reached from multiple derived types.
+    /// <param name="authoritative">
+    ///     When <c>true</c> (used only for the primary assembly's own types), an entry always
+    ///     overwrites any existing entry for the same key. When <c>false</c> (used for externally
+    ///     referenced base types/interfaces reached via <see cref="RecurseBaseTypeInheritanceEntries"/>),
+    ///     an entry is added only when the key is not already present, so a primary-assembly entry
+    ///     populated authoritatively can never be shadowed by an external member that happens to
+    ///     produce an identical XML doc ID.
     /// </param>
-    private static void BuildTypeInheritanceEntries(
+    private static void AddTypeMemberEntries(
         TypeDefinition type,
         Dictionary<string, List<string>> chain,
         Dictionary<string, string> assemblyHints,
-        HashSet<TypeDefinition> visitedTypes)
+        bool authoritative)
     {
-        if (!visitedTypes.Add(type))
-        {
-            return;
-        }
-
         // Methods (excluding constructors, static members, and compiler-generated accessors)
         foreach (var method in type.Methods)
         {
@@ -479,7 +496,7 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             var targets = CollectMethodInheritanceTargets(method, type, assemblyHints);
             if (targets.Count > 0)
             {
-                chain[DotNetEmitter.BuildMethodId(method)] = targets;
+                SetChainEntry(chain, DotNetEmitter.BuildMethodId(method), targets, authoritative);
             }
         }
 
@@ -489,7 +506,7 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             var targets = CollectPropertyInheritanceTargets(property, type, assemblyHints);
             if (targets.Count > 0)
             {
-                chain[DotNetEmitter.BuildMemberId(property)] = targets;
+                SetChainEntry(chain, DotNetEmitter.BuildMemberId(property), targets, authoritative);
             }
         }
 
@@ -499,10 +516,53 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             var targets = CollectEventInheritanceTargets(ev, type, assemblyHints);
             if (targets.Count > 0)
             {
-                chain[DotNetEmitter.BuildMemberId(ev)] = targets;
+                SetChainEntry(chain, DotNetEmitter.BuildMemberId(ev), targets, authoritative);
             }
         }
+    }
 
+    /// <summary>
+    ///     Records a single chain entry, honoring the authoritative/non-authoritative distinction
+    ///     documented on <see cref="AddTypeMemberEntries"/>.
+    /// </summary>
+    private static void SetChainEntry(
+        Dictionary<string, List<string>> chain,
+        string memberId,
+        List<string> targets,
+        bool authoritative)
+    {
+        if (authoritative)
+        {
+            chain[memberId] = targets;
+        }
+        else
+        {
+            chain.TryAdd(memberId, targets);
+        }
+    }
+
+    /// <summary>
+    ///     Recurses into <paramref name="type"/>'s resolved base type and interfaces (guarded by
+    ///     <paramref name="visitedTypes"/>), populating non-authoritative inheritance entries for
+    ///     each one reached, however far up the hierarchy — and across assembly boundaries — that
+    ///     leads.
+    /// </summary>
+    /// <param name="type">The type whose base type and interfaces to recurse into.</param>
+    /// <param name="chain">The chain dictionary to populate.</param>
+    /// <param name="assemblyHints">
+    ///     The declaring-assembly-name hint dictionary to populate; see <see cref="BuildInheritanceChain"/>.
+    /// </param>
+    /// <param name="visitedTypes">
+    ///     The set of types already processed in this <see cref="BuildInheritanceChain"/> call,
+    ///     preventing infinite recursion on circular-looking hierarchies and redundant reprocessing
+    ///     of a common ancestor type reached from multiple derived types.
+    /// </param>
+    private static void RecurseBaseTypeInheritanceEntries(
+        TypeDefinition type,
+        Dictionary<string, List<string>> chain,
+        Dictionary<string, string> assemblyHints,
+        HashSet<TypeDefinition> visitedTypes)
+    {
         // Recurse into the resolved base type and interfaces, even when they are defined in an
         // externally referenced assembly (Mono.Cecil resolves them via the search directories
         // configured on the assembly resolver in Parse), so their own members' inheritance
@@ -513,9 +573,10 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             try
             {
                 var baseTypeDef = type.BaseType.Resolve();
-                if (baseTypeDef != null)
+                if (baseTypeDef != null && visitedTypes.Add(baseTypeDef))
                 {
-                    BuildTypeInheritanceEntries(baseTypeDef, chain, assemblyHints, visitedTypes);
+                    AddTypeMemberEntries(baseTypeDef, chain, assemblyHints, authoritative: false);
+                    RecurseBaseTypeInheritanceEntries(baseTypeDef, chain, assemblyHints, visitedTypes);
                 }
             }
             catch (AssemblyResolutionException)
@@ -531,9 +592,10 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             try
             {
                 var ifaceTypeDef = iface.InterfaceType.Resolve();
-                if (ifaceTypeDef != null)
+                if (ifaceTypeDef != null && visitedTypes.Add(ifaceTypeDef))
                 {
-                    BuildTypeInheritanceEntries(ifaceTypeDef, chain, assemblyHints, visitedTypes);
+                    AddTypeMemberEntries(ifaceTypeDef, chain, assemblyHints, authoritative: false);
+                    RecurseBaseTypeInheritanceEntries(ifaceTypeDef, chain, assemblyHints, visitedTypes);
                 }
             }
             catch (AssemblyResolutionException)

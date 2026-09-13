@@ -9,8 +9,8 @@ sections:
             title: ExternalXmlDocResolver shall locate a referenced assembly's XML
               documentation file (via a sibling `.xml` file or a `ref/`/`lib/` folder-segment
               swap fallback), lazily parse it on first use, and cache both per-file
-              and per-member-ID results (including misses) so repeated lookups never
-              re-touch disk.
+              and per-(declaring-assembly-hint, member-ID) results (including misses)
+              so repeated lookups never re-touch disk.
             justification: >
               Cross-assembly `<inheritdoc />` resolution needs to find and read a
               referenced assembly's own XML documentation file, but reference-assembly
@@ -20,8 +20,13 @@ sections:
               Eagerly parsing every configured reference path up front would waste
               time
               and memory; parsing lazily on first access, and caching both file-level
-              parse results and per-member-ID lookup results (including misses),
-              ensures the cost is paid at most once per file that is actually consulted.
+              parse results and lookup results keyed by a composite of the
+              declaring-assembly hint and member ID (including misses), ensures the
+              cost is paid at most once per file that is actually consulted. The
+              hint is included in the cache key -- rather than caching by member ID
+              alone -- because XML documentation member IDs do not carry assembly
+              identity, so a lookup for one hint must never be served another
+              hint's cached result.
             tests:
               - ExternalXmlDocResolver_TryGetMember_SiblingXmlPresent_ReturnsMember
               - ExternalXmlDocResolver_TryGetMember_NoDocAnywhere_ReturnsNull
@@ -66,3 +71,4 @@ sections:
             tests:
               - ExternalXmlDocResolver_TryGetMemberWithHint_CorrectHint_OnlyProbesHintedPathNotOthers
               - ExternalXmlDocResolver_TryGetMemberWithHint_HintMatchesNoConfiguredPath_FallsBackToFullScan
+              - ExternalXmlDocResolver_TryGetMemberWithHint_HintMatchesConfiguredPathButMemberMissing_FallsBackToFullScan

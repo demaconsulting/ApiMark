@@ -44,6 +44,11 @@ internal sealed class CppEmitter : IApiEmitter
         _options = options;
         _namespaceDecls = namespaceDecls;
         _cppResolver = cppResolver;
+        _normalizedPublicIncludeRoots = options.PublicIncludeRoots
+            .Select(root => PathHelpers.NormalizeCase(
+                Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, '/'),
+                _includeRootDirectoryEntryCache))
+            .ToList();
     }
 
     /// <summary>Gets the generator configuration options.</summary>
@@ -118,6 +123,22 @@ internal sealed class CppEmitter : IApiEmitter
     /// </summary>
     private readonly Dictionary<string, string[]> _includeRootDirectoryEntryCache = new(PathHelpers.Comparer);
 
+    /// <summary>
+    ///     Each configured <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry, resolved to
+    ///     its actual on-disk casing and pre-trimmed, precomputed once in the constructor rather
+    ///     than recomputed on every <see cref="GetIncludePath"/> call: the roots list is fixed for
+    ///     the lifetime of this emitter, so recomputing it per declaration would needlessly repeat
+    ///     <see cref="PathHelpers.NormalizeCase"/> work for every emitted declaration.
+    /// </summary>
+    private readonly IReadOnlyList<string> _normalizedPublicIncludeRoots;
+
+    /// <summary>
+    ///     Memoizes <see cref="GetIncludePath"/> results keyed by the as-supplied source file path,
+    ///     since many declarations commonly share the same source file and each call would
+    ///     otherwise re-normalize and re-scan <see cref="_normalizedPublicIncludeRoots"/> for the
+    ///     same file.
+    /// </summary>
+    private readonly Dictionary<string, string> _includePathCache = new(StringComparer.Ordinal);
 
     /// <summary>
     ///     Derives the canonical <c>#include</c> path for a declaration from its source file,
@@ -142,26 +163,35 @@ internal sealed class CppEmitter : IApiEmitter
     internal string GetIncludePath(string sourceFile)
     {
         ArgumentNullException.ThrowIfNull(sourceFile);
+
+        if (_includePathCache.TryGetValue(sourceFile, out var cached))
+        {
+            return cached;
+        }
+
         var normalized = PathHelpers.NormalizeCase(Path.GetFullPath(sourceFile), _includeRootDirectoryEntryCache);
 
         // Select the longest matching root so the most specific prefix wins
-        var matchingRoot = _options.PublicIncludeRoots
-            .Select(root => PathHelpers.NormalizeCase(
-                Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, '/'),
-                _includeRootDirectoryEntryCache))
+        var matchingRoot = _normalizedPublicIncludeRoots
             .Where(root => normalized.StartsWith(
                 root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
             .OrderByDescending(root => root.Length, Comparer<int>.Default)
             .FirstOrDefault();
 
+        string result;
         if (matchingRoot == null)
         {
-            return normalized.Replace('\\', '/');
+            result = normalized.Replace('\\', '/');
+        }
+        else
+        {
+            // Strip the root prefix (plus its trailing separator) and normalize to forward slashes
+            var relativePath = normalized[(matchingRoot.Length + 1)..];
+            result = relativePath.Replace('\\', '/');
         }
 
-        // Strip the root prefix (plus its trailing separator) and normalize to forward slashes
-        var relativePath = normalized[(matchingRoot.Length + 1)..];
-        return relativePath.Replace('\\', '/');
+        _includePathCache[sourceFile] = result;
+        return result;
     }
 
     // =========================================================================

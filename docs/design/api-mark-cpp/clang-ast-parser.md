@@ -100,10 +100,15 @@ while walking the JSON AST.
 - **IsOwned** — enforces the selected-header plus include-root ownership rule.
   Uses `ApiMark.Core.PathHelpers.NormalizeCase` to resolve both the source file
   and each configured public include root to their actual on-disk casing (rather
-  than guessing case sensitivity from the operating system), then compares the
-  normalized results case-sensitively via `PathHelpers.Comparer` so header path
-  matching is correct regardless of the build host's file-system case
-  sensitivity.
+  than guessing case sensitivity from the operating system), then checks the
+  root-prefix match via `StringComparison.Ordinal` (the same case-sensitive
+  comparison `PathHelpers.Comparer` exposes) and the selected-headers membership
+  check via the `PathHelpers.Comparer`-backed `_selectedHeaders` set, so header
+  path matching is correct regardless of the build host's file-system case
+  sensitivity. Both the per-declaration ownership result (keyed by the
+  as-supplied, non-normalized source file) and the normalized public include
+  roots (computed once by the constructor) are memoized, since `_currentFile`
+  commonly repeats across many consecutive declarations.
 - **GetKind / GetName / GetQualType / GetNsBuilder / BuildNamespaces** — JSON and
   namespace-builder utilities.
 

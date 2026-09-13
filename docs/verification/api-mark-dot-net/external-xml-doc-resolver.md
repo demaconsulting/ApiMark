@@ -140,3 +140,14 @@ from being found — `TryGetMember` still returns the correct member by
 falling back to the full in-order scan across every configured reference
 path. This scenario is tested by
 `ExternalXmlDocResolver_TryGetMemberWithHint_HintMatchesNoConfiguredPath_FallsBackToFullScan`.
+
+**TryGetMember falls back to a full scan when the hinted path lacks the member**:
+Verifies the distinct case where a hint correctly matches a configured
+reference path's assembly name, but that path's XML documentation does not
+contain the requested member (e.g. it only declares an unrelated member) —
+`TryGetMember` does not stop after the hinted-path miss, but falls back to
+the full in-order scan and finds the member in a different configured
+reference path. Without this fallback, the fast path could make a valid
+member in another configured reference path permanently unreachable. This
+scenario is tested by
+`ExternalXmlDocResolver_TryGetMemberWithHint_HintMatchesConfiguredPathButMemberMissing_FallsBackToFullScan`.

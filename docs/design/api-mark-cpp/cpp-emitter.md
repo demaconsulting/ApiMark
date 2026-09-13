@@ -114,10 +114,14 @@ by `WriteFunctionContent`.
   name for methods or fields.
 - **GetIncludePath** normalizes `sourceFile` and each public include root to their
   actual on-disk casing via `ApiMark.Core.PathHelpers.NormalizeCase` (rather than
-  guessing case sensitivity from the operating system), then compares the
-  normalized results case-sensitively via `PathHelpers.Comparer` so include-path
-  and page-key matching is correct regardless of the build host's file-system case
-  sensitivity.
+  guessing case sensitivity from the operating system), then performs the
+  longest-matching-root prefix comparison via `StringComparison.Ordinal` — the
+  same case-sensitive comparison `PathHelpers.Comparer` exposes, applied directly
+  since `String.StartsWith` takes a `StringComparison` rather than a
+  `StringComparer` — so include-path and page-key matching is correct
+  regardless of the build host's file-system case sensitivity. Results are
+  memoized per as-supplied `sourceFile` since many declarations commonly share
+  the same source file within a single generation run.
 - **WriteCombinedMemberPage**: `internal static void WriteCombinedMemberPage(
   IMarkdownWriterFactory factory, string nsKey, string nsDisplayName, CppClass cls,
   string lowerKey, IReadOnlyList<object> members, CppTypeLinkResolver cppResolver)` —

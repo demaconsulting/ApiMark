@@ -15,8 +15,9 @@ gives `XmlDocReader`'s external member lookup fallback something to call: for
 each configured reference assembly path, it resolves the conventional sibling
 `.xml` documentation file (falling back to a `ref/`↔`lib/` folder-segment swap
 when the sibling file is absent), parses it on first use, and caches both the
-per-file member index and per-member-ID lookup results (including misses) for
-the lifetime of the instance.
+per-file member index and, keyed by a composite of the caller-supplied
+declaring-assembly hint (or the empty string when none was supplied) and the
+member ID, lookup results (including misses) for the lifetime of the instance.
 
 ### Data Model
 
@@ -204,12 +205,15 @@ per target ID.
 ### Callers
 
 - **DotNetGenerator.Parse** — constructs an `ExternalXmlDocResolver` from
-  `DotNetGeneratorOptions.ReferencePaths` when non-empty, and passes its
-  `TryGetMember` method as the external member lookup delegate to the
-  `XmlDocReader` constructor.
+  `DotNetGeneratorOptions.ReferencePaths` when non-empty, and wraps its
+  `TryGetMember(string, string?)` overload in a closure (rather than passing
+  the method group directly) so each lookup can pass the target's
+  precomputed declaring-assembly hint from `BuildInheritanceChain`'s
+  `assemblyHints` result; the closure is passed as the external member lookup
+  delegate to the `XmlDocReader` constructor.
 - **XmlDocReader.ResolveMemberElement** — invokes the injected
-  `_externalMemberLookup` delegate (typically `ExternalXmlDocResolver.TryGetMember`)
-  when a member ID is absent from its own local index.
+  `_externalMemberLookup` delegate (the hinted `ExternalXmlDocResolver.TryGetMember`
+  closure described above) when a member ID is absent from its own local index.
 
 ### Known Limitation
 

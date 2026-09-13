@@ -362,6 +362,54 @@ public class ExternalXmlDocResolverTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="ExternalXmlDocResolver.TryGetMember(string, string?)"/> falls
+    ///     back to the full in-order scan of every configured reference path when the hint matches
+    ///     a configured reference path but that path's XML documentation does not actually contain
+    ///     the requested member — for example a stale hint pointing at an assembly that was
+    ///     rebuilt without the member, or a hint whose only relationship to the member is a shared
+    ///     assembly-name prefix. Without this fallback, the fast path could make a valid member in
+    ///     another configured reference path permanently unreachable.
+    /// </summary>
+    [Fact]
+    public void ExternalXmlDocResolver_TryGetMemberWithHint_HintMatchesConfiguredPathButMemberMissing_FallsBackToFullScan()
+    {
+        // Arrange
+        var dir = CreateTempDirectory();
+        try
+        {
+            var hintedDllPath = Path.Combine(dir, "Hinted.dll");
+            File.WriteAllBytes(hintedDllPath, []);
+            WriteXmlDoc(Path.ChangeExtension(hintedDllPath, ".xml"), """
+                <member name="T:Foo.SomeOtherType">
+                    <summary>An unrelated member that happens to live in the hinted assembly.</summary>
+                </member>
+                """);
+
+            var otherDllPath = Path.Combine(dir, "Other.dll");
+            File.WriteAllBytes(otherDllPath, []);
+            WriteXmlDoc(Path.ChangeExtension(otherDllPath, ".xml"), """
+                <member name="T:Foo.Bar">
+                    <summary>Resolved via fallback scan after the hinted path missed.</summary>
+                </member>
+                """);
+
+            var sut = new ExternalXmlDocResolver([hintedDllPath, otherDllPath]);
+
+            // Act: the hint correctly matches "Hinted", but that assembly's XML documentation
+            // does not contain "T:Foo.Bar" — only "Other.dll"'s XML documentation does.
+            var member = sut.TryGetMember("T:Foo.Bar", declaringAssemblyHint: "Hinted");
+
+            // Assert
+            Assert.NotNull(member);
+            Assert.Equal("Resolved via fallback scan after the hinted path missed.", member.Element("summary")?.Value.Trim());
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>
     ///     Validates that <see cref="ExternalXmlDocResolver"/> parses each reference assembly's
     ///     XML documentation file at most once and caches the result: deleting the file from disk
     ///     after a successful lookup does not prevent a second, different member from the same

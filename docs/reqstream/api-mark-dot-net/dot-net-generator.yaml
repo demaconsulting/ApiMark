@@ -169,3 +169,26 @@ sections:
             tests:
               - DotNetGenerator_Parse_ExternalBaseWithReferencePaths_ResolvesInheritedDocumentation
               - DotNetGenerator_Parse_ExternalBaseWithoutReferencePaths_LeavesInheritDocUnresolved
+          - id: ApiMarkDotNet-DotNetGenerator-ResolveInheritdocAcrossMultipleExternalHops
+            title: DotNetGenerator shall resolve a bare `<inheritdoc />` element even when
+              its immediate external base member is itself an undocumented bare
+              `<inheritdoc />` override, by recursing into every resolvable base
+              type/interface reachable from the inheritance chain, however far up the
+              hierarchy — and across however many externally referenced assemblies — that
+              leads.
+            justification: |
+              A referenced assembly's own type hierarchy can itself use bare
+              `<inheritdoc />` one or more levels above the member a local override
+              directly targets (e.g. a mid-level base class that itself inherits from a
+              grandparent class in the same or another referenced assembly). Stopping
+              inheritance-chain construction at the first external base type/interface
+              would leave such multi-hop chains unresolved even though the real
+              documentation is reachable and correct. `BuildInheritanceChain` therefore
+              recurses into every resolved base type and interface — memoized via a
+              visited-type set to avoid reprocessing a common ancestor — regardless of
+              which assembly declares it, and also produces a per-candidate
+              declaring-assembly-name hint (`AssemblyHints`) consumed by
+              `ExternalXmlDocResolver.TryGetMember(string, string?)` so a lookup miss does
+              not need to probe every configured reference path.
+            tests:
+              - DotNetGenerator_Parse_ExternalBaseTwoHops_ResolvesInheritedDocumentationAcrossBothHops

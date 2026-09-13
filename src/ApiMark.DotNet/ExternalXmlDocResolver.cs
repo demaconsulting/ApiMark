@@ -22,9 +22,10 @@ namespace ApiMark.DotNet;
 ///     of its members is requested — reference assembly lists can be large (e.g. hundreds of
 ///     transitive NuGet dependencies) and most of their documentation is never needed, so eagerly
 ///     parsing every configured path up front would waste time and memory. Both per-file parse
-///     results (including "no doc file found" / "failed to parse") and per-member-ID lookup results
-///     (including misses) are cached for the lifetime of this instance, so repeated lookups —
-///     successful or not — never re-touch disk.
+///     results (including "no doc file found" / "failed to parse") and lookup results keyed by a
+///     composite of the caller-supplied declaring-assembly hint (or the empty string when none
+///     was supplied) and the member ID (including misses) are cached for the lifetime of this
+///     instance, so repeated lookups — successful or not — never re-touch disk.
 ///     </para>
 ///     <para>
 ///     Known limitation: the <c>ref/</c>&#8596;<c>lib/</c> swap only handles a single matching path

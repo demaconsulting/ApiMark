@@ -54,9 +54,6 @@ internal sealed class ClangAstParser
     // Instance state
     // =========================================================================
 
-    /// <summary>Generator options providing include roots, defines, and clang path.</summary>
-    private readonly CppGeneratorOptions _options;
-
     /// <summary>
     ///     The set of normalized absolute paths of header files that were explicitly selected
     ///     as the API surface by the <see cref="Parse"/> caller. Only declarations whose source
@@ -83,6 +80,25 @@ internal sealed class ClangAstParser
     private string _currentFile = string.Empty;
 
     /// <summary>
+    ///     Each configured <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry, resolved
+    ///     to its actual on-disk casing and suffixed with a trailing directory separator (so
+    ///     <c>"lib"</c> cannot match <c>"libext"</c>), precomputed once by the constructor rather
+    ///     than recomputed on every <see cref="IsOwned"/> call: the roots list is fixed for the
+    ///     lifetime of a single <see cref="Parse"/> call, so recomputing it per declaration would
+    ///     needlessly repeat <see cref="PathHelpers.NormalizeCase"/> work for every parsed node.
+    /// </summary>
+    private readonly IReadOnlyList<string> _normalizedPublicIncludeRoots;
+
+    /// <summary>
+    ///     Memoizes <see cref="IsOwned"/> results keyed by the as-supplied (non-normalized) source
+    ///     file path, since <see cref="_currentFile"/> commonly repeats across many consecutive
+    ///     declarations (clang's JSON AST only emits <c>loc.file</c> when the file changes) and
+    ///     each call would otherwise re-normalize and re-scan <see cref="_normalizedPublicIncludeRoots"/>
+    ///     for the same file.
+    /// </summary>
+    private readonly Dictionary<string, bool> _isOwnedCache = new(StringComparer.Ordinal);
+
+    /// <summary>
     ///     Accumulates declarations grouped by fully-qualified namespace name. The empty
     ///     string key represents the C++ global (unnamed) namespace.
     /// </summary>
@@ -103,9 +119,13 @@ internal sealed class ClangAstParser
     /// </param>
     private ClangAstParser(CppGeneratorOptions options, IReadOnlySet<string> selectedHeaders, Dictionary<string, string[]> directoryEntryCache)
     {
-        _options = options;
         _selectedHeaders = selectedHeaders;
         _directoryEntryCache = directoryEntryCache;
+        _normalizedPublicIncludeRoots = options.PublicIncludeRoots
+            .Select(root => PathHelpers.NormalizeCase(
+                Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, '/'),
+                directoryEntryCache) + Path.DirectorySeparatorChar)
+            .ToList();
     }
 
     // =========================================================================
@@ -755,6 +775,14 @@ internal sealed class ClangAstParser
             return false;
         }
 
+        // _currentFile (the only caller-supplied value) commonly repeats across many consecutive
+        // declarations, so memoize by the as-supplied path to avoid re-normalizing and re-scanning
+        // _normalizedPublicIncludeRoots for every declaration in the same source file.
+        if (_isOwnedCache.TryGetValue(sourceFile, out var cached))
+        {
+            return cached;
+        }
+
         // Normalize the source path to resolve relative segments, mixed separators, and its
         // actual on-disk casing, matching the normalization applied to _selectedHeaders.
         var normalized = PathHelpers.NormalizeCase(Path.GetFullPath(sourceFile), _directoryEntryCache);
@@ -762,15 +790,12 @@ internal sealed class ClangAstParser
         // Require the file to be under a public include root AND in the selected-headers set.
         // The selected-headers check excludes transitively-included dependency headers that
         // share the same root but were not explicitly chosen by the caller.
-        return _options.PublicIncludeRoots.Any(root =>
-        {
-            // Append the directory separator so "lib" cannot match "libext"
-            var normalizedRoot = PathHelpers.NormalizeCase(
-                Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, '/'),
-                _directoryEntryCache) + Path.DirectorySeparatorChar;
-            return normalized.StartsWith(normalizedRoot, StringComparison.Ordinal);
-        })
+        var owned = _normalizedPublicIncludeRoots.Any(root =>
+                normalized.StartsWith(root, StringComparison.Ordinal))
             && _selectedHeaders.Contains(normalized);
+
+        _isOwnedCache[sourceFile] = owned;
+        return owned;
     }
 
     // =========================================================================

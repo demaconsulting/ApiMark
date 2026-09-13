@@ -28,6 +28,7 @@ sections:
           - ApiMarkDotNet-DotNetGenerator-RejectNullContext
           - ApiMarkDotNet-DotNetGenerator-ResolveBareInheritdocFromBaseTypes
           - ApiMarkDotNet-DotNetGenerator-ResolveInheritdocAcrossReferencedAssemblies
+          - ApiMarkDotNet-DotNetGenerator-ResolveInheritdocAcrossMultipleExternalHops
           - ApiMarkDotNet-DotNetAstModel-HoldParsedAssemblyData
           - ApiMarkDotNet-DotNetEmitter-DispatchToFormatSpecificEmitter
           - ApiMarkDotNet-DotNetEmitter-RejectNullArguments

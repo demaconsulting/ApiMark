@@ -65,6 +65,7 @@ sections:
               - ApiMarkTask_Execute_SmallReferencePathsList_StillSucceedsViaResponseFile
               - ApiMarkTask_Execute_WithReferencePaths_WritesResponseFileWithExpectedContent
               - ApiMarkTask_Execute_WithoutReferencePaths_NoResponseFileCreated
+              - ApiMarkTask_Execute_LibraryDescriptionEqualsReferencePathsLiteral_NotMisinterpretedAsFlag
           - id: ApiMarkMsbuild-ApiMarkTask-AutoPopulateReferencePaths
             title: >-
               ApiMarkTask's .targets file shall automatically populate
