@@ -137,6 +137,72 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         Assert.Throws<DirectoryNotFoundException>(() => generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext()));
     }
 
+    /// <summary>
+    ///     Regression test proving that <see cref="CppGenerator.Parse"/> resolves a
+    ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry that names an existing
+    ///     directory with different casing than its real on-disk spelling — proving the root is
+    ///     normalized to its actual on-disk casing (<see cref="ApiMark.Core.PathHelpers.NormalizeCase"/>)
+    ///     once, before header discovery's <see cref="Directory.Exists(string)"/> check and
+    ///     before the same value is passed to clang as a <c>-I</c> flag, rather than being
+    ///     rejected (or silently unusable by clang) before normalization gets a chance to resolve
+    ///     it. Uses a real, on-disk copy of the fixture headers (rather than relying on the host
+    ///     file system's own case sensitivity), so the test does not need a case-sensitive host
+    ///     to run — however, it only proves the fix is exercised (rather than trivially passing
+    ///     regardless of the fix) on a case-sensitive file system such as the CI matrix's
+    ///     <c>ubuntu-latest</c> runner; on a case-insensitive host (e.g. Windows, macOS's default
+    ///     APFS) the OS itself resolves the differently-cased path, so this test cannot by itself
+    ///     distinguish fixed from unfixed behavior there.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_IncludeRootHasDifferentCasingThanOnDisk_StillGeneratesDocumentation()
+    {
+        // Arrange: copy the fixture include tree into a fresh temp directory with a known,
+        // specific mixed-case spelling, then reference it with a differently-cased directory
+        // segment.
+        var tempParent = Path.Combine(Path.GetTempPath(), "ApiMarkCppGeneratorTests_" + Guid.NewGuid().ToString("N"));
+        var actualIncludeDir = Path.Combine(tempParent, "MyLib");
+        CopyDirectoryRecursive(FixturePaths.GetFixtureIncludeDir(), actualIncludeDir);
+        try
+        {
+            var differentlyCasedIncludeDir = Path.Combine(tempParent, "MYLIB");
+            var options = new CppGeneratorOptions
+            {
+                LibraryName = "Fixtures",
+                PublicIncludeRoots = [differentlyCasedIncludeDir],
+            };
+            var factory = new InMemoryMarkdownWriterFactory();
+            var generator = new CppGenerator(options);
+
+            // Act
+            generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+            // Assert: the api entrypoint page was produced, proving the differently-cased root
+            // was both accepted by header discovery and successfully resolved by clang.
+            Assert.True(factory.Writers.ContainsKey("api"), "Expected api.md to be created");
+        }
+        finally
+        {
+            Directory.Delete(tempParent, recursive: true);
+        }
+    }
+
+    /// <summary>Recursively copies every file and subdirectory from <paramref name="sourceDir"/> to <paramref name="destDir"/>.</summary>
+    /// <param name="sourceDir">The source directory to copy from. Must exist.</param>
+    /// <param name="destDir">The destination directory to copy to. Created if it does not already exist.</param>
+    private static void CopyDirectoryRecursive(string sourceDir, string destDir)
+    {
+        Directory.CreateDirectory(destDir);
+        foreach (var file in Directory.GetFiles(sourceDir))
+        {
+            File.Copy(file, Path.Combine(destDir, Path.GetFileName(file)));
+        }
+
+        foreach (var dir in Directory.GetDirectories(sourceDir))
+        {
+            CopyDirectoryRecursive(dir, Path.Combine(destDir, Path.GetFileName(dir)));
+        }
+    }
+
     /// <summary>Validates that generating from valid headers creates the <c>api</c> entrypoint page.</summary>
     [Fact]
     public void CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint()

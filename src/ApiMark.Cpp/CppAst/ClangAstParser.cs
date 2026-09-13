@@ -86,6 +86,12 @@ internal sealed class ClangAstParser
     ///     than recomputed on every <see cref="IsOwned"/> call: the roots list is fixed for the
     ///     lifetime of a single <see cref="Parse"/> call, so recomputing it per declaration would
     ///     needlessly repeat <see cref="PathHelpers.NormalizeCase"/> work for every parsed node.
+    ///     <see cref="CppGenerator.Parse"/> already normalizes
+    ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> before constructing this parser
+    ///     (so header discovery and the clang <c>-I</c> arguments built by
+    ///     <see cref="BuildArguments"/> observe the same on-disk casing); normalizing again here
+    ///     is a cheap, idempotent no-op in that case and keeps this type correct even when
+    ///     constructed directly with un-normalized roots (e.g. from a test).
     /// </summary>
     private readonly IReadOnlyList<string> _normalizedPublicIncludeRoots;
 
@@ -617,7 +623,13 @@ internal sealed class ClangAstParser
     /// </remarks>
     /// <param name="prefix">Arguments to prepend before all clang flags (may be empty).</param>
     /// <param name="headers">Absolute paths of the header files to parse.</param>
-    /// <param name="options">Generator options providing all structured clang settings.</param>
+    /// <param name="options">
+    ///     Generator options providing all structured clang settings. On the production path,
+    ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> is already normalized to actual
+    ///     on-disk casing by <see cref="CppGenerator.Parse"/>, so the <c>-I</c> flags built here
+    ///     resolve correctly on a case-sensitive file system even when the caller originally
+    ///     supplied a differently-cased root.
+    /// </param>
     /// <returns>The complete ordered argument list.</returns>
     private static List<string> BuildArguments(
         IReadOnlyList<string> prefix,

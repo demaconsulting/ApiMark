@@ -148,10 +148,12 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             {
                 // Build the inheritance chain from assembly metadata so that bare <inheritdoc />
                 // elements in the XML doc file can be resolved to their base members. The chain
-                // also carries a per-candidate declaring-assembly-name hint (assemblyHints) so
-                // that a cross-assembly lookup miss does not need to probe every configured
-                // reference path (see the ExternalXmlDocResolver.TryGetMember(string, string?)
-                // overload below). This must be done before constructing XmlDocReader.
+                // also carries a per-candidate declaring-assembly-name hint (assemblyHints) as a
+                // fast path: when present, the resolver tries that one reference path first for
+                // the common case where it actually contains the target, falling back to a full
+                // scan of every configured reference path when it does not (see the
+                // ExternalXmlDocResolver.TryGetMember(string, string?) overload below). This must
+                // be done before constructing XmlDocReader.
                 var (inheritanceChain, assemblyHints) = BuildInheritanceChain(assembly);
 
                 // Only construct an external XML doc resolver when reference paths are configured —

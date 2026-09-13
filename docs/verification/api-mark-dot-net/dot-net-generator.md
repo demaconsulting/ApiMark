@@ -287,6 +287,22 @@ does not carry the externally-inherited summary text — the prior/unchanged beh
 This scenario is tested by
 `DotNetGenerator_Parse_ExternalBaseWithoutReferencePaths_LeavesInheritDocUnresolved`.
 
+**Cross-assembly inheritdoc resolves when a ReferencePaths entry has different on-disk
+casing**: Verifies that a `ReferencePaths` entry naming an existing directory with
+different casing than its real on-disk spelling still resolves the same external
+`<inheritdoc />` content as the identically-cased path, proving the reference-directory
+pipeline normalizes each resolved directory to its actual on-disk casing (via
+`ApiMark.Core.PathHelpers.NormalizeCase`) *before* filtering by `Directory.Exists`,
+rather than discarding a differently-cased directory before normalization gets a chance
+to resolve it. Uses a real, on-disk copy of the external fixture assembly under a
+deliberately different-cased directory name so the test does not require a
+case-sensitive host to run; however, it only proves the fix is actually exercised
+(rather than trivially passing regardless of the fix) on a case-sensitive file system
+such as the CI matrix's `ubuntu-latest` runner — on a case-insensitive host the OS
+itself resolves the differently-cased path, so this test alone cannot distinguish fixed
+from unfixed behavior there. This scenario is tested by
+`DotNetGenerator_Parse_ReferencePathHasDifferentCasingThanOnDisk_StillResolvesInheritedDocumentation`.
+
 **Cross-assembly inheritdoc resolves across two external hops**: Verifies that a bare
 `<inheritdoc />` is followed correctly even when the locally-defined override's immediate
 external base member (`ExternalMidBaseClass.DescribeGrand`) is itself an undocumented

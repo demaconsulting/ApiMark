@@ -114,13 +114,16 @@ memory and returns a `DotNetEmitter` ready to emit.
  `AssemblyDefinition` is disposed before the exception propagates (resource leak
  prevention via try/catch).
 - *Assembly resolver seeding*: Before reading the assembly, `Parse` constructs a
-  Mono.Cecil `DefaultAssemblyResolver` and adds one search directory per distinct,
-  existing directory among `ReferencePaths` entries (`Path.GetDirectoryName`,
-  filtered by `Directory.Exists`, normalized to its actual on-disk casing via
-  `ApiMark.Core.PathHelpers.NormalizeCase`, then deduplicated with a case-sensitive
-  comparer — shared with `ExternalXmlDocResolver`; see that unit's design doc for
-  why normalizing real on-disk casing is used instead of an operating-system-based
-  case-sensitivity guess). This resolver is passed via
+  Mono.Cecil `DefaultAssemblyResolver` and adds one search directory per distinct
+  directory among `ReferencePaths` entries (`Path.GetDirectoryName`, normalized to
+  its actual on-disk casing via `ApiMark.Core.PathHelpers.NormalizeCase` *before*
+  being filtered by `Directory.Exists` — so a directory supplied with different
+  casing than its on-disk spelling is resolved to its real casing first, rather than
+  being discarded by an existence check against the literal, possibly-mismatched
+  input — then deduplicated with a case-sensitive comparer shared with
+  `ExternalXmlDocResolver`; see that unit's design doc for why normalizing real
+  on-disk casing is used instead of an operating-system-based case-sensitivity
+  guess). This resolver is passed via
   `ReaderParameters` to `AssemblyDefinition.ReadAssembly`, and is what allows
   `BuildInheritanceChain`'s `TypeReference.Resolve()` calls to succeed against
   base types/interfaces defined in externally referenced assemblies (e.g. NuGet
@@ -209,8 +212,11 @@ lookups.
   members that should be checked (in priority order) when resolving a bare
   `<inheritdoc />`; `AssemblyHints` maps each candidate target member ID appearing
   anywhere in `Chain` to the simple name of the assembly that declares it, when known —
-  consumed by `ExternalXmlDocResolver.TryGetMember(string, string?)` so a lookup miss
-  does not need to probe every configured reference path.
+  consumed by `ExternalXmlDocResolver.TryGetMember(string, string?)` as a fast path for
+  the common case where the hinted reference path actually contains the target; when it
+  does not (a stale or otherwise incorrect hint), the resolver still falls back to
+  scanning every remaining configured reference path in order, so a miss does not
+  guarantee avoiding the full scan.
 - *When it runs*: During `Parse`, before constructing `XmlDocReader`; `Chain` is passed
   directly to the `XmlDocReader` constructor, and `AssemblyHints` is captured by the
   closure passed as `XmlDocReader`'s external member lookup delegate (see *Collaborators*

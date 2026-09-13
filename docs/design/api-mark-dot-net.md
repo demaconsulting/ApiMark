@@ -224,8 +224,12 @@ N/A - not a safety-classified software item.
     referenced assemblies (e.g. NuGet dependencies) resolve using the referenced
     assembly's own XML documentation file instead of being left unresolved. The
     hint lets the resolver probe only the specific reference path expected to
-    contain the target first, instead of scanning every configured reference
-    assembly's XML documentation on a miss.
+    contain the target first, avoiding a full scan of every configured
+    reference assembly's XML documentation for the common case where that
+    hinted path does contain the target. When the hinted path does not
+    contain it (a stale or otherwise incorrect hint), the resolver still
+    falls back to scanning every remaining configured reference path in
+    order, so a miss is not guaranteed to avoid the full scan.
 
 ## Design Constraints
 

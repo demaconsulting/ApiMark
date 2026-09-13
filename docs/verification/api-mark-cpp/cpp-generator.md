@@ -82,6 +82,21 @@ missing configuration object. Tested by
 requirement's guard against a misconfigured include root. Tested by
 `CppGenerator_Generate_NonexistentIncludeRoot_ThrowsDirectoryNotFoundException`.
 
+**Differently-cased include root still resolves on a case-sensitive file system**:
+Verifies that a `PublicIncludeRoots` entry naming an existing directory with different
+casing than its real on-disk spelling is normalized to its actual on-disk casing before
+`Directory.Exists` validation and before being passed to clang as a `-I` argument,
+rather than being rejected (or made unresolvable to clang) before normalization gets a
+chance to run — satisfying the include-root/parse-options acceptance requirement's
+case-normalization guarantee. Uses a real, on-disk copy of the fixture headers under a
+deliberately different-cased directory name so the test does not require a
+case-sensitive host to run; however, it only proves the fix is actually exercised
+(rather than trivially passing regardless of the fix) on a case-sensitive file system
+such as the CI matrix's `ubuntu-latest` runner — on a case-insensitive host the OS
+itself resolves the differently-cased path, so this test alone cannot distinguish fixed
+from unfixed behavior there. Tested by
+`CppGenerator_Generate_IncludeRootHasDifferentCasingThanOnDisk_StillGeneratesDocumentation`.
+
 **CWD-relative header patterns fall back to the current working directory**: Verifies
 that a relative `ApiHeaderPatterns` entry is resolved from
 `CppGeneratorOptions.WorkingDirectory` when set, and falls back to
