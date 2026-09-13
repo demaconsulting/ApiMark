@@ -135,6 +135,45 @@ public class FileSystemPathComparerTests
     }
 
     /// <summary>
+    ///     Validates that when two entries coexist in the same directory differing only by case
+    ///     (possible on a case-sensitive file system) and the supplied segment matches neither one
+    ///     exactly (a third casing), <see cref="FileSystemPathComparer.NormalizeCase"/> refuses to
+    ///     guess which of the two coexisting entries was meant — preserving the as-supplied casing
+    ///     — rather than letting unspecified directory-enumeration order silently pick one.
+    /// </summary>
+    [Fact]
+    public void FileSystemPathComparer_NormalizeCase_CaseSensitiveFileSystemWithBothCasings_AmbiguousThirdCasing_PreservesSuppliedCasing()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var lower = Path.Combine(root, "foo.dll");
+            var upper = Path.Combine(root, "Foo.dll");
+            File.WriteAllBytes(lower, []);
+            File.WriteAllBytes(upper, []);
+
+            // On a case-insensitive file system, the second write overwrites the same physical
+            // file as the first, leaving only one directory entry — this scenario cannot be
+            // exercised there, so skip rather than assert something meaningless.
+            if (Directory.EnumerateFileSystemEntries(root).Count() < 2)
+            {
+                return;
+            }
+
+            // Act: request a third casing that matches neither coexisting entry exactly
+            var thirdCasing = Path.Combine(root, "FOO.dll");
+            var normalized = FileSystemPathComparer.NormalizeCase(thirdCasing);
+
+            // Assert: neither coexisting entry is guessed at; the supplied casing is preserved
+            Assert.Equal(thirdCasing, normalized, StringComparer.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
     ///     Validates that a caller-supplied <c>directoryEntryCache</c> dictionary, shared across
     ///     multiple <see cref="FileSystemPathComparer.NormalizeCase"/> calls for paths under the
     ///     same ancestor directory, still resolves each path correctly — proving the cache reuse

@@ -663,7 +663,20 @@ public class ApiMarkTask : Task
         {
             if (responseFilePath is not null)
             {
-                File.Delete(responseFilePath);
+                try
+                {
+                    File.Delete(responseFilePath);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // Cleanup failure (e.g. a transient file lock or permissions issue) must not
+                    // override the already-determined result of the run above (a successful
+                    // process result, or the graceful `false` from the catch block) by escaping
+                    // this finally block as an unhandled exception. Log it as a warning — the
+                    // stray temp file is harmless leftover, not a generation failure — and leave
+                    // the method's return value untouched.
+                    Log.LogWarning($"ApiMark: unable to delete the temporary response file '{responseFilePath}': {ex.Message}");
+                }
             }
         }
     }

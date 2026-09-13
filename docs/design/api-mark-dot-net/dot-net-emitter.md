@@ -42,10 +42,24 @@ Markdown documentation tree in the format specified by `config.Format`.
   `IContext context` — forwarded to the selected sub-emitter.
 - *Returns*: `void`
 - *Algorithm*: Validates that `factory`, `config`, and `context` are not null (throws
-  `ArgumentNullException` for any null argument); opens a `using (Model.Assembly)` block
-  to ensure disposal; if `config.Format == OutputFormat.SingleFile`, creates and calls
-  `DotNetEmitterSingleFile.Emit`; otherwise creates and calls
+  `ArgumentNullException` for any null argument); opens a `using (Model.Assembly)` /
+  `using (Model.AssemblyResolver)` block to ensure both are disposed together once emit
+  completes (whether it completes normally or by throwing) — the resolver may still be
+  consulted for lazy metadata resolution for as long as the assembly is alive, so it must
+  share the same disposal scope; if `config.Format == OutputFormat.SingleFile`, creates
+  and calls `DotNetEmitterSingleFile.Emit`; otherwise creates and calls
   `DotNetEmitterGradualDisclosure.Emit`.
+- *Known limitation*: this disposal makes each `DotNetEmitter` instance single-use —
+  once `Emit` returns (or throws), a second call on the same instance would operate on a
+  disposed `AssemblyDefinition`/`IAssemblyResolver`. This is a narrower guarantee than
+  `IApiEmitter`'s documented intent that the same parsed data can drive multiple output
+  formats without re-parsing. It is an accepted, pre-existing tradeoff (the single-Emit
+  disposal of `Model.Assembly` predates cross-assembly `<inheritdoc/>` support and was
+  only extended here to also cover `Model.AssemblyResolver`): the only current caller
+  (`ApiMark.Tool`'s `Program.Main`) invokes `Emit` exactly once per parsed model, and
+  eagerly releasing the Mono.Cecil-held file handles as soon as emit completes is
+  preferable to holding them open for a process's entire remaining lifetime on the
+  chance a caller might want a second format later.
 
 **DotNetEmitter.GetNamespaceFolderPath** (internal static): Computes the
 file-system folder path for a namespace, treating the root namespace as atomic.
@@ -171,8 +185,10 @@ lookup in `XmlDocReader`.
 
 `DotNetEmitter.Emit` throws `ArgumentNullException` when any of `factory`, `config`, or
 `context` is null. All other exceptions (Mono.Cecil I/O errors, XmlDocReader errors)
-propagate unchanged to the caller. The `AssemblyDefinition` is always disposed in a
-`finally` block regardless of success or failure.
+propagate unchanged to the caller. Both the `AssemblyDefinition` and the
+`IAssemblyResolver` are always disposed together, via nested `using` blocks, regardless
+of success or failure — see the known single-use limitation noted under
+**DotNetEmitter.Emit** above.
 
 ### Dependencies
 

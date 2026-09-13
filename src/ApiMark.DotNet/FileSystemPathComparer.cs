@@ -100,8 +100,9 @@ internal static class FileSystemPathComparer
 
     /// <summary>
     ///     Looks up <paramref name="segment"/> among the actual file-system entries of
-    ///     <paramref name="parentDirectory"/>, case-insensitively, and returns the matching
-    ///     entry's real on-disk name.
+    ///     <paramref name="parentDirectory"/>, preferring an exact (ordinal) match and falling
+    ///     back to an unambiguous case-insensitive match, and returns the matching entry's real
+    ///     on-disk name.
     /// </summary>
     /// <param name="parentDirectory">The directory to search.</param>
     /// <param name="segment">The path segment to resolve.</param>
@@ -111,8 +112,10 @@ internal static class FileSystemPathComparer
     /// </param>
     /// <returns>
     ///     The matching entry's actual name, or <c>null</c> when <paramref name="parentDirectory"/>
-    ///     does not exist, cannot be enumerated, or contains no entry matching
-    ///     <paramref name="segment"/> case-insensitively.
+    ///     does not exist, cannot be enumerated, contains no entry matching <paramref name="segment"/>
+    ///     case-insensitively, or contains two or more entries that match <paramref name="segment"/>
+    ///     case-insensitively but none of them exactly — an ambiguous case-sensitive-file-system
+    ///     scenario this method deliberately refuses to guess at rather than resolving arbitrarily.
     /// </returns>
     private static string? FindActualEntryName(string parentDirectory, string segment, Dictionary<string, string[]>? directoryEntryCache)
     {
@@ -151,7 +154,17 @@ internal static class FileSystemPathComparer
         // is unspecified — decide which of the two is treated as the "real" casing, silently
         // resolving to the wrong file. An exact match is always unambiguous and correct regardless
         // of enumeration order or file-system case sensitivity, so it must win whenever one exists.
+        //
+        // When there is no exact match, only fall back to a case-insensitive match when exactly
+        // one distinct entry matches case-insensitively. If two or more case variants coexist
+        // (e.g. both "Foo.dll" and "foo.dll" exist) and the supplied segment matches neither one
+        // exactly (e.g. "FOO.dll"), there is no way to know which of the coexisting files the
+        // caller actually meant — arbitrarily picking whichever enumeration happens to return
+        // first would risk silently resolving to the wrong file (e.g. attributing external XML
+        // documentation to the wrong referenced assembly). In that ambiguous case, return null so
+        // the caller falls back to the as-supplied casing instead of guessing.
         string? caseInsensitiveMatch = null;
+        var caseInsensitiveMatchCount = 0;
         foreach (var name in cachedEntries!)
         {
             if (string.Equals(name, segment, StringComparison.Ordinal))
@@ -159,12 +172,13 @@ internal static class FileSystemPathComparer
                 return name;
             }
 
-            if (caseInsensitiveMatch == null && string.Equals(name, segment, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(name, segment, StringComparison.OrdinalIgnoreCase))
             {
                 caseInsensitiveMatch = name;
+                caseInsensitiveMatchCount++;
             }
         }
 
-        return caseInsensitiveMatch;
+        return caseInsensitiveMatchCount == 1 ? caseInsensitiveMatch : null;
     }
 }
