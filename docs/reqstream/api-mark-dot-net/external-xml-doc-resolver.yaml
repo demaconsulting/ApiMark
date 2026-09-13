@@ -44,3 +44,25 @@ sections:
               ApiMark's constructors and Parse/Emit entry points.
             tests:
               - ExternalXmlDocResolver_Constructor_NullReferencePaths_ThrowsArgumentNullException
+          - id: ApiMarkDotNet-ExternalXmlDocResolver-ProbeHintedAssemblyBeforeFullScan
+            title: ExternalXmlDocResolver shall accept an optional declaring-assembly-name
+              hint per lookup and, when it matches a configured reference path, probe only
+              that path's XML documentation before falling back to a full, in-order scan
+              of every configured reference path.
+            justification: >
+              With MSBuild's auto-harvested ReferencePaths default, the configured
+              reference assembly list can contain every resolved dependency of a
+              project -- often hundreds of transitive NuGet packages, the vast
+              majority unrelated to any given <inheritdoc/> target. Without a hint,
+              a single miss forces every configured reference assembly's XML
+              documentation file to be located and parsed. DotNetGenerator already
+              knows (from Mono.Cecil metadata) which assembly actually declares each
+              inheritance target, so passing that as a hint lets the common case
+              resolve with a single, targeted file access instead of scanning the
+              entire auto-harvested dependency set. A missing, stale, or incorrect
+              hint must never cause a real match to be missed, so the full scan
+              fallback is always attempted when the hinted probe does not resolve
+              the member.
+            tests:
+              - ExternalXmlDocResolver_TryGetMemberWithHint_CorrectHint_OnlyProbesHintedPathNotOthers
+              - ExternalXmlDocResolver_TryGetMemberWithHint_HintMatchesNoConfiguredPath_FallsBackToFullScan
