@@ -206,8 +206,8 @@ public static class PathHelpers
     /// <summary>
     ///     Looks up <paramref name="segment"/> among the actual file-system entries of
     ///     <paramref name="parentDirectory"/>, preferring an exact (ordinal) match and falling
-    ///     back to an unambiguous case-insensitive match confirmed by the file system itself, and
-    ///     returns the matching entry's real on-disk name.
+    ///     back to an unambiguous case-insensitive match, and returns the matching entry's real
+    ///     on-disk name.
     /// </summary>
     /// <param name="parentDirectory">The directory to search.</param>
     /// <param name="segment">The path segment to resolve.</param>
@@ -218,15 +218,9 @@ public static class PathHelpers
     /// <returns>
     ///     The matching entry's actual name, or <c>null</c> when <paramref name="parentDirectory"/>
     ///     does not exist, cannot be enumerated, contains no entry matching <paramref name="segment"/>
-    ///     case-insensitively, contains two or more entries that match <paramref name="segment"/>
-    ///     case-insensitively but none of them exactly (an ambiguous case-sensitive-file-system
-    ///     scenario this method deliberately refuses to guess at rather than resolving
-    ///     arbitrarily), or — even with exactly one case-insensitive match — when
-    ///     <see cref="File.Exists(string)"/>/<see cref="Directory.Exists(string)"/> for the
-    ///     literal, as-supplied <paramref name="segment"/> reports that it does not actually exist
-    ///     (meaning the file system is case-sensitive and the single matching entry is an
-    ///     unrelated, coincidentally-differently-cased entry rather than the one identified by
-    ///     <paramref name="segment"/>).
+    ///     case-insensitively, or contains two or more entries that match <paramref name="segment"/>
+    ///     case-insensitively but none of them exactly — an ambiguous case-sensitive-file-system
+    ///     scenario this method deliberately refuses to guess at rather than resolving arbitrarily.
     /// </returns>
     private static string? FindActualEntryName(string parentDirectory, string segment, Dictionary<string, string[]>? directoryEntryCache)
     {
@@ -290,24 +284,6 @@ public static class PathHelpers
             }
         }
 
-        if (caseInsensitiveMatchCount != 1)
-        {
-            return null;
-        }
-
-        // Even with a single unambiguous case-insensitive match, only accept it once the file
-        // system itself confirms the literal, as-supplied spelling actually resolves to
-        // something. On a genuinely case-sensitive file system, File.Exists/Directory.Exists for
-        // the literal segment returns false whenever no exact entry exists (which is always true
-        // here, since an exact match would already have returned above) — so the fallback is
-        // correctly never taken there, and "foo.dll" is never silently treated as a match for an
-        // unrelated, coincidentally-named "Foo.dll". On a case-insensitive file system, the OS
-        // resolves the literal spelling to the same entry regardless of case, so the check passes
-        // and the fallback is safely taken, exactly as intended for a path that was merely
-        // recorded with different casing than the entry's real on-disk name.
-        var literalCandidatePath = Path.Combine(parentDirectory, segment);
-        return File.Exists(literalCandidatePath) || Directory.Exists(literalCandidatePath)
-            ? caseInsensitiveMatch
-            : null;
+        return caseInsensitiveMatchCount == 1 ? caseInsensitiveMatch : null;
     }
 }
