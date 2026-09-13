@@ -17,20 +17,22 @@ namespace ApiMark.DotNet;
 ///     task invocation spawns an isolated <c>ApiMark.Tool</c> child process), so this is not a
 ///     practical limitation today.
 ///     <para>
-///     Known limitation: a bare (<c>cref</c>-less) <c>&lt;inheritdoc /&gt;</c> that follows a
-///     <em>second</em> bare-inheritdoc hop after landing in an externally-resolved member does not
-///     resolve. <c>_inheritanceChain</c> is built once, up front, from the primary assembly's own
-///     Cecil metadata only (see <c>DotNetGenerator.BuildInheritanceChain</c>), so it has no entry
-///     for any member that was itself resolved via <c>_externalMemberLookup</c> — regardless of
-///     which assembly that member actually lives in. A single hop from a primary-assembly member
-///     into an external member (via <c>_externalMemberLookup</c>, consulted only while resolving an
-///     <c>&lt;inheritdoc /&gt;</c> target) works correctly, but if that external member's own XML
-///     doc entry is itself a bare <c>&lt;inheritdoc /&gt;</c> pointing at a further member — even one
-///     in the very same external assembly — resolution stops there and returns no content, because
-///     no chain entry exists for the externally-resolved member ID. An explicit <c>cref</c> at each
-///     hop is unaffected by this limitation and resolves correctly across any number of hops,
-///     because <c>cref</c> targets recurse directly through <see cref="ResolveMemberElement"/>
-///     rather than through <c>_inheritanceChain</c>.
+///     A bare (<c>cref</c>-less) <c>&lt;inheritdoc /&gt;</c> is resolved purely by looking up its
+///     member ID in <c>_inheritanceChain</c>; this class does not itself walk assembly metadata or
+///     distinguish primary-assembly members from externally-resolved ones. Whether resolution can
+///     continue across multiple external hops therefore depends entirely on how completely the
+///     supplied <c>_inheritanceChain</c> was populated by its caller: <c>DotNetGenerator</c>
+///     recursively walks resolvable external base types/interfaces (see
+///     <c>DotNetGenerator.BuildTypeInheritanceEntries</c>) when building the chain it passes in,
+///     so a chain entry commonly does exist for an externally-resolved member whose own base type
+///     is itself resolvable via Mono.Cecil — allowing a bare <c>&lt;inheritdoc /&gt;</c> to resolve
+///     across more than one external hop in that case. If the chain has no entry for a given
+///     member ID (for example because an external base type could not be resolved, such as when it
+///     lives in an assembly outside the configured reference paths), resolution stops there and
+///     returns no content for that hop. An explicit <c>cref</c> at any hop is unaffected either way
+///     and resolves correctly across any number of hops, because <c>cref</c> targets recurse
+///     directly through <see cref="ResolveMemberElement"/> rather than through
+///     <c>_inheritanceChain</c>.
 ///     </para>
 /// </remarks>
 public sealed class XmlDocReader
@@ -496,17 +498,18 @@ public sealed class XmlDocReader
     ///     chain is tried in priority order.
     /// </summary>
     /// <remarks>
-    ///     Known limitation: the bare (<c>cref</c>-less) branch below looks up <paramref name="memberId"/>
-    ///     in <c>_inheritanceChain</c>, which only has entries for members of the primary assembly
-    ///     (see the class-level remarks). When <paramref name="memberId"/> identifies a member that
-    ///     was itself resolved via the external member lookup delegate and its own
-    ///     <c>&lt;inheritdoc /&gt;</c> is bare, no chain entry exists and this method returns
-    ///     <c>null</c> — a second bare-inheritdoc hop after landing in an externally-resolved member
-    ///     is not supported, regardless of which assembly that further target actually lives in. An
-    ///     explicit <c>cref</c> at any hop is unaffected, since the branch above recurses directly.
-    ///     Both recursive calls below pass <c>allowExternalLookup: true</c> because they are, by
-    ///     definition, resolving an <c>&lt;inheritdoc /&gt;</c> target rather than performing a
-    ///     top-level lookup.
+    ///     The bare (<c>cref</c>-less) branch below looks up <paramref name="memberId"/> directly
+    ///     in <c>_inheritanceChain</c> and does not itself know or care whether that ID names a
+    ///     primary-assembly or an externally-resolved member (see the class-level remarks): if the
+    ///     chain has an entry, resolution continues; if not, this method returns <c>null</c> for
+    ///     that hop. Because <c>DotNetGenerator</c> populates the chain recursively for resolvable
+    ///     external base types/interfaces, a chain entry is commonly present even for an
+    ///     externally-resolved member, so a bare <c>&lt;inheritdoc /&gt;</c> can continue across
+    ///     more than one external hop when those further base types are themselves resolvable. An
+    ///     explicit <c>cref</c> at any hop is unaffected either way, since the branch above
+    ///     recurses directly. Both recursive calls below pass <c>allowExternalLookup: true</c>
+    ///     because they are, by definition, resolving an <c>&lt;inheritdoc /&gt;</c> target rather
+    ///     than performing a top-level lookup.
     /// </remarks>
     /// <param name="memberId">The member ID that carries the <c>&lt;inheritdoc /&gt;</c> element.</param>
     /// <param name="inheritdoc">The <c>&lt;inheritdoc /&gt;</c> element.</param>
