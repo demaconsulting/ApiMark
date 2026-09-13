@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using ApiMark.Core;
 
 namespace ApiMark.DotNet;
 
@@ -49,7 +50,7 @@ public sealed class ExternalXmlDocResolver
     ///     means "no XML documentation file could be found or parsed for this reference assembly
     ///     path", cached so repeated misses do not re-probe the file system.
     /// </summary>
-    private readonly Dictionary<string, Dictionary<string, XElement>?> _docsByReferencePath = new(FileSystemPathComparer.Comparer);
+    private readonly Dictionary<string, Dictionary<string, XElement>?> _docsByReferencePath = new(PathHelpers.Comparer);
 
     /// <summary>
     ///     Cache of resolved member elements keyed by member ID, spanning all configured reference
@@ -77,12 +78,12 @@ public sealed class ExternalXmlDocResolver
         //
         // Each path is also normalized with Path.GetFullPath (matching the convention used by
         // DotNetGenerator.ResolveReferenceSearchDirectory) and then with
-        // FileSystemPathComparer.NormalizeCase, so that two different string forms of the same
+        // PathHelpers.NormalizeCase, so that two different string forms of the same
         // underlying file — e.g. a relative path vs. its absolute form, paths that differ only in
         // directory-separator style, or paths that differ only in case on a case-insensitive file
         // system — all collapse to the same _docsByReferencePath cache key, preserving the "parsed
         // at most once" guarantee documented on this class. This is deliberately not an
-        // operating-system-based guess (see FileSystemPathComparer's remarks): resolving the
+        // operating-system-based guess (see PathHelpers.Comparer's remarks): resolving the
         // actual on-disk casing and then comparing case-sensitively is correct regardless of
         // whether the current platform or file system happens to be case-sensitive. A genuinely
         // malformed path is allowed to throw here, same as DotNetGenerator's equivalent
@@ -99,10 +100,10 @@ public sealed class ExternalXmlDocResolver
         // re-enumerate those same shared directories. Scoping the cache to a single constructor
         // call (rather than a static/process-wide cache) means results can never become stale
         // across independent ExternalXmlDocResolver instances created at different times.
-        var directoryEntryCache = new Dictionary<string, string[]>(FileSystemPathComparer.Comparer);
+        var directoryEntryCache = new Dictionary<string, string[]>(PathHelpers.Comparer);
         _referenceAssemblyPaths = referenceAssemblyPaths
             .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Select(path => FileSystemPathComparer.NormalizeCase(Path.GetFullPath(path), directoryEntryCache))
+            .Select(path => PathHelpers.NormalizeCase(Path.GetFullPath(path), directoryEntryCache))
             .ToArray();
     }
 
@@ -114,11 +115,56 @@ public sealed class ExternalXmlDocResolver
     ///     Reference assembly paths are searched in the order supplied to the constructor; the
     ///     first path whose XML documentation file contains <paramref name="memberId"/> wins.
     ///     Results (including misses) are cached, so repeated calls with the same
-    ///     <paramref name="memberId"/> never re-parse or re-search.
+    ///     <paramref name="memberId"/> never re-parse or re-search. Equivalent to calling
+    ///     <see cref="TryGetMember(string, string?)"/> with no declaring-assembly hint.
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier (e.g. <c>T:MyNamespace.MyClass</c>) to resolve.</param>
     /// <returns>The matching <c>&lt;member&gt;</c> element, or <c>null</c> when not found in any configured reference assembly.</returns>
-    public XElement? TryGetMember(string memberId)
+    public XElement? TryGetMember(string memberId) => TryGetMember(memberId, declaringAssemblyHint: null);
+
+    /// <summary>
+    ///     Attempts to resolve <paramref name="memberId"/> against the XML documentation files of
+    ///     the configured reference assembly paths, using <paramref name="declaringAssemblyHint"/>
+    ///     (when supplied) to probe the single reference path expected to declare it before
+    ///     falling back to a full search.
+    /// </summary>
+    /// <remarks>
+    ///     With MSBuild's auto-harvested <c>ReferencePaths</c> default, the configured reference
+    ///     assembly list can contain every resolved dependency of a project — often hundreds of
+    ///     transitive NuGet packages, the vast majority of which are unrelated to any given
+    ///     <c>&lt;inheritdoc /&gt;</c> target. Searching every configured path in order (as the
+    ///     parameterless <see cref="TryGetMember(string)"/> overload always does) means a single
+    ///     miss forces every one of those XML documentation files to be located and parsed, even
+    ///     though at most one of them could ever actually contain the target.
+    ///     <para>
+    ///     When <paramref name="declaringAssemblyHint"/> names an assembly whose simple file name
+    ///     (i.e. <see cref="Path.GetFileNameWithoutExtension(string)"/> of one of the configured
+    ///     reference paths, compared case-insensitively since assembly file names are conventionally
+    ///     stable but not guaranteed to match a strong name's casing exactly) matches a configured
+    ///     reference path, that single path's XML documentation is tried first. If it is found
+    ///     there, no other reference path is ever touched — this is the common case, since the
+    ///     hint (built from Mono.Cecil metadata in <c>DotNetGenerator.BuildInheritanceChain</c>)
+    ///     identifies the actual assembly that declares the candidate member.
+    ///     </para>
+    ///     <para>
+    ///     If the hint is absent, does not match any configured reference path, or the member is
+    ///     not found there (for example because the hinted assembly does not ship its documentation
+    ///     in either the sibling or the <c>ref/</c>&#8596;<c>lib/</c>-swapped location — see
+    ///     <see cref="ResolveXmlDocPath"/> — or the hint is stale), resolution falls back to the
+    ///     same full, in-order search across every configured reference path as before, so a wrong
+    ///     or missing hint never causes a real match to be missed.
+    ///     </para>
+    ///     Results (including misses) are cached per <paramref name="memberId"/> regardless of
+    ///     which hint (if any) was supplied for a given call, matching
+    ///     <see cref="TryGetMember(string)"/>'s existing caching behavior.
+    /// </remarks>
+    /// <param name="memberId">The XML doc member identifier (e.g. <c>T:MyNamespace.MyClass</c>) to resolve.</param>
+    /// <param name="declaringAssemblyHint">
+    ///     The simple name (no extension) of the assembly expected to declare
+    ///     <paramref name="memberId"/>, or <c>null</c>/empty when unknown.
+    /// </param>
+    /// <returns>The matching <c>&lt;member&gt;</c> element, or <c>null</c> when not found in any configured reference assembly.</returns>
+    public XElement? TryGetMember(string memberId, string? declaringAssemblyHint)
     {
         if (_memberCache.TryGetValue(memberId, out var cached))
         {
@@ -126,13 +172,36 @@ public sealed class ExternalXmlDocResolver
         }
 
         XElement? result = null;
-        foreach (var referenceAssemblyPath in _referenceAssemblyPaths)
+
+        // Try the hinted reference path first, when one is supplied and matches a configured
+        // path — this is the fast path that avoids probing the entire auto-harvested dependency
+        // set for the common case where the declaring assembly is already known.
+        if (!string.IsNullOrEmpty(declaringAssemblyHint))
         {
-            var members = GetOrLoadMembers(referenceAssemblyPath);
-            if (members != null && members.TryGetValue(memberId, out var member))
+            var hintedPath = _referenceAssemblyPaths.FirstOrDefault(path =>
+                string.Equals(Path.GetFileNameWithoutExtension(path), declaringAssemblyHint, StringComparison.OrdinalIgnoreCase));
+            if (hintedPath != null)
             {
-                result = member;
-                break;
+                var hintedMembers = GetOrLoadMembers(hintedPath);
+                if (hintedMembers != null && hintedMembers.TryGetValue(memberId, out var hintedMember))
+                {
+                    result = hintedMember;
+                }
+            }
+        }
+
+        // Fall back to searching every configured reference path in order — either no usable
+        // hint was supplied, or the hinted path did not actually contain the member.
+        if (result == null)
+        {
+            foreach (var referenceAssemblyPath in _referenceAssemblyPaths)
+            {
+                var members = GetOrLoadMembers(referenceAssemblyPath);
+                if (members != null && members.TryGetValue(memberId, out var member))
+                {
+                    result = member;
+                    break;
+                }
             }
         }
 
@@ -238,12 +307,12 @@ public sealed class ExternalXmlDocResolver
     ///     always the one closest to the assembly file itself.
     ///     <para>
     ///     The segment comparison here is always case-insensitive, regardless of platform or file
-    ///     system, and deliberately does not use <see cref="FileSystemPathComparer"/>: this check
+    ///     system, and deliberately does not use <see cref="PathHelpers"/>: this check
     ///     recognizes a known NuGet layout convention token (packages always publish these folders
     ///     as lowercase <c>ref</c>/<c>lib</c>) rather than deciding whether two real, independently
     ///     supplied paths name the same on-disk file, so there is no ambiguity to resolve by
     ///     consulting the file system — and the swapped path being constructed does not necessarily
-    ///     exist yet, so there is nothing for <see cref="FileSystemPathComparer.NormalizeCase"/> to
+    ///     exist yet, so there is nothing for <see cref="PathHelpers.NormalizeCase"/> to
     ///     resolve against even if it were used here.
     ///     </para>
     /// </remarks>

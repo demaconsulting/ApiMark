@@ -2362,6 +2362,36 @@ public class DotNetGeneratorTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.Parse"/> resolves a bare
+    ///     <c>&lt;inheritdoc /&gt;</c> across <em>two</em> external hops: the locally-defined
+    ///     override's immediate external base member (<c>ExternalMidBaseClass.DescribeGrand</c>)
+    ///     is itself an undocumented bare <c>&lt;inheritdoc /&gt;</c> override, so resolution must
+    ///     continue up to <c>ExternalGrandBaseClass.DescribeGrand</c> to find real documentation
+    ///     text. This proves the inheritance chain now recurses into resolvable external base
+    ///     types rather than stopping at the first external candidate.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Parse_ExternalBaseTwoHops_ResolvesInheritedDocumentationAcrossBothHops()
+    {
+        // Arrange
+        var options = BuildOptions();
+        options.ReferencePaths = [FixturePaths.GetExternalFixtureDll()];
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(options);
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the second-hop grandparent's summary text is found, not the mid-tier's
+        // undocumented bare inheritdoc override
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ExternalTwoHopInheritDocClass/DescribeGrand", out var writer),
+            "Expected member detail page for ExternalTwoHopInheritDocClass.DescribeGrand");
+        var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Describes the grandparent implementation."));
+    }
+
+    /// <summary>
     ///     Validates that <see cref="DotNetGenerator.Parse"/> and the subsequent
     ///     <see cref="IApiEmitter.Emit"/> complete without throwing, and leave cross-assembly
     ///     <c>&lt;inheritdoc /&gt;</c> content unresolved (absent), when

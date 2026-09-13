@@ -1994,13 +1994,22 @@ public class XmlDocReaderTests
     }
 
     /// <summary>
-    ///     Pins down a documented known limitation: when a member is resolved via the external
-    ///     lookup delegate and that external member's own XML doc entry contains a BARE
-    ///     <c>&lt;inheritdoc /&gt;</c> (no <c>cref</c>), resolution cannot continue a second hop
-    ///     into another external member, because <c>_inheritanceChain</c> is built only from the
-    ///     primary assembly's Cecil metadata and has no entry for external members. An explicit
-    ///     <c>cref</c> at the external hop is unaffected and continues to resolve correctly across
-    ///     any number of hops (see the sibling <c>...InheritDocWithCref_ExternalTarget...</c> tests).
+    ///     Validates <see cref="XmlDocReader"/>'s own isolated behavior when the supplied
+    ///     <c>_inheritanceChain</c> has no entry for an externally-resolved member: resolution
+    ///     cannot continue past that hop, because the bare (<c>cref</c>-less) branch of
+    ///     <see cref="XmlDocReader.GetSummary"/> looks up the target purely by chain-entry
+    ///     presence and has no other means of continuing. This is a hand-constructed chain
+    ///     without an entry for <c>M:External.I1.Method</c>, deliberately simulating what
+    ///     <c>DotNetGenerator</c> would produce for an external base type that could not be
+    ///     resolved (e.g. one living outside the configured reference paths) — it does not
+    ///     represent every real cross-assembly scenario. When <c>DotNetGenerator</c> is
+    ///     able to resolve the external base type via Mono.Cecil, it recursively populates the
+    ///     chain with that type's own members too, and a bare <c>&lt;inheritdoc /&gt;</c> then
+    ///     resolves correctly across that further external hop (see
+    ///     <c>DotNetGenerator_Parse_ExternalBaseTwoHops_ResolvesInheritedDocumentationAcrossBothHops</c>
+    ///     in <c>DotNetGeneratorTests</c>). An explicit <c>cref</c> at the external hop is
+    ///     unaffected by any of this and continues to resolve correctly across any number of hops
+    ///     (see the sibling <c>...InheritDocWithCref_ExternalTarget...</c> tests).
     /// </summary>
     [Fact]
     public void XmlDocReader_GetSummary_InheritDocBareChain_TwoExternalHops_SecondHopUnresolved()

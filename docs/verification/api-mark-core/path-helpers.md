@@ -4,13 +4,21 @@
 
 PathHelpers is verified with unit tests in `test/ApiMark.Core.Tests/PathHelpersTests.cs`.
 The tests call the real implementation directly and cover normal operation, traversal
-rejection, rooted-path rejection, null-argument handling, and multi-segment behavior.
-Because PathHelpers is `internal`, `ApiMark.Core` exposes it to `ApiMark.Core.Tests`
-through `InternalsVisibleTo`.
+rejection, rooted-path rejection, null-argument handling, multi-segment behavior, and
+on-disk case normalization. `SafePathCombine` remains `internal`, exposed to
+`ApiMark.Core.Tests` through `InternalsVisibleTo`; `NormalizeCase` and `Comparer` are
+`public` so they can be called directly from `ApiMark.DotNet` (`DotNetGenerator`,
+`ExternalXmlDocResolver`).
 
 ### Test Environment
 
-N/A - standard test environment using the .NET test runner is sufficient.
+N/A - standard test environment using the .NET test runner is sufficient. Some
+`NormalizeCase` scenarios that require two directory entries differing only by case to
+coexist (exercising the ambiguous-fallback and exact-match-preference behavior) can only
+run to full effect on a case-sensitive file system; on a case-insensitive file system the
+second write overwrites the same physical entry as the first, so those tests detect this
+at run time and skip the assertion rather than exercising a scenario the file system
+cannot represent.
 
 ### Acceptance Criteria
 
@@ -22,6 +30,18 @@ N/A - standard test environment using the .NET test runner is sufficient.
 - `SafePathCombine` throws `ArgumentException` for paths that resolve outside the base
   directory after joining.
 - `SafePathCombine` throws `ArgumentNullException` for null `basePath` and null segments.
+- `NormalizeCase` resolves a differently-cased input path to the real on-disk casing of
+  an existing file/directory, for both leaf and intermediate segments.
+- `NormalizeCase` canonicalizes a Windows drive-letter root prefix so two differently
+  cased spellings of the same drive normalize identically.
+- `NormalizeCase` falls back to the caller-supplied casing for segments that do not
+  exist on disk, rather than throwing.
+- `NormalizeCase` prefers an exact (ordinal) match over an incidental case-insensitive
+  one when two entries differing only by case coexist in the same directory.
+- `NormalizeCase` preserves the caller-supplied casing (refuses to guess) when a
+  supplied segment matches neither of two coexisting, differently-cased entries exactly.
+- `NormalizeCase` correctly resolves multiple sibling paths when a caller-supplied
+  `directoryEntryCache` is shared across calls.
 
 ### Test Scenarios
 
@@ -73,3 +93,34 @@ a null segment is rejected with `ArgumentNullException`.
 **PathHelpers_SafePathCombine_NoSegments_ReturnsBasePath**: Verifies that calling
 `SafePathCombine` with zero segments returns `basePath` unchanged, confirming
 that the zero-segment case is handled as a no-op.
+
+**PathHelpers_NormalizeCase_ExistingPathWithDifferentCaseInput_ResolvesToActualOnDiskCasing**:
+Verifies that a differently-cased input path resolves to the real on-disk casing of both
+an intermediate directory segment and the leaf file segment.
+
+**PathHelpers_NormalizeCase_DifferentlyCasedDriveLetterRoot_ProducesIdenticalResult**:
+Verifies that two differently-cased spellings of the same Windows drive-letter root
+normalize to an identical result (skipped on platforms without a drive-letter root).
+
+**PathHelpers_NormalizeCase_TwoCaseVariantsOfSamePath_ProduceIdenticalResult**: Verifies
+that two differently-cased input paths naming the same real file normalize to an
+identical result, proving they can be safely compared with a case-sensitive comparer
+afterward.
+
+**PathHelpers_NormalizeCase_NonExistentPath_PreservesSuppliedCasing**: Verifies that a
+path that does not resolve to a real file preserves the caller-supplied casing rather
+than throwing.
+
+**PathHelpers_NormalizeCase_CaseSensitiveFileSystemWithBothCasings_PrefersExactMatch**:
+Verifies that when two entries differing only by case coexist (case-sensitive file
+systems only), an exact match is always preferred over an incidental case-insensitive
+one, regardless of directory-enumeration order.
+
+**PathHelpers_NormalizeCase_CaseSensitiveFileSystemWithBothCasings_AmbiguousThirdCasing_PreservesSuppliedCasing**:
+Verifies that when two entries differing only by case coexist and the supplied segment
+matches neither exactly, the caller-supplied casing is preserved rather than guessing.
+
+**PathHelpers_NormalizeCase_WithSharedDirectoryEntryCache_ResolvesMultipleSiblingPaths**:
+Verifies that a caller-supplied `directoryEntryCache`, shared across multiple
+`NormalizeCase` calls for paths under the same ancestor directory, still resolves each
+path correctly.

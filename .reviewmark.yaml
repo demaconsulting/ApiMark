@@ -313,9 +313,7 @@ reviews:
       - docs/design/api-mark-dot-net/external-xml-doc-resolver.md
       - docs/verification/api-mark-dot-net/external-xml-doc-resolver.md
       - src/ApiMark.DotNet/ExternalXmlDocResolver.cs
-      - src/ApiMark.DotNet/FileSystemPathComparer.cs
       - test/ApiMark.DotNet.Tests/ExternalXmlDocResolverTests.cs
-      - test/ApiMark.DotNet.Tests/FileSystemPathComparerTests.cs
   - id: ApiMark-DotNet-DocumentationCoverageChecker
     title: Review that ApiMark DotNet DocumentationCoverageChecker Implementation
       is Correct

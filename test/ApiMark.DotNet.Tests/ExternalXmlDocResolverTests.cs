@@ -264,6 +264,104 @@ public class ExternalXmlDocResolverTests
     }
 
     /// <summary>
+    ///     Validates the perf-motivated fast path of
+    ///     <see cref="ExternalXmlDocResolver.TryGetMember(string, string?)"/>: when a correct
+    ///     <c>declaringAssemblyHint</c> is supplied, only the hinted reference path's XML
+    ///     documentation is ever parsed — the other configured reference paths (simulating an
+    ///     MSBuild auto-harvested <c>ReferencePaths</c> list containing many unrelated
+    ///     dependencies) are never touched. This is confirmed via reflection on the private
+    ///     <c>_docsByReferencePath</c> cache, which must contain exactly one entry after the call.
+    /// </summary>
+    [Fact]
+    public void ExternalXmlDocResolver_TryGetMemberWithHint_CorrectHint_OnlyProbesHintedPathNotOthers()
+    {
+        // Arrange
+        var dir = CreateTempDirectory();
+        try
+        {
+            var unrelatedPaths = new List<string>();
+            for (var i = 0; i < 5; i++)
+            {
+                var unrelatedDllPath = Path.Combine(dir, $"Unrelated{i}.dll");
+                File.WriteAllBytes(unrelatedDllPath, []);
+                WriteXmlDoc(Path.ChangeExtension(unrelatedDllPath, ".xml"), """
+                    <member name="T:Foo.Bar">
+                        <summary>Wrong summary from an unrelated dependency.</summary>
+                    </member>
+                    """);
+                unrelatedPaths.Add(unrelatedDllPath);
+            }
+
+            var hintedDllPath = Path.Combine(dir, "Hinted.dll");
+            File.WriteAllBytes(hintedDllPath, []);
+            WriteXmlDoc(Path.ChangeExtension(hintedDllPath, ".xml"), """
+                <member name="T:Foo.Bar">
+                    <summary>Correct summary from the hinted dependency.</summary>
+                </member>
+                """);
+
+            // The hinted path is placed LAST so that an in-order fallback scan would find one of
+            // the unrelated (wrong) matches first, distinguishing the fast path from a full scan.
+            var sut = new ExternalXmlDocResolver([.. unrelatedPaths, hintedDllPath]);
+
+            // Act
+            var member = sut.TryGetMember("T:Foo.Bar", declaringAssemblyHint: "Hinted");
+
+            // Assert: the hinted (correct) member is returned, not an unrelated one
+            Assert.NotNull(member);
+            Assert.Equal("Correct summary from the hinted dependency.", member.Element("summary")?.Value.Trim());
+
+            // Assert: only the hinted reference path was ever parsed and cached; none of the
+            // unrelated paths were probed
+            var cacheField = typeof(ExternalXmlDocResolver).GetField("_docsByReferencePath", BindingFlags.NonPublic | BindingFlags.Instance);
+            var cache = Assert.IsAssignableFrom<System.Collections.IDictionary>(cacheField!.GetValue(sut));
+            Assert.Single(cache);
+            var cachedKey = Assert.Single(cache.Keys.Cast<string>());
+            Assert.Equal(Path.GetFileNameWithoutExtension(hintedDllPath), Path.GetFileNameWithoutExtension(cachedKey));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ExternalXmlDocResolver.TryGetMember(string, string?)"/> falls
+    ///     back to the full in-order scan of every configured reference path when the supplied
+    ///     hint does not match any configured path's file name — for example a stale or incorrect
+    ///     hint — so a wrong hint never causes a real, resolvable match to be missed.
+    /// </summary>
+    [Fact]
+    public void ExternalXmlDocResolver_TryGetMemberWithHint_HintMatchesNoConfiguredPath_FallsBackToFullScan()
+    {
+        // Arrange
+        var dir = CreateTempDirectory();
+        try
+        {
+            var dllPath = Path.Combine(dir, "Actual.dll");
+            File.WriteAllBytes(dllPath, []);
+            WriteXmlDoc(Path.ChangeExtension(dllPath, ".xml"), """
+                <member name="T:Foo.Bar">
+                    <summary>Resolved via fallback scan.</summary>
+                </member>
+                """);
+
+            var sut = new ExternalXmlDocResolver([dllPath]);
+
+            // Act: the hint names an assembly that is not among the configured reference paths
+            var member = sut.TryGetMember("T:Foo.Bar", declaringAssemblyHint: "NoSuchAssembly");
+
+            // Assert
+            Assert.NotNull(member);
+            Assert.Equal("Resolved via fallback scan.", member.Element("summary")?.Value.Trim());
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>
     ///     Validates that <see cref="ExternalXmlDocResolver"/> parses each reference assembly's
     ///     XML documentation file at most once and caches the result: deleting the file from disk
     ///     after a successful lookup does not prevent a second, different member from the same
