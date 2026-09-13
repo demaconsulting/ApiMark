@@ -1168,6 +1168,42 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
+    ///     Validates that when a failure occurs while writing response-file content (as opposed
+    ///     to a name collision at creation time), <see cref="ApiMarkTask.CreateResponseFile"/>
+    ///     does not retry with a fresh name (which would silently leak the partially-written
+    ///     file) and instead deletes the partial file before letting the original exception
+    ///     propagate.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_CreateResponseFile_WriteFailure_DoesNotRetryAndDeletesPartialFile()
+    {
+        // Arrange: an IEnumerable<string> whose enumerator throws partway through, simulating a
+        // failure (e.g. a full disk) after the file has already been successfully created.
+        // Snapshot pre-existing matching temp files first so the assertion below is immune to
+        // other tests/processes concurrently creating and cleaning up their own response files.
+        static IEnumerable<string> ThrowingLines()
+        {
+            yield return "--reference-paths";
+            yield return "/refs/One.dll";
+            throw new IOException("simulated write failure");
+        }
+
+        var filePattern = "apimark_reference_paths_*.rsp";
+        var beforeFiles = new HashSet<string>(Directory.GetFiles(Path.GetTempPath(), filePattern));
+
+        // Act / Assert: the original IOException propagates unchanged (it is not swallowed by a
+        // retry loop)
+        var ex = Assert.Throws<IOException>(() => ApiMarkTask.CreateResponseFile(ThrowingLines()));
+        Assert.Equal("simulated write failure", ex.Message);
+
+        // Assert: no new response file was left behind in the temp directory — the
+        // partially-written file created before the failure was cleaned up rather than
+        // retried-and-abandoned
+        var afterFiles = Directory.GetFiles(Path.GetTempPath(), filePattern);
+        Assert.All(afterFiles, f => Assert.Contains(f, beforeFiles));
+    }
+
+    /// <summary>
     ///     Subclass of <see cref="ApiMarkTask"/> that overrides <c>RunToolProcess</c> to capture
     ///     both the observed argument list and the response file's content (read before the base
     ///     <c>RunToolProcessWithResponseFile</c> deletes it in its <c>finally</c> block).

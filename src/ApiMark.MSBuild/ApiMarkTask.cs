@@ -768,11 +768,15 @@ public class ApiMarkTask : Task
     ///     concurrently-running build is astronomically unlikely but handled anyway by retrying
     ///     with a freshly generated name, bounded to a small number of attempts so a persistent,
     ///     unrelated failure (e.g. a full disk or a permissions problem) still surfaces as an
-    ///     exception rather than looping.
+    ///     exception rather than looping. The retry is deliberately scoped to the creation step
+    ///     only: once the file has actually been created, a subsequent failure writing or
+    ///     flushing its content is a distinct, non-retryable failure (retrying would silently
+    ///     leak that partially-written file), so it is instead cleaned up on a best-effort basis
+    ///     and the original exception is left to propagate.
     /// </remarks>
     /// <param name="lines">The response-file lines to write, one argument per line.</param>
     /// <returns>The full path of the newly created response file.</returns>
-    private static string CreateResponseFile(IEnumerable<string> lines)
+    internal static string CreateResponseFile(IEnumerable<string> lines)
     {
         const int maxAttempts = 5;
         var attempt = 0;
@@ -780,24 +784,52 @@ public class ApiMarkTask : Task
         {
             attempt++;
             var path = Path.Join(Path.GetTempPath(), $"apimark_reference_paths_{Guid.NewGuid():N}.rsp");
+
+            FileStream stream;
             try
             {
-                using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write);
-                using var writer = new StreamWriter(stream);
-                foreach (var line in lines)
+                stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write);
+            }
+            catch (IOException) when (attempt < maxAttempts && File.Exists(path))
+            {
+                // The chosen path was already occupied before this attempt could create
+                // anything (an exceedingly unlikely GUID collision, or a pre-existing
+                // file/symlink) — retry with a freshly generated name. No file was created by
+                // this attempt, so there is nothing to clean up.
+                continue;
+            }
+
+            try
+            {
+                using (stream)
+                using (var writer = new StreamWriter(stream))
                 {
-                    writer.WriteLine(line);
+                    foreach (var line in lines)
+                    {
+                        writer.WriteLine(line);
+                    }
                 }
 
                 return path;
             }
-            catch (IOException) when (attempt < maxAttempts && File.Exists(path))
+            catch
             {
-                // The chosen path was already occupied (an exceedingly unlikely GUID collision,
-                // or a pre-existing file/symlink) — retry with a freshly generated name rather
-                // than failing outright. Any other IOException/UnauthorizedAccessException (e.g.
-                // a full temp volume or a permissions failure) propagates to the caller, which
+                // The file above was successfully created, so a failure here (e.g. a full disk
+                // during the write/flush) is not a name collision and must not be retried with a
+                // fresh name — doing so would silently leave the partially-written file behind.
+                // Best-effort delete it, then let the real failure propagate to the caller, which
                 // already handles it via RunToolProcessWithResponseFile's catch block.
+                try
+                {
+                    File.Delete(path);
+                }
+                catch (Exception)
+                {
+                    // Best-effort cleanup only; the original write/flush failure below is what
+                    // actually matters and must not be masked by a secondary cleanup failure.
+                }
+
+                throw;
             }
         }
     }
