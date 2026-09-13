@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using ApiMark.Core;
 
 namespace ApiMark.Cpp.CppAst;
 
@@ -66,6 +67,15 @@ internal sealed class ClangAstParser
     private readonly IReadOnlySet<string> _selectedHeaders;
 
     /// <summary>
+    ///     Directory-entry cache shared by every <see cref="PathHelpers.NormalizeCase"/> call made
+    ///     while normalizing <see cref="_selectedHeaders"/> and while resolving
+    ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> in <see cref="IsOwned"/>, since
+    ///     both sets of paths commonly share ancestor directories and neither set changes for the
+    ///     lifetime of a single <see cref="Parse"/> call.
+    /// </summary>
+    private readonly Dictionary<string, string[]> _directoryEntryCache;
+
+    /// <summary>
     ///     Tracks the source file currently being walked. The clang JSON AST emits
     ///     <c>loc.file</c> only when the file changes; all subsequent nodes without a
     ///     <c>loc.file</c> field inherit this value.
@@ -86,10 +96,16 @@ internal sealed class ClangAstParser
     ///     Must not be null. <see cref="IsOwned"/> uses this set to reject declarations
     ///     from transitively-included headers that were not explicitly selected.
     /// </param>
-    private ClangAstParser(CppGeneratorOptions options, IReadOnlySet<string> selectedHeaders)
+    /// <param name="directoryEntryCache">
+    ///     The directory-entry cache used to normalize <paramref name="selectedHeaders"/>,
+    ///     reused for the lifetime of this instance to resolve
+    ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> in <see cref="IsOwned"/>.
+    /// </param>
+    private ClangAstParser(CppGeneratorOptions options, IReadOnlySet<string> selectedHeaders, Dictionary<string, string[]> directoryEntryCache)
     {
         _options = options;
         _selectedHeaders = selectedHeaders;
+        _directoryEntryCache = directoryEntryCache;
     }
 
     // =========================================================================
@@ -175,17 +191,24 @@ internal sealed class ClangAstParser
             // Build the normalized set of selected header paths so that IsOwned() can
             // restrict output to declarations physically defined in those files.
             // Headers that are only transitively included (and therefore not in this set)
-            // are excluded even when their paths fall under a PublicIncludeRoot.
+            // are excluded even when their paths fall under a PublicIncludeRoot. Each path is
+            // resolved to its actual on-disk casing via PathHelpers.NormalizeCase (rather than
+            // guessing case sensitivity from the operating system) so that a declaration's
+            // source file path — itself normalized the same way in IsOwned — reliably matches
+            // regardless of platform or file-system case sensitivity. The directory-entry cache
+            // is shared with IsOwned's PublicIncludeRoots resolution for the lifetime of the
+            // constructed parser instance.
+            var directoryEntryCache = new Dictionary<string, string[]>(PathHelpers.Comparer);
             var selectedHeaders = headers
-                .Select(Path.GetFullPath)
-                .ToHashSet(FileSystemPathComparer);
+                .Select(h => PathHelpers.NormalizeCase(Path.GetFullPath(h), directoryEntryCache))
+                .ToHashSet(PathHelpers.Comparer);
 
             // Parse the JSON and walk the AST.
             // Use Utf8JsonReader with an explicit MaxDepth because clang's JSON AST can nest
             // hundreds of levels deep inside standard library template instantiations.
             // JsonDocument.ParseValue reads exactly one JSON object from the reader position,
             // consuming the entire TU in one call.
-            var parser = new ClangAstParser(options, selectedHeaders);
+            var parser = new ClangAstParser(options, selectedHeaders, directoryEntryCache);
             try
             {
                 var jsonBytes = System.Text.Encoding.UTF8.GetBytes(stdout);
@@ -698,35 +721,6 @@ internal sealed class ClangAstParser
     // =========================================================================
 
     /// <summary>
-    ///     Returns the <see cref="StringComparison"/> appropriate for file-system path comparisons
-    ///     on the current platform.
-    /// </summary>
-    /// <remarks>
-    ///     Linux file systems are case-sensitive, so <see cref="StringComparison.Ordinal"/> is
-    ///     used there. Windows and macOS default to case-insensitive file systems, so
-    ///     <see cref="StringComparison.OrdinalIgnoreCase"/> is used on those platforms.
-    /// </remarks>
-    private static StringComparison FileSystemPathComparison =>
-        RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
-            ? StringComparison.Ordinal
-            : StringComparison.OrdinalIgnoreCase;
-
-    /// <summary>
-    ///     Returns the <see cref="StringComparer"/> appropriate for file-system path comparisons
-    ///     on the current platform.
-    /// </summary>
-    /// <remarks>
-    ///     Linux file systems are case-sensitive, so <see cref="StringComparer.Ordinal"/> is
-    ///     used there to avoid incorrectly treating paths that differ only in case as the same
-    ///     file. Windows and macOS default to case-insensitive file systems, so
-    ///     <see cref="StringComparer.OrdinalIgnoreCase"/> is used on those platforms.
-    /// </remarks>
-    private static StringComparer FileSystemPathComparer =>
-        RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
-            ? StringComparer.Ordinal
-            : StringComparer.OrdinalIgnoreCase;
-
-    /// <summary>
     ///     Determines whether a source file both falls under one of the configured
     ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entries and was explicitly
     ///     selected as part of the API surface by the <see cref="Parse"/> caller.
@@ -737,6 +731,13 @@ internal sealed class ClangAstParser
     ///     (second check). The second check prevents transitively-included dependency headers
     ///     that happen to live under a public include root from having their declarations
     ///     documented when only specific headers were selected by <c>--api-headers</c>.
+    ///     <paramref name="sourceFile"/> and each configured root are resolved to their actual
+    ///     on-disk casing via <see cref="PathHelpers.NormalizeCase"/> (matching how
+    ///     <see cref="_selectedHeaders"/> itself was normalized in <see cref="Parse"/>) rather
+    ///     than guessing case sensitivity from the operating system: both Windows and macOS can
+    ///     host case-sensitive volumes, and Linux can host case-insensitive file systems, so an
+    ///     OS-based guess can incorrectly fail to recognize (or incorrectly conflate) paths that
+    ///     differ only in case.
     /// </remarks>
     /// <param name="sourceFile">
     ///     The source file path from a clang AST node. May be null or empty for built-in
@@ -754,8 +755,9 @@ internal sealed class ClangAstParser
             return false;
         }
 
-        // Normalize the source path to resolve relative segments and mixed separators
-        var normalized = Path.GetFullPath(sourceFile);
+        // Normalize the source path to resolve relative segments, mixed separators, and its
+        // actual on-disk casing, matching the normalization applied to _selectedHeaders.
+        var normalized = PathHelpers.NormalizeCase(Path.GetFullPath(sourceFile), _directoryEntryCache);
 
         // Require the file to be under a public include root AND in the selected-headers set.
         // The selected-headers check excludes transitively-included dependency headers that
@@ -763,9 +765,10 @@ internal sealed class ClangAstParser
         return _options.PublicIncludeRoots.Any(root =>
         {
             // Append the directory separator so "lib" cannot match "libext"
-            var normalizedRoot = Path.GetFullPath(root)
-                .TrimEnd(Path.DirectorySeparatorChar, '/') + Path.DirectorySeparatorChar;
-            return normalized.StartsWith(normalizedRoot, FileSystemPathComparison);
+            var normalizedRoot = PathHelpers.NormalizeCase(
+                Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, '/'),
+                _directoryEntryCache) + Path.DirectorySeparatorChar;
+            return normalized.StartsWith(normalizedRoot, StringComparison.Ordinal);
         })
             && _selectedHeaders.Contains(normalized);
     }
