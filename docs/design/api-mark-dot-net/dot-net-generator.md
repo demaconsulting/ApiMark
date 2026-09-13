@@ -117,7 +117,7 @@ memory and returns a `DotNetEmitter` ready to emit.
   Mono.Cecil `DefaultAssemblyResolver` and adds one search directory per distinct,
   existing directory among `ReferencePaths` entries (`Path.GetDirectoryName`,
   filtered by `Directory.Exists`, normalized to its actual on-disk casing via
-  `FileSystemPathComparer.NormalizeCase`, then deduplicated with a case-sensitive
+  `ApiMark.Core.PathHelpers.NormalizeCase`, then deduplicated with a case-sensitive
   comparer — shared with `ExternalXmlDocResolver`; see that unit's design doc for
   why normalizing real on-disk casing is used instead of an operating-system-based
   case-sensitivity guess). This resolver is passed via
@@ -278,6 +278,11 @@ exceptions are not expected to surface through the CLI in normal operation.
   non-empty; locates and lazily parses each reference assembly's own XML
   documentation file to resolve `<inheritdoc />` targets defined outside the
   assembly currently being documented. See ExternalXmlDocResolver Design for details.
+- **ApiMark.Core.PathHelpers** — `NormalizeCase`/`Comparer` resolve each distinct,
+  existing `ReferencePaths` directory to its actual on-disk casing before
+  deduplication, so two spellings of the same directory that differ only in case
+  collapse to a single search directory regardless of platform or file-system
+  case sensitivity.
 - **DocumentationCoverageChecker** — `CheckDocumentationCoverage` delegates to this
   unit's `Check` static method, passing the cached parsed assembly, XML doc reader,
   and the `EnforceDocsVisibility`/`IncludeObsolete`/`ExcludePatterns` options.

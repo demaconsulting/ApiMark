@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using ApiMark.Core;
 
 namespace ApiMark.DotNet;
 
@@ -49,7 +50,7 @@ public sealed class ExternalXmlDocResolver
     ///     means "no XML documentation file could be found or parsed for this reference assembly
     ///     path", cached so repeated misses do not re-probe the file system.
     /// </summary>
-    private readonly Dictionary<string, Dictionary<string, XElement>?> _docsByReferencePath = new(FileSystemPathComparer.Comparer);
+    private readonly Dictionary<string, Dictionary<string, XElement>?> _docsByReferencePath = new(PathHelpers.Comparer);
 
     /// <summary>
     ///     Cache of resolved member elements keyed by member ID, spanning all configured reference
@@ -77,12 +78,12 @@ public sealed class ExternalXmlDocResolver
         //
         // Each path is also normalized with Path.GetFullPath (matching the convention used by
         // DotNetGenerator.ResolveReferenceSearchDirectory) and then with
-        // FileSystemPathComparer.NormalizeCase, so that two different string forms of the same
+        // PathHelpers.NormalizeCase, so that two different string forms of the same
         // underlying file — e.g. a relative path vs. its absolute form, paths that differ only in
         // directory-separator style, or paths that differ only in case on a case-insensitive file
         // system — all collapse to the same _docsByReferencePath cache key, preserving the "parsed
         // at most once" guarantee documented on this class. This is deliberately not an
-        // operating-system-based guess (see FileSystemPathComparer's remarks): resolving the
+        // operating-system-based guess (see PathHelpers.Comparer's remarks): resolving the
         // actual on-disk casing and then comparing case-sensitively is correct regardless of
         // whether the current platform or file system happens to be case-sensitive. A genuinely
         // malformed path is allowed to throw here, same as DotNetGenerator's equivalent
@@ -99,10 +100,10 @@ public sealed class ExternalXmlDocResolver
         // re-enumerate those same shared directories. Scoping the cache to a single constructor
         // call (rather than a static/process-wide cache) means results can never become stale
         // across independent ExternalXmlDocResolver instances created at different times.
-        var directoryEntryCache = new Dictionary<string, string[]>(FileSystemPathComparer.Comparer);
+        var directoryEntryCache = new Dictionary<string, string[]>(PathHelpers.Comparer);
         _referenceAssemblyPaths = referenceAssemblyPaths
             .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Select(path => FileSystemPathComparer.NormalizeCase(Path.GetFullPath(path), directoryEntryCache))
+            .Select(path => PathHelpers.NormalizeCase(Path.GetFullPath(path), directoryEntryCache))
             .ToArray();
     }
 
@@ -238,12 +239,12 @@ public sealed class ExternalXmlDocResolver
     ///     always the one closest to the assembly file itself.
     ///     <para>
     ///     The segment comparison here is always case-insensitive, regardless of platform or file
-    ///     system, and deliberately does not use <see cref="FileSystemPathComparer"/>: this check
+    ///     system, and deliberately does not use <see cref="PathHelpers"/>: this check
     ///     recognizes a known NuGet layout convention token (packages always publish these folders
     ///     as lowercase <c>ref</c>/<c>lib</c>) rather than deciding whether two real, independently
     ///     supplied paths name the same on-disk file, so there is no ambiguity to resolve by
     ///     consulting the file system — and the swapped path being constructed does not necessarily
-    ///     exist yet, so there is nothing for <see cref="FileSystemPathComparer.NormalizeCase"/> to
+    ///     exist yet, so there is nothing for <see cref="PathHelpers.NormalizeCase"/> to
     ///     resolve against even if it were used here.
     ///     </para>
     /// </remarks>

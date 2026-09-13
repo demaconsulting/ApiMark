@@ -109,7 +109,7 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         // bare file name with no directory component at all, e.g. "External.dll"), "." / ".."
         // segments, and mixed directory separators resolve to the same directory consistently.
         // Directories are also normalized to their actual on-disk casing via
-        // FileSystemPathComparer.NormalizeCase (each has already been confirmed to exist via the
+        // PathHelpers.NormalizeCase (each has already been confirmed to exist via the
         // Directory.Exists check below, so normalization always has a real entry to resolve
         // against) before deduplication, so two spellings of the same directory that differ only
         // in case collapse to a single search directory regardless of whether the current platform
@@ -127,13 +127,13 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         var assemblyResolver = new DefaultAssemblyResolver();
         try
         {
-            var directoryEntryCache = new Dictionary<string, string[]>(FileSystemPathComparer.Comparer);
+            var directoryEntryCache = new Dictionary<string, string[]>(PathHelpers.Comparer);
             foreach (var directory in _options.ReferencePaths
                          .Where(path => !string.IsNullOrWhiteSpace(path))
                          .Select(ResolveReferenceSearchDirectory)
                          .Where(d => !string.IsNullOrEmpty(d) && Directory.Exists(d))
-                         .Select(d => FileSystemPathComparer.NormalizeCase(d!, directoryEntryCache))
-                         .Distinct(FileSystemPathComparer.Comparer))
+                         .Select(d => PathHelpers.NormalizeCase(d!, directoryEntryCache))
+                         .Distinct(PathHelpers.Comparer))
             {
                 assemblyResolver.AddSearchDirectory(directory);
             }

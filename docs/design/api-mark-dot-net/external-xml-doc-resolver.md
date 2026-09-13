@@ -42,7 +42,7 @@ whitespace-only) entries from the supplied reference assembly paths — because
 `Path.GetFullPath("")` resolves to the current working directory, which would
 otherwise become a bogus, legitimate-looking reference path — then normalizes
 and stores the remainder. Normalization performs some file-system access:
-`FileSystemPathComparer.NormalizeCase` enumerates existing parent directories
+`ApiMark.Core.PathHelpers.NormalizeCase` enumerates existing parent directories
 via `Directory.EnumerateFileSystemEntries` to resolve the real on-disk casing
 of each path, so two differently-cased spellings of the same file collapse to
 a single cache key. This normalization is best-effort and never throws for a
@@ -143,6 +143,10 @@ note.
 
 - **System.Xml.Linq** — used to parse and navigate each reference assembly's
   XML documentation file.
+- **ApiMark.Core.PathHelpers** — `NormalizeCase`/`Comparer` resolve each
+  configured reference assembly path to its actual on-disk casing so that
+  differently-cased spellings of the same file collapse to a single cache
+  key, regardless of platform or file-system case sensitivity.
 
 ### Callers
 
