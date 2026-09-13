@@ -14,10 +14,9 @@ sections:
             justification: |
               The generator cannot produce correct C++ documentation unless it knows where the public
               headers reside (to determine ownership) and how to configure the Clang parser (to
-              resolve all `#include` directives encountered during parsing). Each configured root is
-              normalized to its actual on-disk casing once, before any existence check or clang
-              invocation uses it, so a root supplied with different casing than its on-disk spelling
-              still resolves correctly on a case-sensitive file system.
+              resolve all `#include` directives encountered during parsing). A root supplied with
+              different casing than its on-disk spelling still resolves correctly and consistently
+              across header discovery and the clang invocation, on a case-sensitive file system.
             tests:
               - CppGenerator_Constructor_NullOptions_ThrowsArgumentNullException
               - CppGenerator_Generate_NonexistentIncludeRoot_ThrowsDirectoryNotFoundException

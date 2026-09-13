@@ -112,10 +112,12 @@ by `WriteFunctionContent`.
   longest matching public include root.
 - **GetMemberBaseName** — returns the class name for constructors and the member
   name for methods or fields.
-- **GetIncludePath** normalizes `sourceFile` and each public include root to their
-  actual on-disk casing via `ApiMark.Core.PathHelpers.NormalizeCase` (rather than
-  guessing case sensitivity from the operating system), then performs the
-  longest-matching-root prefix comparison via `StringComparison.Ordinal` — the
+- **GetIncludePath** normalizes `sourceFile` via `ApiMark.Core.PathHelpers.NormalizeCase`
+  and each public include root via `ApiMark.Core.PathHelpers.NormalizeCaseDirectory`
+  (rather than guessing case sensitivity from the operating system) to their actual
+  on-disk casing; `NormalizeCaseDirectory` guarantees each normalized root already ends
+  with exactly one trailing separator, so it is used directly as the
+  `StringComparison.Ordinal` prefix for the longest-matching-root comparison — the
   same case-sensitive comparison `PathHelpers.Comparer` exposes, applied directly
   since `String.StartsWith` takes a `StringComparison` rather than a
   `StringComparer` — so include-path and page-key matching is correct

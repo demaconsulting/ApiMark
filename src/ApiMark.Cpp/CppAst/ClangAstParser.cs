@@ -128,9 +128,7 @@ internal sealed class ClangAstParser
         _selectedHeaders = selectedHeaders;
         _directoryEntryCache = directoryEntryCache;
         _normalizedPublicIncludeRoots = options.PublicIncludeRoots
-            .Select(root => PathHelpers.NormalizeCase(
-                Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, '/'),
-                directoryEntryCache) + Path.DirectorySeparatorChar)
+            .Select(root => PathHelpers.NormalizeCaseDirectory(root, directoryEntryCache))
             .ToList();
     }
 

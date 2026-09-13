@@ -170,6 +170,55 @@ public static class PathHelpers
     }
 
     /// <summary>
+    ///     Resolves <paramref name="path"/> to its actual on-disk casing (like
+    ///     <see cref="NormalizeCase"/>) and guarantees the result ends with exactly one directory
+    ///     separator, so callers can safely use it as a prefix for <see cref="string.StartsWith(string)"/>
+    ///     matching or direct string concatenation without re-deriving or re-appending a separator
+    ///     themselves.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///     Intended for callers that treat a configured directory (an include root, a search path,
+    ///     etc.) as a path <em>prefix</em> rather than a final destination — e.g. checking whether
+    ///     another path starts with it, or building a glob pattern by string concatenation.
+    ///     </para>
+    ///     <para>
+    ///     Unlike a naive <c>NormalizeCase(path).TrimEnd(separator) + separator</c> composition,
+    ///     this method never strips a root's trailing separator before or after normalization.
+    ///     Stripping it is unsafe: for a bare filesystem root such as <c>C:\</c> or <c>/</c>, the
+    ///     trimmed form (<c>C:</c> or the empty string) is not an equivalent path — <c>"C:"</c> is
+    ///     a drive-*relative* reference that <see cref="Path.GetFullPath(string)"/> resolves
+    ///     against the current directory on that drive (not the drive's root directory), and the
+    ///     empty string fails <see cref="Directory.Exists(string)"/> even when the root plainly
+    ///     exists. Passing such a trimmed value back through <see cref="Path.GetFullPath(string)"/>
+    ///     or <see cref="Directory.Exists(string)"/> a second time (as a caller re-deriving a
+    ///     trailing separator might) silently corrupts the path instead of merely losing a
+    ///     separator. This method instead normalizes the untouched, fully-qualified path directly
+    ///     — <see cref="CanonicalizeRoot"/> already preserves a root's own trailing separator
+    ///     — and only appends one if normalization did not already produce one (i.e. for any path
+    ///     below the root).
+    ///     </para>
+    /// </remarks>
+    /// <param name="path">An absolute or relative directory path to normalize.</param>
+    /// <param name="directoryEntryCache">
+    ///     An optional, caller-owned cache of parent-directory entry listings, forwarded to
+    ///     <see cref="NormalizeCase"/>. See <see cref="NormalizeCase"/> for scoping guidance.
+    /// </param>
+    /// <returns>
+    ///     <paramref name="path"/> resolved to an absolute, on-disk-cased directory path ending
+    ///     with exactly one <see cref="Path.DirectorySeparatorChar"/> or
+    ///     <see cref="Path.AltDirectorySeparatorChar"/>.
+    /// </returns>
+    public static string NormalizeCaseDirectory(string path, Dictionary<string, string[]>? directoryEntryCache = null)
+    {
+        var normalized = NormalizeCase(Path.GetFullPath(path), directoryEntryCache);
+        var lastChar = normalized[^1];
+        return lastChar == Path.DirectorySeparatorChar || lastChar == Path.AltDirectorySeparatorChar
+            ? normalized
+            : normalized + Path.DirectorySeparatorChar;
+    }
+
+    /// <summary>
     ///     Canonicalizes the drive-letter or UNC root prefix of a path so that two differently-cased
     ///     spellings of the same root always normalize to an identical result.
     /// </summary>

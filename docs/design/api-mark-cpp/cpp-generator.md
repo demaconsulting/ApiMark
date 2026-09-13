@@ -79,10 +79,15 @@ parse-time deprecated filter, builds the known-type map, and returns a
   additionally cached on the generator instance so `CheckDocumentationCoverage`
   can be called afterward without re-parsing.
 - *Algorithm*: Each `PublicIncludeRoots` entry is first normalized to its actual
-  on-disk casing (`ApiMark.Core.PathHelpers.NormalizeCase`, using a
+  on-disk casing (`ApiMark.Core.PathHelpers.NormalizeCaseDirectory`, using a
   `directoryEntryCache` shared across every root) so a root supplied with
   different casing than its on-disk spelling still resolves correctly on a
-  case-sensitive file system; a shallow copy of the options with the normalized
+  case-sensitive file system; unlike a manual trim-then-normalize composition,
+  `NormalizeCaseDirectory` never corrupts a bare filesystem root (e.g. `C:\` or `/`)
+  into an ambiguous drive-relative or empty path, and guarantees each normalized root
+  ends with exactly one trailing separator so `CollectHeaderFiles` can build its glob
+  pattern by direct string concatenation rather than a second `Path.GetFullPath` call.
+  A shallow copy of the options with the normalized
   roots substituted is then used for the remainder of `Parse`, including header
   discovery and the clang invocation, so both observe identical, correctly-cased
   roots. `CollectHeaderFiles(options)` builds the selected header set from those

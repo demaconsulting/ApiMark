@@ -140,10 +140,12 @@ sections:
           - ApiMarkCore-PathHelpers-NormalizeToActualOnDiskCasing
           - ApiMarkCore-PathHelpers-NormalizeCasePreservesUnresolvableSegments
           - ApiMarkCore-PathHelpers-NormalizeCaseResolvesAmbiguityDeterministically
+          - ApiMarkCore-PathHelpers-NormalizeDirectoryForPrefixUse
         tests:
           - PathHelpers_NormalizeCase_ExistingPathWithDifferentCaseInput_ResolvesToActualOnDiskCasing
           - PathHelpers_NormalizeCase_NonExistentPath_PreservesSuppliedCasing
           - PathHelpers_NormalizeCase_CaseSensitiveFileSystemWithBothCasings_PrefersExactMatch
+          - PathHelpers_NormalizeCaseDirectory_DriveLetterRoot_DoesNotResolveToCurrentDirectory
       - id: ApiMarkCore-ProvideEmitterContract
         title: ApiMark Core shall provide a well-defined emitter contract.
         tags: [system]

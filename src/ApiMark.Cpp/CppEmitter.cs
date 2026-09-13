@@ -45,9 +45,7 @@ internal sealed class CppEmitter : IApiEmitter
         _namespaceDecls = namespaceDecls;
         _cppResolver = cppResolver;
         _normalizedPublicIncludeRoots = options.PublicIncludeRoots
-            .Select(root => PathHelpers.NormalizeCase(
-                Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, '/'),
-                _includeRootDirectoryEntryCache))
+            .Select(root => PathHelpers.NormalizeCaseDirectory(root, _includeRootDirectoryEntryCache))
             .ToList();
     }
 
@@ -152,6 +150,11 @@ internal sealed class CppEmitter : IApiEmitter
     ///     sensitivity from the operating system: both Windows and macOS can host case-sensitive
     ///     volumes, and Linux can host case-insensitive file systems, so an OS-based guess can
     ///     incorrectly fail to match (or incorrectly match) paths that differ only in case.
+    ///     <see cref="_normalizedPublicIncludeRoots"/> is produced by
+    ///     <see cref="PathHelpers.NormalizeCaseDirectory"/>, which guarantees each root already
+    ///     ends with exactly one directory separator, so it can be used directly as a
+    ///     <see cref="string.StartsWith(string, StringComparison)"/> prefix without re-deriving
+    ///     or re-appending a separator here.
     /// </remarks>
     /// <param name="sourceFile">
     ///     The absolute or relative source file path. Must not be null.
@@ -173,8 +176,7 @@ internal sealed class CppEmitter : IApiEmitter
 
         // Select the longest matching root so the most specific prefix wins
         var matchingRoot = _normalizedPublicIncludeRoots
-            .Where(root => normalized.StartsWith(
-                root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            .Where(root => normalized.StartsWith(root, StringComparison.Ordinal))
             .OrderByDescending(root => root.Length, Comparer<int>.Default)
             .FirstOrDefault();
 
@@ -185,8 +187,8 @@ internal sealed class CppEmitter : IApiEmitter
         }
         else
         {
-            // Strip the root prefix (plus its trailing separator) and normalize to forward slashes
-            var relativePath = normalized[(matchingRoot.Length + 1)..];
+            // Strip the root prefix — matchingRoot already includes its own trailing separator
+            var relativePath = normalized[matchingRoot.Length..];
             result = relativePath.Replace('\\', '/');
         }
 

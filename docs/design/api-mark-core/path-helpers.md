@@ -22,11 +22,11 @@ independently by each caller.
 ### Data Model
 
 PathHelpers is a `public static` utility with no instance fields. It exposes one
-public property, `Comparer`, and two methods. `SafePathCombine` and `Comparer` hold
-no state and are safe to call concurrently. `NormalizeCase` itself holds no instance
-state, but when callers pass a shared `directoryEntryCache` dictionary they are
-responsible for synchronizing their own access to it (e.g. scoping one cache per
-generation run and using it from a single thread).
+public property, `Comparer`, and three methods. `SafePathCombine` and `Comparer` hold
+no state and are safe to call concurrently. `NormalizeCase` and `NormalizeCaseDirectory`
+themselves hold no instance state, but when callers pass a shared `directoryEntryCache`
+dictionary they are responsible for synchronizing their own access to it (e.g. scoping
+one cache per generation run and using it from a single thread).
 
 ### Key Methods
 
@@ -75,6 +75,31 @@ rather than guessing based on the operating system.
   exactly, the method refuses to guess and returns the segment unresolved rather than
   letting unspecified directory-enumeration order silently pick one.
 
+**PathHelpers.NormalizeCaseDirectory** (`public`): Resolves a directory path to its
+actual on-disk casing (like `NormalizeCase`) and guarantees the result ends with
+exactly one directory separator, for callers that treat a configured directory as a
+path *prefix* — e.g. `StartsWith` matching or direct string concatenation into a glob
+pattern — rather than a final destination.
+
+- *Parameters*: `string path` — an absolute or relative directory path to normalize
+  (resolved via `Path.GetFullPath` internally). `Dictionary<string, string[]>?
+  directoryEntryCache` — forwarded to `NormalizeCase`; see that method for scoping
+  guidance.
+- *Returns*: `string` — the normalized, fully-qualified directory path with exactly one
+  trailing `Path.DirectorySeparatorChar` or `Path.AltDirectorySeparatorChar`.
+- *Why not compose it from `NormalizeCase`*: a naive
+  `NormalizeCase(path).TrimEnd(separator) + separator` composition is unsafe for a bare
+  filesystem root such as `C:\` or `/` — trimming its trailing separator produces
+  `"C:"` (a drive-*relative* reference that `Path.GetFullPath` resolves against the
+  current directory on that drive, not the drive's root directory) or an empty string
+  (which fails `Directory.Exists` even though the root plainly exists). If a caller
+  later re-derives a trailing separator by re-running that trimmed value through
+  `Path.GetFullPath` or `Directory.Exists`, the root is silently corrupted rather than
+  merely losing a separator. `NormalizeCaseDirectory` instead normalizes the untouched,
+  fully-qualified path directly — `NormalizeCase`'s own root canonicalization already
+  preserves a root's trailing separator — and appends one only when normalization did
+  not already produce one (i.e. for any path below the root).
+
 ### Error Handling
 
 **SafePathCombine**: joins all segments using `Path.Join`, then applies a single
@@ -111,11 +136,15 @@ packages.
 - **ApiMark.DotNet.ExternalXmlDocResolver** — keys its per-reference-path documentation
   cache via `NormalizeCase`/`Comparer` so differently-cased spellings of the same
   reference assembly path collapse to a single cache entry.
-- **ApiMark.Cpp.CppEmitter** — normalizes each declaration's source file and every
-  configured public include root via `NormalizeCase`/`Comparer` in `GetIncludePath` so the
-  longest-matching-root comparison is correct regardless of the build host's file-system
-  case sensitivity.
-- **ApiMark.Cpp.CppAst.ClangAstParser** — normalizes each declaration's source file and
-  every configured public include root via `NormalizeCase`/`Comparer` in `IsOwned` so
-  ownership filtering against `PublicIncludeRoots` and the selected-headers set is correct
-  regardless of the build host's file-system case sensitivity.
+- **ApiMark.Cpp.CppGenerator** — normalizes every configured public include root via
+  `NormalizeCaseDirectory` once in `Parse`, before `CollectHeaderFiles`'s existence
+  check, glob-pattern synthesis, or clang invocation uses them.
+- **ApiMark.Cpp.CppEmitter** — normalizes each declaration's source file via
+  `NormalizeCase`/`Comparer`, and every configured public include root via
+  `NormalizeCaseDirectory`, in `GetIncludePath` so the longest-matching-root comparison
+  is correct regardless of the build host's file-system case sensitivity.
+- **ApiMark.Cpp.CppAst.ClangAstParser** — normalizes each declaration's source file via
+  `NormalizeCase`/`Comparer`, and every configured public include root via
+  `NormalizeCaseDirectory`, in `IsOwned` so ownership filtering against
+  `PublicIncludeRoots` and the selected-headers set is correct regardless of the build
+  host's file-system case sensitivity.

@@ -233,6 +233,10 @@ public sealed class PathHelpersTests
         Assert.Equal(basePath, result);
     }
 
+    /// <summary>
+    ///     Creates a new, uniquely-named temporary directory on disk for a test to populate.
+    /// </summary>
+    /// <returns>The full path of the newly created temporary directory.</returns>
     private static string CreateTempDirectory()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ApiMarkPathHelpersTests_" + Guid.NewGuid().ToString("N"));
@@ -467,6 +471,89 @@ public sealed class PathHelpersTests
 
             Assert.Equal(fileA, normalizedA, StringComparer.Ordinal);
             Assert.Equal(fileB, normalizedB, StringComparer.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Regression test proving that <see cref="PathHelpers.NormalizeCaseDirectory"/> does not
+    ///     corrupt a bare drive-letter root (e.g. <c>C:\</c> on Windows) into an ambiguous
+    ///     drive-relative reference. A naive <c>NormalizeCase(path).TrimEnd(separator) +
+    ///     separator</c> composition would strip the drive root's own trailing separator down to
+    ///     <c>"C:"</c> before normalizing, and re-resolving that trimmed form via
+    ///     <see cref="Path.GetFullPath(string)"/> silently resolves it against the current
+    ///     directory on that drive instead of the drive's actual root directory.
+    /// </summary>
+    [Fact]
+    public void PathHelpers_NormalizeCaseDirectory_DriveLetterRoot_DoesNotResolveToCurrentDirectory()
+    {
+        var driveRoot = Path.GetPathRoot(Directory.GetCurrentDirectory()) ?? string.Empty;
+
+        // This scenario only applies on platforms with a drive-letter root (Windows); on other
+        // platforms Path.GetPathRoot returns "/" and there is no ambiguous drive-relative form.
+        if (driveRoot.Length is not (2 or 3) || driveRoot[1] != ':')
+        {
+            return;
+        }
+
+        var result = PathHelpers.NormalizeCaseDirectory(driveRoot);
+
+        // Assert: the result is the drive root itself (with exactly one trailing separator), not
+        // silently resolved against the current directory on that drive.
+        Assert.Equal(
+            char.ToUpperInvariant(driveRoot[0]) + ":" + Path.DirectorySeparatorChar,
+            result,
+            StringComparer.Ordinal);
+        Assert.NotEqual(Directory.GetCurrentDirectory() + Path.DirectorySeparatorChar, result, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="PathHelpers.NormalizeCaseDirectory"/> always returns a path
+    ///     ending with exactly one directory separator, for both a bare root and a subdirectory
+    ///     several levels below it — proving callers can safely use the result as a
+    ///     <see cref="string.StartsWith(string, StringComparison)"/> prefix without needing to
+    ///     re-derive or re-append a separator themselves.
+    /// </summary>
+    [Fact]
+    public void PathHelpers_NormalizeCaseDirectory_SubdirectoryPath_ProducesExactlyOneTrailingSeparator()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var actualSubDir = Path.Combine(root, "Lib", "Include");
+            Directory.CreateDirectory(actualSubDir);
+
+            // Supply the subdirectory without a trailing separator.
+            var result = PathHelpers.NormalizeCaseDirectory(actualSubDir);
+
+            Assert.Equal(actualSubDir + Path.DirectorySeparatorChar, result, StringComparer.Ordinal);
+            Assert.Equal(1, result.Length - result.TrimEnd(Path.DirectorySeparatorChar).Length);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="PathHelpers.NormalizeCaseDirectory"/> does not append a
+    ///     second trailing separator when the input already ends with one.
+    /// </summary>
+    [Fact]
+    public void PathHelpers_NormalizeCaseDirectory_InputAlreadyHasTrailingSeparator_DoesNotDoubleSeparator()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var actualSubDir = Path.Combine(root, "Lib");
+            Directory.CreateDirectory(actualSubDir);
+
+            var result = PathHelpers.NormalizeCaseDirectory(actualSubDir + Path.DirectorySeparatorChar);
+
+            Assert.Equal(actualSubDir + Path.DirectorySeparatorChar, result, StringComparer.Ordinal);
         }
         finally
         {

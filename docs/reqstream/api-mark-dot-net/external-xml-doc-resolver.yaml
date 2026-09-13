@@ -51,9 +51,10 @@ sections:
               - ExternalXmlDocResolver_Constructor_NullReferencePaths_ThrowsArgumentNullException
           - id: ApiMarkDotNet-ExternalXmlDocResolver-ProbeHintedAssemblyBeforeFullScan
             title: ExternalXmlDocResolver shall accept an optional declaring-assembly-name
-              hint per lookup and, when it matches a configured reference path, probe only
-              that path's XML documentation before falling back to a full, in-order scan
-              of every configured reference path.
+              hint per lookup and resolve a member declared by that assembly without
+              locating and parsing every configured reference path's XML documentation,
+              while still resolving correctly when the hint is absent, stale, or does not
+              match any configured reference path.
             justification: >
               With MSBuild's auto-harvested ReferencePaths default, the configured
               reference assembly list can contain every resolved dependency of a

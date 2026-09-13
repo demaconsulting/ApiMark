@@ -98,9 +98,13 @@ while walking the JSON AST.
 - **UpdateCurrentFile / GetCurrentSourceLocation** — preserve source-file and line
   context across clang nodes that omit `loc.file`.
 - **IsOwned** — enforces the selected-header plus include-root ownership rule.
-  Uses `ApiMark.Core.PathHelpers.NormalizeCase` to resolve both the source file
-  and each configured public include root to their actual on-disk casing (rather
-  than guessing case sensitivity from the operating system), then checks the
+  Uses `ApiMark.Core.PathHelpers.NormalizeCase` to resolve the source file, and
+  `ApiMark.Core.PathHelpers.NormalizeCaseDirectory` to resolve each configured public
+  include root, to their actual on-disk casing (rather than guessing case sensitivity
+  from the operating system); `NormalizeCaseDirectory` guarantees each normalized root
+  ends with exactly one trailing separator and never corrupts a bare filesystem root
+  (e.g. `C:\` or `/`) into an ambiguous drive-relative or empty path the way a manual
+  trim-then-normalize composition would. The method then checks the
   root-prefix match via `StringComparison.Ordinal` (the same case-sensitive
   comparison `PathHelpers.Comparer` exposes) and the selected-headers membership
   check via the `PathHelpers.Comparer`-backed `_selectedHeaders` set, so header
@@ -112,8 +116,10 @@ while walking the JSON AST.
   `CppGeneratorOptions.PublicIncludeRoots` is already normalized by
   `CppGenerator.Parse` before this parser is constructed (so header discovery and
   the clang `-I` arguments observe the same on-disk casing); normalizing again
-  here is a cheap, idempotent no-op in that case and keeps this method correct
-  even when the parser is constructed directly with un-normalized roots.
+  here is a redundant but inexpensive re-scan in that case (each root's own,
+  unshared `directoryEntryCache` still walks and enumerates every segment) and
+  keeps this method correct even when the parser is constructed directly with
+  un-normalized roots.
 - **GetKind / GetName / GetQualType / GetNsBuilder / BuildNamespaces** — JSON and
   namespace-builder utilities.
 

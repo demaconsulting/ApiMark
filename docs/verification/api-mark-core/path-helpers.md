@@ -42,6 +42,13 @@ cannot represent.
   supplied segment matches neither of two coexisting, differently-cased entries exactly.
 - `NormalizeCase` correctly resolves multiple sibling paths when a caller-supplied
   `directoryEntryCache` is shared across calls.
+- `NormalizeCaseDirectory` normalizes a bare filesystem root (e.g. a drive letter root)
+  to its actual on-disk casing without corrupting it into a drive-relative or empty
+  path, and the result is not equal to the current working directory.
+- `NormalizeCaseDirectory` returns a normal subdirectory path with exactly one trailing
+  directory separator.
+- `NormalizeCaseDirectory` does not double the trailing separator when the input path
+  already ends with one.
 
 ### Test Scenarios
 
@@ -124,3 +131,17 @@ matches neither exactly, the caller-supplied casing is preserved rather than gue
 Verifies that a caller-supplied `directoryEntryCache`, shared across multiple
 `NormalizeCase` calls for paths under the same ancestor directory, still resolves each
 path correctly.
+
+**PathHelpers_NormalizeCaseDirectory_DriveLetterRoot_DoesNotResolveToCurrentDirectory**:
+Verifies that normalizing a bare drive-letter root (e.g. `C:\`) produces the drive root
+in uppercase with its trailing separator intact, and specifically does not resolve to
+the current working directory the way a manual trim-then-`Path.GetFullPath` composition
+would. Skipped when the platform-appropriate drive-letter root does not exist.
+
+**PathHelpers_NormalizeCaseDirectory_SubdirectoryPath_ProducesExactlyOneTrailingSeparator**:
+Verifies that normalizing an ordinary existing subdirectory produces a result with
+exactly one trailing directory separator.
+
+**PathHelpers_NormalizeCaseDirectory_InputAlreadyHasTrailingSeparator_DoesNotDoubleSeparator**:
+Verifies that normalizing a path that already ends with a directory separator does not
+produce a doubled separator in the result.
