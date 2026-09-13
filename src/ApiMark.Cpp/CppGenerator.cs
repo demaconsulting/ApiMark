@@ -114,7 +114,7 @@ public sealed class CppGenerator : IApiGenerator, IDocumentationCoverageCapable
         var normalizedRoots = _options.PublicIncludeRoots
             .Select(root => PathHelpers.NormalizeCaseDirectory(root, directoryEntryCache))
             .ToList();
-        var normalizedOptions = WithNormalizedPublicIncludeRoots(_options, normalizedRoots);
+        var normalizedOptions = _options.WithPublicIncludeRoots(normalizedRoots);
 
         // Collect candidate header files from all configured public include roots
         var headerFiles = CollectHeaderFiles(normalizedOptions);
@@ -164,38 +164,6 @@ public sealed class CppGenerator : IApiGenerator, IDocumentationCoverageCapable
 
         return new CppEmitter(normalizedOptions, namespaceDecls, cppResolver);
     }
-
-    /// <summary>
-    ///     Returns a shallow copy of <paramref name="options"/> with
-    ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> replaced by
-    ///     <paramref name="normalizedRoots"/>, leaving every other option unchanged.
-    /// </summary>
-    /// <remarks>
-    ///     Used so that header discovery (<see cref="CollectHeaderFiles"/>), clang invocation
-    ///     (<see cref="ClangAstParser.Parse"/>), and emission (<see cref="CppEmitter"/>) all
-    ///     observe the same on-disk-cased roots computed once by <see cref="Parse"/>, instead of
-    ///     each independently normalizing (or, for header discovery, never normalizing) the raw
-    ///     caller-supplied values.
-    /// </remarks>
-    /// <param name="options">The original options supplied to this generator.</param>
-    /// <param name="normalizedRoots">The normalized replacement for <see cref="CppGeneratorOptions.PublicIncludeRoots"/>.</param>
-    /// <returns>A new <see cref="CppGeneratorOptions"/> instance sharing every other property with <paramref name="options"/>.</returns>
-    private static CppGeneratorOptions WithNormalizedPublicIncludeRoots(CppGeneratorOptions options, IReadOnlyList<string> normalizedRoots) => new()
-    {
-        Description = options.Description,
-        LibraryName = options.LibraryName,
-        PublicIncludeRoots = normalizedRoots,
-        ApiHeaderPatterns = options.ApiHeaderPatterns,
-        SystemIncludePaths = options.SystemIncludePaths,
-        Defines = options.Defines,
-        CppStandard = options.CppStandard,
-        AdditionalCompilerArguments = options.AdditionalCompilerArguments,
-        Visibility = options.Visibility,
-        IncludeDeprecated = options.IncludeDeprecated,
-        ClangPath = options.ClangPath,
-        WorkingDirectory = options.WorkingDirectory,
-        EnforceDocsVisibility = options.EnforceDocsVisibility,
-    };
 
     /// <summary>
     ///     Scans the namespace declarations parsed by the most recent <see cref="Parse"/> call for

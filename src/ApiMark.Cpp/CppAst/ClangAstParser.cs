@@ -85,13 +85,13 @@ internal sealed class ClangAstParser
     ///     <c>"lib"</c> cannot match <c>"libext"</c>), precomputed once by the constructor rather
     ///     than recomputed on every <see cref="IsOwned"/> call: the roots list is fixed for the
     ///     lifetime of a single <see cref="Parse"/> call, so recomputing it per declaration would
-    ///     needlessly repeat <see cref="PathHelpers.NormalizeCase"/> work for every parsed node.
-    ///     <see cref="CppGenerator.Parse"/> already normalizes
-    ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> before constructing this parser
-    ///     (so header discovery and the clang <c>-I</c> arguments built by
-    ///     <see cref="BuildArguments"/> observe the same on-disk casing); normalizing again here
-    ///     is a cheap, idempotent no-op in that case and keeps this type correct even when
-    ///     constructed directly with un-normalized roots (e.g. from a test).
+    ///     needlessly repeat <see cref="PathHelpers.NormalizeCaseDirectory"/> work for every parsed
+    ///     node. <see cref="Parse"/> normalizes <see cref="CppGeneratorOptions.PublicIncludeRoots"/>
+    ///     itself, once, before both building the clang <c>-I</c> arguments (<see cref="BuildArguments"/>)
+    ///     and constructing this parser, so the two always observe the same on-disk casing
+    ///     regardless of whether the caller reached this method directly or via
+    ///     <see cref="CppGenerator.Parse"/> (which normalizes the roots again upstream for header
+    ///     discovery; renormalizing an already-normalized root here is a cheap, idempotent no-op).
     /// </summary>
     private readonly IReadOnlyList<string> _normalizedPublicIncludeRoots;
 
@@ -182,6 +182,20 @@ internal sealed class ClangAstParser
         // Resolve the clang executable (may be xcrun on macOS)
         var (fileName, prefix) = FindClangExecutable(options.ClangPath);
 
+        // Normalize PublicIncludeRoots to their actual on-disk casing once, up front, so the
+        // clang -I arguments built by BuildArguments and the ownership check performed by the
+        // constructed parser instance always agree — regardless of whether this method was
+        // reached directly (e.g. from a test) or via CppGenerator.Parse (which normalizes the
+        // same roots again upstream for header discovery; renormalizing an already-normalized
+        // root is a cheap, idempotent no-op). PathHelpers.NormalizeCaseDirectory (rather than a
+        // manual NormalizeCase+TrimEnd composition) is used so a bare filesystem root such as
+        // "C:\" or "/" is never trimmed down to an ambiguous drive-relative or empty string.
+        var directoryEntryCache = new Dictionary<string, string[]>(PathHelpers.Comparer);
+        var normalizedRoots = options.PublicIncludeRoots
+            .Select(root => PathHelpers.NormalizeCaseDirectory(root, directoryEntryCache))
+            .ToList();
+        var normalizedOptions = options.WithPublicIncludeRoots(normalizedRoots);
+
         // Create a temporary combined header that #includes every header file so that
         // clang processes them as a single translation unit and produces a single JSON
         // object. Passing multiple files directly would produce one JSON object per TU,
@@ -196,7 +210,7 @@ internal sealed class ClangAstParser
             File.WriteAllText(tempFile, string.Join(Environment.NewLine, includeLines));
 
             // Build argument list targeting only the combined temp file
-            var args = BuildArguments(prefix, [tempFile], options);
+            var args = BuildArguments(prefix, [tempFile], normalizedOptions);
 
             // Invoke clang and capture stdout (JSON) and stderr (diagnostics) without deadlock
             var (stdout, stderr, exitCode) = RunProcess(fileName, args);
@@ -222,7 +236,6 @@ internal sealed class ClangAstParser
             // regardless of platform or file-system case sensitivity. The directory-entry cache
             // is shared with IsOwned's PublicIncludeRoots resolution for the lifetime of the
             // constructed parser instance.
-            var directoryEntryCache = new Dictionary<string, string[]>(PathHelpers.Comparer);
             var selectedHeaders = headers
                 .Select(h => PathHelpers.NormalizeCase(Path.GetFullPath(h), directoryEntryCache))
                 .ToHashSet(PathHelpers.Comparer);
@@ -232,7 +245,7 @@ internal sealed class ClangAstParser
             // hundreds of levels deep inside standard library template instantiations.
             // JsonDocument.ParseValue reads exactly one JSON object from the reader position,
             // consuming the entire TU in one call.
-            var parser = new ClangAstParser(options, selectedHeaders, directoryEntryCache);
+            var parser = new ClangAstParser(normalizedOptions, selectedHeaders, directoryEntryCache);
             try
             {
                 var jsonBytes = System.Text.Encoding.UTF8.GetBytes(stdout);
@@ -622,10 +635,11 @@ internal sealed class ClangAstParser
     /// <param name="prefix">Arguments to prepend before all clang flags (may be empty).</param>
     /// <param name="headers">Absolute paths of the header files to parse.</param>
     /// <param name="options">
-    ///     Generator options providing all structured clang settings. On the production path,
-    ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> is already normalized to actual
-    ///     on-disk casing by <see cref="CppGenerator.Parse"/>, so the <c>-I</c> flags built here
-    ///     resolve correctly on a case-sensitive file system even when the caller originally
+    ///     Generator options providing all structured clang settings.
+    ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> is expected to already be
+    ///     normalized to actual on-disk casing by the caller (<see cref="Parse"/> normalizes it
+    ///     once, up front, before calling this method), so the <c>-I</c> flags built here
+    ///     resolve correctly on a case-sensitive file system even when the original caller
     ///     supplied a differently-cased root.
     /// </param>
     /// <returns>The complete ordered argument list.</returns>

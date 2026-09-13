@@ -136,11 +136,17 @@ memory and returns a `DotNetEmitter` ready to emit.
   before the model is constructed), `Parse` disposes the resolver itself
   alongside the parsed assembly.
 - *External XML doc resolver wiring*: When `ReferencePaths` is non-empty, `Parse`
-  constructs an `ExternalXmlDocResolver` from it and passes its `TryGetMember`
-  method as the `externalMemberLookup` argument to the `XmlDocReader`
+  constructs an `ExternalXmlDocResolver` from it and `BuildInheritanceChain` also
+  produces a per-candidate declaring-assembly-name hint dictionary
+  (`AssemblyHints`). `Parse` wraps `ExternalXmlDocResolver.TryGetMember(string,
+  string?)` in a closure — rather than passing the method group directly — so each
+  lookup can pass the target member's precomputed hint from `AssemblyHints`; the
+  closure is passed as the `externalMemberLookup` argument to the `XmlDocReader`
   constructor, enabling `<inheritdoc />` elements that target external base
-  types/members to resolve using that reference assembly's own XML
-  documentation file. When `ReferencePaths` is empty, no external resolver is
+  types/members to resolve using that reference assembly's own XML documentation
+  file, probing the hinted reference path first and falling back to a full scan of
+  every configured reference path when the hint is absent, stale, or does not
+  resolve the member. When `ReferencePaths` is empty, no external resolver is
   constructed and `XmlDocReader` behaves exactly as before this feature.
 - *NamespaceDoc processing*: After collecting all visible types, `Parse` calls
   `DotNetEmitter.IsNamespaceDocCarrier` on each type. Carrier types (those named
