@@ -52,6 +52,9 @@ by `WriteFunctionContent`.
 - `_options`: `CppGeneratorOptions` — generator configuration; exposed to sub-emitters via the `internal Options` property.
 - `_namespaceDecls`: `SortedDictionary<string, NamespaceDeclarations>` — sorted map of namespace key → declarations; passed directly to the format-specific sub-emitter constructor.
 - `_cppResolver`: `CppTypeLinkResolver` — type link resolver; forwarded to the sub-emitter constructor.
+- `_includeRootDirectoryEntryCache`: `Dictionary<string, string[]>` — directory-entry cache backing `PathHelpers.NormalizeCase`/`NormalizeCaseDirectory`, shared across every `GetIncludePath` call for the lifetime of this emitter (public include roots and their on-disk contents do not change mid-generation-run). Not thread-safe; `CppEmitter` instances are used single-threaded per generation run.
+- `_normalizedPublicIncludeRoots`: `IReadOnlyList<string>` — each configured `PublicIncludeRoots` entry, resolved once in the constructor to its actual on-disk casing (via `PathHelpers.NormalizeCaseDirectory`); fixed for the lifetime of this emitter.
+- `_includePathCache`: `Dictionary<string, string>` — memoizes `GetIncludePath` results keyed by the as-supplied source file path, since many declarations commonly share the same source file.
 
 ### Key Methods
 

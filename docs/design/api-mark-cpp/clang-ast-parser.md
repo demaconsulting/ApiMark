@@ -112,14 +112,15 @@ while walking the JSON AST.
   sensitivity. Both the per-declaration ownership result (keyed by the
   as-supplied, non-normalized source file) and the normalized public include
   roots (computed once by the constructor) are memoized, since `_currentFile`
-  commonly repeats across many consecutive declarations. On the production path,
-  `CppGeneratorOptions.PublicIncludeRoots` is already normalized by
-  `CppGenerator.Parse` before this parser is constructed (so header discovery and
-  the clang `-I` arguments observe the same on-disk casing); normalizing again
-  here is a redundant but inexpensive re-scan in that case (each root's own,
-  unshared `directoryEntryCache` still walks and enumerates every segment) and
-  keeps this method correct even when the parser is constructed directly with
-  un-normalized roots.
+  commonly repeats across many consecutive declarations. `Parse` normalizes
+  `CppGeneratorOptions.PublicIncludeRoots` once up front — before building the
+  clang `-I` arguments — and passes both the resulting `normalizedOptions` and
+  the same `directoryEntryCache` instance into this constructor, so re-deriving
+  `_normalizedPublicIncludeRoots` here is a cheap, already-cached no-op (every
+  directory segment was already enumerated and cached during `Parse`'s own
+  normalization pass) rather than a fresh re-scan. This also keeps the
+  constructor correct on its own if it is ever invoked with un-normalized
+  options and a fresh cache directly.
 - **GetKind / GetName / GetQualType / GetNsBuilder / BuildNamespaces** — JSON and
   namespace-builder utilities.
 
