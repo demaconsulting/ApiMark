@@ -79,6 +79,40 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> escapes a value that itself
+    ///     legitimately begins with a literal <c>@</c> (e.g. an unusual path or library name) as
+    ///     <c>@@rest</c>, so that <c>Context.ExpandResponseFileArguments</c> on the receiving end
+    ///     — which otherwise treats any top-level argument starting with <c>@</c> as a
+    ///     response-file token — round-trips it back to the original literal value instead of
+    ///     misinterpreting it as a response-file reference.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_DotNet_EscapesValuesWithLiteralLeadingAt()
+    {
+        // Arrange: assembly path, xml-doc path, and an --exclude entry all start with a literal '@'
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".csproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "@weird/api.dll",
+            ApiMarkXmlDocPath = "@weird/api.xml",
+            ApiMarkExclude = "@Internal*",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet");
+
+        // Assert: each literal-leading-'@' value is escaped with an extra '@' so it is not
+        // misinterpreted downstream as a response-file token
+        Assert.Contains("@@weird/api.dll", args);
+        Assert.Contains("@@weird/api.xml", args);
+        Assert.Contains("@@Internal*", args);
+        Assert.DoesNotContain("@weird/api.dll", args);
+        Assert.DoesNotContain("@weird/api.xml", args);
+        Assert.DoesNotContain("@Internal*", args);
+    }
+
+    /// <summary>
     ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> emits a separate
     ///     <c>--includes</c> flag for each path in <see cref="ApiMarkTask.ApiMarkIncludePaths"/>
     ///     when the property is semicolon-separated, rather than joining them into a single
@@ -141,6 +175,63 @@ public class ApiMarkTaskTests
         Assert.Equal("MyNamespace.Generated.*", argList[lastIdx + 1]);
         Assert.DoesNotContain("Antlr4.*,MyNamespace.Generated.*", args);
         Assert.DoesNotContain("Antlr4.*;MyNamespace.Generated.*", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> emits a separate
+    ///     <c>--reference-paths</c> flag for each path in
+    ///     <see cref="ApiMarkTask.ApiMarkReferencePaths"/> when the property is
+    ///     semicolon-separated, rather than joining them into a single comma-separated value.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_DotNet_SpawnsToolWithCorrectReferencePathArguments()
+    {
+        // Arrange: configure semicolon-separated reference paths for a dotnet invocation
+        var task = new ApiMarkTask
+        {
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/path/api.dll",
+            ApiMarkXmlDocPath = "/some/path/api.xml",
+            ApiMarkReferencePaths = "/refs/One.dll;/refs/Two.dll",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet");
+
+        // Assert: each path must appear as a separate --reference-paths <path> pair
+        var argList = args.ToList();
+        var firstIdx = argList.IndexOf("--reference-paths");
+        var lastIdx = argList.LastIndexOf("--reference-paths");
+        Assert.True(firstIdx >= 0, "--reference-paths must be present");
+        Assert.NotEqual(firstIdx, lastIdx);
+        Assert.Equal("/refs/One.dll", argList[firstIdx + 1]);
+        Assert.Equal("/refs/Two.dll", argList[lastIdx + 1]);
+        Assert.DoesNotContain("/refs/One.dll,/refs/Two.dll", args);
+        Assert.DoesNotContain("/refs/One.dll;/refs/Two.dll", args);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> omits the
+    ///     <c>--reference-paths</c> flag entirely when
+    ///     <see cref="ApiMarkTask.ApiMarkReferencePaths"/> is null or empty, consistent with how
+    ///     other optional repeatable arguments are omitted when unset.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_DotNet_OmitsReferencePathsFlag_WhenNotSet()
+    {
+        // Arrange: ApiMarkReferencePaths intentionally left unset (null)
+        var task = new ApiMarkTask
+        {
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/path/api.dll",
+            ApiMarkXmlDocPath = "/some/path/api.xml",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet");
+
+        // Assert: no --reference-paths flag is emitted
+        Assert.DoesNotContain("--reference-paths", args);
     }
 
     /// <summary>
@@ -939,6 +1030,231 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
+    ///     Regression test proving that a normal/small <see cref="ApiMarkTask.ApiMarkReferencePaths"/>
+    ///     list still succeeds and results in a single <c>@</c>-prefixed response-file invocation
+    ///     (the design always uses a response file whenever <c>ApiMarkReferencePaths</c> is
+    ///     non-empty, regardless of list size).
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Execute_SmallReferencePathsList_StillSucceedsViaResponseFile()
+    {
+        // Arrange: a small, two-entry reference paths list
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new RecordingApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".csproj",
+            ToolDllPath = typeof(ApiMarkTaskTests).Assembly.Location,
+            ApiMarkAssemblyPath = "test.dll",
+            ApiMarkXmlDocPath = "test.xml",
+            ApiMarkReferencePaths = "/refs/One.dll;/refs/Two.dll",
+        };
+
+        // Act
+        var result = task.Execute();
+
+        // Assert: the run succeeds and the observed arguments contain exactly one @-prefixed
+        // token in place of the individual --reference-paths pairs
+        Assert.True(result);
+        buildEngine.DidNotReceive().LogErrorEvent(Arg.Any<BuildErrorEventArgs>());
+        Assert.NotNull(task.LastToolArgs);
+        Assert.DoesNotContain("--reference-paths", task.LastToolArgs);
+        var responseFileArg = Assert.Single(task.LastToolArgs!, a => a.StartsWith('@'));
+        Assert.False(File.Exists(responseFileArg[1..]), "Response file must be deleted after the process completes.");
+    }
+
+    /// <summary>
+    ///     Validates that when <see cref="ApiMarkTask.ApiMarkReferencePaths"/> is set, the
+    ///     argument list observed by (the overridden) <c>RunToolProcess</c> contains exactly one
+    ///     <c>@</c>-prefixed token and no individual <c>--reference-paths</c> entries, and that
+    ///     the referenced response file (captured before deletion) contains the expected
+    ///     <c>--reference-paths</c>/path line pairs.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Execute_WithReferencePaths_WritesResponseFileWithExpectedContent()
+    {
+        // Arrange
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new ResponseFileCapturingApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".csproj",
+            ToolDllPath = typeof(ApiMarkTaskTests).Assembly.Location,
+            ApiMarkAssemblyPath = "test.dll",
+            ApiMarkXmlDocPath = "test.xml",
+            ApiMarkReferencePaths = "/refs/One.dll;/refs/Two.dll",
+        };
+
+        // Act
+        var result = task.Execute();
+
+        // Assert: exactly one @-prefixed token, no --reference-paths entries, and the captured
+        // response-file content (read before RunToolProcessWithResponseFile deletes it in
+        // finally) contains the expected line pairs
+        Assert.True(result);
+        Assert.NotNull(task.CapturedToolArgs);
+        Assert.DoesNotContain("--reference-paths", task.CapturedToolArgs);
+        _ = Assert.Single(task.CapturedToolArgs!, a => a.StartsWith('@'));
+        Assert.Equal(
+            new[] { "--reference-paths", "/refs/One.dll", "--reference-paths", "/refs/Two.dll" },
+            task.CapturedResponseFileLines);
+    }
+
+    /// <summary>
+    ///     Validates that when <see cref="ApiMarkTask.ApiMarkReferencePaths"/> is empty/unset, no
+    ///     <c>@</c>-prefixed token appears in the observed arguments and no response file is
+    ///     created at all — regression-proving the empty-case fast path is unaffected by the
+    ///     response-file feature.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Execute_WithoutReferencePaths_NoResponseFileCreated()
+    {
+        // Arrange: ApiMarkReferencePaths intentionally left unset
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new RecordingApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".csproj",
+            ToolDllPath = typeof(ApiMarkTaskTests).Assembly.Location,
+            ApiMarkAssemblyPath = "test.dll",
+            ApiMarkXmlDocPath = "test.xml",
+        };
+
+        // Act
+        var result = task.Execute();
+
+        // Assert: no @-prefixed token appears since there were no --reference-paths pairs to
+        // substitute, so no response file was ever created
+        Assert.True(result);
+        Assert.NotNull(task.LastToolArgs);
+        Assert.DoesNotContain(task.LastToolArgs!, a => a.StartsWith('@'));
+    }
+
+    /// <summary>
+    ///     Validates that when the overridden <c>RunToolProcess</c> itself throws an
+    ///     <see cref="IOException"/> (simulating a failure starting the child process or handling
+    ///     its redirected streams, as opposed to a response-file creation failure),
+    ///     <see cref="ApiMarkTask.RunToolProcessWithResponseFile"/> does not catch and misreport it
+    ///     as "unable to create the reference-paths response file" — the exception propagates
+    ///     unhandled, matching the pre-existing behavior for <c>RunToolProcess</c> failures that
+    ///     predates the response-file feature — while the response file is still deleted via the
+    ///     surrounding <c>finally</c> block.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Execute_RunToolProcessThrowsIOException_PropagatesAndStillDeletesResponseFile()
+    {
+        // Arrange: force a --reference-paths response file to be created, then make the
+        // overridden RunToolProcess throw an IOException unrelated to response-file creation
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new ThrowingRunToolProcessApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".csproj",
+            ToolDllPath = typeof(ApiMarkTaskTests).Assembly.Location,
+            ApiMarkAssemblyPath = "test.dll",
+            ApiMarkXmlDocPath = "test.xml",
+            ApiMarkReferencePaths = "/refs/One.dll",
+        };
+
+        // Act / Assert: the IOException from RunToolProcess propagates unhandled (it is not
+        // caught and reported as a response-file creation failure)
+        var ex = Assert.Throws<IOException>(() => task.Execute());
+        Assert.Equal("simulated stream failure", ex.Message);
+
+        // Assert: the response file that RunToolProcess observed no longer exists — the
+        // surrounding finally block still deleted it even though RunToolProcess threw
+        Assert.NotNull(task.ObservedResponseFilePath);
+        Assert.False(File.Exists(task.ObservedResponseFilePath), "Response file must be deleted even when RunToolProcess throws.");
+    }
+
+    /// <summary>
+    ///     Validates that when a failure occurs while writing response-file content (as opposed
+    ///     to a name collision at creation time), <see cref="ApiMarkTask.CreateResponseFile"/>
+    ///     does not retry with a fresh name (which would silently leak the partially-written
+    ///     file) and instead deletes the partial file before letting the original exception
+    ///     propagate.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_CreateResponseFile_WriteFailure_DoesNotRetryAndDeletesPartialFile()
+    {
+        // Arrange: an IEnumerable<string> whose enumerator throws partway through, simulating a
+        // failure (e.g. a full disk) after the file has already been successfully created.
+        // Snapshot pre-existing matching temp files first so the assertion below is immune to
+        // other tests/processes concurrently creating and cleaning up their own response files.
+        static IEnumerable<string> ThrowingLines()
+        {
+            yield return "--reference-paths";
+            yield return "/refs/One.dll";
+            throw new IOException("simulated write failure");
+        }
+
+        var filePattern = "apimark_reference_paths_*.rsp";
+        var beforeFiles = new HashSet<string>(Directory.GetFiles(Path.GetTempPath(), filePattern));
+
+        // Act / Assert: the original IOException propagates unchanged (it is not swallowed by a
+        // retry loop)
+        var ex = Assert.Throws<IOException>(() => ApiMarkTask.CreateResponseFile(ThrowingLines()));
+        Assert.Equal("simulated write failure", ex.Message);
+
+        // Assert: no new response file was left behind in the temp directory — the
+        // partially-written file created before the failure was cleaned up rather than
+        // retried-and-abandoned
+        var afterFiles = Directory.GetFiles(Path.GetTempPath(), filePattern);
+        Assert.All(afterFiles, f => Assert.Contains(f, beforeFiles));
+    }
+
+    /// <summary>
+    ///     Subclass of <see cref="ApiMarkTask"/> that overrides <c>RunToolProcess</c> to capture
+    ///     both the observed argument list and the response file's content (read before the base
+    ///     <c>RunToolProcessWithResponseFile</c> deletes it in its <c>finally</c> block).
+    /// </summary>
+    private sealed class ResponseFileCapturingApiMarkTask : ApiMarkTask
+    {
+        /// <summary>Gets the argument list observed by the overridden <c>RunToolProcess</c> call.</summary>
+        public IReadOnlyList<string>? CapturedToolArgs { get; private set; }
+
+        /// <summary>Gets the lines read from the response file referenced by the captured arguments, if any.</summary>
+        public string[]? CapturedResponseFileLines { get; private set; }
+
+        /// <inheritdoc/>
+        protected override string? ResolveDotNetExe() => "dummy-dotnet";
+
+        /// <inheritdoc/>
+        protected override bool RunToolProcess(string dotnetExe, IReadOnlyList<string> toolArgs)
+        {
+            CapturedToolArgs = toolArgs;
+            var responseFileArg = toolArgs.FirstOrDefault(a => a.StartsWith('@'));
+            if (responseFileArg is not null)
+            {
+                CapturedResponseFileLines = File.ReadAllLines(responseFileArg[1..]);
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>
+    ///     Subclass of <see cref="ApiMarkTask"/> that overrides <c>RunToolProcess</c> to throw an
+    ///     <see cref="IOException"/> unrelated to response-file creation, simulating a failure
+    ///     starting the child process or handling its redirected streams.
+    /// </summary>
+    private sealed class ThrowingRunToolProcessApiMarkTask : ApiMarkTask
+    {
+        /// <summary>Gets the response-file path observed by the overridden <c>RunToolProcess</c> call, if any.</summary>
+        public string? ObservedResponseFilePath { get; private set; }
+
+        /// <inheritdoc/>
+        protected override string? ResolveDotNetExe() => "dummy-dotnet";
+
+        /// <inheritdoc/>
+        protected override bool RunToolProcess(string dotnetExe, IReadOnlyList<string> toolArgs)
+        {
+            ObservedResponseFilePath = toolArgs.FirstOrDefault(a => a.StartsWith('@'))?[1..];
+            throw new IOException("simulated stream failure");
+        }
+    }
+
+    /// <summary>
     ///     Subclass of <see cref="ApiMarkTask"/> that overrides <c>RunToolProcess</c> to simulate
     ///     a non-zero tool exit without spawning a real child process.
     /// </summary>
@@ -981,6 +1297,9 @@ public class ApiMarkTaskTests
         /// <summary>Gets the number of times <c>RunToolProcess</c> has been called.</summary>
         public int RunToolProcessCallCount { get; private set; }
 
+        /// <summary>Gets the argument list observed by the most recent <c>RunToolProcess</c> call.</summary>
+        public IReadOnlyList<string>? LastToolArgs { get; private set; }
+
         /// <inheritdoc/>
         protected override string? ResolveDotNetExe() => "dummy-dotnet";
 
@@ -988,6 +1307,7 @@ public class ApiMarkTaskTests
         protected override bool RunToolProcess(string dotnetExe, IReadOnlyList<string> toolArgs)
         {
             RunToolProcessCallCount++;
+            LastToolArgs = toolArgs;
             return true;
         }
     }

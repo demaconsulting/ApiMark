@@ -30,6 +30,7 @@ up after itself. No other external files, services, or configuration are require
 - Flag tokens (starting with `-`) supplied as values for string-valued options are rejected with `ArgumentException`.
 - `--includes` accepts one directory path per flag; repeated flags accumulate paths into `Includes`.
 - `--exclude` accepts one wildcard pattern per flag; repeated flags accumulate patterns into `Excludes` in order.
+- `--reference-paths` accepts one referenced assembly DLL path per flag; repeated flags accumulate paths into `ReferencePaths` in order.
 - `--api-headers` patterns are accumulated in order; `!`-prefixed exclusion patterns are forwarded verbatim.
 - `--source` patterns are accumulated in order; `!`-prefixed exclusion patterns are forwarded verbatim.
 - C++ named options (`--library-name`, `--library-description`, `--defines`, `--cpp-standard`) set their
@@ -41,6 +42,11 @@ up after itself. No other external files, services, or configuration are require
   remains `null` (enforcement disabled).
 - `--enforce-docs-severity` sets `EnforceDocsSeverity` to the supplied value; absent, it
   defaults to `"Warning"`.
+- An `@<file>` token expands into the response file's non-blank lines, one argument per
+  line, before the rest of parsing runs; a `@<file>` token referencing a missing or
+  unreadable file throws `ArgumentException` naming the offending path. A leading `@@`
+  escapes a literal leading `@` in an argument value, passing the value through with
+  exactly one `@` stripped rather than expanding it as a response-file token.
 
 #### Test Scenarios
 
@@ -87,6 +93,32 @@ up after itself. No other external files, services, or configuration are require
 `--exclude Antlr4.* --exclude Foo.Bar --exclude *.Internal` →
 `Excludes = ["Antlr4.*", "Foo.Bar", "*.Internal"]` (order preserved).
 
+**`Context_Create_WithReferencePathsOption_SetsReferencePaths`**: `--reference-paths /refs/One.dll`
+→ `ReferencePaths = ["/refs/One.dll"]`.
+
+**`Context_Create_WithRepeatedReferencePathsFlags_AccumulatesAllPathsInOrder`**:
+`--reference-paths /refs/One.dll --reference-paths /refs/Two.dll --reference-paths /refs/Three.dll`
+→ `ReferencePaths = ["/refs/One.dll", "/refs/Two.dll", "/refs/Three.dll"]`.
+
+**`Context_Create_WithResponseFileArgument_ExpandsIntoMultipleReferencePaths`**: a
+`@<file>` token referencing a response file containing two
+`--reference-paths`/path line pairs → `ReferencePaths` populated with both paths,
+in order.
+
+**`Context_Create_WithResponseFileContainingBlankLines_SkipsBlankLines`**: a
+`@<file>` token referencing a response file with blank/whitespace-only lines
+interspersed between real arguments → the blank lines are skipped and only the
+real path is populated.
+
+**`Context_Create_WithResponseFileArgumentForMissingFile_ThrowsArgumentException`**:
+a `@<file>` token referencing a nonexistent file → `ArgumentException` naming
+the missing path, rather than a confusing downstream failure.
+
+**`Context_Create_WithEscapedAtSignArgument_PassesThroughLiteralValue`**: `--library-name
+@@mylib` → `LibraryName = "@mylib"` (the escaped leading `@@` is
+reduced to a literal `@` and the value is never treated as a response-file
+token, even though `@mylib` is not a real file).
+
 **`Context_Create_WithDepthOption_SetsHeadingDepth`**: `--depth 3` → `HeadingDepth = 3`.
 
 **`Context_Create_WithDepthOptionOutOfRange_ThrowsArgumentException`**: `--depth 0`, `--depth 7`,
@@ -102,7 +134,8 @@ the upper boundary of the valid ATX heading range and must be accepted without e
 `--result results.trx` both set `ResultsFile = "results.trx"` (theory test covering both variants).
 
 **`Context_Create_WithNoArguments_HasDefaultValues`**: Empty args → all properties at
-documented defaults; `ExitCode = 0`, `HeadingDepth = 1`, `Includes` empty.
+documented defaults; `ExitCode = 0`, `HeadingDepth = 1`, `Includes` empty,
+`ReferencePaths` empty.
 
 **`Context_Create_WithUnknownFlag_ThrowsArgumentException`**: `--not-a-flag` →
 `ArgumentException` thrown.

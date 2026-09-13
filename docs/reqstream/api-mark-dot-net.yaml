@@ -27,6 +27,7 @@ sections:
           - ApiMarkDotNet-DotNetGenerator-RejectNullOptions
           - ApiMarkDotNet-DotNetGenerator-RejectNullContext
           - ApiMarkDotNet-DotNetGenerator-ResolveBareInheritdocFromBaseTypes
+          - ApiMarkDotNet-DotNetGenerator-ResolveInheritdocAcrossReferencedAssemblies
           - ApiMarkDotNet-DotNetAstModel-HoldParsedAssemblyData
           - ApiMarkDotNet-DotNetEmitter-DispatchToFormatSpecificEmitter
           - ApiMarkDotNet-DotNetEmitter-RejectNullArguments
@@ -66,6 +67,8 @@ sections:
           - ApiMarkDotNet-XmlDocReader-ProvideMemberDocumentationFromXmlFile
           - ApiMarkDotNet-XmlDocReader-RenderXmlDocLists
           - ApiMarkDotNet-XmlDocReader-InheritDoc
+          - ApiMarkDotNet-ExternalXmlDocResolver-LocateAndCacheReferencedAssemblyDocs
+          - ApiMarkDotNet-ExternalXmlDocResolver-RejectNullReferencePaths
         tests: [ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown]
       - id: ApiMarkDotNet-TypeNameSimplifier-ProduceReadableTypeNames
         title: ApiMarkDotNet shall render .NET type names in a concise C#-style form
@@ -85,8 +88,8 @@ sections:
           - ApiMarkDotNet-TypeNameSimplifier-AppendNullableReferenceSuffix
         tests: [ApiMarkDotNet_TypeNames_CommonSignatures_RenderReadably]
       - id: ApiMarkDotNet-EnforceDocumentationCoverage
-        title: ApiMarkDotNet shall optionally check parsed assemblies for missing XML
-          doc summaries at a caller-selected visibility tier, independent of Markdown
+        title: ApiMarkDotNet shall optionally check parsed assemblies for missing
+          XML doc summaries at a caller-selected visibility tier, independent of Markdown
           emission.
         tags: [system]
         justification: |
@@ -100,4 +103,5 @@ sections:
           - ApiMarkDotNet-DocumentationCoverageChecker-DetectMissingSummaryByKind
           - ApiMarkDotNet-DocumentationCoverageChecker-RecurseNestedTypes
           - ApiMarkDotNet-DocumentationCoverageChecker-ApplyExcludePatternsAndObsoleteFilter
-        tests: [DotNetGenerator_CheckDocumentationCoverage_AfterParse_ReturnsViolationsAndAllowsSubsequentEmit]
+        tests:
+          - DotNetGenerator_CheckDocumentationCoverage_AfterParse_ReturnsViolationsAndAllowsSubsequentEmit

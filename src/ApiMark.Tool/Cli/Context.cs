@@ -110,6 +110,14 @@ internal sealed class Context : IContext, IDisposable
     public string[] Excludes { get; private init; } = [];
 
     /// <summary>
+    ///     Gets the referenced assembly DLL paths for the .NET language subcommand, used to
+    ///     resolve cross-assembly <c>&lt;inheritdoc /&gt;</c> targets. Contains paths collected
+    ///     from repeated <c>--reference-paths</c> invocations. Defaults to an empty array — no
+    ///     cross-assembly resolution unless explicitly supplied.
+    /// </summary>
+    public string[] ReferencePaths { get; private init; } = [];
+
+    /// <summary>
     ///     Gets the documentation-coverage enforcement visibility tier for the .NET language
     ///     subcommand. Valid values are <c>Public</c>, <c>PublicAndProtected</c>, and <c>All</c>.
     ///     Defaults to <see langword="null"/> — enforcement is disabled unless this option is
@@ -206,6 +214,7 @@ internal sealed class Context : IContext, IDisposable
             Visibility = parser.Visibility,
             IncludeObsolete = parser.IncludeObsolete,
             Excludes = [.. parser.Excludes],
+            ReferencePaths = [.. parser.ReferencePaths],
             EnforceDocs = parser.EnforceDocs,
             EnforceDocsSeverity = parser.EnforceDocsSeverity,
             LibraryName = parser.LibraryName,
@@ -403,6 +412,13 @@ internal sealed class Context : IContext, IDisposable
         public List<string> Excludes { get; } = new List<string>();
 
         /// <summary>
+        ///     Gets the referenced assembly DLL paths for the .NET language subcommand.
+        ///     Accumulated by repeated <c>--reference-paths</c> invocations; each invocation
+        ///     appends one path used to resolve cross-assembly <c>&lt;inheritdoc /&gt;</c> targets.
+        /// </summary>
+        public List<string> ReferencePaths { get; } = new List<string>();
+
+        /// <summary>
         ///     Gets the documentation-coverage enforcement visibility tier value.
         ///     <see langword="null"/> when <c>--enforce-docs</c> was not supplied (enforcement disabled).
         /// </summary>
@@ -462,12 +478,111 @@ internal sealed class Context : IContext, IDisposable
             // Validate input
             ArgumentNullException.ThrowIfNull(args);
 
+            // Expand any "@<file>" response-file tokens into their constituent arguments before
+            // the rest of parsing runs, so ParseArgument/its callers are unaware of the
+            // substitution.
+            args = ExpandResponseFileArguments(args);
+
             int i = 0;
             while (i < args.Length)
             {
                 var arg = args[i++];
                 i = ParseArgument(arg, args, i);
             }
+        }
+
+        /// <summary>
+        ///     Expands any <c>@&lt;file&gt;</c> response-file tokens in <paramref name="args"/> into
+        ///     their constituent arguments, one per non-blank line of the referenced file.
+        /// </summary>
+        /// <remarks>
+        ///     This is a single, non-recursive expansion pass: a line read from a response file is
+        ///     never itself re-checked for a leading, unescaped <c>@</c> that would trigger a
+        ///     nested response-file expansion — a response-file line starting with a single
+        ///     <c>@</c> always passes through as a literal argument. Tokens that do not start with
+        ///     <c>@</c> also pass through unchanged. Blank/whitespace-only lines in a response file
+        ///     are skipped so authors can use blank lines for readability without producing empty
+        ///     arguments. This convention exists so that MSBuild-driven invocations (e.g. a large,
+        ///     harvested <c>ApiMarkReferencePaths</c> list) can avoid operating-system command-line
+        ///     length limits by writing arguments to a file and passing a single <c>@&lt;file&gt;</c>
+        ///     token instead.
+        ///     A legitimate argument value that itself needs to start with a literal <c>@</c>
+        ///     (for example a library description or defines value) can be written as
+        ///     <c>@@rest</c>: a leading <c>@@</c> is treated as an escape for a literal leading
+        ///     <c>@</c> and is passed through as <c>@rest</c> without response-file expansion,
+        ///     rather than being misinterpreted as a response-file token. This escape is honored
+        ///     consistently whether the <c>@@rest</c> token appears directly on the command line
+        ///     or as a line within an expanded response file, so a value forwarded via either path
+        ///     round-trips to the same literal result. The escape and response-file grammars are
+        ///     not fully orthogonal in one narrow corner case: a response file whose own file name
+        ///     starts with <c>@</c> (e.g. a file literally named <c>@config.rsp</c>) cannot be
+        ///     referenced via this convention, since the token that would name it
+        ///     (<c>@@config.rsp</c>) is instead interpreted as the escaped literal value
+        ///     <c>@config.rsp</c>. This is considered acceptable: such a file name is exceedingly
+        ///     unlikely in practice.
+        /// </remarks>
+        /// <param name="args">The raw, unexpanded command-line arguments.</param>
+        /// <returns>The arguments with any response-file tokens expanded in place.</returns>
+        /// <exception cref="ArgumentException">
+        ///     Thrown when a response-file token references a file that does not exist or cannot be
+        ///     read, naming the offending path.
+        /// </exception>
+        private static string[] ExpandResponseFileArguments(string[] args)
+        {
+            List<string>? expanded = null;
+            for (var i = 0; i < args.Length; i++)
+            {
+                var arg = args[i];
+                if (arg.StartsWith("@@", StringComparison.Ordinal))
+                {
+                    // Escaped literal: "@@rest" means a literal argument "@rest", not a
+                    // response-file token. Strip exactly one leading '@'.
+                    expanded ??= new List<string>(args[..i]);
+                    expanded.Add(arg[1..]);
+                }
+                else if (arg.Length > 1 && arg[0] == '@')
+                {
+                    // Once a response-file token is seen, switch to building an explicit list
+                    // (rather than mutating/returning the original array), copying every prior
+                    // pass-through argument first.
+                    expanded ??= new List<string>(args[..i]);
+
+                    var responseFilePath = arg[1..];
+                    string[] lines;
+                    try
+                    {
+                        lines = File.ReadAllLines(responseFilePath);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        throw new ArgumentException(
+                            $"Unable to read response file '{responseFilePath}': {ex.Message}", ex);
+                    }
+
+                    foreach (var line in lines)
+                    {
+                        if (string.IsNullOrWhiteSpace(line))
+                        {
+                            continue;
+                        }
+
+                        // Apply the same "@@" escape used for top-level arguments above: a
+                        // response-file line beginning with "@@" is a literal value starting
+                        // with '@' (e.g. "@@mylib" written by a caller that needed to preserve a
+                        // leading '@' in an entry), not a nested response-file reference. Lines
+                        // beginning with a single '@' are still NOT expanded recursively — they
+                        // pass through unchanged, matching this method's documented single-pass
+                        // semantics — so only the escape is honored here, not further expansion.
+                        expanded.Add(line.StartsWith("@@", StringComparison.Ordinal) ? line[1..] : line);
+                    }
+                }
+                else
+                {
+                    expanded?.Add(arg);
+                }
+            }
+
+            return expanded?.ToArray() ?? args;
         }
 
         /// <summary>
@@ -576,6 +691,25 @@ internal sealed class Context : IContext, IDisposable
                         // — repeated --exclude flags accumulate the full list
                         var pattern = GetRequiredStringArgument(arg, args, index, "a wildcard pattern argument");
                         Excludes.Add(pattern);
+                        return index + 1;
+                    }
+
+                case "--reference-paths":
+                    {
+                        // Append each --reference-paths invocation as one referenced assembly
+                        // DLL path — repeated --reference-paths flags accumulate the full list.
+                        // A blank value is silently skipped rather than added: MSBuild's
+                        // semicolon-splitting of the ApiMarkReferencePaths property can realistically
+                        // produce an empty segment (e.g. a leading/trailing/double semicolon), and an
+                        // empty path would otherwise make ExternalXmlDocResolver probe paths relative
+                        // to the current working directory, potentially picking up an unrelated .xml
+                        // file as if it were external documentation.
+                        var path = GetRequiredStringArgument(arg, args, index, "a reference assembly path argument");
+                        if (!string.IsNullOrWhiteSpace(path))
+                        {
+                            ReferencePaths.Add(path);
+                        }
+
                         return index + 1;
                     }
 

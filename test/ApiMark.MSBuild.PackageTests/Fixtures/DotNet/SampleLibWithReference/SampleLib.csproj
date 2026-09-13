@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+
+    <!--
+      Required: tells the C# compiler to emit an XML documentation file alongside the
+      assembly. ApiMark reads this file to extract /// summary and remarks comments; without
+      it ApiMark still runs but member descriptions will be empty.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Package identity — required for dotnet pack -->
+    <PackageId>SampleLibWithReference</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>DEMA Consulting</Authors>
+    <!-- NU5125: readme omitted intentionally for this minimal fixture -->
+    <NoWarn>$(NoWarn);NU5125</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Pulls in the ApiMark MSBuild task. After build, it spawns ApiMark.Tool to read the
+      compiled assembly and XML doc file and write Markdown under $(ApiMarkOutputDir)
+      (defaults to $(MSBuildProjectDirectory)\api).
+    -->
+    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.0.0" />
+
+    <!--
+      A minimal, dependency-free companion project referenced solely so that @(ReferencePath) is
+      populated after restore/resolve — this fixture exists to exercise the ApiMarkReferencePaths
+      auto-harvest logic in the .targets file, which requires a real resolved reference to produce
+      a non-empty @(ReferencePath) item group. A ProjectReference is used instead of a NuGet
+      PackageReference so this fixture never needs network access to nuget.org: MSBuild's
+      ResolveProjectReferences populates @(ReferencePath)/@(ReferencedPath) from a project
+      reference's output DLL the same way ResolveAssemblyReferences does for a package reference.
+    -->
+    <ProjectReference Include="ReferencedLib\ReferencedLib.csproj" />
+  </ItemGroup>
+
+  <!--
+    ReferencedLib is a nested companion project (see the ProjectReference above), and the SDK's
+    default Compile glob is recursive, so without this exclusion SampleLib would directly compile
+    ReferencedLib's source files as its own in addition to referencing its built assembly.
+  -->
+  <ItemGroup>
+    <Compile Remove="ReferencedLib\**\*.cs" />
+  </ItemGroup>
+</Project>

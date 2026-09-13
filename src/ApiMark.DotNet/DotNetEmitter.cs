@@ -36,6 +36,20 @@ internal sealed class DotNetEmitter : IApiEmitter
     ///     Emits the complete Markdown documentation tree in the format specified by
     ///     <paramref name="config"/>.
     /// </summary>
+    /// <remarks>
+    ///     Known limitation: this disposes <see cref="DotNetAstModel.Assembly"/> and
+    ///     <see cref="DotNetAstModel.AssemblyResolver"/> once this call completes (whether
+    ///     normally or by throwing), which makes each <see cref="DotNetEmitter"/> instance
+    ///     effectively single-use — a second call on the same instance would operate on an
+    ///     already-disposed assembly/resolver. This is narrower than <see cref="IApiEmitter"/>'s
+    ///     documented intent that the same parsed data can drive multiple output formats without
+    ///     re-parsing. It is an accepted, pre-existing tradeoff (the assembly disposal predates
+    ///     cross-assembly <c>&lt;inheritdoc/&gt;</c> support; the resolver was simply added to the
+    ///     same disposal scope): the only current caller (<c>ApiMark.Tool</c>'s <c>Program.Main</c>)
+    ///     invokes <see cref="Emit"/> exactly once per parsed model, and eagerly releasing the
+    ///     Mono.Cecil-held file handles as soon as emit completes is preferable to holding them
+    ///     open for the remaining process lifetime on the chance a second format is requested.
+    /// </remarks>
     /// <param name="factory">Factory for creating per-file Markdown writers. Must not be null.</param>
     /// <param name="config">Output configuration controlling format and heading depth. Must not be null.</param>
     /// <param name="context">Output channel for informational and error messages. Must not be null.</param>
@@ -45,8 +59,11 @@ internal sealed class DotNetEmitter : IApiEmitter
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(context);
 
-        // Dispose the assembly after emit regardless of success or failure
+        // Dispose the assembly and its Mono.Cecil assembly resolver after emit regardless of
+        // success or failure — the resolver may still be consulted for lazy metadata resolution
+        // for as long as the assembly is alive, so both must share the same disposal scope.
         using (Model.Assembly)
+        using (Model.AssemblyResolver)
         {
             if (config.Format == OutputFormat.SingleFile)
             {

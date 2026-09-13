@@ -64,6 +64,23 @@ non-empty, trimmed entry is forwarded as an individual `--exclude` flag by
 `AppendDotNetArguments`, mirroring the `ApiMarkIncludePaths` → `--includes` loop
 structure used for `cpp`. Optional — when empty, nothing is excluded.
 
+**ApiMarkTask.ApiMarkReferencePaths**: `string?` — MSBuild property
+`$(ApiMarkReferencePaths)`; for the `dotnet` language, a semicolon-separated list of
+referenced assembly DLL paths used to resolve cross-assembly `<inheritdoc />` targets.
+Each non-empty entry is forwarded as an individual `--reference-paths` flag by
+`AppendDotNetArguments`. Optional — when empty, external `<inheritdoc/>` targets are
+not resolved (unchanged prior behavior). Auto-populated by the `.targets` file from
+`@(ReferencePath)` (filtered by `Exists()`, deduplicated via `Distinct()`) when not
+explicitly set by the project; setting the property explicitly to a non-empty list
+suppresses auto-harvesting for that project.
+<br/>
+MSBuild cannot distinguish a property that was never set from one explicitly set to
+an empty value, so setting `ApiMarkReferencePaths=""` does **not** suppress
+auto-harvesting — the `.targets` file still sees an empty value and repopulates it.
+Projects that need to intentionally disable auto-harvesting (e.g. to pass no
+reference paths at all) must instead set `$(ApiMarkDisableReferencePathsHarvest)` to
+`true`, mirroring the existing `$(DisableApiMark)` boolean opt-out convention.
+
 **ApiMarkTask.ApiMarkEnforceDocs**: `string?` — MSBuild property
 `$(ApiMarkEnforceDocs)`; for the `dotnet` and `cpp` languages, the enforcement
 visibility tier for documentation-coverage checking. Accepted values:
@@ -186,7 +203,8 @@ child process per item using metadata overrides for `OutputDir`, `Format`, and
 `Visibility`; otherwise build the argument list from scalar MSBuild properties
 according to language-specific mapping (for `dotnet`, append `--assembly` and
 `--xml-doc`, then split `ApiMarkExclude` on `;` and emit one `--exclude` flag
-per non-empty trimmed entry, then append `--enforce-docs`
+per non-empty trimmed entry, then split `ApiMarkReferencePaths` on `;` and emit
+one `--reference-paths` flag per non-empty entry, then append `--enforce-docs`
 `ApiMarkEnforceDocs` when non-empty and `--enforce-docs-severity`
 `ApiMarkEnforceDocsSeverity` when non-empty (each flag independently omitted
 when its property is unset); for `cpp`, split `ApiMarkIncludePaths` on
@@ -199,10 +217,12 @@ patterns; if `ApiMarkLibraryName` is set, append `--library-name`; if
 append `--clang-path`; then append `--enforce-docs`/`--enforce-docs-severity` using
 the same non-empty checks as the `dotnet` path, since cpp documentation-coverage
 enforcement uses the identical MSBuild properties; if `ApiMarkFormat` is set,
-append `--format`); start the
-child process and pipe stdout lines as MSBuild messages and stderr lines as MSBuild
-errors; wait for exit; return true if exit code is zero, otherwise log an error
-with the exit code and return false.
+append `--format`); this full logical argument list (from `BuildArguments`/
+`BuildArgumentsForOutput`, both left entirely unchanged) is then passed through
+`RunToolProcessWithResponseFile` (rather than directly to `RunToolProcess`) —
+start the child process and pipe stdout lines as MSBuild messages and stderr
+lines as MSBuild errors; wait for exit; return true if exit code is zero,
+otherwise log an error with the exit code and return false.
 
 The `.targets` file forwards `$(ApiMarkEnforceDocs)` and
 `$(ApiMarkEnforceDocsSeverity)` into the `ApiMarkTask` invocation's
@@ -211,13 +231,62 @@ other scalar MSBuild properties, so both the `dotnet` and `cpp` project types
 reach this enforcement path through normal package consumption (not just
 when the task is invoked directly in isolation).
 
+**ApiMarkTask.RunToolProcessWithResponseFile** (private): Transforms the full
+logical argument list via `PrepareArgumentsForProcess`, invokes the (possibly
+test-overridden) `RunToolProcess` with the transformed arguments, and deletes
+the response file (if one was created) in a `finally` block regardless of
+whether the child process succeeded or failed.
+
+- *Parameters*: `string dotnetExe`, `IReadOnlyList<string> toolArgs` — the full
+  logical argument list as returned by `BuildArguments`/`BuildArgumentsForOutput`.
+- *Returns*: `bool` — `true` when the process exits with code zero; `false`
+  when the process fails, or when the response file itself could not be
+  created (e.g. a full temp volume or a permissions failure) — an `IOException`
+  or `UnauthorizedAccessException` raised while preparing/writing the response
+  file is caught and reported via `Log.LogError`, returning `false`, matching
+  the graceful-failure convention used by every other error path in `Execute`
+  rather than letting the exception propagate unhandled out of the task.
+- *Rationale*: `RunToolProcess` is `protected virtual` and is fully overridden
+  (without calling the base implementation) by test subclasses
+  (`FailingApiMarkTask`, `RecordingApiMarkTask` in `ApiMarkTaskTests.cs`).
+  Placing the response-file substitution inside the real `RunToolProcess` body
+  would mean it never executes under those tests, so the transformation is
+  applied here, in the caller, instead. Both `Execute()`'s single-invocation
+  path and `ExecuteAllOutputs` call this method rather than `RunToolProcess`
+  directly. `PrepareArgumentsForProcess` is called from inside the `try` block
+  (rather than before it) specifically so that a response-file creation
+  failure is caught by the same handler as a process-launch failure and
+  reported through the same graceful path.
+
+**ApiMarkTask.PrepareArgumentsForProcess** (private static): Rewrites
+consecutive `("--reference-paths", path)` pairs in the full logical argument
+list into a single `@<file>` response-file argument, to avoid operating-system
+command-line length limits for large, MSBuild-harvested `ApiMarkReferencePaths`
+lists.
+
+- *Parameters*: `IReadOnlyList<string> toolArgs`, `out string? responseFilePath`.
+- *Returns*: `IReadOnlyList<string>` — the argument list to actually pass to
+  `RunToolProcess`.
+- *Algorithm*: scans `toolArgs` for `--reference-paths`/path pairs. When none
+  are found, returns `toolArgs` unchanged and sets `responseFilePath` to
+  `null` — no temp-file I/O occurs in this common/fast-path case. When one or
+  more pairs are found, writes each pair to its own two lines (a
+  `--reference-paths` line followed by a path line — matching
+  `Context.ExpandResponseFileArguments`'s one-argument-per-line convention
+  exactly) in a new temporary file named with a `Guid`-derived, unique file
+  name under `Path.GetTempPath()` (avoiding both the small predictable-name
+  race that `Path.GetTempFileName()` carries and any collision between
+  concurrent builds), removes those pairs from the returned argument
+  list, and appends a single `@<file>` token referencing the new file.
+
 **ApiMarkTask.ExecuteAllOutputs** (private): Iterates `ApiMarkOutputs` and spawns
 one child process per item.
 
 - *Parameters*: `string dotnetExe`, `string language`.
 - *Returns*: `bool` — true only when every child process exits with code zero.
 - *Algorithm*: for each `ApiMarkOutputs` item calls `BuildArgumentsForOutput` then
-  `RunToolProcess`; accumulates failures; returns false if any process failed.
+  `RunToolProcessWithResponseFile`; accumulates failures; returns false if any
+  process failed.
 
 ### Error Handling
 

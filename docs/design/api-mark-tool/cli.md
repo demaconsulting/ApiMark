@@ -30,12 +30,14 @@ can be tested independently.
   `Assembly`, `XmlDoc`, `Includes`, `ApiHeaders`, `Sources`, `Output`, `Visibility`,
   `IncludeObsolete`, `ResultsFile`, `HeadingDepth`, `Format`, `LibraryName`,
   `LibraryDescription`, `Defines`, `CppStandard`, `ClangPath`, `Excludes`,
-  `EnforceDocs`, `EnforceDocsSeverity`, `ExitCode`)
+  `ReferencePaths`, `EnforceDocs`, `EnforceDocsSeverity`, `ExitCode`)
   and provides `WriteLine` and `WriteError` for all program output routing.
 
 **Consumed**:
 
-N/A - The Cli subsystem has no dependencies beyond the .NET runtime.
+- **IContext (ApiMark.Core)** — `Context` implements `IContext` so it can be
+  passed directly to `IApiGenerator.Parse`/`IApiEmitter.Emit` without an
+  adapter; see `IContext` Unit Design.
 
 ### Design
 
@@ -49,7 +51,7 @@ first positional non-flag token (a token that does not start with `-`) is
 captured as the language subcommand. Language-specific options (`--assembly`,
 `--xml-doc`, `--includes`, `--api-headers`, `--source`, `--output`, `--visibility`,
 `--include-obsolete`, `--library-name`, `--library-description`, `--defines`,
-`--cpp-standard`, `--clang-path`, `--exclude`, `--enforce-docs`,
+`--cpp-standard`, `--clang-path`, `--exclude`, `--reference-paths`, `--enforce-docs`,
 `--enforce-docs-severity`) may appear anywhere in the argument list after the
 language token is recognized.
 

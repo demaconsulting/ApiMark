@@ -16,4 +16,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ApiMark.DotNet.Fixtures.External\ApiMark.DotNet.Fixtures.External.csproj" />
+  </ItemGroup>
 </Project>

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net8.0;net9.0;net10.0</TargetFrameworks>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>ApiMark.DotNet.Fixtures.External</AssemblyName>
+    <RootNamespace>ApiMark.DotNet.Fixtures.External</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <Description>External "base library" test fixture assembly simulating a referenced (e.g. NuGet) assembly, used to test cross-assembly &lt;inheritdoc/&gt; resolution in ApiMark.DotNet integration tests.</Description>
+    <Authors>DEMA Consulting</Authors>
+    <Company>DEMA Consulting</Company>
+  </PropertyGroup>
+</Project>

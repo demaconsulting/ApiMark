@@ -52,7 +52,11 @@ task.
   properties:
   - .NET: `ApiMarkAssemblyPath`, `ApiMarkXmlDocPath`, `ApiMarkExclude`
     (semicolon-delimited wildcard patterns identifying namespaces/types to
-    exclude, forwarded as repeated `--exclude` flags; optional)
+    exclude, forwarded as repeated `--exclude` flags; optional),
+    `ApiMarkReferencePaths` (semicolon-delimited referenced-assembly DLL paths
+    for cross-assembly `<inheritdoc/>` resolution, forwarded as repeated
+    `--reference-paths` flags; auto-populated from `@(ReferencePath)` when not
+    set; optional)
   - C++: `ApiMarkIncludePaths` (semicolon-delimited `-I` include roots),
     `ApiMarkLibraryName` (defaults to `$(MSBuildProjectName)` via `.targets`),
     `ApiMarkLibraryDescription` (optional), `ApiMarkApiHeaders`

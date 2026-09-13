@@ -9,7 +9,7 @@
 
 ApiMarkDotNet provides C#/.NET language support. It reads a compiled .NET assembly
 and its associated XML documentation file, then produces the Markdown output
-defined by the Core interfaces. The system contains nine units:
+defined by the Core interfaces. The system contains ten units:
 
 - **DotNetGenerator** — reads the assembly via Mono.Cecil, processes XML doc
   comments, applies visibility filtering, builds an inheritance chain map from
@@ -47,6 +47,11 @@ defined by the Core interfaces. The system contains nine units:
 - **XmlDocReader** — reads and indexes a .NET XML documentation file for fast
   member-level lookups; resolves `<inheritdoc />` references using the inheritance
   chain map supplied by DotNetGenerator.
+- **ExternalXmlDocResolver** — locates and lazily parses the XML documentation
+  files of externally referenced assemblies (e.g. NuGet package dependencies),
+  caching both per-file and per-member-ID results, so `XmlDocReader` can resolve
+  `<inheritdoc />` targets that point outside the assembly currently being
+  documented.
 - **DocumentationCoverageChecker** — scans a parsed assembly for types/members
   missing an XML doc `<summary>` at a caller-supplied visibility tier that is
   independent of the emission Visibility tier, powering the opt-in
@@ -60,6 +65,8 @@ and are not counted as separate units.
 flowchart TD
     DotNetGenerator --> DotNetAstModel
     DotNetGenerator --> XmlDocReader
+    DotNetGenerator --> ExternalXmlDocResolver
+    XmlDocReader --> ExternalXmlDocResolver
     DotNetGenerator --> MonoCecil["Mono.Cecil (OTS)"]
     DotNetGenerator --> DocumentationCoverageChecker
     DocumentationCoverageChecker --> XmlDocReader
@@ -206,6 +213,13 @@ N/A - not a safety-classified software item.
    XML doc `<summary>`. The caller (ApiMarkTool's `Program.ReportDocumentationCoverage`)
    reports the result to the console and fails the build only when severity is
    `Error` and violations were found.
+
+10. When `DotNetGeneratorOptions.ReferencePaths` is non-empty, `DotNetGenerator.Parse`
+    constructs an `ExternalXmlDocResolver` from those paths and passes its
+    `TryGetMember` method to `XmlDocReader` as an external member-lookup fallback,
+    so `<inheritdoc />` elements that target base types/members defined in
+    referenced assemblies (e.g. NuGet dependencies) resolve using the referenced
+    assembly's own XML documentation file instead of being left unresolved.
 
 ## Design Constraints
 

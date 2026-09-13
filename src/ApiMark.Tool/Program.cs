@@ -366,6 +366,7 @@ internal static class Program
                 IncludeObsolete = context.IncludeObsolete,
                 ExcludePatterns = context.Excludes,
                 EnforceDocsVisibility = enforceDocsVisibility,
+                ReferencePaths = context.ReferencePaths,
             }),
 
             // Construct a CppGenerator from the cpp-specific options; cast visibility via its
@@ -483,6 +484,11 @@ internal static class Program
     {
         context.WriteLine("Usage: apimark [options] [language [language-options]]");
         context.WriteLine("");
+        context.WriteLine("Any argument may instead be given as @<file>, which is expanded in place into");
+        context.WriteLine("the file's non-blank lines, each treated as one argument — useful for avoiding");
+        context.WriteLine("command-line length limits with a large number of repeated flags (e.g. --reference-paths).");
+        context.WriteLine("An argument value that must itself start with a literal @ can be escaped as @@rest.");
+        context.WriteLine("");
         context.WriteLine("Options:");
         context.WriteLine("  -v, --version              Display version information");
         context.WriteLine("  -?, -h, --help             Display this help message");
@@ -505,6 +511,7 @@ internal static class Program
         context.WriteLine("  --visibility <value>       Visibility filter: Public, PublicAndProtected, All (default: Public)");
         context.WriteLine("  --include-obsolete         Include obsolete members in generated output");
         context.WriteLine("  --exclude <pattern>        Exclude namespaces/types matching a wildcard pattern (repeatable)");
+        context.WriteLine("  --reference-paths <path>   Path to a referenced assembly DLL, used to resolve cross-assembly <inheritdoc/> (repeatable)");
         context.WriteLine("  --enforce-docs <value>     Enforce XML doc <summary> coverage at a visibility tier: Public, PublicAndProtected, All (default: disabled)");
         context.WriteLine("  --enforce-docs-severity <v> Severity when --enforce-docs finds violations: Warning, Error (default: Warning)");
         context.WriteLine("");

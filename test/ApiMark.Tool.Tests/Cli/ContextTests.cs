@@ -322,6 +322,228 @@ public sealed class ContextTests
     }
 
     /// <summary>
+    ///     Validates that <c>--reference-paths</c> with a single path sets the
+    ///     <see cref="Context.ReferencePaths"/> property to a one-element array containing that path.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithReferencePathsOption_SetsReferencePaths()
+    {
+        // Arrange: supply a single reference assembly path via --reference-paths
+        var args = new[] { "--reference-paths", "/refs/One.dll" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: ReferencePaths property must contain the single supplied path
+        string[] expectedReferencePaths = ["/refs/One.dll"];
+        Assert.Equal(expectedReferencePaths, context.ReferencePaths);
+    }
+
+    /// <summary>
+    ///     Validates that repeated <c>--reference-paths</c> flags accumulate all paths in order.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithRepeatedReferencePathsFlags_AccumulatesAllPathsInOrder()
+    {
+        // Arrange: three separate --reference-paths flags, each with a path
+        var args = new[]
+        {
+            "--reference-paths", "/refs/One.dll",
+            "--reference-paths", "/refs/Two.dll",
+            "--reference-paths", "/refs/Three.dll",
+        };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: all three paths must appear in ReferencePaths in the supplied order
+        string[] expectedReferencePaths = ["/refs/One.dll", "/refs/Two.dll", "/refs/Three.dll"];
+        Assert.Equal(expectedReferencePaths, context.ReferencePaths);
+    }
+
+    /// <summary>
+    ///     Validates that a whitespace-only <c>--reference-paths</c> value is silently skipped
+    ///     rather than added to <see cref="Context.ReferencePaths"/>, since MSBuild's
+    ///     semicolon-splitting of <c>ApiMarkReferencePaths</c> can realistically produce an empty
+    ///     segment (e.g. a leading/trailing/double semicolon).
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithWhitespaceOnlyReferencePathsValue_DoesNotAddToReferencePaths()
+    {
+        // Arrange: a whitespace-only value alongside two real paths
+        var args = new[]
+        {
+            "--reference-paths", "/refs/One.dll",
+            "--reference-paths", "   ",
+            "--reference-paths", "/refs/Two.dll",
+        };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: only the two real paths appear; the whitespace-only value is skipped
+        string[] expectedReferencePaths = ["/refs/One.dll", "/refs/Two.dll"];
+        Assert.Equal(expectedReferencePaths, context.ReferencePaths);
+    }
+
+    /// <summary>
+    ///     Validates that an empty-string <c>--reference-paths</c> value is silently skipped
+    ///     rather than added to <see cref="Context.ReferencePaths"/>.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithEmptyStringReferencePathsValue_DoesNotAddToReferencePaths()
+    {
+        // Arrange: an empty-string value as the only --reference-paths invocation
+        var args = new[] { "--reference-paths", "" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: no path is added
+        Assert.Empty(context.ReferencePaths);
+    }
+
+    /// <summary>
+    ///     Validates that an <c>@&lt;file&gt;</c> response-file token expands into multiple parsed
+    ///     arguments, populating <see cref="Context.ReferencePaths"/> with every path listed in the
+    ///     response file, in order.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithResponseFileArgument_ExpandsIntoMultipleReferencePaths()
+    {
+        // Arrange: a response file containing two "--reference-paths"/path line pairs
+        var responseFilePath = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllLines(responseFilePath, new[]
+            {
+                "--reference-paths",
+                "/refs/One.dll",
+                "--reference-paths",
+                "/refs/Two.dll",
+            });
+            var args = new[] { $"@{responseFilePath}" };
+
+            // Act
+            using var context = Context.Create(args);
+
+            // Assert: both reference paths from the response file are populated, in order
+            string[] expectedReferencePaths = ["/refs/One.dll", "/refs/Two.dll"];
+            Assert.Equal(expectedReferencePaths, context.ReferencePaths);
+        }
+        finally
+        {
+            File.Delete(responseFilePath);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that blank lines in an <c>@&lt;file&gt;</c> response file are skipped rather
+    ///     than producing empty/garbage arguments.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithResponseFileContainingBlankLines_SkipsBlankLines()
+    {
+        // Arrange: a response file with blank lines interspersed between real arguments
+        var responseFilePath = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllLines(responseFilePath, new[]
+            {
+                "",
+                "--reference-paths",
+                "   ",
+                "/refs/One.dll",
+                "",
+            });
+            var args = new[] { $"@{responseFilePath}" };
+
+            // Act
+            using var context = Context.Create(args);
+
+            // Assert: the blank lines did not become spurious arguments; the single real path
+            // is populated correctly
+            string[] expectedReferencePaths = ["/refs/One.dll"];
+            Assert.Equal(expectedReferencePaths, context.ReferencePaths);
+        }
+        finally
+        {
+            File.Delete(responseFilePath);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that an <c>@&lt;file&gt;</c> response-file token pointing at a nonexistent
+    ///     file produces a clear <see cref="ArgumentException"/> rather than a confusing downstream
+    ///     failure.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithResponseFileArgumentForMissingFile_ThrowsArgumentException()
+    {
+        // Arrange: a response-file token referencing a path that does not exist
+        var missingPath = Path.Combine(Path.GetTempPath(), "ApiMarkTest_" + Guid.NewGuid().ToString("N") + ".rsp");
+        var args = new[] { $"@{missingPath}" };
+
+        // Act / Assert: a clear, actionable ArgumentException naming the missing path is thrown
+        var ex = Assert.Throws<ArgumentException>(() => Context.Create(args));
+        Assert.Contains(missingPath, ex.Message);
+    }
+
+    /// <summary>
+    ///     Validates that a value legitimately starting with a literal <c>@</c> (e.g. an
+    ///     npm-scoped-style library name) can be passed unambiguously by escaping the leading
+    ///     character as <c>@@</c>, rather than being misinterpreted as a response-file token.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithEscapedAtSignArgument_PassesThroughLiteralValue()
+    {
+        // Arrange: a library-name value that itself starts with '@', escaped as "@@..."
+        var args = new[] { "--library-name", "@@mylib" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: the escape was stripped to a single literal leading '@', and no response-file
+        // expansion (which would have thrown, since "@mylib" is not a real file) occurred
+        Assert.Equal("@mylib", context.LibraryName);
+    }
+
+    /// <summary>
+    ///     Validates that a line read from an expanded <c>@&lt;file&gt;</c> response file honors
+    ///     the same <c>@@</c> literal-leading-<c>@</c> escape as a top-level argument, so a value
+    ///     forwarded via a response file (e.g. by <c>ApiMarkTask</c>, which escapes its own
+    ///     values before writing them to a generated response file) round-trips to the same
+    ///     literal result whether it arrives directly on the command line or via a response file.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithEscapedAtSignInResponseFileLine_PassesThroughLiteralValue()
+    {
+        // Arrange: a response file whose "--library-name" value line is escaped as "@@mylib"
+        var responseFilePath = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllLines(responseFilePath, new[]
+            {
+                "--library-name",
+                "@@mylib",
+            });
+            var args = new[] { $"@{responseFilePath}" };
+
+            // Act
+            using var context = Context.Create(args);
+
+            // Assert: the escape was stripped to a single literal leading '@' exactly as it would
+            // be for a top-level "--library-name" "@@mylib" argument pair, not left as "@@mylib"
+            // and not (mis)treated as a nested response-file reference
+            Assert.Equal("@mylib", context.LibraryName);
+        }
+        finally
+        {
+            File.Delete(responseFilePath);
+        }
+    }
+
+    /// <summary>
     ///     Validates that an empty argument array produces a Context with all default values.
     /// </summary>
     [Fact]
@@ -349,6 +571,7 @@ public sealed class ContextTests
             () => Assert.Equal(1, context.HeadingDepth),
             () => Assert.Empty(context.Includes),
             () => Assert.Empty(context.Excludes),
+            () => Assert.Empty(context.ReferencePaths),
             () => Assert.Empty(context.ApiHeaders),
             () => Assert.Equal(0, context.ExitCode));
     }

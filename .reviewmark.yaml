@@ -239,6 +239,9 @@ reviews:
       - src/ApiMark.DotNet/DotNetGeneratorOptions.cs
       - test/ApiMark.DotNet.Tests/DotNetGeneratorTests.cs
       - test/ApiMark.DotNet.Tests/FixturePaths.cs
+      - test/ApiMark.DotNet.Fixtures.External/**/*.cs
+      - test/ApiMark.DotNet.Fixtures/ExternalInheritDocClass.cs
+      - '!test/**/obj/**'
   - id: ApiMark-DotNet-DotNetAstModel
     title: Review that ApiMark DotNet DotNetAstModel Implementation is Correct
     context:
@@ -300,6 +303,19 @@ reviews:
       - docs/verification/api-mark-dot-net/xml-doc-reader.md
       - src/ApiMark.DotNet/XmlDocReader.cs
       - test/ApiMark.DotNet.Tests/XmlDocReaderTests.cs
+  - id: ApiMark-DotNet-ExternalXmlDocResolver
+    title: Review that ApiMark DotNet ExternalXmlDocResolver Implementation is Correct
+    context:
+      - docs/design/api-mark-dot-net.md
+      - docs/reqstream/api-mark-dot-net.yaml
+    paths:
+      - docs/reqstream/api-mark-dot-net/external-xml-doc-resolver.yaml
+      - docs/design/api-mark-dot-net/external-xml-doc-resolver.md
+      - docs/verification/api-mark-dot-net/external-xml-doc-resolver.md
+      - src/ApiMark.DotNet/ExternalXmlDocResolver.cs
+      - src/ApiMark.DotNet/FileSystemPathComparer.cs
+      - test/ApiMark.DotNet.Tests/ExternalXmlDocResolverTests.cs
+      - test/ApiMark.DotNet.Tests/FileSystemPathComparerTests.cs
   - id: ApiMark-DotNet-DocumentationCoverageChecker
     title: Review that ApiMark DotNet DocumentationCoverageChecker Implementation
       is Correct

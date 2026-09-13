@@ -119,6 +119,21 @@ public class ApiMarkTask : Task
     public string? ApiMarkExclude { get; set; }
 
     /// <summary>
+    ///     Gets or sets the semicolon-separated list of referenced assembly DLL paths used to
+    ///     resolve cross-assembly <c>&lt;inheritdoc /&gt;</c> targets.
+    /// </summary>
+    /// <remarks>
+    ///     Used for the <c>dotnet</c> language only. Maps to <c>$(ApiMarkReferencePaths)</c>.
+    ///     Each semicolon-delimited entry is forwarded as an individual <c>--reference-paths</c>
+    ///     flag; used to resolve cross-assembly <c>&lt;inheritdoc /&gt;</c> against referenced
+    ///     (including NuGet) assemblies. Optional — when empty, external
+    ///     <c>&lt;inheritdoc /&gt;</c> targets are not resolved (unchanged prior behavior). The
+    ///     <c>.targets</c> file auto-populates this from <c>@(ReferencePath)</c> when not
+    ///     explicitly set.
+    /// </remarks>
+    public string? ApiMarkReferencePaths { get; set; }
+
+    /// <summary>
     ///     Gets or sets the visibility tier at which XML doc <c>&lt;summary&gt;</c> coverage is
     ///     enforced.
     /// </summary>
@@ -304,8 +319,8 @@ public class ApiMarkTask : Task
 
     /// <summary>
     ///     Appends the .NET-specific CLI arguments to <paramref name="args"/>, including the
-    ///     language subcommand (<c>dotnet</c>), <c>--assembly</c>, <c>--xml-doc</c>, and any
-    ///     configured <c>--exclude</c> patterns.
+    ///     language subcommand (<c>dotnet</c>), <c>--assembly</c>, <c>--xml-doc</c>, any
+    ///     configured <c>--exclude</c> patterns, and any configured <c>--reference-paths</c> entries.
     /// </summary>
     /// <param name="args">The argument list being built by <see cref="BuildArguments"/>.</param>
     private void AppendDotNetArguments(List<string> args)
@@ -313,13 +328,18 @@ public class ApiMarkTask : Task
         // Assembly and XML doc paths are both required for .NET documentation
         args.Add(DotNetLanguage);
         args.Add("--assembly");
-        args.Add(ApiMarkAssemblyPath ?? string.Empty);
+        args.Add(EscapeLeadingAt(ApiMarkAssemblyPath ?? string.Empty));
         args.Add("--xml-doc");
-        args.Add(ApiMarkXmlDocPath ?? string.Empty);
+        args.Add(EscapeLeadingAt(ApiMarkXmlDocPath ?? string.Empty));
 
         // Emit one --exclude flag per pattern entry — each semicolon-delimited entry becomes
         // a separate repeatable --exclude argument
         AppendDelimitedRepeatableArgs(args, "--exclude", ApiMarkExclude);
+
+        // Emit one --reference-paths flag per entry — each semicolon-delimited entry becomes
+        // a separate repeatable --reference-paths argument used to resolve cross-assembly
+        // <inheritdoc/> targets
+        AppendDelimitedRepeatableArgs(args, "--reference-paths", ApiMarkReferencePaths);
 
         // Forward documentation-coverage enforcement options — shared with cpp (see
         // AppendCppArguments); mirrors how ApiMarkExclude is dotnet-only
@@ -395,7 +415,7 @@ public class ApiMarkTask : Task
             }
 
             args.Add(flagName);
-            args.Add(entry);
+            args.Add(EscapeLeadingAt(entry));
         }
     }
 
@@ -414,8 +434,28 @@ public class ApiMarkTask : Task
         }
 
         args.Add(flagName);
-        args.Add(value!);
+        args.Add(EscapeLeadingAt(value!));
     }
+
+    /// <summary>
+    ///     Escapes <paramref name="value"/> for safe forwarding as a single <c>ApiMark.Tool</c>
+    ///     CLI argument value. <c>Context.ExpandResponseFileArguments</c> treats any top-level
+    ///     argument starting with a literal <c>@</c> as either a response-file reference (a
+    ///     single leading <c>@</c>) or an escaped literal (a leading <c>@@</c>) — a convention
+    ///     this task's own generated response file (see <see cref="PrepareArgumentsForProcess"/>)
+    ///     relies on. Because this task forwards MSBuild property/item values verbatim, a
+    ///     caller-supplied value that happens to legitimately start with <c>@</c> (for example an
+    ///     unusual path, library name, or description) must be escaped here as <c>@@rest</c> so
+    ///     it round-trips back to its original literal value on the receiving end instead of
+    ///     being misinterpreted as a response-file token.
+    /// </summary>
+    /// <param name="value">The raw value to escape.</param>
+    /// <returns>
+    ///     <paramref name="value"/> unchanged, unless it starts with <c>@</c>, in which case an
+    ///     extra leading <c>@</c> is prefixed.
+    /// </returns>
+    private static string EscapeLeadingAt(string value) =>
+        value.Length > 0 && value[0] == '@' ? "@" + value : value;
 
     /// <summary>
     ///     Appends the common output and visibility arguments to <paramref name="args"/>,
@@ -426,18 +466,10 @@ public class ApiMarkTask : Task
     private void AppendCommonArguments(List<string> args)
     {
         // Optional: output directory
-        if (!string.IsNullOrEmpty(ApiMarkOutputDir))
-        {
-            args.Add("--output");
-            args.Add(ApiMarkOutputDir!);
-        }
+        AppendOptionalArg(args, "--output", ApiMarkOutputDir);
 
         // Optional: visibility filter
-        if (!string.IsNullOrEmpty(ApiMarkVisibility))
-        {
-            args.Add("--visibility");
-            args.Add(ApiMarkVisibility!);
-        }
+        AppendOptionalArg(args, "--visibility", ApiMarkVisibility);
 
         // Optional: include obsolete members
         if (ApiMarkIncludeObsolete)
@@ -446,11 +478,7 @@ public class ApiMarkTask : Task
         }
 
         // Optional: output format
-        if (!string.IsNullOrEmpty(ApiMarkFormat))
-        {
-            args.Add("--format");
-            args.Add(ApiMarkFormat!);
-        }
+        AppendOptionalArg(args, "--format", ApiMarkFormat);
     }
 
     /// <summary>
@@ -570,7 +598,7 @@ public class ApiMarkTask : Task
         }
 
         // Single-invocation path: use scalar properties as before
-        return RunToolProcess(dotnetExe, BuildArguments(language));
+        return RunToolProcessWithResponseFile(dotnetExe, BuildArguments(language));
     }
 
     /// <summary>
@@ -595,9 +623,215 @@ public class ApiMarkTask : Task
         // ToList forces all child processes to run before any result is inspected,
         // ensuring failures in one output do not suppress execution of the others.
         var results = ApiMarkOutputs!
-            .Select(o => RunToolProcess(dotnetExe, BuildArgumentsForOutput(language, o)))
+            .Select(o => RunToolProcessWithResponseFile(dotnetExe, BuildArgumentsForOutput(language, o)))
             .ToList();
         return results.All(r => r);
+    }
+
+    /// <summary>
+    ///     Rewrites any <c>("--reference-paths", path)</c> pairs in <paramref name="toolArgs"/>
+    ///     into a single <c>@&lt;file&gt;</c> response-file argument when at least one such pair is
+    ///     present, then invokes <see cref="RunToolProcess"/> with the (possibly transformed)
+    ///     argument list, deleting the response file (if one was created) once the child process
+    ///     has completed, whether it succeeded or failed.
+    /// </summary>
+    /// <remarks>
+    ///     This transformation deliberately happens here — in the callers of
+    ///     <see cref="RunToolProcess"/> — rather than inside <see cref="RunToolProcess"/> itself,
+    ///     because <see cref="RunToolProcess"/> is <c>protected virtual</c> and is fully overridden
+    ///     (without calling the base implementation) by test subclasses. Placing the substitution
+    ///     inside the real <see cref="RunToolProcess"/> body would mean it never executes under
+    ///     test. <see cref="BuildArguments"/>/<see cref="BuildArgumentsForOutput"/> remain
+    ///     completely unchanged and still return the full logical argument list; this method only
+    ///     transforms the arguments actually passed to <see cref="RunToolProcess"/>.
+    /// </remarks>
+    /// <param name="dotnetExe">Full path to the <c>dotnet</c> executable.</param>
+    /// <param name="toolArgs">The full logical argument list, as returned by <see cref="BuildArguments"/>/<see cref="BuildArgumentsForOutput"/>.</param>
+    /// <returns>
+    ///     <c>true</c> when the process exits with code zero; <c>false</c> when the process fails,
+    ///     or when the response file itself could not be created (e.g. a full temp volume or a
+    ///     permissions failure), matching the existing graceful-failure convention used by every
+    ///     other error path in <see cref="Execute"/> rather than letting the exception propagate
+    ///     unhandled.
+    /// </returns>
+    private bool RunToolProcessWithResponseFile(string dotnetExe, IReadOnlyList<string> toolArgs)
+    {
+        string? responseFilePath = null;
+        IReadOnlyList<string> transformedArgs;
+        try
+        {
+            transformedArgs = PrepareArgumentsForProcess(toolArgs, out responseFilePath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Scoped to response-file creation only (not the RunToolProcess call below) so a
+            // failure spawning/reading the child process is never misreported as a response-file
+            // creation failure.
+            Log.LogError($"ApiMark: unable to create the reference-paths response file: {ex.Message}");
+            return false;
+        }
+
+        try
+        {
+            return RunToolProcess(dotnetExe, transformedArgs);
+        }
+        finally
+        {
+            if (responseFilePath is not null)
+            {
+                try
+                {
+                    File.Delete(responseFilePath);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // Cleanup failure (e.g. a transient file lock or permissions issue) must not
+                    // override the already-determined result of the run above (a successful
+                    // process result, or the graceful `false` from the catch block) by escaping
+                    // this finally block as an unhandled exception. Log it as a warning — the
+                    // stray temp file is harmless leftover, not a generation failure — and leave
+                    // the method's return value untouched.
+                    Log.LogWarning($"ApiMark: unable to delete the temporary response file '{responseFilePath}': {ex.Message}");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Rewrites consecutive <c>("--reference-paths", path)</c> pairs in <paramref name="toolArgs"/>
+    ///     into a single <c>@&lt;file&gt;</c> response-file argument, to avoid operating-system
+    ///     command-line length limits for large, MSBuild-harvested <c>ApiMarkReferencePaths</c>
+    ///     lists.
+    /// </summary>
+    /// <remarks>
+    ///     When no <c>--reference-paths</c> pairs are present, <paramref name="toolArgs"/> is
+    ///     returned unchanged and no temporary file is created — the common/fast path incurs no
+    ///     temp-file I/O. When one or more pairs are present, each referenced path is written on
+    ///     its own line, preceded by a <c>--reference-paths</c> line — matching
+    ///     <c>Context.ExpandResponseFileArguments</c>'s one-argument-per-line convention exactly —
+    ///     to a new temporary file, and the returned argument list has those pairs removed and a
+    ///     single <c>@&lt;file&gt;</c> token appended in their place.
+    /// </remarks>
+    /// <param name="toolArgs">The full logical argument list to transform.</param>
+    /// <param name="responseFilePath">
+    ///     Set to the path of the created response file, or <c>null</c> when no response file was
+    ///     created (no <c>--reference-paths</c> pairs were present).
+    /// </param>
+    /// <returns>The argument list to actually pass to <see cref="RunToolProcess"/>.</returns>
+    private static IReadOnlyList<string> PrepareArgumentsForProcess(IReadOnlyList<string> toolArgs, out string? responseFilePath)
+    {
+        var responseFileLines = new List<string>();
+        var remainingArgs = new List<string>();
+        var i = 0;
+        while (i < toolArgs.Count)
+        {
+            if (toolArgs[i] == "--reference-paths" && i + 1 < toolArgs.Count)
+            {
+                responseFileLines.Add("--reference-paths");
+                responseFileLines.Add(toolArgs[i + 1]);
+                i += 2;
+            }
+            else
+            {
+                remainingArgs.Add(toolArgs[i]);
+                i++;
+            }
+        }
+
+        if (responseFileLines.Count == 0)
+        {
+            responseFilePath = null;
+            return toolArgs;
+        }
+
+        // A GUID-based file name (rather than Path.GetTempFileName, which creates a zero-byte
+        // file up front and returns a short, predictable 8.3-style name) avoids both the small
+        // predictable-name/pre-existing-file race that static analysis flags and any risk of
+        // collision between concurrent builds writing their own response files at the same time.
+        responseFilePath = CreateResponseFile(responseFileLines);
+        remainingArgs.Add($"@{responseFilePath}");
+        return remainingArgs;
+    }
+
+    /// <summary>
+    ///     Atomically creates a new, uniquely-named temporary response file containing
+    ///     <paramref name="lines"/> (one per line) and returns its path.
+    /// </summary>
+    /// <remarks>
+    ///     Uses <see cref="FileMode.CreateNew"/> rather than <see cref="File.WriteAllLines(string, IEnumerable{string})"/>
+    ///     (which opens with <see cref="FileMode.Create"/>, silently truncating or writing through
+    ///     any pre-existing file or symlink at the target path). <see cref="FileMode.CreateNew"/>
+    ///     fails outright if anything already occupies the chosen path, closing the TOCTOU window
+    ///     between generating the random file name and opening it — a local process that somehow
+    ///     pre-created (or symlinked) that exact path can no longer cause the response-file
+    ///     contents to be written to an unintended location. A GUID collision against a
+    ///     concurrently-running build is astronomically unlikely but handled anyway by retrying
+    ///     with a freshly generated name, bounded to a small number of attempts so a persistent,
+    ///     unrelated failure (e.g. a full disk or a permissions problem) still surfaces as an
+    ///     exception rather than looping. The retry is deliberately scoped to the creation step
+    ///     only: once the file has actually been created, a subsequent failure writing or
+    ///     flushing its content is a distinct, non-retryable failure (retrying would silently
+    ///     leak that partially-written file), so it is instead cleaned up on a best-effort basis
+    ///     and the original exception is left to propagate.
+    /// </remarks>
+    /// <param name="lines">The response-file lines to write, one argument per line.</param>
+    /// <returns>The full path of the newly created response file.</returns>
+    internal static string CreateResponseFile(IEnumerable<string> lines)
+    {
+        const int maxAttempts = 5;
+        var attempt = 0;
+        while (true)
+        {
+            attempt++;
+            var path = Path.Join(Path.GetTempPath(), $"apimark_reference_paths_{Guid.NewGuid():N}.rsp");
+
+            FileStream stream;
+            try
+            {
+                stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write);
+            }
+            catch (IOException) when (attempt < maxAttempts && File.Exists(path))
+            {
+                // The chosen path was already occupied before this attempt could create
+                // anything (an exceedingly unlikely GUID collision, or a pre-existing
+                // file/symlink) — retry with a freshly generated name. No file was created by
+                // this attempt, so there is nothing to clean up.
+                continue;
+            }
+
+            try
+            {
+                using (stream)
+                using (var writer = new StreamWriter(stream))
+                {
+                    foreach (var line in lines)
+                    {
+                        writer.WriteLine(line);
+                    }
+                }
+
+                return path;
+            }
+            catch
+            {
+                // The file above was successfully created, so a failure here (e.g. a full disk
+                // during the write/flush) is not a name collision and must not be retried with a
+                // fresh name — doing so would silently leave the partially-written file behind.
+                // Best-effort delete it, then let the real failure propagate to the caller, which
+                // already handles it via RunToolProcessWithResponseFile's catch block.
+                try
+                {
+                    File.Delete(path);
+                }
+                catch (Exception)
+                {
+                    // Best-effort cleanup only; the original write/flush failure below is what
+                    // actually matters and must not be masked by a secondary cleanup failure.
+                }
+
+                throw;
+            }
+        }
     }
 
     /// <summary>

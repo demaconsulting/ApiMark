@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using Xunit;
 
 namespace ApiMark.MSBuild.PackageTests;
@@ -218,6 +219,264 @@ public class PackageIntegrationTests
                 "dotnet build unexpectedly succeeded with an undocumented public member and " +
                 $"--enforce-docs-severity Error.\nstdout:\n{result.Output}\nstderr:\n{result.Error}");
         });
+    }
+
+    /// <summary>
+    ///     Validates that <c>ApiMarkReferencePaths</c> is auto-populated from the resolved
+    ///     <c>@(ReferencePath)</c> items when the project has a real <c>PackageReference</c> and
+    ///     the user has not explicitly set <c>ApiMarkReferencePaths</c>.
+    /// </summary>
+    /// <remarks>
+    ///     This is the wiring proof that <c>ApiMarkTaskTests</c> (which only constructs
+    ///     <c>ApiMarkTask</c> directly via its C# properties) cannot provide: it exercises the
+    ///     actual <c>DemaConsulting.ApiMark.MSBuild.targets</c> <c>ItemGroup</c>/<c>PropertyGroup</c>
+    ///     auto-harvest logic, which only runs under a real MSBuild/<c>dotnet build</c> invocation
+    ///     against a project with a resolvable <c>@(ReferencePath)</c> item group. The fixture
+    ///     project references a companion <c>ReferencedLib</c> project (via <c>ProjectReference</c>,
+    ///     not a NuGet package) purely so that <c>@(ReferencePath)</c> is non-empty after restore
+    ///     without requiring any network access. In addition to the build succeeding and
+    ///     generating output, this test queries the effective <c>ApiMarkReferencePaths</c>
+    ///     property value via <c>dotnet build -getProperty</c> after the build, and asserts it was
+    ///     actually populated with a path pointing at the referenced <c>ReferencedLib</c> assembly
+    ///     — proving the auto-harvest logic ran and picked up the expected reference, not merely
+    ///     that the build did not crash.
+    ///     <para>
+    ///     Beyond the mechanical harvest proof above, this test also asserts that the harvested
+    ///     path is actually *consumed*: the fixture's <c>SampleLib.Describable</c> type overrides
+    ///     <c>ReferencedLib.ReferencedClass.Describe</c> with a bare <c>&lt;inheritdoc/&gt;</c>, so
+    ///     the generated output can only contain <c>ReferencedClass.Describe</c>'s sentinel summary
+    ///     text if ApiMark's cross-assembly &lt;inheritdoc/&gt; resolution actually opened and
+    ///     parsed <c>ReferencedLib.xml</c> via the harvested reference path — a build that merely
+    ///     harvests the path without forwarding/using it (or a regression that silently drops
+    ///     external inheritdoc resolution) would produce output missing that sentinel text.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoPopulatesReferencePathsFromResolvedReferences()
+    {
+        var packagesDir = SkipIfPackageAbsent();
+
+        RunInIsolation(packagesDir, "DotNet/SampleLibWithReference", "SampleLib.csproj", workDir =>
+        {
+            var outputDir = Path.Join(workDir, "api");
+            var result = RunProcess(
+                "dotnet",
+                $"build SampleLib.csproj --configuration Release -p:ApiMarkOutputDir=\"{outputDir}\"",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                result.ExitCode == 0,
+                $"dotnet build failed (exit {result.ExitCode}).\nstdout:\n{result.Output}\nstderr:\n{result.Error}");
+
+            Assert.True(
+                File.Exists(Path.Join(outputDir, "api.md")),
+                $"api.md was not created in '{outputDir}'.\nBuild output:\n{result.Output}");
+
+            // Query the effective ApiMarkReferencePaths value the .targets file computed during
+            // that build, proving the auto-harvest ItemGroup/PropertyGroup actually populated it
+            // from @(ReferencePath) rather than merely not crashing.
+            var propertyResult = RunProcess(
+                "dotnet",
+                "build SampleLib.csproj --configuration Release -t:Build -getProperty:ApiMarkReferencePaths " +
+                $"-p:ApiMarkOutputDir=\"{outputDir}\"",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                propertyResult.ExitCode == 0,
+                $"dotnet build -getProperty failed (exit {propertyResult.ExitCode}).\n" +
+                $"stdout:\n{propertyResult.Output}\nstderr:\n{propertyResult.Error}");
+
+            var harvestedPaths = ExtractGetPropertyValue(propertyResult.Output, "ApiMarkReferencePaths");
+            Assert.False(
+                string.IsNullOrWhiteSpace(harvestedPaths),
+                "ApiMarkReferencePaths was not auto-populated from @(ReferencePath); " +
+                $"expected a non-empty, semicolon-separated list of DLL paths.\n{propertyResult.Output}");
+            Assert.Contains(
+                "ReferencedLib",
+                harvestedPaths,
+                StringComparison.OrdinalIgnoreCase);
+
+            // Beyond the mechanical harvest proof above, confirm the harvested reference path
+            // was actually consumed: SampleLib.Describable.Describe uses a bare <inheritdoc/>
+            // targeting ReferencedLib.ReferencedClass.Describe, so this sentinel text can only
+            // appear in the generated output if ApiMark's cross-assembly <inheritdoc/>
+            // resolution opened and parsed ReferencedLib.xml via the harvested path. Search all
+            // generated Markdown files (rather than a single known file) because the default
+            // "gradual" format spreads output across per-type/per-member files.
+            var generatedText = string.Join(
+                '\n',
+                Directory.EnumerateFiles(outputDir, "*.md", SearchOption.AllDirectories)
+                    .Select(File.ReadAllText));
+            Assert.Contains(
+                "sentinel description used solely to verify",
+                generatedText,
+                StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>
+    ///     Validates that <c>ApiMarkDisableReferencePathsHarvest=true</c> suppresses the
+    ///     <c>.targets</c> file's auto-harvest of <c>@(ReferencePath)</c> into
+    ///     <c>ApiMarkReferencePaths</c>, leaving it empty rather than silently repopulated.
+    /// </summary>
+    /// <remarks>
+    ///     MSBuild cannot distinguish a property that was never set from one explicitly set to an
+    ///     empty value (both evaluate to <c>'$(ApiMarkReferencePaths)' == ''</c>), so passing
+    ///     <c>-p:ApiMarkReferencePaths=""</c> alone does not — and cannot — suppress auto-harvest;
+    ///     the real opt-out mechanism is the dedicated <c>ApiMarkDisableReferencePathsHarvest</c>
+    ///     boolean property. This test exercises that real mechanism and proves suppression by
+    ///     querying the effective <c>ApiMarkReferencePaths</c> value via
+    ///     <c>dotnet build -getProperty</c> and asserting it stayed empty, rather than merely
+    ///     checking that the build succeeded.
+    /// </remarks>
+    [Fact]
+    public void ApiMarkMsbuild_NuGetPackage_DotNetProject_DisableReferencePathsHarvest_SuppressesAutoHarvest()
+    {
+        var packagesDir = SkipIfPackageAbsent();
+
+        RunInIsolation(packagesDir, "DotNet/SampleLibWithReference", "SampleLib.csproj", workDir =>
+        {
+            var outputDir = Path.Join(workDir, "api");
+            var result = RunProcess(
+                "dotnet",
+                $"build SampleLib.csproj --configuration Release " +
+                $"-p:ApiMarkOutputDir=\"{outputDir}\" " +
+                "-p:ApiMarkDisableReferencePathsHarvest=true",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                result.ExitCode == 0,
+                $"dotnet build failed (exit {result.ExitCode}).\nstdout:\n{result.Output}\nstderr:\n{result.Error}");
+
+            Assert.True(
+                File.Exists(Path.Join(outputDir, "api.md")),
+                $"api.md was not created in '{outputDir}'.\nBuild output:\n{result.Output}");
+
+            // Query the effective ApiMarkReferencePaths value the .targets file computed during
+            // that build, proving auto-harvest was actually suppressed rather than merely not
+            // crashing.
+            var propertyResult = RunProcess(
+                "dotnet",
+                "build SampleLib.csproj --configuration Release -t:Build -getProperty:ApiMarkReferencePaths " +
+                $"-p:ApiMarkOutputDir=\"{outputDir}\" -p:ApiMarkDisableReferencePathsHarvest=true",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                propertyResult.ExitCode == 0,
+                $"dotnet build -getProperty failed (exit {propertyResult.ExitCode}).\n" +
+                $"stdout:\n{propertyResult.Output}\nstderr:\n{propertyResult.Error}");
+
+            var effectiveValue = ExtractGetPropertyValue(propertyResult.Output, "ApiMarkReferencePaths");
+            Assert.True(
+                string.IsNullOrWhiteSpace(effectiveValue),
+                "ApiMarkReferencePaths was auto-harvested even though " +
+                $"ApiMarkDisableReferencePathsHarvest=true was set.\n{propertyResult.Output}");
+        });
+    }
+
+    /// <summary>
+    ///     Validates that a non-empty <c>ApiMarkReferencePaths</c> value set explicitly via a
+    ///     project property survives the <c>.targets</c> file's auto-harvest logic unchanged.
+    /// </summary>
+    /// <remarks>
+    ///     This is the wiring proof, exercised through the real <c>.targets</c> file rather than
+    ///     the task in isolation, that a user-supplied non-empty <c>ApiMarkReferencePaths</c>
+    ///     value is never overwritten by auto-harvesting from <c>@(ReferencePath)</c>: the
+    ///     auto-harvest <c>ItemGroup</c>/<c>PropertyGroup</c> in the <c>.targets</c> file is
+    ///     conditioned on <c>'$(ApiMarkReferencePaths)' == ''</c>, so a non-empty explicit value
+    ///     must short-circuit that condition and reach <c>ApiMarkTask</c> unmodified. The fixture
+    ///     project references a companion <c>ReferencedLib</c> project so that
+    ///     <c>@(ReferencePath)</c> is non-empty and harvesting would otherwise have something to
+    ///     (incorrectly) overwrite the value with.
+    ///     This test asserts the effective post-build <c>ApiMarkReferencePaths</c> property value
+    ///     (queried via <c>dotnet build -getProperty</c>) equals exactly the explicit value
+    ///     supplied on the command line.
+    /// </remarks>
+    [Fact]
+    public void ApiMarkMsbuild_NuGetPackage_DotNetProject_ExplicitReferencePaths_NotOverwritten()
+    {
+        var packagesDir = SkipIfPackageAbsent();
+
+        RunInIsolation(packagesDir, "DotNet/SampleLibWithReference", "SampleLib.csproj", workDir =>
+        {
+            var outputDir = Path.Join(workDir, "api");
+            var explicitReferencePath = Path.Join(workDir, "explicit-reference.dll");
+            File.WriteAllBytes(explicitReferencePath, []);
+
+            var result = RunProcess(
+                "dotnet",
+                $"build SampleLib.csproj --configuration Release " +
+                $"-p:ApiMarkOutputDir=\"{outputDir}\" " +
+                $"-p:ApiMarkReferencePaths=\"{explicitReferencePath}\"",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                result.ExitCode == 0,
+                $"dotnet build failed (exit {result.ExitCode}).\nstdout:\n{result.Output}\nstderr:\n{result.Error}");
+
+            Assert.True(
+                File.Exists(Path.Join(outputDir, "api.md")),
+                $"api.md was not created in '{outputDir}'.\nBuild output:\n{result.Output}");
+
+            // Query the effective ApiMarkReferencePaths value the .targets file computed during
+            // that build, proving the explicit non-empty value survived the auto-harvest
+            // ItemGroup/PropertyGroup unchanged rather than merely not crashing.
+            var propertyResult = RunProcess(
+                "dotnet",
+                "build SampleLib.csproj --configuration Release -t:Build -getProperty:ApiMarkReferencePaths " +
+                $"-p:ApiMarkOutputDir=\"{outputDir}\" -p:ApiMarkReferencePaths=\"{explicitReferencePath}\"",
+                workDir,
+                IsolatedNuGetEnv(workDir));
+
+            Assert.True(
+                propertyResult.ExitCode == 0,
+                $"dotnet build -getProperty failed (exit {propertyResult.ExitCode}).\n" +
+                $"stdout:\n{propertyResult.Output}\nstderr:\n{propertyResult.Error}");
+
+            var effectiveValue = ExtractGetPropertyValue(propertyResult.Output, "ApiMarkReferencePaths");
+            Assert.Equal(explicitReferencePath, effectiveValue);
+        });
+    }
+
+    /// <summary>
+    ///     Extracts the value of a single MSBuild property from the captured stdout of a
+    ///     <c>dotnet build -getProperty:{propertyName}</c> invocation.
+    /// </summary>
+    /// <remarks>
+    ///     When exactly one property is requested, <c>dotnet build -getProperty</c> emits the raw
+    ///     property value as plain text; when combined with other <c>-getProperty</c>/<c>-getItem</c>
+    ///     requests it instead emits a JSON report (<c>{ "Properties": { "Name": "Value" } }</c>).
+    ///     Asserting against the raw captured stdout directly (rather than through this helper) is
+    ///     unreliable because it conflates the property value with the surrounding report/output
+    ///     format, so every test that reads a <c>-getProperty</c> value must extract it through this
+    ///     shared helper instead of trimming and asserting on the whole captured output.
+    /// </remarks>
+    /// <param name="capturedOutput">The captured stdout of the <c>dotnet build -getProperty</c> invocation.</param>
+    /// <param name="propertyName">The MSBuild property name that was requested via <c>-getProperty</c>.</param>
+    /// <returns>The extracted property value, or an empty string when the property is empty/unset.</returns>
+    private static string ExtractGetPropertyValue(string capturedOutput, string propertyName)
+    {
+        var trimmed = capturedOutput.Trim();
+        if (!trimmed.StartsWith('{'))
+        {
+            // Single-property requests are emitted as the raw value with no surrounding report.
+            return trimmed;
+        }
+
+        using var document = JsonDocument.Parse(trimmed);
+        if (document.RootElement.TryGetProperty("Properties", out var properties) &&
+            properties.TryGetProperty(propertyName, out var value))
+        {
+            return value.GetString() ?? string.Empty;
+        }
+
+        throw new InvalidOperationException(
+            $"Property '{propertyName}' was not found in the -getProperty JSON output:\n{capturedOutput}");
     }
 
     /// <summary>

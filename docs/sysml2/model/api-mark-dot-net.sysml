@@ -20,6 +20,7 @@ package ApiMarkDotNet {
         part dotNetEmitterSingleFile : DotNetEmitterSingleFile;
         part typeLinkResolver : TypeLinkResolver;
         part xmlDocReader : XmlDocReader;
+        part externalXmlDocResolver : ExternalXmlDocResolver;
         part typeNameSimplifier : TypeNameSimplifier;
         part monoCecil : MonoCecil;
         part documentationCoverageChecker : DocumentationCoverageChecker;

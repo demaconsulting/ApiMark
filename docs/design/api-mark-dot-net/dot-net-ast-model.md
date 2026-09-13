@@ -29,6 +29,13 @@ boundary between parse and emit.
 - *Assembly* (`AssemblyDefinition`): The Mono.Cecil assembly definition held
   open for the duration of emit. Ownership is transferred to the model on
   construction; the `AssemblyDefinition` is disposed via a `using (Model.Assembly)` block in `DotNetEmitter.Emit` after the emit run completes or throws.
+- *AssemblyResolver* (`IAssemblyResolver`): The Mono.Cecil assembly resolver
+  used to resolve externally referenced assemblies during inheritance analysis
+  and lazy metadata resolution. Ownership is transferred to the model on
+  construction; disposed alongside `Assembly` via a `using (Model.AssemblyResolver)`
+  block in `DotNetEmitter.Emit`, in the same disposal scope, because the
+  resolver may still be consulted for lazy metadata resolution for as long as
+  `Assembly` is alive.
 - *XmlDocs* (`XmlDocReader`): Pre-built XML documentation reader for O(1)
   per-member lookups by XML doc identifier string.
 - *AllNamespaces* (`IReadOnlyList<string>`): All namespace names present in the assembly,
@@ -93,8 +100,9 @@ surface on namespace output the same way they do for a type.
 **DotNetAstModel constructor**: Accepts all parsed data and stores it in
 read-only properties.
 
-- *Parameters*: `AssemblyDefinition assembly`, `XmlDocReader xmlDocs`,
-  `IReadOnlyList<string> allNamespaces`, `IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>> byNamespace`,
+- *Parameters*: `AssemblyDefinition assembly`, `IAssemblyResolver assemblyResolver`,
+  `XmlDocReader xmlDocs`, `IReadOnlyList<string> allNamespaces`,
+  `IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>> byNamespace`,
   `IReadOnlyList<string> rootNamespaces`, `IReadOnlyDictionary<string, NamespaceDescription> namespaceDescriptions`,
   `TypeLinkResolver resolver`, `DotNetGeneratorOptions options`.
 - *Preconditions*: No parameter may be null.
@@ -107,7 +115,8 @@ responsibility of `DotNetGenerator.Parse` before constructing the model.
 
 ### Dependencies
 
-- **Mono.Cecil** — AssemblyDefinition and TypeDefinition are Mono.Cecil types.
+- **Mono.Cecil** — AssemblyDefinition, TypeDefinition, and IAssemblyResolver are
+  Mono.Cecil types.
 - **XmlDocReader** — held by reference for per-member documentation lookups.
 - **TypeLinkResolver** — held by reference for type-to-link resolution.
 

@@ -34,6 +34,22 @@ MSBuild and VC++ tools installed; those tests skip gracefully when the package i
 - `ApiMarkIncludeObsolete` is forwarded as `--include-obsolete` when true.
 - For the `dotnet` language, `ApiMarkExclude` is split on `;` and each non-empty
   trimmed entry is forwarded as a separate `--exclude` argument.
+- For the `dotnet` language, `ApiMarkReferencePaths` is split on `;` and each
+  non-empty entry is forwarded as a separate `--reference-paths` argument; the
+  flag is omitted entirely when the property is null or empty.
+- When `ApiMarkReferencePaths` is non-empty, the `--reference-paths` pairs actually
+  passed to the child process are substituted with a single `@<file>` response-file
+  argument (one `--reference-paths` line and one path line per pair, written to a
+  temporary file); the response file is deleted once the child process completes,
+  whether it succeeded or failed. `BuildArguments`/`BuildArgumentsForOutput` still
+  return the full, untransformed logical argument list. When `ApiMarkReferencePaths`
+  is empty/unset, no response file is created and the fast path is unaffected.
+- For .NET projects, when `ApiMarkReferencePaths` is not explicitly set, the `.targets` file
+  automatically populates it from the resolved `@(ReferencePath)` items; a non-empty
+  explicitly set value is never overridden. Because MSBuild cannot distinguish an unset
+  property from one explicitly set to an empty value outside a target, setting
+  `ApiMarkDisableReferencePathsHarvest=true` is the dedicated opt-out that suppresses
+  auto-harvest even when `ApiMarkReferencePaths` is empty.
 - For the `dotnet` language, `ApiMarkEnforceDocs` is forwarded as `--enforce-docs` and
   `ApiMarkEnforceDocsSeverity` is forwarded as `--enforce-docs-severity`, each omitted
   independently when its corresponding property is not set.
@@ -140,6 +156,61 @@ behavior. This scenario is tested by `ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExe
 is not set for a .NET project, the task returns true immediately without spawning any process,
 providing graceful skip behavior for projects that do not generate XML documentation. This
 scenario is tested by `ApiMarkTask_DotNet_EmptyXmlDocPath_SkipsExecution`.
+
+**ReferencePaths are forwarded as individual --reference-paths flags**: Verifies that
+each semicolon-delimited entry in `ApiMarkReferencePaths` is forwarded as its own
+`--reference-paths` flag to the spawned `dotnet` subcommand, enabling cross-assembly
+`<inheritdoc/>` resolution. This scenario is tested by
+`ApiMarkTask_DotNet_SpawnsToolWithCorrectReferencePathArguments`.
+
+**ReferencePaths flag omitted when not set**: Verifies that the `--reference-paths`
+flag is omitted entirely from the spawned command when `ApiMarkReferencePaths` is
+null or empty, preserving existing build behavior for projects that do not opt in
+to cross-assembly `<inheritdoc/>` resolution. This scenario is tested by
+`ApiMarkTask_DotNet_OmitsReferencePathsFlag_WhenNotSet`.
+
+**Small ReferencePaths list still succeeds via response file**: Regression test
+confirming that a normal/small `ApiMarkReferencePaths` list still results in a
+successful invocation, with the actually-observed arguments (via the overridden
+`RunToolProcess`) containing exactly one `@`-prefixed response-file token in
+place of the individual `--reference-paths` pairs, and the response file deleted
+after the process completes. This scenario is tested by
+`ApiMarkTask_Execute_SmallReferencePathsList_StillSucceedsViaResponseFile`.
+
+**ReferencePaths response file has expected content**: Verifies that when
+`ApiMarkReferencePaths` is set, the arguments observed by `RunToolProcess`
+contain exactly one `@`-prefixed token and no individual `--reference-paths`
+entries, and that the referenced response file (captured before deletion)
+contains the expected `--reference-paths`/path line pairs. This scenario is
+tested by `ApiMarkTask_Execute_WithReferencePaths_WritesResponseFileWithExpectedContent`.
+
+**No response file created when ReferencePaths is empty**: Verifies that when
+`ApiMarkReferencePaths` is empty/unset, no `@`-prefixed token appears in the
+observed arguments, regression-proving the empty-case fast path is unaffected by
+the response-file feature. This scenario is tested by
+`ApiMarkTask_Execute_WithoutReferencePaths_NoResponseFileCreated`.
+
+**ReferencePaths auto-populated from resolved @(ReferencePath) items**: End-to-end package
+integration test that verifies `ApiMarkReferencePaths` is correctly defaulted from the
+resolved `@(ReferencePath)` items (populated by `ResolveAssemblyReferences`/
+`ResolveProjectReferences` for a project with a real `PackageReference`) when not
+explicitly set, mirroring how `ApiMarkIncludePaths` is auto-populated from `ClCompile`
+`AdditionalIncludeDirectories` for C++ builds. This scenario is tested by
+`ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoPopulatesReferencePathsFromResolvedReferences`.
+
+**Explicitly set non-empty ReferencePaths is not overwritten**: End-to-end package
+integration test that verifies a non-empty `ApiMarkReferencePaths` value set explicitly
+via a project property is honored and not silently replaced by the `.targets` file's
+auto-harvested `@(ReferencePath)` list. This scenario is tested by
+`ApiMarkMsbuild_NuGetPackage_DotNetProject_ExplicitReferencePaths_NotOverwritten`.
+
+**Disabling auto-harvest suppresses ReferencePaths even when empty**: End-to-end package
+integration test that verifies `ApiMarkDisableReferencePathsHarvest=true` suppresses the
+`.targets` file's auto-harvest, leaving `ApiMarkReferencePaths` empty. An explicit empty
+value alone cannot signal this because MSBuild cannot distinguish it from a property that
+was never set outside a target; `ApiMarkDisableReferencePathsHarvest` is the real opt-out
+mechanism. This scenario is tested by
+`ApiMarkMsbuild_NuGetPackage_DotNetProject_DisableReferencePathsHarvest_SuppressesAutoHarvest`.
 
 **IncludeObsolete flag is forwarded**: Verifies that when `ApiMarkIncludeObsolete` is set to
 `true`, the `--include-obsolete` flag is added to the spawned tool command. This scenario is

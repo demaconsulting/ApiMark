@@ -25,6 +25,7 @@ Standard .NET test runner. No external files are required except for the log-fil
   still reflects error state when `WriteError` is called.
 - All tool output is routed through `Context.WriteLine` or `Context.WriteError`; both
   methods write unconditionally to any open log file regardless of the `--silent` flag.
+- `--reference-paths` (repeatable) is parsed and accumulated into `Context.ReferencePaths`, consistent with the other repeatable dotnet-only options (`--exclude`, `--includes`, `--api-headers`, `--source`).
 
 ### Test Scenarios
 

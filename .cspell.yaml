@@ -13,8 +13,10 @@ language: en
 words:
   - apimark
   - ApiMark
+  - APFS
   - buildmark
   - byref
+  - casefold
   - Cecil
   - cref
   - crefs
@@ -65,6 +67,8 @@ words:
   - mylib
   - MYLIB
   - nameof
+  - NTFS
+  - TOCTOU
   - testbenches
   - testlib
   - NDEBUG
@@ -116,6 +120,7 @@ words:
   - xunit
   - Xunit
   - yamlfix
+  - binlog
 ignorePaths:
   - '**/.git/**'
   - '**/node_modules/**'

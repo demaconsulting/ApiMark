@@ -51,6 +51,38 @@
       <ApiMarkIncludePaths>@(_ApiMarkIncludeDirs->Distinct())</ApiMarkIncludePaths>
     </PropertyGroup>
 
+    <!--
+      For managed (dotnet) projects, default ApiMarkReferencePaths to the resolved
+      @(ReferencePath) items (populated by ResolveAssemblyReferences/ResolveProjectReferences)
+      when the user has not set it explicitly. This automatically picks up the paths of
+      referenced assemblies (including NuGet package assemblies) so cross-assembly
+      <inheritdoc/> resolution works out of the box. The Exists() condition strips paths that
+      do not exist on disk. Users who need a different set of paths can override
+      ApiMarkReferencePaths with a semicolon-separated list, which suppresses harvesting entirely.
+
+      MSBuild cannot distinguish "ApiMarkReferencePaths was never set" from "ApiMarkReferencePaths
+      was explicitly set to an empty value" for a plain property set outside a target — both
+      evaluate to '$(ApiMarkReferencePaths)' == ''. So an empty-value assignment alone cannot be
+      used as an opt-out signal for disabling auto-harvest. Users who want to intentionally
+      disable auto-harvest (rather than merely leaving it on the default) must instead set
+      ApiMarkDisableReferencePathsHarvest=true, mirroring the existing DisableApiMark boolean
+      opt-out convention used elsewhere in this file.
+    -->
+    <ItemGroup Condition="'$(ApiMarkReferencePaths)' == ''
+                       and '$(ApiMarkDisableReferencePathsHarvest)' != 'true'
+                       and '@(ReferencePath)' != ''">
+      <_ApiMarkRawReferencePaths Include="@(ReferencePath)" />
+      <_ApiMarkReferencePaths Include="@(_ApiMarkRawReferencePaths)"
+                              Condition="'%(_ApiMarkRawReferencePaths.Identity)' != ''
+                                      and Exists('%(_ApiMarkRawReferencePaths.Identity)')" />
+    </ItemGroup>
+
+    <PropertyGroup Condition="'$(ApiMarkReferencePaths)' == ''
+                           and '$(ApiMarkDisableReferencePathsHarvest)' != 'true'
+                           and '@(ReferencePath)' != ''">
+      <ApiMarkReferencePaths>@(_ApiMarkReferencePaths->Distinct())</ApiMarkReferencePaths>
+    </PropertyGroup>
+
     <ApiMarkTask
       DisableApiMark="$(DisableApiMark)"
       ApiMarkLanguage="$(ApiMarkLanguage)"
@@ -62,6 +94,7 @@
       ApiMarkAssemblyPath="$(ApiMarkAssemblyPath)"
       ApiMarkXmlDocPath="$(ApiMarkXmlDocPath)"
       ApiMarkExclude="$(ApiMarkExclude)"
+      ApiMarkReferencePaths="$(ApiMarkReferencePaths)"
       ApiMarkIncludePaths="$(ApiMarkIncludePaths)"
       ApiMarkApiHeaders="$(ApiMarkApiHeaders)"
       ApiMarkLibraryName="$(ApiMarkLibraryName)"

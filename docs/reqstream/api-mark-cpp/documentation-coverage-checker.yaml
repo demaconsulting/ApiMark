@@ -6,10 +6,10 @@ sections:
       - title: DocumentationCoverageChecker Requirements
         requirements:
           - id: ApiMarkCpp-DocumentationCoverageChecker-ScanAtVisibilityTier
-            title: DocumentationCoverageChecker shall scan parsed namespace
-              declarations for classes, functions, fields, enums, and type
-              aliases lacking a non-empty Doxygen summary, at a caller-supplied
-              visibility tier independent of the emission visibility tier.
+            title: DocumentationCoverageChecker shall scan parsed namespace declarations
+              for classes, functions, fields, enums, and type aliases lacking a non-empty
+              Doxygen summary, at a caller-supplied visibility tier independent of
+              the emission visibility tier.
             justification: |
               Enforcement projects may want to check documentation
               completeness at a different visibility tier than the one used
@@ -21,9 +21,9 @@ sections:
               - Check_RealFixtureHeader_ReportsUndocumentedFunction
               - Check_PublicAndProtectedTier_SurfacesProtectedMembersNotSeenAtPublic
           - id: ApiMarkCpp-DocumentationCoverageChecker-DetectMissingSummaryByKind
-            title: DocumentationCoverageChecker shall classify each undocumented
-              item it finds by kind (class, function, field, enum, enum value,
-              or type alias) and report its qualified display name.
+            title: DocumentationCoverageChecker shall classify each undocumented item
+              it finds by kind (class, function, field, enum, enum value, or type
+              alias) and report its qualified display name.
             justification: |
               A documentation-coverage report is only actionable if it names
               exactly which declaration is missing a summary and what kind of
@@ -39,22 +39,20 @@ sections:
               - Check_OverloadedUndocumentedMethod_ReportsDistinctParameterSignature
               - Check_OverloadedUndocumentedFreeFunction_ReportsDistinctParameterSignature
           - id: ApiMarkCpp-DocumentationCoverageChecker-ApplyDeprecatedFilter
-            title: DocumentationCoverageChecker shall honor the same
-              IncludeDeprecated filter used for Markdown emission, skipping
-              declarations marked [[deprecated]] by default.
+            title: DocumentationCoverageChecker shall honor the same IncludeDeprecated
+              filter used for Markdown emission, skipping declarations marked [[deprecated]]
+              by default.
             justification: |
               Enforcement should respect the same deprecated-declaration
               policy already configured for emission so that declarations
               intentionally left out of generated documentation are not
               flagged as violations.
-            tests:
-              - Check_DeprecatedClass_FilteredByIncludeDeprecatedOption
+            tests: [Check_DeprecatedClass_FilteredByIncludeDeprecatedOption]
           - id: ApiMarkCpp-DocumentationCoverageChecker-ValidateEnforceTier
-            title: CppGenerator.CheckDocumentationCoverage shall validate the
-              supplied enforcement tier, throw for an unrecognized value, fall
-              back to CppGeneratorOptions.EnforceDocsVisibility when no tier
-              parameter is supplied, and throw when called before Parse or
-              when no tier is configured by either source.
+            title: CppGenerator.CheckDocumentationCoverage shall validate the supplied
+              enforcement tier, throw for an unrecognized value, fall back to CppGeneratorOptions.EnforceDocsVisibility
+              when no tier parameter is supplied, and throw when called before Parse
+              or when no tier is configured by either source.
             justification: |
               Callers need a clear, fail-fast contract for misuse: an
               unrecognized tier string, a missing configured tier, or calling

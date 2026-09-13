@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using ApiMark.DotNet;
 using Xunit;
 
@@ -1949,6 +1950,293 @@ public class XmlDocReaderTests
             Assert.Contains("- Outer item with nested list: - Inner one. - Inner two.", lines);
             Assert.DoesNotContain("- Inner one.", lines);
             Assert.DoesNotContain("- Inner two.", lines);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> resolves a bare
+    ///     <c>&lt;inheritdoc /&gt;</c> whose only inheritance-chain candidate is absent locally, by
+    ///     falling back to the injected external member lookup delegate.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocBare_ChainCandidateExternal_ResolvesFromExternalResolver()
+    {
+        // Arrange: chain candidate is not present in the local XML doc file
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod">
+                <inheritdoc />
+            </member>
+            """);
+        var chain = new Dictionary<string, IReadOnlyList<string>>
+        {
+            ["M:MyNamespace.MyClass.MyMethod"] = new List<string> { "M:External.BaseClass.BaseMethod" },
+        };
+        var externalMember = new XElement("member",
+            new XAttribute("name", "M:External.BaseClass.BaseMethod"),
+            new XElement("summary", "External base summary text."));
+        try
+        {
+            // Act: the external lookup delegate resolves the chain candidate that is missing locally
+            var reader = new XmlDocReader(path, chain, id => id == "M:External.BaseClass.BaseMethod" ? externalMember : null);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.MyMethod");
+
+            // Assert
+            Assert.Equal("External base summary text.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Pins down a documented known limitation: when a member is resolved via the external
+    ///     lookup delegate and that external member's own XML doc entry contains a BARE
+    ///     <c>&lt;inheritdoc /&gt;</c> (no <c>cref</c>), resolution cannot continue a second hop
+    ///     into another external member, because <c>_inheritanceChain</c> is built only from the
+    ///     primary assembly's Cecil metadata and has no entry for external members. An explicit
+    ///     <c>cref</c> at the external hop is unaffected and continues to resolve correctly across
+    ///     any number of hops (see the sibling <c>...InheritDocWithCref_ExternalTarget...</c> tests).
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocBareChain_TwoExternalHops_SecondHopUnresolved()
+    {
+        // Arrange: local M.Method (bare inheritdoc) -> external I1.Method (bare inheritdoc, no
+        // local chain entry exists for it) -> external I2.Method (would carry the real summary)
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.Method">
+                <inheritdoc />
+            </member>
+            """);
+        var chain = new Dictionary<string, IReadOnlyList<string>>
+        {
+            ["M:MyNamespace.MyClass.Method"] = new List<string> { "M:External.I1.Method" },
+        };
+        var firstExternalMember = new XElement("member",
+            new XAttribute("name", "M:External.I1.Method"),
+            new XElement("inheritdoc"));
+        var secondExternalMember = new XElement("member",
+            new XAttribute("name", "M:External.I2.Method"),
+            new XElement("summary", "Second-hop external summary text."));
+        XElement? Lookup(string id) => id switch
+        {
+            "M:External.I1.Method" => firstExternalMember,
+            "M:External.I2.Method" => secondExternalMember,
+            _ => null,
+        };
+        try
+        {
+            // Act: resolution reaches the first external hop, but has no inheritance-chain
+            // candidate for it to continue on to the second external hop
+            var reader = new XmlDocReader(path, chain, Lookup);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.Method");
+
+            // Assert: current documented behavior — the second hop is NOT reached, so the
+            // summary is absent rather than "Second-hop external summary text."
+            Assert.Null(summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> resolves an explicit
+    ///     <c>&lt;inheritdoc cref="..." /&gt;</c> whose target is absent locally, by falling back
+    ///     to the injected external member lookup delegate.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocWithCref_ExternalTarget_ResolvesFromExternalResolver()
+    {
+        // Arrange: explicit cref target is not present in the local XML doc file
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod">
+                <inheritdoc cref="M:External.BaseClass.BaseMethod" />
+            </member>
+            """);
+        var externalMember = new XElement("member",
+            new XAttribute("name", "M:External.BaseClass.BaseMethod"),
+            new XElement("summary", "External cref summary text."));
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path, null, id => id == "M:External.BaseClass.BaseMethod" ? externalMember : null);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.MyMethod");
+
+            // Assert
+            Assert.Equal("External cref summary text.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that the <c>path</c> XPath filter on <c>&lt;inheritdoc /&gt;</c> is applied
+    ///     to content resolved from the external member lookup delegate exactly as it is for
+    ///     locally-resolved content.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocWithCrefAndPath_ExternalTarget_AppliesPathFilter()
+    {
+        // Arrange: cref selects an external target; path restricts to the summary element only
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod">
+                <inheritdoc cref="M:External.OtherClass.OtherMethod" path="//summary" />
+            </member>
+            """);
+        var externalMember = new XElement("member",
+            new XAttribute("name", "M:External.OtherClass.OtherMethod"),
+            new XElement("summary", "External other summary text."),
+            new XElement("remarks", "External other remarks text."));
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path, null, id => id == "M:External.OtherClass.OtherMethod" ? externalMember : null);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.MyMethod");
+
+            // Assert: cref + path must select only the summary from the externally-resolved target
+            Assert.Equal("External other summary text.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> returns <c>null</c> for a bare
+    ///     <c>&lt;inheritdoc /&gt;</c> when the chain candidate is absent both locally and from the
+    ///     external member lookup delegate.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocBare_ExternalCandidateAlsoMissing_ReturnsNull()
+    {
+        // Arrange: chain candidate is absent locally, and the external delegate also misses
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod">
+                <inheritdoc />
+            </member>
+            """);
+        var chain = new Dictionary<string, IReadOnlyList<string>>
+        {
+            ["M:MyNamespace.MyClass.MyMethod"] = new List<string> { "M:External.BaseClass.MissingMethod" },
+        };
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path, chain, externalMemberLookup: _ => null);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.MyMethod");
+
+            // Assert: both local and external misses must degrade gracefully to null, not throw
+            Assert.Null(summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that cycle detection still applies when an <c>&lt;inheritdoc /&gt;</c>
+    ///     resolution chain crosses the local/external boundary: a local member resolves
+    ///     externally to a member whose own <c>cref</c> points back to the original local member.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_InheritDocChain_CrossesLocalAndExternalBoundary_CycleDetected()
+    {
+        // Arrange: local A has a bare inheritdoc resolved externally to B; B's cref points back to A
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.A.Method">
+                <inheritdoc />
+            </member>
+            """);
+        var chain = new Dictionary<string, IReadOnlyList<string>>
+        {
+            ["M:MyNamespace.A.Method"] = new List<string> { "M:External.B.Method" },
+        };
+        var externalMember = new XElement("member",
+            new XAttribute("name", "M:External.B.Method"),
+            new XElement("inheritdoc", new XAttribute("cref", "M:MyNamespace.A.Method")));
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path, chain, id => id == "M:External.B.Method" ? externalMember : null);
+            var summary = reader.GetSummary("M:MyNamespace.A.Method");
+
+            // Assert: the shared visited set must catch the cross-boundary cycle and return null
+            // without a stack overflow
+            Assert.Null(summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Regression test confirming that constructing an <see cref="XmlDocReader"/> without an
+    ///     external member lookup (the 2-arg overload) preserves the prior local-miss behavior
+    ///     exactly — a local miss with no external resolver configured still returns <c>null</c>.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_NoExternalResolverConfigured_LocalMiss_ReturnsNullUnchanged()
+    {
+        // Arrange: bare inheritdoc whose chain candidate is not present locally, no external resolver
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod">
+                <inheritdoc />
+            </member>
+            """);
+        var chain = new Dictionary<string, IReadOnlyList<string>>
+        {
+            ["M:MyNamespace.MyClass.MyMethod"] = new List<string> { "M:MyNamespace.BaseClass.MissingMethod" },
+        };
+        try
+        {
+            // Act: 2-arg overload — externalMemberLookup defaults to null
+            var reader = new XmlDocReader(path, chain);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.MyMethod");
+
+            // Assert: behavior identical to before this feature was added
+            Assert.Null(summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Regression test for the fix that scopes the external member lookup delegate to
+    ///     <c>&lt;inheritdoc /&gt;</c> target resolution only: a member that is simply undocumented
+    ///     locally (no <c>&lt;inheritdoc /&gt;</c> at all, and no local <c>&lt;member&gt;</c> entry)
+    ///     must never be satisfied by an incidentally-colliding member ID in the external member
+    ///     lookup delegate.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_LocalMemberUndocumented_ExternalLookupNotConsulted_ReturnsNull()
+    {
+        // Arrange: local XML doc has no entry at all for the target member; the external lookup
+        // delegate DOES have a colliding entry with a summary for that exact ID
+        var path = WriteXmlDoc(string.Empty);
+        var externalMember = new XElement("member",
+            new XAttribute("name", "M:MyNamespace.MyClass.Undocumented"),
+            new XElement("summary", "External summary that must not leak onto the local member."));
+        try
+        {
+            // Act: top-level call, no inheritdoc anywhere in the resolution path
+            var reader = new XmlDocReader(path, null, id => id == "M:MyNamespace.MyClass.Undocumented" ? externalMember : null);
+            var summary = reader.GetSummary("M:MyNamespace.MyClass.Undocumented");
+
+            // Assert: the external lookup must not be consulted for a top-level, non-inheritdoc lookup
+            Assert.Null(summary);
         }
         finally
         {

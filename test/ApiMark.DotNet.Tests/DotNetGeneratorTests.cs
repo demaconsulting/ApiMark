@@ -2292,4 +2292,125 @@ public class DotNetGeneratorTests
         emitter.Emit(factory, new EmitConfig(), new InMemoryContext());
         Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/SampleClass"));
     }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.Parse"/> resolves cross-assembly bare
+    ///     <c>&lt;inheritdoc /&gt;</c> content when <see cref="DotNetGeneratorOptions.ReferencePaths"/>
+    ///     is configured to point at the external "base library" fixture's output — proving the
+    ///     full pipeline: Mono.Cecil assembly-resolver seeding, external base-type/interface
+    ///     resolution while building the inheritance chain, and <see cref="ExternalXmlDocResolver"/>
+    ///     fallback in <see cref="XmlDocReader"/>.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Parse_ExternalBaseWithReferencePaths_ResolvesInheritedDocumentation()
+    {
+        // Arrange
+        var options = BuildOptions();
+        options.ReferencePaths = [FixturePaths.GetExternalFixtureDll()];
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(options);
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the interface method page carries purely-inherited content resolved from the
+        // external assembly's interface member.
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ExternalInheritDocClass/ExternalInterfaceMethod", out var interfaceWriter),
+            "Expected member detail page for ExternalInheritDocClass.ExternalInterfaceMethod");
+        var interfaceParagraphs = interfaceWriter!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(interfaceParagraphs, p => p.Contains("Performs the external interface method's action."));
+
+        // Assert: the overridden method page also resolves its bare inheritdoc against the
+        // external BASE CLASS member (as opposed to the external interface above), proving both
+        // external base-class and external-interface resolution work end-to-end in the same run.
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ExternalInheritDocClass/DescribeBase", out var baseWriter),
+            "Expected member detail page for ExternalInheritDocClass.DescribeBase");
+        var baseParagraphs = baseWriter!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(baseParagraphs, p => p.Contains("Describes the base implementation."));
+    }
+
+    /// <summary>
+    ///     Regression test proving that blank (empty/whitespace-only) entries in
+    ///     <see cref="DotNetGeneratorOptions.ReferencePaths"/> are silently skipped before seeding
+    ///     the Mono.Cecil assembly resolver's search directories, rather than resolving to the
+    ///     current working directory and causing a spurious search directory or a resolution
+    ///     error. The real fixture reference path is still resolved correctly alongside the blank
+    ///     entries.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Parse_ReferencePathsContainsBlankEntries_SkipsBlanksAndResolvesRealPath()
+    {
+        // Arrange: blank/whitespace entries interspersed with the one real reference path
+        var options = BuildOptions();
+        options.ReferencePaths = ["", "   ", FixturePaths.GetExternalFixtureDll()];
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(options);
+
+        // Act: Parse/Emit must complete without throwing despite the blank entries
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the real reference path still resolves inherited documentation normally,
+        // proving the blank entries were skipped rather than causing an error or masking the
+        // real path's search directory
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ExternalInheritDocClass/ExternalInterfaceMethod", out var interfaceWriter),
+            "Expected member detail page for ExternalInheritDocClass.ExternalInterfaceMethod");
+        var interfaceParagraphs = interfaceWriter!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(interfaceParagraphs, p => p.Contains("Performs the external interface method's action."));
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.Parse"/> and the subsequent
+    ///     <see cref="IApiEmitter.Emit"/> complete without throwing, and leave cross-assembly
+    ///     <c>&lt;inheritdoc /&gt;</c> content unresolved (absent), when
+    ///     <see cref="DotNetGeneratorOptions.ReferencePaths"/> is left at its default empty list —
+    ///     confirming the prior/unchanged behavior and that the defensive
+    ///     <c>AssemblyResolutionException</c> catch in the inheritance-chain builder still holds.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Parse_ExternalBaseWithoutReferencePaths_LeavesInheritDocUnresolved()
+    {
+        // Arrange: ReferencePaths intentionally left at its default empty list
+        var options = BuildOptions();
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(options);
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: Parse/Emit completed without throwing, and the member page exists but does not
+        // carry the externally-inherited summary text
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ExternalInheritDocClass/ExternalInterfaceMethod", out var writer),
+            "Expected member detail page for ExternalInheritDocClass.ExternalInterfaceMethod");
+        var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.DoesNotContain(paragraphs, p => p.Contains("Performs the external interface method's action."));
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.ResolveReferenceSearchDirectory"/> resolves a
+    ///     bare file name with no directory component (e.g. as produced by
+    ///     <c>--reference-paths External.dll</c>) to the current working directory, rather than
+    ///     an empty string that would be silently filtered out before reaching the Mono.Cecil
+    ///     assembly resolver.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_ResolveReferenceSearchDirectory_BareFileNameWithNoDirectory_ResolvesToCurrentDirectory()
+    {
+        // Arrange: a reference path with no directory separator at all
+        const string bareFileName = "External.dll";
+        var expectedDirectory = Directory.GetCurrentDirectory();
+
+        // Act
+        var resolvedDirectory = DotNetGenerator.ResolveReferenceSearchDirectory(bareFileName);
+
+        // Assert: Path.GetFullPath is applied before Path.GetDirectoryName, so the bare file name
+        // expands against the current working directory first and yields a non-empty directory
+        // equal to it, instead of GetDirectoryName("External.dll") == "" being filtered out.
+        Assert.False(string.IsNullOrEmpty(resolvedDirectory));
+        Assert.Equal(expectedDirectory, resolvedDirectory);
+    }
 }
+
