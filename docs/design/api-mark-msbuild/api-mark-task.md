@@ -267,8 +267,18 @@ lists.
 - *Parameters*: `IReadOnlyList<string> toolArgs`, `out string? responseFilePath`.
 - *Returns*: `IReadOnlyList<string>` — the argument list to actually pass to
   `RunToolProcess`.
-- *Algorithm*: scans `toolArgs` for `--reference-paths`/path pairs. When none
-  are found, returns `toolArgs` unchanged and sets `responseFilePath` to
+- *Algorithm*: walks `toolArgs` positionally as a proper option/value token
+  sequence, not by scanning for the literal string `--reference-paths` at
+  arbitrary positions. The first token is always the language subcommand and
+  is copied through unchanged. Each subsequent token is classified as either
+  the `--reference-paths` flag (its following token is its path value, both
+  extracted into the response file), a known zero-arity flag from
+  `ZeroArgFlags`, or any other flag immediately followed by its value token
+  (both copied through unchanged as a pair) — so a caller-supplied value that
+  happens to equal `--reference-paths` verbatim (for example an unusual
+  `ApiMarkLibraryDescription`) is correctly treated as a value and never
+  misinterpreted as the flag itself. When no `--reference-paths` pairs are
+  found, returns `toolArgs` unchanged and sets `responseFilePath` to
   `null` — no temp-file I/O occurs in this common/fast-path case. When one or
   more pairs are found, writes each pair to its own two lines (a
   `--reference-paths` line followed by a path line — matching

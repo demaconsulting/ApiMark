@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using ApiMark.Core;
 using ApiMark.Cpp.CppAst;
 
@@ -45,6 +44,9 @@ internal sealed class CppEmitter : IApiEmitter
         _options = options;
         _namespaceDecls = namespaceDecls;
         _cppResolver = cppResolver;
+        _normalizedPublicIncludeRoots = options.PublicIncludeRoots
+            .Select(root => PathHelpers.NormalizeCaseDirectory(root, _includeRootDirectoryEntryCache))
+            .ToList();
     }
 
     /// <summary>Gets the generator configuration options.</summary>
@@ -75,36 +77,6 @@ internal sealed class CppEmitter : IApiEmitter
     // =========================================================================
     // Ownership and include-path helpers
     // =========================================================================
-
-    /// <summary>
-    ///     Gets the <see cref="StringComparison"/> appropriate for file-system path comparisons
-    ///     on the current platform.
-    /// </summary>
-    /// <remarks>
-    ///     Linux file systems are case-sensitive, so <see cref="StringComparison.Ordinal"/> is
-    ///     used there to avoid incorrectly matching paths that differ only in case. Windows and
-    ///     macOS default to case-insensitive file systems, so
-    ///     <see cref="StringComparison.OrdinalIgnoreCase"/> is used on those platforms.
-    /// </remarks>
-    internal static StringComparison FileSystemPathComparison =>
-        RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
-            ? StringComparison.Ordinal
-            : StringComparison.OrdinalIgnoreCase;
-
-    /// <summary>
-    ///     Returns the <see cref="StringComparer"/> appropriate for file-system path comparisons
-    ///     on the current platform.
-    /// </summary>
-    /// <remarks>
-    ///     Linux file systems are case-sensitive, so <see cref="StringComparer.Ordinal"/> is
-    ///     used there to avoid incorrectly treating paths that differ only in case as duplicates.
-    ///     Windows and macOS default to case-insensitive file systems, so
-    ///     <see cref="StringComparer.OrdinalIgnoreCase"/> is used on those platforms.
-    /// </remarks>
-    internal static StringComparer FileSystemPathComparer =>
-        RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
-            ? StringComparer.Ordinal
-            : StringComparer.OrdinalIgnoreCase;
 
     /// <summary>
     ///     Sanitizes a C++ declaration name for use as a file-system file name by replacing any
@@ -143,12 +115,46 @@ internal sealed class CppEmitter : IApiEmitter
     }
 
     /// <summary>
+    ///     Directory-entry cache shared across all <see cref="GetIncludePath"/> calls for the
+    ///     lifetime of this emitter, since <see cref="CppGeneratorOptions.PublicIncludeRoots"/> and
+    ///     the directories under them do not change mid-generation-run.
+    /// </summary>
+    private readonly Dictionary<string, string[]> _includeRootDirectoryEntryCache = new(PathHelpers.Comparer);
+
+    /// <summary>
+    ///     Each configured <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry, resolved to
+    ///     its actual on-disk casing and pre-trimmed, precomputed once in the constructor rather
+    ///     than recomputed on every <see cref="GetIncludePath"/> call: the roots list is fixed for
+    ///     the lifetime of this emitter, so recomputing it per declaration would needlessly repeat
+    ///     <see cref="PathHelpers.NormalizeCase"/> work for every emitted declaration.
+    /// </summary>
+    private readonly IReadOnlyList<string> _normalizedPublicIncludeRoots;
+
+    /// <summary>
+    ///     Memoizes <see cref="GetIncludePath"/> results keyed by the as-supplied source file path,
+    ///     since many declarations commonly share the same source file and each call would
+    ///     otherwise re-normalize and re-scan <see cref="_normalizedPublicIncludeRoots"/> for the
+    ///     same file.
+    /// </summary>
+    private readonly Dictionary<string, string> _includePathCache = new(StringComparer.Ordinal);
+
+    /// <summary>
     ///     Derives the canonical <c>#include</c> path for a declaration from its source file,
     ///     relative to the longest matching public include root.
     /// </summary>
     /// <remarks>
     ///     The longest-root rule ensures that the most specific root wins when multiple roots
-    ///     overlap (e.g. both <c>include/</c> and <c>include/mylib/</c> are configured).
+    ///     overlap (e.g. both <c>include/</c> and <c>include/mylib/</c> are configured). Both the
+    ///     source file and each candidate root are normalized to their actual on-disk casing via
+    ///     <see cref="PathHelpers.NormalizeCase"/> before comparison, rather than guessing case
+    ///     sensitivity from the operating system: both Windows and macOS can host case-sensitive
+    ///     volumes, and Linux can host case-insensitive file systems, so an OS-based guess can
+    ///     incorrectly fail to match (or incorrectly match) paths that differ only in case.
+    ///     <see cref="_normalizedPublicIncludeRoots"/> is produced by
+    ///     <see cref="PathHelpers.NormalizeCaseDirectory"/>, which guarantees each root already
+    ///     ends with exactly one directory separator, so it can be used directly as a
+    ///     <see cref="string.StartsWith(string, StringComparison)"/> prefix without re-deriving
+    ///     or re-appending a separator here.
     /// </remarks>
     /// <param name="sourceFile">
     ///     The absolute or relative source file path. Must not be null.
@@ -160,24 +166,34 @@ internal sealed class CppEmitter : IApiEmitter
     internal string GetIncludePath(string sourceFile)
     {
         ArgumentNullException.ThrowIfNull(sourceFile);
-        var normalized = Path.GetFullPath(sourceFile);
+
+        if (_includePathCache.TryGetValue(sourceFile, out var cached))
+        {
+            return cached;
+        }
+
+        var normalized = PathHelpers.NormalizeCase(Path.GetFullPath(sourceFile), _includeRootDirectoryEntryCache);
 
         // Select the longest matching root so the most specific prefix wins
-        var matchingRoot = _options.PublicIncludeRoots
-            .Select(root => Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, '/'))
-            .Where(root => normalized.StartsWith(
-                root + Path.DirectorySeparatorChar, FileSystemPathComparison))
+        var matchingRoot = _normalizedPublicIncludeRoots
+            .Where(root => normalized.StartsWith(root, StringComparison.Ordinal))
             .OrderByDescending(root => root.Length, Comparer<int>.Default)
             .FirstOrDefault();
 
+        string result;
         if (matchingRoot == null)
         {
-            return normalized.Replace('\\', '/');
+            result = normalized.Replace('\\', '/');
+        }
+        else
+        {
+            // Strip the root prefix — matchingRoot already includes its own trailing separator
+            var relativePath = normalized[matchingRoot.Length..];
+            result = relativePath.Replace('\\', '/');
         }
 
-        // Strip the root prefix (plus its trailing separator) and normalize to forward slashes
-        var relativePath = normalized[(matchingRoot.Length + 1)..];
-        return relativePath.Replace('\\', '/');
+        _includePathCache[sourceFile] = result;
+        return result;
     }
 
     // =========================================================================

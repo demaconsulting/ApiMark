@@ -14,7 +14,7 @@ sections:
               resolved C++ AST. Delegating parse to ClangAstParser keeps the I/O and
               JSON-deserialization logic isolated from the higher-level generation
               logic, making each unit independently testable.
-            children: [ApiMarkCpp-ClangAstParser-ParseHeaders]
+            children: [ApiMarkCpp-ClangAstParser-ParseHeaders, ApiMarkCpp-ClangAstParser-NormalizeIncludeRootsRegardlessOfCaller]
             tests: [ClangAstParser_Parse_FixtureHeaders_ReturnsNonEmptyNamespaces]
           - id: ApiMarkCpp-ClangAstParser-ParseHeaders
             title: >-
@@ -37,3 +37,16 @@ sections:
               - ClangAstParser_Parse_FixtureHeaders_FixturesNamespaceContainsSampleClass
               - ClangAstParser_Parse_FixtureHeaders_SampleClassHasMembers
               - ClangAstParser_Parse_FixtureHeaders_ErrorsCollectionIsEmpty
+          - id: ApiMarkCpp-ClangAstParser-NormalizeIncludeRootsRegardlessOfCaller
+            title: >-
+              ClangAstParser.Parse shall resolve an angle-bracket #include directive via a
+              configured public include root regardless of the casing used to supply that
+              root, whether or not the caller has already normalized it.
+            justification: |
+              ClangAstParser.Parse is a public entry point that can be invoked directly, not
+              only via CppGenerator.Parse (which normalizes public include roots before
+              calling this method). A caller that supplies a differently-cased root must
+              still have it resolved correctly on a case-sensitive file system, so clang can
+              locate every header reachable only through the -I search path.
+            tests:
+              - ClangAstParser_Parse_CalledDirectlyWithDifferentlyCasedIncludeRoot_ResolvesAngleBracketInclude

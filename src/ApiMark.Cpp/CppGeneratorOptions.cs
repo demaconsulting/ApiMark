@@ -139,4 +139,35 @@ public sealed class CppGeneratorOptions
     ///     <see cref="ApiVisibility.PublicAndProtected"/> documentation coverage, or vice versa.
     /// </remarks>
     public ApiVisibility? EnforceDocsVisibility { get; set; }
+
+    /// <summary>
+    ///     Returns a shallow copy of this instance with <see cref="PublicIncludeRoots"/>
+    ///     replaced by <paramref name="publicIncludeRoots"/> and every other property
+    ///     unchanged.
+    /// </summary>
+    /// <remarks>
+    ///     Used so that callers who normalize <see cref="PublicIncludeRoots"/> to their
+    ///     actual on-disk casing (e.g. <see cref="CppGenerator.Parse"/> and
+    ///     <c>ClangAstParser.Parse</c>) can thread the normalized roots through header
+    ///     discovery, the clang invocation, and emission without mutating the
+    ///     caller-supplied options instance.
+    /// </remarks>
+    /// <param name="publicIncludeRoots">The normalized replacement for <see cref="PublicIncludeRoots"/>.</param>
+    /// <returns>A new <see cref="CppGeneratorOptions"/> instance sharing every other property with this instance.</returns>
+    internal CppGeneratorOptions WithPublicIncludeRoots(IReadOnlyList<string> publicIncludeRoots) => new()
+    {
+        Description = Description,
+        LibraryName = LibraryName,
+        PublicIncludeRoots = publicIncludeRoots,
+        ApiHeaderPatterns = ApiHeaderPatterns,
+        SystemIncludePaths = SystemIncludePaths,
+        Defines = Defines,
+        CppStandard = CppStandard,
+        AdditionalCompilerArguments = AdditionalCompilerArguments,
+        Visibility = Visibility,
+        IncludeDeprecated = IncludeDeprecated,
+        ClangPath = ClangPath,
+        WorkingDirectory = WorkingDirectory,
+        EnforceDocsVisibility = EnforceDocsVisibility,
+    };
 }

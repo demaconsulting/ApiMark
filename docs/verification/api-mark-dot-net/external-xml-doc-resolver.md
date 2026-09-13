@@ -33,6 +33,8 @@ itself, only path strings and the sibling/`ref`/`lib`-swapped XML file.
 - A repeated `TryGetMember` miss for the same member ID is served from the negative per-member cache without re-reading the underlying XML documentation file from disk.
 - The constructor throws `ArgumentNullException` when `referenceAssemblyPaths` is `null`.
 - The constructor filters out blank (empty/whitespace-only) reference-path entries rather than normalizing them into a bogus current-working-directory search path.
+- `TryGetMember(memberId, declaringAssemblyHint)` probes only the hinted reference path's documentation, and no other configured path, when the hint matches a configured reference path's simple assembly name and the member is found there.
+- `TryGetMember(memberId, declaringAssemblyHint)` falls back to the full in-order scan of every configured reference path when the hint is absent, does not match any configured path, or the hinted path does not contain the member.
 
 ### Test Scenarios
 
@@ -118,3 +120,34 @@ resulting effective reference-path set is empty, proving the blank entries
 were dropped before normalization rather than resolving to a bogus
 current-working-directory search path. This scenario is tested by
 `ExternalXmlDocResolver_Constructor_BlankAndWhitespacePaths_IgnoredWithoutThrowing`.
+
+**TryGetMember with a correct hint only probes the hinted path**: Verifies
+the performance-motivated fast path used when `DotNetGenerator` supplies a
+declaring-assembly hint: with five unrelated configured reference paths (each
+defining a colliding member ID with the wrong documentation) plus one hinted
+path defining the correct documentation, `TryGetMember(memberId,
+declaringAssemblyHint)` returns the hinted path's member and — verified via
+reflection on the private `_docsByReferencePath` cache — never parses any of
+the unrelated paths. The hinted path is placed last in configuration order so
+that an in-order fallback scan would find a wrong match first, distinguishing
+the fast path from a full scan. This scenario is tested by
+`ExternalXmlDocResolver_TryGetMemberWithHint_CorrectHint_OnlyProbesHintedPathNotOthers`.
+
+**TryGetMember falls back to a full scan when the hint does not match**:
+Verifies that a hint naming an assembly not among the configured reference
+paths (e.g. stale or incorrect) does not prevent a real, resolvable member
+from being found — `TryGetMember` still returns the correct member by
+falling back to the full in-order scan across every configured reference
+path. This scenario is tested by
+`ExternalXmlDocResolver_TryGetMemberWithHint_HintMatchesNoConfiguredPath_FallsBackToFullScan`.
+
+**TryGetMember falls back to a full scan when the hinted path lacks the member**:
+Verifies the distinct case where a hint correctly matches a configured
+reference path's assembly name, but that path's XML documentation does not
+contain the requested member (e.g. it only declares an unrelated member) —
+`TryGetMember` does not stop after the hinted-path miss, but falls back to
+the full in-order scan and finds the member in a different configured
+reference path. Without this fallback, the fast path could make a valid
+member in another configured reference path permanently unreachable. This
+scenario is tested by
+`ExternalXmlDocResolver_TryGetMemberWithHint_HintMatchesConfiguredPathButMemberMissing_FallsBackToFullScan`.

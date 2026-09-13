@@ -98,11 +98,29 @@ public sealed class CppGenerator : IApiGenerator, IDocumentationCoverageCapable
         // declarations from an earlier, unrelated parse.
         _namespaceDecls = null;
 
+        // Normalize PublicIncludeRoots to their actual on-disk casing before any existence
+        // check, glob pattern, or clang invocation uses them — mirroring
+        // DotNetGenerator's reference-directory normalization. Without this, a root supplied
+        // with different casing than its on-disk spelling would be rejected by
+        // CollectHeaderFiles's Directory.Exists check (or silently fail to resolve headers via
+        // clang's -I flag) on a case-sensitive file system, even though PathHelpers could
+        // resolve it. PathHelpers.NormalizeCaseDirectory (rather than a manual
+        // NormalizeCase+TrimEnd composition) is used specifically so a bare filesystem root
+        // such as "C:\" or "/" is never trimmed down to an ambiguous drive-relative or empty
+        // string before being re-used by CollectHeaderFiles. A single directoryEntryCache,
+        // scoped to this call, is shared across every normalization call below since roots
+        // commonly share ancestor directories.
+        var directoryEntryCache = new Dictionary<string, string[]>(PathHelpers.Comparer);
+        var normalizedRoots = _options.PublicIncludeRoots
+            .Select(root => PathHelpers.NormalizeCaseDirectory(root, directoryEntryCache))
+            .ToList();
+        var normalizedOptions = _options.WithPublicIncludeRoots(normalizedRoots);
+
         // Collect candidate header files from all configured public include roots
-        var headerFiles = CollectHeaderFiles();
+        var headerFiles = CollectHeaderFiles(normalizedOptions);
 
         // Run clang -ast-dump=json on all headers and parse the resulting AST
-        var result = ClangAstParser.Parse(headerFiles, _options);
+        var result = ClangAstParser.Parse(headerFiles, normalizedOptions);
 
         // Throw on errors from the user's public headers; log errors from system headers
         CheckForErrors(result, headerFiles, context);
@@ -144,7 +162,7 @@ public sealed class CppGenerator : IApiGenerator, IDocumentationCoverageCapable
         // called after Parse returns.
         _namespaceDecls = namespaceDecls;
 
-        return new CppEmitter(_options, namespaceDecls, cppResolver);
+        return new CppEmitter(normalizedOptions, namespaceDecls, cppResolver);
     }
 
     /// <summary>
@@ -230,9 +248,19 @@ public sealed class CppGenerator : IApiGenerator, IDocumentationCoverageCapable
     ///     <para>
     ///         When <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> is empty, each
     ///         <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry is validated to
-    ///         exist and a <c>/**/*</c> pattern is synthesized for it. The bare-star final
+    ///         exist and a <c>**/*</c> pattern is synthesized for it. The bare-star final
     ///         segment triggers extension inference in <see cref="GlobFileCollector"/>,
     ///         which restricts results to files with recognized C++ header extensions.
+    ///         <paramref name="options"/> is expected to already carry normalized
+    ///         (on-disk-cased) roots produced by <see cref="PathHelpers.NormalizeCaseDirectory"/>,
+    ///         each already ending with exactly one directory separator and fully qualified —
+    ///         so this existence check is reliable on a case-sensitive file system even when
+    ///         the caller originally supplied a differently-cased root, and the glob pattern is
+    ///         built by direct string concatenation rather than a second
+    ///         <see cref="Path.GetFullPath(string)"/> call, which would otherwise silently
+    ///         resolve a bare filesystem root (e.g. <c>"C:"</c>, produced by naively trimming
+    ///         <c>"C:\"</c>'s trailing separator) against the current directory instead of the
+    ///         drive root.
     ///     </para>
     ///     <para>
     ///         When patterns are provided, they are forwarded directly to
@@ -245,33 +273,39 @@ public sealed class CppGenerator : IApiGenerator, IDocumentationCoverageCapable
     ///     Thrown when <see cref="CppGeneratorOptions.ApiHeaderPatterns"/> is empty and a
     ///     configured public include root does not exist on disk.
     /// </exception>
-    private List<string> CollectHeaderFiles()
+    /// <param name="options">
+    ///     The generator options to use, with <see cref="CppGeneratorOptions.PublicIncludeRoots"/>
+    ///     already normalized to actual on-disk casing by <see cref="Parse"/>.
+    /// </param>
+    private static List<string> CollectHeaderFiles(CppGeneratorOptions options)
     {
         var headerExtensions = new[] { ".h", ".hpp", ".hxx", ".h++" };
-        var cwd = Path.GetFullPath(_options.WorkingDirectory ?? Directory.GetCurrentDirectory());
+        var cwd = Path.GetFullPath(options.WorkingDirectory ?? Directory.GetCurrentDirectory());
 
         List<string> patterns;
 
-        if (_options.ApiHeaderPatterns.Count == 0)
+        if (options.ApiHeaderPatterns.Count == 0)
         {
             // Default mode: validate each root exists, then synthesize per-root wildcard patterns.
             // The bare-star final segment causes GlobFileCollector to filter by language extensions.
-            var missingRoot = _options.PublicIncludeRoots.FirstOrDefault(r => !Directory.Exists(r));
+            // Roots already end with a separator (NormalizeCaseDirectory's guarantee), so the
+            // pattern is built by direct concatenation rather than re-deriving the full path.
+            var missingRoot = options.PublicIncludeRoots.FirstOrDefault(r => !Directory.Exists(r));
             if (missingRoot is not null)
             {
                 throw new DirectoryNotFoundException(
                     $"Public include root not found: '{missingRoot}'");
             }
 
-            patterns = _options.PublicIncludeRoots
-                .Select(r => Path.GetFullPath(r) + "/**/*")
+            patterns = options.PublicIncludeRoots
+                .Select(r => r + "**/*")
                 .ToList();
         }
         else
         {
             // Explicit patterns: pass directly to GlobFileCollector, which resolves relative
             // patterns against cwd and absolute patterns from their own root prefix.
-            patterns = [.. _options.ApiHeaderPatterns];
+            patterns = [.. options.ApiHeaderPatterns];
         }
 
         return GlobFileCollector.Collect(patterns, headerExtensions, cwd).ToList();

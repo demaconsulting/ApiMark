@@ -49,9 +49,9 @@ defined by the Core interfaces. The system contains ten units:
   chain map supplied by DotNetGenerator.
 - **ExternalXmlDocResolver** — locates and lazily parses the XML documentation
   files of externally referenced assemblies (e.g. NuGet package dependencies),
-  caching both per-file and per-member-ID results, so `XmlDocReader` can resolve
-  `<inheritdoc />` targets that point outside the assembly currently being
-  documented.
+  caching both per-file results and per-(declaring-assembly-hint, member-ID)
+  lookup results, so `XmlDocReader` can resolve `<inheritdoc />` targets that
+  point outside the assembly currently being documented.
 - **DocumentationCoverageChecker** — scans a parsed assembly for types/members
   missing an XML doc `<summary>` at a caller-supplied visibility tier that is
   independent of the emission Visibility tier, powering the opt-in
@@ -215,11 +215,21 @@ N/A - not a safety-classified software item.
    `Error` and violations were found.
 
 10. When `DotNetGeneratorOptions.ReferencePaths` is non-empty, `DotNetGenerator.Parse`
-    constructs an `ExternalXmlDocResolver` from those paths and passes its
-    `TryGetMember` method to `XmlDocReader` as an external member-lookup fallback,
+    constructs an `ExternalXmlDocResolver` from those paths, and wraps its
+    `TryGetMember(string, string?)` overload in a closure — rather than passing the
+    method group directly — so each lookup supplies the target's precomputed
+    declaring-assembly hint (from `BuildInheritanceChain`'s `assemblyHints` result);
+    the closure is passed to `XmlDocReader` as an external member-lookup fallback,
     so `<inheritdoc />` elements that target base types/members defined in
     referenced assemblies (e.g. NuGet dependencies) resolve using the referenced
-    assembly's own XML documentation file instead of being left unresolved.
+    assembly's own XML documentation file instead of being left unresolved. The
+    hint lets the resolver probe only the specific reference path expected to
+    contain the target first, avoiding a full scan of every configured
+    reference assembly's XML documentation for the common case where that
+    hinted path does contain the target. When the hinted path does not
+    contain it (a stale or otherwise incorrect hint), the resolver still
+    falls back to scanning every remaining configured reference path in
+    order, so a miss is not guaranteed to avoid the full scan.
 
 ## Design Constraints
 

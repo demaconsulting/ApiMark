@@ -44,6 +44,11 @@ MSBuild and VC++ tools installed; those tests skip gracefully when the package i
   whether it succeeded or failed. `BuildArguments`/`BuildArgumentsForOutput` still
   return the full, untransformed logical argument list. When `ApiMarkReferencePaths`
   is empty/unset, no response file is created and the fast path is unaffected.
+- The response-file substitution walks the argument list positionally as an
+  option/value token sequence rather than scanning for the literal string
+  `--reference-paths`, so a caller-supplied value that happens to equal
+  `--reference-paths` verbatim (e.g. an unusual `ApiMarkLibraryDescription`) is
+  never misinterpreted as the flag itself.
 - For .NET projects, when `ApiMarkReferencePaths` is not explicitly set, the `.targets` file
   automatically populates it from the resolved `@(ReferencePath)` items; a non-empty
   explicitly set value is never overridden. Because MSBuild cannot distinguish an unset
@@ -189,6 +194,18 @@ tested by `ApiMarkTask_Execute_WithReferencePaths_WritesResponseFileWithExpected
 observed arguments, regression-proving the empty-case fast path is unaffected by
 the response-file feature. This scenario is tested by
 `ApiMarkTask_Execute_WithoutReferencePaths_NoResponseFileCreated`.
+
+**A caller-supplied value equal to the flag literal is not misinterpreted as the flag**:
+Regression test for the `cpp` language (which has no `ApiMarkReferencePaths` support at
+all) where `ApiMarkLibraryDescription` is set to the literal string
+`--reference-paths` and immediately followed by a genuine `--defines FOO` pair. A
+naive scan for the literal flag text would misidentify the library-description
+value as the flag and incorrectly consume the following `--defines` token as if it
+were a reference path, corrupting the response file and the remaining argument
+list. Verifies no response file is created, `--library-description` is followed
+by the literal `--reference-paths` value unchanged, and `--defines`/`FOO` survive
+intact and in their original relative order. This scenario is tested by
+`ApiMarkTask_Execute_LibraryDescriptionEqualsReferencePathsLiteral_NotMisinterpretedAsFlag`.
 
 **ReferencePaths auto-populated from resolved @(ReferencePath) items**: End-to-end package
 integration test that verifies `ApiMarkReferencePaths` is correctly defaulted from the

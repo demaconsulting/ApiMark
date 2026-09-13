@@ -15,8 +15,9 @@ gives `XmlDocReader`'s external member lookup fallback something to call: for
 each configured reference assembly path, it resolves the conventional sibling
 `.xml` documentation file (falling back to a `ref/`↔`lib/` folder-segment swap
 when the sibling file is absent), parses it on first use, and caches both the
-per-file member index and per-member-ID lookup results (including misses) for
-the lifetime of the instance.
+per-file member index and, keyed by a composite of the caller-supplied
+declaring-assembly hint (or the empty string when none was supplied) and the
+member ID, lookup results (including misses) for the lifetime of the instance.
 
 ### Data Model
 
@@ -24,16 +25,35 @@ the lifetime of the instance.
 reference assembly paths, searched in order for each lookup. Supplied by the
 constructor and never mutated afterward.
 
+**_referencePathsByAssemblyName** (private `Dictionary<string, List<string>>`,
+`OrdinalIgnoreCase`): Reference assembly paths grouped by their simple file
+name (no extension), precomputed once in the constructor from
+`_referenceAssemblyPaths`. Lets the declaring-assembly-hint fast path in
+`TryGetMember(string, string?)` resolve a hint to its candidate path(s) in
+O(1) instead of scanning `_referenceAssemblyPaths` on every call. A list is
+kept per name (rather than a single path) because two configured reference
+paths can share the same simple file name (e.g. the same assembly resolved
+from two different target-framework sub-folders); every path sharing the
+hinted name is probed, in configured order, before falling back to the full
+scan.
+
 **_docsByReferencePath** (private `Dictionary<string, Dictionary<string, XElement>?>`):
 Cache of parsed member indexes keyed by reference assembly path. A `null`
 value means "no XML documentation file could be found or parsed for this
 reference assembly path", cached so repeated misses do not re-probe the file
 system.
 
-**_memberCache** (private `Dictionary<string, XElement?>`): Cache of resolved
-member elements keyed by member ID, spanning all configured reference assembly
-paths. A `null` value means "not found in any configured reference assembly's
-XML documentation", cached so repeated misses do not re-scan every path.
+**_memberCache** (private `Dictionary<(string Hint, string MemberId), XElement?>`):
+Cache of resolved member elements keyed by a composite of the
+declaring-assembly hint supplied to `TryGetMember(string, string?)` (or the
+empty string when none was supplied) and the member ID, spanning all
+configured reference assembly paths. A `null` value means "not found in any
+configured reference assembly's XML documentation", cached so repeated
+misses do not re-scan every path. The hint is included in the key (rather
+than caching by member ID alone) because XML documentation member IDs do not
+carry assembly identity: in the rare case where two unrelated configured
+assemblies declare a member with an identical ID, a lookup for one hint must
+never be served the other hint's cached result.
 
 ### Key Methods
 
@@ -42,7 +62,7 @@ whitespace-only) entries from the supplied reference assembly paths — because
 `Path.GetFullPath("")` resolves to the current working directory, which would
 otherwise become a bogus, legitimate-looking reference path — then normalizes
 and stores the remainder. Normalization performs some file-system access:
-`FileSystemPathComparer.NormalizeCase` enumerates existing parent directories
+`ApiMark.Core.PathHelpers.NormalizeCase` enumerates existing parent directories
 via `Directory.EnumerateFileSystemEntries` to resolve the real on-disk casing
 of each path, so two differently-cased spellings of the same file collapse to
 a single cache key. This normalization is best-effort and never throws for a
@@ -56,7 +76,10 @@ re-enumerate those same shared directories; the cache is never retained
 beyond the constructor call, so results can never become stale across
 independently constructed `ExternalXmlDocResolver` instances. XML
 *documentation parsing* itself remains fully deferred to first use (see
-`TryGetMember`).
+`TryGetMember`). After normalization, the constructor also groups the
+resulting paths into `_referencePathsByAssemblyName` by simple file name
+(`OrdinalIgnoreCase`), so the hinted lookup path below never needs to scan
+`_referenceAssemblyPaths` directly.
 
 - *Parameters*: `IReadOnlyList<string> referenceAssemblyPaths` — paths to
   referenced assembly DLLs whose sibling XML documentation files should be
@@ -64,17 +87,40 @@ independently constructed `ExternalXmlDocResolver` instances. XML
 - *Exceptions*: Throws `ArgumentNullException` when `referenceAssemblyPaths`
   is `null`.
 
-**TryGetMember**: Attempts to resolve a member ID against the XML
-documentation files of the configured reference assembly paths.
+**TryGetMember(memberId)**: Attempts to resolve a member ID against the XML
+documentation files of the configured reference assembly paths, with no
+declaring-assembly hint. Equivalent to calling
+`TryGetMember(memberId, declaringAssemblyHint: null)`.
 
 - *Parameters*: `string memberId` — the XML doc member identifier (e.g.
   `T:MyNamespace.MyClass`) to resolve.
 - *Returns*: The matching `<member>` element, or `null` when not found in any
   configured reference assembly.
-- *Algorithm*: Checks `_memberCache` first (including cached misses). On a
-  cache miss, iterates `_referenceAssemblyPaths` in order, calling
-  `GetOrLoadMembers` for each and returning the first match; caches the final
-  result (including `null`) before returning.
+
+**TryGetMember(memberId, declaringAssemblyHint)**: Attempts to resolve a
+member ID against the XML documentation files of the configured reference
+assembly paths, using an optional declaring-assembly hint to probe the
+expected path(s) first before falling back to a full search.
+
+- *Parameters*: `string memberId` — the XML doc member identifier to resolve.
+  `string? declaringAssemblyHint` — the simple name (no extension) of the
+  assembly expected to declare `memberId` (built from Mono.Cecil metadata by
+  `DotNetGenerator.BuildInheritanceChain`), or `null`/empty when unknown.
+- *Returns*: The matching `<member>` element, or `null` when not found in any
+  configured reference assembly.
+- *Algorithm*: Checks `_memberCache` first, keyed by `(declaringAssemblyHint
+  ?? "", memberId)` (including cached misses). On a cache miss, when a
+  non-empty hint is supplied and matches an entry in
+  `_referencePathsByAssemblyName`, each matching path is probed (via
+  `GetOrLoadMembers`) in configured order before any other path is touched —
+  this is the fast path that avoids probing an entire auto-harvested
+  `ReferencePaths` set (which can number in the hundreds) for the common case
+  where the declaring assembly is already known. If the hint is absent, does
+  not match any configured path, or the member is not found in any hinted
+  path, resolution falls back to the same full, in-order scan of every
+  configured reference path used by the parameterless overload, so a wrong
+  or missing hint never causes a real match to be missed. The final result
+  (including `null`) is cached before returning.
 
 **GetOrLoadMembers** (private): Returns the cached member index for a
 reference assembly path, parsing and caching it on first access via `LoadMembers`.
@@ -125,34 +171,49 @@ it returns `null`, consistent with `XmlDocReader`'s own miss semantics.
 
 XML documentation member IDs carry no assembly identity (see `XmlDocReader`'s
 own known limitation for the analogous local-vs-external case). `_memberCache`
-is keyed only by member ID and spans every configured reference assembly path,
-with the first configured path whose XML documentation file contains the ID
-winning (see `TryGetMember`). If two different referenced assemblies happen to
-define a type or member with an identical XML doc ID — for example, two
-different versions of the same NuGet package both referenced as separate
-assemblies, or aliased/type-forwarded types — a target that should resolve
-against the second assembly could silently receive the first assembly's
-documentation instead. This is considered an acceptable, narrow risk: it
-requires an unusual dependency graph (duplicate or colliding assemblies) that
-is uncommon in practice, and fully closing it would require threading the
-resolved declaring-assembly identity through the external lookup delegate and
-scoping both caches by it — a larger design change than this known-limitation
-note.
+is keyed by `(declaringAssemblyHint, memberId)`, so two calls that supply
+different (correct) hints for a member ID that happens to be identical across
+two unrelated assemblies can never poison each other's cached result — but
+within a single hint value (including the "no hint" empty-string key used by
+the parameterless overload and any hinted call whose hint does not match a
+configured path), resolution still falls back to the full, in-order scan of
+`_referenceAssemblyPaths`, with the first configured path whose XML
+documentation file contains the ID winning (see `TryGetMember`). If two
+different referenced assemblies happen to define a type or member with an
+identical XML doc ID — for example, two different versions of the same NuGet
+package both referenced as separate assemblies, or aliased/type-forwarded
+types — and neither lookup supplies a hint that distinguishes them, a target
+that should resolve against the second assembly could still silently receive
+the first assembly's documentation instead. This is considered an acceptable,
+narrow risk: it requires an unusual dependency graph (duplicate or colliding
+assemblies) that is uncommon in practice, and fully closing it for the
+no-hint case would require threading the resolved declaring-assembly identity
+through every external lookup call site — a larger design change than this
+known-limitation note. `DotNetGenerator.TryAddAssemblyHint` has the analogous
+limitation on the hint-computation side: it also uses first-wins semantics
+per target ID.
 
 ### Dependencies
 
 - **System.Xml.Linq** — used to parse and navigate each reference assembly's
   XML documentation file.
+- **ApiMark.Core.PathHelpers** — `NormalizeCase`/`Comparer` resolve each
+  configured reference assembly path to its actual on-disk casing so that
+  differently-cased spellings of the same file collapse to a single cache
+  key, regardless of platform or file-system case sensitivity.
 
 ### Callers
 
 - **DotNetGenerator.Parse** — constructs an `ExternalXmlDocResolver` from
-  `DotNetGeneratorOptions.ReferencePaths` when non-empty, and passes its
-  `TryGetMember` method as the external member lookup delegate to the
-  `XmlDocReader` constructor.
+  `DotNetGeneratorOptions.ReferencePaths` when non-empty, and wraps its
+  `TryGetMember(string, string?)` overload in a closure (rather than passing
+  the method group directly) so each lookup can pass the target's
+  precomputed declaring-assembly hint from `BuildInheritanceChain`'s
+  `assemblyHints` result; the closure is passed as the external member lookup
+  delegate to the `XmlDocReader` constructor.
 - **XmlDocReader.ResolveMemberElement** — invokes the injected
-  `_externalMemberLookup` delegate (typically `ExternalXmlDocResolver.TryGetMember`)
-  when a member ID is absent from its own local index.
+  `_externalMemberLookup` delegate (the hinted `ExternalXmlDocResolver.TryGetMember`
+  closure described above) when a member ID is absent from its own local index.
 
 ### Known Limitation
 
@@ -168,18 +229,20 @@ remains absent, with no error.
 ### External Interfaces
 
 `ExternalXmlDocResolver` is a `public sealed class` with a public constructor
-(`ExternalXmlDocResolver(IReadOnlyList<string> referenceAssemblyPaths)`) and a
-public `TryGetMember(string memberId)` lookup method, so it is part of
-`ApiMark.DotNet`'s public API surface, not an internal implementation detail.
-Its intended consumers are:
+(`ExternalXmlDocResolver(IReadOnlyList<string> referenceAssemblyPaths)`) and
+two public lookup overloads — `TryGetMember(string memberId)` and
+`TryGetMember(string memberId, string? declaringAssemblyHint)` — so it is
+part of `ApiMark.DotNet`'s public API surface, not an internal implementation
+detail. Its intended consumers are:
 
 - **`DotNetGenerator.Parse`** — the primary production consumer, which
   constructs an instance from `DotNetGeneratorOptions.ReferencePaths` and
-  wires its `TryGetMember` method into `XmlDocReader` as the external member
-  lookup delegate (see *Collaborators* above).
+  wires the hinted `TryGetMember(string, string?)` overload into
+  `XmlDocReader` as the external member lookup delegate, supplying each
+  target's precomputed declaring-assembly hint (see *Collaborators* above).
 - **Test code** (`ExternalXmlDocResolverTests`) — which instantiates the
-  class directly to validate lookup, caching, and `ref`/`lib` fallback
-  behavior in isolation from the rest of the parsing pipeline.
+  class directly to validate lookup, caching, hint fast-path, and `ref`/`lib`
+  fallback behavior in isolation from the rest of the parsing pipeline.
 - **Other `IApiGenerator` implementations or external tooling**, should they
   need to resolve member documentation across NuGet package boundaries using
   the same conventions as `ApiMark.DotNet`, since nothing about the type ties

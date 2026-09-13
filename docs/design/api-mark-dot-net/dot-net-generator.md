@@ -114,13 +114,16 @@ memory and returns a `DotNetEmitter` ready to emit.
  `AssemblyDefinition` is disposed before the exception propagates (resource leak
  prevention via try/catch).
 - *Assembly resolver seeding*: Before reading the assembly, `Parse` constructs a
-  Mono.Cecil `DefaultAssemblyResolver` and adds one search directory per distinct,
-  existing directory among `ReferencePaths` entries (`Path.GetDirectoryName`,
-  filtered by `Directory.Exists`, normalized to its actual on-disk casing via
-  `FileSystemPathComparer.NormalizeCase`, then deduplicated with a case-sensitive
-  comparer — shared with `ExternalXmlDocResolver`; see that unit's design doc for
-  why normalizing real on-disk casing is used instead of an operating-system-based
-  case-sensitivity guess). This resolver is passed via
+  Mono.Cecil `DefaultAssemblyResolver` and adds one search directory per distinct
+  directory among `ReferencePaths` entries (`Path.GetDirectoryName`, normalized to
+  its actual on-disk casing via `ApiMark.Core.PathHelpers.NormalizeCase` *before*
+  being filtered by `Directory.Exists` — so a directory supplied with different
+  casing than its on-disk spelling is resolved to its real casing first, rather than
+  being discarded by an existence check against the literal, possibly-mismatched
+  input — then deduplicated with a case-sensitive comparer shared with
+  `ExternalXmlDocResolver`; see that unit's design doc for why normalizing real
+  on-disk casing is used instead of an operating-system-based case-sensitivity
+  guess). This resolver is passed via
   `ReaderParameters` to `AssemblyDefinition.ReadAssembly`, and is what allows
   `BuildInheritanceChain`'s `TypeReference.Resolve()` calls to succeed against
   base types/interfaces defined in externally referenced assemblies (e.g. NuGet
@@ -133,11 +136,17 @@ memory and returns a `DotNetEmitter` ready to emit.
   before the model is constructed), `Parse` disposes the resolver itself
   alongside the parsed assembly.
 - *External XML doc resolver wiring*: When `ReferencePaths` is non-empty, `Parse`
-  constructs an `ExternalXmlDocResolver` from it and passes its `TryGetMember`
-  method as the `externalMemberLookup` argument to the `XmlDocReader`
+  constructs an `ExternalXmlDocResolver` from it and `BuildInheritanceChain` also
+  produces a per-candidate declaring-assembly-name hint dictionary
+  (`AssemblyHints`). `Parse` wraps `ExternalXmlDocResolver.TryGetMember(string,
+  string?)` in a closure — rather than passing the method group directly — so each
+  lookup can pass the target member's precomputed hint from `AssemblyHints`; the
+  closure is passed as the `externalMemberLookup` argument to the `XmlDocReader`
   constructor, enabling `<inheritdoc />` elements that target external base
-  types/members to resolve using that reference assembly's own XML
-  documentation file. When `ReferencePaths` is empty, no external resolver is
+  types/members to resolve using that reference assembly's own XML documentation
+  file, probing the hinted reference path first and falling back to a full scan of
+  every configured reference path when the hint is absent, stale, or does not
+  resolve the member. When `ReferencePaths` is empty, no external resolver is
   constructed and `XmlDocReader` behaves exactly as before this feature.
 - *NamespaceDoc processing*: After collecting all visible types, `Parse` calls
   `DotNetEmitter.IsNamespaceDocCarrier` on each type. Carrier types (those named
@@ -199,25 +208,50 @@ an XML doc `<summary>`, at the visibility tier resolved from `enforceTier`.
   scanning algorithm.
 
 **DotNetGenerator.BuildInheritanceChain** (private static): Builds a member-ID to ordered
-base-member-ID map from Mono.Cecil metadata for use during `<inheritdoc />` resolution.
+base-member-ID map from Mono.Cecil metadata for use during `<inheritdoc />` resolution,
+alongside a per-candidate declaring-assembly-name hint map used to speed up cross-assembly
+lookups.
 
 - *Parameters*: `AssemblyDefinition assembly` — the parsed assembly whose types are traversed.
-- *Returns*: `IReadOnlyDictionary<string, IReadOnlyList<string>>` — a map from each
-  member's XML-doc ID to an ordered list of XML-doc IDs of base/interface members that
-  should be checked (in priority order) when resolving a bare `<inheritdoc />`.
-- *When it runs*: During `Parse`, before constructing `XmlDocReader`; the resulting map
-  is passed directly to the `XmlDocReader` constructor.
-- *Algorithm*:
-- Iterates every `TypeDefinition` in the assembly — including nested types — using
-   `assembly.MainModule.GetTypes()` (which returns all types recursively) and delegates
-   to `BuildTypeInheritanceEntries`.
-- `BuildTypeInheritanceEntries` calls `CollectMethodInheritanceTargets`,
-    `CollectPropertyInheritanceTargets`, and `CollectEventInheritanceTargets`.
-- Method targets are resolved using `FindMatchingMethodDefinition` (matches by parameter
+- *Returns*: `(IReadOnlyDictionary<string, IReadOnlyList<string>> Chain, IReadOnlyDictionary<string, string> AssemblyHints)` —
+  `Chain` maps each member's XML-doc ID to an ordered list of XML-doc IDs of base/interface
+  members that should be checked (in priority order) when resolving a bare
+  `<inheritdoc />`; `AssemblyHints` maps each candidate target member ID appearing
+  anywhere in `Chain` to the simple name of the assembly that declares it, when known —
+  consumed by `ExternalXmlDocResolver.TryGetMember(string, string?)` as a fast path for
+  the common case where the hinted reference path actually contains the target; when it
+  does not (a stale or otherwise incorrect hint), the resolver still falls back to
+  scanning every remaining configured reference path in order, so a miss does not
+  guarantee avoiding the full scan.
+- *When it runs*: During `Parse`, before constructing `XmlDocReader`; `Chain` is passed
+  directly to the `XmlDocReader` constructor, and `AssemblyHints` is captured by the
+  closure passed as `XmlDocReader`'s external member lookup delegate (see *Collaborators*
+  above).
+- *Algorithm*: runs in two phases so a primary-assembly member's chain entry can never
+  be shadowed by an external member that happens to produce an identical XML doc ID
+  (XML doc IDs do not carry assembly identity):
+  - **Phase 1 (authoritative)**: for every `TypeDefinition` in the assembly — including
+    nested types — via `assembly.MainModule.GetTypes()`, `AddTypeMemberEntries` adds
+    that type's own method/property/event entries to `chain`, always overwriting any
+    existing entry for the same key (safe because XML doc IDs are unique within a
+    single assembly). All primary-assembly types are marked visited before phase 2 runs.
+  - **Phase 2 (non-authoritative)**: for each of the same primary-assembly types,
+    `RecurseBaseTypeInheritanceEntries` walks the resolved base type and interfaces —
+    even when they are defined in an externally referenced assembly (Mono.Cecil
+    resolves them via the search directories configured on the assembly resolver in
+    `Parse`) — however far up the hierarchy that leads, adding entries via
+    `AddTypeMemberEntries`'s non-authoritative mode (`chain.TryAdd`, never overwriting).
+    This recursion is what allows a second bare-inheritdoc hop, entirely within an
+    externally referenced assembly, to resolve correctly; a shared visited-type set
+    prevents infinite recursion and redundant reprocessing of a common ancestor type.
+  - `AddTypeMemberEntries` calls `CollectMethodInheritanceTargets`,
+    `CollectPropertyInheritanceTargets`, and `CollectEventInheritanceTargets`, which also
+    populate `assemblyHints` for each candidate target via `GetAssemblyNameFromScope`.
+  - Method targets are resolved using `FindMatchingMethodDefinition` (matches by parameter
     count and type name) and `BuildMethodIdFromReference` (reconstructs the XML-doc ID).
-- Property accessor→property mapping uses `MapAccessorReferenceToPropertyId`; event
+  - Property accessor→property mapping uses `MapAccessorReferenceToPropertyId`; event
     accessor→event mapping uses `MapAccessorReferenceToEventId`.
-- The ordering rule places the direct base-class override first, followed by each
+  - The ordering rule places the direct base-class override first, followed by each
     explicit or implicit interface target in declaration order.
 - *Known limitation*: Complex generic signatures may not always map perfectly to XML-doc
   IDs because Mono.Cecil `FullName` uses `/` for nested-type separators whereas XML-doc
@@ -231,13 +265,22 @@ base-member-ID map from Mono.Cecil metadata for use during `<inheritdoc />` reso
   only as a defensive fallback for references that are genuinely unresolvable (e.g. an
   unrestored or missing dependency, or one whose directory was not supplied via
   `ReferencePaths`) — it is no longer the expected common case for external bases.
-- *Known limitation*: `BuildTypeInheritanceEntries` only calls
+- *Known limitation*: `AddTypeMemberEntries` only calls
   `CollectMethodInheritanceTargets`, `CollectPropertyInheritanceTargets`, and
   `CollectEventInheritanceTargets` — it never adds a chain entry for the type
   declaration itself. A bare `<inheritdoc/>` placed directly on a class, interface, or
   struct is therefore never resolved, whether its base type lives in the same assembly
   or an externally referenced one. This is a pre-existing limitation of the whole
   inheritance-chain mechanism, predating and independent of cross-assembly resolution.
+- *Known limitation*: The phase-1/phase-2 split only protects against a primary-assembly
+  entry being overwritten by an external one. Two distinct externally referenced types
+  (reached via different local types' base hierarchies) whose members happen to produce
+  an identical XML doc ID can still collide with each other during phase 2 — whichever
+  is reached first by `TryAdd` wins, and the other is silently not added. This mirrors
+  the analogous, intentionally accepted first-wins limitation documented on
+  `DotNetGenerator.TryAddAssemblyHint` and `ExternalXmlDocResolver`'s composite cache
+  key: a narrow, tolerated risk rather than a correctness guarantee, since XML doc IDs
+  do not carry assembly identity.
 
 ### Error Handling
 
@@ -278,6 +321,11 @@ exceptions are not expected to surface through the CLI in normal operation.
   non-empty; locates and lazily parses each reference assembly's own XML
   documentation file to resolve `<inheritdoc />` targets defined outside the
   assembly currently being documented. See ExternalXmlDocResolver Design for details.
+- **ApiMark.Core.PathHelpers** — `NormalizeCase`/`Comparer` resolve each distinct,
+  existing `ReferencePaths` directory to its actual on-disk casing before
+  deduplication, so two spellings of the same directory that differ only in case
+  collapse to a single search directory regardless of platform or file-system
+  case sensitivity.
 - **DocumentationCoverageChecker** — `CheckDocumentationCoverage` delegates to this
   unit's `Check` static method, passing the cached parsed assembly, XML doc reader,
   and the `EnforceDocsVisibility`/`IncludeObsolete`/`ExcludePatterns` options.

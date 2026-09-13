@@ -164,8 +164,35 @@ sections:
               ReferencePaths' directories so base types/interfaces resolve successfully
               while building the inheritance chain, and wires an ExternalXmlDocResolver
               into XmlDocReader so the referenced assembly's own XML documentation file is
-              consulted as a fallback. When ReferencePaths is left empty, generation must
-              behave exactly as it did before this capability existed.
+              consulted as a fallback. A directory supplied with different casing than its
+              on-disk spelling still resolves correctly and is recognized as existing on a
+              case-sensitive file system. When ReferencePaths is left empty, generation
+              must behave exactly as it did before this capability existed.
             tests:
               - DotNetGenerator_Parse_ExternalBaseWithReferencePaths_ResolvesInheritedDocumentation
               - DotNetGenerator_Parse_ExternalBaseWithoutReferencePaths_LeavesInheritDocUnresolved
+              - DotNetGenerator_Parse_ReferencePathHasDifferentCasingThanOnDisk_StillResolvesInheritedDocumentation
+          - id: ApiMarkDotNet-DotNetGenerator-ResolveInheritdocAcrossMultipleExternalHops
+            title: DotNetGenerator shall resolve a bare `<inheritdoc />` element even when
+              its immediate external base member is itself an undocumented bare
+              `<inheritdoc />` override, so documentation remains available however far up
+              the base type/interface hierarchy — and across however many externally
+              referenced assemblies — the real documentation actually resides.
+            justification: |
+              A referenced assembly's own type hierarchy can itself use bare
+              `<inheritdoc />` one or more levels above the member a local override
+              directly targets (e.g. a mid-level base class that itself inherits from a
+              grandparent class in the same or another referenced assembly). Stopping
+              inheritance-chain construction at the first external base type/interface
+              would leave such multi-hop chains unresolved even though the real
+              documentation is reachable and correct. `BuildInheritanceChain` therefore
+              recurses into every resolved base type and interface — memoized via a
+              visited-type set to avoid reprocessing a common ancestor — regardless of
+              which assembly declares it, and also produces a per-candidate
+              declaring-assembly-name hint (`AssemblyHints`) consumed by
+              `ExternalXmlDocResolver.TryGetMember(string, string?)` as a fast path for
+              the common case where the hinted reference path actually contains the
+              target; a miss on that hinted path still falls back to scanning every
+              remaining configured reference path in order.
+            tests:
+              - DotNetGenerator_Parse_ExternalBaseTwoHops_ResolvesInheritedDocumentationAcrossBothHops

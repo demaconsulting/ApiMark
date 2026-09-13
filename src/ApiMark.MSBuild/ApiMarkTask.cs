@@ -698,19 +698,41 @@ public class ApiMarkTask : Task
     }
 
     /// <summary>
-    ///     Rewrites consecutive <c>("--reference-paths", path)</c> pairs in <paramref name="toolArgs"/>
-    ///     into a single <c>@&lt;file&gt;</c> response-file argument, to avoid operating-system
-    ///     command-line length limits for large, MSBuild-harvested <c>ApiMarkReferencePaths</c>
-    ///     lists.
+    ///     The set of CLI flags <see cref="BuildArguments"/>/<see cref="BuildArgumentsForOutput"/>
+    ///     ever emit that take no value (i.e. their mere presence is the signal, with no
+    ///     following token belonging to them).
     /// </summary>
     /// <remarks>
-    ///     When no <c>--reference-paths</c> pairs are present, <paramref name="toolArgs"/> is
-    ///     returned unchanged and no temporary file is created — the common/fast path incurs no
-    ///     temp-file I/O. When one or more pairs are present, each referenced path is written on
-    ///     its own line, preceded by a <c>--reference-paths</c> line — matching
-    ///     <c>Context.ExpandResponseFileArguments</c>'s one-argument-per-line convention exactly —
-    ///     to a new temporary file, and the returned argument list has those pairs removed and a
-    ///     single <c>@&lt;file&gt;</c> token appended in their place.
+    ///     Used by <see cref="PrepareArgumentsForProcess"/> to walk <c>toolArgs</c> as a proper
+    ///     sequence of option/value tokens (skipping over values) instead of scanning for the
+    ///     literal string <c>--reference-paths</c> at arbitrary positions — a caller-supplied
+    ///     value (for example <see cref="ApiMarkLibraryDescription"/>) that happens to equal
+    ///     <c>--reference-paths</c> verbatim must never be mistaken for the flag itself.
+    /// </remarks>
+    private static readonly HashSet<string> ZeroArgFlags = ["--include-obsolete"];
+
+    /// <summary>
+    ///     Rewrites every <c>("--reference-paths", path)</c> option/value pair in
+    ///     <paramref name="toolArgs"/> into a single <c>@&lt;file&gt;</c> response-file argument,
+    ///     to avoid operating-system command-line length limits for large, MSBuild-harvested
+    ///     <c>ApiMarkReferencePaths</c> lists.
+    /// </summary>
+    /// <remarks>
+    ///     <paramref name="toolArgs"/> is walked as a proper option/value token sequence — the
+    ///     first token is always the language subcommand, and every subsequent token is either a
+    ///     known zero-arity flag (<see cref="ZeroArgFlags"/>) or a flag immediately followed by
+    ///     its value — rather than scanned for the literal string <c>--reference-paths</c> at
+    ///     arbitrary positions. This ensures a caller-supplied value that happens to equal
+    ///     <c>--reference-paths</c> verbatim (for example an unusual <c>ApiMarkLibraryDescription</c>)
+    ///     is correctly recognized as a value, not misinterpreted as the flag itself, which would
+    ///     otherwise cause the following genuine flag/value token to be silently swallowed into
+    ///     the generated response file. When no <c>--reference-paths</c> pairs are present,
+    ///     <paramref name="toolArgs"/> is returned unchanged and no temporary file is created —
+    ///     the common/fast path incurs no temp-file I/O. When one or more pairs are present, each
+    ///     referenced path is written on its own line, preceded by a <c>--reference-paths</c>
+    ///     line — matching <c>Context.ExpandResponseFileArguments</c>'s one-argument-per-line
+    ///     convention exactly — to a new temporary file, and the returned argument list has those
+    ///     pairs removed and a single <c>@&lt;file&gt;</c> token appended in their place.
     /// </remarks>
     /// <param name="toolArgs">The full logical argument list to transform.</param>
     /// <param name="responseFilePath">
@@ -722,19 +744,39 @@ public class ApiMarkTask : Task
     {
         var responseFileLines = new List<string>();
         var remainingArgs = new List<string>();
-        var i = 0;
+
+        // The first token is always the language subcommand ("dotnet" or "cpp"); every remaining
+        // token is a flag, never a bare value, since BuildArguments/BuildArgumentsForOutput only
+        // ever emit flag/value pairs (or a known zero-arity flag) after it.
+        if (toolArgs.Count > 0)
+        {
+            remainingArgs.Add(toolArgs[0]);
+        }
+
+        var i = 1;
         while (i < toolArgs.Count)
         {
-            if (toolArgs[i] == "--reference-paths" && i + 1 < toolArgs.Count)
+            var token = toolArgs[i];
+            if (token == "--reference-paths" && i + 1 < toolArgs.Count)
             {
                 responseFileLines.Add("--reference-paths");
                 responseFileLines.Add(toolArgs[i + 1]);
                 i += 2;
             }
+            else if (ZeroArgFlags.Contains(token) || i + 1 >= toolArgs.Count)
+            {
+                // Either a known zero-arity flag, or a trailing valueless token (the latter
+                // should not occur in practice given how BuildArguments constructs the list).
+                remainingArgs.Add(token);
+                i += 1;
+            }
             else
             {
-                remainingArgs.Add(toolArgs[i]);
-                i++;
+                // Every other flag this task emits takes exactly one value; copy the pair
+                // through untouched so the value is never re-examined as if it were a flag.
+                remainingArgs.Add(token);
+                remainingArgs.Add(toolArgs[i + 1]);
+                i += 2;
             }
         }
 

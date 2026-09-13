@@ -1,6 +1,8 @@
 package ApiMarkCore {
     part def PathHelpers {
-        doc /* PathHelpers is the single, auditable point of path-safety enforcement for combining and validating output paths. */
+        doc /* PathHelpers is the single, auditable point for path-safety enforcement (combining
+              and validating output paths) and for resolving a path to its actual on-disk casing
+              so differently-cased spellings of the same file/directory compare as identical. */
 
         comment sourceRef /* Source: src/ApiMark.Core/PathHelpers.cs */
         comment testRef /* Test: test/ApiMark.Core.Tests/PathHelpersTests.cs */

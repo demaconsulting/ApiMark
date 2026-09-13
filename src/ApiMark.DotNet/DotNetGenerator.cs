@@ -109,11 +109,14 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         // bare file name with no directory component at all, e.g. "External.dll"), "." / ".."
         // segments, and mixed directory separators resolve to the same directory consistently.
         // Directories are also normalized to their actual on-disk casing via
-        // FileSystemPathComparer.NormalizeCase (each has already been confirmed to exist via the
-        // Directory.Exists check below, so normalization always has a real entry to resolve
-        // against) before deduplication, so two spellings of the same directory that differ only
-        // in case collapse to a single search directory regardless of whether the current platform
-        // or file system happens to be case-sensitive.
+        // PathHelpers.NormalizeCase before the existence check and deduplication (not after), so
+        // two spellings of the same directory that differ only in case collapse to a single
+        // search directory regardless of whether the current platform or file system happens to
+        // be case-sensitive. Normalizing before the existence check matters on a case-sensitive
+        // file system: NormalizeCase resolves the real on-disk entry via case-insensitive
+        // directory enumeration even when the as-supplied spelling itself would fail a literal
+        // Directory.Exists check, so a configured directory whose case does not match disk exactly
+        // is still recognized and included instead of being silently discarded.
         // Blank (null/empty/whitespace-only) entries are filtered out first — defense-in-depth
         // alongside the CLI's own blank-entry filtering in Context.cs, since ReferencePaths is
         // also a direct library API surface via DotNetGeneratorOptions — because
@@ -127,13 +130,14 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         var assemblyResolver = new DefaultAssemblyResolver();
         try
         {
-            var directoryEntryCache = new Dictionary<string, string[]>(FileSystemPathComparer.Comparer);
+            var directoryEntryCache = new Dictionary<string, string[]>(PathHelpers.Comparer);
             foreach (var directory in _options.ReferencePaths
                          .Where(path => !string.IsNullOrWhiteSpace(path))
                          .Select(ResolveReferenceSearchDirectory)
-                         .Where(d => !string.IsNullOrEmpty(d) && Directory.Exists(d))
-                         .Select(d => FileSystemPathComparer.NormalizeCase(d!, directoryEntryCache))
-                         .Distinct(FileSystemPathComparer.Comparer))
+                         .Where(d => !string.IsNullOrEmpty(d))
+                         .Select(d => PathHelpers.NormalizeCase(d!, directoryEntryCache))
+                         .Where(Directory.Exists)
+                         .Distinct(PathHelpers.Comparer))
             {
                 assemblyResolver.AddSearchDirectory(directory);
             }
@@ -143,17 +147,29 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             try
             {
                 // Build the inheritance chain from assembly metadata so that bare <inheritdoc />
-                // elements in the XML doc file can be resolved to their base members.
-                // This must be done before constructing XmlDocReader.
-                var inheritanceChain = BuildInheritanceChain(assembly);
+                // elements in the XML doc file can be resolved to their base members. The chain
+                // also carries a per-candidate declaring-assembly-name hint (assemblyHints) as a
+                // fast path: when present, the resolver tries that one reference path first for
+                // the common case where it actually contains the target, falling back to a full
+                // scan of every configured reference path when it does not (see the
+                // ExternalXmlDocResolver.TryGetMember(string, string?) overload below). This must
+                // be done before constructing XmlDocReader.
+                var (inheritanceChain, assemblyHints) = BuildInheritanceChain(assembly);
 
                 // Only construct an external XML doc resolver when reference paths are configured —
                 // this keeps the common case (no cross-assembly inheritdoc needed) allocation-free.
                 var externalXmlDocResolver = _options.ReferencePaths.Count > 0
                     ? new ExternalXmlDocResolver(_options.ReferencePaths)
                     : null;
+
+                // Wrap TryGetMember in a closure (rather than using the method group directly)
+                // so each lookup can pass the target's precomputed declaring-assembly hint —
+                // when present, the resolver tries that one reference path first instead of
+                // scanning every configured reference assembly's XML documentation.
                 Func<string, XElement?>? externalMemberLookup = externalXmlDocResolver != null
-                    ? externalXmlDocResolver.TryGetMember
+                    ? memberId => externalXmlDocResolver.TryGetMember(
+                        memberId,
+                        assemblyHints.GetValueOrDefault(memberId))
                     : null;
                 var xmlDocs = new XmlDocReader(_options.XmlDocPath, inheritanceChain, externalMemberLookup);
 
@@ -376,12 +392,24 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
 
     /// <summary>
     ///     Builds a map of XML doc member ID to ordered list of base member IDs by walking
-    ///     all types in the assembly and resolving virtual overrides and interface implementations.
+    ///     all types in the assembly (and, recursively, every resolvable base type and interface
+    ///     reachable from them — even when defined in an externally referenced assembly) and
+    ///     resolving virtual overrides and interface implementations.
     /// </summary>
     /// <remarks>
     ///     The map is used by <see cref="XmlDocReader"/> to resolve bare <c>&lt;inheritdoc /&gt;</c>
     ///     elements that carry no <c>cref</c> attribute. For each entry, the candidate list is ordered
     ///     so that the overridden base-class member (if any) appears before interface members.
+    ///     <para>
+    ///         Recursing into each resolved base type/interface (memoized via a visited-type set so
+    ///         a common ancestor — e.g. <see cref="object"/> — is only processed once regardless of
+    ///         how many local types ultimately derive from it) means the chain also contains entries
+    ///         for members of externally referenced base types/interfaces themselves. This allows a
+    ///         bare <c>&lt;inheritdoc /&gt;</c> to be followed correctly even when the member it
+    ///         first resolves to (via <see cref="ExternalXmlDocResolver"/>) itself has its own bare
+    ///         <c>&lt;inheritdoc /&gt;</c> pointing further up the hierarchy, rather than stopping
+    ///         after a single hop out of the primary assembly.
+    ///     </para>
     ///     <para>
     ///         Limitation: complex generic method signatures may not produce a correct XML doc ID
     ///         because generic parameter constraints and arity information in Mono.Cecil's FullName
@@ -390,30 +418,74 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
     ///     </para>
     /// </remarks>
     /// <param name="assembly">The assembly to inspect.</param>
-    /// <returns>Read-only dictionary mapping derived member IDs to their base member ID lists.</returns>
-    private static IReadOnlyDictionary<string, IReadOnlyList<string>> BuildInheritanceChain(AssemblyDefinition assembly)
+    /// <returns>
+    ///     A tuple of: a read-only dictionary mapping derived member IDs to their base member ID
+    ///     lists (<c>Chain</c>), and a read-only dictionary mapping each candidate target member ID
+    ///     appearing anywhere in <c>Chain</c> to the simple name of the assembly that declares it,
+    ///     when known (<c>AssemblyHints</c>) — used by <see cref="ExternalXmlDocResolver"/> to probe
+    ///     only the specific configured reference path expected to contain a given target, instead
+    ///     of scanning every configured reference assembly's XML documentation on a miss.
+    /// </returns>
+    private static (IReadOnlyDictionary<string, IReadOnlyList<string>> Chain, IReadOnlyDictionary<string, string> AssemblyHints) BuildInheritanceChain(AssemblyDefinition assembly)
     {
         var chain = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        var assemblyHints = new Dictionary<string, string>(StringComparer.Ordinal);
+        var visitedTypes = new HashSet<TypeDefinition>();
 
+        // Phase 1: populate every primary-assembly type's own member entries authoritatively
+        // (a straight overwrite is safe here because XML doc IDs are guaranteed unique within a
+        // single assembly) before considering any externally referenced base type or interface.
+        // This guarantees a primary-assembly member's chain entry can never be shadowed later by
+        // an external member that happens to produce an identical XML doc ID — deliberately kept
+        // authoritative because it is what a caller in the primary assembly actually meant.
         foreach (var type in assembly.MainModule.GetTypes())
         {
-            BuildTypeInheritanceEntries(type, chain);
+            visitedTypes.Add(type);
+            AddTypeMemberEntries(type, chain, assemblyHints, authoritative: true);
+        }
+
+        // Phase 2: recurse into each primary type's resolved base type and interfaces, however far
+        // up the hierarchy — and across assembly boundaries — that leads, so a bare <inheritdoc />
+        // can still be followed after it first resolves to an externally referenced member that
+        // itself has its own bare <inheritdoc />. Entries contributed here are added only when no
+        // entry already exists for that key (see AddTypeMemberEntries's non-authoritative mode),
+        // so an external member can never overwrite a primary-assembly entry populated in phase 1.
+        foreach (var type in assembly.MainModule.GetTypes())
+        {
+            RecurseBaseTypeInheritanceEntries(type, chain, assemblyHints, visitedTypes);
         }
 
         // Project to the read-only interface expected by XmlDocReader
-        return chain.ToDictionary(
-            kv => kv.Key,
-            kv => (IReadOnlyList<string>)kv.Value.AsReadOnly(),
-            StringComparer.Ordinal);
+        return (
+            chain.ToDictionary(
+                kv => kv.Key,
+                kv => (IReadOnlyList<string>)kv.Value.AsReadOnly(),
+                StringComparer.Ordinal),
+            assemblyHints);
     }
 
     /// <summary>
-    ///     Populates inheritance entries for all members of <paramref name="type"/> into
-    ///     <paramref name="chain"/>.
+    ///     Populates inheritance entries for all methods, properties, and events declared directly
+    ///     on <paramref name="type"/> into <paramref name="chain"/>.
     /// </summary>
     /// <param name="type">The type whose members to inspect.</param>
     /// <param name="chain">The chain dictionary to populate.</param>
-    private static void BuildTypeInheritanceEntries(TypeDefinition type, Dictionary<string, List<string>> chain)
+    /// <param name="assemblyHints">
+    ///     The declaring-assembly-name hint dictionary to populate; see <see cref="BuildInheritanceChain"/>.
+    /// </param>
+    /// <param name="authoritative">
+    ///     When <c>true</c> (used only for the primary assembly's own types), an entry always
+    ///     overwrites any existing entry for the same key. When <c>false</c> (used for externally
+    ///     referenced base types/interfaces reached via <see cref="RecurseBaseTypeInheritanceEntries"/>),
+    ///     an entry is added only when the key is not already present, so a primary-assembly entry
+    ///     populated authoritatively can never be shadowed by an external member that happens to
+    ///     produce an identical XML doc ID.
+    /// </param>
+    private static void AddTypeMemberEntries(
+        TypeDefinition type,
+        Dictionary<string, List<string>> chain,
+        Dictionary<string, string> assemblyHints,
+        bool authoritative)
     {
         // Methods (excluding constructors, static members, and compiler-generated accessors)
         foreach (var method in type.Methods)
@@ -423,33 +495,138 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
                 continue;
             }
 
-            var targets = CollectMethodInheritanceTargets(method, type);
+            var targets = CollectMethodInheritanceTargets(method, type, assemblyHints);
             if (targets.Count > 0)
             {
-                chain[DotNetEmitter.BuildMethodId(method)] = targets;
+                SetChainEntry(chain, DotNetEmitter.BuildMethodId(method), targets, authoritative);
             }
         }
 
         // Properties (accessor overrides and interface implementations)
         foreach (var property in type.Properties)
         {
-            var targets = CollectPropertyInheritanceTargets(property, type);
+            var targets = CollectPropertyInheritanceTargets(property, type, assemblyHints);
             if (targets.Count > 0)
             {
-                chain[DotNetEmitter.BuildMemberId(property)] = targets;
+                SetChainEntry(chain, DotNetEmitter.BuildMemberId(property), targets, authoritative);
             }
         }
 
         // Events (accessor overrides and interface implementations)
         foreach (var ev in type.Events)
         {
-            var targets = CollectEventInheritanceTargets(ev, type);
+            var targets = CollectEventInheritanceTargets(ev, type, assemblyHints);
             if (targets.Count > 0)
             {
-                chain[DotNetEmitter.BuildMemberId(ev)] = targets;
+                SetChainEntry(chain, DotNetEmitter.BuildMemberId(ev), targets, authoritative);
             }
         }
     }
+
+    /// <summary>
+    ///     Records a single chain entry, honoring the authoritative/non-authoritative distinction
+    ///     documented on <see cref="AddTypeMemberEntries"/>.
+    /// </summary>
+    private static void SetChainEntry(
+        Dictionary<string, List<string>> chain,
+        string memberId,
+        List<string> targets,
+        bool authoritative)
+    {
+        if (authoritative)
+        {
+            chain[memberId] = targets;
+        }
+        else
+        {
+            chain.TryAdd(memberId, targets);
+        }
+    }
+
+    /// <summary>
+    ///     Recurses into <paramref name="type"/>'s resolved base type and interfaces (guarded by
+    ///     <paramref name="visitedTypes"/>), populating non-authoritative inheritance entries for
+    ///     each one reached, however far up the hierarchy — and across assembly boundaries — that
+    ///     leads.
+    /// </summary>
+    /// <param name="type">The type whose base type and interfaces to recurse into.</param>
+    /// <param name="chain">The chain dictionary to populate.</param>
+    /// <param name="assemblyHints">
+    ///     The declaring-assembly-name hint dictionary to populate; see <see cref="BuildInheritanceChain"/>.
+    /// </param>
+    /// <param name="visitedTypes">
+    ///     The set of types already processed in this <see cref="BuildInheritanceChain"/> call,
+    ///     preventing infinite recursion on circular-looking hierarchies and redundant reprocessing
+    ///     of a common ancestor type reached from multiple derived types.
+    /// </param>
+    private static void RecurseBaseTypeInheritanceEntries(
+        TypeDefinition type,
+        Dictionary<string, List<string>> chain,
+        Dictionary<string, string> assemblyHints,
+        HashSet<TypeDefinition> visitedTypes)
+    {
+        // Recurse into the resolved base type and interfaces, even when they are defined in an
+        // externally referenced assembly (Mono.Cecil resolves them via the search directories
+        // configured on the assembly resolver in Parse), so their own members' inheritance
+        // entries are available too — this is what allows a second bare-inheritdoc hop, entirely
+        // within an externally referenced assembly, to resolve correctly.
+        if (type.BaseType != null)
+        {
+            try
+            {
+                var baseTypeDef = type.BaseType.Resolve();
+                if (baseTypeDef != null && visitedTypes.Add(baseTypeDef))
+                {
+                    AddTypeMemberEntries(baseTypeDef, chain, assemblyHints, authoritative: false);
+                    RecurseBaseTypeInheritanceEntries(baseTypeDef, chain, assemblyHints, visitedTypes);
+                }
+            }
+            catch (AssemblyResolutionException)
+            {
+                // Base type could not be resolved even with configured reference-path search
+                // directories — skip recursing into it defensively; entries for members already
+                // reachable through this type are unaffected.
+            }
+        }
+
+        foreach (var iface in type.Interfaces)
+        {
+            try
+            {
+                var ifaceTypeDef = iface.InterfaceType.Resolve();
+                if (ifaceTypeDef != null && visitedTypes.Add(ifaceTypeDef))
+                {
+                    AddTypeMemberEntries(ifaceTypeDef, chain, assemblyHints, authoritative: false);
+                    RecurseBaseTypeInheritanceEntries(ifaceTypeDef, chain, assemblyHints, visitedTypes);
+                }
+            }
+            catch (AssemblyResolutionException)
+            {
+                // Interface could not be resolved even with configured reference-path search
+                // directories — skip recursing into it defensively.
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Returns the simple name of the assembly that declares <paramref name="scope"/>'s type,
+    ///     used to populate <c>assemblyHints</c> in <see cref="BuildInheritanceChain"/> without
+    ///     requiring a full <see cref="TypeReference.Resolve"/> call.
+    /// </summary>
+    /// <param name="scope">
+    ///     The <see cref="IMetadataScope"/> of a <see cref="TypeReference"/> (e.g.
+    ///     <c>typeRef.Scope</c>), identifying the module or assembly that declares it.
+    /// </param>
+    /// <returns>
+    ///     The declaring assembly's simple name (e.g. <c>"System.Private.CoreLib"</c>), or
+    ///     <c>null</c> when it cannot be determined from the scope alone.
+    /// </returns>
+    private static string? GetAssemblyNameFromScope(IMetadataScope scope) => scope switch
+    {
+        AssemblyNameReference assemblyNameReference => assemblyNameReference.Name,
+        ModuleDefinition moduleDefinition => moduleDefinition.Assembly?.Name?.Name,
+        _ => null,
+    };
 
     /// <summary>
     ///     Collects base member IDs for <paramref name="method"/>, including explicit overrides,
@@ -457,20 +634,59 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
     /// </summary>
     /// <param name="method">The method to inspect.</param>
     /// <param name="type">The declaring type.</param>
+    /// <param name="assemblyHints">The declaring-assembly-name hint dictionary to populate.</param>
     /// <returns>Ordered list of base member IDs; empty when the method does not override anything.</returns>
-    private static List<string> CollectMethodInheritanceTargets(MethodDefinition method, TypeDefinition type)
+    private static List<string> CollectMethodInheritanceTargets(MethodDefinition method, TypeDefinition type, Dictionary<string, string> assemblyHints)
     {
         var targets = new List<string>();
 
         // Explicit overrides (covers explicit interface implementations such as IFoo.Bar())
-        targets.AddRange(method.Overrides
-            .Select(BuildMethodIdFromReference)
-            .Where(targetId => !string.IsNullOrEmpty(targetId)));
+        foreach (var overrideRef in method.Overrides)
+        {
+            var targetId = BuildMethodIdFromReference(overrideRef);
+            if (string.IsNullOrEmpty(targetId))
+            {
+                continue;
+            }
 
-        AddBaseClassVirtualOverride(method, type, targets);
-        AddInterfaceMethodImplementations(method, type, targets);
+            targets.Add(targetId);
+            TryAddAssemblyHint(assemblyHints, targetId, GetAssemblyNameFromScope(overrideRef.DeclaringType.Scope));
+        }
+
+        AddBaseClassVirtualOverride(method, type, targets, assemblyHints);
+        AddInterfaceMethodImplementations(method, type, targets, assemblyHints);
 
         return targets;
+    }
+
+    /// <summary>
+    ///     Records <paramref name="assemblyName"/> as the declaring-assembly hint for
+    ///     <paramref name="targetId"/> when both are non-null/non-empty and no hint has been
+    ///     recorded for <paramref name="targetId"/> yet.
+    /// </summary>
+    /// <remarks>
+    ///     First-wins is a best-effort heuristic, not a guarantee: XML doc member IDs do not carry
+    ///     assembly identity, so in the extremely rare case where two distinct external assemblies
+    ///     both declare a member whose ID is byte-identical to <paramref name="targetId"/> (e.g.
+    ///     two unrelated NuGet packages that happen to define the same namespace, type name, and
+    ///     member signature), only the first-seen assembly's name is retained as the hint here —
+    ///     a later call site whose real target is actually declared in the other assembly would be
+    ///     given the wrong hint. This is deliberately tolerated rather than tracked per call site
+    ///     because <see cref="ExternalXmlDocResolver.TryGetMember(string, string?)"/> treats the
+    ///     hint purely as a fast-path probe with a full-scan fallback, so a wrong hint only
+    ///     produces a wrong result if the wrongly-hinted assembly's XML documentation coincidentally
+    ///     also defines a member with the identical ID — a second, independent collision on top of
+    ///     the first.
+    /// </remarks>
+    /// <param name="assemblyHints">The declaring-assembly-name hint dictionary to update.</param>
+    /// <param name="targetId">The candidate target member ID.</param>
+    /// <param name="assemblyName">The declaring assembly's simple name, or <c>null</c> when unknown.</param>
+    private static void TryAddAssemblyHint(Dictionary<string, string> assemblyHints, string targetId, string? assemblyName)
+    {
+        if (!string.IsNullOrEmpty(assemblyName))
+        {
+            assemblyHints.TryAdd(targetId, assemblyName);
+        }
     }
 
     /// <summary>
@@ -480,7 +696,8 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
     /// <param name="method">The method to inspect.</param>
     /// <param name="type">The declaring type.</param>
     /// <param name="targets">The target list to update.</param>
-    private static void AddBaseClassVirtualOverride(MethodDefinition method, TypeDefinition type, List<string> targets)
+    /// <param name="assemblyHints">The declaring-assembly-name hint dictionary to populate.</param>
+    private static void AddBaseClassVirtualOverride(MethodDefinition method, TypeDefinition type, List<string> targets, Dictionary<string, string> assemblyHints)
     {
         if (!method.IsVirtual || method.IsNewSlot || type.BaseType == null)
         {
@@ -494,7 +711,9 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             if (baseMethod != null)
             {
                 // Base class override takes priority — insert at front
-                targets.Insert(0, DotNetEmitter.BuildMethodId(baseMethod));
+                var targetId = DotNetEmitter.BuildMethodId(baseMethod);
+                targets.Insert(0, targetId);
+                TryAddAssemblyHint(assemblyHints, targetId, baseMethod.Module.Assembly?.Name?.Name);
             }
         }
         catch (AssemblyResolutionException)
@@ -512,7 +731,8 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
     /// <param name="method">The method to inspect.</param>
     /// <param name="type">The declaring type.</param>
     /// <param name="targets">The target list to update.</param>
-    private static void AddInterfaceMethodImplementations(MethodDefinition method, TypeDefinition type, List<string> targets)
+    /// <param name="assemblyHints">The declaring-assembly-name hint dictionary to populate.</param>
+    private static void AddInterfaceMethodImplementations(MethodDefinition method, TypeDefinition type, List<string> targets, Dictionary<string, string> assemblyHints)
     {
         foreach (var iface in type.Interfaces)
         {
@@ -531,6 +751,7 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
                     if (!targets.Contains(ifaceId, StringComparer.Ordinal))
                     {
                         targets.Add(ifaceId);
+                        TryAddAssemblyHint(assemblyHints, ifaceId, ifaceMethod.Module.Assembly?.Name?.Name);
                     }
                 }
             }
@@ -549,15 +770,16 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
     /// </summary>
     /// <param name="property">The property to inspect.</param>
     /// <param name="type">The declaring type.</param>
+    /// <param name="assemblyHints">The declaring-assembly-name hint dictionary to populate.</param>
     /// <returns>Ordered list of base property IDs; empty when the property does not override anything.</returns>
-    private static List<string> CollectPropertyInheritanceTargets(PropertyDefinition property, TypeDefinition type)
+    private static List<string> CollectPropertyInheritanceTargets(PropertyDefinition property, TypeDefinition type, Dictionary<string, string> assemblyHints)
     {
         var targets = new List<string>();
 
         // Explicit accessor overrides map back to the owning interface property
-        AddPropertyAccessorOverrides(property.GetMethod, "get_", targets);
-        AddPropertyAccessorOverrides(property.SetMethod, "set_", targets);
-        AddInterfacePropertyImplementation(property, type, targets);
+        AddPropertyAccessorOverrides(property.GetMethod, "get_", targets, assemblyHints);
+        AddPropertyAccessorOverrides(property.SetMethod, "set_", targets, assemblyHints);
+        AddInterfacePropertyImplementation(property, type, targets, assemblyHints);
 
         return targets;
     }
@@ -569,17 +791,25 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
     /// <param name="accessor">The property accessor method, or <c>null</c> when absent.</param>
     /// <param name="prefix">The accessor prefix ("get_" or "set_") used to map back to a property ID.</param>
     /// <param name="targets">The target list to update.</param>
-    private static void AddPropertyAccessorOverrides(MethodDefinition? accessor, string prefix, List<string> targets)
+    /// <param name="assemblyHints">The declaring-assembly-name hint dictionary to populate.</param>
+    private static void AddPropertyAccessorOverrides(MethodDefinition? accessor, string prefix, List<string> targets, Dictionary<string, string> assemblyHints)
     {
         if (accessor == null)
         {
             return;
         }
 
-        targets.AddRange(accessor.Overrides
-            .Select(overrideRef => MapAccessorReferenceToPropertyId(overrideRef, prefix))
-            .OfType<string>()
-            .Where(propId => !targets.Contains(propId, StringComparer.Ordinal)));
+        foreach (var overrideRef in accessor.Overrides)
+        {
+            var propId = MapAccessorReferenceToPropertyId(overrideRef, prefix);
+            if (propId == null || targets.Contains(propId, StringComparer.Ordinal))
+            {
+                continue;
+            }
+
+            targets.Add(propId);
+            TryAddAssemblyHint(assemblyHints, propId, GetAssemblyNameFromScope(overrideRef.DeclaringType.Scope));
+        }
     }
 
     /// <summary>
@@ -589,7 +819,8 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
     /// <param name="property">The property to inspect.</param>
     /// <param name="type">The declaring type.</param>
     /// <param name="targets">The target list to update.</param>
-    private static void AddInterfacePropertyImplementation(PropertyDefinition property, TypeDefinition type, List<string> targets)
+    /// <param name="assemblyHints">The declaring-assembly-name hint dictionary to populate.</param>
+    private static void AddInterfacePropertyImplementation(PropertyDefinition property, TypeDefinition type, List<string> targets, Dictionary<string, string> assemblyHints)
     {
         foreach (var iface in type.Interfaces)
         {
@@ -614,6 +845,7 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
                     if (!targets.Contains(ifacePropId, StringComparer.Ordinal))
                     {
                         targets.Add(ifacePropId);
+                        TryAddAssemblyHint(assemblyHints, ifacePropId, ifaceProp.Module.Assembly?.Name?.Name);
                     }
                 }
             }
@@ -632,15 +864,16 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
     /// </summary>
     /// <param name="ev">The event to inspect.</param>
     /// <param name="type">The declaring type.</param>
+    /// <param name="assemblyHints">The declaring-assembly-name hint dictionary to populate.</param>
     /// <returns>Ordered list of base event IDs; empty when the event does not override anything.</returns>
-    private static List<string> CollectEventInheritanceTargets(EventDefinition ev, TypeDefinition type)
+    private static List<string> CollectEventInheritanceTargets(EventDefinition ev, TypeDefinition type, Dictionary<string, string> assemblyHints)
     {
         var targets = new List<string>();
 
         // Explicit accessor overrides map back to the owning interface event
-        AddEventAccessorOverrides(ev.AddMethod, "add_", targets);
-        AddEventAccessorOverrides(ev.RemoveMethod, "remove_", targets);
-        AddInterfaceEventImplementation(ev, type, targets);
+        AddEventAccessorOverrides(ev.AddMethod, "add_", targets, assemblyHints);
+        AddEventAccessorOverrides(ev.RemoveMethod, "remove_", targets, assemblyHints);
+        AddInterfaceEventImplementation(ev, type, targets, assemblyHints);
 
         return targets;
     }
@@ -652,17 +885,25 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
     /// <param name="accessor">The event accessor method, or <c>null</c> when absent.</param>
     /// <param name="prefix">The accessor prefix ("add_" or "remove_") used to map back to an event ID.</param>
     /// <param name="targets">The target list to update.</param>
-    private static void AddEventAccessorOverrides(MethodDefinition? accessor, string prefix, List<string> targets)
+    /// <param name="assemblyHints">The declaring-assembly-name hint dictionary to populate.</param>
+    private static void AddEventAccessorOverrides(MethodDefinition? accessor, string prefix, List<string> targets, Dictionary<string, string> assemblyHints)
     {
         if (accessor == null)
         {
             return;
         }
 
-        targets.AddRange(accessor.Overrides
-            .Select(overrideRef => MapAccessorReferenceToEventId(overrideRef, prefix))
-            .OfType<string>()
-            .Where(evId => !targets.Contains(evId, StringComparer.Ordinal)));
+        foreach (var overrideRef in accessor.Overrides)
+        {
+            var evId = MapAccessorReferenceToEventId(overrideRef, prefix);
+            if (evId == null || targets.Contains(evId, StringComparer.Ordinal))
+            {
+                continue;
+            }
+
+            targets.Add(evId);
+            TryAddAssemblyHint(assemblyHints, evId, GetAssemblyNameFromScope(overrideRef.DeclaringType.Scope));
+        }
     }
 
     /// <summary>
@@ -672,7 +913,8 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
     /// <param name="ev">The event to inspect.</param>
     /// <param name="type">The declaring type.</param>
     /// <param name="targets">The target list to update.</param>
-    private static void AddInterfaceEventImplementation(EventDefinition ev, TypeDefinition type, List<string> targets)
+    /// <param name="assemblyHints">The declaring-assembly-name hint dictionary to populate.</param>
+    private static void AddInterfaceEventImplementation(EventDefinition ev, TypeDefinition type, List<string> targets, Dictionary<string, string> assemblyHints)
     {
         foreach (var iface in type.Interfaces)
         {
@@ -697,6 +939,7 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
                     if (!targets.Contains(ifaceEventId, StringComparer.Ordinal))
                     {
                         targets.Add(ifaceEventId);
+                        TryAddAssemblyHint(assemblyHints, ifaceEventId, ifaceEvent.Module.Assembly?.Name?.Name);
                     }
                 }
             }

@@ -21,6 +21,9 @@ installation accessible on PATH. When clang is not available, integration tests 
   `SampleClass`, and at least one member.
 - `CppCompilationResult.Errors` contains only stderr error/fatal-error lines collected from
   clang (clean fixture parse produces an empty errors list).
+- `Parse`, invoked directly (not via `CppGenerator.Parse`), still resolves an angle-bracket
+  `#include` via a `PublicIncludeRoots` entry supplied with different casing than its on-disk
+  spelling, on a case-sensitive file system.
 
 ### Test Scenarios
 
@@ -61,6 +64,15 @@ Tested by `ClangAstParser_Parse_FixtureHeaders_SampleClassHasMembers`.
 is empty when parsing well-formed fixture headers, confirming that `CollectStderrErrors`
 correctly filters out non-error output and returns no false positives. Tested by
 `ClangAstParser_Parse_FixtureHeaders_ErrorsCollectionIsEmpty`.
+
+**Direct invocation resolves a differently-cased include root**: Verifies that calling `Parse`
+directly (bypassing `CppGenerator`, which would otherwise normalize `PublicIncludeRoots`
+upstream) with a `PublicIncludeRoots` entry cased differently than its on-disk spelling still
+successfully resolves an angle-bracket `#include` reachable only via that root's `-I` flag,
+producing no error-class diagnostics. Regression test for the include root only being
+normalized for the ownership check while the clang `-I` arguments read the un-normalized
+options. Tested by
+`ClangAstParser_Parse_CalledDirectlyWithDifferentlyCasedIncludeRoot_ResolvesAngleBracketInclude`.
 
 **Known integration-only gap**: Non-zero exit and malformed JSON paths are not isolated by the
 current implementation without adding a process seam, so those behaviors remain covered only by

@@ -14,10 +14,13 @@ sections:
             justification: |
               The generator cannot produce correct C++ documentation unless it knows where the public
               headers reside (to determine ownership) and how to configure the Clang parser (to
-              resolve all `#include` directives encountered during parsing).
+              resolve all `#include` directives encountered during parsing). A root supplied with
+              different casing than its on-disk spelling still resolves correctly and consistently
+              across header discovery and the clang invocation, on a case-sensitive file system.
             tests:
               - CppGenerator_Constructor_NullOptions_ThrowsArgumentNullException
               - CppGenerator_Generate_NonexistentIncludeRoot_ThrowsDirectoryNotFoundException
+              - CppGenerator_Generate_IncludeRootHasDifferentCasingThanOnDisk_StillGeneratesDocumentation
               - CppGenerator_Generate_ApiHeaderPatterns_CwdRelativePattern_OnlyMatchingFilesDocumented
               - CppGenerator_Generate_ApiHeaderPatterns_CwdRelativeExclusionPattern_ExcludesMatchingFiles
               - CppGenerator_Generate_ApiHeaderPatterns_NullWorkingDirectory_FallsBackToCurrentDirectory

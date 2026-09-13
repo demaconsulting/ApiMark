@@ -2362,6 +2362,95 @@ public class DotNetGeneratorTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.Parse"/> resolves a bare
+    ///     <c>&lt;inheritdoc /&gt;</c> across <em>two</em> external hops: the locally-defined
+    ///     override's immediate external base member (<c>ExternalMidBaseClass.DescribeGrand</c>)
+    ///     is itself an undocumented bare <c>&lt;inheritdoc /&gt;</c> override, so resolution must
+    ///     continue up to <c>ExternalGrandBaseClass.DescribeGrand</c> to find real documentation
+    ///     text. This proves the inheritance chain now recurses into resolvable external base
+    ///     types rather than stopping at the first external candidate.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Parse_ExternalBaseTwoHops_ResolvesInheritedDocumentationAcrossBothHops()
+    {
+        // Arrange
+        var options = BuildOptions();
+        options.ReferencePaths = [FixturePaths.GetExternalFixtureDll()];
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(options);
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the second-hop grandparent's summary text is found, not the mid-tier's
+        // undocumented bare inheritdoc override
+        Assert.True(
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ExternalTwoHopInheritDocClass/DescribeGrand", out var writer),
+            "Expected member detail page for ExternalTwoHopInheritDocClass.DescribeGrand");
+        var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Describes the grandparent implementation."));
+    }
+
+    /// <summary>
+    ///     Regression test proving that <see cref="DotNetGenerator.Parse"/> resolves cross-assembly
+    ///     bare <c>&lt;inheritdoc /&gt;</c> content even when a <see cref="DotNetGeneratorOptions.ReferencePaths"/>
+    ///     entry names an existing directory with different casing than its real on-disk spelling
+    ///     — proving that the reference-directory pipeline normalizes each path to its actual
+    ///     casing (<see cref="ApiMark.Core.PathHelpers.NormalizeCase"/>) <em>before</em> filtering
+    ///     by <see cref="Directory.Exists(string)"/>, rather than discarding a differently-cased
+    ///     directory before normalization gets a chance to resolve it. This mirrors the pattern
+    ///     used by <c>PathHelpers</c>'s own case-normalization tests of comparing against real,
+    ///     enumerated directory entries, so the test does not require a case-sensitive host to
+    ///     run — however, it only proves the fix is actually exercised (rather than trivially
+    ///     passing regardless of the fix) on a case-sensitive file system such as the CI matrix's
+    ///     <c>ubuntu-latest</c> runner; on a case-insensitive host the OS itself resolves the
+    ///     differently-cased path, so this test cannot by itself distinguish fixed from unfixed
+    ///     behavior there.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Parse_ReferencePathHasDifferentCasingThanOnDisk_StillResolvesInheritedDocumentation()
+    {
+        // Arrange: copy the external fixture DLL/XML doc into a fresh temp directory with a
+        // known, specific mixed-case spelling, then reference it with a differently-cased
+        // directory segment.
+        var tempRoot = Path.Combine(Path.GetTempPath(), "ApiMarkDotNetGeneratorTests_" + Guid.NewGuid().ToString("N"));
+        var actualSubDir = Path.Combine(tempRoot, "MyLib");
+        Directory.CreateDirectory(actualSubDir);
+        try
+        {
+            var actualDllPath = Path.Combine(actualSubDir, Path.GetFileName(FixturePaths.GetExternalFixtureDll()));
+            var actualXmlPath = Path.Combine(actualSubDir, Path.GetFileName(FixturePaths.GetExternalFixtureXmlDoc()));
+            File.Copy(FixturePaths.GetExternalFixtureDll(), actualDllPath);
+            File.Copy(FixturePaths.GetExternalFixtureXmlDoc(), actualXmlPath);
+
+            // A differently-cased spelling of the same directory (upper-cased last segment).
+            var differentlyCasedDir = Path.Combine(tempRoot, "MYLIB");
+            var differentlyCasedDllPath = Path.Combine(differentlyCasedDir, Path.GetFileName(actualDllPath));
+
+            var options = BuildOptions();
+            options.ReferencePaths = [differentlyCasedDllPath];
+            var factory = new InMemoryMarkdownWriterFactory();
+            var generator = new DotNetGenerator(options);
+
+            // Act
+            generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+            // Assert: the interface method page carries the externally-inherited content,
+            // proving the differently-cased search directory was still added to the Mono.Cecil
+            // assembly resolver and resolved documentation successfully.
+            Assert.True(
+                factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/ExternalInheritDocClass/ExternalInterfaceMethod", out var writer),
+                "Expected member detail page for ExternalInheritDocClass.ExternalInterfaceMethod");
+            var paragraphs = writer!.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+            Assert.Contains(paragraphs, p => p.Contains("Performs the external interface method's action."));
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    /// <summary>
     ///     Validates that <see cref="DotNetGenerator.Parse"/> and the subsequent
     ///     <see cref="IApiEmitter.Emit"/> complete without throwing, and leave cross-assembly
     ///     <c>&lt;inheritdoc /&gt;</c> content unresolved (absent), when

@@ -44,3 +44,66 @@ sections:
             tests:
               - PathHelpers_SafePathCombine_NullBasePath_ThrowsArgumentNullException
               - PathHelpers_SafePathCombine_NullRelativePath_ThrowsArgumentNullException
+          - id: ApiMarkCore-PathHelpers-NormalizeToActualOnDiskCasing
+            title: PathHelpers shall resolve a path to its actual on-disk casing so that
+              two differently-cased spellings of the same existing file or directory are
+              recognized as identical, regardless of the platform or file system's case
+              sensitivity.
+            justification: |
+              No operating system or file system can be reliably assumed case-sensitive
+              or case-insensitive (both Windows/macOS can host case-sensitive volumes and
+              Linux can host case-insensitive ones). The only combination that is correct
+              regardless of platform is to resolve each path to its real, on-disk casing
+              and then compare the normalized results with a case-sensitive comparer, so
+              callers (DotNetGenerator, ExternalXmlDocResolver) can deduplicate and cache
+              file-system paths correctly on every platform.
+            tests:
+              - PathHelpers_NormalizeCase_ExistingPathWithDifferentCaseInput_ResolvesToActualOnDiskCasing
+              - PathHelpers_NormalizeCase_DifferentlyCasedDriveLetterRoot_ProducesIdenticalResult
+              - PathHelpers_NormalizeCase_TwoCaseVariantsOfSamePath_ProduceIdenticalResult
+              - PathHelpers_NormalizeCase_WithSharedDirectoryEntryCache_ResolvesMultipleSiblingPaths
+          - id: ApiMarkCore-PathHelpers-NormalizeDirectoryForPrefixUse
+            title: PathHelpers shall resolve a directory path to its actual on-disk
+              casing and return it with exactly one trailing directory separator,
+              including for a bare filesystem root, so callers can use the result
+              directly as a path prefix without losing or corrupting the root.
+            justification: |
+              Several generators (ApiMark.Cpp.CppGenerator, ApiMark.Cpp.CppEmitter,
+              ApiMark.Cpp.CppAst.ClangAstParser) treat a configured directory as a path
+              prefix — for ownership/inclusion checks and for building glob patterns by
+              string concatenation — rather than as a final destination, and each
+              previously derived that prefix independently by trimming a path's trailing
+              separator before normalizing and re-appending one afterward. That
+              composition is unsafe for a bare filesystem root such as `C:\` or `/`: the
+              trimmed form (`C:` or an empty string) is not an equivalent path, and
+              re-deriving a trailing separator by passing it through the file system again
+              silently corrupts the root instead of merely losing a separator. A single,
+              shared method removes the need for every caller to reimplement this
+              correctly.
+            tests:
+              - PathHelpers_NormalizeCaseDirectory_DriveLetterRoot_DoesNotResolveToCurrentDirectory
+              - PathHelpers_NormalizeCaseDirectory_SubdirectoryPath_ProducesExactlyOneTrailingSeparator
+              - PathHelpers_NormalizeCaseDirectory_InputAlreadyHasTrailingSeparator_DoesNotDoubleSeparator
+          - id: ApiMarkCore-PathHelpers-NormalizeCasePreservesUnresolvableSegments
+            title: PathHelpers shall preserve the caller-supplied casing of a path segment
+              that does not exist on disk, rather than throwing.
+            justification: |
+              Reference paths and other caller-supplied paths do not always exist yet or
+              may never exist (e.g. a misconfigured reference path); normalization must be
+              best-effort so a not-yet-existing path does not abort the caller's operation.
+            tests:
+              - PathHelpers_NormalizeCase_NonExistentPath_PreservesSuppliedCasing
+          - id: ApiMarkCore-PathHelpers-NormalizeCaseResolvesAmbiguityDeterministically
+            title: PathHelpers shall prefer an exact (ordinal) match over an incidental
+              case-insensitive one when resolving a segment, and shall refuse to guess
+              (preserving the caller-supplied casing) when two or more case variants of a
+              segment coexist and none matches exactly.
+            justification: |
+              On a case-sensitive file system, two entries can coexist that differ only by
+              case (e.g. "Foo.dll" and "foo.dll"). Falling back to a case-insensitive match
+              unconditionally would let unspecified directory-enumeration order decide which
+              entry is treated as the "real" one, silently resolving to the wrong file (for
+              example attributing external XML documentation to the wrong assembly).
+            tests:
+              - PathHelpers_NormalizeCase_CaseSensitiveFileSystemWithBothCasings_PrefersExactMatch
+              - PathHelpers_NormalizeCase_CaseSensitiveFileSystemWithBothCasings_AmbiguousThirdCasing_PreservesSuppliedCasing

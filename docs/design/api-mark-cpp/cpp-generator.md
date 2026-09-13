@@ -21,7 +21,9 @@ single-file or gradual-disclosure Markdown output.
 - `LibraryName`: `string` — library name used in the top-level heading.
 - `PublicIncludeRoots`: `IReadOnlyList<string>` — include roots used both for clang
   `-I` arguments and canonical `#include` path derivation. The longest matching
-  root wins when roots overlap.
+  root wins when roots overlap. `Parse` normalizes each entry to its actual
+  on-disk casing before any use, so an entry supplied with different casing than
+  its on-disk spelling still resolves correctly on a case-sensitive file system.
 - `ApiHeaderPatterns`: `IList<string>` — ordered gitignore-style include/exclude
   patterns used to select the documented public headers. Relative patterns are
   resolved from `WorkingDirectory` or the process CWD when `WorkingDirectory` is
@@ -76,15 +78,29 @@ parse-time deprecated filter, builds the known-type map, and returns a
   `CppEmitter` helper methods at emit time. The parsed namespace declarations are
   additionally cached on the generator instance so `CheckDocumentationCoverage`
   can be called afterward without re-parsing.
-- *Algorithm*: `CollectHeaderFiles()` builds the selected header set; a temporary
-  combined header includes every selected file; `ClangAstParser.Parse` returns
-  `CppCompilationResult`; `CheckForErrors` separates public-header failures from
-  system-header diagnostics; `CollectResultNamespace` groups declarations by
-  namespace key; the known-type map is flattened from namespaces, nested classes,
-  and type aliases; a `CppTypeLinkResolver` and `CppEmitter` are returned.
-  The constructed `CppTypeLinkResolver` accumulates references to external
-  (non-library, non-`std`) types encountered during `CppEmitter` execution; the
-  emitter renders them in an `External Types` section on each affected page.
+- *Algorithm*: Each `PublicIncludeRoots` entry is first normalized to its actual
+  on-disk casing (`ApiMark.Core.PathHelpers.NormalizeCaseDirectory`, using a
+  `directoryEntryCache` shared across every root) so a root supplied with
+  different casing than its on-disk spelling still resolves correctly on a
+  case-sensitive file system; unlike a manual trim-then-normalize composition,
+  `NormalizeCaseDirectory` never corrupts a bare filesystem root (e.g. `C:\` or `/`)
+  into an ambiguous drive-relative or empty path, and guarantees each normalized root
+  ends with exactly one trailing separator so `CollectHeaderFiles` can build its glob
+  pattern by direct string concatenation rather than a second `Path.GetFullPath` call.
+  A shallow copy of the options with the normalized
+  roots substituted is then used for the remainder of `Parse`, including header
+  discovery and the clang invocation, so both observe identical, correctly-cased
+  roots. `CollectHeaderFiles(options)` builds the selected header set from those
+  normalized roots; a temporary combined header includes every selected file;
+  `ClangAstParser.Parse` returns `CppCompilationResult`; `CheckForErrors`
+  separates public-header failures from system-header diagnostics;
+  `CollectResultNamespace` groups declarations by namespace key; the known-type
+  map is flattened from namespaces, nested classes, and type aliases; a
+  `CppTypeLinkResolver` and `CppEmitter` (constructed with the same
+  normalized-roots options) are returned. The constructed `CppTypeLinkResolver`
+  accumulates references to external (non-library, non-`std`) types encountered
+  during `CppEmitter` execution; the emitter renders them in an `External Types`
+  section on each affected page.
 
 **CppGenerator.CheckDocumentationCoverage** (`IDocumentationCoverageCapable`):
 scans the namespace declarations cached by the most recent `Parse` call for
@@ -152,6 +168,8 @@ design document for the scan algorithm.
 - **GlobFileCollector** — performs gitignore-style header selection.
 - **ClangAstParser** — parses the selected headers into `CppCompilationResult`.
 - **CppEmitter** — returned by `Parse` to emit Markdown output.
+- **PathHelpers** — `NormalizeCaseDirectory` resolves each `PublicIncludeRoots` entry to
+  its actual on-disk casing before existence checks, glob patterns, and clang invocation.
 - **CppTypeLinkResolver** — constructed from the flattened known-type map and
   passed into `CppEmitter`.
 - **DocumentationCoverageChecker** — performs the actual documentation-coverage

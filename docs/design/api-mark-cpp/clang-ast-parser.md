@@ -98,10 +98,29 @@ while walking the JSON AST.
 - **UpdateCurrentFile / GetCurrentSourceLocation** — preserve source-file and line
   context across clang nodes that omit `loc.file`.
 - **IsOwned** — enforces the selected-header plus include-root ownership rule.
-  Uses `FileSystemPathComparer` / `FileSystemPathComparison` (selecting
-  `OrdinalIgnoreCase` on Windows/macOS and `Ordinal` on Linux) so that header
-  path matching respects the native file-system case-sensitivity of the build
-  host.
+  Uses `ApiMark.Core.PathHelpers.NormalizeCase` to resolve the source file, and
+  `ApiMark.Core.PathHelpers.NormalizeCaseDirectory` to resolve each configured public
+  include root, to their actual on-disk casing (rather than guessing case sensitivity
+  from the operating system); `NormalizeCaseDirectory` guarantees each normalized root
+  ends with exactly one trailing separator and never corrupts a bare filesystem root
+  (e.g. `C:\` or `/`) into an ambiguous drive-relative or empty path the way a manual
+  trim-then-normalize composition would. The method then checks the
+  root-prefix match via `StringComparison.Ordinal` (the same case-sensitive
+  comparison `PathHelpers.Comparer` exposes) and the selected-headers membership
+  check via the `PathHelpers.Comparer`-backed `_selectedHeaders` set, so header
+  path matching is correct regardless of the build host's file-system case
+  sensitivity. Both the per-declaration ownership result (keyed by the
+  as-supplied, non-normalized source file) and the normalized public include
+  roots (computed once by the constructor) are memoized, since `_currentFile`
+  commonly repeats across many consecutive declarations. `Parse` normalizes
+  `CppGeneratorOptions.PublicIncludeRoots` once up front — before building the
+  clang `-I` arguments — and passes both the resulting `normalizedOptions` and
+  the same `directoryEntryCache` instance into this constructor, so re-deriving
+  `_normalizedPublicIncludeRoots` here is a cheap, already-cached no-op (every
+  directory segment was already enumerated and cached during `Parse`'s own
+  normalization pass) rather than a fresh re-scan. This also keeps the
+  constructor correct on its own if it is ever invoked with un-normalized
+  options and a fresh cache directly.
 - **GetKind / GetName / GetQualType / GetNsBuilder / BuildNamespaces** — JSON and
   namespace-builder utilities.
 
@@ -132,6 +151,8 @@ while walking the JSON AST.
   and additional compiler arguments.
 - **CppAstModel** — destination record model for parsed output.
 - **System.Text.Json** — used for JSON parsing and traversal.
+- **PathHelpers** — `NormalizeCase` and `NormalizeCaseDirectory` resolve source files and
+  public include roots to their actual on-disk casing for the ownership check.
 
 ### Callers
 

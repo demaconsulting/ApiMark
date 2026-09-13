@@ -206,4 +206,66 @@ public class ClangAstParserTests
         // Assert: clean fixture headers must not produce any error-class diagnostics
         Assert.Empty(result.Errors);
     }
+
+    /// <summary>
+    ///     Validates that <see cref="ClangAstParser.Parse"/>, invoked directly (bypassing
+    ///     <see cref="CppGenerator"/>), still resolves an angle-bracket <c>#include</c> via a
+    ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry supplied with different
+    ///     casing than its on-disk spelling, on a case-sensitive file system.
+    /// </summary>
+    /// <remarks>
+    ///     Regression test: <see cref="ClangAstParser"/> previously normalized
+    ///     <see cref="CppGeneratorOptions.PublicIncludeRoots"/> only for its own ownership check,
+    ///     while the clang <c>-I</c> arguments built by <c>BuildArguments</c> still read the
+    ///     un-normalized <see cref="CppGeneratorOptions"/> supplied by the caller. That was masked
+    ///     when parsing was reached via <see cref="CppGenerator.Parse"/> (which normalizes the
+    ///     roots itself before calling this method), but a direct caller supplying a differently
+    ///     cased root would give clang an unusable <c>-I</c> path and fail to resolve the include,
+    ///     even though ownership filtering used the corrected path. <see cref="ClangAstParser.Parse"/>
+    ///     now normalizes the roots itself, once, before building the clang arguments.
+    /// </remarks>
+    [Fact]
+    public void ClangAstParser_Parse_CalledDirectlyWithDifferentlyCasedIncludeRoot_ResolvesAngleBracketInclude()
+    {
+        // Skip when clang is not available
+        if (!IsClangAvailable())
+        {
+            Assert.Skip("clang is not available on this system.");
+        }
+
+        // Arrange: an include root "MyLib" containing a header reachable only via an
+        // angle-bracket #include (which is resolved via the -I search path, unlike a
+        // quoted #include which also checks the including file's own directory), and a
+        // separate entry header — outside the root — that includes it by angle brackets
+        // and referenced with a differently-cased spelling of the same root ("MYLIB").
+        var tempParent = Path.Combine(Path.GetTempPath(), "ApiMarkClangAstParserTests_" + Guid.NewGuid().ToString("N"));
+        var actualIncludeDir = Path.Combine(tempParent, "MyLib");
+        Directory.CreateDirectory(actualIncludeDir);
+        File.WriteAllText(
+            Path.Combine(actualIncludeDir, "dep.h"),
+            "class Dep { public: int Value() const { return 1; } };");
+        var entryHeader = Path.Combine(tempParent, "entry.h");
+        File.WriteAllText(entryHeader, "#include <dep.h>\nDep MakeDep();");
+        try
+        {
+            var differentlyCasedIncludeDir = Path.Combine(tempParent, "MYLIB");
+            var options = new CppGeneratorOptions
+            {
+                LibraryName = "Fixtures",
+                PublicIncludeRoots = [differentlyCasedIncludeDir],
+            };
+
+            // Act: call ClangAstParser.Parse directly, bypassing CppGenerator entirely, so
+            // this exercises BuildArguments with the caller-supplied (not pre-normalized) options
+            var result = ClangAstParser.Parse([entryHeader], options);
+
+            // Assert: no error-class diagnostics — proving clang located dep.h via the -I flag
+            // built from the differently-cased root
+            Assert.Empty(result.Errors);
+        }
+        finally
+        {
+            Directory.Delete(tempParent, recursive: true);
+        }
+    }
 }

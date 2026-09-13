@@ -39,9 +39,10 @@ method returns an `IApiEmitter` (a private nested class) that holds the parsed s
 model. The caller then calls `IApiEmitter.Emit` with an `EmitConfig` and
 `IMarkdownWriterFactory` to write the documentation tree. ApiMarkTool directly
 consumes IApiGenerator; ApiMarkMsbuild spawns ApiMarkTool as a child process
-and never calls IApiGenerator in-process. PathHelpers remains an internal
-utility used by ApiMarkCore implementations rather than a public dependency
-surface. GlobFileCollector is a public static utility consumed by ApiMarkCpp
+and never calls IApiGenerator in-process. `PathHelpers` is a public utility —
+consumed in-process by ApiMarkDotNet and ApiMarkCpp for on-disk case
+normalization in addition to ApiMarkCore's own internal `SafePathCombine` use
+— rather than an internal-only implementation detail. GlobFileCollector is a public static utility consumed by ApiMarkCpp
 and ApiMarkVhdl to discover source files using glob patterns.
 `IDocumentationCoverageCapable` is an optional capability interface implemented
 by `DotNetGenerator`, `CppGenerator`, and `VhdlGenerator`; ApiMarkTool tests for
@@ -173,18 +174,30 @@ language-agnostic result types for a documentation-coverage scan.
 - *Constraints*: immutable once constructed; `Kind` values are not validated
   against a shared vocabulary — each language checker defines its own set.
 
-### Internal Utilities
+### Utilities
 
-**PathHelpers (internal only)**: Internal static helper for safely combining caller-
-supplied relative path segments with a trusted base path.
+**PathHelpers (public)**: Public static utility providing path-safety and
+cross-platform path-normalization helpers used both internally by ApiMarkCore
+implementations and directly by other systems.
 
-- *Type*: In-process .NET internal utility.
-- *Role*: Internal-only helper used by file-based implementations to validate path
-  segments before creating directories or files.
+- *Type*: In-process .NET public API.
+- *Role*: Shared utility — `FileMarkdownWriterFactory` uses `SafePathCombine`
+  to validate path segments before creating directories or files;
+  `ApiMark.DotNet.DotNetGenerator` and `ApiMark.DotNet.ExternalXmlDocResolver`
+  use `NormalizeCase`/`Comparer` to deduplicate and compare reference-assembly
+  search directories regardless of platform or file-system case sensitivity;
+  `ApiMark.Cpp.CppEmitter` and `ApiMark.Cpp.CppAst.ClangAstParser` use the same
+  pair to resolve include-path and ownership-filtering comparisons. See
+  `docs/design/api-mark-core/path-helpers.md` for the full unit design.
 - *Contract*: `string SafePathCombine(string basePath, params string[] relativePaths)`
   returns the combined path when all segments are valid.
-- *Constraints*: Rejects combinations that resolve outside the base directory, and rejects
-  null arguments.
+  `string NormalizeCase(string path, Dictionary<string, string[]>? directoryEntryCache = null)`
+  resolves a path to its actual on-disk casing. `StringComparer Comparer`
+  exposes the case-sensitive comparer to use once paths have been normalized.
+- *Constraints*: `SafePathCombine` rejects combinations that resolve outside the
+  base directory, and rejects null arguments. `NormalizeCase` is best-effort
+  for segments that do not exist on disk, and a caller-supplied
+  `directoryEntryCache` is not synchronized on the caller's behalf.
 
 **GlobFileCollector (public utility)**: Stateless public static utility for discovering
 files on the filesystem using gitignore-style glob patterns.
