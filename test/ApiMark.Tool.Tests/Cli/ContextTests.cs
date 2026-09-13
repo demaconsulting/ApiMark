@@ -509,6 +509,41 @@ public sealed class ContextTests
     }
 
     /// <summary>
+    ///     Validates that a line read from an expanded <c>@&lt;file&gt;</c> response file honors
+    ///     the same <c>@@</c> literal-leading-<c>@</c> escape as a top-level argument, so a value
+    ///     forwarded via a response file (e.g. by <c>ApiMarkTask</c>, which escapes its own
+    ///     values before writing them to a generated response file) round-trips to the same
+    ///     literal result whether it arrives directly on the command line or via a response file.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithEscapedAtSignInResponseFileLine_PassesThroughLiteralValue()
+    {
+        // Arrange: a response file whose "--library-name" value line is escaped as "@@mylib"
+        var responseFilePath = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllLines(responseFilePath, new[]
+            {
+                "--library-name",
+                "@@mylib",
+            });
+            var args = new[] { $"@{responseFilePath}" };
+
+            // Act
+            using var context = Context.Create(args);
+
+            // Assert: the escape was stripped to a single literal leading '@' exactly as it would
+            // be for a top-level "--library-name" "@@mylib" argument pair, not left as "@@mylib"
+            // and not (mis)treated as a nested response-file reference
+            Assert.Equal("@mylib", context.LibraryName);
+        }
+        finally
+        {
+            File.Delete(responseFilePath);
+        }
+    }
+
+    /// <summary>
     ///     Validates that an empty argument array produces a Context with all default values.
     /// </summary>
     [Fact]

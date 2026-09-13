@@ -497,9 +497,11 @@ internal sealed class Context : IContext, IDisposable
         /// </summary>
         /// <remarks>
         ///     This is a single, non-recursive expansion pass: a line read from a response file is
-        ///     never itself re-checked for a leading <c>@</c>. Tokens that do not start with
-        ///     <c>@</c> pass through unchanged. Blank/whitespace-only lines in a response file are
-        ///     skipped so authors can use blank lines for readability without producing empty
+        ///     never itself re-checked for a leading, unescaped <c>@</c> that would trigger a
+        ///     nested response-file expansion — a response-file line starting with a single
+        ///     <c>@</c> always passes through as a literal argument. Tokens that do not start with
+        ///     <c>@</c> also pass through unchanged. Blank/whitespace-only lines in a response file
+        ///     are skipped so authors can use blank lines for readability without producing empty
         ///     arguments. This convention exists so that MSBuild-driven invocations (e.g. a large,
         ///     harvested <c>ApiMarkReferencePaths</c> list) can avoid operating-system command-line
         ///     length limits by writing arguments to a file and passing a single <c>@&lt;file&gt;</c>
@@ -508,13 +510,16 @@ internal sealed class Context : IContext, IDisposable
         ///     (for example a library description or defines value) can be written as
         ///     <c>@@rest</c>: a leading <c>@@</c> is treated as an escape for a literal leading
         ///     <c>@</c> and is passed through as <c>@rest</c> without response-file expansion,
-        ///     rather than being misinterpreted as a response-file token. The escape and
-        ///     response-file grammars are not fully orthogonal in one narrow corner case: a
-        ///     response file whose own file name starts with <c>@</c> (e.g. a file literally
-        ///     named <c>@config.rsp</c>) cannot be referenced via this convention, since the
-        ///     token that would name it (<c>@@config.rsp</c>) is instead interpreted as the
-        ///     escaped literal value <c>@config.rsp</c>. This is considered acceptable: such a
-        ///     file name is exceedingly unlikely in practice.
+        ///     rather than being misinterpreted as a response-file token. This escape is honored
+        ///     consistently whether the <c>@@rest</c> token appears directly on the command line
+        ///     or as a line within an expanded response file, so a value forwarded via either path
+        ///     round-trips to the same literal result. The escape and response-file grammars are
+        ///     not fully orthogonal in one narrow corner case: a response file whose own file name
+        ///     starts with <c>@</c> (e.g. a file literally named <c>@config.rsp</c>) cannot be
+        ///     referenced via this convention, since the token that would name it
+        ///     (<c>@@config.rsp</c>) is instead interpreted as the escaped literal value
+        ///     <c>@config.rsp</c>. This is considered acceptable: such a file name is exceedingly
+        ///     unlikely in practice.
         /// </remarks>
         /// <param name="args">The raw, unexpanded command-line arguments.</param>
         /// <returns>The arguments with any response-file tokens expanded in place.</returns>
@@ -554,7 +559,22 @@ internal sealed class Context : IContext, IDisposable
                             $"Unable to read response file '{responseFilePath}': {ex.Message}", ex);
                     }
 
-                    expanded.AddRange(lines.Where(line => !string.IsNullOrWhiteSpace(line)));
+                    foreach (var line in lines)
+                    {
+                        if (string.IsNullOrWhiteSpace(line))
+                        {
+                            continue;
+                        }
+
+                        // Apply the same "@@" escape used for top-level arguments above: a
+                        // response-file line beginning with "@@" is a literal value starting
+                        // with '@' (e.g. "@@mylib" written by a caller that needed to preserve a
+                        // leading '@' in an entry), not a nested response-file reference. Lines
+                        // beginning with a single '@' are still NOT expanded recursively — they
+                        // pass through unchanged, matching this method's documented single-pass
+                        // semantics — so only the escape is honored here, not further expansion.
+                        expanded.Add(line.StartsWith("@@", StringComparison.Ordinal) ? line[1..] : line);
+                    }
                 }
                 else
                 {

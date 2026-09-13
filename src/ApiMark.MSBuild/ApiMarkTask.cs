@@ -328,9 +328,9 @@ public class ApiMarkTask : Task
         // Assembly and XML doc paths are both required for .NET documentation
         args.Add(DotNetLanguage);
         args.Add("--assembly");
-        args.Add(ApiMarkAssemblyPath ?? string.Empty);
+        args.Add(EscapeLeadingAt(ApiMarkAssemblyPath ?? string.Empty));
         args.Add("--xml-doc");
-        args.Add(ApiMarkXmlDocPath ?? string.Empty);
+        args.Add(EscapeLeadingAt(ApiMarkXmlDocPath ?? string.Empty));
 
         // Emit one --exclude flag per pattern entry — each semicolon-delimited entry becomes
         // a separate repeatable --exclude argument
@@ -415,7 +415,7 @@ public class ApiMarkTask : Task
             }
 
             args.Add(flagName);
-            args.Add(entry);
+            args.Add(EscapeLeadingAt(entry));
         }
     }
 
@@ -434,8 +434,28 @@ public class ApiMarkTask : Task
         }
 
         args.Add(flagName);
-        args.Add(value!);
+        args.Add(EscapeLeadingAt(value!));
     }
+
+    /// <summary>
+    ///     Escapes <paramref name="value"/> for safe forwarding as a single <c>ApiMark.Tool</c>
+    ///     CLI argument value. <c>Context.ExpandResponseFileArguments</c> treats any top-level
+    ///     argument starting with a literal <c>@</c> as either a response-file reference (a
+    ///     single leading <c>@</c>) or an escaped literal (a leading <c>@@</c>) — a convention
+    ///     this task's own generated response file (see <see cref="PrepareArgumentsForProcess"/>)
+    ///     relies on. Because this task forwards MSBuild property/item values verbatim, a
+    ///     caller-supplied value that happens to legitimately start with <c>@</c> (for example an
+    ///     unusual path, library name, or description) must be escaped here as <c>@@rest</c> so
+    ///     it round-trips back to its original literal value on the receiving end instead of
+    ///     being misinterpreted as a response-file token.
+    /// </summary>
+    /// <param name="value">The raw value to escape.</param>
+    /// <returns>
+    ///     <paramref name="value"/> unchanged, unless it starts with <c>@</c>, in which case an
+    ///     extra leading <c>@</c> is prefixed.
+    /// </returns>
+    private static string EscapeLeadingAt(string value) =>
+        value.Length > 0 && value[0] == '@' ? "@" + value : value;
 
     /// <summary>
     ///     Appends the common output and visibility arguments to <paramref name="args"/>,
@@ -446,18 +466,10 @@ public class ApiMarkTask : Task
     private void AppendCommonArguments(List<string> args)
     {
         // Optional: output directory
-        if (!string.IsNullOrEmpty(ApiMarkOutputDir))
-        {
-            args.Add("--output");
-            args.Add(ApiMarkOutputDir!);
-        }
+        AppendOptionalArg(args, "--output", ApiMarkOutputDir);
 
         // Optional: visibility filter
-        if (!string.IsNullOrEmpty(ApiMarkVisibility))
-        {
-            args.Add("--visibility");
-            args.Add(ApiMarkVisibility!);
-        }
+        AppendOptionalArg(args, "--visibility", ApiMarkVisibility);
 
         // Optional: include obsolete members
         if (ApiMarkIncludeObsolete)
@@ -466,11 +478,7 @@ public class ApiMarkTask : Task
         }
 
         // Optional: output format
-        if (!string.IsNullOrEmpty(ApiMarkFormat))
-        {
-            args.Add("--format");
-            args.Add(ApiMarkFormat!);
-        }
+        AppendOptionalArg(args, "--format", ApiMarkFormat);
     }
 
     /// <summary>

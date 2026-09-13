@@ -79,6 +79,40 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> escapes a value that itself
+    ///     legitimately begins with a literal <c>@</c> (e.g. an unusual path or library name) as
+    ///     <c>@@rest</c>, so that <c>Context.ExpandResponseFileArguments</c> on the receiving end
+    ///     — which otherwise treats any top-level argument starting with <c>@</c> as a
+    ///     response-file token — round-trips it back to the original literal value instead of
+    ///     misinterpreting it as a response-file reference.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_DotNet_EscapesValuesWithLiteralLeadingAt()
+    {
+        // Arrange: assembly path, xml-doc path, and an --exclude entry all start with a literal '@'
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".csproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "@weird/api.dll",
+            ApiMarkXmlDocPath = "@weird/api.xml",
+            ApiMarkExclude = "@Internal*",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet");
+
+        // Assert: each literal-leading-'@' value is escaped with an extra '@' so it is not
+        // misinterpreted downstream as a response-file token
+        Assert.Contains("@@weird/api.dll", args);
+        Assert.Contains("@@weird/api.xml", args);
+        Assert.Contains("@@Internal*", args);
+        Assert.DoesNotContain("@weird/api.dll", args);
+        Assert.DoesNotContain("@weird/api.xml", args);
+        Assert.DoesNotContain("@Internal*", args);
+    }
+
+    /// <summary>
     ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> emits a separate
     ///     <c>--includes</c> flag for each path in <see cref="ApiMarkTask.ApiMarkIncludePaths"/>
     ///     when the property is semicolon-separated, rather than joining them into a single
