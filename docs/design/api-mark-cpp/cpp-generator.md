@@ -168,6 +168,8 @@ design document for the scan algorithm.
 - **GlobFileCollector** — performs gitignore-style header selection.
 - **ClangAstParser** — parses the selected headers into `CppCompilationResult`.
 - **CppEmitter** — returned by `Parse` to emit Markdown output.
+- **PathHelpers** — `NormalizeCaseDirectory` resolves each `PublicIncludeRoots` entry to
+  its actual on-disk casing before existence checks, glob patterns, and clang invocation.
 - **CppTypeLinkResolver** — constructed from the flattened known-type map and
   passed into `CppEmitter`.
 - **DocumentationCoverageChecker** — performs the actual documentation-coverage

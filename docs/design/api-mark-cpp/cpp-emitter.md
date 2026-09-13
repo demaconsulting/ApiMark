@@ -170,6 +170,8 @@ by `WriteFunctionContent`.
 - **CppTypeLinkResolver** — linkifies table-cell types and tracks external types.
 - **CppAstModel** — consumes `CppClass`, `CppFunction`,
   `CppField`, `CppEnum`, and `CppTypeAlias` records.
+- **PathHelpers** — `NormalizeCase` and `NormalizeCaseDirectory` resolve `GetIncludePath`'s
+  source file and public include roots to their actual on-disk casing.
 
 ### Callers
 

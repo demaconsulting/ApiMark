@@ -151,6 +151,8 @@ while walking the JSON AST.
   and additional compiler arguments.
 - **CppAstModel** — destination record model for parsed output.
 - **System.Text.Json** — used for JSON parsing and traversal.
+- **PathHelpers** — `NormalizeCase` and `NormalizeCaseDirectory` resolve source files and
+  public include roots to their actual on-disk casing for the ownership check.
 
 ### Callers
 
