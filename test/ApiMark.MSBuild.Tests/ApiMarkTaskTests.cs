@@ -1131,6 +1131,50 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
+    ///     Regression test proving that <c>PrepareArgumentsForProcess</c> does not misinterpret a
+    ///     caller-supplied option *value* that happens to equal the literal string
+    ///     <c>--reference-paths</c> as the flag itself. For the <c>cpp</c> language,
+    ///     <see cref="ApiMarkTask.ApiMarkLibraryDescription"/> is forwarded verbatim as the value
+    ///     of <c>--library-description</c>; if a project sets that property to the literal text
+    ///     <c>--reference-paths</c>, a naive token scan would treat it as the flag and incorrectly
+    ///     consume the next genuine flag (<c>--defines</c>) as if it were a reference path,
+    ///     corrupting both the response file and the remaining argument list.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Execute_LibraryDescriptionEqualsReferencePathsLiteral_NotMisinterpretedAsFlag()
+    {
+        // Arrange: no ApiMarkReferencePaths at all (cpp language does not support it), but the
+        // library description happens to collide with the --reference-paths flag literal, and is
+        // immediately followed by a genuine flag (--defines) that must survive intact.
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new RecordingApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = typeof(ApiMarkTaskTests).Assembly.Location,
+            ApiMarkIncludePaths = "include",
+            ApiMarkLibraryDescription = "--reference-paths",
+            ApiMarkDefines = "FOO",
+        };
+
+        // Act
+        var result = task.Execute();
+
+        // Assert: no response file is created (there were no real --reference-paths pairs), the
+        // colliding literal value and the genuine --defines flag/value both survive unchanged
+        // and in their original relative order.
+        Assert.True(result);
+        Assert.NotNull(task.LastToolArgs);
+        Assert.DoesNotContain(task.LastToolArgs!, a => a.StartsWith('@'));
+        var libraryDescriptionIndex = task.LastToolArgs!.ToList().IndexOf("--library-description");
+        Assert.True(libraryDescriptionIndex >= 0);
+        Assert.Equal("--reference-paths", task.LastToolArgs![libraryDescriptionIndex + 1]);
+        Assert.Contains("--defines", task.LastToolArgs!);
+        var definesIndex = task.LastToolArgs!.ToList().IndexOf("--defines");
+        Assert.Equal("FOO", task.LastToolArgs![definesIndex + 1]);
+    }
+
+    /// <summary>
     ///     Validates that when the overridden <c>RunToolProcess</c> itself throws an
     ///     <see cref="IOException"/> (simulating a failure starting the child process or handling
     ///     its redirected streams, as opposed to a response-file creation failure),
