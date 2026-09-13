@@ -111,10 +111,13 @@ internal sealed class CppEmitter : IApiEmitter
         return new string(chars);
     }
 
-    /// <summary>Directory-entry cache shared across all <see cref="GetIncludePath"/> calls for the
-    /// lifetime of this emitter, since <see cref="CppGeneratorOptions.PublicIncludeRoots"/> and the
-    /// directories under them do not change mid-generation-run.</summary>
+    /// <summary>
+    ///     Directory-entry cache shared across all <see cref="GetIncludePath"/> calls for the
+    ///     lifetime of this emitter, since <see cref="CppGeneratorOptions.PublicIncludeRoots"/> and
+    ///     the directories under them do not change mid-generation-run.
+    /// </summary>
     private readonly Dictionary<string, string[]> _includeRootDirectoryEntryCache = new(PathHelpers.Comparer);
+
 
     /// <summary>
     ///     Derives the canonical <c>#include</c> path for a declaration from its source file,
