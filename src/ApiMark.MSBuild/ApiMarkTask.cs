@@ -657,15 +657,23 @@ public class ApiMarkTask : Task
     private bool RunToolProcessWithResponseFile(string dotnetExe, IReadOnlyList<string> toolArgs)
     {
         string? responseFilePath = null;
+        IReadOnlyList<string> transformedArgs;
         try
         {
-            var transformedArgs = PrepareArgumentsForProcess(toolArgs, out responseFilePath);
-            return RunToolProcess(dotnetExe, transformedArgs);
+            transformedArgs = PrepareArgumentsForProcess(toolArgs, out responseFilePath);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            // Scoped to response-file creation only (not the RunToolProcess call below) so a
+            // failure spawning/reading the child process is never misreported as a response-file
+            // creation failure.
             Log.LogError($"ApiMark: unable to create the reference-paths response file: {ex.Message}");
             return false;
+        }
+
+        try
+        {
+            return RunToolProcess(dotnetExe, transformedArgs);
         }
         finally
         {
@@ -740,10 +748,58 @@ public class ApiMarkTask : Task
         // file up front and returns a short, predictable 8.3-style name) avoids both the small
         // predictable-name/pre-existing-file race that static analysis flags and any risk of
         // collision between concurrent builds writing their own response files at the same time.
-        responseFilePath = Path.Join(Path.GetTempPath(), $"apimark_reference_paths_{Guid.NewGuid():N}.rsp");
-        File.WriteAllLines(responseFilePath, responseFileLines);
+        responseFilePath = CreateResponseFile(responseFileLines);
         remainingArgs.Add($"@{responseFilePath}");
         return remainingArgs;
+    }
+
+    /// <summary>
+    ///     Atomically creates a new, uniquely-named temporary response file containing
+    ///     <paramref name="lines"/> (one per line) and returns its path.
+    /// </summary>
+    /// <remarks>
+    ///     Uses <see cref="FileMode.CreateNew"/> rather than <see cref="File.WriteAllLines(string, IEnumerable{string})"/>
+    ///     (which opens with <see cref="FileMode.Create"/>, silently truncating or writing through
+    ///     any pre-existing file or symlink at the target path). <see cref="FileMode.CreateNew"/>
+    ///     fails outright if anything already occupies the chosen path, closing the TOCTOU window
+    ///     between generating the random file name and opening it — a local process that somehow
+    ///     pre-created (or symlinked) that exact path can no longer cause the response-file
+    ///     contents to be written to an unintended location. A GUID collision against a
+    ///     concurrently-running build is astronomically unlikely but handled anyway by retrying
+    ///     with a freshly generated name, bounded to a small number of attempts so a persistent,
+    ///     unrelated failure (e.g. a full disk or a permissions problem) still surfaces as an
+    ///     exception rather than looping.
+    /// </remarks>
+    /// <param name="lines">The response-file lines to write, one argument per line.</param>
+    /// <returns>The full path of the newly created response file.</returns>
+    private static string CreateResponseFile(IEnumerable<string> lines)
+    {
+        const int maxAttempts = 5;
+        var attempt = 0;
+        while (true)
+        {
+            attempt++;
+            var path = Path.Join(Path.GetTempPath(), $"apimark_reference_paths_{Guid.NewGuid():N}.rsp");
+            try
+            {
+                using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write);
+                using var writer = new StreamWriter(stream);
+                foreach (var line in lines)
+                {
+                    writer.WriteLine(line);
+                }
+
+                return path;
+            }
+            catch (IOException) when (attempt < maxAttempts && File.Exists(path))
+            {
+                // The chosen path was already occupied (an exceedingly unlikely GUID collision,
+                // or a pre-existing file/symlink) — retry with a freshly generated name rather
+                // than failing outright. Any other IOException/UnauthorizedAccessException (e.g.
+                // a full temp volume or a permissions failure) propagates to the caller, which
+                // already handles it via RunToolProcessWithResponseFile's catch block.
+            }
+        }
     }
 
     /// <summary>

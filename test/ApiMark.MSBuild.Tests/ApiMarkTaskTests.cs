@@ -1131,6 +1131,43 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
+    ///     Validates that when the overridden <c>RunToolProcess</c> itself throws an
+    ///     <see cref="IOException"/> (simulating a failure starting the child process or handling
+    ///     its redirected streams, as opposed to a response-file creation failure),
+    ///     <see cref="ApiMarkTask.RunToolProcessWithResponseFile"/> does not catch and misreport it
+    ///     as "unable to create the reference-paths response file" — the exception propagates
+    ///     unhandled, matching the pre-existing behavior for <c>RunToolProcess</c> failures that
+    ///     predates the response-file feature — while the response file is still deleted via the
+    ///     surrounding <c>finally</c> block.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Execute_RunToolProcessThrowsIOException_PropagatesAndStillDeletesResponseFile()
+    {
+        // Arrange: force a --reference-paths response file to be created, then make the
+        // overridden RunToolProcess throw an IOException unrelated to response-file creation
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new ThrowingRunToolProcessApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".csproj",
+            ToolDllPath = typeof(ApiMarkTaskTests).Assembly.Location,
+            ApiMarkAssemblyPath = "test.dll",
+            ApiMarkXmlDocPath = "test.xml",
+            ApiMarkReferencePaths = "/refs/One.dll",
+        };
+
+        // Act / Assert: the IOException from RunToolProcess propagates unhandled (it is not
+        // caught and reported as a response-file creation failure)
+        var ex = Assert.Throws<IOException>(() => task.Execute());
+        Assert.Equal("simulated stream failure", ex.Message);
+
+        // Assert: the response file that RunToolProcess observed no longer exists — the
+        // surrounding finally block still deleted it even though RunToolProcess threw
+        Assert.NotNull(task.ObservedResponseFilePath);
+        Assert.False(File.Exists(task.ObservedResponseFilePath), "Response file must be deleted even when RunToolProcess throws.");
+    }
+
+    /// <summary>
     ///     Subclass of <see cref="ApiMarkTask"/> that overrides <c>RunToolProcess</c> to capture
     ///     both the observed argument list and the response file's content (read before the base
     ///     <c>RunToolProcessWithResponseFile</c> deletes it in its <c>finally</c> block).
@@ -1157,6 +1194,27 @@ public class ApiMarkTaskTests
             }
 
             return true;
+        }
+    }
+
+    /// <summary>
+    ///     Subclass of <see cref="ApiMarkTask"/> that overrides <c>RunToolProcess</c> to throw an
+    ///     <see cref="IOException"/> unrelated to response-file creation, simulating a failure
+    ///     starting the child process or handling its redirected streams.
+    /// </summary>
+    private sealed class ThrowingRunToolProcessApiMarkTask : ApiMarkTask
+    {
+        /// <summary>Gets the response-file path observed by the overridden <c>RunToolProcess</c> call, if any.</summary>
+        public string? ObservedResponseFilePath { get; private set; }
+
+        /// <inheritdoc/>
+        protected override string? ResolveDotNetExe() => "dummy-dotnet";
+
+        /// <inheritdoc/>
+        protected override bool RunToolProcess(string dotnetExe, IReadOnlyList<string> toolArgs)
+        {
+            ObservedResponseFilePath = toolArgs.FirstOrDefault(a => a.StartsWith('@'))?[1..];
+            throw new IOException("simulated stream failure");
         }
     }
 

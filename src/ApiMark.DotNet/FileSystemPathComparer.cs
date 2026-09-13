@@ -89,13 +89,52 @@ internal static class FileSystemPathComparer
         var remainder = path[root.Length..];
         var segments = remainder.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries);
 
-        var current = root;
+        var current = CanonicalizeRoot(root);
         foreach (var segment in segments)
         {
             current = Path.Combine(current, FindActualEntryName(current, segment, directoryEntryCache) ?? segment);
         }
 
         return current;
+    }
+
+    /// <summary>
+    ///     Canonicalizes the drive-letter or UNC root prefix of a path so that two differently-cased
+    ///     spellings of the same root always normalize to an identical result.
+    /// </summary>
+    /// <remarks>
+    ///     Unlike every subsequent path segment, a root prefix is never a directory entry that can
+    ///     be looked up and resolved to a "real" on-disk casing via <see cref="FindActualEntryName"/>
+    ///     — <see cref="NormalizeCase"/> preserved it verbatim, which meant two spellings of the
+    ///     same root (e.g. <c>C:\</c> vs <c>c:\</c>, or two differently-cased UNC server/share
+    ///     names) normalized to two distinct strings under the <see cref="Comparer"/>'s Ordinal
+    ///     comparison, breaking the documented at-most-once/deduplication guarantee. Windows drive
+    ///     letters carry no meaningful case identity at all, so they are canonicalized to uppercase
+    ///     (the conventional spelling). A UNC server/share root has no locally-queryable "real"
+    ///     casing either without a network round trip, so it is instead canonicalized to lowercase:
+    ///     a stable, deterministic form under which two spellings of the same root always match,
+    ///     which is all the deduplication guarantee actually requires. Roots that are neither
+    ///     (e.g. Unix's single-character <c>/</c>) are returned unchanged.
+    /// </remarks>
+    /// <param name="root">The root prefix returned by <see cref="Path.GetPathRoot(string)"/>.</param>
+    /// <returns>The canonicalized root prefix.</returns>
+    private static string CanonicalizeRoot(string root)
+    {
+        // Drive-letter root: "C:", "C:\", or "C:/".
+        if (root.Length is 2 or 3 && char.IsLetter(root[0]) && root[1] == ':')
+        {
+            return char.ToUpperInvariant(root[0]) + root[1..];
+        }
+
+        // UNC root: "\\server\share\" (or the forward-slash-separator equivalent).
+        if (root.Length >= 2
+            && (root[0] == Path.DirectorySeparatorChar || root[0] == Path.AltDirectorySeparatorChar)
+            && (root[1] == Path.DirectorySeparatorChar || root[1] == Path.AltDirectorySeparatorChar))
+        {
+            return root.ToLowerInvariant();
+        }
+
+        return root;
     }
 
     /// <summary>

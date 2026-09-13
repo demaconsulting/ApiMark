@@ -48,6 +48,47 @@ public class FileSystemPathComparerTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="FileSystemPathComparer.NormalizeCase"/> canonicalizes a
+    ///     Windows drive-letter root prefix so that two differently-cased spellings of the same
+    ///     drive (e.g. <c>c:\...</c> and <c>C:\...</c>) normalize to an identical result — closing
+    ///     a gap where the root prefix, unlike every subsequent segment, cannot be resolved via a
+    ///     directory-entry lookup and was previously preserved verbatim, breaking the
+    ///     documented at-most-once/deduplication guarantee for two spellings of the same root.
+    /// </summary>
+    [Fact]
+    public void FileSystemPathComparer_NormalizeCase_DifferentlyCasedDriveLetterRoot_ProducesIdenticalResult()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var actualFilePath = Path.Combine(root, "Foo.dll");
+            File.WriteAllBytes(actualFilePath, []);
+
+            // This scenario only applies on platforms with a drive-letter root (Windows); on
+            // other platforms Path.GetPathRoot returns "/" and there is no drive letter to vary.
+            var rootPrefix = Path.GetPathRoot(actualFilePath) ?? string.Empty;
+            if (rootPrefix.Length is not (2 or 3) || rootPrefix[1] != ':')
+            {
+                return;
+            }
+
+            var lowerCasedInput = char.ToLowerInvariant(actualFilePath[0]) + actualFilePath[1..];
+            var upperCasedInput = char.ToUpperInvariant(actualFilePath[0]) + actualFilePath[1..];
+
+            var normalizedLower = FileSystemPathComparer.NormalizeCase(lowerCasedInput);
+            var normalizedUpper = FileSystemPathComparer.NormalizeCase(upperCasedInput);
+
+            // Assert: both spellings of the drive letter normalize to the exact same string, so
+            // downstream Ordinal comparison correctly treats them as the same file.
+            Assert.Equal(normalizedUpper, normalizedLower, StringComparer.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
     ///     Validates that two differently-cased input paths naming the SAME real, existing file
     ///     normalize to an identical result, proving they can be safely compared with a
     ///     case-sensitive comparer after normalization.

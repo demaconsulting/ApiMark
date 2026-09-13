@@ -68,6 +68,7 @@ words:
   - MYLIB
   - nameof
   - NTFS
+  - TOCTOU
   - testbenches
   - testlib
   - NDEBUG
