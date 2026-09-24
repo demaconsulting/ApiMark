@@ -32,7 +32,8 @@ on non-Windows environments.
   `.csproj` when `ApiMarkLanguage` is not explicitly set.
 - `ApiMarkOutputDir` and `ApiMarkVisibility` are forwarded correctly to the tool.
 - `ApiMarkFormat` is forwarded as the `--format` argument when set; it is omitted when not set.
-- For C++ projects, `ApiMarkLibraryDescription` is forwarded as `--library-description` when set.
+- For .NET and C++ projects, `ApiMarkLibraryDescription` is forwarded as
+  `--library-description` when set.
 - For C++ projects, `ApiMarkClangPath` is forwarded as `--clang-path` when set.
 - `ApiMarkIncludeObsolete` set to `true` adds the `--include-obsolete` flag to the spawned tool
   command.
@@ -147,9 +148,11 @@ has a value, and that the argument is omitted entirely when `ApiMarkFormat` is n
 scenarios are tested by `ApiMarkTask_Format_ForwardedToToolAsFormatArgument` and
 `ApiMarkTask_Format_NotForwarded_WhenNotSet`.
 
-**C++ library description is forwarded to the tool**: Verifies that the `ApiMarkLibraryDescription`
-property is passed to the spawned tool as the `--library-description` argument for C++ builds.
-This scenario is tested by `ApiMarkTask_Cpp_LibraryDescription_ForwardedToTool`.
+**Library description is forwarded to the tool for .NET and C++**: Verifies that the
+`ApiMarkLibraryDescription` property is passed to the spawned tool as the
+`--library-description` argument for both `dotnet` and `cpp` builds. These scenarios are
+tested by `ApiMarkTask_Cpp_LibraryDescription_ForwardedToTool` and
+`ApiMarkTask_DotNet_LibraryDescription_ForwardedToTool`.
 
 **C++ clang path is forwarded to the tool**: Verifies that the `ApiMarkClangPath` property is
 passed to the spawned tool as the `--clang-path` argument for C++ builds when set. This scenario

@@ -122,8 +122,10 @@ top-level heading in `api.md`. The `.targets` file defaults this to
 `$(MSBuildProjectName)` when not explicitly set.
 
 **ApiMarkTask.ApiMarkLibraryDescription**: `string` — MSBuild property
-`$(ApiMarkLibraryDescription)`; for the `cpp` language, an optional description
-emitted as an introductory paragraph in `api.md`. Omitted when empty or not set.
+`$(ApiMarkLibraryDescription)`; for both the `dotnet` and `cpp` languages, an
+optional description emitted as an introductory paragraph in `api.md`. Omitted
+when empty or not set; for `dotnet`, an explicit value takes precedence over
+the assembly's compiled `AssemblyDescriptionAttribute`.
 
 **ApiMarkTask.ApiMarkDefines**: `string` — MSBuild property
 `$(ApiMarkDefines)`; for the `cpp` language, a semicolon-separated list of
@@ -204,7 +206,10 @@ child process per item using metadata overrides for `OutputDir`, `Format`, and
 according to language-specific mapping (for `dotnet`, append `--assembly` and
 `--xml-doc`, then split `ApiMarkExclude` on `;` and emit one `--exclude` flag
 per non-empty trimmed entry, then split `ApiMarkReferencePaths` on `;` and emit
-one `--reference-paths` flag per non-empty entry, then append `--enforce-docs`
+one `--reference-paths` flag per non-empty entry, then if
+`ApiMarkLibraryDescription` is set, append `--library-description` (shared with
+the `cpp` path below; an explicit value overrides the assembly's compiled
+`AssemblyDescriptionAttribute`), then append `--enforce-docs`
 `ApiMarkEnforceDocs` when non-empty and `--enforce-docs-severity`
 `ApiMarkEnforceDocsSeverity` when non-empty (each flag independently omitted
 when its property is unset); for `cpp`, split `ApiMarkIncludePaths` on

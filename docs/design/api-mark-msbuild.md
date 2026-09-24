@@ -56,10 +56,12 @@ task.
     `ApiMarkReferencePaths` (semicolon-delimited referenced-assembly DLL paths
     for cross-assembly `<inheritdoc/>` resolution, forwarded as repeated
     `--reference-paths` flags; auto-populated from `@(ReferencePath)` when not
-    set; optional)
+    set; optional), `ApiMarkLibraryDescription` (optional; an explicit value
+    overrides the assembly's compiled `AssemblyDescriptionAttribute`)
   - C++: `ApiMarkIncludePaths` (semicolon-delimited `-I` include roots),
     `ApiMarkLibraryName` (defaults to `$(MSBuildProjectName)` via `.targets`),
-    `ApiMarkLibraryDescription` (optional), `ApiMarkApiHeaders`
+    `ApiMarkLibraryDescription` (optional; shared with the .NET path above),
+    `ApiMarkApiHeaders`
     (semicolon-delimited ordered glob/exclusion patterns; optional),
     `ApiMarkDefines` (semicolon-delimited preprocessor defines; semicolons
     converted to commas for the tool argument),
