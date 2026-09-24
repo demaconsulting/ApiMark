@@ -33,8 +33,9 @@ up after itself. No other external files, services, or configuration are require
 - `--reference-paths` accepts one referenced assembly DLL path per flag; repeated flags accumulate paths into `ReferencePaths` in order.
 - `--api-headers` patterns are accumulated in order; `!`-prefixed exclusion patterns are forwarded verbatim.
 - `--source` patterns are accumulated in order; `!`-prefixed exclusion patterns are forwarded verbatim.
-- C++ named options (`--library-name`, `--library-description`, `--defines`, `--cpp-standard`) set their
-  corresponding properties.
+- C++ named options (`--library-name`, `--defines`, `--cpp-standard`) set their
+  corresponding properties. `--library-description` sets `LibraryDescription` and is shared
+  by all three language subcommands (dotnet, C++, and VHDL), not C++-specific.
 - `--clang-path` sets `ClangPath` to the supplied path.
 - `--format` accepts `gradual` and `single-file`; defaults to `GradualDisclosure`; invalid values throw
   `ArgumentException`.

@@ -68,13 +68,16 @@ sections:
               - id: ApiMarkTool-Cli-Context-ParseCppNamedOptions
                 title: Context shall parse the named options --library-name, --library-description,
                   --defines, and --cpp-standard into the corresponding Context properties,
-                  where --library-name and --library-description are shared by the
-                  C++ and VHDL subcommands.
+                  where --library-name is shared by the C++ and VHDL subcommands and
+                  --library-description is shared by all three (dotnet, C++, and VHDL)
+                  subcommands.
                 justification: |
-                  C++ and VHDL documentation generation share library metadata options
-                  (--library-name and --library-description) while --defines and --cpp-standard
-                  are C++ specific. Grouping these as a unit gives a single traceable requirement
-                  for the cpp-specific and shared scalar option set.
+                  C++ and VHDL documentation generation share the --library-name option, while
+                  --library-description is shared across all three language subcommands
+                  (dotnet, C++, and VHDL) so any project can supply a project-level api.md
+                  introduction paragraph regardless of language. --defines and --cpp-standard
+                  remain C++ specific. Grouping these as a unit gives a single traceable
+                  requirement for the cpp-specific and shared scalar option set.
                 children:
                   - ApiMarkTool-Cli-Context-ParseLibraryName
                   - ApiMarkTool-Cli-Context-ParseLibraryDescription
