@@ -80,6 +80,7 @@ public class ProgramTests
             Assert.True(File.Exists(apiMdPath), "Expected api.md in output directory");
             var apiMdContent = File.ReadAllText(apiMdPath);
             Assert.Contains(suppliedDescription, apiMdContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("Test fixture assemblies", apiMdContent, StringComparison.Ordinal);
         }
         finally
         {
