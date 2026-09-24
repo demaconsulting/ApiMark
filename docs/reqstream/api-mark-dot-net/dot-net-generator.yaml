@@ -196,3 +196,18 @@ sections:
               remaining configured reference path in order.
             tests:
               - DotNetGenerator_Parse_ExternalBaseTwoHops_ResolvesInheritedDocumentationAcrossBothHops
+          - id: ApiMarkDotNet-DotNetGenerator-AcceptLibraryDescriptionOption
+            title: DotNetGenerator shall accept an optional LibraryDescription option
+              and propagate it unchanged into the parsed model's options for use by
+              the emitters.
+            justification: |
+              Teams documenting a .NET assembly need a way to supply an explicit library
+              description for the introductory paragraph of the generated api.md, in the
+              same way this is already supported for the cpp and vhdl backends. The
+              generator itself only needs to thread the option through to the parsed
+              model unchanged; the emitters (DotNetEmitterSingleFile and
+              DotNetEmitterGradualDisclosure) are responsible for the actual
+              override-with-fallback precedence against the compiled
+              AssemblyDescriptionAttribute.
+            tests:
+              - DotNetGenerator_Parse_WithLibraryDescription_PropagatesToModelOptions

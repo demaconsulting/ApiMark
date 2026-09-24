@@ -17,6 +17,23 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_ValidModel_ApiIndexContainsAssemblyNameHeading
               - DotNetGenerator_OutputFiles_FollowNamingConvention
               - DotNetGenerator_Generate_ApiMd_ListsAllNamespacesWithTypeCount
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitAssemblyDescription
+            title: DotNetEmitterGradualDisclosure shall emit a paragraph following the
+              assembly-level heading on the api.md index page containing an
+              explicitly-supplied LibraryDescription option when present, falling back
+              to the compiled AssemblyDescriptionAttribute value when LibraryDescription
+              is null, empty, or consists only of whitespace.
+            justification: |
+              The assembly description provides high-level context for the documented library
+              and is immediately discoverable on the api.md index page without navigation. An
+              explicitly-supplied LibraryDescription option (surfaced via the
+              --library-description CLI option / ApiMarkLibraryDescription MSBuild property)
+              lets a team override or supply a description independent of the compiled
+              AssemblyDescriptionAttribute, consistent with the cpp, vhdl, and
+              DotNetEmitterSingleFile backends.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_AssemblyWithDescription_EmitsDescriptionParagraph
+              - DotNetEmitterGradualDisclosure_Emit_LibraryDescriptionSupplied_OverridesAssemblyDescription
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitNamespacePages
             title: DotNetEmitterGradualDisclosure shall emit a separate Markdown page
               for each namespace in the assembly.

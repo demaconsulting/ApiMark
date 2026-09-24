@@ -80,6 +80,18 @@ entry's own XML documentation file is consulted, via `ExternalXmlDocResolver`,
 as a fallback when an `<inheritdoc />` element cannot be resolved from the
 assembly currently being documented.
 
+**DotNetGeneratorOptions.LibraryDescription**: `string?` — optional description
+for the library, emitted as an introductory paragraph in `api.md`. Defaults to
+`null` (no override). When set to a non-null, non-empty, non-whitespace-only
+value, it takes precedence over the assembly's compiled
+`AssemblyDescriptionAttribute`; the attribute is used as a fallback only when
+this option is `null`, empty, or consists only of whitespace. `Parse` threads
+this value unchanged into `DotNetAstModel.Options`; the actual
+override-with-fallback resolution is performed by
+`DotNetEmitter.GetAssemblyDescription`, called from both
+`DotNetEmitterSingleFile` and `DotNetEmitterGradualDisclosure` (see their
+respective designs).
+
 **ExternalTypeInfo**: See `TypeLinkResolver` design for the `ExternalTypeInfo` data record.
 
 **DotNetAstModel** (internal sealed class): Holds all pre-parsed assembly data

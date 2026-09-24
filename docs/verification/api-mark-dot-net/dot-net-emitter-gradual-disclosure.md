@@ -18,6 +18,10 @@ service or network dependency is needed.
 
 - All `DotNetEmitterGradualDisclosure` tests pass with zero failures.
 - The api index page is created with the expected assembly name heading.
+- When the assembly carries an `AssemblyDescriptionAttribute`, its value is emitted as a
+  paragraph on the api index page after the assembly-level heading.
+- When an explicit `LibraryDescription` option is supplied, its value is emitted as the
+  paragraph instead of the compiled `AssemblyDescriptionAttribute` value.
 - A namespace summary page is created for each namespace in the fixture assembly.
 - A type page is created for each visible type in each namespace.
 - At least one member detail page is created for a visible member of a visible type.
@@ -39,6 +43,18 @@ is emitted as the first page in the output tree. This scenario is tested by
 **Api index heading contains the assembly name**: Verifies that the api index
 page includes a heading containing the fixture assembly name. This scenario is
 tested by `DotNetEmitterGradualDisclosure_Emit_ValidModel_ApiIndexContainsAssemblyNameHeading`.
+
+**Assembly description paragraph follows assembly heading on the api index page**:
+Verifies that when the assembly carries an `AssemblyDescriptionAttribute`, its
+value is emitted as a paragraph immediately after the assembly-level heading on
+the api index page. This scenario is tested by
+`DotNetEmitterGradualDisclosure_Emit_AssemblyWithDescription_EmitsDescriptionParagraph`.
+
+**Explicit LibraryDescription overrides the compiled attribute**: Verifies that
+when `DotNetGeneratorOptions.LibraryDescription` is supplied, its value is emitted
+as the introductory paragraph on the api index page instead of the assembly's
+compiled `AssemblyDescriptionAttribute` value. This scenario is tested by
+`DotNetEmitterGradualDisclosure_Emit_LibraryDescriptionSupplied_OverridesAssemblyDescription`.
 
 **Namespace page is created for the fixture namespace**: Verifies that a writer
 whose key contains the fixture namespace name is created. This scenario is tested

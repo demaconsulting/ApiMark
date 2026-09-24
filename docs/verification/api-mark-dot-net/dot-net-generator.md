@@ -64,6 +64,8 @@ network dependency, or privileged configuration is needed.
 - When `ReferencePaths` is left empty (the default), `Parse` and `Emit` complete without
   throwing and cross-assembly `<inheritdoc />` content remains unresolved (absent), preserving
   prior behavior.
+- When `LibraryDescription` is set on `DotNetGeneratorOptions`, `Parse` propagates it
+  unchanged into the parsed model's `Options.LibraryDescription`.
 
 ### Test Scenarios
 
@@ -312,3 +314,10 @@ assembly, to find real documentation text. This proves `BuildInheritanceChain` r
 into every resolvable external base type/interface rather than stopping after the first
 external hop. This scenario is tested by
 `DotNetGenerator_Parse_ExternalBaseTwoHops_ResolvesInheritedDocumentationAcrossBothHops`.
+
+**LibraryDescription option propagates to parsed model options**: Verifies that when
+`DotNetGeneratorOptions.LibraryDescription` is set, `Parse` threads the supplied value
+unchanged into the resulting model's `Options.LibraryDescription`, confirming the
+generator correctly carries this option through to the emitters that implement the
+actual override-with-fallback precedence. This scenario is tested by
+`DotNetGenerator_Parse_WithLibraryDescription_PropagatesToModelOptions`.

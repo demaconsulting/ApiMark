@@ -30,8 +30,13 @@ into that writer at heading levels `HeadingDepth` (assembly title),
 `HeadingDepth+1` (namespace), `HeadingDepth+2` (type), and `HeadingDepth+3`
 (individual members).
 
-- If the assembly carries an `AssemblyDescriptionAttribute`, its value is emitted
-  as a paragraph immediately after the assembly-level H{depth} heading.
+- The introductory description paragraph is resolved via
+  `DotNetEmitter.GetAssemblyDescription`, emitted immediately after the
+  assembly-level H{depth} heading: an explicitly-supplied
+  `DotNetGeneratorOptions.LibraryDescription` option takes precedence when
+  present (non-null, non-empty, non-whitespace-only); otherwise the assembly's
+  compiled `AssemblyDescriptionAttribute` value is emitted as a fallback when
+  present.
 - If a namespace has documentation supplied via the `NamespaceDoc` convention, its
   summary is emitted as a paragraph below the H{depth+1} namespace heading, followed
   by the remarks paragraph (when present) and the structured example parts (code parts

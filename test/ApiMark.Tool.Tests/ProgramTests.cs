@@ -48,10 +48,50 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Validates that invoking the <c>dotnet</c> subcommand with a repeatable
-    ///     <c>--exclude</c> flag exits with code 0 and omits the matching type's page
-    ///     from the generated output.
+    ///     Regression test proving that the <c>dotnet</c> subcommand now honors
+    ///     <c>--library-description</c>: the supplied text (not the compiled
+    ///     <c>AssemblyDescriptionAttribute</c> description) must appear in the generated
+    ///     <c>api.md</c>. Previously the <c>dotnet</c> backend silently ignored this option.
     /// </summary>
+    [Fact]
+    public void Program_Main_DotNetWithLibraryDescriptionFlag_UsesSuppliedDescriptionInOutput()
+    {
+        // Arrange: locate the fixture assembly and its XML doc using runtime type resolution
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        const string suppliedDescription = "A fast geometry library.";
+
+        try
+        {
+            // Act
+            var exitCode = Program.Main([
+                "dotnet",
+                "--assembly", assemblyPath,
+                "--xml-doc", xmlDocPath,
+                "--output", outputDir,
+                "--library-description", suppliedDescription,
+            ]);
+
+            // Assert: tool exits successfully and api.md contains the supplied description
+            // rather than the compiled assembly's AssemblyDescriptionAttribute text
+            Assert.Equal(0, exitCode);
+            var apiMdPath = Path.Join(outputDir, "api.md");
+            Assert.True(File.Exists(apiMdPath), "Expected api.md in output directory");
+            var apiMdContent = File.ReadAllText(apiMdPath);
+            Assert.Contains(suppliedDescription, apiMdContent, StringComparison.Ordinal);
+        }
+        finally
+        {
+            // Clean up the temporary output directory
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+
     [Fact]
     public void Program_Main_DotNetWithExcludeFlag_ExcludesMatchingTypeFromOutput()
     {

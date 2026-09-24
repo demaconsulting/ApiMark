@@ -143,6 +143,53 @@ public class DotNetEmitterSingleFileTests
         Assert.Contains(paragraphs, p => p.Text.Contains("fixture", StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    ///     Validates that an explicitly-supplied <see cref="DotNetGeneratorOptions.LibraryDescription"/>
+    ///     takes precedence over the assembly's compiled AssemblyDescriptionAttribute.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_LibraryDescriptionSupplied_OverridesAssemblyDescription()
+    {
+        // Arrange: the fixture assembly carries a Description property in its csproj, but an
+        // explicit LibraryDescription option should win
+        var options = BuildOptions();
+        options.LibraryDescription = "TEST OVERRIDE";
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(options).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterSingleFile(emitter, emitter.Model).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: the overriding paragraph is emitted instead of the compiled attribute value
+        var apiWriter = factory.GetWriter("", "api");
+        var paragraphs = apiWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Contains("TEST OVERRIDE", StringComparison.Ordinal));
+        Assert.DoesNotContain(paragraphs, p => p.Text.Contains("Test fixture assemblies", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a whitespace-only <see cref="DotNetGeneratorOptions.LibraryDescription"/>
+    ///     is treated as "not supplied" and falls back to the compiled AssemblyDescriptionAttribute,
+    ///     matching the documented <c>string.IsNullOrWhiteSpace</c> fallback condition.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_LibraryDescriptionWhitespace_FallsBackToAssemblyDescription()
+    {
+        // Arrange: a whitespace-only LibraryDescription must not be treated as supplied
+        var options = BuildOptions();
+        options.LibraryDescription = "   ";
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(options).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterSingleFile(emitter, emitter.Model).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: the compiled attribute value is emitted instead of the whitespace option
+        var apiWriter = factory.GetWriter("", "api");
+        var paragraphs = apiWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Contains("fixture", StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>Validates that the NamespaceDoc XML summary is emitted as a paragraph following the namespace heading.</summary>
     [Fact]
     public void DotNetEmitterSingleFile_Emit_NamespaceWithDoc_EmitsNamespaceSummary()

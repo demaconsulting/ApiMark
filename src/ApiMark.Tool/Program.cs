@@ -367,6 +367,10 @@ internal static class Program
                 ExcludePatterns = context.Excludes,
                 EnforceDocsVisibility = enforceDocsVisibility,
                 ReferencePaths = context.ReferencePaths,
+
+                // Restores parity with cpp/vhdl: the dotnet backend previously silently
+                // ignored --library-description / ApiMarkLibraryDescription.
+                LibraryDescription = context.LibraryDescription,
             }),
 
             // Construct a CppGenerator from the cpp-specific options; cast visibility via its
@@ -514,6 +518,7 @@ internal static class Program
         context.WriteLine("  --reference-paths <path>   Path to a referenced assembly DLL, used to resolve cross-assembly <inheritdoc/> (repeatable)");
         context.WriteLine("  --enforce-docs <value>     Enforce XML doc <summary> coverage at a visibility tier: Public, PublicAndProtected, All (default: disabled)");
         context.WriteLine("  --enforce-docs-severity <v> Severity when --enforce-docs finds violations: Warning, Error (default: Warning)");
+        context.WriteLine("  --library-description <d>  Optional description for the library api.md introduction");
         context.WriteLine("");
         context.WriteLine("cpp options:");
         context.WriteLine("  --includes <path>          Include directory for clang -I (repeatable, required)");

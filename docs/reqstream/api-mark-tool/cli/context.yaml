@@ -97,9 +97,11 @@ sections:
                 title: Context shall parse the --library-description option and store
                   it in the LibraryDescription property.
                 justification: |
-                  Program.CreateGenerator passes LibraryDescription to both CppGeneratorOptions
-                  and VhdlGeneratorOptions so the generated api.md can include a project-supplied
-                  description paragraph for both C++ and VHDL subcommands.
+                  Program.CreateGenerator passes LibraryDescription to CppGeneratorOptions,
+                  VhdlGeneratorOptions, and DotNetGeneratorOptions so the generated api.md
+                  can include a project-supplied description paragraph regardless of which
+                  language subcommand is used. Context itself is a shared parser, not owned
+                  by any single language backend.
                 tests:
                   - Context_Create_WithLibraryDescriptionOption_SetsLibraryDescription
               - id: ApiMarkTool-Cli-Context-ParseDefines

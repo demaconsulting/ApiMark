@@ -83,7 +83,11 @@ internal sealed class DotNetEmitterSingleFile
     ///     No gradual-disclosure navigation tables or path-convention appendix are emitted.
     ///     A <see cref="TypeLinkResolver"/> with <c>generateLinks: false</c> is used so that
     ///     parameter type cells contain plain text rather than relative file links that are
-    ///     meaningless inside a single document.
+    ///     meaningless inside a single document. The assembly title is followed by an
+    ///     introductory description paragraph resolved via
+    ///     <see cref="DotNetEmitter.GetAssemblyDescription"/>, which prefers an explicitly-supplied
+    ///     <see cref="DotNetGeneratorOptions.LibraryDescription"/> option over the compiled
+    ///     <see cref="System.Reflection.AssemblyDescriptionAttribute"/>.
     /// </remarks>
     private void EmitSingleFile(IMarkdownWriterFactory factory, EmitConfig config)
     {
@@ -93,10 +97,11 @@ internal sealed class DotNetEmitterSingleFile
         using var writer = factory.CreateMarkdown("", "api");
         writer.WriteHeading(depth, _model.Assembly.Name.Name + " API Reference");
 
-        // Emit the assembly description when the AssemblyDescriptionAttribute is present
-        var assemblyDescription = _model.Assembly.CustomAttributes
-            .FirstOrDefault(a => a.AttributeType.FullName == "System.Reflection.AssemblyDescriptionAttribute")
-            ?.ConstructorArguments.FirstOrDefault().Value as string;
+        // Prefer an explicitly-supplied LibraryDescription option over the compiled
+        // AssemblyDescriptionAttribute, falling back to the attribute only when the option
+        // isn't supplied
+        var assemblyDescription = GetAssemblyDescription(_model.Assembly, _model.Options.LibraryDescription);
+
         if (!string.IsNullOrWhiteSpace(assemblyDescription))
         {
             writer.WriteParagraph(assemblyDescription);

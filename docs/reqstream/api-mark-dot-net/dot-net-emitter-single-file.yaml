@@ -30,13 +30,21 @@ sections:
             tests:
               - DotNetEmitterSingleFile_Emit_NonDefaultHeadingDepth_OffsetsHeadings
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-EmitAssemblyDescription
-            title: DotNetEmitterSingleFile shall emit the AssemblyDescriptionAttribute
-              value as a paragraph following the assembly-level heading.
+            title: DotNetEmitterSingleFile shall emit a paragraph following the assembly-level
+              heading containing an explicitly-supplied LibraryDescription option when
+              present, falling back to the compiled AssemblyDescriptionAttribute value
+              when LibraryDescription is null, empty, or consists only of whitespace.
             justification: |
               The assembly description provides high-level context for the documented library
-              and is immediately discoverable in single-file output without navigation.
+              and is immediately discoverable in single-file output without navigation. An
+              explicitly-supplied LibraryDescription option (surfaced via the
+              --library-description CLI option / ApiMarkLibraryDescription MSBuild property)
+              lets a team override or supply a description independent of the compiled
+              AssemblyDescriptionAttribute, consistent with the cpp and vhdl backends.
             tests:
               - DotNetEmitterSingleFile_Emit_AssemblyWithDescription_EmitsDescriptionParagraph
+              - DotNetEmitterSingleFile_Emit_LibraryDescriptionSupplied_OverridesAssemblyDescription
+              - DotNetEmitterSingleFile_Emit_LibraryDescriptionWhitespace_FallsBackToAssemblyDescription
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-EmitNamespaceDocSummary
             title: DotNetEmitterSingleFile shall emit the NamespaceDoc XML summary
               as a paragraph following the namespace heading.
