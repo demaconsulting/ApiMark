@@ -454,6 +454,8 @@ public class ProgramTests
             var output = writer.ToString();
             Assert.Contains("Usage:", output);
             Assert.Contains("Options:", output);
+            Assert.Contains("dotnet options:", output);
+            Assert.Contains("--library-description <d>  Optional description for the library api.md introduction", output);
         }
         finally
         {
