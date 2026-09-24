@@ -131,6 +131,12 @@ a build failure via `context.WriteError` when the configured severity is
   values — so `DotNetGenerator` can resolve cross-assembly `<inheritdoc/>`
   targets against the referenced assemblies alongside the primary assembly and
   exclude patterns.
+- For the `dotnet` language, `DotNetGeneratorOptions.LibraryDescription` is
+  populated from `context.LibraryDescription`, mirroring the equivalent cpp
+  (`CppGeneratorOptions.Description`) and vhdl (`VhdlGeneratorOptions.Description`)
+  mappings below, so the `dotnet` subcommand also honors an explicitly-supplied
+  `--library-description` / `ApiMarkLibraryDescription` override for the `api.md`
+  introduction paragraph rather than silently ignoring it.
 - For the `vhdl` language, `VhdlGeneratorOptions` is populated with `Sources`
   (from `context.Sources`), `LibraryName` (from `context.LibraryName`, same
   fallback as C++), and `Description` (from `context.LibraryDescription`).

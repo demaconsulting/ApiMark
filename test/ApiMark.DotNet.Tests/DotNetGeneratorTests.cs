@@ -2501,5 +2501,25 @@ public class DotNetGeneratorTests
         Assert.False(string.IsNullOrEmpty(resolvedDirectory));
         Assert.Equal(expectedDirectory, resolvedDirectory);
     }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.Parse"/> propagates the configured
+    ///     <see cref="DotNetGeneratorOptions.LibraryDescription"/> unchanged into the resulting
+    ///     model's <see cref="DotNetAstModel.Options"/>.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Parse_WithLibraryDescription_PropagatesToModelOptions()
+    {
+        // Arrange
+        var options = BuildOptions();
+        options.LibraryDescription = "A fast geometry library.";
+        var generator = new DotNetGenerator(options);
+
+        // Act
+        var emitter = (DotNetEmitter)generator.Parse(new InMemoryContext());
+
+        // Assert: the option is threaded through unchanged into the parsed model
+        Assert.Equal("A fast geometry library.", emitter.Model.Options.LibraryDescription);
+    }
 }
 

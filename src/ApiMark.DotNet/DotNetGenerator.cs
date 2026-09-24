@@ -1166,4 +1166,14 @@ public sealed class DotNetGeneratorOptions
     ///     the corresponding documentation content is simply absent, with no error.
     /// </remarks>
     public IReadOnlyList<string> ReferencePaths { get; set; } = [];
+
+    /// <summary>
+    ///     Gets or sets an optional description for the library, emitted as an introductory
+    ///     paragraph in <c>api.md</c>. When set, this takes precedence over the assembly's
+    ///     compiled <see cref="System.Reflection.AssemblyDescriptionAttribute"/>, which is used
+    ///     as a fallback only when this option is <see langword="null"/>, empty, or consists
+    ///     only of whitespace. Defaults to <see langword="null"/> (no override — fall back to
+    ///     the assembly attribute).
+    /// </summary>
+    public string? LibraryDescription { get; set; }
 }

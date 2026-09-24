@@ -722,6 +722,33 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> appends the
+    ///     <c>--library-description</c> flag with the configured value when
+    ///     <see cref="ApiMarkTask.ApiMarkLibraryDescription"/> is set for a <c>dotnet</c>
+    ///     invocation, not just <c>cpp</c>.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_DotNet_LibraryDescription_ForwardedToTool()
+    {
+        // Arrange: configure a library description alongside the required dotnet assembly/xml-doc paths
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".csproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/path/api.dll",
+            ApiMarkXmlDocPath = "/some/path/api.xml",
+            ApiMarkLibraryDescription = "A fast serialization library.",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet");
+
+        // Assert: the --library-description flag and the configured value must appear
+        Assert.Contains("--library-description", args);
+        Assert.Contains("A fast serialization library.", args);
+    }
+
+    /// <summary>
     ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> appends the <c>--clang-path</c>
     ///     flag with the configured value when <see cref="ApiMarkTask.ApiMarkClangPath"/> is set.
     /// </summary>

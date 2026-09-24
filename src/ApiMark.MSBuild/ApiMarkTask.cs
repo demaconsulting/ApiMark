@@ -180,10 +180,12 @@ public class ApiMarkTask : Task
     /// </remarks>
     public string? ApiMarkLibraryName { get; set; }
 
-    /// <summary>Gets or sets an optional description for the C++ library.</summary>
+    /// <summary>Gets or sets an optional description for the library api.md introduction.</summary>
     /// <remarks>
-    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkLibraryDescription)</c>.
-    ///     Optional — omitted when empty.
+    ///     Used for both the <c>dotnet</c> and <c>cpp</c> languages. Maps to
+    ///     <c>$(ApiMarkLibraryDescription)</c>. Optional — omitted when empty. For <c>dotnet</c>,
+    ///     an explicit value takes precedence over the assembly's compiled
+    ///     <c>AssemblyDescriptionAttribute</c>.
     /// </remarks>
     public string? ApiMarkLibraryDescription { get; set; }
 
@@ -320,7 +322,8 @@ public class ApiMarkTask : Task
     /// <summary>
     ///     Appends the .NET-specific CLI arguments to <paramref name="args"/>, including the
     ///     language subcommand (<c>dotnet</c>), <c>--assembly</c>, <c>--xml-doc</c>, any
-    ///     configured <c>--exclude</c> patterns, and any configured <c>--reference-paths</c> entries.
+    ///     configured <c>--exclude</c> patterns, any configured <c>--reference-paths</c> entries,
+    ///     and an optional <c>--library-description</c>.
     /// </summary>
     /// <param name="args">The argument list being built by <see cref="BuildArguments"/>.</param>
     private void AppendDotNetArguments(List<string> args)
@@ -340,6 +343,10 @@ public class ApiMarkTask : Task
         // a separate repeatable --reference-paths argument used to resolve cross-assembly
         // <inheritdoc/> targets
         AppendDelimitedRepeatableArgs(args, "--reference-paths", ApiMarkReferencePaths);
+
+        // Optional library description — shared with cpp (see AppendCppArguments); an explicit
+        // value overrides the assembly's compiled AssemblyDescriptionAttribute
+        AppendOptionalArg(args, "--library-description", ApiMarkLibraryDescription);
 
         // Forward documentation-coverage enforcement options — shared with cpp (see
         // AppendCppArguments); mirrors how ApiMarkExclude is dotnet-only

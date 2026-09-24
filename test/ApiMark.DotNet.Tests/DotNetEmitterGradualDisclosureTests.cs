@@ -34,6 +34,47 @@ public class DotNetEmitterGradualDisclosureTests
         Assert.True(factory.HasWriter("", "api"), "Expected api index page to be created");
     }
 
+    /// <summary>Validates that an AssemblyDescriptionAttribute value is emitted as a paragraph after the assembly-level heading on the api index page.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_AssemblyWithDescription_EmitsDescriptionParagraph()
+    {
+        // Arrange: the fixture assembly carries a Description property in its csproj
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: a paragraph containing the assembly description appears on the api index page
+        var apiWriter = factory.GetWriter("", "api");
+        var paragraphs = apiWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Contains("fixture", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    ///     Validates that an explicitly-supplied <see cref="DotNetGeneratorOptions.LibraryDescription"/>
+    ///     takes precedence over the assembly's compiled AssemblyDescriptionAttribute on the api index page.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_LibraryDescriptionSupplied_OverridesAssemblyDescription()
+    {
+        // Arrange: the fixture assembly carries a Description property in its csproj, but an
+        // explicit LibraryDescription option should win
+        var options = BuildOptions();
+        options.LibraryDescription = "TEST OVERRIDE";
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(options).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the overriding paragraph is emitted instead of the compiled attribute value
+        var apiWriter = factory.GetWriter("", "api");
+        var paragraphs = apiWriter.Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(paragraphs, p => p.Text.Contains("TEST OVERRIDE", StringComparison.Ordinal));
+        Assert.DoesNotContain(paragraphs, p => p.Text.Contains("Test fixture assemblies", StringComparison.Ordinal));
+    }
+
     /// <summary>Validates that the gradual-disclosure emitter creates a namespace page for the fixture namespace.</summary>
     [Fact]
     public void DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesNamespacePage()

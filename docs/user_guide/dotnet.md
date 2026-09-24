@@ -34,6 +34,7 @@ apimark dotnet [options]
 | `--include-obsolete` | Include obsolete members in generated output |
 | `--exclude <pattern>` | Exclude namespaces/types matching a wildcard pattern (repeatable) |
 | `--reference-paths <path>` | Path to a referenced assembly DLL, used to resolve cross-assembly `<inheritdoc/>` (repeatable; also accepts `@<file>` to read paths/flags from a response file, one argument per line) |
+| `--library-description <text>` | Optional description for the `api.md` introduction paragraph; overrides the assembly's compiled `AssemblyDescriptionAttribute` when set |
 | `--enforce-docs <value>` | Enable documentation-coverage enforcement at the given visibility tier: `Public`, `PublicAndProtected`, `All` (default: disabled) |
 | `--enforce-docs-severity <value>` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build) (default: `Warning`) |
 
@@ -285,6 +286,7 @@ After the next `dotnet build`, documentation is written to `$(MSBuildProjectDire
 | `ApiMarkVisibility` | `Public` | Visibility filter: `Public`, `PublicAndProtected`, `All` |
 | `ApiMarkIncludeObsolete` | `false` | Include `[Obsolete]` members in generated output |
 | `ApiMarkExclude` | (empty) | Semicolon-separated wildcard patterns identifying namespaces/types to exclude, e.g. `Antlr4.*;MyNamespace.Generated.*` |
+| `ApiMarkLibraryDescription` | *(unset)* | Optional description for the `api.md` introduction paragraph. When set, overrides the assembly's compiled `AssemblyDescriptionAttribute` |
 | `ApiMarkReferencePaths` | Auto-populated from `@(ReferencePath)` | Semicolon-separated paths to referenced assembly DLLs, used to resolve cross-assembly `<inheritdoc/>`. Auto-populated from the project's resolved `@(ReferencePath)` items when not explicitly set; set explicitly to a non-empty list to override. When non-empty, `ApiMarkTask` automatically forwards the paths via a temporary `@<file>` response file rather than individual `--reference-paths` arguments, avoiding OS command-line length limits |
 | `ApiMarkDisableReferencePathsHarvest` | `false` | Set to `true` to disable auto-population of `ApiMarkReferencePaths` from `@(ReferencePath)` without providing a replacement list. Needed because MSBuild cannot distinguish "never set" from "explicitly set to empty" for a plain property, so setting `ApiMarkReferencePaths=""` alone does not suppress auto-harvesting |
 | `ApiMarkEnforceDocs` | (unset) | Enforcement visibility tier for documentation-coverage checking: `Public`, `PublicAndProtected`, `All`; omitted disables enforcement |
@@ -305,6 +307,9 @@ See the *MSBuild Integration* section for common properties (`ApiMarkOutputDir`,
 
   <!-- Include protected members as well as public ones -->
   <ApiMarkVisibility>PublicAndProtected</ApiMarkVisibility>
+
+  <!-- Add a one-line description to api.md (overrides AssemblyDescriptionAttribute) -->
+  <ApiMarkLibraryDescription>A fast, reliable serialization library.</ApiMarkLibraryDescription>
 
   <!-- Include the generated api/ folder in the NuGet package -->
   <ApiMarkPackDocs>true</ApiMarkPackDocs>

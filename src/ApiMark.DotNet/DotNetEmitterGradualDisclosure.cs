@@ -92,10 +92,11 @@ internal sealed class DotNetEmitterGradualDisclosure
 
         apiWriter.WriteHeading(1, _model.Assembly.Name.Name + " API Reference");
 
-        // Emit the assembly description when the AssemblyDescriptionAttribute is present
-        var assemblyDescription = _model.Assembly.CustomAttributes
-            .FirstOrDefault(a => a.AttributeType.FullName == "System.Reflection.AssemblyDescriptionAttribute")
-            ?.ConstructorArguments.FirstOrDefault().Value as string;
+        // Prefer an explicitly-supplied LibraryDescription option over the compiled
+        // AssemblyDescriptionAttribute, falling back to the attribute only when the option
+        // isn't supplied
+        var assemblyDescription = GetAssemblyDescription(_model.Assembly, _model.Options.LibraryDescription);
+
         if (!string.IsNullOrWhiteSpace(assemblyDescription))
         {
             apiWriter.WriteParagraph(assemblyDescription);

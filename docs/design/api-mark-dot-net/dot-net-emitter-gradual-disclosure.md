@@ -31,8 +31,11 @@ DotNetEmitterGradualDisclosure holds references to:
 
 **EmitGradualDisclosure** (private): Writes the assembly index page, then
 iterates all namespaces and types, writing namespace summary and type pages.
-After writing the H1 heading, the method emits the `AssemblyDescriptionAttribute`
-value as a paragraph when the attribute is present on the assembly. The
+After writing the H1 heading, the method emits the introductory description
+paragraph resolved via `DotNetEmitter.GetAssemblyDescription`: an
+explicitly-supplied `DotNetGeneratorOptions.LibraryDescription` option takes
+precedence when present; otherwise the compiled `AssemblyDescriptionAttribute`
+value is emitted as a fallback when present on the assembly. The
 all-namespaces table uses three columns: `Namespace`, `Types`, and `Description`,
 where `Types` contains the direct type count for each namespace.
 

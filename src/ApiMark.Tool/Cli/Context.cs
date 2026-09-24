@@ -138,8 +138,11 @@ internal sealed class Context : IContext, IDisposable
     public string? LibraryName { get; private init; }
 
     /// <summary>
-    ///     Gets an optional description for the C++ library, emitted as an introductory
-    ///     paragraph in <c>api.md</c>. Optional — omitted when <see langword="null"/>.
+    ///     Gets an optional description for the library, emitted as an introductory
+    ///     paragraph in <c>api.md</c>. Shared across the <c>dotnet</c>, <c>cpp</c>, and
+    ///     <c>vhdl</c> subcommands — for <c>dotnet</c>, an explicit value takes precedence
+    ///     over the assembly's compiled <c>AssemblyDescriptionAttribute</c>. Optional —
+    ///     omitted when <see langword="null"/>.
     /// </summary>
     public string? LibraryDescription { get; private init; }
 
@@ -436,8 +439,9 @@ internal sealed class Context : IContext, IDisposable
         public string? LibraryName { get; private set; }
 
         /// <summary>
-        ///     Gets an optional description for the C++ library introduction.
-        ///     Optional — omitted when <see langword="null"/>.
+        ///     Gets an optional description for the library introduction. Shared across the
+        ///     <c>dotnet</c>, <c>cpp</c>, and <c>vhdl</c> subcommands. Optional — omitted when
+        ///     <see langword="null"/>.
         /// </summary>
         public string? LibraryDescription { get; private set; }
 

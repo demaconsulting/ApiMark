@@ -76,7 +76,8 @@ MSBuild and VC++ tools installed; those tests skip gracefully when the package i
 - The spawned tool's standard error output is forwarded to the MSBuild build log as error
   messages.
 - For C++ builds, `ApiMarkLibraryName` is forwarded as `--library-name` when set.
-- For C++ builds, `ApiMarkLibraryDescription` is forwarded as `--library-description` when set.
+- For .NET and C++ builds, `ApiMarkLibraryDescription` is forwarded as
+  `--library-description` when set.
 - For C++ builds, `ApiMarkClangPath` is forwarded as `--clang-path` when set.
 - For C++ builds, `ApiMarkDefines` semicolons are converted to commas and forwarded as
   `--defines`.
@@ -127,10 +128,11 @@ scenario is tested by `ApiMarkTask_DisableApiMark_True_SkipsToolInvocation`.
 property is passed to the spawned tool as the `--library-name` argument for C++ builds.
 This scenario is tested by `ApiMarkTask_Cpp_LibraryName_ForwardedToTool`.
 
-**C++ library description is forwarded as --library-description**: Verifies that the
-`ApiMarkLibraryDescription` property is passed to the spawned tool as the
-`--library-description` argument for C++ builds. This scenario is tested by
-`ApiMarkTask_Cpp_LibraryDescription_ForwardedToTool`.
+**Library description is forwarded as --library-description for .NET and C++**: Verifies
+that the `ApiMarkLibraryDescription` property is passed to the spawned tool as the
+`--library-description` argument for both `dotnet` and `cpp` builds. These scenarios are
+tested by `ApiMarkTask_Cpp_LibraryDescription_ForwardedToTool` and
+`ApiMarkTask_DotNet_LibraryDescription_ForwardedToTool`.
 
 **C++ clang path is forwarded as --clang-path**: Verifies that the `ApiMarkClangPath` property
 is passed to the spawned tool as the `--clang-path` argument for C++ builds when set. This

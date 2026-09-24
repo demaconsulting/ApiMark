@@ -152,6 +152,38 @@ internal sealed class DotNetEmitter : IApiEmitter
     }
 
     // =========================================================================
+    // Assembly description resolution
+    // =========================================================================
+
+    /// <summary>
+    ///     Resolves the introductory description paragraph for the assembly, preferring an
+    ///     explicitly-supplied <paramref name="libraryDescription"/> over the compiled
+    ///     <see cref="System.Reflection.AssemblyDescriptionAttribute"/>, which is used as a
+    ///     fallback only when <paramref name="libraryDescription"/> is <see langword="null"/>,
+    ///     empty, or consists only of whitespace.
+    /// </summary>
+    /// <param name="assembly">The assembly whose compiled attributes are consulted as a fallback.</param>
+    /// <param name="libraryDescription">
+    ///     The explicitly-supplied <see cref="DotNetGeneratorOptions.LibraryDescription"/> option
+    ///     value, or <see langword="null"/> when not supplied.
+    /// </param>
+    /// <returns>
+    ///     The resolved description, or <see langword="null"/> when neither
+    ///     <paramref name="libraryDescription"/> nor the compiled attribute supplies one.
+    /// </returns>
+    internal static string? GetAssemblyDescription(AssemblyDefinition assembly, string? libraryDescription)
+    {
+        if (!string.IsNullOrWhiteSpace(libraryDescription))
+        {
+            return libraryDescription;
+        }
+
+        return assembly.CustomAttributes
+            .FirstOrDefault(a => a.AttributeType.FullName == "System.Reflection.AssemblyDescriptionAttribute")
+            ?.ConstructorArguments.FirstOrDefault().Value as string;
+    }
+
+    // =========================================================================
     // Visibility filtering
     // =========================================================================
 

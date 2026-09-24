@@ -198,14 +198,18 @@ sections:
             tests: [ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExecution]
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardLibraryDescription
             title: ApiMarkTask shall forward the ApiMarkLibraryDescription property
-              to the tool as the --library-description argument for C++ builds.
+              to the tool as the --library-description argument for .NET and C++
+              builds.
             justification: |
-              C++ projects need to set a human-readable library description that appears in
-              the generated api.md, independent of any project metadata. Forwarding the MSBuild
-              property keeps the build configuration as the single source of truth.
+              .NET and C++ projects need to set a human-readable library description that
+              appears in the generated api.md, independent of any project metadata. Forwarding
+              the MSBuild property from both the dotnet and cpp argument paths keeps the
+              feature consistent across every language ApiMarkTask supports, and keeps the
+              build configuration as the single source of truth.
             tests:
               - ApiMarkTask_BuildArguments_LibraryDescriptionWithDoubleQuote_PassedVerbatim
               - ApiMarkTask_Cpp_LibraryDescription_ForwardedToTool
+              - ApiMarkTask_DotNet_LibraryDescription_ForwardedToTool
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardClangPath
             title: ApiMarkTask shall forward the ApiMarkClangPath property to the
               tool as the --clang-path argument for C++ builds when set.

@@ -25,6 +25,10 @@ service or network dependency is needed.
 - The output file contains a type-level heading for the fixture type.
 - When `HeadingDepth` is set to a non-default value, all heading levels in the output are offset accordingly.
 - When the assembly carries an `AssemblyDescriptionAttribute`, its value is emitted as a paragraph after the assembly-level heading.
+- When an explicit `LibraryDescription` option is supplied, its value is emitted as the
+  paragraph instead of the compiled `AssemblyDescriptionAttribute` value.
+- When `LibraryDescription` is null, empty, or consists only of whitespace, the compiled
+  `AssemblyDescriptionAttribute` value is emitted as a fallback.
 - When a namespace has a NamespaceDoc XML summary, that summary is emitted as a paragraph below the namespace heading.
 - When a namespace has NamespaceDoc remarks and example parts, they are emitted after the summary (remarks as a paragraph, example code as a fenced code block).
 - A type whose `<remarks>` contains a `<list type="table">` renders the list as a Markdown table in single-file output.
@@ -66,6 +70,19 @@ compound document. This scenario is tested by
 the assembly carries an `AssemblyDescriptionAttribute`, its value is emitted as a
 paragraph immediately after the assembly-level heading. This scenario is tested by
 `DotNetEmitterSingleFile_Emit_AssemblyWithDescription_EmitsDescriptionParagraph`.
+
+**Explicit LibraryDescription overrides the compiled attribute**: Verifies that
+when `DotNetGeneratorOptions.LibraryDescription` is supplied, its value is emitted
+as the introductory paragraph instead of the assembly's compiled
+`AssemblyDescriptionAttribute` value. This scenario is tested by
+`DotNetEmitterSingleFile_Emit_LibraryDescriptionSupplied_OverridesAssemblyDescription`.
+
+**Whitespace-only LibraryDescription falls back to the compiled attribute**: Verifies
+that when `LibraryDescription` is set to an empty or whitespace-only string, the
+compiled `AssemblyDescriptionAttribute` value is emitted instead, confirming the
+fallback condition matches `string.IsNullOrWhiteSpace` rather than a narrower
+null/empty-only check. This scenario is tested by
+`DotNetEmitterSingleFile_Emit_LibraryDescriptionWhitespace_FallsBackToAssemblyDescription`.
 
 **NamespaceDoc summary follows namespace heading**: Verifies that a namespace
 carrying a NamespaceDoc carrier class has its XML summary emitted as a paragraph

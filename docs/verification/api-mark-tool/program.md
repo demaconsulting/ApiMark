@@ -23,6 +23,9 @@ output directory. No external service, privileged configuration, or network acce
 - `apimark dotnet --reference-paths <path>` (repeatable) is accepted and resolves
   cross-assembly `<inheritdoc/>` content from the referenced assembly into the
   generated output.
+- `apimark dotnet --library-description <text>` is accepted and the supplied text
+  (not the compiled `AssemblyDescriptionAttribute` description) appears in the
+  generated `api.md`.
 - Invalid subcommands and missing required arguments return a non-zero exit code with descriptive
   error text.
 - Invalid visibility option values are rejected with a non-zero exit code.
@@ -66,6 +69,13 @@ invoking `apimark dotnet` with a repeatable `--reference-paths <path>` flag poin
 external fixture assembly resolves cross-assembly `<inheritdoc/>` content in the generated
 Markdown output. This scenario is tested by
 `Program_Main_DotNetWithReferencePathsFlag_ResolvesExternalInheritdocInOutput`.
+
+**DotNet subcommand with --library-description uses the supplied text**: Verifies that
+invoking `apimark dotnet --library-description <text>` produces an `api.md` whose
+introductory paragraph contains the supplied text rather than the compiled assembly's
+`AssemblyDescriptionAttribute` value, confirming the dotnet subcommand now honors this
+option consistently with the cpp and vhdl subcommands. This scenario is tested by
+`Program_Main_DotNetWithLibraryDescriptionFlag_UsesSuppliedDescriptionInOutput`.
 
 **Invalid visibility value returns non-zero exit code**: Verifies that passing an unrecognized value
 to `--visibility` causes the CLI to report an error and exit with a non-zero code before attempting
