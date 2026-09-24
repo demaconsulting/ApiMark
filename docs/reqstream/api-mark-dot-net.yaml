@@ -29,6 +29,7 @@ sections:
           - ApiMarkDotNet-DotNetGenerator-ResolveBareInheritdocFromBaseTypes
           - ApiMarkDotNet-DotNetGenerator-ResolveInheritdocAcrossReferencedAssemblies
           - ApiMarkDotNet-DotNetGenerator-ResolveInheritdocAcrossMultipleExternalHops
+          - ApiMarkDotNet-DotNetGenerator-AcceptLibraryDescriptionOption
           - ApiMarkDotNet-DotNetAstModel-HoldParsedAssemblyData
           - ApiMarkDotNet-DotNetEmitter-DispatchToFormatSpecificEmitter
           - ApiMarkDotNet-DotNetEmitter-RejectNullArguments
@@ -49,6 +50,7 @@ sections:
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitOperatorsPage
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitNestedTypePages
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitOperatorsSummaryDocumentation
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitAssemblyDescription
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitAllApiIntoSingleFile
           - ApiMarkDotNet-DotNetEmitterSingleFile-OffsetHeadingsByHeadingDepth
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitAssemblyDescription
