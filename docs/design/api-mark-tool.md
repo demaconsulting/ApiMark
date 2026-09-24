@@ -45,6 +45,8 @@ users or CI pipelines.
   `--visibility <value>`, `--include-obsolete`, `--exclude <pattern>` (repeatable;
   wildcard namespace/type exclusion patterns), `--reference-paths <path>` (repeatable;
   referenced assembly DLL paths used to resolve cross-assembly `<inheritdoc/>`),
+  `--library-description <text>` (overrides the assembly's compiled
+  `AssemblyDescriptionAttribute` in the `api.md` introduction when set),
   `--enforce-docs <value>` (accepted for
   all three languages, though VHDL enforcement covers only the public interface —
   entities, ports, generics, packages, and exports;

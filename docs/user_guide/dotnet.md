@@ -34,6 +34,7 @@ apimark dotnet [options]
 | `--include-obsolete` | Include obsolete members in generated output |
 | `--exclude <pattern>` | Exclude namespaces/types matching a wildcard pattern (repeatable) |
 | `--reference-paths <path>` | Path to a referenced assembly DLL, used to resolve cross-assembly `<inheritdoc/>` (repeatable; also accepts `@<file>` to read paths/flags from a response file, one argument per line) |
+| `--library-description <text>` | Optional description for the `api.md` introduction paragraph; overrides the assembly's compiled `AssemblyDescriptionAttribute` when set |
 | `--enforce-docs <value>` | Enable documentation-coverage enforcement at the given visibility tier: `Public`, `PublicAndProtected`, `All` (default: disabled) |
 | `--enforce-docs-severity <value>` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build) (default: `Warning`) |
 
