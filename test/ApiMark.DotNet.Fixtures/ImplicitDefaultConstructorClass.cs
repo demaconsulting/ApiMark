@@ -44,3 +44,25 @@ public sealed class ExpressionBodiedConstructorClass
     /// <summary>Initializes a new instance of the <see cref="ExpressionBodiedConstructorClass"/> class.</summary>
     public ExpressionBodiedConstructorClass() => Bar = 1;
 }
+
+/// <summary>
+///     A class with an explicit, expression-bodied parameterless constructor whose single
+///     source statement stores more than one field (a tuple-deconstruction assignment) — an
+///     edge case that implicit-constructor detection must NOT exempt from
+///     <c>--enforce-docs</c>, since a single compiler-emitted sequence point here covers
+///     multiple <c>stfld</c> instructions, which a naive aggregate-count comparison could
+///     mistake for one initializer per sequence point.
+/// </summary>
+public sealed class TupleDeconstructionConstructorClass
+{
+    /// <summary>The first value.</summary>
+    public int A;
+
+    /// <summary>The second value.</summary>
+    public int B;
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="TupleDeconstructionConstructorClass"/> class.
+    /// </summary>
+    public TupleDeconstructionConstructorClass() => (A, B) = (1, 2);
+}

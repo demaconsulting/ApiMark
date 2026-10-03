@@ -1262,21 +1262,26 @@ internal sealed class DotNetEmitter : IApiEmitter
     ///     complication: field and auto-property initializers (e.g. <c>public string Host { get; }
     ///     = "x";</c>) run inside every constructor — implicit or explicit — and each contributes its
     ///     own sequence point mapped to the initializer's source location, not the constructor's.
-    ///     Subtracting one sequence point per instance-field store (<c>stfld</c> targeting a field of
-    ///     the declaring type) performed by the constructor isolates the sequence points
-    ///     attributable to the constructor's own declaration/body: this remainder is zero for the
-    ///     implicit constructor (which has no body of its own) in every case tested — top-level,
+    ///     Each initializer's sequence point covers exactly one instance-field store (<c>stfld</c>
+    ///     targeting a field of the declaring type): the implicit constructor (which has no body of
+    ///     its own) consists entirely of such one-store ranges, in every case tested — top-level,
     ///     generic, and nested types, with or without initializers — while any explicit constructor
-    ///     with a conventional <c>{ }</c> body (even empty, even written on one line) always leaves a
-    ///     remainder of at least two, for its opening and closing braces. This requires portable-PDB
-    ///     debug information to have been loaded for the module (see <c>DotNetGenerator</c>'s use of
+    ///     always has at least one sequence-point range that does not fit this pattern: a
+    ///     conventional <c>{ }</c> body contributes ranges with zero stores (its opening/closing
+    ///     braces), and a single source statement that stores more than one field in one expression
+    ///     (e.g. a tuple-deconstruction assignment such as <c>(A, B) = (1, 2);</c>) contributes a
+    ///     range with more than one store. Comparing aggregate sequence-point and store counts (as
+    ///     an earlier version of this method did) cannot distinguish that second case, since the
+    ///     counts can coincidentally match; requiring every individual range to contain exactly one
+    ///     store avoids that false negative. This requires portable-PDB debug information to have
+    ///     been loaded for the module (see <c>DotNetGenerator</c>'s use of
     ///     <c>ReaderParameters.ReadSymbols</c>); when no symbols are available,
     ///     <see cref="ModuleDefinition.HasSymbols"/> is <see langword="false"/> and this method
     ///     conservatively returns <see langword="false"/> rather than guessing, since every method in
     ///     an unsymbolized module reports zero sequence points. Even an explicit expression-bodied
     ///     constructor whose entire body is a single field assignment (e.g. <c>public Foo() => Bar =
     ///     1;</c>) is correctly classified as explicit: the assignment itself contributes a sequence
-    ///     point distinct from the one its <c>stfld</c> subtracts out, leaving a non-zero remainder.
+    ///     point whose range has zero stores, distinct from the range covering the <c>stfld</c>.
     /// </remarks>
     /// <param name="method">The constructor method definition to inspect.</param>
     /// <returns>
@@ -1295,17 +1300,52 @@ internal sealed class DotNetEmitter : IApiEmitter
             return false;
         }
 
-        var sequencePointCount = method.DebugInformation?.SequencePoints.Count ?? 0;
+        var sequencePoints = method.DebugInformation?.SequencePoints
+            .OrderBy(point => point.Offset)
+            .ToList() ?? [];
 
-        var initializerStoreCount = method.HasBody
-            ? method.Body.Instructions.Count(instruction =>
+        if (!method.HasBody)
+        {
+            return sequencePoints.Count == 0;
+        }
+
+        var fieldStoreOffsets = method.Body.Instructions
+            .Where(instruction =>
                 instruction.OpCode.Code == Code.Stfld &&
                 instruction.Operand is FieldReference field &&
                 (field.DeclaringType == method.DeclaringType || field.DeclaringType.Resolve() == method.DeclaringType))
-            : 0;
+            .Select(instruction => instruction.Offset)
+            .ToList();
 
-        var constructorOwnSequencePoints = Math.Max(0, sequencePointCount - initializerStoreCount);
-        return constructorOwnSequencePoints == 0;
+        if (sequencePoints.Count == 0)
+        {
+            return fieldStoreOffsets.Count == 0;
+        }
+
+        // An implicit default constructor's only sequence points are the field/property
+        // initializers folded into it by the compiler, and each one maps to exactly one
+        // field store. A hand-written constructor always has at least one sequence-point
+        // range that stores zero fields (its signature, braces, or a non-assignment
+        // statement) or more than one field (e.g. a tuple-deconstruction assignment such
+        // as `(A, B) = (1, 2);`, where a single sequence point covers multiple `stfld`
+        // instructions). Requiring a strict one-store-per-sequence-point mapping across
+        // every range distinguishes the two reliably, rather than comparing aggregate
+        // counts which both cases can satisfy coincidentally.
+        for (var index = 0; index < sequencePoints.Count; index++)
+        {
+            var rangeStart = sequencePoints[index].Offset;
+            var rangeEnd = index + 1 < sequencePoints.Count
+                ? sequencePoints[index + 1].Offset
+                : int.MaxValue;
+
+            var storesInRange = fieldStoreOffsets.Count(offset => offset >= rangeStart && offset < rangeEnd);
+            if (storesInRange != 1)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>

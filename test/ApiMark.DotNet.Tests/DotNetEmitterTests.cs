@@ -507,7 +507,8 @@ public class DotNetEmitterTests
     ///     Validates that <see cref="DotNetEmitter.IsImplicitDefaultConstructor"/> correctly
     ///     distinguishes compiler-synthesized implicit default constructors — including ones on
     ///     types with property initializers, which contribute their own debug sequence points —
-    ///     from genuine explicit constructors.
+    ///     from genuine explicit constructors, including one whose single source statement stores
+    ///     more than one field under a single sequence point (a tuple-deconstruction assignment).
     /// </summary>
     [Fact]
     public void DotNetEmitter_IsImplicitDefaultConstructor_DistinguishesImplicitFromExplicit()
@@ -534,6 +535,9 @@ public class DotNetEmitterTests
         var explicitExpressionBodied = assembly.MainModule.Types
             .Single(t => t.Name == "ExpressionBodiedConstructorClass")
             .Methods.Single(m => m.IsConstructor);
+        var explicitTupleDeconstruction = assembly.MainModule.Types
+            .Single(t => t.Name == "TupleDeconstructionConstructorClass")
+            .Methods.Single(m => m.IsConstructor);
 
         // Act / Assert
         Assert.True(DotNetEmitter.IsImplicitDefaultConstructor(implicitNoInitializers));
@@ -541,5 +545,6 @@ public class DotNetEmitterTests
         Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(explicitWithParameter));
         Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(explicitEmptyParameterless));
         Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(explicitExpressionBodied));
+        Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(explicitTupleDeconstruction));
     }
 }

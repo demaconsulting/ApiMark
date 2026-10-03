@@ -137,6 +137,8 @@ property's declared accessibility. This scenario is tested by
 default constructor — both with no field/property initializers and with multiple initializers,
 whose sequence points would otherwise be mistaken for the constructor's own body — and returns
 `false` for an explicit constructor that takes a parameter, an explicit empty parameterless
-constructor, and an explicit expression-bodied parameterless constructor whose entire body is a
-single field assignment. This scenario is tested by
+constructor, an explicit expression-bodied parameterless constructor whose entire body is a
+single field assignment, and an explicit expression-bodied parameterless constructor whose
+single source statement stores more than one field under one sequence point (a
+tuple-deconstruction assignment). This scenario is tested by
 `DotNetEmitter_IsImplicitDefaultConstructor_DistinguishesImplicitFromExplicit`.
