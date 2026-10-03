@@ -47,6 +47,9 @@ service or network dependency is needed.
   implementation attributes mark it `InternalCall`, simulating a metadata-only/reference-
   assembly stub or an `extern`/P/Invoke-declared constructor), regardless of its sequence-point
   data.
+- `BuildFieldSignature` appends `" = " + FormatConstantValue(field.Constant)` to the signature
+  for a field with `HasConstant == true`, including enum members rendered via their underlying
+  numeric constant.
 
 ### Test Scenarios
 
@@ -168,3 +171,27 @@ stub or an `extern`/P/Invoke-declared constructor — scenarios that cannot be t
 compiler-synthesized implicit default constructor, since that constructor always has an IL
 body. This scenario is tested by
 `DotNetEmitter_IsImplicitDefaultConstructor_BodylessConstructor_ReturnsFalse`.
+
+**BuildFieldSignature appends a quoted string constant value**: Verifies that a `const
+string` field's signature line appends `= "value"` with the value double-quoted. This
+scenario is tested by `DotNetEmitter_BuildFieldSignature_ConstStringField_AppendsQuotedValue`.
+
+**BuildFieldSignature appends a numeric constant value**: Verifies that a `const int`
+field's signature line appends `= <number>` as plain numeric text. This scenario is tested
+by `DotNetEmitter_BuildFieldSignature_ConstIntField_AppendsNumericValue`.
+
+**BuildFieldSignature appends a lowercase boolean constant value**: Verifies that a `const
+bool` field's signature line appends `= true` or `= false` in lowercase. This scenario is
+tested by `DotNetEmitter_BuildFieldSignature_ConstBoolField_AppendsLowercaseBooleanValue`.
+
+**BuildFieldSignature escapes a NUL char constant value**: Verifies that a `const char`
+field initialized to `'\0'` has its signature line append the escaped `'\0'` display form
+rather than an unprintable raw character. This scenario is tested by
+`DotNetEmitter_BuildFieldSignature_ConstCharField_EscapesNulCharacter`.
+
+**BuildFieldSignature appends an enum member's underlying numeric value**: Verifies that an
+enum member field with an explicit numeric value has its signature line append that value
+via the same `FormatConstantValue` path used for plain `const` fields, since Mono.Cecil
+stores enum member constants using the enum's underlying primitive type. This scenario is
+tested by
+`DotNetEmitter_BuildFieldSignature_EnumMemberWithExplicitValue_AppendsUnderlyingNumericValue`.

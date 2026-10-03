@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using ApiMark.Core;
 using Mono.Cecil;
@@ -888,7 +889,65 @@ internal sealed class DotNetEmitter : IApiEmitter
         };
 
         var gap = modifiers.Length > 0 ? " " : string.Empty;
-        return $"{GetAccessibilityKeyword(field)} {modifiers}{gap}{typeName} {field.Name}";
+        var signature = $"{GetAccessibilityKeyword(field)} {modifiers}{gap}{typeName} {field.Name}";
+
+        // Append the compiler-folded constant value (if any) so readers can see literal
+        // constants and enum member values without opening the implementation - Mono.Cecil
+        // stores enum member values using the enum's underlying primitive type, so the same
+        // formatter renders both plain const fields and enum members correctly
+        return field.HasConstant ? $"{signature} = {FormatConstantValue(field.Constant)}" : signature;
+    }
+
+    /// <summary>Renders a compile-time constant value (from <see cref="FieldDefinition.Constant"/>) as C#-like source text.</summary>
+    /// <remarks>
+    ///     Exists because <see cref="FieldDefinition.Constant"/> is a boxed CLR object whose
+    ///     runtime type varies (string, char, bool, or one of the numeric primitives) and each
+    ///     needs different literal syntax to read naturally as C# source in generated
+    ///     documentation. Numeric values are rendered as plain literal text without type suffixes
+    ///     (e.g. no <c>L</c>/<c>f</c>/<c>m</c>) to keep the signature readable.
+    /// </remarks>
+    /// <param name="value">The boxed constant value, or <see langword="null"/> for a literal <see langword="null"/> constant.</param>
+    /// <returns>The value rendered as C#-like literal source text.</returns>
+    internal static string FormatConstantValue(object? value)
+    {
+        return value switch
+        {
+            null => "null",
+            string s => $"\"{EscapeStringLiteral(s)}\"",
+            char c => $"'{EscapeCharLiteral(c)}'",
+            bool b => b ? "true" : "false",
+            _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null",
+        };
+    }
+
+    /// <summary>Escapes a string value for embedding in a double-quoted C# string literal.</summary>
+    /// <param name="value">The raw string value.</param>
+    /// <returns>The escaped text, excluding the surrounding quotes.</returns>
+    private static string EscapeStringLiteral(string value)
+    {
+        return value
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\n", "\\n")
+            .Replace("\r", "\\r")
+            .Replace("\t", "\\t");
+    }
+
+    /// <summary>Escapes a char value for embedding in a single-quoted C# char literal.</summary>
+    /// <param name="value">The raw char value.</param>
+    /// <returns>The escaped text, excluding the surrounding quotes.</returns>
+    private static string EscapeCharLiteral(char value)
+    {
+        return value switch
+        {
+            '\\' => "\\\\",
+            '\'' => "\\'",
+            '\0' => "\\0",
+            '\n' => "\\n",
+            '\r' => "\\r",
+            '\t' => "\\t",
+            _ => value.ToString(),
+        };
     }
 
     /// <summary>Builds a human-readable C# event declaration signature.</summary>

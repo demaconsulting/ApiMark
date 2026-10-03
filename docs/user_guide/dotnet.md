@@ -69,7 +69,8 @@ visible types is controlled by `--visibility`:
 
 Methods, properties, fields, events, and constructors are documented on the type page.
 Operator overloads are grouped together on a dedicated `operators.md` page within the
-type folder.
+type folder. `const` fields and enum members render their compile-time value in the
+signature (e.g. `public const string DefaultName = "default"`, `Active = 0`).
 
 ### Nested Types
 

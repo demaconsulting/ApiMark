@@ -15,6 +15,15 @@ public class SampleClass
     /// <summary>Gets the default name constant.</summary>
     public const string DefaultName = "default";
 
+    /// <summary>Gets the maximum allowed count.</summary>
+    public const int MaxCount = 42;
+
+    /// <summary>Gets a value indicating whether the instance is enabled by default.</summary>
+    public const bool IsDefaultEnabled = true;
+
+    /// <summary>Gets the NUL separator character constant.</summary>
+    public const char NulSeparator = '\0';
+
     /// <summary>Occurs when the name changes.</summary>
     public event EventHandler? NameChanged;
 

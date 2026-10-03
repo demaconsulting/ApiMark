@@ -20,6 +20,8 @@ Tests run with the standard xUnit.net test runner.
 - Case-insensitive collisions are combined onto one page.
 - Empty namespace collections still produce an `api.md` fallback page.
 - The api index page heading contains the configured library name.
+- A field signature line appends `= <value>` when `CppField.Value` is populated, and omits
+  it otherwise.
 
 ### Test Scenarios
 
@@ -78,3 +80,12 @@ name. Tested by
 **Namespace operators page**: Verifies that namespace-level operator overloads are grouped
 onto a shared `{namespace}/operators.md` page. Tested by
 `CppEmitterGradualDisclosure_Emit_NamespaceOperators_CreatesOperatorsPage`.
+
+**Field with literal value appends `= <value>`**: Verifies that a field page's signature
+line appends `= <value>` when `CppField.Value` is populated (a `constexpr`/literal-initialized
+constant). Tested by
+`CppEmitterGradualDisclosure_Emit_FieldWithLiteralValue_SignatureContainsValue`.
+
+**Field without value omits the equals sign**: Verifies that a field page's signature line
+contains no `=` when `CppField.Value` is `null`. Tested by
+`CppEmitterGradualDisclosure_Emit_FieldWithoutValue_SignatureContainsNoEquals`.

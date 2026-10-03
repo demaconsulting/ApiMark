@@ -149,6 +149,20 @@ These helpers are grouped by concern:
   `public static implicit operator TargetType(SourceType)` or
   `public static explicit operator TargetType(SourceType)`, with the return type
   appearing after the `operator` keyword rather than before the method name.
+  `BuildFieldSignature` appends `" = " + FormatConstantValue(field.Constant)` to the
+  signature when `field.HasConstant` is `true`; this also covers enum member fields,
+  because Mono.Cecil stores enum member constants using the enum's underlying
+  primitive type, so the same formatter renders both plain `const` fields and enum
+  members correctly.
+- *Constant-value formatting* — `FormatConstantValue`, `EscapeStringLiteral`,
+  `EscapeCharLiteral`: `FormatConstantValue` pattern-matches the boxed constant by
+  runtime type — `null` renders as `"null"`; `string` renders double-quoted and
+  escaped via `EscapeStringLiteral` (escaping `\\`, `"`, `\n`, `\r`, `\t`); `char`
+  renders single-quoted and escaped via `EscapeCharLiteral` (escaping `\\`, `'`,
+  `\0`, `\n`, `\r`, `\t`); `bool` renders as lowercase `true`/`false`; and every
+  other numeric primitive renders via `Convert.ToString` with
+  `CultureInfo.InvariantCulture` and no numeric type suffixes (no `L`/`f`/`m`), to
+  keep the signature readable as plain C#-like literal text.
 - *Accessibility helpers* — `GetAccessibilityKeyword(MethodDefinition)`,
   `GetAccessibilityKeyword(FieldDefinition)`, `GetAccessibilityKeyword(EventDefinition)`,
   `GetOperatorCSharpName`, `GetOperatorSymbol`: map Mono.Cecil access flags to C#

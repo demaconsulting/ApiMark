@@ -63,9 +63,21 @@ sections:
             justification: |
               Dedicated member pages make navigation deterministic while still handling
               case-collision edge cases safely.
+            children:
+              - ApiMarkCpp-CppEmitterGradualDisclosure-RenderFieldConstantValue
             tests:
               - CppEmitterGradualDisclosure_Emit_MethodMember_CreatesMemberDetailPage
               - CppEmitterGradualDisclosure_Emit_CaseInsensitiveCollision_CreatesCombinedPage
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-RenderFieldConstantValue
+            title: >-
+              CppEmitterGradualDisclosure shall append "= value" to a field's signature
+              line when CppField.Value is populated.
+            justification: |
+              Readers need to see a field's compile-time literal value directly in its
+              signature block so they can use the constant without opening the header.
+            tests:
+              - CppEmitterGradualDisclosure_Emit_FieldWithLiteralValue_SignatureContainsValue
+              - CppEmitterGradualDisclosure_Emit_FieldWithoutValue_SignatureContainsNoEquals
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitFreeFunctionPage
             title: CppEmitterGradualDisclosure shall produce a detail page for each
               regular free function.

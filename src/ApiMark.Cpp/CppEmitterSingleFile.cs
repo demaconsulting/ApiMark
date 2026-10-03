@@ -465,7 +465,11 @@ internal sealed class CppEmitterSingleFile
         var qualifiedFieldName = string.IsNullOrEmpty(nsDisplay)
             ? $"{className}::{field.Name}"
             : $"{nsDisplay}::{className}::{field.Name}";
-        var fieldSig = $"{CppEmitter.SimplifyTypeName(field.TypeName)} {field.Name};";
+        // Append the literal value when the field is a constexpr/literal-initialized constant so
+        // readers can see compile-time values without opening the header
+        var fieldSig = field.Value is not null
+            ? $"{CppEmitter.SimplifyTypeName(field.TypeName)} {field.Name} = {field.Value};"
+            : $"{CppEmitter.SimplifyTypeName(field.TypeName)} {field.Name};";
         writer.WriteSignature("cpp", $"// {qualifiedFieldName}\n{fieldSig}");
 
         writer.WriteParagraph(!string.IsNullOrEmpty(memberSummary) ? memberSummary : CppEmitter.NoDescriptionPlaceholder);

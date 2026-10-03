@@ -24,6 +24,10 @@ installation accessible on PATH. When clang is not available, integration tests 
 - `Parse`, invoked directly (not via `CppGenerator.Parse`), still resolves an angle-bracket
   `#include` via a `PublicIncludeRoots` entry supplied with different casing than its on-disk
   spelling, on a case-sensitive file system.
+- A `constexpr` field's single simple-literal initializer (string, integer, boolean, or
+  character, including a leading unary `+`/`-` directly over a literal, e.g. `-5`) is
+  extracted into `CppField.Value` as a display string; a computed expression (e.g. `2 * 21`)
+  leaves `CppField.Value` as `null`.
 
 ### Test Scenarios
 
@@ -73,6 +77,35 @@ producing no error-class diagnostics. Regression test for the include root only 
 normalized for the ownership check while the clang `-I` arguments read the un-normalized
 options. Tested by
 `ClangAstParser_Parse_CalledDirectlyWithDifferentlyCasedIncludeRoot_ResolvesAngleBracketInclude`.
+
+**Constexpr string field has quoted value**: Verifies that a `constexpr` field whose
+initializer is a simple string literal is parsed with its quoted display value stored in
+`CppField.Value`. Tested by
+`ClangAstParser_Parse_FixtureHeaders_ConstexprStringField_HasQuotedValue`.
+
+**Constexpr int field has numeric value**: Verifies that a `constexpr` field whose
+initializer is a simple integer literal is parsed with its plain numeric display value.
+Tested by `ClangAstParser_Parse_FixtureHeaders_ConstexprIntField_HasNumericValue`.
+
+**Constexpr computed field has null value**: Verifies that a `constexpr` field whose
+initializer is a computed expression (e.g. `2 * 21`) is parsed with a `null` value,
+confirming the parser never folds or evaluates compound expressions. Tested by
+`ClangAstParser_Parse_FixtureHeaders_ConstexprComputedField_HasNullValue`.
+
+**Constexpr negative int field has numeric value**: Verifies that a `constexpr` field
+whose initializer is a leading unary minus directly over a simple integer literal (e.g.
+`-5`) still renders a value, confirming a negative literal is treated as the literal the
+user wrote directly, not a computed expression. Tested by
+`ClangAstParser_Parse_FixtureHeaders_ConstexprNegativeIntField_HasNumericValue`.
+
+**Constexpr bool field has boolean value**: Verifies that a `constexpr` field whose
+initializer is a boolean literal is parsed with its lowercase `true`/`false` display value.
+Tested by `ClangAstParser_Parse_FixtureHeaders_ConstexprBoolField_HasBooleanValue`.
+
+**Constexpr char field escapes NUL character**: Verifies that a `constexpr` field whose
+initializer is a NUL character literal is parsed with its escaped `'\0'` display value,
+mirroring the C# `NulSeparator` const char regression coverage. Tested by
+`ClangAstParser_Parse_FixtureHeaders_ConstexprCharField_EscapesNulCharacter`.
 
 **Known integration-only gap**: Non-zero exit and malformed JSON paths are not isolated by the
 current implementation without adding a process seam, so those behaviors remain covered only by

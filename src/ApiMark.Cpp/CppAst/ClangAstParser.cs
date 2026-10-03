@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using ApiMark.Core;
@@ -1813,7 +1814,9 @@ internal sealed class ClangAstParser
             : string.Empty;
 
         var isDeprecated = node.TryGetProperty(IsDeprecatedProperty, out var dep) && dep.GetBoolean();
+        var isConstexpr = node.TryGetProperty("constexpr", out var constexprProp) && constexprProp.GetBoolean();
         CppDocComment? doc = null;
+        string? value = null;
 
         if (node.TryGetProperty(InnerProperty, out var inner))
         {
@@ -1828,11 +1831,130 @@ internal sealed class ClangAstParser
                     case DeprecatedAttrKind:
                         isDeprecated = true;
                         break;
+                    default:
+                        // The remaining child is the initializer expression (when present) -
+                        // only attempt to extract a literal value for constexpr fields, since
+                        // non-constexpr initializers are not guaranteed to be compile-time constant
+                        if (isConstexpr)
+                        {
+                            value ??= ExtractConstexprFieldValue(child);
+                        }
+
+                        break;
                 }
             }
         }
 
-        return new CppField(name, typeName, accessibility, isStatic, isDeprecated, null, doc);
+        return new CppField(name, typeName, accessibility, isStatic, isDeprecated, null, doc, value);
+    }
+
+    /// <summary>
+    ///     Extracts a display string for a <c>constexpr</c> field's initializer expression,
+    ///     but only when the initializer is a single simple-literal expression.
+    /// </summary>
+    /// <remarks>
+    ///     Deliberately narrower than <see cref="ExtractDefaultValue"/>: it does not follow
+    ///     named-constant references (<c>DeclRefExpr</c>), because the field-value rendering
+    ///     feature must never display a folded or reconstructed value for anything other than a
+    ///     literal the user wrote directly - compound/computed expressions (e.g. <c>2 * 21</c>)
+    ///     must remain unrendered. A single leading <c>+</c>/<c>-</c> unary operator directly over
+    ///     a simple literal (e.g. <c>-1</c>) is still considered a literal the user wrote directly
+    ///     and is reconstructed; any other unary operator, or one wrapping a non-literal operand,
+    ///     is treated as computed and left unrendered.
+    ///     Pure pass-through wrapper nodes that clang inserts around literals (implicit casts,
+    ///     temporary materialization) are unwrapped first since they carry no semantic value
+    ///     of their own.
+    /// </remarks>
+    /// <param name="node">The initializer expression node from a field's <c>inner</c> array.</param>
+    /// <returns>A display string for the literal value, or <see langword="null"/> when the initializer is not a simple literal.</returns>
+    private static string? ExtractConstexprFieldValue(JsonElement node)
+    {
+        var kind = GetKind(node);
+
+        // Unwrap pure pass-through wrapper nodes (array-to-pointer decay casts, temporary
+        // materialization, etc.) that carry no literal value of their own
+        if (kind is "ImplicitCastExpr" or "ConstantExpr" or "MaterializeTemporaryExpr" or "ExprWithCleanups")
+        {
+            return node.TryGetProperty(InnerProperty, out var wrapperInner) && wrapperInner.GetArrayLength() > 0
+                ? ExtractConstexprFieldValue(wrapperInner[0])
+                : null;
+        }
+
+        return kind switch
+        {
+            // Numeric and string literals carry their value as a JSON string, already formatted
+            // the way clang would print them (strings already include surrounding quotes)
+            "IntegerLiteral" or "FloatingLiteral" or "StringLiteral" =>
+                node.TryGetProperty("value", out var v) ? v.GetString() : null,
+
+            // Boolean literals carry their value as a JSON boolean, not a string
+            "CXXBoolLiteralExpr" => ExtractBoolLiteralDefaultValue(node),
+
+            // Character literals carry their value as a JSON numeric code point
+            "CharacterLiteral" => ExtractCharacterLiteralValue(node),
+
+            // A leading +/- directly over a literal (e.g. -1) is still the literal the user
+            // wrote, not a computed expression - reconstruct it, but only when the operand
+            // itself resolves to a literal (guards against e.g. -(2 * 21))
+            "UnaryOperator" => ExtractConstexprUnaryLiteralValue(node),
+
+            // Anything else (BinaryOperator, DeclRefExpr, etc.) is a computed or referenced
+            // value, not a literal the user wrote directly - leave unrendered
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    ///     Reconstructs the display string for a <c>UnaryOperator</c> node whose operator is a
+    ///     leading <c>+</c> or <c>-</c> directly over a simple literal operand (e.g. <c>-1</c>).
+    /// </summary>
+    /// <param name="node">The <c>UnaryOperator</c> JSON node.</param>
+    /// <returns>
+    ///     The reconstructed operator text, or <see langword="null"/> when the opcode is not
+    ///     <c>+</c>/<c>-</c>, or the operand is not itself a simple literal.
+    /// </returns>
+    private static string? ExtractConstexprUnaryLiteralValue(JsonElement node)
+    {
+        if (!node.TryGetProperty("opcode", out var op) || op.GetString() is not ("+" or "-") ||
+            !node.TryGetProperty(InnerProperty, out var uInner) || uInner.GetArrayLength() == 0)
+        {
+            return null;
+        }
+
+        var operandValue = ExtractConstexprFieldValue(uInner[0]);
+        return operandValue is null ? null : $"{op.GetString()}{operandValue}";
+    }
+
+    /// <summary>
+    ///     Converts a <c>CharacterLiteral</c> node's numeric code point into a C++-style
+    ///     single-quoted character literal display string.
+    /// </summary>
+    /// <param name="node">The <c>CharacterLiteral</c> JSON node.</param>
+    /// <returns>
+    ///     The character rendered as e.g. <c>'A'</c> for printable ASCII, an escaped form for
+    ///     common control characters, or the bare decimal code point as text for anything else
+    ///     (to avoid misrepresenting non-ASCII code points); <see langword="null"/> when the
+    ///     value is absent or not a number.
+    /// </returns>
+    private static string? ExtractCharacterLiteralValue(JsonElement node)
+    {
+        if (!node.TryGetProperty("value", out var v) || v.ValueKind != JsonValueKind.Number ||
+            !v.TryGetInt32(out var codePoint))
+        {
+            return null;
+        }
+
+        return codePoint switch
+        {
+            0 => "'\\0'",
+            '\n' => "'\\n'",
+            '\r' => "'\\r'",
+            '\t' => "'\\t'",
+            '\\' => "'\\\\'",
+            '\'' => "'\\''",
+            >= 32 and <= 126 => $"'{(char)codePoint}'",
+            _ => codePoint.ToString(CultureInfo.InvariantCulture),
+        };
     }
 
     /// <summary>
