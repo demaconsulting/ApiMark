@@ -95,6 +95,11 @@ These helpers are grouped by concern:
   `IsMemberPublic`, `IsMemberPublicOrProtected`, `IsPropertyPublicOrProtected`,
   `GetVisibleMembers`, `ShouldIncludeMember`: determine which types and members are
   included based on the configured visibility level and `IncludeObsolete` flag.
+  `GetVisibleNestedTypes` always excludes compiler-generated nested types (the
+  cached-lambda class, closures/display classes, async/iterator state machines,
+  etc.), even at `ApiVisibility.All`: they carry no source-level documentation,
+  and several of their names contain characters (`<`, `>`, `|`) that are invalid
+  in Windows file paths, which would otherwise break output generation.
 - *Type/member classification* — `IsOperator`, `IsSpecialNameNonConstructor`,
   `IsCompilerGeneratedField`, `IsDelegate`, `IsExtensionMethod`,
   `IsCompilerGenerated(ICustomAttributeProvider)`, `IsCompilerGenerated(TypeDefinition)`,

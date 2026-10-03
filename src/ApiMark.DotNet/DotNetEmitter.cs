@@ -218,7 +218,11 @@ internal sealed class DotNetEmitter : IApiEmitter
     ///     Nested-type visibility is tested with the <c>IsNested*</c> flags rather than the
     ///     top-level <c>IsPublic</c> flag because Cecil assigns separate flags to each
     ///     nested-access level. Ordering by name ensures deterministic output regardless of
-    ///     metadata table order.
+    ///     metadata table order. Compiler-generated nested types (closures, state machines,
+    ///     the cached-lambda class, etc.) are always excluded, even at <see cref="ApiVisibility.All"/>:
+    ///     they are implementation details with no source-level documentation, and several of
+    ///     their names contain characters (<c>&lt;</c>, <c>&gt;</c>, <c>|</c>) that are invalid in
+    ///     Windows file paths.
     /// </remarks>
     /// <param name="type">The declaring type whose nested types are to be filtered.</param>
     /// <returns>
@@ -228,6 +232,7 @@ internal sealed class DotNetEmitter : IApiEmitter
     internal IEnumerable<TypeDefinition> GetVisibleNestedTypes(TypeDefinition type)
     {
         return type.NestedTypes
+            .Where(t => !IsCompilerGenerated(t))
             .Where(t => Model.Options.Visibility switch
             {
                 ApiVisibility.Public => t.IsNestedPublic,

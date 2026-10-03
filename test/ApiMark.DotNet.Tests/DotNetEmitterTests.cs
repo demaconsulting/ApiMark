@@ -474,4 +474,31 @@ public class DotNetEmitterTests
         // Assert: getter must be prefixed with its restricted accessibility; setter must have no prefix
         Assert.Equal("protected get; set;", result);
     }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.GetVisibleNestedTypes"/> excludes compiler-generated
+    ///     nested types (cached-lambda classes, closures, etc.) even at <see cref="ApiVisibility.All"/>,
+    ///     where they would otherwise be included because they are private/internal and carry no
+    ///     meaningful documentation, and their names (e.g. <c>&lt;&gt;c</c>) are invalid Windows file names.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_GetVisibleNestedTypes_AllVisibility_ExcludesCompilerGeneratedTypes()
+    {
+        // Arrange
+        var options = BuildOptions();
+        options.Visibility = ApiVisibility.All;
+        var emitter = (DotNetEmitter)new DotNetGenerator(options).Parse(new InMemoryContext());
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.Single(t => t.Name == "CompilerGeneratedNestedClass");
+
+        // Sanity check: the compiler did synthesize at least one nested type for the lambdas
+        Assert.NotEmpty(type.NestedTypes);
+
+        // Act
+        var visibleNestedTypes = emitter.GetVisibleNestedTypes(type).ToList();
+
+        // Assert: none of the synthesized nested types (whose names start with '<') are visible
+        Assert.Empty(visibleNestedTypes);
+        Assert.DoesNotContain(visibleNestedTypes, t => t.Name.Contains('<', StringComparison.Ordinal));
+    }
 }
