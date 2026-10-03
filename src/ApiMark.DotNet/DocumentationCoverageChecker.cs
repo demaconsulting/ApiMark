@@ -136,8 +136,12 @@ internal static class DocumentationCoverageChecker
         bool IsVisible(IMemberDefinition member) =>
             IsMemberVisible(member, visibility) && (includeObsolete || !DotNetEmitter.IsObsolete(member));
 
+        // Methods: exclude special-name accessors, compiler-generated methods, and the
+        // compiler-synthesized implicit default constructor — it has no source line to attach a
+        // <summary> to, and the C# compiler's own CS1591 missing-documentation warning does not
+        // flag it either.
         foreach (var method in type.Methods
-            .Where(m => !DotNetEmitter.IsSpecialNameNonConstructor(m) && !DotNetEmitter.IsCompilerGenerated(m) && IsVisible(m)))
+            .Where(m => !DotNetEmitter.IsSpecialNameNonConstructor(m) && !DotNetEmitter.IsCompilerGenerated(m) && !DotNetEmitter.IsImplicitDefaultConstructor(m) && IsVisible(m)))
         {
             yield return method;
         }

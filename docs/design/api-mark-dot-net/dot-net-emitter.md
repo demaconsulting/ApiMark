@@ -103,8 +103,39 @@ These helpers are grouped by concern:
 - *Type/member classification* — `IsOperator`, `IsSpecialNameNonConstructor`,
   `IsCompilerGeneratedField`, `IsDelegate`, `IsExtensionMethod`,
   `IsCompilerGenerated(ICustomAttributeProvider)`, `IsCompilerGenerated(TypeDefinition)`,
-  `IsObsolete`, `IsNamespaceDocCarrier`: categorize types and members to drive
-  conditional rendering paths.
+  `IsImplicitDefaultConstructor`, `IsObsolete`, `IsNamespaceDocCarrier`: categorize types
+  and members to drive conditional rendering paths. `IsImplicitDefaultConstructor` is
+  consumed only by `DocumentationCoverageChecker` (to exempt the compiler-synthesized
+  implicit parameterless constructor from `--enforce-docs`), not by either sub-emitter —
+  the generated Markdown still lists the constructor like any other member. Its algorithm:
+  an instance, parameterless constructor is classified as implicit only when the module has
+  loaded debug symbols and every one of its sequence-point ranges (the IL span from one
+  sequence point up to the next, or the end of the method body) contains exactly one `stfld`
+  instruction against an instance field of its own declaring type — each field/property
+  initializer folded into the implicit constructor contributes exactly one such range. Any
+  explicit constructor fails this check: a conventional `{ }` body contributes ranges with
+  zero stores (its braces/statements), and a single source statement that stores more than
+  one field (e.g. a tuple-deconstruction assignment) contributes a range with more than one
+  store — both of which a simpler aggregate-count comparison could miss. Without loaded
+  symbols (`ModuleDefinition.HasSymbols` is `false`) it conservatively returns `false`
+  rather than guessing. A qualifying `stfld` is one whose field belongs to the
+  constructor's own declaring type, as determined by the private helper
+  `IsFieldOfDeclaringType(FieldReference, TypeDefinition)`: it compares `field.DeclaringType`
+  to the constructor's declaring type by reference first, then falls back to resolving
+  `field.DeclaringType` and comparing the resolved definition — mirroring how
+  `DotNetGenerator`'s base-type inheritance walk treats type resolution. That resolution
+  is wrapped in a try/catch for `Mono.Cecil.AssemblyResolutionException`, because a field
+  inherited from a base type in an assembly that isn't supplied via `ReferencePaths` (e.g.
+  a `protected` field on an external base class) is a legitimate, already-tolerated
+  scenario elsewhere in the codebase; an unresolvable field is simply treated as not
+  belonging to the declaring type (i.e. not a qualifying store) rather than letting the
+  exception abort `--enforce-docs` checking for the whole assembly. A compiler-synthesized
+  implicit default constructor always emits an IL body (at minimum, a call to the base class
+  constructor), so the method returns `false` for any constructor whose
+  `MethodDefinition.HasBody` is `false` (e.g. a metadata-only/reference-assembly stub, or an
+  `extern`/P/Invoke-declared constructor) before even inspecting sequence points — such a
+  constructor is never the compiler-synthesized one, regardless of how many (necessarily
+  zero) sequence points it reports.
 - *ID and file-name builders* — `GetMemberDisplayName`, `BuildTypeId`, `BuildMemberId`,
   `BuildMethodId`, `GetSanitizedMemberFileName`, `BuildMethodDisplayName`,
   `BuildMethodFileName`, `GetMethodGroupDisplayName`, `GetMethodGroupName`: produce

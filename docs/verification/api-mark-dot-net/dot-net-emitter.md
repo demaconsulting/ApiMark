@@ -36,6 +36,17 @@ service or network dependency is needed.
 - `BuildPropertyAccessors` emits `init;` for init-only (C# 9+) property setters.
 - `ToXmlDocTypeName` converts Cecil generic type names (e.g. `List\`1`) to XML doc member-ID format (e.g.`List{T}`) so XML doc lookups use the correct key format.
 - `ToXmlDocTypeName` converts Cecil byref type names (trailing `&`, used for `ref`/`out`/`in` parameters) to XML doc member-ID format (trailing `@`) so XML doc lookups use the correct key format.
+- `IsImplicitDefaultConstructor` returns `true` for a compiler-synthesized implicit default
+  constructor (with or without field/property initializers) and `false` for an explicit
+  parameterless constructor (empty, expression-bodied, or otherwise) and for a constructor
+  that takes a parameter.
+- `IsImplicitDefaultConstructor` does not throw when a constructor stores a field whose
+  declaring type is unresolvable (e.g. an external assembly not supplied via
+  `ReferencePaths`), and classifies such a constructor as not implicit.
+- `IsImplicitDefaultConstructor` returns `false` for a bodyless constructor (e.g. one whose
+  implementation attributes mark it `InternalCall`, simulating a metadata-only/reference-
+  assembly stub or an `extern`/P/Invoke-declared constructor), regardless of its sequence-point
+  data.
 
 ### Test Scenarios
 
@@ -127,3 +138,33 @@ returns `"get; set;"` (without a prefix) for a protected property whose get and 
 both protected, confirming that redundant accessor prefixes are suppressed when they match the
 property's declared accessibility. This scenario is tested by
 `DotNetEmitter_BuildPropertyAccessors_ProtectedProperty_DoesNotPrefixAccessors`.
+
+**IsImplicitDefaultConstructor distinguishes implicit from explicit constructors**: Verifies that
+`DotNetEmitter.IsImplicitDefaultConstructor` returns `true` for a compiler-synthesized implicit
+default constructor — both with no field/property initializers and with multiple initializers,
+whose sequence points would otherwise be mistaken for the constructor's own body — and returns
+`false` for an explicit constructor that takes a parameter, an explicit empty parameterless
+constructor, an explicit expression-bodied parameterless constructor whose entire body is a
+single field assignment, an explicit expression-bodied parameterless constructor whose
+single source statement stores more than one field under one sequence point (a
+tuple-deconstruction assignment), and an explicit constructor that stores a `protected` field
+inherited from a resolvable external base class. This scenario is tested by
+`DotNetEmitter_IsImplicitDefaultConstructor_DistinguishesImplicitFromExplicit`.
+
+**IsImplicitDefaultConstructor does not throw for an unresolvable external field**: Verifies
+that `DotNetEmitter.IsImplicitDefaultConstructor` does not propagate a
+`Mono.Cecil.AssemblyResolutionException` when a constructor's field store targets a field
+whose declaring type cannot be resolved (simulated by splicing a synthetic `stfld` instruction,
+referencing a fabricated nonexistent assembly, into a real constructor's IL body), and instead
+treats the store as not qualifying and classifies the constructor as not implicit. This
+scenario is tested by
+`DotNetEmitter_IsImplicitDefaultConstructor_UnresolvableExternalFieldDoesNotThrow`.
+
+**IsImplicitDefaultConstructor returns false for a bodyless constructor**: Verifies that
+`DotNetEmitter.IsImplicitDefaultConstructor` returns `false` for a constructor whose
+implementation attributes are flipped to `InternalCall` (so `MethodDefinition.HasBody` is
+`false` and it reports zero sequence points), reproducing a metadata-only/reference-assembly
+stub or an `extern`/P/Invoke-declared constructor — scenarios that cannot be the
+compiler-synthesized implicit default constructor, since that constructor always has an IL
+body. This scenario is tested by
+`DotNetEmitter_IsImplicitDefaultConstructor_BodylessConstructor_ReturnsFalse`.

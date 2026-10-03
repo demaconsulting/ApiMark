@@ -32,6 +32,16 @@ XML doc member identifier. Checking for complete `<param>`, `<returns>`, or
 `<exception>` coverage is explicitly out of scope for v1 and is noted as a
 possible future enhancement.
 
+**Implicit default constructors**: a type with no explicit constructor of its
+own gets a compiler-synthesized implicit parameterless constructor that has
+no source location an author could attach a `<summary>` to, and which CS1591
+itself does not flag. `GetVisibleMembers` excludes it from enforcement via
+`DotNetEmitter.IsImplicitDefaultConstructor`, which relies on portable-PDB
+debug symbols being loaded for the assembly (see `DotNetGenerator`'s
+`ReaderParameters.ReadSymbols` usage); if no symbols are available for a
+given assembly, every constructor — implicit or explicit — is enforced as
+before, since the detection conservatively declines to guess without symbols.
+
 ### Key Methods
 
 **Check** (internal static): Scans `assembly` for types and members at or
@@ -65,10 +75,12 @@ flags rather than the top-level `IsPublic` flag, via `IsNestedTypeVisible`.
 **GetVisibleMembers** (private): Enumerates methods, properties, fields, and
 events of a type that satisfy the enforcement visibility tier and the
 obsolete filter, reusing `DotNetEmitter.IsSpecialNameNonConstructor`,
-`IsCompilerGenerated`, `IsCompilerGeneratedField`, and the `value__` backing
-field exclusion for enums — the same shape as
-`DotNetEmitter.GetVisibleMembers` but parameterized on the enforcement tier
-instead of an emitter instance's fixed emission tier.
+`IsCompilerGenerated`, `IsCompilerGeneratedField`, the `value__` backing
+field exclusion for enums, and `DotNetEmitter.IsImplicitDefaultConstructor`
+(to exclude the compiler-synthesized implicit parameterless constructor,
+which has no source location an author could attach a `<summary>` to) — the
+same shape as `DotNetEmitter.GetVisibleMembers` but parameterized on the
+enforcement tier instead of an emitter instance's fixed emission tier.
 
 **IsTypeVisible / IsNestedTypeVisible / IsMemberVisible** (private): Re-derive
 a local three-way visibility switch (`Public`, `PublicAndProtected`, `All`)
@@ -99,7 +111,8 @@ ever invoked.
   (`AssemblyDefinition`, `TypeDefinition`, `IMemberDefinition` and its
   concrete subtypes).
 - **DotNetEmitter** (static predicates) — reused for compiler-generated
-  detection, `NamespaceDoc`-carrier detection, obsolete detection, member-id
+  detection, `NamespaceDoc`-carrier detection, obsolete detection, implicit
+  default constructor detection (`IsImplicitDefaultConstructor`), member-id
   construction (`BuildTypeId`/`BuildMemberId`), member display-name
   formatting, and the public/public-or-protected member visibility
   predicates.

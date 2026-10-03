@@ -1,6 +1,7 @@
 using System.Text;
 using ApiMark.Core;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
 
 namespace ApiMark.DotNet;
 
@@ -1246,6 +1247,151 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns><c>true</c> when the type is compiler-generated.</returns>
     internal static bool IsCompilerGenerated(TypeDefinition type) =>
         type.Name.Contains('<') || type.Name.Contains('>') || IsCompilerGenerated((ICustomAttributeProvider)type);
+
+    /// <summary>
+    ///     Returns <c>true</c> when <paramref name="method"/> is the compiler-synthesized implicit
+    ///     parameterless constructor the C# compiler emits for a type that declares no constructor
+    ///     of its own.
+    /// </summary>
+    /// <remarks>
+    ///     Unlike other compiler-generated members, the implicit default constructor does not carry
+    ///     <c>CompilerGeneratedAttribute</c>, and its IL body can be identical to an explicit, empty
+    ///     parameterless constructor, so neither
+    ///     <see cref="IsCompilerGenerated(ICustomAttributeProvider)"/> nor a plain IL-shape check can
+    ///     distinguish the two. The available signal is debug-symbol sequence points, with one
+    ///     complication: field and auto-property initializers (e.g. <c>public string Host { get; }
+    ///     = "x";</c>) run inside every constructor — implicit or explicit — and each contributes its
+    ///     own sequence point mapped to the initializer's source location, not the constructor's.
+    ///     Each initializer's sequence point covers exactly one instance-field store (<c>stfld</c>
+    ///     targeting a field of the declaring type): the implicit constructor (which has no body of
+    ///     its own) consists entirely of such one-store ranges, in every case tested — top-level,
+    ///     generic, and nested types, with or without initializers — while any explicit constructor
+    ///     always has at least one sequence-point range that does not fit this pattern: a
+    ///     conventional <c>{ }</c> body contributes ranges with zero stores (its opening/closing
+    ///     braces), and a single source statement that stores more than one field in one expression
+    ///     (e.g. a tuple-deconstruction assignment such as <c>(A, B) = (1, 2);</c>) contributes a
+    ///     range with more than one store. Comparing aggregate sequence-point and store counts (as
+    ///     an earlier version of this method did) cannot distinguish that second case, since the
+    ///     counts can coincidentally match; requiring every individual range to contain exactly one
+    ///     store avoids that false negative. This requires portable-PDB debug information to have
+    ///     been loaded for the module (see <c>DotNetGenerator</c>'s use of
+    ///     <c>ReaderParameters.ReadSymbols</c>); when no symbols are available,
+    ///     <see cref="ModuleDefinition.HasSymbols"/> is <see langword="false"/> and this method
+    ///     conservatively returns <see langword="false"/> rather than guessing, since every method in
+    ///     an unsymbolized module reports zero sequence points. A compiler-synthesized implicit
+    ///     default constructor always emits an IL body (at minimum, a call to the base class
+    ///     constructor), so a bodyless method — e.g. a metadata-only/reference-assembly stub, or an
+    ///     <c>extern</c>/P/Invoke-declared constructor — is never classified as implicit regardless
+    ///     of its (necessarily empty) sequence-point data. Even an explicit expression-bodied
+    ///     constructor whose entire body is a single field assignment (e.g. <c>public Foo() => Bar =
+    ///     1;</c>) is correctly classified as explicit: the assignment itself contributes a sequence
+    ///     point whose range has zero stores, distinct from the range covering the <c>stfld</c>.
+    /// </remarks>
+    /// <param name="method">The constructor method definition to inspect.</param>
+    /// <returns>
+    ///     <c>true</c> when <paramref name="method"/> is an instance, parameterless constructor
+    ///     believed to be the compiler-synthesized implicit default constructor.
+    /// </returns>
+    internal static bool IsImplicitDefaultConstructor(MethodDefinition method)
+    {
+        if (method.Name != ConstructorMethodName || method.IsStatic || method.HasParameters)
+        {
+            return false;
+        }
+
+        if (method.DeclaringType.Module is not { HasSymbols: true })
+        {
+            return false;
+        }
+
+        if (!method.HasBody)
+        {
+            // A compiler-synthesized implicit default constructor always has an IL body (at
+            // minimum, a call to the base class constructor), so a bodyless method - e.g. a
+            // metadata-only/reference-assembly stub, or an `extern`/P/Invoke-declared
+            // constructor - can never be one, regardless of how many sequence points it reports.
+            return false;
+        }
+
+        var sequencePoints = method.DebugInformation?.SequencePoints
+            .OrderBy(point => point.Offset)
+            .ToList() ?? [];
+
+        var fieldStoreOffsets = method.Body.Instructions
+            .Where(instruction =>
+                instruction.OpCode.Code == Code.Stfld &&
+                instruction.Operand is FieldReference field &&
+                IsFieldOfDeclaringType(field, method.DeclaringType))
+            .Select(instruction => instruction.Offset)
+            .ToList();
+
+        if (sequencePoints.Count == 0)
+        {
+            return fieldStoreOffsets.Count == 0;
+        }
+
+        // An implicit default constructor's only sequence points are the field/property
+        // initializers folded into it by the compiler, and each one maps to exactly one
+        // field store. A hand-written constructor always has at least one sequence-point
+        // range that stores zero fields (its signature, braces, or a non-assignment
+        // statement) or more than one field (e.g. a tuple-deconstruction assignment such
+        // as `(A, B) = (1, 2);`, where a single sequence point covers multiple `stfld`
+        // instructions). Requiring a strict one-store-per-sequence-point mapping across
+        // every range distinguishes the two reliably, rather than comparing aggregate
+        // counts which both cases can satisfy coincidentally.
+        for (var index = 0; index < sequencePoints.Count; index++)
+        {
+            var rangeStart = sequencePoints[index].Offset;
+            var rangeEnd = index + 1 < sequencePoints.Count
+                ? sequencePoints[index + 1].Offset
+                : int.MaxValue;
+
+            var storesInRange = fieldStoreOffsets.Count(offset => offset >= rangeStart && offset < rangeEnd);
+            if (storesInRange != 1)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    ///     Returns <c>true</c> when <paramref name="field"/> is declared by
+    ///     <paramref name="declaringType"/> itself, resolving the field's declaring-type
+    ///     reference only when a direct reference-equality check does not already confirm it.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="MemberReference.Resolve"/> throws <see cref="AssemblyResolutionException"/>
+    ///     when the declaring-type reference points at an external assembly that was not supplied
+    ///     via <c>ReferencePaths</c> — a supported, deliberately tolerated scenario elsewhere in
+    ///     this generator (see <see cref="DotNetGenerator"/>'s base-type resolution). A protected
+    ///     field inherited from such an unresolved external base type is a realistic case for a
+    ///     parameterless constructor to store, so resolution failures here are caught and treated
+    ///     as "not a field of <paramref name="declaringType"/>" rather than allowed to propagate and
+    ///     abort documentation-coverage checking.
+    /// </remarks>
+    /// <param name="field">The field reference targeted by a <c>stfld</c> instruction.</param>
+    /// <param name="declaringType">The constructor's declaring type.</param>
+    /// <returns>
+    ///     <c>true</c> when <paramref name="field"/> is declared by <paramref name="declaringType"/>.
+    /// </returns>
+    private static bool IsFieldOfDeclaringType(FieldReference field, TypeDefinition declaringType)
+    {
+        if (field.DeclaringType == declaringType)
+        {
+            return true;
+        }
+
+        try
+        {
+            return field.DeclaringType.Resolve() == declaringType;
+        }
+        catch (AssemblyResolutionException)
+        {
+            return false;
+        }
+    }
 
     /// <summary>
     ///     Returns <c>true</c> when <paramref name="type"/> is a <c>NamespaceDoc</c>

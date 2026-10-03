@@ -47,6 +47,8 @@ network dependency, or privileged configuration is needed.
   exercised end-to-end.
 - `Parse` throws `FileNotFoundException` when the assembly path does not exist on disk,
   and this check occurs before the XML documentation path is verified.
+- `Parse` succeeds and still produces output when a PDB file alongside the assembly does not
+  correspond to it, rather than letting Mono.Cecil's `SymbolsNotMatchingException` abort parsing.
 - The `DotNetGenerator` constructor throws `ArgumentNullException` when `options` is null.
 - A NamespaceDoc carrier's `<remarks>` and `<example>` content are surfaced on the namespace
   page in addition to the summary.
@@ -96,6 +98,12 @@ is tested by `DotNetGenerator_IncludeObsolete_Toggle_ControlsObsoleteOutput`.
 **Error handling rejects a missing XML documentation file**: Verifies that `Parse` throws
 `FileNotFoundException` when the configured XML documentation path does not exist on disk. This
 scenario is tested by `DotNetGenerator_Generate_XmlDocMissing_ThrowsFileNotFoundException`.
+
+**A mismatched PDB degrades gracefully instead of aborting parsing**: Verifies that `Parse`
+succeeds and still produces output when a PDB file is present alongside the assembly but does not
+correspond to it (e.g. a stale PDB left over from an incremental build), rather than letting
+Mono.Cecil's `SymbolsNotMatchingException` propagate and abort the whole run. This scenario is
+tested by `DotNetGenerator_Generate_MismatchedPdb_DoesNotThrowAndStillProducesOutput`.
 
 **Type-name simplification renders readable C# signatures**: Verifies that primitive aliases,
 nullable forms, generic arguments, and common collection types are simplified into compact,

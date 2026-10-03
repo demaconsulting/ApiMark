@@ -1,5 +1,6 @@
 using ApiMark.DotNet;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
 using Xunit;
 
 namespace ApiMark.DotNet.Tests;
@@ -29,10 +30,20 @@ public class DocumentationCoverageCheckerTests
         return path;
     }
 
-    /// <summary>Loads the fixture assembly used by every test in this class.</summary>
+    /// <summary>
+    ///     Loads the fixture assembly used by every test in this class, with debug symbols enabled
+    ///     so that <see cref="DotNetEmitter.IsImplicitDefaultConstructor"/> can distinguish the
+    ///     fixtures' compiler-synthesized implicit default constructors from explicit ones,
+    ///     matching how <c>DotNetGenerator.Parse</c> loads assemblies in production.
+    /// </summary>
     /// <returns>A freshly-read <see cref="AssemblyDefinition"/> for the fixture DLL.</returns>
     private static AssemblyDefinition LoadFixtureAssembly() =>
-        AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll(), new ReaderParameters
+        {
+            ReadSymbols = true,
+            SymbolReaderProvider = new DefaultSymbolReaderProvider(false),
+        });
+
 
     /// <summary>
     ///     Builds exclude patterns that remove every top-level type in <paramref name="assembly"/>
@@ -53,8 +64,9 @@ public class DocumentationCoverageCheckerTests
     [Fact]
     public void Check_FullyDocumentedScope_ReportsZeroViolations()
     {
-        // Arrange — hand-written XML doc documents the type, its property, and its (compiler
-        // generated implicit) parameterless constructor
+        // Arrange — hand-written XML doc documents the type and its property; its implicit
+        // default constructor is excluded from enforcement entirely (see
+        // DotNetEmitter.IsImplicitDefaultConstructor) so no entry is needed for it
         using var assembly = LoadFixtureAssembly();
         var docPath = WriteXmlDoc("""
             <member name="T:ApiMark.DotNet.Fixtures.ExcludedSample.ExcludedSampleClass">
@@ -62,9 +74,6 @@ public class DocumentationCoverageCheckerTests
             </member>
             <member name="P:ApiMark.DotNet.Fixtures.ExcludedSample.ExcludedSampleClass.Value">
               <summary>Gets or sets a value.</summary>
-            </member>
-            <member name="M:ApiMark.DotNet.Fixtures.ExcludedSample.ExcludedSampleClass.#ctor">
-              <summary>Initializes a new instance.</summary>
             </member>
             """);
         try
@@ -75,8 +84,8 @@ public class DocumentationCoverageCheckerTests
             // Act
             var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
 
-            // Assert — type + Value property + implicit constructor
-            Assert.Equal(3, result.CheckedCount);
+            // Assert — type + Value property; the implicit constructor is not checked
+            Assert.Equal(2, result.CheckedCount);
             Assert.Equal(0, result.UndocumentedCount);
             Assert.False(result.HasViolations);
             Assert.Empty(result.UndocumentedItems);
@@ -92,8 +101,8 @@ public class DocumentationCoverageCheckerTests
     public void Check_RealFixtureDoc_ReportsUndocumentedMethod()
     {
         // Arrange — SampleClass.Refresh is an intentionally undocumented public method in the
-        // real, compiler-generated fixture XML doc (see SampleClass.cs); the compiler-generated
-        // implicit parameterless constructor is likewise never emitted with a summary
+        // real, compiler-generated fixture XML doc (see SampleClass.cs); SampleClass's implicit
+        // parameterless constructor is excluded from enforcement entirely and is not reported
         using var assembly = LoadFixtureAssembly();
         var xmlDocs = new XmlDocReader(FixturePaths.GetFixtureXmlDoc());
         var excludePatterns = ExcludeAllExcept(assembly, "ApiMark.DotNet.Fixtures.SampleClass");
@@ -101,19 +110,60 @@ public class DocumentationCoverageCheckerTests
         // Act
         var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
 
-        // Assert — type + Name, Title, DefaultName, NameChanged, GetGreeting, Reset, Refresh, ctor
-        Assert.Equal(9, result.CheckedCount);
-        Assert.Equal(2, result.UndocumentedCount);
+        // Assert — type + Name, Title, DefaultName, NameChanged, GetGreeting, Reset, Refresh (the
+        // implicit constructor is excluded from the count)
+        Assert.Equal(8, result.CheckedCount);
+        Assert.Equal(1, result.UndocumentedCount);
         Assert.Contains(result.UndocumentedItems, i => i is { Kind: "Method", DisplayName: "ApiMark.DotNet.Fixtures.SampleClass.Refresh()" });
-        Assert.Contains(result.UndocumentedItems, i => i is { Kind: "Method", DisplayName: "ApiMark.DotNet.Fixtures.SampleClass.SampleClass()" });
+    }
+
+    /// <summary>
+    ///     Validates that a class with no explicit constructor and multiple property initializers —
+    ///     the shape reported in the original bug (e.g. an options/settings class) — is not flagged
+    ///     for its implicit constructor, even though the initializers contribute their own debug
+    ///     sequence points inside the constructor's IL.
+    /// </summary>
+    [Fact]
+    public void Check_ImplicitConstructorWithPropertyInitializers_IsNotFlagged()
+    {
+        // Arrange — hand-written XML doc documents the type and both properties but has no entry
+        // at all for the implicit constructor
+        using var assembly = LoadFixtureAssembly();
+        var docPath = WriteXmlDoc("""
+            <member name="T:ApiMark.DotNet.Fixtures.ImplicitDefaultConstructorClass">
+              <summary>A class with no explicit constructor.</summary>
+            </member>
+            <member name="P:ApiMark.DotNet.Fixtures.ImplicitDefaultConstructorClass.Host">
+              <summary>Gets or sets the host URL.</summary>
+            </member>
+            <member name="P:ApiMark.DotNet.Fixtures.ImplicitDefaultConstructorClass.Port">
+              <summary>Gets or sets the port.</summary>
+            </member>
+            """);
+        try
+        {
+            var xmlDocs = new XmlDocReader(docPath);
+            var excludePatterns = ExcludeAllExcept(assembly, "ApiMark.DotNet.Fixtures.ImplicitDefaultConstructorClass");
+
+            // Act
+            var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
+
+            // Assert — type + Host + Port; the implicit constructor is never checked
+            Assert.Equal(3, result.CheckedCount);
+            Assert.Equal(0, result.UndocumentedCount);
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
     }
 
     /// <summary>Validates that a type missing a summary is reported as an <see cref=""Type""/> violation.</summary>
     [Fact]
     public void Check_TypeMissingSummary_ReportsTypeViolation()
     {
-        // Arrange — hand-written XML doc documents both members and the implicit constructor
-        // but omits the type summary
+        // Arrange — hand-written XML doc documents both members but omits the type summary; the
+        // implicit constructor needs no entry since it is excluded from enforcement
         using var assembly = LoadFixtureAssembly();
         var docPath = WriteXmlDoc("""
             <member name="P:ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass.Value">
@@ -121,9 +171,6 @@ public class DocumentationCoverageCheckerTests
             </member>
             <member name="M:ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass.Compute(System.Int32)">
               <summary>Computes a result from the given input.</summary>
-            </member>
-            <member name="M:ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass.#ctor">
-              <summary>Initializes a new instance.</summary>
             </member>
             """);
         try
@@ -134,8 +181,8 @@ public class DocumentationCoverageCheckerTests
             // Act
             var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
 
-            // Assert — type + Value + Compute + ctor
-            Assert.Equal(4, result.CheckedCount);
+            // Assert — type + Value + Compute (the implicit constructor is not checked)
+            Assert.Equal(3, result.CheckedCount);
             var violation = Assert.Single(result.UndocumentedItems);
             Assert.Equal("Type", violation.Kind);
             Assert.Equal("ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass", violation.DisplayName);
@@ -150,8 +197,8 @@ public class DocumentationCoverageCheckerTests
     [Fact]
     public void Check_MethodMissingSummary_ReportsMethodViolation()
     {
-        // Arrange — hand-written XML doc documents the type, property, and implicit constructor
-        // but omits the method
+        // Arrange — hand-written XML doc documents the type and property but omits the method;
+        // the implicit constructor needs no entry since it is excluded from enforcement
         using var assembly = LoadFixtureAssembly();
         var docPath = WriteXmlDoc("""
             <member name="T:ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass">
@@ -159,9 +206,6 @@ public class DocumentationCoverageCheckerTests
             </member>
             <member name="P:ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass.Value">
               <summary>Gets or sets a value.</summary>
-            </member>
-            <member name="M:ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass.#ctor">
-              <summary>Initializes a new instance.</summary>
             </member>
             """);
         try
@@ -173,7 +217,7 @@ public class DocumentationCoverageCheckerTests
             var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
 
             // Assert
-            Assert.Equal(4, result.CheckedCount);
+            Assert.Equal(3, result.CheckedCount);
             var violation = Assert.Single(result.UndocumentedItems);
             Assert.Equal("Method", violation.Kind);
             Assert.Equal("ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass.Compute(int)", violation.DisplayName);
@@ -188,8 +232,8 @@ public class DocumentationCoverageCheckerTests
     [Fact]
     public void Check_PropertyMissingSummary_ReportsPropertyViolation()
     {
-        // Arrange — hand-written XML doc documents the type, method, and implicit constructor
-        // but omits the property
+        // Arrange — hand-written XML doc documents the type and method but omits the property;
+        // the implicit constructor needs no entry since it is excluded from enforcement
         using var assembly = LoadFixtureAssembly();
         var docPath = WriteXmlDoc("""
             <member name="T:ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass">
@@ -197,9 +241,6 @@ public class DocumentationCoverageCheckerTests
             </member>
             <member name="M:ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass.Compute(System.Int32)">
               <summary>Computes a result from the given input.</summary>
-            </member>
-            <member name="M:ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass.#ctor">
-              <summary>Initializes a new instance.</summary>
             </member>
             """);
         try
@@ -211,7 +252,7 @@ public class DocumentationCoverageCheckerTests
             var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
 
             // Assert
-            Assert.Equal(4, result.CheckedCount);
+            Assert.Equal(3, result.CheckedCount);
             var violation = Assert.Single(result.UndocumentedItems);
             Assert.Equal("Property", violation.Kind);
             Assert.Equal("ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass.Value", violation.DisplayName);
@@ -226,15 +267,13 @@ public class DocumentationCoverageCheckerTests
     [Fact]
     public void Check_FieldMissingSummary_ReportsFieldViolation()
     {
-        // Arrange — hand-written XML doc documents everything on SampleClass (including its
-        // implicit constructor) except the DefaultName constant field
+        // Arrange — hand-written XML doc documents everything on SampleClass (its implicit
+        // constructor is excluded from enforcement and needs no doc) except the DefaultName
+        // constant field
         using var assembly = LoadFixtureAssembly();
         var docPath = WriteXmlDoc("""
             <member name="T:ApiMark.DotNet.Fixtures.SampleClass">
               <summary>A sample class for testing the API generator.</summary>
-            </member>
-            <member name="M:ApiMark.DotNet.Fixtures.SampleClass.#ctor">
-              <summary>Initializes a new instance.</summary>
             </member>
             <member name="P:ApiMark.DotNet.Fixtures.SampleClass.Name">
               <summary>Gets or sets the name.</summary>
@@ -264,7 +303,7 @@ public class DocumentationCoverageCheckerTests
             var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
 
             // Assert
-            Assert.Equal(9, result.CheckedCount);
+            Assert.Equal(8, result.CheckedCount);
             var violation = Assert.Single(result.UndocumentedItems);
             Assert.Equal("Field", violation.Kind);
             Assert.Equal("ApiMark.DotNet.Fixtures.SampleClass.DefaultName", violation.DisplayName);
@@ -279,15 +318,12 @@ public class DocumentationCoverageCheckerTests
     [Fact]
     public void Check_EventMissingSummary_ReportsEventViolation()
     {
-        // Arrange — hand-written XML doc documents everything on SampleClass (including its
-        // implicit constructor) except the NameChanged event
+        // Arrange — hand-written XML doc documents everything on SampleClass (its implicit
+        // constructor is excluded from enforcement and needs no doc) except the NameChanged event
         using var assembly = LoadFixtureAssembly();
         var docPath = WriteXmlDoc("""
             <member name="T:ApiMark.DotNet.Fixtures.SampleClass">
               <summary>A sample class for testing the API generator.</summary>
-            </member>
-            <member name="M:ApiMark.DotNet.Fixtures.SampleClass.#ctor">
-              <summary>Initializes a new instance.</summary>
             </member>
             <member name="P:ApiMark.DotNet.Fixtures.SampleClass.Name">
               <summary>Gets or sets the name.</summary>
@@ -317,7 +353,7 @@ public class DocumentationCoverageCheckerTests
             var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
 
             // Assert
-            Assert.Equal(9, result.CheckedCount);
+            Assert.Equal(8, result.CheckedCount);
             var violation = Assert.Single(result.UndocumentedItems);
             Assert.Equal("Event", violation.Kind);
             Assert.Equal("ApiMark.DotNet.Fixtures.SampleClass.NameChanged", violation.DisplayName);
@@ -420,15 +456,13 @@ public class DocumentationCoverageCheckerTests
     [Fact]
     public void Check_PublicAndProtectedTier_IncludesProtectedMembersNotSeenAtPublicTier()
     {
-        // Arrange — hand-written XML doc documents the type, implicit constructor, and public
-        // property only, leaving the protected property and method undocumented
+        // Arrange — hand-written XML doc documents the type and public property only (the
+        // implicit constructor is excluded from enforcement and needs no doc), leaving the
+        // protected property and method undocumented
         using var assembly = LoadFixtureAssembly();
         var docPath = WriteXmlDoc("""
             <member name="T:ApiMark.DotNet.Fixtures.ProtectedMembersClass">
               <summary>A class for testing protected member visibility filtering.</summary>
-            </member>
-            <member name="M:ApiMark.DotNet.Fixtures.ProtectedMembersClass.#ctor">
-              <summary>Initializes a new instance.</summary>
             </member>
             <member name="P:ApiMark.DotNet.Fixtures.ProtectedMembersClass.PublicProp">
               <summary>Gets or sets the public property.</summary>
@@ -443,12 +477,12 @@ public class DocumentationCoverageCheckerTests
             var publicResult = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
             var publicAndProtectedResult = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.PublicAndProtected, includeObsolete: false, excludePatterns);
 
-            // Assert — Public tier only sees the type, ctor, and PublicProp, all documented
-            Assert.Equal(3, publicResult.CheckedCount);
+            // Assert — Public tier only sees the type and PublicProp, both documented
+            Assert.Equal(2, publicResult.CheckedCount);
             Assert.Equal(0, publicResult.UndocumentedCount);
 
             // PublicAndProtected tier additionally sees ProtectedProp and ProtectedMethod, both undocumented
-            Assert.Equal(5, publicAndProtectedResult.CheckedCount);
+            Assert.Equal(4, publicAndProtectedResult.CheckedCount);
             Assert.Equal(2, publicAndProtectedResult.UndocumentedCount);
             Assert.Contains(publicAndProtectedResult.UndocumentedItems, i => i is { Kind: "Property", DisplayName: "ApiMark.DotNet.Fixtures.ProtectedMembersClass.ProtectedProp" });
             Assert.Contains(publicAndProtectedResult.UndocumentedItems, i => i is { Kind: "Method", DisplayName: "ApiMark.DotNet.Fixtures.ProtectedMembersClass.ProtectedMethod(int)" });
@@ -497,15 +531,12 @@ public class DocumentationCoverageCheckerTests
     [Fact]
     public void Check_IncludeObsoleteTrue_ScansObsoleteTypeAndReportsMissingSummary()
     {
-        // Arrange — hand-written XML doc documents the obsolete type and its implicit
-        // constructor but omits the OldMethod summary
+        // Arrange — hand-written XML doc documents the obsolete type (the implicit constructor
+        // is excluded from enforcement and needs no doc) but omits the OldMethod summary
         using var assembly = LoadFixtureAssembly();
         var docPath = WriteXmlDoc("""
             <member name="T:ApiMark.DotNet.Fixtures.ObsoleteClass">
               <summary>An obsolete class for testing obsolete member filtering.</summary>
-            </member>
-            <member name="M:ApiMark.DotNet.Fixtures.ObsoleteClass.#ctor">
-              <summary>Initializes a new instance.</summary>
             </member>
             """);
         try
@@ -516,8 +547,8 @@ public class DocumentationCoverageCheckerTests
             // Act
             var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: true, excludePatterns);
 
-            // Assert — type + ctor + OldMethod
-            Assert.Equal(3, result.CheckedCount);
+            // Assert — type + OldMethod
+            Assert.Equal(2, result.CheckedCount);
             var violation = Assert.Single(result.UndocumentedItems);
             Assert.Equal("Method", violation.Kind);
             Assert.Equal("ApiMark.DotNet.Fixtures.ObsoleteClass.OldMethod()", violation.DisplayName);
@@ -545,13 +576,13 @@ public class DocumentationCoverageCheckerTests
         // Act
         var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.All, includeObsolete: true, excludePatterns);
 
-        // Assert — only RemarksOnlyNamespaceClass (type + Value property + implicit ctor) is
-        // checked; the NamespaceDoc carrier is always excluded regardless of visibility tier.
-        // The compiler-generated implicit constructor is never emitted with a summary, so it
-        // is the sole (expected) violation.
-        Assert.Equal(3, result.CheckedCount);
-        var violation = Assert.Single(result.UndocumentedItems);
-        Assert.Equal("Method", violation.Kind);
-        Assert.Equal("ApiMark.DotNet.Fixtures.Inner.RemarksOnly.RemarksOnlyNamespaceClass.RemarksOnlyNamespaceClass()", violation.DisplayName);
+        // Assert — only RemarksOnlyNamespaceClass (type + Value property) is checked; the
+        // NamespaceDoc carrier is always excluded regardless of visibility tier, and the
+        // compiler-synthesized implicit parameterless constructor is excluded from enforcement
+        // entirely since it has no source line to document (see
+        // DotNetEmitter.IsImplicitDefaultConstructor). Both remaining items are documented, so
+        // zero violations are expected.
+        Assert.Equal(2, result.CheckedCount);
+        Assert.Empty(result.UndocumentedItems);
     }
 }

@@ -5,6 +5,7 @@ using ApiMark.Core;
 using ApiMark.Core.TestHelpers;
 using ApiMark.DotNet;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
 using Xunit;
 
 namespace ApiMark.DotNet.Tests;
@@ -500,5 +501,136 @@ public class DotNetEmitterTests
         // Assert: none of the synthesized nested types (whose names start with '<') are visible
         Assert.Empty(visibleNestedTypes);
         Assert.DoesNotContain(visibleNestedTypes, t => t.Name.Contains('<', StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.IsImplicitDefaultConstructor"/> correctly
+    ///     distinguishes compiler-synthesized implicit default constructors — including ones on
+    ///     types with property initializers, which contribute their own debug sequence points —
+    ///     from genuine explicit constructors, including one whose single source statement stores
+    ///     more than one field under a single sequence point (a tuple-deconstruction assignment).
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_IsImplicitDefaultConstructor_DistinguishesImplicitFromExplicit()
+    {
+        // Arrange — load with debug symbols so the sequence-point heuristic has data to work with
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll(), new ReaderParameters
+        {
+            ReadSymbols = true,
+            SymbolReaderProvider = new DefaultSymbolReaderProvider(false),
+        });
+
+        var implicitNoInitializers = assembly.MainModule.Types
+            .Single(t => t.Name == "ExcludedSampleClass")
+            .Methods.Single(m => m.IsConstructor);
+        var implicitWithInitializers = assembly.MainModule.Types
+            .Single(t => t.Name == "ImplicitDefaultConstructorClass")
+            .Methods.Single(m => m.IsConstructor);
+        var explicitWithParameter = assembly.MainModule.Types
+            .Single(t => t.Name == "OuterClass")
+            .Methods.Single(m => m.IsConstructor);
+        var explicitEmptyParameterless = assembly.MainModule.Types
+            .Single(t => t.Name == "ExplicitEmptyConstructorClass")
+            .Methods.Single(m => m.IsConstructor);
+        var explicitExpressionBodied = assembly.MainModule.Types
+            .Single(t => t.Name == "ExpressionBodiedConstructorClass")
+            .Methods.Single(m => m.IsConstructor);
+        var explicitTupleDeconstruction = assembly.MainModule.Types
+            .Single(t => t.Name == "TupleDeconstructionConstructorClass")
+            .Methods.Single(m => m.IsConstructor);
+        var explicitExternalProtectedFieldStore = assembly.MainModule.Types
+            .Single(t => t.Name == "ExternalProtectedFieldConstructorClass")
+            .Methods.Single(m => m.IsConstructor);
+
+        // Act / Assert
+        Assert.True(DotNetEmitter.IsImplicitDefaultConstructor(implicitNoInitializers));
+        Assert.True(DotNetEmitter.IsImplicitDefaultConstructor(implicitWithInitializers));
+        Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(explicitWithParameter));
+        Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(explicitEmptyParameterless));
+        Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(explicitExpressionBodied));
+        Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(explicitTupleDeconstruction));
+        Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(explicitExternalProtectedFieldStore));
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.IsImplicitDefaultConstructor"/> does not throw
+    ///     when a constructor stores a field whose declaring-type reference points at an assembly
+    ///     that cannot be resolved anywhere — reproducing the scenario reported against an earlier
+    ///     revision of this heuristic, where <c>FieldReference.DeclaringType.Resolve()</c> could
+    ///     raise <see cref="AssemblyResolutionException"/> and abort documentation-coverage
+    ///     checking. A genuinely nonexistent assembly reference (rather than a real external
+    ///     fixture assembly) is used so the test is not masked by the host process's own
+    ///     dependency-probing, which can resolve real fixture assemblies regardless of the
+    ///     directory the inspected module was loaded from.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_IsImplicitDefaultConstructor_UnresolvableExternalFieldDoesNotThrow()
+    {
+        // Arrange — load a real fixture constructor (with genuine debug symbols already attached),
+        // then splice in an extra `stfld` targeting a field declared on a fabricated type from an
+        // assembly that does not exist anywhere on disk or in the process's dependency graph.
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll(), new ReaderParameters
+        {
+            ReadSymbols = true,
+            SymbolReaderProvider = new DefaultSymbolReaderProvider(false),
+        });
+
+        var module = assembly.MainModule;
+        var constructor = module.Types
+            .Single(t => t.Name == "ExplicitEmptyConstructorClass")
+            .Methods.Single(m => m.IsConstructor);
+
+        var fakeAssembly = new AssemblyNameReference("ApiMark.NonExistent.Fake.Assembly", new Version(1, 0, 0, 0));
+        var fakeDeclaringType = new TypeReference("ApiMark.NonExistent.Fake", "ExternalBase", module, fakeAssembly);
+        var fakeField = new FieldReference("FakeField", module.TypeSystem.Int32, fakeDeclaringType);
+
+        var il = constructor.Body.GetILProcessor();
+        var firstInstruction = constructor.Body.Instructions[0];
+        il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldarg_0));
+        il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldc_I4_1));
+        il.InsertBefore(firstInstruction, il.Create(OpCodes.Stfld, fakeField));
+
+        // Sanity check: the fabricated declaring type truly cannot be resolved.
+        Assert.Throws<AssemblyResolutionException>(() => fakeDeclaringType.Resolve());
+
+        // Act
+        var exception = Record.Exception(() => DotNetEmitter.IsImplicitDefaultConstructor(constructor));
+
+        // Assert: no exception, and the explicit constructor is correctly not classified as implicit
+        Assert.Null(exception);
+        Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(constructor));
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.IsImplicitDefaultConstructor"/> never classifies
+    ///     a bodyless constructor as the compiler-synthesized implicit default constructor, since a
+    ///     genuine implicit default constructor always has an IL body.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_IsImplicitDefaultConstructor_BodylessConstructor_ReturnsFalse()
+    {
+        // Arrange — load a real explicit constructor (with genuine debug symbols), then flip its
+        // implementation attributes to InternalCall, which Mono.Cecil treats as evidence of no IL
+        // body (mirroring a metadata-only/reference-assembly stub or an extern-declared method).
+        // This leaves it with zero sequence points, which previously caused it to be misclassified
+        // as the implicit default constructor.
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll(), new ReaderParameters
+        {
+            ReadSymbols = true,
+            SymbolReaderProvider = new DefaultSymbolReaderProvider(false),
+        });
+
+        var constructor = assembly.MainModule.Types
+            .Single(t => t.Name == "ExplicitEmptyConstructorClass")
+            .Methods.Single(m => m.IsConstructor);
+
+        constructor.ImplAttributes |= MethodImplAttributes.InternalCall;
+
+        // Sanity check: the constructor is now reported as bodyless with no sequence points.
+        Assert.False(constructor.HasBody);
+        Assert.Empty(constructor.DebugInformation?.SequencePoints ?? []);
+
+        // Act / Assert
+        Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(constructor));
     }
 }

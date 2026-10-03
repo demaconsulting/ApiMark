@@ -10,4 +10,7 @@ public class ExternalBaseClass
     /// <summary>Describes the base implementation.</summary>
     /// <returns>The string <c>"base"</c>.</returns>
     public virtual string DescribeBase() => "base";
+
+    /// <summary>A protected field available for derived types to store into.</summary>
+    protected int BaseCounter;
 }

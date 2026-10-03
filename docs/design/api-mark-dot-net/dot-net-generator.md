@@ -147,6 +147,20 @@ memory and returns a `DotNetEmitter` ready to emit.
   once `IApiEmitter.Emit` completes; on the failure path (an exception thrown
   before the model is constructed), `Parse` disposes the resolver itself
   alongside the parsed assembly.
+- *Debug symbol loading*: `ReadAssemblyWithOptionalSymbols` reads the assembly
+  with `ReadSymbols = true` and a `DefaultSymbolReaderProvider(false)` (the
+  `false` argument disables throwing when no PDB is found, so assemblies
+  shipped without debug symbols still parse normally — just without the
+  sequence-point data). Loading portable-PDB debug symbols here, at the single
+  shared parse step, is what allows `DotNetEmitter.IsImplicitDefaultConstructor`
+  to distinguish compiler-synthesized implicit default constructors from
+  explicit ones later, during `DocumentationCoverageChecker.Check`. A PDB that
+  is present but does not correspond to the assembly (e.g. a stale PDB left
+  over from an incremental build) makes Mono.Cecil throw
+  `SymbolsNotMatchingException` rather than degrade gracefully like a missing
+  PDB does; `ReadAssemblyWithOptionalSymbols` catches that specific exception
+  and re-reads the assembly without symbols, so a mismatched PDB never aborts
+  the whole generation run.
 - *External XML doc resolver wiring*: When `ReferencePaths` is non-empty, `Parse`
   constructs an `ExternalXmlDocResolver` from it and `BuildInheritanceChain` also
   produces a per-candidate declaring-assembly-name hint dictionary
@@ -301,6 +315,11 @@ so. It then checks whether `AssemblyPath` exists on disk, throwing `FileNotFound
 if absent. It then checks whether `XmlDocPath` exists, throwing `FileNotFoundException` if
 absent. Only after both checks pass does it invoke Mono.Cecil to open the assembly. Missing
 XML documentation entries for a member produce empty documentation fields rather than an error.
+A PDB file found alongside the assembly but not corresponding to it (a stale
+incremental-build artifact) makes Mono.Cecil throw `SymbolsNotMatchingException`;
+`ReadAssemblyWithOptionalSymbols` catches this specific exception and re-reads the
+assembly without symbols rather than letting it abort `Parse`, so a mismatched PDB is
+never fatal.
 `ArgumentNullException` is thrown by the `DotNetGenerator` constructor when `options`
 is null. `CheckDocumentationCoverage` throws `InvalidOperationException` when called
 before `Parse` has completed successfully, or when neither the `enforceTier` argument
