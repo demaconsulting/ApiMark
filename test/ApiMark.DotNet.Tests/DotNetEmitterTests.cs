@@ -600,4 +600,37 @@ public class DotNetEmitterTests
         Assert.Null(exception);
         Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(constructor));
     }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.IsImplicitDefaultConstructor"/> never classifies
+    ///     a bodyless constructor as the compiler-synthesized implicit default constructor, since a
+    ///     genuine implicit default constructor always has an IL body.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_IsImplicitDefaultConstructor_BodylessConstructor_ReturnsFalse()
+    {
+        // Arrange — load a real explicit constructor (with genuine debug symbols), then flip its
+        // implementation attributes to InternalCall, which Mono.Cecil treats as evidence of no IL
+        // body (mirroring a metadata-only/reference-assembly stub or an extern-declared method).
+        // This leaves it with zero sequence points, which previously caused it to be misclassified
+        // as the implicit default constructor.
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll(), new ReaderParameters
+        {
+            ReadSymbols = true,
+            SymbolReaderProvider = new DefaultSymbolReaderProvider(false),
+        });
+
+        var constructor = assembly.MainModule.Types
+            .Single(t => t.Name == "ExplicitEmptyConstructorClass")
+            .Methods.Single(m => m.IsConstructor);
+
+        constructor.ImplAttributes |= MethodImplAttributes.InternalCall;
+
+        // Sanity check: the constructor is now reported as bodyless with no sequence points.
+        Assert.False(constructor.HasBody);
+        Assert.Empty(constructor.DebugInformation?.SequencePoints ?? []);
+
+        // Act / Assert
+        Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(constructor));
+    }
 }

@@ -129,7 +129,13 @@ These helpers are grouped by concern:
   a `protected` field on an external base class) is a legitimate, already-tolerated
   scenario elsewhere in the codebase; an unresolvable field is simply treated as not
   belonging to the declaring type (i.e. not a qualifying store) rather than letting the
-  exception abort `--enforce-docs` checking for the whole assembly.
+  exception abort `--enforce-docs` checking for the whole assembly. A compiler-synthesized
+  implicit default constructor always emits an IL body (at minimum, a call to the base class
+  constructor), so the method returns `false` for any constructor whose
+  `MethodDefinition.HasBody` is `false` (e.g. a metadata-only/reference-assembly stub, or an
+  `extern`/P/Invoke-declared constructor) before even inspecting sequence points — such a
+  constructor is never the compiler-synthesized one, regardless of how many (necessarily
+  zero) sequence points it reports.
 - *ID and file-name builders* — `GetMemberDisplayName`, `BuildTypeId`, `BuildMemberId`,
   `BuildMethodId`, `GetSanitizedMemberFileName`, `BuildMethodDisplayName`,
   `BuildMethodFileName`, `GetMethodGroupDisplayName`, `GetMethodGroupName`: produce

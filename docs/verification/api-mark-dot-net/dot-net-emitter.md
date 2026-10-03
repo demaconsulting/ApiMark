@@ -43,6 +43,10 @@ service or network dependency is needed.
 - `IsImplicitDefaultConstructor` does not throw when a constructor stores a field whose
   declaring type is unresolvable (e.g. an external assembly not supplied via
   `ReferencePaths`), and classifies such a constructor as not implicit.
+- `IsImplicitDefaultConstructor` returns `false` for a bodyless constructor (e.g. one whose
+  implementation attributes mark it `InternalCall`, simulating a metadata-only/reference-
+  assembly stub or an `extern`/P/Invoke-declared constructor), regardless of its sequence-point
+  data.
 
 ### Test Scenarios
 
@@ -155,3 +159,12 @@ referencing a fabricated nonexistent assembly, into a real constructor's IL body
 treats the store as not qualifying and classifies the constructor as not implicit. This
 scenario is tested by
 `DotNetEmitter_IsImplicitDefaultConstructor_UnresolvableExternalFieldDoesNotThrow`.
+
+**IsImplicitDefaultConstructor returns false for a bodyless constructor**: Verifies that
+`DotNetEmitter.IsImplicitDefaultConstructor` returns `false` for a constructor whose
+implementation attributes are flipped to `InternalCall` (so `MethodDefinition.HasBody` is
+`false` and it reports zero sequence points), reproducing a metadata-only/reference-assembly
+stub or an `extern`/P/Invoke-declared constructor — scenarios that cannot be the
+compiler-synthesized implicit default constructor, since that constructor always has an IL
+body. This scenario is tested by
+`DotNetEmitter_IsImplicitDefaultConstructor_BodylessConstructor_ReturnsFalse`.

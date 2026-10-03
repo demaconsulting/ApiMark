@@ -1278,7 +1278,11 @@ internal sealed class DotNetEmitter : IApiEmitter
     ///     <c>ReaderParameters.ReadSymbols</c>); when no symbols are available,
     ///     <see cref="ModuleDefinition.HasSymbols"/> is <see langword="false"/> and this method
     ///     conservatively returns <see langword="false"/> rather than guessing, since every method in
-    ///     an unsymbolized module reports zero sequence points. Even an explicit expression-bodied
+    ///     an unsymbolized module reports zero sequence points. A compiler-synthesized implicit
+    ///     default constructor always emits an IL body (at minimum, a call to the base class
+    ///     constructor), so a bodyless method — e.g. a metadata-only/reference-assembly stub, or an
+    ///     <c>extern</c>/P/Invoke-declared constructor — is never classified as implicit regardless
+    ///     of its (necessarily empty) sequence-point data. Even an explicit expression-bodied
     ///     constructor whose entire body is a single field assignment (e.g. <c>public Foo() => Bar =
     ///     1;</c>) is correctly classified as explicit: the assignment itself contributes a sequence
     ///     point whose range has zero stores, distinct from the range covering the <c>stfld</c>.
@@ -1300,14 +1304,18 @@ internal sealed class DotNetEmitter : IApiEmitter
             return false;
         }
 
+        if (!method.HasBody)
+        {
+            // A compiler-synthesized implicit default constructor always has an IL body (at
+            // minimum, a call to the base class constructor), so a bodyless method - e.g. a
+            // metadata-only/reference-assembly stub, or an `extern`/P/Invoke-declared
+            // constructor - can never be one, regardless of how many sequence points it reports.
+            return false;
+        }
+
         var sequencePoints = method.DebugInformation?.SequencePoints
             .OrderBy(point => point.Offset)
             .ToList() ?? [];
-
-        if (!method.HasBody)
-        {
-            return sequencePoints.Count == 0;
-        }
 
         var fieldStoreOffsets = method.Body.Instructions
             .Where(instruction =>
