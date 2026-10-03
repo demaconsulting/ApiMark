@@ -24,10 +24,10 @@ installation accessible on PATH. When clang is not available, integration tests 
 - `Parse`, invoked directly (not via `CppGenerator.Parse`), still resolves an angle-bracket
   `#include` via a `PublicIncludeRoots` entry supplied with different casing than its on-disk
   spelling, on a case-sensitive file system.
-- A `constexpr` field's single simple-literal initializer (string, integer, boolean, or
-  character, including a leading unary `+`/`-` directly over a literal, e.g. `-5`) is
-  extracted into `CppField.Value` as a display string; a computed expression (e.g. `2 * 21`)
-  leaves `CppField.Value` as `null`.
+- A `constexpr` field's single simple-literal initializer (string, integer, floating-point,
+  boolean, or character, including a leading unary `+`/`-` directly over a literal, e.g.
+  `-5`) is extracted into `CppField.Value` as a display string; a computed expression (e.g.
+  `2 * 21`) or a nested unary chain (e.g. `- -5`) leaves `CppField.Value` as `null`.
 
 ### Test Scenarios
 
@@ -106,6 +106,18 @@ Tested by `ClangAstParser_Parse_FixtureHeaders_ConstexprBoolField_HasBooleanValu
 initializer is a NUL character literal is parsed with its escaped `'\0'` display value,
 mirroring the C# `NulSeparator` const char regression coverage. Tested by
 `ClangAstParser_Parse_FixtureHeaders_ConstexprCharField_EscapesNulCharacter`.
+
+**Constexpr floating field has decimal value**: Verifies that a `constexpr` field whose
+initializer is a simple floating-point literal is parsed with clang's own decimal/scientific
+spelling preserved verbatim. Tested by
+`ClangAstParser_Parse_FixtureHeaders_ConstexprFloatingField_HasDecimalValue`.
+
+**Constexpr double-negated field has null value**: Verifies that a `constexpr` field whose
+initializer is a doubly-negated literal (e.g. `- -5`, a `UnaryOperator` nested over another
+`UnaryOperator`) is parsed with a `null` value, confirming that only a single leading `+`/`-`
+directly over a genuine literal is reconstructed and a nested unary chain is never rendered
+as e.g. `--5`. Tested by
+`ClangAstParser_Parse_FixtureHeaders_ConstexprDoubleNegatedField_HasNullValue`.
 
 **Known integration-only gap**: Non-zero exit and malformed JSON paths are not isolated by the
 current implementation without adding a process seam, so those behaviors remain covered only by

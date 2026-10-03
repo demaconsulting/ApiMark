@@ -114,3 +114,6 @@ sections:
               - DotNetEmitter_BuildFieldSignature_ConstIntField_AppendsNumericValue
               - DotNetEmitter_BuildFieldSignature_ConstBoolField_AppendsLowercaseBooleanValue
               - DotNetEmitter_BuildFieldSignature_EnumMemberWithExplicitValue_AppendsUnderlyingNumericValue
+              - DotNetEmitter_BuildFieldSignature_ConstCharField_EscapesNulCharacter
+              - DotNetEmitter_FormatConstantValue_StringWithControlCharacters_EscapesAllOfThem
+              - DotNetEmitter_FormatConstantValue_UnnamedControlCharacter_FallsBackToUnicodeEscape

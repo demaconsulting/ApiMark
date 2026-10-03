@@ -324,6 +324,46 @@ public class DotNetEmitterTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.FormatConstantValue"/> escapes every remaining
+    ///     C# short-escape control character (backspace, form-feed, vertical tab, bell/alert) in a
+    ///     string constant, rather than embedding the raw control bytes in generated documentation
+    ///     text. This directly exercises <c>FormatConstantValue</c>/<c>EscapeStringLiteral</c> with
+    ///     a crafted value, since the string-literal fixture coverage above only exercises the
+    ///     already-covered <c>\n</c>/<c>\r</c>/<c>\t</c> escapes via a plain fixture string.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_FormatConstantValue_StringWithControlCharacters_EscapesAllOfThem()
+    {
+        // Arrange: a string containing bell, backspace, form-feed, and vertical-tab control characters
+        const string value = "a\ab\bc\fd\ve";
+
+        // Act
+        var formatted = DotNetEmitter.FormatConstantValue(value);
+
+        // Assert
+        Assert.Equal("\"a\\ab\\bc\\fd\\ve\"", formatted);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.FormatConstantValue"/> falls back to a
+    ///     <c>\uXXXX</c> escape for a control character that has no named C# short escape (e.g.
+    ///     <c>DEL</c>, <c>0x7f</c>), so no raw control byte is ever embedded in generated
+    ///     documentation text.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_FormatConstantValue_UnnamedControlCharacter_FallsBackToUnicodeEscape()
+    {
+        // Arrange: DEL (0x7f) has no named C# short escape
+        const string value = "a\u007fb";
+
+        // Act
+        var formatted = DotNetEmitter.FormatConstantValue(value);
+
+        // Assert
+        Assert.Equal("\"a\\u007fb\"", formatted);
+    }
+
+    /// <summary>
     ///     Validates that <see cref="DotNetEmitter.BuildFieldSignature"/> renders an enum member's
     ///     explicit value using its underlying numeric constant rather than the enum type name,
     ///     confirming Mono.Cecil stores enum member constants as the underlying primitive type.

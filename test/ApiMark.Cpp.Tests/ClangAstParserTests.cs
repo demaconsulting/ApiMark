@@ -369,6 +369,69 @@ public class ClangAstParserTests
         Assert.Equal("'\\0'", nulSeparator.Value);
     }
 
+    /// <summary>
+    ///     Validates that a <c>constexpr</c> field whose initializer is a simple floating-point
+    ///     literal is parsed with clang's own decimal/scientific spelling preserved verbatim.
+    /// </summary>
+    [Fact]
+    public void ClangAstParser_Parse_FixtureHeaders_ConstexprFloatingField_HasDecimalValue()
+    {
+        // Skip when clang is not available
+        if (!IsClangAvailable())
+        {
+            Assert.Skip("clang is not available on this system.");
+        }
+
+        // Arrange
+        var options = BuildOptions();
+        var headers = Directory.GetFiles(FixturePaths.GetFixtureNamespaceDir(), "*.h").ToList();
+
+        // Act
+        var result = ClangAstParser.Parse(headers, options);
+
+        // Assert
+        var fixturesNs = result.Namespaces.FirstOrDefault(ns => ns.QualifiedName.Contains("fixtures", StringComparison.Ordinal));
+        Assert.NotNull(fixturesNs);
+        var sampleClass = fixturesNs.Classes.FirstOrDefault(c => c.Name == "SampleClass");
+        Assert.NotNull(sampleClass);
+        var pi = sampleClass.Fields.FirstOrDefault(f => f.Name == "Pi");
+        Assert.NotNull(pi);
+        Assert.Equal("3.5", pi.Value);
+    }
+
+    /// <summary>
+    ///     Validates that a <c>constexpr</c> field whose initializer is a doubly-negated literal
+    ///     (e.g. <c>- -5</c>, a <c>UnaryOperator</c> nested over another <c>UnaryOperator</c>) is
+    ///     parsed with a <see langword="null"/> value - only a single leading <c>+</c>/<c>-</c>
+    ///     directly over a genuine literal is reconstructed, so a nested unary chain must never
+    ///     be rendered as e.g. <c>--5</c> (which misleadingly reads as a decrement expression).
+    /// </summary>
+    [Fact]
+    public void ClangAstParser_Parse_FixtureHeaders_ConstexprDoubleNegatedField_HasNullValue()
+    {
+        // Skip when clang is not available
+        if (!IsClangAvailable())
+        {
+            Assert.Skip("clang is not available on this system.");
+        }
+
+        // Arrange
+        var options = BuildOptions();
+        var headers = Directory.GetFiles(FixturePaths.GetFixtureNamespaceDir(), "*.h").ToList();
+
+        // Act
+        var result = ClangAstParser.Parse(headers, options);
+
+        // Assert
+        var fixturesNs = result.Namespaces.FirstOrDefault(ns => ns.QualifiedName.Contains("fixtures", StringComparison.Ordinal));
+        Assert.NotNull(fixturesNs);
+        var sampleClass = fixturesNs.Classes.FirstOrDefault(c => c.Name == "SampleClass");
+        Assert.NotNull(sampleClass);
+        var doubleNegated = sampleClass.Fields.FirstOrDefault(f => f.Name == "DoubleNegated");
+        Assert.NotNull(doubleNegated);
+        Assert.Null(doubleNegated.Value);
+    }
+
     /// <summary>Validates that parsing well-formed fixture headers produces an empty errors collection.</summary>
     [Fact]
     public void ClangAstParser_Parse_FixtureHeaders_ErrorsCollectionIsEmpty()

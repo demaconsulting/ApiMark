@@ -95,10 +95,18 @@ while walking the JSON AST.
   directly.
 - **ExtractConstexprUnaryLiteralValue** — reconstructs a leading `+`/`-` operator
   applied directly to a literal operand (e.g. `-5`) as the display string
-  `"{op}{operandValue}"`, but only when the operand itself resolves to a literal
-  via a recursive call to `ExtractConstexprFieldValue`; any other unary opcode, or
-  one wrapping a non-literal/computed operand (e.g. `-(2 * 21)`), yields `null` so
-  compound expressions are never rendered as if they were literals.
+  `"{op}{operandValue}"`, but only when the operand — after resolving its kind
+  through `UnwrapPassThroughKind` — is not itself a `UnaryOperator`; this rejects
+  a nested unary chain such as `- -5` (which would otherwise reconstruct as the
+  misleading `--5`, readable as a C++ decrement expression rather than a
+  double-negation) before delegating the actual value extraction to a recursive
+  call to `ExtractConstexprFieldValue`. Any other unary opcode, or one wrapping a
+  non-literal/computed operand (e.g. `-(2 * 21)`), yields `null` so compound
+  expressions are never rendered as if they were literals.
+- **UnwrapPassThroughKind** — resolves the `kind` of a node after unwrapping the
+  same pure pass-through wrapper kinds that `ExtractConstexprFieldValue` unwraps,
+  without extracting a value; used solely by `ExtractConstexprUnaryLiteralValue`
+  to detect a nested `UnaryOperator` operand.
 - **ExtractCharacterLiteralValue** — converts the clang-reported numeric code
   point of a `CharacterLiteral` node into a single-quoted C++-style display
   string: `0` renders as `'\0'`, and `\n`/`\r`/`\t`/`\\`/`'` render as their named

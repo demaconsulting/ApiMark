@@ -155,14 +155,23 @@ These helpers are grouped by concern:
   primitive type, so the same formatter renders both plain `const` fields and enum
   members correctly.
 - *Constant-value formatting* — `FormatConstantValue`, `EscapeStringLiteral`,
-  `EscapeCharLiteral`: `FormatConstantValue` pattern-matches the boxed constant by
-  runtime type — `null` renders as `"null"`; `string` renders double-quoted and
-  escaped via `EscapeStringLiteral` (escaping `\\`, `"`, `\n`, `\r`, `\t`); `char`
-  renders single-quoted and escaped via `EscapeCharLiteral` (escaping `\\`, `'`,
-  `\0`, `\n`, `\r`, `\t`); `bool` renders as lowercase `true`/`false`; and every
-  other numeric primitive renders via `Convert.ToString` with
-  `CultureInfo.InvariantCulture` and no numeric type suffixes (no `L`/`f`/`m`), to
-  keep the signature readable as plain C#-like literal text.
+  `EscapeCharLiteral`, `EscapeControlCharacter`: `FormatConstantValue`
+  pattern-matches the boxed constant by runtime type — `null` renders as
+  `"null"`; `string` renders double-quoted and escaped char-by-char via
+  `EscapeStringLiteral` (handling `\\` and `"` itself, delegating every other
+  character to `EscapeControlCharacter`); `char` renders single-quoted and
+  escaped via `EscapeCharLiteral` (handling `\\` and `'` itself, delegating
+  every other character to `EscapeControlCharacter`); `bool` renders as
+  lowercase `true`/`false`; and every other numeric primitive renders via
+  `Convert.ToString` with `CultureInfo.InvariantCulture` and no numeric type
+  suffixes (no `L`/`f`/`m`), to keep the signature readable as plain C#-like
+  literal text. `EscapeControlCharacter` is the single shared escaping
+  table used by both the string and char paths: it renders the named short
+  escapes (`\0`, `\a`, `\b`, `\f`, `\n`, `\r`, `\t`, `\v`) for their
+  corresponding control characters, falls back to a `\uXXXX` escape for any
+  other non-printable control character (including `DEL`, `0x7f`) so that no
+  raw control byte is ever embedded in generated documentation text, and
+  otherwise returns the character unchanged.
 - *Accessibility helpers* — `GetAccessibilityKeyword(MethodDefinition)`,
   `GetAccessibilityKeyword(FieldDefinition)`, `GetAccessibilityKeyword(EventDefinition)`,
   `GetOperatorCSharpName`, `GetOperatorSymbol`: map Mono.Cecil access flags to C#

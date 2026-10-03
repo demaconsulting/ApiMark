@@ -71,3 +71,6 @@ sections:
               - ClangAstParser_Parse_FixtureHeaders_ConstexprComputedField_HasNullValue
               - ClangAstParser_Parse_FixtureHeaders_ConstexprBoolField_HasBooleanValue
               - ClangAstParser_Parse_FixtureHeaders_ConstexprCharField_EscapesNulCharacter
+              - ClangAstParser_Parse_FixtureHeaders_ConstexprNegativeIntField_HasNumericValue
+              - ClangAstParser_Parse_FixtureHeaders_ConstexprFloatingField_HasDecimalValue
+              - ClangAstParser_Parse_FixtureHeaders_ConstexprDoubleNegatedField_HasNullValue

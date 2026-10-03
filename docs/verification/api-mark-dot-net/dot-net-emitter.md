@@ -189,6 +189,17 @@ field initialized to `'\0'` has its signature line append the escaped `'\0'` dis
 rather than an unprintable raw character. This scenario is tested by
 `DotNetEmitter_BuildFieldSignature_ConstCharField_EscapesNulCharacter`.
 
+**FormatConstantValue escapes all remaining control characters in a string constant**:
+Verifies that a string constant containing bell, backspace, form-feed, and vertical-tab
+control characters has each one rendered as its named C# short escape (`\a`, `\b`, `\f`,
+`\v`) rather than as a raw control byte. This scenario is tested by
+`DotNetEmitter_FormatConstantValue_StringWithControlCharacters_EscapesAllOfThem`.
+
+**FormatConstantValue falls back to a Unicode escape for an unnamed control character**:
+Verifies that a control character with no named C# short escape (e.g. `DEL`, `0x7f`) is
+rendered as a `\uXXXX` escape rather than as a raw control byte. This scenario is tested by
+`DotNetEmitter_FormatConstantValue_UnnamedControlCharacter_FallsBackToUnicodeEscape`.
+
 **BuildFieldSignature appends an enum member's underlying numeric value**: Verifies that an
 enum member field with an explicit numeric value has its signature line append that value
 via the same `FormatConstantValue` path used for plain `const` fields, since Mono.Cecil

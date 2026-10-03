@@ -32,6 +32,13 @@ public:
     /// (regression guard - mirrors the C# NulSeparator const char coverage).
     static constexpr char NulSeparator = '\0';
 
+    /// @brief A constexpr floating-point constant.
+    static constexpr double Pi = 3.5;
+
+    /// @brief A doubly-negated constant (regression guard - must not render a value;
+    /// a nested unary operator is not a single literal the user wrote directly).
+    static constexpr int DoubleNegated = - -5;
+
     /// @brief Gets a greeting for the specified name.
     /// @param name The name to greet.
     /// @return A greeting string.

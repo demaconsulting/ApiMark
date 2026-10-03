@@ -925,12 +925,18 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns>The escaped text, excluding the surrounding quotes.</returns>
     private static string EscapeStringLiteral(string value)
     {
-        return value
-            .Replace("\\", "\\\\")
-            .Replace("\"", "\\\"")
-            .Replace("\n", "\\n")
-            .Replace("\r", "\\r")
-            .Replace("\t", "\\t");
+        var builder = new StringBuilder(value.Length);
+        foreach (var c in value)
+        {
+            builder.Append(c switch
+            {
+                '\\' => "\\\\",
+                '"' => "\\\"",
+                _ => EscapeControlCharacter(c),
+            });
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>Escapes a char value for embedding in a single-quoted C# char literal.</summary>
@@ -942,10 +948,31 @@ internal sealed class DotNetEmitter : IApiEmitter
         {
             '\\' => "\\\\",
             '\'' => "\\'",
+            _ => EscapeControlCharacter(value),
+        };
+    }
+
+    /// <summary>
+    ///     Escapes a single character for embedding in a C# string or char literal, handling the
+    ///     named short escapes for common control characters and falling back to a <c>\uXXXX</c>
+    ///     escape for any other non-printable control character (including <c>DEL</c>) so that no
+    ///     raw control byte is ever embedded in generated documentation text.
+    /// </summary>
+    /// <param name="value">The raw character to escape; the caller handles <c>\\</c> and the surrounding quote character.</param>
+    /// <returns>The escaped text for <paramref name="value"/>, or the character itself when it needs no escaping.</returns>
+    private static string EscapeControlCharacter(char value)
+    {
+        return value switch
+        {
             '\0' => "\\0",
+            '\a' => "\\a",
+            '\b' => "\\b",
+            '\f' => "\\f",
             '\n' => "\\n",
             '\r' => "\\r",
             '\t' => "\\t",
+            '\v' => "\\v",
+            < ' ' or '\x7f' => $"\\u{(int)value:x4}",
             _ => value.ToString(),
         };
     }

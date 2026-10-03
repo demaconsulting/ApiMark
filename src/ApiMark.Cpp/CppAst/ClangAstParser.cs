@@ -1908,6 +1908,12 @@ internal sealed class ClangAstParser
     ///     Reconstructs the display string for a <c>UnaryOperator</c> node whose operator is a
     ///     leading <c>+</c> or <c>-</c> directly over a simple literal operand (e.g. <c>-1</c>).
     /// </summary>
+    /// <remarks>
+    ///     The operand must itself be a genuine literal (after unwrapping pass-through wrapper
+    ///     nodes), not another <c>UnaryOperator</c> - otherwise a double-signed expression such as
+    ///     <c>- -5</c> would be reconstructed as <c>--5</c>, which misleadingly reads as a C++
+    ///     decrement expression rather than the double-negation the source actually wrote.
+    /// </remarks>
     /// <param name="node">The <c>UnaryOperator</c> JSON node.</param>
     /// <returns>
     ///     The reconstructed operator text, or <see langword="null"/> when the opcode is not
@@ -1921,8 +1927,39 @@ internal sealed class ClangAstParser
             return null;
         }
 
+        // Reject a nested unary operator as the operand (e.g. "- -5") - only a single leading
+        // sign directly over a genuine literal is treated as the literal the user wrote
+        if (UnwrapPassThroughKind(uInner[0]) == "UnaryOperator")
+        {
+            return null;
+        }
+
         var operandValue = ExtractConstexprFieldValue(uInner[0]);
         return operandValue is null ? null : $"{op.GetString()}{operandValue}";
+    }
+
+    /// <summary>
+    ///     Resolves the <c>kind</c> of <paramref name="node"/> after unwrapping the same
+    ///     pure pass-through wrapper node kinds (implicit casts, temporary materialization, etc.)
+    ///     that <see cref="ExtractConstexprFieldValue"/> unwraps, without extracting a value.
+    /// </summary>
+    /// <param name="node">The expression node to resolve.</param>
+    /// <returns>The <c>kind</c> of the innermost non-wrapper node, or the original node's <c>kind</c> when it has no inner child to unwrap.</returns>
+    private static string UnwrapPassThroughKind(JsonElement node)
+    {
+        var kind = GetKind(node);
+        while (kind is "ImplicitCastExpr" or "ConstantExpr" or "MaterializeTemporaryExpr" or "ExprWithCleanups")
+        {
+            if (!node.TryGetProperty(InnerProperty, out var wrapperInner) || wrapperInner.GetArrayLength() == 0)
+            {
+                break;
+            }
+
+            node = wrapperInner[0];
+            kind = GetKind(node);
+        }
+
+        return kind;
     }
 
     /// <summary>
