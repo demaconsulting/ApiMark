@@ -93,6 +93,8 @@ words:
   - slnx
   - stdarg
   - stddef
+  - stfld
+  - Stfld
   - NOSONAR
   - sonar
   - sonarmark
@@ -106,6 +108,7 @@ words:
   - fparse
   - fsyntax
   - unparseable
+  - unsymbolized
   - versionmark
   - writability
   - DOWNTO

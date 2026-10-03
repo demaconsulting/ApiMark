@@ -56,6 +56,47 @@ public class DotNetGeneratorTests
         Assert.Throws<FileNotFoundException>(() => generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext()));
     }
 
+    /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.Parse"/> succeeds instead of throwing
+    ///     <c>Mono.Cecil.Cil.SymbolsNotMatchingException</c> when a PDB file is present next to the
+    ///     assembly but does not correspond to it (e.g. a stale PDB left over from an incremental
+    ///     build) — the implicit-default-constructor detection this enables must degrade gracefully
+    ///     for mismatched symbols, the same way it already does for missing symbols.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_MismatchedPdb_DoesNotThrowAndStillProducesOutput()
+    {
+        // Arrange — copy the fixture DLL/XML into an isolated directory, then place a PDB next to
+        // the DLL that belongs to a different assembly (same file name, non-matching content), so
+        // Mono.Cecil detects a mismatch rather than an absence of symbols.
+        var tempDir = Directory.CreateTempSubdirectory("ApiMarkMismatchedPdbTest");
+        try
+        {
+            var dllPath = Path.Combine(tempDir.FullName, "Fixture.dll");
+            var xmlPath = Path.Combine(tempDir.FullName, "Fixture.xml");
+            var pdbPath = Path.Combine(tempDir.FullName, "Fixture.pdb");
+            File.Copy(FixturePaths.GetFixtureDll(), dllPath);
+            File.Copy(FixturePaths.GetFixtureXmlDoc(), xmlPath);
+            File.Copy(
+                Path.ChangeExtension(FixturePaths.GetExternalFixtureDll(), ".pdb"),
+                pdbPath);
+
+            var options = new DotNetGeneratorOptions { AssemblyPath = dllPath, XmlDocPath = xmlPath };
+            var factory = new InMemoryMarkdownWriterFactory();
+            var generator = new DotNetGenerator(options);
+
+            // Act
+            generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+            // Assert — parsing/emission completed normally despite the mismatched PDB.
+            Assert.True(factory.Writers.ContainsKey("api"), "Expected api.md to be created");
+        }
+        finally
+        {
+            Directory.Delete(tempDir.FullName, recursive: true);
+        }
+    }
+
     /// <summary>Validates that a valid assembly produces an <c>api</c> entrypoint Markdown page.</summary>
     [Fact]
     public void DotNetGenerator_Generate_ValidAssembly_CreatesApiMarkdownPage()

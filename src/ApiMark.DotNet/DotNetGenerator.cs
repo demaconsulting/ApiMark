@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using ApiMark.Core;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
 
 namespace ApiMark.DotNet;
 
@@ -142,8 +143,19 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
                 assemblyResolver.AddSearchDirectory(directory);
             }
 
-            var readerParameters = new ReaderParameters { AssemblyResolver = assemblyResolver };
-            var assembly = AssemblyDefinition.ReadAssembly(_options.AssemblyPath, readerParameters);
+            // Opportunistically load debug symbols (portable PDB, side-by-side or embedded) so
+            // DocumentationCoverageChecker can distinguish an explicit parameterless constructor
+            // from the compiler-synthesized implicit default constructor — their IL bodies are
+            // byte-for-byte identical, so sequence-point presence is the only available signal.
+            // DefaultSymbolReaderProvider(false) never throws when no symbols are found at all
+            // (e.g. a release build with DebugType=none), but it does not protect against a PDB
+            // that is present but does not match the assembly (stale incremental-build output):
+            // Mono.Cecil throws SymbolsNotMatchingException in that case. Since stale/mismatched
+            // PDBs are a realistic artifact of CI/incremental builds and the absence of symbol
+            // data is always handled gracefully at the point of use (ModuleDefinition.HasSymbols
+            // is checked before any sequence-point logic runs), that specific failure is caught
+            // here and the assembly is re-read without symbols rather than aborting the whole run.
+            var assembly = ReadAssemblyWithOptionalSymbols(_options.AssemblyPath, assemblyResolver);
             try
             {
                 // Build the inheritance chain from assembly metadata so that bare <inheritdoc />
@@ -256,6 +268,46 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         {
             assemblyResolver.Dispose();
             throw;
+        }
+    }
+
+    /// <summary>
+    ///     Reads <paramref name="assemblyPath"/> with debug-symbol loading enabled, falling back to
+    ///     reading it without symbols when a PDB is present but does not match the assembly.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="DefaultSymbolReaderProvider(bool)"/> constructed with <c>throwIfNoSymbol:
+    ///     false</c> only suppresses the case where no symbol file is found at all; Mono.Cecil still
+    ///     throws <see cref="SymbolsNotMatchingException"/> when a PDB exists next to the assembly
+    ///     but its content does not correspond to it (for example a stale PDB left over from an
+    ///     incremental build, or a DLL re-staged into an output directory without its matching PDB).
+    ///     That specific, narrowly-scoped failure is treated the same as "no symbols available" —
+    ///     the assembly is re-read without <see cref="ReaderParameters.ReadSymbols"/> — since the
+    ///     implicit-default-constructor detection this enables already degrades gracefully when
+    ///     <see cref="ModuleDefinition.HasSymbols"/> is <see langword="false"/>.
+    /// </remarks>
+    /// <param name="assemblyPath">The path of the assembly file to read.</param>
+    /// <param name="assemblyResolver">The assembly resolver to associate with the read assembly.</param>
+    /// <returns>The read <see cref="AssemblyDefinition"/>.</returns>
+    private static AssemblyDefinition ReadAssemblyWithOptionalSymbols(
+        string assemblyPath,
+        DefaultAssemblyResolver assemblyResolver)
+    {
+        try
+        {
+            return AssemblyDefinition.ReadAssembly(assemblyPath, new ReaderParameters
+            {
+                AssemblyResolver = assemblyResolver,
+                ReadSymbols = true,
+                SymbolReaderProvider = new DefaultSymbolReaderProvider(false),
+            });
+        }
+        catch (SymbolsNotMatchingException)
+        {
+            return AssemblyDefinition.ReadAssembly(assemblyPath, new ReaderParameters
+            {
+                AssemblyResolver = assemblyResolver,
+            });
         }
     }
 

@@ -5,6 +5,7 @@ using ApiMark.Core;
 using ApiMark.Core.TestHelpers;
 using ApiMark.DotNet;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
 using Xunit;
 
 namespace ApiMark.DotNet.Tests;
@@ -500,5 +501,45 @@ public class DotNetEmitterTests
         // Assert: none of the synthesized nested types (whose names start with '<') are visible
         Assert.Empty(visibleNestedTypes);
         Assert.DoesNotContain(visibleNestedTypes, t => t.Name.Contains('<', StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.IsImplicitDefaultConstructor"/> correctly
+    ///     distinguishes compiler-synthesized implicit default constructors — including ones on
+    ///     types with property initializers, which contribute their own debug sequence points —
+    ///     from genuine explicit constructors.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_IsImplicitDefaultConstructor_DistinguishesImplicitFromExplicit()
+    {
+        // Arrange — load with debug symbols so the sequence-point heuristic has data to work with
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll(), new ReaderParameters
+        {
+            ReadSymbols = true,
+            SymbolReaderProvider = new DefaultSymbolReaderProvider(false),
+        });
+
+        var implicitNoInitializers = assembly.MainModule.Types
+            .Single(t => t.Name == "ExcludedSampleClass")
+            .Methods.Single(m => m.IsConstructor);
+        var implicitWithInitializers = assembly.MainModule.Types
+            .Single(t => t.Name == "ImplicitDefaultConstructorClass")
+            .Methods.Single(m => m.IsConstructor);
+        var explicitWithParameter = assembly.MainModule.Types
+            .Single(t => t.Name == "OuterClass")
+            .Methods.Single(m => m.IsConstructor);
+        var explicitEmptyParameterless = assembly.MainModule.Types
+            .Single(t => t.Name == "ExplicitEmptyConstructorClass")
+            .Methods.Single(m => m.IsConstructor);
+        var explicitExpressionBodied = assembly.MainModule.Types
+            .Single(t => t.Name == "ExpressionBodiedConstructorClass")
+            .Methods.Single(m => m.IsConstructor);
+
+        // Act / Assert
+        Assert.True(DotNetEmitter.IsImplicitDefaultConstructor(implicitNoInitializers));
+        Assert.True(DotNetEmitter.IsImplicitDefaultConstructor(implicitWithInitializers));
+        Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(explicitWithParameter));
+        Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(explicitEmptyParameterless));
+        Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(explicitExpressionBodied));
     }
 }

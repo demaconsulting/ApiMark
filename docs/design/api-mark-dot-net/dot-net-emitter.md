@@ -103,8 +103,19 @@ These helpers are grouped by concern:
 - *Type/member classification* — `IsOperator`, `IsSpecialNameNonConstructor`,
   `IsCompilerGeneratedField`, `IsDelegate`, `IsExtensionMethod`,
   `IsCompilerGenerated(ICustomAttributeProvider)`, `IsCompilerGenerated(TypeDefinition)`,
-  `IsObsolete`, `IsNamespaceDocCarrier`: categorize types and members to drive
-  conditional rendering paths.
+  `IsImplicitDefaultConstructor`, `IsObsolete`, `IsNamespaceDocCarrier`: categorize types
+  and members to drive conditional rendering paths. `IsImplicitDefaultConstructor` is
+  consumed only by `DocumentationCoverageChecker` (to exempt the compiler-synthesized
+  implicit parameterless constructor from `--enforce-docs`), not by either sub-emitter —
+  the generated Markdown still lists the constructor like any other member. Its algorithm:
+  an instance, parameterless constructor is classified as implicit when the module has
+  loaded debug symbols and its sequence-point count, minus one for every `stfld` instruction
+  it executes against an instance field of its own declaring type (each field/property
+  initializer contributes one such store plus one sequence point), is exactly zero — the
+  implicit constructor has no body sequence points of its own, while any explicit
+  constructor with a conventional `{ }` body always has at least two (for its braces).
+  Without loaded symbols (`ModuleDefinition.HasSymbols` is `false`) it conservatively
+  returns `false` rather than guessing.
 - *ID and file-name builders* — `GetMemberDisplayName`, `BuildTypeId`, `BuildMemberId`,
   `BuildMethodId`, `GetSanitizedMemberFileName`, `BuildMethodDisplayName`,
   `BuildMethodFileName`, `GetMethodGroupDisplayName`, `GetMethodGroupName`: produce

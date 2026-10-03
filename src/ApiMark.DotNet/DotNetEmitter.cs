@@ -1,6 +1,7 @@
 using System.Text;
 using ApiMark.Core;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
 
 namespace ApiMark.DotNet;
 
@@ -1246,6 +1247,66 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns><c>true</c> when the type is compiler-generated.</returns>
     internal static bool IsCompilerGenerated(TypeDefinition type) =>
         type.Name.Contains('<') || type.Name.Contains('>') || IsCompilerGenerated((ICustomAttributeProvider)type);
+
+    /// <summary>
+    ///     Returns <c>true</c> when <paramref name="method"/> is the compiler-synthesized implicit
+    ///     parameterless constructor the C# compiler emits for a type that declares no constructor
+    ///     of its own.
+    /// </summary>
+    /// <remarks>
+    ///     Unlike other compiler-generated members, the implicit default constructor does not carry
+    ///     <c>CompilerGeneratedAttribute</c>, and its IL body can be identical to an explicit, empty
+    ///     parameterless constructor, so neither
+    ///     <see cref="IsCompilerGenerated(ICustomAttributeProvider)"/> nor a plain IL-shape check can
+    ///     distinguish the two. The available signal is debug-symbol sequence points, with one
+    ///     complication: field and auto-property initializers (e.g. <c>public string Host { get; }
+    ///     = "x";</c>) run inside every constructor — implicit or explicit — and each contributes its
+    ///     own sequence point mapped to the initializer's source location, not the constructor's.
+    ///     Subtracting one sequence point per instance-field store (<c>stfld</c> targeting a field of
+    ///     the declaring type) performed by the constructor isolates the sequence points
+    ///     attributable to the constructor's own declaration/body: this remainder is zero for the
+    ///     implicit constructor (which has no body of its own) in every case tested — top-level,
+    ///     generic, and nested types, with or without initializers — while any explicit constructor
+    ///     with a conventional <c>{ }</c> body (even empty, even written on one line) always leaves a
+    ///     remainder of at least two, for its opening and closing braces. This requires portable-PDB
+    ///     debug information to have been loaded for the module (see <c>DotNetGenerator</c>'s use of
+    ///     <c>ReaderParameters.ReadSymbols</c>); when no symbols are available,
+    ///     <see cref="ModuleDefinition.HasSymbols"/> is <see langword="false"/> and this method
+    ///     conservatively returns <see langword="false"/> rather than guessing, since every method in
+    ///     an unsymbolized module reports zero sequence points. Even an explicit expression-bodied
+    ///     constructor whose entire body is a single field assignment (e.g. <c>public Foo() => Bar =
+    ///     1;</c>) is correctly classified as explicit: the assignment itself contributes a sequence
+    ///     point distinct from the one its <c>stfld</c> subtracts out, leaving a non-zero remainder.
+    /// </remarks>
+    /// <param name="method">The constructor method definition to inspect.</param>
+    /// <returns>
+    ///     <c>true</c> when <paramref name="method"/> is an instance, parameterless constructor
+    ///     believed to be the compiler-synthesized implicit default constructor.
+    /// </returns>
+    internal static bool IsImplicitDefaultConstructor(MethodDefinition method)
+    {
+        if (method.Name != ConstructorMethodName || method.IsStatic || method.HasParameters)
+        {
+            return false;
+        }
+
+        if (method.DeclaringType.Module is not { HasSymbols: true })
+        {
+            return false;
+        }
+
+        var sequencePointCount = method.DebugInformation?.SequencePoints.Count ?? 0;
+
+        var initializerStoreCount = method.HasBody
+            ? method.Body.Instructions.Count(instruction =>
+                instruction.OpCode.Code == Code.Stfld &&
+                instruction.Operand is FieldReference field &&
+                (field.DeclaringType == method.DeclaringType || field.DeclaringType.Resolve() == method.DeclaringType))
+            : 0;
+
+        var constructorOwnSequencePoints = Math.Max(0, sequencePointCount - initializerStoreCount);
+        return constructorOwnSequencePoints == 0;
+    }
 
     /// <summary>
     ///     Returns <c>true</c> when <paramref name="type"/> is a <c>NamespaceDoc</c>

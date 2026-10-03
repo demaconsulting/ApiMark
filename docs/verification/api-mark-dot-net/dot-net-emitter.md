@@ -36,6 +36,10 @@ service or network dependency is needed.
 - `BuildPropertyAccessors` emits `init;` for init-only (C# 9+) property setters.
 - `ToXmlDocTypeName` converts Cecil generic type names (e.g. `List\`1`) to XML doc member-ID format (e.g.`List{T}`) so XML doc lookups use the correct key format.
 - `ToXmlDocTypeName` converts Cecil byref type names (trailing `&`, used for `ref`/`out`/`in` parameters) to XML doc member-ID format (trailing `@`) so XML doc lookups use the correct key format.
+- `IsImplicitDefaultConstructor` returns `true` for a compiler-synthesized implicit default
+  constructor (with or without field/property initializers) and `false` for an explicit
+  parameterless constructor (empty, expression-bodied, or otherwise) and for a constructor
+  that takes a parameter.
 
 ### Test Scenarios
 
@@ -127,3 +131,12 @@ returns `"get; set;"` (without a prefix) for a protected property whose get and 
 both protected, confirming that redundant accessor prefixes are suppressed when they match the
 property's declared accessibility. This scenario is tested by
 `DotNetEmitter_BuildPropertyAccessors_ProtectedProperty_DoesNotPrefixAccessors`.
+
+**IsImplicitDefaultConstructor distinguishes implicit from explicit constructors**: Verifies that
+`DotNetEmitter.IsImplicitDefaultConstructor` returns `true` for a compiler-synthesized implicit
+default constructor — both with no field/property initializers and with multiple initializers,
+whose sequence points would otherwise be mistaken for the constructor's own body — and returns
+`false` for an explicit constructor that takes a parameter, an explicit empty parameterless
+constructor, and an explicit expression-bodied parameterless constructor whose entire body is a
+single field assignment. This scenario is tested by
+`DotNetEmitter_IsImplicitDefaultConstructor_DistinguishesImplicitFromExplicit`.
