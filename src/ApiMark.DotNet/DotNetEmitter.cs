@@ -1313,7 +1313,7 @@ internal sealed class DotNetEmitter : IApiEmitter
             .Where(instruction =>
                 instruction.OpCode.Code == Code.Stfld &&
                 instruction.Operand is FieldReference field &&
-                (field.DeclaringType == method.DeclaringType || field.DeclaringType.Resolve() == method.DeclaringType))
+                IsFieldOfDeclaringType(field, method.DeclaringType))
             .Select(instruction => instruction.Offset)
             .ToList();
 
@@ -1346,6 +1346,43 @@ internal sealed class DotNetEmitter : IApiEmitter
         }
 
         return true;
+    }
+
+    /// <summary>
+    ///     Returns <c>true</c> when <paramref name="field"/> is declared by
+    ///     <paramref name="declaringType"/> itself, resolving the field's declaring-type
+    ///     reference only when a direct reference-equality check does not already confirm it.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="MemberReference.Resolve"/> throws <see cref="AssemblyResolutionException"/>
+    ///     when the declaring-type reference points at an external assembly that was not supplied
+    ///     via <c>ReferencePaths</c> — a supported, deliberately tolerated scenario elsewhere in
+    ///     this generator (see <see cref="DotNetGenerator"/>'s base-type resolution). A protected
+    ///     field inherited from such an unresolved external base type is a realistic case for a
+    ///     parameterless constructor to store, so resolution failures here are caught and treated
+    ///     as "not a field of <paramref name="declaringType"/>" rather than allowed to propagate and
+    ///     abort documentation-coverage checking.
+    /// </remarks>
+    /// <param name="field">The field reference targeted by a <c>stfld</c> instruction.</param>
+    /// <param name="declaringType">The constructor's declaring type.</param>
+    /// <returns>
+    ///     <c>true</c> when <paramref name="field"/> is declared by <paramref name="declaringType"/>.
+    /// </returns>
+    private static bool IsFieldOfDeclaringType(FieldReference field, TypeDefinition declaringType)
+    {
+        if (field.DeclaringType == declaringType)
+        {
+            return true;
+        }
+
+        try
+        {
+            return field.DeclaringType.Resolve() == declaringType;
+        }
+        catch (AssemblyResolutionException)
+        {
+            return false;
+        }
     }
 
     /// <summary>

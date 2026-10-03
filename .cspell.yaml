@@ -46,6 +46,7 @@ words:
   - isystem
   - inheritdoc
   - langword
+  - Ldarg
   - libc
   - libclang
   - libclangsharp

@@ -40,6 +40,9 @@ service or network dependency is needed.
   constructor (with or without field/property initializers) and `false` for an explicit
   parameterless constructor (empty, expression-bodied, or otherwise) and for a constructor
   that takes a parameter.
+- `IsImplicitDefaultConstructor` does not throw when a constructor stores a field whose
+  declaring type is unresolvable (e.g. an external assembly not supplied via
+  `ReferencePaths`), and classifies such a constructor as not implicit.
 
 ### Test Scenarios
 
@@ -138,7 +141,17 @@ default constructor — both with no field/property initializers and with multip
 whose sequence points would otherwise be mistaken for the constructor's own body — and returns
 `false` for an explicit constructor that takes a parameter, an explicit empty parameterless
 constructor, an explicit expression-bodied parameterless constructor whose entire body is a
-single field assignment, and an explicit expression-bodied parameterless constructor whose
+single field assignment, an explicit expression-bodied parameterless constructor whose
 single source statement stores more than one field under one sequence point (a
-tuple-deconstruction assignment). This scenario is tested by
+tuple-deconstruction assignment), and an explicit constructor that stores a `protected` field
+inherited from a resolvable external base class. This scenario is tested by
 `DotNetEmitter_IsImplicitDefaultConstructor_DistinguishesImplicitFromExplicit`.
+
+**IsImplicitDefaultConstructor does not throw for an unresolvable external field**: Verifies
+that `DotNetEmitter.IsImplicitDefaultConstructor` does not propagate a
+`Mono.Cecil.AssemblyResolutionException` when a constructor's field store targets a field
+whose declaring type cannot be resolved (simulated by splicing a synthetic `stfld` instruction,
+referencing a fabricated nonexistent assembly, into a real constructor's IL body), and instead
+treats the store as not qualifying and classifies the constructor as not implicit. This
+scenario is tested by
+`DotNetEmitter_IsImplicitDefaultConstructor_UnresolvableExternalFieldDoesNotThrow`.

@@ -538,6 +538,9 @@ public class DotNetEmitterTests
         var explicitTupleDeconstruction = assembly.MainModule.Types
             .Single(t => t.Name == "TupleDeconstructionConstructorClass")
             .Methods.Single(m => m.IsConstructor);
+        var explicitExternalProtectedFieldStore = assembly.MainModule.Types
+            .Single(t => t.Name == "ExternalProtectedFieldConstructorClass")
+            .Methods.Single(m => m.IsConstructor);
 
         // Act / Assert
         Assert.True(DotNetEmitter.IsImplicitDefaultConstructor(implicitNoInitializers));
@@ -546,5 +549,55 @@ public class DotNetEmitterTests
         Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(explicitEmptyParameterless));
         Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(explicitExpressionBodied));
         Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(explicitTupleDeconstruction));
+        Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(explicitExternalProtectedFieldStore));
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.IsImplicitDefaultConstructor"/> does not throw
+    ///     when a constructor stores a field whose declaring-type reference points at an assembly
+    ///     that cannot be resolved anywhere — reproducing the scenario reported against an earlier
+    ///     revision of this heuristic, where <c>FieldReference.DeclaringType.Resolve()</c> could
+    ///     raise <see cref="AssemblyResolutionException"/> and abort documentation-coverage
+    ///     checking. A genuinely nonexistent assembly reference (rather than a real external
+    ///     fixture assembly) is used so the test is not masked by the host process's own
+    ///     dependency-probing, which can resolve real fixture assemblies regardless of the
+    ///     directory the inspected module was loaded from.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_IsImplicitDefaultConstructor_UnresolvableExternalFieldDoesNotThrow()
+    {
+        // Arrange — load a real fixture constructor (with genuine debug symbols already attached),
+        // then splice in an extra `stfld` targeting a field declared on a fabricated type from an
+        // assembly that does not exist anywhere on disk or in the process's dependency graph.
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll(), new ReaderParameters
+        {
+            ReadSymbols = true,
+            SymbolReaderProvider = new DefaultSymbolReaderProvider(false),
+        });
+
+        var module = assembly.MainModule;
+        var constructor = module.Types
+            .Single(t => t.Name == "ExplicitEmptyConstructorClass")
+            .Methods.Single(m => m.IsConstructor);
+
+        var fakeAssembly = new AssemblyNameReference("ApiMark.NonExistent.Fake.Assembly", new Version(1, 0, 0, 0));
+        var fakeDeclaringType = new TypeReference("ApiMark.NonExistent.Fake", "ExternalBase", module, fakeAssembly);
+        var fakeField = new FieldReference("FakeField", module.TypeSystem.Int32, fakeDeclaringType);
+
+        var il = constructor.Body.GetILProcessor();
+        var firstInstruction = constructor.Body.Instructions[0];
+        il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldarg_0));
+        il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldc_I4_1));
+        il.InsertBefore(firstInstruction, il.Create(OpCodes.Stfld, fakeField));
+
+        // Sanity check: the fabricated declaring type truly cannot be resolved.
+        Assert.Throws<AssemblyResolutionException>(() => fakeDeclaringType.Resolve());
+
+        // Act
+        var exception = Record.Exception(() => DotNetEmitter.IsImplicitDefaultConstructor(constructor));
+
+        // Assert: no exception, and the explicit constructor is correctly not classified as implicit
+        Assert.Null(exception);
+        Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(constructor));
     }
 }

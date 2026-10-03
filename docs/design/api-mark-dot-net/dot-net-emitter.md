@@ -118,7 +118,18 @@ These helpers are grouped by concern:
   one field (e.g. a tuple-deconstruction assignment) contributes a range with more than one
   store — both of which a simpler aggregate-count comparison could miss. Without loaded
   symbols (`ModuleDefinition.HasSymbols` is `false`) it conservatively returns `false`
-  rather than guessing.
+  rather than guessing. A qualifying `stfld` is one whose field belongs to the
+  constructor's own declaring type, as determined by the private helper
+  `IsFieldOfDeclaringType(FieldReference, TypeDefinition)`: it compares `field.DeclaringType`
+  to the constructor's declaring type by reference first, then falls back to resolving
+  `field.DeclaringType` and comparing the resolved definition — mirroring how
+  `DotNetGenerator`'s base-type inheritance walk treats type resolution. That resolution
+  is wrapped in a try/catch for `Mono.Cecil.AssemblyResolutionException`, because a field
+  inherited from a base type in an assembly that isn't supplied via `ReferencePaths` (e.g.
+  a `protected` field on an external base class) is a legitimate, already-tolerated
+  scenario elsewhere in the codebase; an unresolvable field is simply treated as not
+  belonging to the declaring type (i.e. not a qualifying store) rather than letting the
+  exception abort `--enforce-docs` checking for the whole assembly.
 - *ID and file-name builders* — `GetMemberDisplayName`, `BuildTypeId`, `BuildMemberId`,
   `BuildMethodId`, `GetSanitizedMemberFileName`, `BuildMethodDisplayName`,
   `BuildMethodFileName`, `GetMethodGroupDisplayName`, `GetMethodGroupName`: produce
