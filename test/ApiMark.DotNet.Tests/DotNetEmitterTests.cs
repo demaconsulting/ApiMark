@@ -364,6 +364,25 @@ public class DotNetEmitterTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.FormatConstantValue"/> falls back to a
+    ///     <c>\uXXXX</c> escape for a Unicode C1 control character (<c>U+0080</c>-<c>U+009F</c>),
+    ///     not just the ASCII C0/DEL controls, so no raw control byte is ever embedded in
+    ///     generated documentation text.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_FormatConstantValue_C1ControlCharacter_FallsBackToUnicodeEscape()
+    {
+        // Arrange: U+0085 (NEL) is a C1 control character with no named C# short escape
+        const string value = "a\u0085b";
+
+        // Act
+        var formatted = DotNetEmitter.FormatConstantValue(value);
+
+        // Assert
+        Assert.Equal("\"a\\u0085b\"", formatted);
+    }
+
+    /// <summary>
     ///     Validates that <see cref="DotNetEmitter.BuildFieldSignature"/> renders an enum member's
     ///     explicit value using its underlying numeric constant rather than the enum type name,
     ///     confirming Mono.Cecil stores enum member constants as the underlying primitive type.

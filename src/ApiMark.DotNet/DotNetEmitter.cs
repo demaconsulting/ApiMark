@@ -955,8 +955,9 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <summary>
     ///     Escapes a single character for embedding in a C# string or char literal, handling the
     ///     named short escapes for common control characters and falling back to a <c>\uXXXX</c>
-    ///     escape for any other non-printable control character (including <c>DEL</c>) so that no
-    ///     raw control byte is ever embedded in generated documentation text.
+    ///     escape for any other non-printable control character (including <c>DEL</c> and the
+    ///     Unicode C1 control range <c>U+0080</c>-<c>U+009F</c>, per <see cref="char.IsControl(char)"/>)
+    ///     so that no raw control byte is ever embedded in generated documentation text.
     /// </summary>
     /// <param name="value">The raw character to escape; the caller handles <c>\\</c> and the surrounding quote character.</param>
     /// <returns>The escaped text for <paramref name="value"/>, or the character itself when it needs no escaping.</returns>
@@ -972,7 +973,7 @@ internal sealed class DotNetEmitter : IApiEmitter
             '\r' => "\\r",
             '\t' => "\\t",
             '\v' => "\\v",
-            < ' ' or '\x7f' => $"\\u{(int)value:x4}",
+            _ when char.IsControl(value) => $"\\u{(int)value:x4}",
             _ => value.ToString(),
         };
     }

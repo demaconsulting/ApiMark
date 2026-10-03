@@ -169,9 +169,11 @@ These helpers are grouped by concern:
   table used by both the string and char paths: it renders the named short
   escapes (`\0`, `\a`, `\b`, `\f`, `\n`, `\r`, `\t`, `\v`) for their
   corresponding control characters, falls back to a `\uXXXX` escape for any
-  other non-printable control character (including `DEL`, `0x7f`) so that no
-  raw control byte is ever embedded in generated documentation text, and
-  otherwise returns the character unchanged.
+  other character classified as a control character by `char.IsControl`
+  (covering the full Unicode control range — ASCII C0 controls, `DEL`
+  (`0x7f`), and the C1 controls `U+0080`-`U+009F`) so that no raw control
+  byte is ever embedded in generated documentation text, and otherwise
+  returns the character unchanged.
 - *Accessibility helpers* — `GetAccessibilityKeyword(MethodDefinition)`,
   `GetAccessibilityKeyword(FieldDefinition)`, `GetAccessibilityKeyword(EventDefinition)`,
   `GetOperatorCSharpName`, `GetOperatorSymbol`: map Mono.Cecil access flags to C#

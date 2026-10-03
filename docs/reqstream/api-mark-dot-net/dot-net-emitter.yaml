@@ -117,3 +117,4 @@ sections:
               - DotNetEmitter_BuildFieldSignature_ConstCharField_EscapesNulCharacter
               - DotNetEmitter_FormatConstantValue_StringWithControlCharacters_EscapesAllOfThem
               - DotNetEmitter_FormatConstantValue_UnnamedControlCharacter_FallsBackToUnicodeEscape
+              - DotNetEmitter_FormatConstantValue_C1ControlCharacter_FallsBackToUnicodeEscape

@@ -200,6 +200,12 @@ Verifies that a control character with no named C# short escape (e.g. `DEL`, `0x
 rendered as a `\uXXXX` escape rather than as a raw control byte. This scenario is tested by
 `DotNetEmitter_FormatConstantValue_UnnamedControlCharacter_FallsBackToUnicodeEscape`.
 
+**FormatConstantValue falls back to a Unicode escape for a C1 control character**: Verifies
+that a Unicode C1 control character (`U+0080`-`U+009F`, e.g. NEL `U+0085`), not just the
+ASCII C0/DEL controls, is rendered as a `\uXXXX` escape rather than as a raw control byte.
+This scenario is tested by
+`DotNetEmitter_FormatConstantValue_C1ControlCharacter_FallsBackToUnicodeEscape`.
+
 **BuildFieldSignature appends an enum member's underlying numeric value**: Verifies that an
 enum member field with an explicit numeric value has its signature line append that value
 via the same `FormatConstantValue` path used for plain `const` fields, since Mono.Cecil
