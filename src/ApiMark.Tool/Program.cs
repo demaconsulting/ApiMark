@@ -387,6 +387,7 @@ internal static class Program
                 Visibility = (CppApiVisibility)(int)visibility,
                 IncludeDeprecated = context.IncludeObsolete,
                 ClangPath = context.ClangPath,
+                ClangTimeoutMilliseconds = context.ClangTimeoutMilliseconds,
                 EnforceDocsVisibility = cppEnforceDocsVisibility,
             }),
 
@@ -529,6 +530,7 @@ internal static class Program
         context.WriteLine("  --defines <values>         Comma-separated preprocessor definitions (e.g. MYLIB_API=,NDEBUG)");
         context.WriteLine("  --cpp-standard <std>       C++ language standard passed to Clang (default: c++17)");
         context.WriteLine("  --clang-path <path>        Path to clang executable (default: auto-discovered via PATH / xcrun / vswhere)");
+        context.WriteLine("  --clang-timeout-ms <ms>    Timeout in milliseconds for the clang subprocess (default: 120000)");
         context.WriteLine("  --visibility <value>       Visibility filter: Public, PublicAndProtected, All (default: Public)");
         context.WriteLine("  --include-obsolete         Include deprecated members in generated output");
         context.WriteLine("");

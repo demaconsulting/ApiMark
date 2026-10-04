@@ -67,7 +67,8 @@ task.
     converted to commas for the tool argument),
     `ApiMarkCppStandard` (e.g. `c++17`; optional, defaulted to `c++17` by the `.targets` file
     when not set by the project),
-    `ApiMarkClangPath` (optional explicit clang executable path).
+    `ApiMarkClangPath` (optional explicit clang executable path),
+    `ApiMarkClangTimeoutMs` (optional clang subprocess timeout in milliseconds).
   Optional input item group `ApiMarkOutput` (exposed to MSBuild projects via the task property
   `ApiMarkOutputs`); each item carries `OutputDir`, `Format`, and `Visibility` metadata that
   overrides the corresponding scalar properties for that named output configuration; one child

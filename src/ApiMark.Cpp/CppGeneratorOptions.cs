@@ -119,6 +119,14 @@ public sealed class CppGeneratorOptions
     public string? ClangPath { get; set; }
 
     /// <summary>
+    ///     Gets or sets the maximum time, in milliseconds, to wait for the clang subprocess
+    ///     to exit before it is treated as hung and killed. When <see langword="null"/>, the
+    ///     <c>APIMARK_CLANG_TIMEOUT_MS</c> environment variable is consulted, falling back to
+    ///     a built-in default (120000ms / 2 minutes) when that is also unset.
+    /// </summary>
+    public int? ClangTimeoutMilliseconds { get; set; }
+
+    /// <summary>
     ///     Gets or sets the directory used as the root for resolving relative
     ///     <see cref="ApiHeaderPatterns"/> entries. Defaults to <see langword="null"/>,
     ///     which means <see cref="Directory.GetCurrentDirectory"/> is used at parse time.
@@ -167,6 +175,7 @@ public sealed class CppGeneratorOptions
         Visibility = Visibility,
         IncludeDeprecated = IncludeDeprecated,
         ClangPath = ClangPath,
+        ClangTimeoutMilliseconds = ClangTimeoutMilliseconds,
         WorkingDirectory = WorkingDirectory,
         EnforceDocsVisibility = EnforceDocsVisibility,
     };

@@ -11,6 +11,13 @@ namespace ApiMark.Cpp.Tests;
 ///     Integration tests for <see cref="CppGenerator"/> using a shared <see cref="CppGeneratorFixture"/>
 ///     to avoid invoking clang more than five times per test run.
 /// </summary>
+/// <remarks>
+///     Shares the <c>"ClangEnvironment"</c> xUnit collection (see <see cref="ClangEnvironmentCollection"/>)
+///     with <see cref="ClangAstParserTests"/> so that this class's real clang invocations (made
+///     during <see cref="CppGeneratorFixture"/> construction) cannot race against tests there that
+///     mutate the process-wide <c>APIMARK_CLANG_TIMEOUT_MS</c> environment variable.
+/// </remarks>
+[Collection("ClangEnvironment")]
 public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
 {
     /// <summary>The shared fixture providing pre-generated factories for common option configurations.</summary>

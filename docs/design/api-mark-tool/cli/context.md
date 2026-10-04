@@ -40,6 +40,7 @@ argument array.
 | `Defines` | `string[]` | `[]` | Preprocessor definitions from `--defines` (comma-separated, split into entries of the form `NAME` or `NAME=value`) |
 | `CppStandard` | `string?` | `null` | C++ language standard from `--cpp-standard` (e.g. `c++17`); optional, tool defaults to `c++17` when null |
 | `ClangPath` | `string?` | `null` | Explicit clang executable path from `--clang-path`; optional, auto-discovered when null |
+| `ClangTimeoutMilliseconds` | `int?` | `null` | Clang subprocess timeout in milliseconds from `--clang-timeout-ms`; optional, falls back to `APIMARK_CLANG_TIMEOUT_MS` then a built-in 120000ms default when null |
 | `Format` | `OutputFormat` | `GradualDisclosure` | Output format from `--format` (`gradual` → `GradualDisclosure`, `single-file` → `SingleFile`) |
 | `Excludes` | `string[]` | `[]` | Wildcard patterns accumulated from repeated `--exclude` invocations |
 | `ReferencePaths` | `string[]` | `[]` | Referenced assembly DLL paths accumulated from repeated `--reference-paths` invocations, used to resolve cross-assembly `<inheritdoc/>` |

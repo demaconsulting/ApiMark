@@ -212,6 +212,14 @@ public class ApiMarkTask : Task
     /// </remarks>
     public string? ApiMarkClangPath { get; set; }
 
+    /// <summary>Gets or sets the clang subprocess timeout, in milliseconds, for C++ documentation generation.</summary>
+    /// <remarks>
+    ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkClangTimeoutMs)</c>.
+    ///     Optional — when empty, the tool falls back to the <c>APIMARK_CLANG_TIMEOUT_MS</c>
+    ///     environment variable, then its built-in 120000ms (2 minute) default.
+    /// </remarks>
+    public string? ApiMarkClangTimeoutMs { get; set; }
+
     /// <summary>Gets or sets the semicolon-separated, order-preserved list of glob and exclusion pattern strings for C++ header selection.</summary>
     /// <remarks>
     ///     Used for the <c>cpp</c> language only. Maps to <c>$(ApiMarkApiHeaders)</c>.
@@ -359,7 +367,7 @@ public class ApiMarkTask : Task
     ///     <c>cpp</c> language subcommand and all optional C++ flags
     ///     (<c>--includes</c>, <c>--api-headers</c>, <c>--library-name</c>,
     ///     <c>--library-description</c>, <c>--defines</c>, <c>--cpp-standard</c>,
-    ///     <c>--clang-path</c>).
+    ///     <c>--clang-path</c>, <c>--clang-timeout-ms</c>).
     /// </summary>
     /// <param name="args">The argument list being built by <see cref="BuildArguments"/>.</param>
     private void AppendCppArguments(List<string> args)
@@ -390,6 +398,9 @@ public class ApiMarkTask : Task
 
         // Optional: explicit clang path
         AppendOptionalArg(args, "--clang-path", ApiMarkClangPath);
+
+        // Optional: clang subprocess timeout override
+        AppendOptionalArg(args, "--clang-timeout-ms", ApiMarkClangTimeoutMs);
 
         // Forward documentation-coverage enforcement options — now supported for cpp as well
         // as dotnet, mirroring AppendDotNetArguments's block.

@@ -23,6 +23,20 @@ ApiMark locates the clang executable using the following priority order:
 4. `xcrun clang` — macOS only, selects the active Xcode SDK automatically.
 5. vswhere-located LLVM clang / `C:\Program Files\LLVM\bin\clang.exe` — Windows only.
 
+### Clang Invocation Timeout
+
+The clang subprocess invocation is bounded by a timeout, so a hung invocation (e.g. a first-run
+Xcode license prompt blocked on stdin) fails fast with a diagnostic error instead of hanging the
+build indefinitely. ApiMark resolves the timeout using the following priority order:
+
+1. `--clang-timeout-ms <ms>` — explicit value, in milliseconds (minimum `1000`).
+2. `APIMARK_CLANG_TIMEOUT_MS` environment variable — set this in CI or shell profiles to
+   configure the timeout project-wide without repeating the value on every invocation.
+3. Built-in default of `120000` (2 minutes).
+
+Large C++ projects with a slow clang invocation can raise the default via `--clang-timeout-ms`,
+`ApiMarkClangTimeoutMs`, or the `APIMARK_CLANG_TIMEOUT_MS` environment variable.
+
 ## CLI Options
 
 ```text
@@ -40,6 +54,7 @@ apimark cpp [options]
 | `--defines <values>` | Comma-separated preprocessor definitions (e.g. `MYLIB_API=,NDEBUG`) |
 | `--cpp-standard <std>` | C++ language standard passed to Clang (default: `c++17`) |
 | `--clang-path <path>` | Path to clang executable (default: auto-discovered, see *Prerequisites*) |
+| `--clang-timeout-ms <ms>` | Timeout in milliseconds for the clang subprocess; the process (and its tree) is killed and a diagnostic error raised if exceeded (default: `120000`) |
 | `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `Public`) |
 | `--include-obsolete` | Include deprecated members in generated output |
 | `--enforce-docs <value>` | Enable documentation-coverage enforcement at the given visibility tier: `Public`, `PublicAndProtected`, `All` (default: disabled) |
@@ -284,6 +299,7 @@ include structures, generated headers, or complex NuGet arrangements, use the
 | `ApiMarkDefines` | *(unset)* | Semicolon-separated preprocessor definitions (e.g. `MYLIB_API=;NDEBUG`) |
 | `ApiMarkCppStandard` | `c++17` | C++ language standard passed to Clang |
 | `ApiMarkClangPath` | *(auto-discovered)* | Path to clang executable; overrides PATH / xcrun / vswhere discovery |
+| `ApiMarkClangTimeoutMs` | `120000` | Timeout in milliseconds for the clang subprocess |
 | `ApiMarkVisibility` | `Public` | Visibility filter: `Public`, `PublicAndProtected`, `All` |
 | `ApiMarkIncludeObsolete` | `false` | Include deprecated members in generated output |
 | `ApiMarkEnforceDocs` | (unset) | Enforcement visibility tier for documentation-coverage checking: `Public`, `PublicAndProtected`, `All`; omitted disables enforcement |

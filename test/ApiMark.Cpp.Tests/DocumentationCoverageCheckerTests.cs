@@ -12,8 +12,13 @@ namespace ApiMark.Cpp.Tests;
 ///     undocumented (mirroring <c>ApiMark.DotNet.Tests.DocumentationCoverageCheckerTests</c>'s
 ///     use of the equivalent .NET fixture), and <c>ProtectedMembersClass.h</c>/
 ///     <c>DeprecatedClass.h</c>, which are fully documented and used for tier/deprecated-filter
-///     assertions.
+///     assertions. Each test invokes <see cref="CppGenerator.Parse"/> directly (real clang), so
+///     this class shares the <c>"ClangEnvironment"</c> collection with <c>ClangAstParserTests</c>
+///     and <c>CppGeneratorTests</c> — without it, a test there mutating the process-wide
+///     <c>APIMARK_CLANG_TIMEOUT_MS</c> environment variable could run concurrently and poison a
+///     real clang invocation here.
 /// </remarks>
+[Collection("ClangEnvironment")]
 public class DocumentationCoverageCheckerTests
 {
     /// <summary>

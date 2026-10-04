@@ -24,6 +24,7 @@ sections:
               - ApiMarkTool-Cli-Context-TrackErrorsViaWriteError
               - ApiMarkTool-Cli-Context-ParseFormatOption
               - ApiMarkTool-Cli-Context-ParseClangPath
+              - ApiMarkTool-Cli-Context-ParseClangTimeoutMsOption
               - ApiMarkTool-Cli-Context-ParseVhdlSourceOptions
               - ApiMarkTool-Cli-Context-ParseExcludes
               - ApiMarkTool-Cli-Context-ParseReferencePaths

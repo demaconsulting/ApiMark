@@ -900,6 +900,55 @@ public sealed class ContextTests
     }
 
     /// <summary>
+    ///     Validates that <c>--clang-timeout-ms</c> sets the
+    ///     <see cref="Context.ClangTimeoutMilliseconds"/> property to the supplied value.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithClangTimeoutMsOption_SetsClangTimeoutMilliseconds()
+    {
+        // Arrange
+        var args = new[] { "--clang-timeout-ms", "300000" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert
+        Assert.Equal(300000, context.ClangTimeoutMilliseconds);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="Context.ClangTimeoutMilliseconds"/> is <see langword="null"/>
+    ///     when <c>--clang-timeout-ms</c> is not supplied, so the tool falls back to its own
+    ///     environment-variable/default resolution.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithoutClangTimeoutMsOption_LeavesClangTimeoutMillisecondsNull()
+    {
+        // Arrange
+        var args = Array.Empty<string>();
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert
+        Assert.Null(context.ClangTimeoutMilliseconds);
+    }
+
+    /// <summary>
+    ///     Validates that a <c>--clang-timeout-ms</c> value below the minimum (1000ms) throws
+    ///     <see cref="ArgumentException"/>, rejecting almost-certainly-mistaken sub-second values.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithClangTimeoutMsOptionBelowMinimum_ThrowsArgumentException()
+    {
+        // Arrange
+        var args = new[] { "--clang-timeout-ms", "500" };
+
+        // Act / Assert
+        Assert.Throws<ArgumentException>(() => Context.Create(args));
+    }
+
+    /// <summary>
     ///     Validates that a single --source flag sets the Sources array.
     /// </summary>
     [Fact]

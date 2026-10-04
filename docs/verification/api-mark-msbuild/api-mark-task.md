@@ -79,6 +79,7 @@ MSBuild and VC++ tools installed; those tests skip gracefully when the package i
 - For .NET and C++ builds, `ApiMarkLibraryDescription` is forwarded as
   `--library-description` when set.
 - For C++ builds, `ApiMarkClangPath` is forwarded as `--clang-path` when set.
+- For C++ builds, `ApiMarkClangTimeoutMs` is forwarded as `--clang-timeout-ms` when set.
 - For C++ builds, `ApiMarkDefines` semicolons are converted to commas and forwarded as
   `--defines`.
 - For C++ builds, `ApiMarkCppStandard` is forwarded as `--cpp-standard` when set.
@@ -137,6 +138,11 @@ tested by `ApiMarkTask_Cpp_LibraryDescription_ForwardedToTool` and
 **C++ clang path is forwarded as --clang-path**: Verifies that the `ApiMarkClangPath` property
 is passed to the spawned tool as the `--clang-path` argument for C++ builds when set. This
 scenario is tested by `ApiMarkTask_Cpp_ClangPath_ForwardedToTool`.
+
+**C++ clang timeout is forwarded as --clang-timeout-ms**: Verifies that the
+`ApiMarkClangTimeoutMs` property is passed to the spawned tool as the `--clang-timeout-ms`
+argument for C++ builds when set. This scenario is tested by
+`ApiMarkTask_Cpp_ClangTimeoutMs_ForwardedToTool`.
 
 **C++ defines semicolons are converted to commas**: Verifies that semicolons in the
 `ApiMarkDefines` property are converted to commas before being forwarded as the `--defines`

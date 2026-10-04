@@ -35,6 +35,7 @@ on non-Windows environments.
 - For .NET and C++ projects, `ApiMarkLibraryDescription` is forwarded as
   `--library-description` when set.
 - For C++ projects, `ApiMarkClangPath` is forwarded as `--clang-path` when set.
+- For C++ projects, `ApiMarkClangTimeoutMs` is forwarded as `--clang-timeout-ms` when set.
 - `ApiMarkIncludeObsolete` set to `true` adds the `--include-obsolete` flag to the spawned tool
   command.
 - `ApiMarkReferencePaths` is forwarded to the tool as repeated `--reference-paths` flags for .NET builds, and is auto-populated from `@(ReferencePath)` via the `.targets` file when not explicitly set by the project.
@@ -157,6 +158,10 @@ tested by `ApiMarkTask_Cpp_LibraryDescription_ForwardedToTool` and
 **C++ clang path is forwarded to the tool**: Verifies that the `ApiMarkClangPath` property is
 passed to the spawned tool as the `--clang-path` argument for C++ builds when set. This scenario
 is tested by `ApiMarkTask_Cpp_ClangPath_ForwardedToTool`.
+
+**C++ clang timeout is forwarded to the tool**: Verifies that the `ApiMarkClangTimeoutMs`
+property is passed to the spawned tool as the `--clang-timeout-ms` argument for C++ builds
+when set. This scenario is tested by `ApiMarkTask_Cpp_ClangTimeoutMs_ForwardedToTool`.
 
 **Empty XmlDocPath causes graceful skip for .NET project**: Verifies that when
 `ApiMarkXmlDocPath` is empty or unset for a .NET project, the task returns success immediately

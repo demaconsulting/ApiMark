@@ -26,6 +26,7 @@ sections:
           - ApiMarkMsbuild-ApiMarkTask-ForwardApiHeaders
           - ApiMarkMsbuild-ApiMarkTask-ForwardLibraryDescription
           - ApiMarkMsbuild-ApiMarkTask-ForwardClangPath
+          - ApiMarkMsbuild-ApiMarkTask-ForwardClangTimeoutMs
           - ApiMarkMsbuild-ApiMarkTask-AutoPopulateIncludePaths
           - ApiMarkMsbuild-ApiMarkTask-SkipWhenDotNetXmlDocPathNotSet
           - ApiMarkMsbuild-ApiMarkTask-ForwardFormatProperty
