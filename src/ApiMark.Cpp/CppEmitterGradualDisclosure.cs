@@ -889,7 +889,11 @@ internal sealed class CppEmitterGradualDisclosure
         var qualifiedName = string.IsNullOrEmpty(nsDisplayName)
             ? $"{className}::{field.Name}"
             : $"{nsDisplayName}::{className}::{field.Name}";
-        var signature = $"{CppEmitter.SimplifyTypeName(field.TypeName)} {field.Name};";
+        // Append the literal value when the field is a constexpr/literal-initialized constant so
+        // readers can see compile-time values without opening the header
+        var signature = field.Value is not null
+            ? $"{CppEmitter.SimplifyTypeName(field.TypeName)} {field.Name} = {field.Value};"
+            : $"{CppEmitter.SimplifyTypeName(field.TypeName)} {field.Name};";
         writer.WriteSignature("cpp", $"// {qualifiedName}\n{signature}");
 
         // Emit summary from doc comment or placeholder

@@ -107,6 +107,12 @@ public record CppParameter(string Name, string TypeName, string? DefaultValue = 
 /// </param>
 /// <param name="Location">Source location of the field declaration, or <see langword="null"/> when unavailable.</param>
 /// <param name="Doc">Doxygen documentation attached to this field, or <see langword="null"/> when absent.</param>
+/// <param name="Value">
+///     The compile-time literal value as display text (e.g. <c>"42"</c>, <c>"\"default\""</c>), populated only
+///     when the field is <c>constexpr</c>/literal-initialized with a single simple-literal initializer
+///     (integer, floating-point, character, boolean, or string). Is <see langword="null"/> for computed
+///     expressions (e.g. <c>2 * 21</c>), non-<c>constexpr</c> fields, and fields with no initializer.
+/// </param>
 public record CppField(
     string Name,
     string TypeName,
@@ -114,7 +120,8 @@ public record CppField(
     bool IsStatic,
     bool IsDeprecated,
     CppSourceLocation? Location,
-    CppDocComment? Doc);
+    CppDocComment? Doc,
+    string? Value = null);
 
 /// <summary>Represents a method, constructor, or free function in the C++ AST.</summary>
 /// <remarks>

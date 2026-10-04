@@ -186,6 +186,252 @@ public class ClangAstParserTests
         Assert.NotEmpty(sampleClass.Members);
     }
 
+    /// <summary>
+    ///     Validates that a <c>constexpr</c> field whose initializer is a simple string literal
+    ///     is parsed with its quoted display value.
+    /// </summary>
+    [Fact]
+    public void ClangAstParser_Parse_FixtureHeaders_ConstexprStringField_HasQuotedValue()
+    {
+        // Skip when clang is not available
+        if (!IsClangAvailable())
+        {
+            Assert.Skip("clang is not available on this system.");
+        }
+
+        // Arrange
+        var options = BuildOptions();
+        var headers = Directory.GetFiles(FixturePaths.GetFixtureNamespaceDir(), "*.h").ToList();
+
+        // Act
+        var result = ClangAstParser.Parse(headers, options);
+
+        // Assert
+        var fixturesNs = result.Namespaces.FirstOrDefault(ns => ns.QualifiedName.Contains("fixtures", StringComparison.Ordinal));
+        Assert.NotNull(fixturesNs);
+        var sampleClass = fixturesNs.Classes.FirstOrDefault(c => c.Name == "SampleClass");
+        Assert.NotNull(sampleClass);
+        var defaultName = sampleClass.Fields.FirstOrDefault(f => f.Name == "DefaultName");
+        Assert.NotNull(defaultName);
+        Assert.Equal("\"default\"", defaultName.Value);
+    }
+
+    /// <summary>
+    ///     Validates that a <c>constexpr</c> field whose initializer is a simple integer literal
+    ///     is parsed with its plain numeric display value.
+    /// </summary>
+    [Fact]
+    public void ClangAstParser_Parse_FixtureHeaders_ConstexprIntField_HasNumericValue()
+    {
+        // Skip when clang is not available
+        if (!IsClangAvailable())
+        {
+            Assert.Skip("clang is not available on this system.");
+        }
+
+        // Arrange
+        var options = BuildOptions();
+        var headers = Directory.GetFiles(FixturePaths.GetFixtureNamespaceDir(), "*.h").ToList();
+
+        // Act
+        var result = ClangAstParser.Parse(headers, options);
+
+        // Assert
+        var fixturesNs = result.Namespaces.FirstOrDefault(ns => ns.QualifiedName.Contains("fixtures", StringComparison.Ordinal));
+        Assert.NotNull(fixturesNs);
+        var sampleClass = fixturesNs.Classes.FirstOrDefault(c => c.Name == "SampleClass");
+        Assert.NotNull(sampleClass);
+        var maxCount = sampleClass.Fields.FirstOrDefault(f => f.Name == "MaxCount");
+        Assert.NotNull(maxCount);
+        Assert.Equal("42", maxCount.Value);
+    }
+
+    /// <summary>
+    ///     Validates that a <c>constexpr</c> field whose initializer is a computed expression
+    ///     (e.g. <c>2 * 21</c>) is parsed with a <see langword="null"/> value - the parser must
+    ///     never fold or evaluate compound expressions.
+    /// </summary>
+    [Fact]
+    public void ClangAstParser_Parse_FixtureHeaders_ConstexprComputedField_HasNullValue()
+    {
+        // Skip when clang is not available
+        if (!IsClangAvailable())
+        {
+            Assert.Skip("clang is not available on this system.");
+        }
+
+        // Arrange
+        var options = BuildOptions();
+        var headers = Directory.GetFiles(FixturePaths.GetFixtureNamespaceDir(), "*.h").ToList();
+
+        // Act
+        var result = ClangAstParser.Parse(headers, options);
+
+        // Assert
+        var fixturesNs = result.Namespaces.FirstOrDefault(ns => ns.QualifiedName.Contains("fixtures", StringComparison.Ordinal));
+        Assert.NotNull(fixturesNs);
+        var sampleClass = fixturesNs.Classes.FirstOrDefault(c => c.Name == "SampleClass");
+        Assert.NotNull(sampleClass);
+        var computedLimit = sampleClass.Fields.FirstOrDefault(f => f.Name == "ComputedLimit");
+        Assert.NotNull(computedLimit);
+        Assert.Null(computedLimit.Value);
+    }
+
+    /// <summary>
+    ///     Validates that a <c>constexpr</c> field whose initializer is a leading unary minus
+    ///     directly over a simple integer literal (e.g. <c>-5</c>) still renders a value - a
+    ///     negative literal is the literal the user wrote directly, not a computed expression.
+    /// </summary>
+    [Fact]
+    public void ClangAstParser_Parse_FixtureHeaders_ConstexprNegativeIntField_HasNumericValue()
+    {
+        // Skip when clang is not available
+        if (!IsClangAvailable())
+        {
+            Assert.Skip("clang is not available on this system.");
+        }
+
+        // Arrange
+        var options = BuildOptions();
+        var headers = Directory.GetFiles(FixturePaths.GetFixtureNamespaceDir(), "*.h").ToList();
+
+        // Act
+        var result = ClangAstParser.Parse(headers, options);
+
+        // Assert
+        var fixturesNs = result.Namespaces.FirstOrDefault(ns => ns.QualifiedName.Contains("fixtures", StringComparison.Ordinal));
+        Assert.NotNull(fixturesNs);
+        var sampleClass = fixturesNs.Classes.FirstOrDefault(c => c.Name == "SampleClass");
+        Assert.NotNull(sampleClass);
+        var negativeOffset = sampleClass.Fields.FirstOrDefault(f => f.Name == "NegativeOffset");
+        Assert.NotNull(negativeOffset);
+        Assert.Equal("-5", negativeOffset.Value);
+    }
+
+    /// <summary>
+    ///     Validates that a <c>constexpr</c> field whose initializer is a boolean literal
+    ///     is parsed with its lowercase <c>true</c>/<c>false</c> display value.
+    /// </summary>
+    [Fact]
+    public void ClangAstParser_Parse_FixtureHeaders_ConstexprBoolField_HasBooleanValue()
+    {
+        // Skip when clang is not available
+        if (!IsClangAvailable())
+        {
+            Assert.Skip("clang is not available on this system.");
+        }
+
+        // Arrange
+        var options = BuildOptions();
+        var headers = Directory.GetFiles(FixturePaths.GetFixtureNamespaceDir(), "*.h").ToList();
+
+        // Act
+        var result = ClangAstParser.Parse(headers, options);
+
+        // Assert
+        var fixturesNs = result.Namespaces.FirstOrDefault(ns => ns.QualifiedName.Contains("fixtures", StringComparison.Ordinal));
+        Assert.NotNull(fixturesNs);
+        var sampleClass = fixturesNs.Classes.FirstOrDefault(c => c.Name == "SampleClass");
+        Assert.NotNull(sampleClass);
+        var isEnabledByDefault = sampleClass.Fields.FirstOrDefault(f => f.Name == "IsEnabledByDefault");
+        Assert.NotNull(isEnabledByDefault);
+        Assert.Equal("true", isEnabledByDefault.Value);
+    }
+
+    /// <summary>
+    ///     Validates that a <c>constexpr</c> field whose initializer is a NUL character literal
+    ///     is parsed with its escaped <c>'\0'</c> display value - mirrors the C# NulSeparator
+    ///     const char regression coverage.
+    /// </summary>
+    [Fact]
+    public void ClangAstParser_Parse_FixtureHeaders_ConstexprCharField_EscapesNulCharacter()
+    {
+        // Skip when clang is not available
+        if (!IsClangAvailable())
+        {
+            Assert.Skip("clang is not available on this system.");
+        }
+
+        // Arrange
+        var options = BuildOptions();
+        var headers = Directory.GetFiles(FixturePaths.GetFixtureNamespaceDir(), "*.h").ToList();
+
+        // Act
+        var result = ClangAstParser.Parse(headers, options);
+
+        // Assert
+        var fixturesNs = result.Namespaces.FirstOrDefault(ns => ns.QualifiedName.Contains("fixtures", StringComparison.Ordinal));
+        Assert.NotNull(fixturesNs);
+        var sampleClass = fixturesNs.Classes.FirstOrDefault(c => c.Name == "SampleClass");
+        Assert.NotNull(sampleClass);
+        var nulSeparator = sampleClass.Fields.FirstOrDefault(f => f.Name == "NulSeparator");
+        Assert.NotNull(nulSeparator);
+        Assert.Equal("'\\0'", nulSeparator.Value);
+    }
+
+    /// <summary>
+    ///     Validates that a <c>constexpr</c> field whose initializer is a simple floating-point
+    ///     literal is parsed with clang's own decimal/scientific spelling preserved verbatim.
+    /// </summary>
+    [Fact]
+    public void ClangAstParser_Parse_FixtureHeaders_ConstexprFloatingField_HasDecimalValue()
+    {
+        // Skip when clang is not available
+        if (!IsClangAvailable())
+        {
+            Assert.Skip("clang is not available on this system.");
+        }
+
+        // Arrange
+        var options = BuildOptions();
+        var headers = Directory.GetFiles(FixturePaths.GetFixtureNamespaceDir(), "*.h").ToList();
+
+        // Act
+        var result = ClangAstParser.Parse(headers, options);
+
+        // Assert
+        var fixturesNs = result.Namespaces.FirstOrDefault(ns => ns.QualifiedName.Contains("fixtures", StringComparison.Ordinal));
+        Assert.NotNull(fixturesNs);
+        var sampleClass = fixturesNs.Classes.FirstOrDefault(c => c.Name == "SampleClass");
+        Assert.NotNull(sampleClass);
+        var pi = sampleClass.Fields.FirstOrDefault(f => f.Name == "Pi");
+        Assert.NotNull(pi);
+        Assert.Equal("3.5", pi.Value);
+    }
+
+    /// <summary>
+    ///     Validates that a <c>constexpr</c> field whose initializer is a doubly-negated literal
+    ///     (e.g. <c>- -5</c>, a <c>UnaryOperator</c> nested over another <c>UnaryOperator</c>) is
+    ///     parsed with a <see langword="null"/> value - only a single leading <c>+</c>/<c>-</c>
+    ///     directly over a genuine literal is reconstructed, so a nested unary chain must never
+    ///     be rendered as e.g. <c>--5</c> (which misleadingly reads as a decrement expression).
+    /// </summary>
+    [Fact]
+    public void ClangAstParser_Parse_FixtureHeaders_ConstexprDoubleNegatedField_HasNullValue()
+    {
+        // Skip when clang is not available
+        if (!IsClangAvailable())
+        {
+            Assert.Skip("clang is not available on this system.");
+        }
+
+        // Arrange
+        var options = BuildOptions();
+        var headers = Directory.GetFiles(FixturePaths.GetFixtureNamespaceDir(), "*.h").ToList();
+
+        // Act
+        var result = ClangAstParser.Parse(headers, options);
+
+        // Assert
+        var fixturesNs = result.Namespaces.FirstOrDefault(ns => ns.QualifiedName.Contains("fixtures", StringComparison.Ordinal));
+        Assert.NotNull(fixturesNs);
+        var sampleClass = fixturesNs.Classes.FirstOrDefault(c => c.Name == "SampleClass");
+        Assert.NotNull(sampleClass);
+        var doubleNegated = sampleClass.Fields.FirstOrDefault(f => f.Name == "DoubleNegated");
+        Assert.NotNull(doubleNegated);
+        Assert.Null(doubleNegated.Value);
+    }
+
     /// <summary>Validates that parsing well-formed fixture headers produces an empty errors collection.</summary>
     [Fact]
     public void ClangAstParser_Parse_FixtureHeaders_ErrorsCollectionIsEmpty()

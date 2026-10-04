@@ -16,11 +16,17 @@ through the ApiMarkCore interfaces. The system contains the following units:
 - **CppAstModel** — immutable AST record types exchanged between parser and
   emitters.
 - **ClangAstParser** — invokes clang, walks the JSON AST, and returns
-  `CppCompilationResult`.
+  `CppCompilationResult`. Also extracts a literal display value for `constexpr`
+  fields whose initializer is a single simple-literal expression (integer,
+  floating-point, character, boolean, or string), leaving the value unset for
+  computed expressions so compound initializers are never folded.
 - **CppEmitter** — format dispatcher and shared-helper hub.
 - **CppEmitterGradualDisclosure** — writes namespace, type, member, operator,
-  enum, alias, nested-type, and class-scoped alias pages.
-- **CppEmitterSingleFile** — writes all documentation into one `api.md` file.
+  enum, alias, nested-type, and class-scoped alias pages. Appends `= <value>`
+  to a field's signature line when `CppField.Value` is populated.
+- **CppEmitterSingleFile** — writes all documentation into one `api.md` file,
+  appending `= <value>` to a field's signature line when `CppField.Value` is
+  populated, mirroring the gradual-disclosure rendering.
 - **CppTypeLinkResolver** — resolves intra-library type links and tracks external
   types.
 - **DocumentationCoverageChecker** — scans parsed namespace declarations for

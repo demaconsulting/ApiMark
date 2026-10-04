@@ -18,6 +18,8 @@ Tests run with the standard xUnit.net test runner.
 - The api file emits class, free-function, enum, and namespace-level type-alias sections when present.
 - Class-scoped type aliases appear as H{depth+3} sub-entries within their owning class section.
 - Member headings respect non-default heading-depth offsets.
+- A field signature line appends `= <value>` when `CppField.Value` is populated, and omits
+  it otherwise.
 
 ### Test Scenarios
 
@@ -57,3 +59,12 @@ as a top-level heading. Tested by
 **Namespace heading**: Verifies that the generated `api.md` contains a namespace section heading for
 each documented namespace. Tested by
 `CppEmitterSingleFile_Emit_MinimalData_ApiFileContainsNamespaceHeading`.
+
+**Field with literal value appends `= <value>`**: Verifies that a field member section's
+signature line appends `= <value>` when `CppField.Value` is populated (a
+`constexpr`/literal-initialized constant). Tested by
+`CppEmitterSingleFile_Emit_FieldWithLiteralValue_SignatureContainsValue`.
+
+**Field without value omits the equals sign**: Verifies that a field member section's
+signature line contains no `=` when `CppField.Value` is `null`. Tested by
+`CppEmitterSingleFile_Emit_FieldWithoutValue_SignatureContainsNoEquals`.

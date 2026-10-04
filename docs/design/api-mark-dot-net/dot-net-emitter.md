@@ -149,6 +149,31 @@ These helpers are grouped by concern:
   `public static implicit operator TargetType(SourceType)` or
   `public static explicit operator TargetType(SourceType)`, with the return type
   appearing after the `operator` keyword rather than before the method name.
+  `BuildFieldSignature` appends `" = " + FormatConstantValue(field.Constant)` to the
+  signature when `field.HasConstant` is `true`; this also covers enum member fields,
+  because Mono.Cecil stores enum member constants using the enum's underlying
+  primitive type, so the same formatter renders both plain `const` fields and enum
+  members correctly.
+- *Constant-value formatting* — `FormatConstantValue`, `EscapeStringLiteral`,
+  `EscapeCharLiteral`, `EscapeControlCharacter`: `FormatConstantValue`
+  pattern-matches the boxed constant by runtime type — `null` renders as
+  `"null"`; `string` renders double-quoted and escaped char-by-char via
+  `EscapeStringLiteral` (handling `\\` and `"` itself, delegating every other
+  character to `EscapeControlCharacter`); `char` renders single-quoted and
+  escaped via `EscapeCharLiteral` (handling `\\` and `'` itself, delegating
+  every other character to `EscapeControlCharacter`); `bool` renders as
+  lowercase `true`/`false`; and every other numeric primitive renders via
+  `Convert.ToString` with `CultureInfo.InvariantCulture` and no numeric type
+  suffixes (no `L`/`f`/`m`), to keep the signature readable as plain C#-like
+  literal text. `EscapeControlCharacter` is the single shared escaping
+  table used by both the string and char paths: it renders the named short
+  escapes (`\0`, `\a`, `\b`, `\f`, `\n`, `\r`, `\t`, `\v`) for their
+  corresponding control characters, falls back to a `\uXXXX` escape for any
+  other character classified as a control character by `char.IsControl`
+  (covering the full Unicode control range — ASCII C0 controls, `DEL`
+  (`0x7f`), and the C1 controls `U+0080`-`U+009F`) so that no raw control
+  byte is ever embedded in generated documentation text, and otherwise
+  returns the character unchanged.
 - *Accessibility helpers* — `GetAccessibilityKeyword(MethodDefinition)`,
   `GetAccessibilityKeyword(FieldDefinition)`, `GetAccessibilityKeyword(EventDefinition)`,
   `GetOperatorCSharpName`, `GetOperatorSymbol`: map Mono.Cecil access flags to C#

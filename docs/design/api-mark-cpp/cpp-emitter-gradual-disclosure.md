@@ -206,7 +206,9 @@ in the constructor; the caller `CppEmitter.Emit` always supplies non-null values
   string className, CppField field)` — write the H1 heading and body for a class field page.
   - *Parameters*: writer, namespace display name, class name, field.
   - *Algorithm*: emits a qualified-name comment + field-type signature, summary, details, note,
-    and example.
+    and example. The field-type signature line is `{Type} {Name} = {Value};` when
+    `CppField.Value` is non-null (i.e. the field is a `constexpr`/literal-initialized
+    constant), otherwise `{Type} {Name};`.
 
 - **WriteFreeFunctionPage / WriteFreeFunctionContent**: `private void WriteFreeFunctionPage(
   IMarkdownWriterFactory factory, string nsKey, string nsDisplayName, CppFunction fn,

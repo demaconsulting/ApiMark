@@ -7,7 +7,7 @@ namespace ApiMark.DotNet.Fixtures;
 public enum SampleStatus
 {
     /// <summary>The item is active.</summary>
-    Active,
+    Active = 0,
 
     /// <summary>The item is inactive.</summary>
     Inactive,

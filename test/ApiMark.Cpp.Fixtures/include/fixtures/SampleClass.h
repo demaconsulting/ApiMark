@@ -16,6 +16,29 @@ public:
     /// @brief A default name constant.
     static constexpr const char* DefaultName = "default";
 
+    /// @brief The maximum allowed count.
+    static constexpr int MaxCount = 42;
+
+    /// @brief A computed limit (regression guard - must not render a value).
+    static constexpr int ComputedLimit = 2 * 21;
+
+    /// @brief A negative offset constant (regression guard - must still render a value).
+    static constexpr int NegativeOffset = -5;
+
+    /// @brief A constexpr boolean flag constant.
+    static constexpr bool IsEnabledByDefault = true;
+
+    /// @brief A constexpr character constant exercising NUL-character escaping
+    /// (regression guard - mirrors the C# NulSeparator const char coverage).
+    static constexpr char NulSeparator = '\0';
+
+    /// @brief A constexpr floating-point constant.
+    static constexpr double Pi = 3.5;
+
+    /// @brief A doubly-negated constant (regression guard - must not render a value;
+    /// a nested unary operator is not a single literal the user wrote directly).
+    static constexpr int DoubleNegated = - -5;
+
     /// @brief Gets a greeting for the specified name.
     /// @param name The name to greet.
     /// @return A greeting string.

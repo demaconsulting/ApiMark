@@ -150,6 +150,35 @@ public class CppAstModelTests
         Assert.Null(field.Doc);
     }
 
+    /// <summary>Validates that the Value of <see cref="CppField"/> is null when not provided.</summary>
+    [Fact]
+    public void CppField_Value_WhenNotProvided_IsNull()
+    {
+        // Arrange
+        var location = new CppSourceLocation("widget.h", 10);
+
+        // Act
+        var field = new CppField("m_value", "int", CppAccessibility.Private, false, false, location, null);
+
+        // Assert
+        Assert.Null(field.Value);
+    }
+
+    /// <summary>Validates that the Value of <see cref="CppField"/> is stored when provided.</summary>
+    [Fact]
+    public void CppField_Value_WhenProvided_IsStored()
+    {
+        // Arrange
+        var location = new CppSourceLocation("widget.h", 10);
+
+        // Act
+        var field = new CppField(
+            "MaxCount", "int", CppAccessibility.Public, true, false, location, null, "42");
+
+        // Assert
+        Assert.Equal("42", field.Value);
+    }
+
     /// <summary>Validates that <see cref="CppFunction"/> stores core properties correctly.</summary>
     [Fact]
     public void CppFunction_Construction_SetsCoreProperties()

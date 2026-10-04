@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using ApiMark.Core;
 using Mono.Cecil;
@@ -888,7 +889,93 @@ internal sealed class DotNetEmitter : IApiEmitter
         };
 
         var gap = modifiers.Length > 0 ? " " : string.Empty;
-        return $"{GetAccessibilityKeyword(field)} {modifiers}{gap}{typeName} {field.Name}";
+        var signature = $"{GetAccessibilityKeyword(field)} {modifiers}{gap}{typeName} {field.Name}";
+
+        // Append the compiler-folded constant value (if any) so readers can see literal
+        // constants and enum member values without opening the implementation - Mono.Cecil
+        // stores enum member values using the enum's underlying primitive type, so the same
+        // formatter renders both plain const fields and enum members correctly
+        return field.HasConstant ? $"{signature} = {FormatConstantValue(field.Constant)}" : signature;
+    }
+
+    /// <summary>Renders a compile-time constant value (from <see cref="FieldDefinition.Constant"/>) as C#-like source text.</summary>
+    /// <remarks>
+    ///     Exists because <see cref="FieldDefinition.Constant"/> is a boxed CLR object whose
+    ///     runtime type varies (string, char, bool, or one of the numeric primitives) and each
+    ///     needs different literal syntax to read naturally as C# source in generated
+    ///     documentation. Numeric values are rendered as plain literal text without type suffixes
+    ///     (e.g. no <c>L</c>/<c>f</c>/<c>m</c>) to keep the signature readable.
+    /// </remarks>
+    /// <param name="value">The boxed constant value, or <see langword="null"/> for a literal <see langword="null"/> constant.</param>
+    /// <returns>The value rendered as C#-like literal source text.</returns>
+    internal static string FormatConstantValue(object? value)
+    {
+        return value switch
+        {
+            null => "null",
+            string s => $"\"{EscapeStringLiteral(s)}\"",
+            char c => $"'{EscapeCharLiteral(c)}'",
+            bool b => b ? "true" : "false",
+            _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null",
+        };
+    }
+
+    /// <summary>Escapes a string value for embedding in a double-quoted C# string literal.</summary>
+    /// <param name="value">The raw string value.</param>
+    /// <returns>The escaped text, excluding the surrounding quotes.</returns>
+    private static string EscapeStringLiteral(string value)
+    {
+        var builder = new StringBuilder(value.Length);
+        foreach (var c in value)
+        {
+            builder.Append(c switch
+            {
+                '\\' => "\\\\",
+                '"' => "\\\"",
+                _ => EscapeControlCharacter(c),
+            });
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>Escapes a char value for embedding in a single-quoted C# char literal.</summary>
+    /// <param name="value">The raw char value.</param>
+    /// <returns>The escaped text, excluding the surrounding quotes.</returns>
+    private static string EscapeCharLiteral(char value)
+    {
+        return value switch
+        {
+            '\\' => "\\\\",
+            '\'' => "\\'",
+            _ => EscapeControlCharacter(value),
+        };
+    }
+
+    /// <summary>
+    ///     Escapes a single character for embedding in a C# string or char literal, handling the
+    ///     named short escapes for common control characters and falling back to a <c>\uXXXX</c>
+    ///     escape for any other non-printable control character (including <c>DEL</c> and the
+    ///     Unicode C1 control range <c>U+0080</c>-<c>U+009F</c>, per <see cref="char.IsControl(char)"/>)
+    ///     so that no raw control byte is ever embedded in generated documentation text.
+    /// </summary>
+    /// <param name="value">The raw character to escape; the caller handles <c>\\</c> and the surrounding quote character.</param>
+    /// <returns>The escaped text for <paramref name="value"/>, or the character itself when it needs no escaping.</returns>
+    private static string EscapeControlCharacter(char value)
+    {
+        return value switch
+        {
+            '\0' => "\\0",
+            '\a' => "\\a",
+            '\b' => "\\b",
+            '\f' => "\\f",
+            '\n' => "\\n",
+            '\r' => "\\r",
+            '\t' => "\\t",
+            '\v' => "\\v",
+            _ when char.IsControl(value) => $"\\u{(int)value:x4}",
+            _ => value.ToString(),
+        };
     }
 
     /// <summary>Builds a human-readable C# event declaration signature.</summary>

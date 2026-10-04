@@ -31,7 +31,10 @@ defined by the Core interfaces. The system contains ten units:
   (namespaces, types, XML docs, resolver, options) produced by DotNetGenerator.Parse.
 - **DotNetEmitter** — IApiEmitter dispatcher; reads EmitConfig.Format and forwards
   the call to DotNetEmitterGradualDisclosure or DotNetEmitterSingleFile. Also provides
-  shared static helper methods used by both sub-emitters.
+  shared static helper methods used by both sub-emitters, including
+  `BuildFieldSignature`, which appends the compiler-folded constant value (read from
+  `FieldDefinition.Constant` when `HasConstant` is set) as C#-like literal source,
+  covering both plain `const` fields and enum member values.
 - **DotNetEmitterGradualDisclosure** — writes the multi-file gradual-disclosure tree
   (one file per namespace and type, and one file per member except where the model
   combines case-insensitive filename collisions onto a shared page). Types declaring

@@ -110,7 +110,11 @@ constructs.
 - **Enumerations** — scoped (`enum class`) and unscoped (`enum`) enumerations
 
 Constructs are filtered by the `--api-headers` patterns — only declarations from
-matched headers appear in the output.
+matched headers appear in the output. `static constexpr` fields with a simple literal
+initializer (e.g. `static constexpr int MaxCount = 42;`) render their value in the
+signature, including when the literal has a leading unary `+`/`-` directly over it
+(e.g. `static constexpr int Offset = -5;` still renders as a literal); computed
+initializers are not folded and render without a value.
 
 ## Doc Comments
 

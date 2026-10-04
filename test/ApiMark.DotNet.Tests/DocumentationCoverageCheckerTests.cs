@@ -110,9 +110,9 @@ public class DocumentationCoverageCheckerTests
         // Act
         var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
 
-        // Assert — type + Name, Title, DefaultName, NameChanged, GetGreeting, Reset, Refresh (the
-        // implicit constructor is excluded from the count)
-        Assert.Equal(8, result.CheckedCount);
+        // Assert — type + Name, Title, DefaultName, MaxCount, IsDefaultEnabled, NulSeparator,
+        // NameChanged, GetGreeting, Reset, Refresh (the implicit constructor is excluded from the count)
+        Assert.Equal(11, result.CheckedCount);
         Assert.Equal(1, result.UndocumentedCount);
         Assert.Contains(result.UndocumentedItems, i => i is { Kind: "Method", DisplayName: "ApiMark.DotNet.Fixtures.SampleClass.Refresh()" });
     }
@@ -281,6 +281,15 @@ public class DocumentationCoverageCheckerTests
             <member name="P:ApiMark.DotNet.Fixtures.SampleClass.Title">
               <summary>Gets or sets the title.</summary>
             </member>
+            <member name="F:ApiMark.DotNet.Fixtures.SampleClass.MaxCount">
+              <summary>Gets the maximum allowed count.</summary>
+            </member>
+            <member name="F:ApiMark.DotNet.Fixtures.SampleClass.IsDefaultEnabled">
+              <summary>Gets a value indicating whether the instance is enabled by default.</summary>
+            </member>
+            <member name="F:ApiMark.DotNet.Fixtures.SampleClass.NulSeparator">
+              <summary>Gets the NUL separator character constant.</summary>
+            </member>
             <member name="E:ApiMark.DotNet.Fixtures.SampleClass.NameChanged">
               <summary>Occurs when the name changes.</summary>
             </member>
@@ -303,7 +312,7 @@ public class DocumentationCoverageCheckerTests
             var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
 
             // Assert
-            Assert.Equal(8, result.CheckedCount);
+            Assert.Equal(11, result.CheckedCount);
             var violation = Assert.Single(result.UndocumentedItems);
             Assert.Equal("Field", violation.Kind);
             Assert.Equal("ApiMark.DotNet.Fixtures.SampleClass.DefaultName", violation.DisplayName);
@@ -334,6 +343,15 @@ public class DocumentationCoverageCheckerTests
             <member name="F:ApiMark.DotNet.Fixtures.SampleClass.DefaultName">
               <summary>Gets the default name constant.</summary>
             </member>
+            <member name="F:ApiMark.DotNet.Fixtures.SampleClass.MaxCount">
+              <summary>Gets the maximum allowed count.</summary>
+            </member>
+            <member name="F:ApiMark.DotNet.Fixtures.SampleClass.IsDefaultEnabled">
+              <summary>Gets a value indicating whether the instance is enabled by default.</summary>
+            </member>
+            <member name="F:ApiMark.DotNet.Fixtures.SampleClass.NulSeparator">
+              <summary>Gets the NUL separator character constant.</summary>
+            </member>
             <member name="M:ApiMark.DotNet.Fixtures.SampleClass.GetGreeting(System.String)">
               <summary>Gets a greeting for the specified name.</summary>
             </member>
@@ -353,7 +371,7 @@ public class DocumentationCoverageCheckerTests
             var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
 
             // Assert
-            Assert.Equal(8, result.CheckedCount);
+            Assert.Equal(11, result.CheckedCount);
             var violation = Assert.Single(result.UndocumentedItems);
             Assert.Equal("Event", violation.Kind);
             Assert.Equal("ApiMark.DotNet.Fixtures.SampleClass.NameChanged", violation.DisplayName);

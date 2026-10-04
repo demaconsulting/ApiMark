@@ -14,7 +14,7 @@ sections:
               resolved C++ AST. Delegating parse to ClangAstParser keeps the I/O and
               JSON-deserialization logic isolated from the higher-level generation
               logic, making each unit independently testable.
-            children: [ApiMarkCpp-ClangAstParser-ParseHeaders, ApiMarkCpp-ClangAstParser-NormalizeIncludeRootsRegardlessOfCaller]
+            children: [ApiMarkCpp-ClangAstParser-ParseHeaders, ApiMarkCpp-ClangAstParser-NormalizeIncludeRootsRegardlessOfCaller, ApiMarkCpp-ClangAstParser-ParseConstexprLiteralFieldValue]
             tests: [ClangAstParser_Parse_FixtureHeaders_ReturnsNonEmptyNamespaces]
           - id: ApiMarkCpp-ClangAstParser-ParseHeaders
             title: >-
@@ -50,3 +50,27 @@ sections:
               locate every header reachable only through the -I search path.
             tests:
               - ClangAstParser_Parse_CalledDirectlyWithDifferentlyCasedIncludeRoot_ResolvesAngleBracketInclude
+          - id: ApiMarkCpp-ClangAstParser-ParseConstexprLiteralFieldValue
+            title: >-
+              ClangAstParser shall extract a literal display value for constexpr fields
+              whose initializer is a single simple-literal expression, or a leading unary
+              +/- directly over such a literal (e.g. -5), and shall leave the value unset
+              for computed expressions.
+            justification: |
+              Readers and AI agents need to see the actual value of a compile-time constant
+              field to use the API correctly without opening the header. Folding or
+              reconstructing computed expressions (e.g. 2 * 21) would misrepresent the
+              source, so only direct literal initializers (integer, floating-point,
+              character, boolean, or string) are extracted - including when prefixed by a
+              single leading unary + or - directly over the literal, since that is still the
+              literal the user wrote directly, not a computed value; anything else is left
+              unset.
+            tests:
+              - ClangAstParser_Parse_FixtureHeaders_ConstexprStringField_HasQuotedValue
+              - ClangAstParser_Parse_FixtureHeaders_ConstexprIntField_HasNumericValue
+              - ClangAstParser_Parse_FixtureHeaders_ConstexprComputedField_HasNullValue
+              - ClangAstParser_Parse_FixtureHeaders_ConstexprBoolField_HasBooleanValue
+              - ClangAstParser_Parse_FixtureHeaders_ConstexprCharField_EscapesNulCharacter
+              - ClangAstParser_Parse_FixtureHeaders_ConstexprNegativeIntField_HasNumericValue
+              - ClangAstParser_Parse_FixtureHeaders_ConstexprFloatingField_HasDecimalValue
+              - ClangAstParser_Parse_FixtureHeaders_ConstexprDoubleNegatedField_HasNullValue

@@ -100,3 +100,21 @@ sections:
               only be assigned during object initialization. Rendering them as set; would
               mislead readers into believing the property is mutable after construction.
             tests: [DotNetEmitter_BuildPropertyAccessors_InitOnlySetter_EmitsInit]
+          - id: ApiMarkDotNet-DotNetEmitter-RenderConstantFieldValue
+            title: DotNetEmitter shall append the compiler-folded constant value to a
+              field signature when the field has a compile-time constant (HasConstant),
+              including enum member fields.
+            justification: |
+              Readers and AI agents need to see the actual value of a const field or enum
+              member to use the API correctly without opening the implementation. Mono.Cecil
+              stores enum member constants using the enum's underlying primitive type, so a
+              single formatter renders both plain const fields and enum members correctly.
+            tests:
+              - DotNetEmitter_BuildFieldSignature_ConstStringField_AppendsQuotedValue
+              - DotNetEmitter_BuildFieldSignature_ConstIntField_AppendsNumericValue
+              - DotNetEmitter_BuildFieldSignature_ConstBoolField_AppendsLowercaseBooleanValue
+              - DotNetEmitter_BuildFieldSignature_EnumMemberWithExplicitValue_AppendsUnderlyingNumericValue
+              - DotNetEmitter_BuildFieldSignature_ConstCharField_EscapesNulCharacter
+              - DotNetEmitter_FormatConstantValue_StringWithControlCharacters_EscapesAllOfThem
+              - DotNetEmitter_FormatConstantValue_UnnamedControlCharacter_FallsBackToUnicodeEscape
+              - DotNetEmitter_FormatConstantValue_C1ControlCharacter_FallsBackToUnicodeEscape

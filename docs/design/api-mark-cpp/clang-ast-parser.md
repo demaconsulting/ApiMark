@@ -75,6 +75,45 @@ while walking the JSON AST.
 - **ParseMethod** — builds `CppFunction` records for constructors and methods,
   including `IsDeleted` and default parameters.
 - **ParseField** — builds `CppField` records for instance and static members.
+  `VarDecl` nodes (static class members) and `FieldDecl` nodes are both inspected
+  for a `constexpr` flag (`node.constexpr`); when the field is `constexpr`, the
+  sole non-comment/non-attribute child of `inner` (the initializer expression, if
+  any) is passed to `ExtractConstexprFieldValue` and the resulting display string
+  (or `null`) is stored as `CppField.Value`. Non-`constexpr` initializers are never
+  inspected, since they are not guaranteed to be compile-time constant.
+- **ExtractConstexprFieldValue** — recursively unwraps pure pass-through wrapper
+  nodes clang inserts around literals (`ImplicitCastExpr`, `ConstantExpr`,
+  `MaterializeTemporaryExpr`, `ExprWithCleanups`), then renders a display string
+  for the following literal kinds: `IntegerLiteral`/`FloatingLiteral`/`StringLiteral`
+  (clang's own pre-formatted `value` JSON string), `CXXBoolLiteralExpr` (via
+  `ExtractBoolLiteralDefaultValue`), `CharacterLiteral` (via
+  `ExtractCharacterLiteralValue`), and `UnaryOperator` (via
+  `ExtractConstexprUnaryLiteralValue`). Any other node kind — e.g. `BinaryOperator`
+  (a computed expression such as `2 * 21`) or `DeclRefExpr` (a reference to another
+  named constant) — yields `null`, so the rendering feature never displays a
+  folded or reconstructed value for anything other than the literal the user wrote
+  directly.
+- **ExtractConstexprUnaryLiteralValue** — reconstructs a leading `+`/`-` operator
+  applied directly to a literal operand (e.g. `-5`) as the display string
+  `"{op}{operandValue}"`, but only when the operand — after resolving its kind
+  through `UnwrapPassThroughKind` — is not itself a `UnaryOperator`; this rejects
+  a nested unary chain such as `- -5` (which would otherwise reconstruct as the
+  misleading `--5`, readable as a C++ decrement expression rather than a
+  double-negation) before delegating the actual value extraction to a recursive
+  call to `ExtractConstexprFieldValue`. Any other unary opcode, or one wrapping a
+  non-literal/computed operand (e.g. `-(2 * 21)`), yields `null` so compound
+  expressions are never rendered as if they were literals.
+- **UnwrapPassThroughKind** — resolves the `kind` of a node after unwrapping the
+  same pure pass-through wrapper kinds that `ExtractConstexprFieldValue` unwraps,
+  without extracting a value; used solely by `ExtractConstexprUnaryLiteralValue`
+  to detect a nested `UnaryOperator` operand.
+- **ExtractCharacterLiteralValue** — converts the clang-reported numeric code
+  point of a `CharacterLiteral` node into a single-quoted C++-style display
+  string: `0` renders as `'\0'`, and `\n`/`\r`/`\t`/`\\`/`'` render as their named
+  escape forms; printable ASCII (32–126) renders as the bare character (e.g.
+  `'A'`); anything else renders as the bare decimal code point as text (to avoid
+  misrepresenting non-ASCII code points). Returns `null` when the `value` property
+  is absent or not a JSON number.
 - **ParseParameter / ExtractDefaultValue** — extract parameter shapes and simple
   default-argument display strings.
 - **ParseAccessSpec** — converts clang access specifiers to `CppAccessibility`.

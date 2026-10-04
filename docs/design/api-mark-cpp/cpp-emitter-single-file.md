@@ -75,7 +75,11 @@ for a namespace-level C++ type alias.
 **WriteSingleFileMemberSection** (private static): Emits an H{depth+3} section
 for a single class member (constructor, method, or field), including a fenced-code
 signature block, summary, parameters table (when applicable), Returns line (for
-non-void non-constructor methods), and example block (when present).
+non-void non-constructor methods), and example block (when present). For a field
+member, the signature line is `{Type} {Name} = {Value};` when `CppField.Value` is
+non-null (i.e. the field is a `constexpr`/literal-initialized constant), otherwise
+`{Type} {Name};` — this is implemented by the private `WriteSingleFileFieldMemberBody`
+helper and mirrors `WriteFieldContent`'s gradual-disclosure rendering exactly.
 
 **WriteSingleFileParametersTable** (private static): Writes a Parameters table
 with columns (Parameter, Type, Description) for a function when it has at least

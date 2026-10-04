@@ -72,7 +72,21 @@ sections:
               class section using the configured heading-depth offset.
             justification: |
               Member sections preserve drill-down detail while keeping the document linear.
+            children:
+              - ApiMarkCpp-CppEmitterSingleFile-RenderFieldConstantValue
             tests: [CppEmitterSingleFile_Emit_NonDefaultHeadingDepth_OffsetsHeadings]
+          - id: ApiMarkCpp-CppEmitterSingleFile-RenderFieldConstantValue
+            title: >-
+              CppEmitterSingleFile shall append "= value" to a field's signature line
+              when CppField.Value is populated, mirroring the gradual-disclosure
+              rendering.
+            justification: |
+              Readers need to see a field's compile-time literal value directly in its
+              signature block in the single-file layout, consistent with the
+              gradual-disclosure output.
+            tests:
+              - CppEmitterSingleFile_Emit_FieldWithLiteralValue_SignatureContainsValue
+              - CppEmitterSingleFile_Emit_FieldWithoutValue_SignatureContainsNoEquals
           - id: ApiMarkCpp-CppEmitterSingleFile-EmitsTypeAliasSection
             title: CppEmitterSingleFile shall emit a section for each documented namespace-level
               type alias.

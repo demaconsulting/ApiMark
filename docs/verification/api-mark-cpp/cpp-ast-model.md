@@ -19,6 +19,8 @@ Tests run with the standard xUnit.net test runner.
 - `CppDocComment` implements value equality.
 - `CppAccessibility` contains exactly `Public`, `Protected`, and `Private`.
 - `CppField`, `CppFunction`, and `CppClass` expose their core behavioral flags correctly.
+- `CppField.Value` defaults to `null` when omitted and stores the supplied value when
+  provided.
 
 ### Test Scenarios
 
@@ -35,6 +37,14 @@ and `CppClass_Construction_SetsCoreProperties`.
 **CppParameter.DefaultValue is null when omitted**: Verifies that constructing a
 `CppParameter` without a default value leaves `DefaultValue` as `null`. Tested by
 `CppParameter_DefaultValue_WhenNotProvided_IsNull`.
+
+**CppField.Value defaults to null when omitted**: Verifies that constructing a
+`CppField` without a trailing `Value` argument leaves `Value` as `null`. Tested by
+`CppField_Value_WhenNotProvided_IsNull`.
+
+**CppField.Value stores the supplied value when provided**: Verifies that constructing a
+`CppField` with an explicit `Value` argument stores it correctly. Tested by
+`CppField_Value_WhenProvided_IsStored`.
 
 **CppDocComment implements value equality**: Verifies that two `CppDocComment` instances
 constructed with identical arguments compare as equal, confirming record-type value

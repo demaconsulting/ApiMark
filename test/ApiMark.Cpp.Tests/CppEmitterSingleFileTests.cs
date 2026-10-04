@@ -258,4 +258,85 @@ public class CppEmitterSingleFileTests
         Assert.Contains(headings, h => h.Level == 4 && h.Text == "Widget");
         Assert.Contains(headings, h => h.Level == 5 && h.Text.StartsWith("GetValue(", StringComparison.Ordinal));
     }
+
+    /// <summary>
+    ///     Validates that a field with a non-null <see cref="CppField.Value"/> (a simple-literal
+    ///     constexpr initializer) renders <c>= value</c> in its signature block.
+    /// </summary>
+    [Fact]
+    public void CppEmitterSingleFile_Emit_FieldWithLiteralValue_SignatureContainsValue()
+    {
+        // Arrange: a class with a single constexpr field carrying a resolved literal value
+        var factory = new InMemoryMarkdownWriterFactory();
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "TestLib",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+        };
+        var nsDecls = new SortedDictionary<string, CppEmitter.NamespaceDeclarations>(StringComparer.Ordinal);
+        var ns = new CppEmitter.NamespaceDeclarations("testlib", null);
+        ns.Classes.Add(new CppClass(
+            "Limits",
+            [],
+            [],
+            [],
+            [new CppField("MaxCount", "int", CppAccessibility.Public, true, false, null, new CppDocComment("Maximum count.", null, [], null), "42")],
+            [],
+            [],
+            false,
+            false,
+            null,
+            new CppDocComment("Limit constants.", null, [], null)));
+        nsDecls["testlib"] = ns;
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+        var emitter = new CppEmitter(options, nsDecls, resolver);
+
+        // Act
+        new CppEmitterSingleFile(emitter, nsDecls, resolver).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: the field's signature block includes the literal value
+        var signatures = factory.GetWriter("", "api").Operations.OfType<SignatureOperation>().ToList();
+        Assert.Contains(signatures, s => s.Code.Contains("MaxCount = 42;", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a field with a <see langword="null"/> <see cref="CppField.Value"/> (e.g. a
+    ///     computed expression that was deliberately not folded) renders no <c>=</c> in its signature.
+    /// </summary>
+    [Fact]
+    public void CppEmitterSingleFile_Emit_FieldWithoutValue_SignatureContainsNoEquals()
+    {
+        // Arrange: a class with a single field carrying no resolved literal value
+        var factory = new InMemoryMarkdownWriterFactory();
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "TestLib",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+        };
+        var nsDecls = new SortedDictionary<string, CppEmitter.NamespaceDeclarations>(StringComparer.Ordinal);
+        var ns = new CppEmitter.NamespaceDeclarations("testlib", null);
+        ns.Classes.Add(new CppClass(
+            "Limits",
+            [],
+            [],
+            [],
+            [new CppField("ComputedLimit", "int", CppAccessibility.Public, true, false, null, new CppDocComment("Computed limit.", null, [], null))],
+            [],
+            [],
+            false,
+            false,
+            null,
+            new CppDocComment("Limit constants.", null, [], null)));
+        nsDecls["testlib"] = ns;
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal));
+        var emitter = new CppEmitter(options, nsDecls, resolver);
+
+        // Act
+        new CppEmitterSingleFile(emitter, nsDecls, resolver).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: the field's signature block has no "=" since no literal value was resolved
+        var signatures = factory.GetWriter("", "api").Operations.OfType<SignatureOperation>().ToList();
+        Assert.Contains(signatures, s => s.Code.Contains("ComputedLimit;", StringComparison.Ordinal));
+        Assert.DoesNotContain(signatures, s => s.Code.Contains('='));
+    }
 }
