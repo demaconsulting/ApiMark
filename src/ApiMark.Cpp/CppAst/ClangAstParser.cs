@@ -873,9 +873,23 @@ internal sealed class ClangAstParser
 
     /// <summary>
     ///     Maximum time to wait, after a hung process has been killed, for its redirected
-    ///     stdout/stderr pipes to report as complete so partial output can be captured.
+    ///     stdout/stderr pipes to report as complete so partial output can be captured. Kept
+    ///     short because the process is already known to be stuck — this is a best-effort
+    ///     grab of whatever diagnostic text is immediately available, not a wait for a
+    ///     legitimate (but large/slow) read to finish.
     /// </summary>
     private const int PartialOutputGraceMilliseconds = 2000;
+
+    /// <summary>
+    ///     Maximum time to wait, after a process has exited normally within its timeout, for
+    ///     its redirected stdout/stderr pipes to report as complete. Deliberately much larger
+    ///     than <see cref="PartialOutputGraceMilliseconds"/>: on this (success) path the process
+    ///     has already exited cleanly, so a slow read here means a real clang invocation is
+    ///     still draining a large AST dump (observed to take several seconds on loaded CI
+    ///     runners), not a hang — only a grandchild process indefinitely holding the redirected
+    ///     handle open should ever actually trip this bound.
+    /// </summary>
+    private const int SuccessPathOutputGraceMilliseconds = 30_000;
 
     /// <summary>
     ///     Maximum number of characters of partial stdout/stderr to include in a timeout
@@ -900,7 +914,7 @@ internal sealed class ClangAstParser
 
     /// <summary>
     ///     Returns a redirected stdout/stderr read task's result, bounded by
-    ///     <see cref="PartialOutputGraceMilliseconds"/> so that a process which has already
+    ///     <see cref="SuccessPathOutputGraceMilliseconds"/> so that a process which has already
     ///     exited — but left a grandchild holding the redirected pipe open — cannot still hang
     ///     this call indefinitely and defeat the overall timeout guarantee.
     /// </summary>
@@ -911,7 +925,7 @@ internal sealed class ClangAstParser
     /// <param name="elapsed">Time elapsed since the process was started, for diagnostics.</param>
     /// <returns>The captured text.</returns>
     /// <exception cref="InvalidOperationException">
-    ///     Thrown when the read does not complete within <see cref="PartialOutputGraceMilliseconds"/>.
+    ///     Thrown when the read does not complete within <see cref="SuccessPathOutputGraceMilliseconds"/>.
     /// </exception>
     private static string GetOutputOrThrow(
         Task<string> readTask,
@@ -920,14 +934,14 @@ internal sealed class ClangAstParser
         string commandLine,
         TimeSpan elapsed)
     {
-        if (readTask.Wait(PartialOutputGraceMilliseconds))
+        if (readTask.Wait(SuccessPathOutputGraceMilliseconds))
         {
             return readTask.Result;
         }
 
         throw new InvalidOperationException(
             $"Process exited but reading {streamName} did not complete within " +
-            $"{PartialOutputGraceMilliseconds}ms — a child process it spawned may still be " +
+            $"{SuccessPathOutputGraceMilliseconds}ms — a child process it spawned may still be " +
             "holding the redirected handle open.\n" +
             $"  PID: {processId}\n" +
             $"  Elapsed: {elapsed}\n" +
