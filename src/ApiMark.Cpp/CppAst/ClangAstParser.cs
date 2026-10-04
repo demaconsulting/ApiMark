@@ -753,19 +753,20 @@ internal sealed class ClangAstParser
         var stdoutTask = process.StandardOutput.ReadToEndAsync();
         var stderrTask = process.StandardError.ReadToEndAsync();
 
-        if (!process.WaitForExit(ClangTimeoutMilliseconds))
+        var timeoutMilliseconds = TimeoutOverrideMillisecondsForTests ?? ClangTimeoutMilliseconds;
+        if (!process.WaitForExit(timeoutMilliseconds))
         {
             TryKillProcess(process);
 
             // Best-effort: give the now-killed process's pipes a short grace period to flush
             // so partial output (e.g. a diagnostic clang had already printed) can be reported.
-            // This wait is bounded independently of ClangTimeoutMilliseconds so a pipe that
+            // This wait is bounded independently of timeoutMilliseconds so a pipe that
             // never closes cannot extend the hang.
             var partialStdout = TryGetPartialOutput(stdoutTask);
             var partialStderr = TryGetPartialOutput(stderrTask);
 
             throw new InvalidOperationException(
-                $"Process did not exit within {ClangTimeoutMilliseconds}ms and was killed.\n" +
+                $"Process did not exit within {timeoutMilliseconds}ms and was killed.\n" +
                 $"  OS: {RuntimeInformation.OSDescription} ({RuntimeInformation.OSArchitecture})\n" +
                 $"  PID: {processId}\n" +
                 $"  Elapsed: {stopwatch.Elapsed}\n" +
@@ -782,6 +783,17 @@ internal sealed class ClangAstParser
     ///     invocation to exit before treating it as hung and killing it.
     /// </summary>
     private const int ClangTimeoutMilliseconds = 120_000;
+
+    /// <summary>
+    ///     Test-only override for the timeout applied in <see cref="RunProcess"/>, scoped to
+    ///     the calling thread via <see cref="ThreadStaticAttribute"/> so a test exercising the
+    ///     timeout/kill path with an artificially short wait cannot affect the (ordinarily
+    ///     much faster) real clang invocations made concurrently by other tests. Tests must
+    ///     reset this to <see langword="null"/> in a <c>finally</c> block — thread-pool thread
+    ///     reuse would otherwise leak the override into an unrelated later test.
+    /// </summary>
+    [ThreadStatic]
+    internal static int? TimeoutOverrideMillisecondsForTests;
 
     /// <summary>
     ///     Maximum time to wait, after a hung process has been killed, for its redirected

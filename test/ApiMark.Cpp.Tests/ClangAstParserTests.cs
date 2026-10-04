@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using ApiMark.Cpp;
 using ApiMark.Cpp.CppAst;
 using Xunit;
@@ -512,6 +513,89 @@ public class ClangAstParserTests
         finally
         {
             Directory.Delete(tempParent, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Writes a tiny script that ignores every argument it is given and sleeps far longer
+    ///     than any test timeout, so it can stand in for a hung clang invocation without
+    ///     depending on clang (or any OS-specific hang trigger such as an Xcode license prompt)
+    ///     being reproducible in this environment.
+    /// </summary>
+    /// <param name="directory">Directory to create the script file in.</param>
+    /// <returns>Absolute path to the created, executable script.</returns>
+    private static string CreateHangingScript(string directory)
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            // .NET's Process.Start transparently runs .cmd/.bat files through cmd.exe on
+            // Windows, so this can be used directly as CppGeneratorOptions.ClangPath.
+            var scriptPath = Path.Combine(directory, "hang.cmd");
+            File.WriteAllText(scriptPath, "@echo off\r\nping -n 1000 127.0.0.1 >nul\r\n");
+            return scriptPath;
+        }
+
+        var shPath = Path.Combine(directory, "hang.sh");
+        File.WriteAllText(shPath, "#!/bin/sh\nsleep 1000\n");
+        File.SetUnixFileMode(
+            shPath,
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+            UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+            UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+        return shPath;
+    }
+
+    /// <summary>
+    ///     Validates that a clang invocation which never exits is killed and reported as an
+    ///     <see cref="InvalidOperationException"/> bearing diagnostic detail, instead of hanging
+    ///     the test (and, in CI, the whole job) indefinitely.
+    /// </summary>
+    [Fact]
+    public void ClangAstParser_Parse_ClangHangs_ThrowsWithDiagnosticsAndKillsProcess()
+    {
+        // Arrange: a fake "clang" that ignores its arguments and sleeps indefinitely, combined
+        // with a short thread-local timeout override so this test does not actually wait for
+        // the production 120-second timeout
+        var tempDir = Path.Combine(Path.GetTempPath(), "ApiMarkClangHangTest_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            var hangingScript = CreateHangingScript(tempDir);
+            var options = new CppGeneratorOptions
+            {
+                LibraryName = "Fixtures",
+                PublicIncludeRoots = [],
+                ClangPath = hangingScript,
+            };
+
+            ClangAstParser.TimeoutOverrideMillisecondsForTests = 300;
+            try
+            {
+                // Act
+                var ex = Assert.Throws<InvalidOperationException>(
+                    () => ClangAstParser.Parse(["dummy.h"], options));
+
+                // Assert: the exception carries enough diagnostic detail to triage a real hang
+                // from CI output alone, without needing to reproduce it locally
+                Assert.Contains("did not exit within 300ms", ex.Message, StringComparison.Ordinal);
+                Assert.Contains("OS:", ex.Message, StringComparison.Ordinal);
+                Assert.Contains("PID:", ex.Message, StringComparison.Ordinal);
+                Assert.Contains("Elapsed:", ex.Message, StringComparison.Ordinal);
+                Assert.Contains("Command:", ex.Message, StringComparison.Ordinal);
+                Assert.Contains(hangingScript, ex.Message, StringComparison.Ordinal);
+                Assert.Contains("Partial stdout", ex.Message, StringComparison.Ordinal);
+                Assert.Contains("Partial stderr", ex.Message, StringComparison.Ordinal);
+            }
+            finally
+            {
+                // Reset the override — thread-pool thread reuse would otherwise leak a
+                // 300ms timeout into an unrelated later test running on the same thread
+                ClangAstParser.TimeoutOverrideMillisecondsForTests = null;
+            }
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
         }
     }
 }
