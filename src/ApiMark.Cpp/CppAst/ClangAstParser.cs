@@ -702,11 +702,22 @@ internal sealed class ClangAstParser
     ///     Starts a process, reads stdout and stderr concurrently to avoid pipe deadlock,
     ///     and returns the combined output with the exit code.
     /// </summary>
+    /// <remarks>
+    ///     The wait is bounded by <see cref="ClangTimeoutMilliseconds"/> so that a clang (or
+    ///     <c>xcrun</c>) invocation that never exits — e.g. a first-run Xcode license prompt
+    ///     blocked on stdin, or a process starved by heavy CI-runner contention — fails this
+    ///     single call instead of hanging the calling test (and, transitively, the whole CI
+    ///     job) indefinitely. The process (and any children it spawned) is killed on timeout.
+    ///     The resulting exception carries the OS, PID, elapsed time, full command line, and
+    ///     any partial stdout/stderr the process had already produced, so a hang can be
+    ///     diagnosed from CI output alone without needing to reproduce it locally.
+    /// </remarks>
     /// <param name="fileName">Executable to launch.</param>
     /// <param name="arguments">Arguments to pass to the executable.</param>
     /// <returns>A tuple of (stdout, stderr, exitCode).</returns>
     /// <exception cref="InvalidOperationException">
-    ///     Thrown when the process cannot be started.
+    ///     Thrown when the process cannot be started, or when it does not exit within
+    ///     <see cref="ClangTimeoutMilliseconds"/>.
     /// </exception>
     private static (string Stdout, string Stderr, int ExitCode) RunProcess(
         string fileName,
@@ -726,18 +737,109 @@ internal sealed class ClangAstParser
             psi.ArgumentList.Add(arg);
         }
 
+        var commandLine = BuildDiagnosticCommandLine(fileName, arguments);
+        var stopwatch = Stopwatch.StartNew();
+
         using var process = Process.Start(psi)
-            ?? throw new InvalidOperationException($"Failed to start process '{fileName}'.");
+            ?? throw new InvalidOperationException(
+                $"Failed to start process '{fileName}'. Command: {commandLine}");
+
+        // Capture the PID up front — it is still readable after Kill(), but not reliably
+        // so once the process has fully exited and been reaped on some platforms
+        var processId = process.Id;
 
         // Read stdout and stderr concurrently — reading them sequentially can deadlock
         // when one pipe's buffer fills while the other is not being drained
         var stdoutTask = process.StandardOutput.ReadToEndAsync();
         var stderrTask = process.StandardError.ReadToEndAsync();
 
-        process.WaitForExit();
+        if (!process.WaitForExit(ClangTimeoutMilliseconds))
+        {
+            TryKillProcess(process);
+
+            // Best-effort: give the now-killed process's pipes a short grace period to flush
+            // so partial output (e.g. a diagnostic clang had already printed) can be reported.
+            // This wait is bounded independently of ClangTimeoutMilliseconds so a pipe that
+            // never closes cannot extend the hang.
+            var partialStdout = TryGetPartialOutput(stdoutTask);
+            var partialStderr = TryGetPartialOutput(stderrTask);
+
+            throw new InvalidOperationException(
+                $"Process did not exit within {ClangTimeoutMilliseconds}ms and was killed.\n" +
+                $"  OS: {RuntimeInformation.OSDescription} ({RuntimeInformation.OSArchitecture})\n" +
+                $"  PID: {processId}\n" +
+                $"  Elapsed: {stopwatch.Elapsed}\n" +
+                $"  Command: {commandLine}\n" +
+                $"  Partial stdout ({partialStdout.Length} chars): {Truncate(partialStdout)}\n" +
+                $"  Partial stderr ({partialStderr.Length} chars): {Truncate(partialStderr)}");
+        }
 
         return (stdoutTask.Result, stderrTask.Result, process.ExitCode);
     }
+
+    /// <summary>
+    ///     Maximum time to wait for the clang (or <c>xcrun</c>-wrapped clang) AST-dump
+    ///     invocation to exit before treating it as hung and killing it.
+    /// </summary>
+    private const int ClangTimeoutMilliseconds = 120_000;
+
+    /// <summary>
+    ///     Maximum time to wait, after a hung process has been killed, for its redirected
+    ///     stdout/stderr pipes to report as complete so partial output can be captured.
+    /// </summary>
+    private const int PartialOutputGraceMilliseconds = 2000;
+
+    /// <summary>
+    ///     Maximum number of characters of partial stdout/stderr to include in a timeout
+    ///     exception message, so a chatty hung process does not produce an unreadable error.
+    /// </summary>
+    private const int PartialOutputMaxChars = 2000;
+
+    /// <summary>
+    ///     Builds a human-readable, shell-quoted rendering of a command line for diagnostic
+    ///     messages. Not used to actually invoke the process — <see cref="ProcessStartInfo.ArgumentList"/>
+    ///     already handles that safely.
+    /// </summary>
+    /// <param name="fileName">Executable name or path.</param>
+    /// <param name="arguments">Arguments passed to the executable.</param>
+    /// <returns>A single-line, space-separated, quoted command line for logging.</returns>
+    private static string BuildDiagnosticCommandLine(string fileName, IReadOnlyList<string> arguments)
+    {
+        var parts = new[] { fileName }.Concat(arguments)
+            .Select(a => a.Contains(' ', StringComparison.Ordinal) ? $"\"{a}\"" : a);
+        return string.Join(' ', parts);
+    }
+
+    /// <summary>
+    ///     Best-effort retrieval of a stdout/stderr read task's result after the owning
+    ///     process has been killed, bounded by <see cref="PartialOutputGraceMilliseconds"/> so
+    ///     a pipe that never reports complete cannot extend the timeout exception path.
+    /// </summary>
+    /// <param name="readTask">The <see cref="StreamReader.ReadToEndAsync()"/> task to probe.</param>
+    /// <returns>The captured text, or an empty string if it did not complete in time.</returns>
+    private static string TryGetPartialOutput(Task<string> readTask)
+    {
+        try
+        {
+            return readTask.Wait(PartialOutputGraceMilliseconds) ? readTask.Result : string.Empty;
+        }
+        catch (AggregateException)
+        {
+            // The read itself faulted (e.g. pipe torn down mid-read) — no partial output available
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
+    ///     Truncates diagnostic text to <see cref="PartialOutputMaxChars"/> so a chatty hung
+    ///     process cannot produce an unreadable exception message.
+    /// </summary>
+    /// <param name="text">The text to truncate.</param>
+    /// <returns>The original text, or a truncated copy with a trailing marker.</returns>
+    private static string Truncate(string text) =>
+        text.Length <= PartialOutputMaxChars
+            ? text
+            : string.Concat(text.AsSpan(0, PartialOutputMaxChars), "… [truncated]");
 
     /// <summary>
     ///     Extracts error-class lines from clang's stderr output, used to populate
