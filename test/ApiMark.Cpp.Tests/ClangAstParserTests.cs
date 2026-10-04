@@ -12,6 +12,13 @@ using Xunit;
 namespace ApiMark.Cpp.Tests;
 
 /// <summary>Integration-flavoured unit tests for <see cref="ClangAstParser"/> that require clang to be available.</summary>
+/// <remarks>
+///     Shares the <c>"ClangEnvironment"</c> xUnit collection (see <see cref="ClangEnvironmentCollection"/>)
+///     with <see cref="CppGeneratorTests"/> so that tests here which mutate the process-wide
+///     <c>APIMARK_CLANG_TIMEOUT_MS</c> environment variable cannot race against that class's
+///     real clang invocations.
+/// </remarks>
+[Collection("ClangEnvironment")]
 public class ClangAstParserTests
 {
     /// <summary>Checks whether clang is available on the current system by attempting to run "clang --version".</summary>
@@ -727,6 +734,9 @@ public class ClangAstParserTests
                 ClangPath = hangingScript,
             };
 
+            // Capture and restore the prior value — a runner that already sets this variable
+            // (e.g. to tune CI timeouts) must not lose that configuration for later tests
+            var originalValue = Environment.GetEnvironmentVariable(ClangAstParser.ClangTimeoutEnvVar);
             Environment.SetEnvironmentVariable(ClangAstParser.ClangTimeoutEnvVar, "300");
             try
             {
@@ -737,8 +747,7 @@ public class ClangAstParserTests
             }
             finally
             {
-                // Reset — leaking this into unrelated tests would corrupt their timeout behavior
-                Environment.SetEnvironmentVariable(ClangAstParser.ClangTimeoutEnvVar, null);
+                Environment.SetEnvironmentVariable(ClangAstParser.ClangTimeoutEnvVar, originalValue);
             }
         }
         finally
@@ -752,24 +761,48 @@ public class ClangAstParserTests
     ///     value produces a clear <see cref="InvalidOperationException"/> instead of silently
     ///     falling back to the default or throwing an unhelpful <see cref="FormatException"/>.
     /// </summary>
+    /// <remarks>
+    ///     Uses the same hanging-script <see cref="CppGeneratorOptions.ClangPath"/> technique as
+    ///     the other timeout tests (rather than <see cref="BuildOptions"/> plus real fixture
+    ///     headers) so this test does not depend on clang being installed: the invalid
+    ///     environment variable value is validated and thrown before the (fake) clang process is
+    ///     ever started, so a real clang installation is never required to exercise this path.
+    /// </remarks>
     [Fact]
     public void ClangAstParser_Parse_ClangTimeoutEnvVar_InvalidValue_ThrowsInvalidOperationException()
     {
         // Arrange
-        var options = BuildOptions();
-        var headers = Directory.GetFiles(FixturePaths.GetFixtureNamespaceDir(), "*.h").ToList();
-
-        Environment.SetEnvironmentVariable(ClangAstParser.ClangTimeoutEnvVar, "not-a-number");
+        var tempDir = Path.Combine(Path.GetTempPath(), "ApiMarkClangTimeoutInvalidTest_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
         try
         {
-            // Act / Assert
-            var ex = Assert.Throws<InvalidOperationException>(
-                () => ClangAstParser.Parse(headers, options));
-            Assert.Contains(ClangAstParser.ClangTimeoutEnvVar, ex.Message, StringComparison.Ordinal);
+            var hangingScript = CreateHangingScript(tempDir);
+            var options = new CppGeneratorOptions
+            {
+                LibraryName = "Fixtures",
+                PublicIncludeRoots = [],
+                ClangPath = hangingScript,
+            };
+
+            // Capture and restore the prior value — a runner that already sets this variable
+            // (e.g. to tune CI timeouts) must not lose that configuration for later tests
+            var originalValue = Environment.GetEnvironmentVariable(ClangAstParser.ClangTimeoutEnvVar);
+            Environment.SetEnvironmentVariable(ClangAstParser.ClangTimeoutEnvVar, "not-a-number");
+            try
+            {
+                // Act / Assert
+                var ex = Assert.Throws<InvalidOperationException>(
+                    () => ClangAstParser.Parse(["dummy.h"], options));
+                Assert.Contains(ClangAstParser.ClangTimeoutEnvVar, ex.Message, StringComparison.Ordinal);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(ClangAstParser.ClangTimeoutEnvVar, originalValue);
+            }
         }
         finally
         {
-            Environment.SetEnvironmentVariable(ClangAstParser.ClangTimeoutEnvVar, null);
+            Directory.Delete(tempDir, recursive: true);
         }
     }
 }
