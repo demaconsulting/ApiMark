@@ -56,6 +56,10 @@ C++ documentation generation requires `clang` to be installed and available:
 - **macOS**: Xcode Command Line Tools (`xcode-select --install`) — `clang` is included.
 - **Linux**: Install via the system package manager (e.g. `apt install clang` or `dnf install clang`).
 
+Large C++ projects with a slow clang invocation can raise the 120-second default timeout via
+`--clang-timeout-ms`, `ApiMarkClangTimeoutMs`, or the `APIMARK_CLANG_TIMEOUT_MS` environment
+variable.
+
 ### VHDL Support
 
 VHDL documentation generation has no additional prerequisites. Parsing is done

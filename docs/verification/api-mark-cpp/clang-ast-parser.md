@@ -28,6 +28,15 @@ installation accessible on PATH. When clang is not available, integration tests 
   boolean, or character, including a leading unary `+`/`-` directly over a literal, e.g.
   `-5`) is extracted into `CppField.Value` as a display string; a computed expression (e.g.
   `2 * 21`) or a nested unary chain (e.g. `- -5`) leaves `CppField.Value` as `null`.
+- A clang invocation that never exits is killed (along with its process tree) and reported as
+  an `InvalidOperationException` carrying diagnostic detail (OS, PID, elapsed time, command
+  line, and partial stdout/stderr) instead of hanging the caller indefinitely.
+- The clang subprocess timeout is configurable, in precedence order: an explicit
+  `CppGeneratorOptions.ClangTimeoutMilliseconds` value; the `APIMARK_CLANG_TIMEOUT_MS`
+  environment variable; a built-in 120000ms (2 minute) default.
+- An invalid (non-numeric or non-positive) `APIMARK_CLANG_TIMEOUT_MS` value causes `Parse` to
+  throw a clear `InvalidOperationException` naming the environment variable, rather than
+  silently falling back to the default or throwing an unhelpful `FormatException`.
 
 ### Test Scenarios
 
@@ -118,6 +127,29 @@ initializer is a doubly-negated literal (e.g. `- -5`, a `UnaryOperator` nested o
 directly over a genuine literal is reconstructed and a nested unary chain is never rendered
 as e.g. `--5`. Tested by
 `ClangAstParser_Parse_FixtureHeaders_ConstexprDoubleNegatedField_HasNullValue`.
+
+**Clang hang is killed and reported with diagnostics**: Verifies that a clang invocation which
+never exits is killed (along with its process tree) within the applicable timeout and reported
+as an `InvalidOperationException` carrying the OS, PID, elapsed time, full command line, and any
+partial stdout/stderr the process had already produced, so a hang can be diagnosed from CI
+output alone. Tested by `ClangAstParser_Parse_ClangHangs_ThrowsWithDiagnosticsAndKillsProcess`.
+
+**Explicit timeout option honored without the test seam**: Verifies that
+`CppGeneratorOptions.ClangTimeoutMilliseconds`, set directly on the options object (not via the
+`TimeoutOverrideMillisecondsForTests` test seam), is honored by the production resolution path,
+proving the configurable timeout actually reaches `RunProcess`. Tested by
+`ClangAstParser_Parse_ClangTimeoutMillisecondsOption_HonoredWithoutTestSeam`.
+
+**Environment variable overrides the default timeout**: Verifies that the
+`APIMARK_CLANG_TIMEOUT_MS` environment variable is honored when
+`CppGeneratorOptions.ClangTimeoutMilliseconds` is not set. Tested by
+`ClangAstParser_Parse_ClangTimeoutEnvVar_OverridesDefaultTimeout`.
+
+**Invalid environment variable value rejected**: Verifies that an invalid (non-numeric or
+non-positive) `APIMARK_CLANG_TIMEOUT_MS` value produces a clear `InvalidOperationException`
+naming the environment variable, instead of silently falling back to the default or throwing
+an unhelpful `FormatException`. Tested by
+`ClangAstParser_Parse_ClangTimeoutEnvVar_InvalidValue_ThrowsInvalidOperationException`.
 
 **Known integration-only gap**: Non-zero exit and malformed JSON paths are not isolated by the
 current implementation without adding a process seam, so those behaviors remain covered only by

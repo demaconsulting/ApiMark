@@ -42,8 +42,12 @@ while walking the JSON AST.
   PATH, `xcrun clang`, or Windows LLVM discovery.
 - **RunProcess** — launches the clang subprocess and concurrently drains
   stdout (JSON AST) and stderr on background tasks to prevent pipe-buffer
-  deadlock; throws `InvalidOperationException` when the process cannot be
-  started or exits non-zero with no usable JSON present.
+  deadlock; bounds the wait by a timeout resolved in precedence order (test
+  seam > `CppGeneratorOptions.ClangTimeoutMilliseconds` > `APIMARK_CLANG_TIMEOUT_MS`
+  environment variable > built-in 120000ms default) and kills the process tree,
+  throwing `InvalidOperationException` when the process cannot be started, does
+  not exit within the resolved timeout, or exits non-zero with no usable JSON
+  present.
 - **BuildArguments** — assembles the ordered clang argument list.
 - **CollectStderrErrors** — filters stderr to `error` and `fatal error` lines
   only.
@@ -187,7 +191,7 @@ while walking the JSON AST.
 ### Dependencies
 
 - **CppGeneratorOptions** — supplies include roots, defines, standard, clang path,
-  and additional compiler arguments.
+  clang subprocess timeout, and additional compiler arguments.
 - **CppAstModel** — destination record model for parsed output.
 - **System.Text.Json** — used for JSON parsing and traversal.
 - **PathHelpers** — `NormalizeCase` and `NormalizeCaseDirectory` resolve source files and

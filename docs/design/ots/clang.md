@@ -44,6 +44,14 @@ users to control the exact compiler version used for parsing.
   (5) vswhere-located LLVM clang on Windows, then `C:\Program Files\LLVM\bin\clang.exe`.
   When a path is supplied by option (1) or (2) and the file does not exist on disk, an
   `InvalidOperationException` is thrown immediately with a clear diagnostic message.
+- **Clang invocation timeout** — the `clang` subprocess invocation is bounded by a configurable
+  timeout, not a clang feature itself but an ApiMark-side safeguard against a hung invocation
+  (e.g. a first-run Xcode license prompt blocked on stdin). The timeout is resolved using the
+  same explicit-option-over-environment-variable precedence as clang discovery: (1)
+  `CppGeneratorOptions.ClangTimeoutMilliseconds` when explicitly set; (2) the
+  `APIMARK_CLANG_TIMEOUT_MS` environment variable when set; (3) a built-in 120000ms (2 minute)
+  default. The process (and its tree) is killed and an `InvalidOperationException` is thrown
+  if the timeout is exceeded.
 
 ### Integration Pattern
 

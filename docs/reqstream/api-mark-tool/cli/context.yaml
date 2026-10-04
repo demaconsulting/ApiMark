@@ -180,6 +180,18 @@ sections:
                   The cpp subcommand passes ClangPath to the CppGenerator to override the default
                   clang binary location discovered via PATH, xcrun (macOS), or vswhere (Windows).
                 tests: [Context_Create_WithClangPathOption_SetsClangPath]
+              - id: ApiMarkTool-Cli-Context-ParseClangTimeoutMsOption
+                title: Context shall parse the --clang-timeout-ms <ms> option and expose
+                  the value for use by the cpp subcommand, rejecting values below
+                  1000ms.
+                justification: |
+                  The cpp subcommand passes ClangTimeoutMilliseconds to the CppGenerator to
+                  override the default 120-second clang subprocess timeout, letting large C++
+                  projects configure a longer bound without forking ApiMark.
+                tests:
+                  - Context_Create_WithClangTimeoutMsOption_SetsClangTimeoutMilliseconds
+                  - Context_Create_WithoutClangTimeoutMsOption_LeavesClangTimeoutMillisecondsNull
+                  - Context_Create_WithClangTimeoutMsOptionBelowMinimum_ThrowsArgumentException
               - id: ApiMarkTool-Cli-Context-ParseVhdlSourceOptions
                 title: Context shall parse repeated --source flags and accumulate
                   them into the Sources array in order, preserving any leading ! exclusion

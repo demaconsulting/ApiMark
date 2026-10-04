@@ -2,7 +2,9 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using ApiMark.Cpp;
 using ApiMark.Cpp.CppAst;
 using Xunit;
@@ -517,10 +519,43 @@ public class ClangAstParserTests
     }
 
     /// <summary>
-    ///     Writes a tiny script that ignores every argument it is given and sleeps far longer
-    ///     than any test timeout, so it can stand in for a hung clang invocation without
-    ///     depending on clang (or any OS-specific hang trigger such as an Xcode license prompt)
-    ///     being reproducible in this environment.
+    ///     Checks whether a process with the given ID is still alive, used to confirm that
+    ///     <c>ClangAstParser.RunProcess</c> actually killed a hung process rather than merely
+    ///     abandoning it.
+    /// </summary>
+    /// <param name="pid">Process ID to check.</param>
+    /// <returns><see langword="true"/> when a process with this ID exists and has not exited.</returns>
+    private static bool IsProcessRunning(int pid)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(pid);
+            return !process.HasExited;
+        }
+        catch (ArgumentException)
+        {
+            // No process with this ID exists — it has fully exited and been reaped
+            return false;
+        }
+    }
+
+    /// <summary>
+    ///     Marker text the hanging script writes to stdout before it hangs, so the timeout test
+    ///     can assert that genuinely-produced partial output is captured and truncated correctly
+    ///     rather than merely asserting the presence of the "Partial stdout" label.
+    /// </summary>
+    private const string HangStdoutMarker = "HANG_MARKER_STDOUT";
+
+    /// <summary>
+    ///     Marker text the hanging script writes to stderr before it hangs; see <see cref="HangStdoutMarker"/>.
+    /// </summary>
+    private const string HangStderrMarker = "HANG_MARKER_STDERR";
+
+    /// <summary>
+    ///     Writes a tiny script that ignores every argument it is given, emits a known marker to
+    ///     stdout and stderr, and then sleeps far longer than any test timeout, so it can stand
+    ///     in for a hung clang invocation without depending on clang (or any OS-specific hang
+    ///     trigger such as an Xcode license prompt) being reproducible in this environment.
     /// </summary>
     /// <param name="directory">Directory to create the script file in.</param>
     /// <returns>Absolute path to the created, executable script.</returns>
@@ -528,15 +563,28 @@ public class ClangAstParserTests
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            // .NET's Process.Start transparently runs .cmd/.bat files through cmd.exe on
-            // Windows, so this can be used directly as CppGeneratorOptions.ClangPath.
+            // .NET's Process.Start special-cases .cmd/.bat files on Windows even with
+            // UseShellExecute = false: it transparently wraps them with "cmd.exe /c" before
+            // calling CreateProcess, so this can be used directly as CppGeneratorOptions.ClangPath
+            // without the caller needing to invoke cmd.exe itself. Verified empirically (process
+            // starts successfully) and by this test passing in CI.
             var scriptPath = Path.Combine(directory, "hang.cmd");
-            File.WriteAllText(scriptPath, "@echo off\r\nping -n 1000 127.0.0.1 >nul\r\n");
+            File.WriteAllText(
+                scriptPath,
+                "@echo off\r\n" +
+                $"echo {HangStdoutMarker}\r\n" +
+                $"echo {HangStderrMarker} 1>&2\r\n" +
+                "ping -n 1000 127.0.0.1 >nul\r\n");
             return scriptPath;
         }
 
         var shPath = Path.Combine(directory, "hang.sh");
-        File.WriteAllText(shPath, "#!/bin/sh\nsleep 1000\n");
+        File.WriteAllText(
+            shPath,
+            "#!/bin/sh\n" +
+            $"echo {HangStdoutMarker}\n" +
+            $"echo {HangStderrMarker} >&2\n" +
+            "sleep 1000\n");
         File.SetUnixFileMode(
             shPath,
             UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
@@ -583,8 +631,32 @@ public class ClangAstParserTests
                 Assert.Contains("Elapsed:", ex.Message, StringComparison.Ordinal);
                 Assert.Contains("Command:", ex.Message, StringComparison.Ordinal);
                 Assert.Contains(hangingScript, ex.Message, StringComparison.Ordinal);
-                Assert.Contains("Partial stdout", ex.Message, StringComparison.Ordinal);
-                Assert.Contains("Partial stderr", ex.Message, StringComparison.Ordinal);
+
+                // Assert: the partial output genuinely produced by the hung process before it
+                // was killed was captured and reported, not merely that the labels are present.
+                // The exact character count is platform-dependent (CRLF vs LF line endings), so
+                // match the marker's presence within its labelled section rather than an exact count.
+                Assert.Matches(
+                    new Regex(@"Partial stdout \(\d+ chars\): " + Regex.Escape(HangStdoutMarker)),
+                    ex.Message);
+                Assert.Matches(
+                    new Regex(@"Partial stderr \(\d+ chars\): " + Regex.Escape(HangStderrMarker)),
+                    ex.Message);
+
+                // Assert: the hung process (and not just its parent, if any) was actually killed
+                // rather than merely abandoned — a regression that removes or breaks
+                // TryKillProcess would otherwise still pass the message assertions above while
+                // leaving the 1000-second child running
+                var pid = int.Parse(
+                    Regex.Match(ex.Message, @"PID: (\d+)").Groups[1].Value,
+                    CultureInfo.InvariantCulture);
+                var deadline = DateTime.UtcNow.AddSeconds(5);
+                while (IsProcessRunning(pid) && DateTime.UtcNow < deadline)
+                {
+                    Thread.Sleep(50);
+                }
+
+                Assert.False(IsProcessRunning(pid), $"Process {pid} should have been killed after the timeout.");
             }
             finally
             {
@@ -598,4 +670,107 @@ public class ClangAstParserTests
             Directory.Delete(tempDir, recursive: true);
         }
     }
+
+    /// <summary>
+    ///     Validates that <see cref="CppGeneratorOptions.ClangTimeoutMilliseconds"/> — set
+    ///     directly on the options object, NOT via the <see cref="ClangAstParser.TimeoutOverrideMillisecondsForTests"/>
+    ///     test seam — is honored by the production code path, proving the configurable
+    ///     timeout actually reaches <c>RunProcess</c>.
+    /// </summary>
+    [Fact]
+    public void ClangAstParser_Parse_ClangTimeoutMillisecondsOption_HonoredWithoutTestSeam()
+    {
+        // Arrange: a fake "clang" that hangs, with a short timeout supplied via the
+        // production CppGeneratorOptions.ClangTimeoutMilliseconds option (not the test seam)
+        var tempDir = Path.Combine(Path.GetTempPath(), "ApiMarkClangTimeoutOptionTest_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            var hangingScript = CreateHangingScript(tempDir);
+            var options = new CppGeneratorOptions
+            {
+                LibraryName = "Fixtures",
+                PublicIncludeRoots = [],
+                ClangPath = hangingScript,
+                ClangTimeoutMilliseconds = 300,
+            };
+
+            // Act / Assert: the option-supplied timeout (300ms), not the 120000ms default,
+            // must be what RunProcess reports and enforces
+            var ex = Assert.Throws<InvalidOperationException>(
+                () => ClangAstParser.Parse(["dummy.h"], options));
+            Assert.Contains("did not exit within 300ms", ex.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that the <c>APIMARK_CLANG_TIMEOUT_MS</c> environment variable is honored
+    ///     when <see cref="CppGeneratorOptions.ClangTimeoutMilliseconds"/> is not set.
+    /// </summary>
+    [Fact]
+    public void ClangAstParser_Parse_ClangTimeoutEnvVar_OverridesDefaultTimeout()
+    {
+        // Arrange: a fake "clang" that hangs, with no options-level timeout set
+        var tempDir = Path.Combine(Path.GetTempPath(), "ApiMarkClangTimeoutEnvTest_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            var hangingScript = CreateHangingScript(tempDir);
+            var options = new CppGeneratorOptions
+            {
+                LibraryName = "Fixtures",
+                PublicIncludeRoots = [],
+                ClangPath = hangingScript,
+            };
+
+            Environment.SetEnvironmentVariable(ClangAstParser.ClangTimeoutEnvVar, "300");
+            try
+            {
+                // Act / Assert
+                var ex = Assert.Throws<InvalidOperationException>(
+                    () => ClangAstParser.Parse(["dummy.h"], options));
+                Assert.Contains("did not exit within 300ms", ex.Message, StringComparison.Ordinal);
+            }
+            finally
+            {
+                // Reset — leaking this into unrelated tests would corrupt their timeout behavior
+                Environment.SetEnvironmentVariable(ClangAstParser.ClangTimeoutEnvVar, null);
+            }
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that an invalid (non-numeric or non-positive) <c>APIMARK_CLANG_TIMEOUT_MS</c>
+    ///     value produces a clear <see cref="InvalidOperationException"/> instead of silently
+    ///     falling back to the default or throwing an unhelpful <see cref="FormatException"/>.
+    /// </summary>
+    [Fact]
+    public void ClangAstParser_Parse_ClangTimeoutEnvVar_InvalidValue_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        var options = BuildOptions();
+        var headers = Directory.GetFiles(FixturePaths.GetFixtureNamespaceDir(), "*.h").ToList();
+
+        Environment.SetEnvironmentVariable(ClangAstParser.ClangTimeoutEnvVar, "not-a-number");
+        try
+        {
+            // Act / Assert
+            var ex = Assert.Throws<InvalidOperationException>(
+                () => ClangAstParser.Parse(headers, options));
+            Assert.Contains(ClangAstParser.ClangTimeoutEnvVar, ex.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(ClangAstParser.ClangTimeoutEnvVar, null);
+        }
+    }
 }
+

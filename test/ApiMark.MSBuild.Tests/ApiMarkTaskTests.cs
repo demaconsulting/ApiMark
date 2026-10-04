@@ -773,6 +773,31 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> appends the
+    ///     <c>--clang-timeout-ms</c> flag with the configured value when
+    ///     <see cref="ApiMarkTask.ApiMarkClangTimeoutMs"/> is set.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_Cpp_ClangTimeoutMs_ForwardedToTool()
+    {
+        // Arrange: configure an explicit clang timeout alongside the required cpp include paths
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".vcxproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkIncludePaths = "/include",
+            ApiMarkClangTimeoutMs = "300000",
+        };
+
+        // Act
+        var args = task.BuildArguments("cpp");
+
+        // Assert: the --clang-timeout-ms flag and the configured value must appear
+        Assert.Contains("--clang-timeout-ms", args);
+        Assert.Contains("300000", args);
+    }
+
+    /// <summary>
     ///     Validates that <see cref="ApiMarkTask.Execute"/> returns <c>true</c> with no errors
     ///     when <see cref="ApiMarkTask.ApiMarkXmlDocPath"/> is empty for a <c>.csproj</c> project,
     ///     confirming that .NET generation is skipped gracefully rather than failing the build.

@@ -165,6 +165,14 @@ internal sealed class Context : IContext, IDisposable
     public string? ClangPath { get; private init; }
 
     /// <summary>
+    ///     Gets the timeout in milliseconds for the clang subprocess, overriding the built-in
+    ///     120000ms (2 minute) default. Optional — when <see langword="null"/>, the
+    ///     <c>APIMARK_CLANG_TIMEOUT_MS</c> environment variable is consulted, falling back to
+    ///     the built-in default when that is also unset.
+    /// </summary>
+    public int? ClangTimeoutMilliseconds { get; private init; }
+
+    /// <summary>
     ///     Gets the ordered list of glob and exclusion pattern strings for the VHDL language subcommand.
     ///     Collected from repeated <c>--source</c> invocations; entries with a <c>!</c>
     ///     prefix are exclusion patterns. Order is significant — gitignore semantics apply
@@ -225,6 +233,7 @@ internal sealed class Context : IContext, IDisposable
             Defines = parser.Defines,
             CppStandard = parser.CppStandard,
             ClangPath = parser.ClangPath,
+            ClangTimeoutMilliseconds = parser.ClangTimeoutMilliseconds,
             Sources = [.. parser.Sources],
         };
 
@@ -462,6 +471,13 @@ internal sealed class Context : IContext, IDisposable
         ///     or vswhere (Windows).
         /// </summary>
         public string? ClangPath { get; private set; }
+
+        /// <summary>
+        ///     Gets the timeout in milliseconds for the clang subprocess.
+        ///     Optional — when <see langword="null"/>, <c>APIMARK_CLANG_TIMEOUT_MS</c> or the
+        ///     built-in 120000ms default is used.
+        /// </summary>
+        public int? ClangTimeoutMilliseconds { get; private set; }
 
         /// <summary>
         ///     Gets the VHDL source glob patterns from repeated --source flags.
@@ -744,6 +760,11 @@ internal sealed class Context : IContext, IDisposable
 
                 case "--clang-path":
                     ClangPath = GetRequiredStringArgument(arg, args, index, "a clang executable path argument");
+                    return index + 1;
+
+                case "--clang-timeout-ms":
+                    ClangTimeoutMilliseconds = GetRequiredIntArgument(
+                        arg, args, index, "a clang timeout in milliseconds argument", 1000, int.MaxValue);
                     return index + 1;
 
                 case "--source":

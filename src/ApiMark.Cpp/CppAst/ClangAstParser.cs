@@ -213,8 +213,13 @@ internal sealed class ClangAstParser
             // Build argument list targeting only the combined temp file
             var args = BuildArguments(prefix, [tempFile], normalizedOptions);
 
+            // Resolve the clang subprocess timeout: explicit option > env var > built-in
+            // default, with the thread-local test seam taking precedence over all of them
+            var timeoutMilliseconds = TimeoutOverrideMillisecondsForTests
+                ?? ResolveClangTimeoutMilliseconds(normalizedOptions.ClangTimeoutMilliseconds);
+
             // Invoke clang and capture stdout (JSON) and stderr (diagnostics) without deadlock
-            var (stdout, stderr, exitCode) = RunProcess(fileName, args);
+            var (stdout, stderr, exitCode) = RunProcess(fileName, args, timeoutMilliseconds);
 
             // Surface a clear error when clang fails and produces no JSON — the empty check
             // guards against the common case where clang prints "command not found" to stderr
@@ -281,6 +286,9 @@ internal sealed class ClangAstParser
 
     /// <summary>The name of the environment variable that overrides automatic clang discovery.</summary>
     internal const string ClangPathEnvVar = "APIMARK_CLANG_PATH";
+
+    /// <summary>The name of the environment variable that overrides the default clang timeout.</summary>
+    internal const string ClangTimeoutEnvVar = "APIMARK_CLANG_TIMEOUT_MS";
 
     /// <summary>
     ///     Resolves the clang executable path and any command prefix needed to invoke it.
@@ -695,6 +703,61 @@ internal sealed class ClangAstParser
     }
 
     // =========================================================================
+    // Clang timeout resolution
+    // =========================================================================
+
+    /// <summary>
+    ///     Resolves the clang subprocess timeout in milliseconds, in precedence order:
+    ///     (1) <paramref name="optionsTimeoutMilliseconds"/> (explicit
+    ///     <see cref="CppGeneratorOptions.ClangTimeoutMilliseconds"/>), (2) the
+    ///     <see cref="ClangTimeoutEnvVar"/> environment variable, (3)
+    ///     <see cref="DefaultClangTimeoutMilliseconds"/>. Mirrors the precedence used by
+    ///     <see cref="FindClangExecutable"/> for <see cref="CppGeneratorOptions.ClangPath"/>:
+    ///     an explicit option always wins over the environment variable.
+    /// </summary>
+    /// <param name="optionsTimeoutMilliseconds">
+    ///     Optional explicit timeout from <see cref="CppGeneratorOptions.ClangTimeoutMilliseconds"/>.
+    /// </param>
+    /// <returns>The resolved timeout in milliseconds.</returns>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when <paramref name="optionsTimeoutMilliseconds"/> is not a positive value, or
+    ///     when the <see cref="ClangTimeoutEnvVar"/> environment variable is set but is not a
+    ///     positive integer.
+    /// </exception>
+    private static int ResolveClangTimeoutMilliseconds(int? optionsTimeoutMilliseconds)
+    {
+        // Option 1: explicit CppGeneratorOptions.ClangTimeoutMilliseconds
+        if (optionsTimeoutMilliseconds is { } explicitValue)
+        {
+            if (explicitValue <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"CppGeneratorOptions.ClangTimeoutMilliseconds must be a positive integer, " +
+                    $"got {explicitValue}.");
+            }
+
+            return explicitValue;
+        }
+
+        // Option 2: APIMARK_CLANG_TIMEOUT_MS environment variable
+        var envValue = Environment.GetEnvironmentVariable(ClangTimeoutEnvVar);
+        if (!string.IsNullOrEmpty(envValue))
+        {
+            if (!int.TryParse(envValue, out var parsed) || parsed <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"The {ClangTimeoutEnvVar} environment variable must be a positive integer " +
+                    $"number of milliseconds, got '{envValue}'.");
+            }
+
+            return parsed;
+        }
+
+        // Option 3: built-in default
+        return DefaultClangTimeoutMilliseconds;
+    }
+
+    // =========================================================================
     // Process execution
     // =========================================================================
 
@@ -703,7 +766,7 @@ internal sealed class ClangAstParser
     ///     and returns the combined output with the exit code.
     /// </summary>
     /// <remarks>
-    ///     The wait is bounded by <see cref="ClangTimeoutMilliseconds"/> so that a clang (or
+    ///     The wait is bounded by <paramref name="timeoutMilliseconds"/> so that a clang (or
     ///     <c>xcrun</c>) invocation that never exits — e.g. a first-run Xcode license prompt
     ///     blocked on stdin, or a process starved by heavy CI-runner contention — fails this
     ///     single call instead of hanging the calling test (and, transitively, the whole CI
@@ -714,14 +777,20 @@ internal sealed class ClangAstParser
     /// </remarks>
     /// <param name="fileName">Executable to launch.</param>
     /// <param name="arguments">Arguments to pass to the executable.</param>
+    /// <param name="timeoutMilliseconds">
+    ///     Maximum time to wait for the process to exit, resolved by the caller via
+    ///     <see cref="ResolveClangTimeoutMilliseconds"/> (and the
+    ///     <see cref="TimeoutOverrideMillisecondsForTests"/> test seam, which always wins).
+    /// </param>
     /// <returns>A tuple of (stdout, stderr, exitCode).</returns>
     /// <exception cref="InvalidOperationException">
     ///     Thrown when the process cannot be started, or when it does not exit within
-    ///     <see cref="ClangTimeoutMilliseconds"/>.
+    ///     <paramref name="timeoutMilliseconds"/>.
     /// </exception>
     private static (string Stdout, string Stderr, int ExitCode) RunProcess(
         string fileName,
-        IReadOnlyList<string> arguments)
+        IReadOnlyList<string> arguments,
+        int timeoutMilliseconds)
     {
         var psi = new ProcessStartInfo
         {
@@ -753,7 +822,6 @@ internal sealed class ClangAstParser
         var stdoutTask = process.StandardOutput.ReadToEndAsync();
         var stderrTask = process.StandardError.ReadToEndAsync();
 
-        var timeoutMilliseconds = TimeoutOverrideMillisecondsForTests ?? ClangTimeoutMilliseconds;
         if (!process.WaitForExit(timeoutMilliseconds))
         {
             TryKillProcess(process);
@@ -775,14 +843,22 @@ internal sealed class ClangAstParser
                 $"  Partial stderr ({partialStderr.Length} chars): {Truncate(partialStderr)}");
         }
 
-        return (stdoutTask.Result, stderrTask.Result, process.ExitCode);
+        // The process itself exited within the timeout, but a grandchild it spawned (e.g. a
+        // wrapper that backgrounds a helper) could still be holding a redirected pipe open,
+        // which would otherwise make these reads hang indefinitely despite the process-level
+        // timeout above. Bound them too so the timeout guarantee covers the whole call.
+        var stdout = GetOutputOrThrow(stdoutTask, "stdout", processId, commandLine, stopwatch.Elapsed);
+        var stderr = GetOutputOrThrow(stderrTask, "stderr", processId, commandLine, stopwatch.Elapsed);
+        return (stdout, stderr, process.ExitCode);
     }
 
     /// <summary>
-    ///     Maximum time to wait for the clang (or <c>xcrun</c>-wrapped clang) AST-dump
-    ///     invocation to exit before treating it as hung and killing it.
+    ///     Built-in fallback timeout (milliseconds) used when neither
+    ///     <see cref="CppGeneratorOptions.ClangTimeoutMilliseconds"/> nor the
+    ///     <see cref="ClangTimeoutEnvVar"/> environment variable supplies a value.
+    ///     Applied to the clang (or <c>xcrun</c>-wrapped clang) AST-dump invocation.
     /// </summary>
-    private const int ClangTimeoutMilliseconds = 120_000;
+    private const int DefaultClangTimeoutMilliseconds = 120_000;
 
     /// <summary>
     ///     Test-only override for the timeout applied in <see cref="RunProcess"/>, scoped to
@@ -820,6 +896,42 @@ internal sealed class ClangAstParser
         var parts = new[] { fileName }.Concat(arguments)
             .Select(a => a.Contains(' ', StringComparison.Ordinal) ? $"\"{a}\"" : a);
         return string.Join(' ', parts);
+    }
+
+    /// <summary>
+    ///     Returns a redirected stdout/stderr read task's result, bounded by
+    ///     <see cref="PartialOutputGraceMilliseconds"/> so that a process which has already
+    ///     exited — but left a grandchild holding the redirected pipe open — cannot still hang
+    ///     this call indefinitely and defeat the overall timeout guarantee.
+    /// </summary>
+    /// <param name="readTask">The <see cref="StreamReader.ReadToEndAsync()"/> task to await.</param>
+    /// <param name="streamName">Stream name (<c>"stdout"</c> or <c>"stderr"</c>) for diagnostics.</param>
+    /// <param name="processId">PID of the process that produced <paramref name="readTask"/>, for diagnostics.</param>
+    /// <param name="commandLine">Command line used to start the process, for diagnostics.</param>
+    /// <param name="elapsed">Time elapsed since the process was started, for diagnostics.</param>
+    /// <returns>The captured text.</returns>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when the read does not complete within <see cref="PartialOutputGraceMilliseconds"/>.
+    /// </exception>
+    private static string GetOutputOrThrow(
+        Task<string> readTask,
+        string streamName,
+        int processId,
+        string commandLine,
+        TimeSpan elapsed)
+    {
+        if (readTask.Wait(PartialOutputGraceMilliseconds))
+        {
+            return readTask.Result;
+        }
+
+        throw new InvalidOperationException(
+            $"Process exited but reading {streamName} did not complete within " +
+            $"{PartialOutputGraceMilliseconds}ms — a child process it spawned may still be " +
+            "holding the redirected handle open.\n" +
+            $"  PID: {processId}\n" +
+            $"  Elapsed: {elapsed}\n" +
+            $"  Command: {commandLine}");
     }
 
     /// <summary>

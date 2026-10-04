@@ -102,6 +102,7 @@
       ApiMarkDefines="$(ApiMarkDefines)"
       ApiMarkCppStandard="$(ApiMarkCppStandard)"
       ApiMarkClangPath="$(ApiMarkClangPath)"
+      ApiMarkClangTimeoutMs="$(ApiMarkClangTimeoutMs)"
       ApiMarkEnforceDocs="$(ApiMarkEnforceDocs)"
       ApiMarkEnforceDocsSeverity="$(ApiMarkEnforceDocsSeverity)"
       ApiMarkOutputs="@(ApiMarkOutput)"

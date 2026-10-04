@@ -218,6 +218,15 @@ sections:
               non-default path. Forwarding ApiMarkClangPath lets build authors specify the
               executable path without modifying system PATH, keeping the build reproducible.
             tests: [ApiMarkTask_Cpp_ClangPath_ForwardedToTool]
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardClangTimeoutMs
+            title: ApiMarkTask shall forward the ApiMarkClangTimeoutMs property to the
+              tool as the --clang-timeout-ms argument for C++ builds when set.
+            justification: |
+              Large C++ projects with a slow clang invocation need a way to raise the default
+              120-second timeout without forking ApiMark. Forwarding ApiMarkClangTimeoutMs lets
+              build authors configure this per-project via MSBuild, consistent with how
+              ApiMarkClangPath is forwarded.
+            tests: [ApiMarkTask_Cpp_ClangTimeoutMs_ForwardedToTool]
           - id: ApiMarkMsbuild-ApiMarkTask-AutoPopulateIncludePaths
             title: >-
               ApiMarkTask shall automatically populate ApiMarkIncludePaths from the

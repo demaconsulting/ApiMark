@@ -69,6 +69,22 @@ ApiMark locates clang using this priority order:
 If none of these resolve, set `APIMARK_CLANG_PATH` in your CI environment or shell
 profile, or pass `--clang-path` explicitly.
 
+### Clang takes a long time or appears to hang
+
+The clang subprocess invocation is bounded by a timeout (default `120000`ms / 2 minutes), after
+which the process (and its tree) is killed and a diagnostic `InvalidOperationException` is
+raised rather than hanging the build indefinitely. Large C++ projects with a slow clang
+invocation can raise this timeout via:
+
+1. `--clang-timeout-ms <ms>` CLI option or `ApiMarkClangTimeoutMs` MSBuild property
+2. `APIMARK_CLANG_TIMEOUT_MS` environment variable
+3. Built-in default of `120000`ms
+
+If clang still never exits even after raising the timeout, the underlying cause is usually an
+interactive prompt (e.g. a first-run Xcode license prompt blocked on stdin) or a starved CI
+runner; check the diagnostic error message, which includes the OS, PID, elapsed time, and any
+partial stdout/stderr clang had already produced.
+
 ### No headers are being documented
 
 When `--api-headers` is not specified, ApiMark documents all headers with

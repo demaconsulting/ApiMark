@@ -143,6 +143,12 @@ executable. Optional — when empty, clang is located using the priority order:
 `APIMARK_CLANG_PATH` environment variable → `clang` on PATH → `xcrun` (macOS)
 → vswhere / default LLVM path (Windows).
 
+**ApiMarkTask.ApiMarkClangTimeoutMs**: `string` — MSBuild property
+`$(ApiMarkClangTimeoutMs)`; for the `cpp` language, the clang subprocess
+timeout in milliseconds. Optional — when empty, the tool falls back to the
+`APIMARK_CLANG_TIMEOUT_MS` environment variable, then its built-in 120000ms
+(2 minute) default.
+
 **ApiMarkTask.ApiMarkFormat**: `string` — MSBuild property `$(ApiMarkFormat)`;
 controls the output format forwarded to the tool. Accepted values: `gradual`
 (multi-file gradual-disclosure tree) or `single-file` (single `api.md`
@@ -219,7 +225,7 @@ patterns; if `ApiMarkLibraryName` is set, append `--library-name`; if
 `ApiMarkLibraryDescription` is set, append `--library-description`; if
 `ApiMarkDefines` is set, convert semicolons to commas and append `--defines`; if
 `ApiMarkCppStandard` is set, append `--cpp-standard`; if `ApiMarkClangPath` is set,
-append `--clang-path`; then append `--enforce-docs`/`--enforce-docs-severity` using
+append `--clang-path`; if `ApiMarkClangTimeoutMs` is set, append `--clang-timeout-ms`; then append `--enforce-docs`/`--enforce-docs-severity` using
 the same non-empty checks as the `dotnet` path, since cpp documentation-coverage
 enforcement uses the identical MSBuild properties; if `ApiMarkFormat` is set,
 append `--format`); this full logical argument list (from `BuildArguments`/

@@ -72,7 +72,8 @@ sections:
           - id: ApiMarkTool-Program-SupportCppOptions
             title: Program shall support the cpp language with --includes, --output,
               --visibility, --include-obsolete, --library-name, --library-description,
-              --defines, --cpp-standard, --api-headers, and --clang-path options.
+              --defines, --cpp-standard, --api-headers, --clang-path, and --clang-timeout-ms
+              options.
             justification: |
               C++ documentation generation requires at minimum the public include root(s) and
               output directory. The --includes option is required; the tool validates its
@@ -82,7 +83,10 @@ sections:
               allowing fine-grained control over which headers contribute to the documented
               API surface using ordered patterns with '!' exclusion prefix support. The
               --clang-path option allows callers to override the default clang binary discovery
-              when clang is not on PATH or the system default is not appropriate.
+              when clang is not on PATH or the system default is not appropriate. The
+              --clang-timeout-ms option allows callers to raise (or lower) the default
+              120-second clang subprocess timeout for large C++ projects that legitimately need
+              a longer invocation.
             tests:
               - Program_Main_WithCppSubcommand_MissingIncludes_ReturnsNonZeroExitCode
               - Program_Main_CppWithApiHeadersFlag_FlagIsAccepted

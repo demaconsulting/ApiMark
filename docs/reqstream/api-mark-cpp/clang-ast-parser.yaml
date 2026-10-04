@@ -14,7 +14,7 @@ sections:
               resolved C++ AST. Delegating parse to ClangAstParser keeps the I/O and
               JSON-deserialization logic isolated from the higher-level generation
               logic, making each unit independently testable.
-            children: [ApiMarkCpp-ClangAstParser-ParseHeaders, ApiMarkCpp-ClangAstParser-NormalizeIncludeRootsRegardlessOfCaller, ApiMarkCpp-ClangAstParser-ParseConstexprLiteralFieldValue]
+            children: [ApiMarkCpp-ClangAstParser-ParseHeaders, ApiMarkCpp-ClangAstParser-NormalizeIncludeRootsRegardlessOfCaller, ApiMarkCpp-ClangAstParser-ParseConstexprLiteralFieldValue, ApiMarkCpp-ClangAstParser-ConfigurableTimeout]
             tests: [ClangAstParser_Parse_FixtureHeaders_ReturnsNonEmptyNamespaces]
           - id: ApiMarkCpp-ClangAstParser-ParseHeaders
             title: >-
@@ -74,3 +74,24 @@ sections:
               - ClangAstParser_Parse_FixtureHeaders_ConstexprNegativeIntField_HasNumericValue
               - ClangAstParser_Parse_FixtureHeaders_ConstexprFloatingField_HasDecimalValue
               - ClangAstParser_Parse_FixtureHeaders_ConstexprDoubleNegatedField_HasNullValue
+          - id: ApiMarkCpp-ClangAstParser-ConfigurableTimeout
+            title: >-
+              ClangAstParser shall bound the clang subprocess invocation by a configurable
+              timeout — resolved from CppGeneratorOptions.ClangTimeoutMilliseconds, then the
+              APIMARK_CLANG_TIMEOUT_MS environment variable, then a built-in 120000ms default —
+              killing the process (and its tree) and throwing a diagnostic
+              InvalidOperationException if the timeout is exceeded.
+            justification: |
+              A clang invocation can hang indefinitely (e.g. a first-run Xcode license prompt
+              blocked on stdin, or a process starved by heavy CI-runner contention), which would
+              otherwise hang the calling build or test run forever. A fixed 120-second timeout
+              protects the common case, but large C++ projects can legitimately need a longer
+              clang invocation; making the timeout configurable via options, environment
+              variable, CLI flag, and MSBuild property lets those projects raise the limit
+              without forking ApiMark, while every other project keeps the safe default
+              unchanged.
+            tests:
+              - ClangAstParser_Parse_ClangHangs_ThrowsWithDiagnosticsAndKillsProcess
+              - ClangAstParser_Parse_ClangTimeoutMillisecondsOption_HonoredWithoutTestSeam
+              - ClangAstParser_Parse_ClangTimeoutEnvVar_OverridesDefaultTimeout
+              - ClangAstParser_Parse_ClangTimeoutEnvVar_InvalidValue_ThrowsInvalidOperationException

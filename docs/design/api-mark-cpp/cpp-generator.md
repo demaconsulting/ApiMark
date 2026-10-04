@@ -42,6 +42,9 @@ single-file or gradual-disclosure Markdown output.
 - `ClangPath`: `string?` — optional explicit clang path. When null or empty,
   discovery falls back to `APIMARK_CLANG_PATH`, PATH, `xcrun clang`, and Windows
   LLVM discovery.
+- `ClangTimeoutMilliseconds`: `int?` — optional timeout (milliseconds) for the clang
+  subprocess; defaults to `null`, meaning the `APIMARK_CLANG_TIMEOUT_MS` environment
+  variable, then a built-in 120000ms default, applies.
 - `AdditionalCompilerArguments`: `IReadOnlyList<string>` — raw trailing clang
   arguments used as an escape hatch for toolchain-specific switches.
 - `Visibility`: `ApiVisibility` — class-member visibility filter consumed later by

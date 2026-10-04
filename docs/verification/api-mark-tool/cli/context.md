@@ -37,6 +37,8 @@ up after itself. No other external files, services, or configuration are require
   corresponding properties. `--library-description` sets `LibraryDescription` and is shared
   by all three language subcommands (dotnet, C++, and VHDL), not C++-specific.
 - `--clang-path` sets `ClangPath` to the supplied path.
+- `--clang-timeout-ms` sets `ClangTimeoutMilliseconds` to the supplied value (minimum 1000ms);
+  absent, it remains `null`; a value below 1000ms throws `ArgumentException`.
 - `--format` accepts `gradual` and `single-file`; defaults to `GradualDisclosure`; invalid values throw
   `ArgumentException`.
 - `--enforce-docs` sets `EnforceDocs` to the supplied visibility-tier string; absent, it
@@ -190,6 +192,15 @@ corresponding properties set simultaneously.
 
 **`Context_Create_WithClangPathOption_SetsClangPath`**: `--clang-path /usr/bin/clang` →
 `ClangPath = "/usr/bin/clang"`.
+
+**`Context_Create_WithClangTimeoutMsOption_SetsClangTimeoutMilliseconds`**:
+`--clang-timeout-ms 300000` → `ClangTimeoutMilliseconds = 300000`.
+
+**`Context_Create_WithoutClangTimeoutMsOption_LeavesClangTimeoutMillisecondsNull`**: no
+`--clang-timeout-ms` option → `ClangTimeoutMilliseconds = null`.
+
+**`Context_Create_WithClangTimeoutMsOptionBelowMinimum_ThrowsArgumentException`**:
+`--clang-timeout-ms 500` → throws `ArgumentException` (below the 1000ms minimum).
 
 **`Context_Create_WithSourceOption_SetsSources`**: `--source "src/**/*.vhd"` →
 `Sources = ["src/**/*.vhd"]`.
