@@ -2198,7 +2198,7 @@ public class XmlDocReaderTests
         }
     }
 
-    /// <summary>Validates that <see cref="XmlDocReader.GetSummary"/> renders a table <c>&lt;list&gt;</c> in a <c>&lt;summary&gt;</c> inline using numbered markers over the term/description pairs, instead of a broken single-line table.</summary>
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummary"/> renders a table <c>&lt;list&gt;</c> in a <c>&lt;summary&gt;</c> inline using numbered markers over the term/description pairs, instead of a broken single-line table, and preserves the <c>&lt;listheader&gt;</c> column labels rather than silently dropping them.</summary>
     [Fact]
     public void XmlDocReader_GetSummary_TableList_RendersInlineNumberedMarkers()
     {
@@ -2226,6 +2226,8 @@ public class XmlDocReaderTests
             Assert.Contains("(2)", summary, StringComparison.Ordinal);
             Assert.Contains("Alpha", summary, StringComparison.Ordinal);
             Assert.Contains("Beta", summary, StringComparison.Ordinal);
+            Assert.Contains("Name", summary, StringComparison.Ordinal);
+            Assert.Contains("Detail", summary, StringComparison.Ordinal);
         }
         finally
         {

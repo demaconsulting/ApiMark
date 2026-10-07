@@ -825,7 +825,9 @@ public sealed class XmlDocReader
     ///     inline; term/description items reuse <see cref="RenderTermDescription"/> and
     ///     <see cref="FormatTermDescription"/> so inline content (<c>&lt;c&gt;</c>, <c>&lt;see&gt;</c>,
     ///     <c>&lt;paramref&gt;</c>) and term/description pairing render identically to the
-    ///     multi-line path.
+    ///     multi-line path. A <c>&lt;listheader&gt;</c>, when present, is rendered first (bolded,
+    ///     matching the multi-line <see cref="AppendMarkerList"/> path) so a <c>type="table"</c>
+    ///     list's column labels are not silently dropped in this compact representation.
     /// </remarks>
     /// <param name="builder">The string builder that accumulates the output text.</param>
     /// <param name="element">The <c>&lt;list&gt;</c> element whose items to render.</param>
@@ -836,7 +838,10 @@ public sealed class XmlDocReader
             .Where(text => text.Length > 0)
             .ToList();
 
-        if (itemTexts.Count == 0)
+        var header = element.Element("listheader");
+        var headerText = header != null ? FormatTermDescription(RenderTermDescription(header)) : string.Empty;
+
+        if (itemTexts.Count == 0 && headerText.Length == 0)
         {
             return;
         }
@@ -844,6 +849,15 @@ public sealed class XmlDocReader
         // Surround with spaces so the inline list does not collide with adjacent prose once
         // the single-line normalizer collapses newlines
         builder.Append(' ');
+        if (headerText.Length > 0)
+        {
+            builder.Append("**").Append(headerText).Append("**");
+            if (itemTexts.Count > 0)
+            {
+                builder.Append(' ');
+            }
+        }
+
         for (var i = 0; i < itemTexts.Count; i++)
         {
             if (i > 0)
