@@ -234,18 +234,17 @@ public sealed class XmlDocReader
     /// <summary>Returns exception types and descriptions from <c>&lt;exception&gt;</c> elements for <paramref name="memberId"/>.</summary>
     /// <remarks>
     ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, exception details are
-    ///     resolved from the referenced or inherited base member recursively.
+    ///     resolved from the referenced or inherited base member recursively. The description uses
+    ///     the single-line rendering (<see cref="GetSingleLineDocumentationText"/>), not the
+    ///     multi-line <see cref="GetDocumentationText"/> used by <see cref="GetRemarks"/> and
+    ///     <see cref="GetSummaryMarkdown"/>: every caller of this method writes the description into a
+    ///     raw pipe-delimited Markdown table row (see <c>FileMarkdownWriter.WriteTable</c>), which
+    ///     does not escape embedded newlines — a fenced code block or <c>&lt;br/&gt;</c>-driven
+    ///     paragraph break in the description would otherwise inject extra rows and corrupt the
+    ///     table.
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
     /// <returns>A read-only list of (Type, Description) tuples.</returns>
-    /// <remarks>
-    ///     The description uses the single-line rendering (<see cref="GetSingleLineDocumentationText"/>),
-    ///     not the multi-line <see cref="GetDocumentationText"/> used by <see cref="GetRemarks"/> and
-    ///     <see cref="GetSummaryMarkdown"/>: every caller of this method writes the description into a
-    ///     raw pipe-delimited Markdown table row (see <c>FileMarkdownWriter.WriteTable</c>), which does
-    ///     not escape embedded newlines — a fenced code block or <c>&lt;br/&gt;</c>-driven paragraph
-    ///     break in the description would otherwise inject extra rows and corrupt the table.
-    /// </remarks>
     public IReadOnlyList<(string Type, string? Description)> GetExceptionDetails(string memberId)
     {
         var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
@@ -268,17 +267,15 @@ public sealed class XmlDocReader
 
     /// <summary>Returns parameter names and descriptions for <paramref name="memberId"/>.</summary>
     /// <remarks>
-    ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, parameters are
-    ///     resolved from the referenced or inherited base member recursively.
+    ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, parameters are resolved
+    ///     from the referenced or inherited base member recursively. The description uses the
+    ///     single-line rendering (<see cref="GetSingleLineDocumentationText"/>) for the same reason
+    ///     as <see cref="GetExceptionDetails"/>: every caller writes the description into a raw
+    ///     pipe-delimited Markdown table row, which cannot safely contain an embedded literal
+    ///     newline.
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
     /// <returns>A read-only list of (Name, Description) tuples.</returns>
-    /// <remarks>
-    ///     The description uses the single-line rendering (<see cref="GetSingleLineDocumentationText"/>)
-    ///     for the same reason as <see cref="GetExceptionDetails"/>: every caller writes the
-    ///     description into a raw pipe-delimited Markdown table row, which cannot safely contain an
-    ///     embedded literal newline.
-    /// </remarks>
     public IReadOnlyList<(string Name, string? Description)> GetParams(string memberId)
     {
         var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
@@ -642,11 +639,13 @@ public sealed class XmlDocReader
     ///     so that any fenced Markdown code block produced for a nested <c>&lt;code&gt;</c> element
     ///     survives <see cref="NormalizeDocumentationText"/>'s per-line whitespace collapsing and
     ///     blank-line-run collapsing intact, then restores the real content via
-    ///     <see cref="RestoreCodeBlockPlaceholders"/> immediately before returning. This is the only
-    ///     call site that supplies a non-<see langword="null"/> map — every other caller of
+    ///     <see cref="RestoreCodeBlockPlaceholders"/> immediately before returning. This method and
+    ///     <see cref="GetSingleLineDocumentationText"/> are the only two call sites that supply a
+    ///     non-<see langword="null"/> map; every other caller of
     ///     <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/>
-    ///     is eventually squashed through <see cref="NormalizeSingleLine"/> instead, where a fenced
-    ///     block would never be valid, so those callers deliberately keep passing <see langword="null"/>.
+    ///     is eventually squashed through <see cref="NormalizeSingleLine"/> directly (not via
+    ///     <see cref="GetSingleLineDocumentationText"/>'s protected path), where a fenced block would
+    ///     never be valid, so those callers deliberately keep passing <see langword="null"/>.
     /// </remarks>
     /// <param name="element">The XML element whose text content to extract, or <c>null</c>.</param>
     /// <returns>Normalized text, or <c>null</c> when the element is absent or empty.</returns>
@@ -705,10 +704,11 @@ public sealed class XmlDocReader
     /// </param>
     /// <param name="codeBlocks">
     ///     Optional placeholder map used to protect fenced Markdown code blocks (produced for
-    ///     multi-line <c>&lt;code&gt;</c> elements) from later whitespace normalization. Only
-    ///     <see cref="GetDocumentationText"/> supplies a non-<see langword="null"/> map; every
-    ///     other caller passes <see langword="null"/>, which forces <c>&lt;code&gt;</c> elements to
-    ///     always render as an inline span instead of a fenced block (see
+    ///     multi-line <c>&lt;code&gt;</c> elements) and inline code spans from later whitespace
+    ///     normalization. Only <see cref="GetDocumentationText"/> and
+    ///     <see cref="GetSingleLineDocumentationText"/> supply a non-<see langword="null"/> map;
+    ///     every other caller passes <see langword="null"/>, which forces <c>&lt;code&gt;</c>
+    ///     elements to always render as an unprotected inline span instead of a fenced block (see
     ///     <see cref="AppendCodeElementText"/>).
     /// </param>
     private static void AppendNodeText(
