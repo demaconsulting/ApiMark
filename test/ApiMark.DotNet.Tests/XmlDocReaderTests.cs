@@ -2446,6 +2446,37 @@ public class XmlDocReaderTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> does not throw when a <c>&lt;see
+    ///     cref="M:"/&gt;</c> reference has a member-kind prefix but no target name, which yields
+    ///     an empty formatted display text while still being classified as a member reference;
+    ///     the inline code-span wrapping must be skipped for empty text instead of indexing into
+    ///     it (regression guard for the empty-member-cref <see cref="IndexOutOfRangeException"/>).
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_SeeCrefWithEmptyMemberTarget_DoesNotThrowAndRendersEmpty()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>Before <see cref="M:"/> after.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar");
+
+            // Assert
+            Assert.Equal("Before after.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
     ///     Validates that <see cref="XmlDocReader.GetSummary"/> renders a constructor cref
     ///     (<c>M:Type.#ctor</c>) as the bare type name with no inline code-span wrapping,
     ///     distinguishing it from a non-constructor member cref.
@@ -3017,6 +3048,40 @@ public class XmlDocReaderTests
 
             // Assert: single line, no fence, newlines flattened
             Assert.Equal("Before. `line one line two` After.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> preserves each line's significant
+    ///     internal whitespace (multiple spaces, tabs) when flattening a multi-line <c>&lt;code&gt;</c>
+    ///     element into a single-line inline backtick span — only the line boundaries collapse to a
+    ///     single joining space, not the whitespace within a line (regression guard for the
+    ///     single-line code-flattening whitespace-collapse bug).
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_MultiLineCodeElementWithInternalMultipleSpacesAndTabs_PreservesInternalWhitespace()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>Before. <code>
+            a  b
+            c	d
+            </code> After.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar");
+
+            // Assert: internal double space and embedded tab survive; only the line break becomes a joining space
+            Assert.Equal("Before. `a  b c\td` After.", summary);
         }
         finally
         {

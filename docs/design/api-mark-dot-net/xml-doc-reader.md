@@ -229,10 +229,15 @@ protect a fenced Markdown code block's literal content — its backtick fences
 and internal whitespace/newlines — from `NormalizeDocumentationText`'s
 per-line `CollapseWhitespace` pass and its blank-line-run collapsing, both of
 which would otherwise corrupt a fenced block if applied directly to it. The
-same mechanism also protects an inline backtick code span's internal
-whitespace (multiple spaces, tabs) from `CollapseWhitespace`/`NormalizeSingleLine`
-when a `codeBlocks` map is supplied, since a single-line `<code>` or `<c>`
-element can appear in either rendering context.
+same mechanism also protects an inline backtick code span produced for a
+`<code>` element's internal whitespace (multiple spaces, tabs) from
+`CollapseWhitespace`/`NormalizeSingleLine` when a `codeBlocks` map is
+supplied, since a single-line `<code>` element can appear in either
+rendering context. A `<c>` element's rendering is NOT protected by this
+mechanism — it is always appended directly via `AppendMarkdownCodeSpan`
+(see the `<c>` bullet under "Inline Element Rendering" below) regardless of
+whether a `codeBlocks` map is supplied, so its internal whitespace remains
+subject to the caller's outer whitespace-collapsing normalization.
 
 - **Why it exists**: A multi-line `<code>` element renders as a fenced
   Markdown code block (see the `<code>` bullet under "Inline Element

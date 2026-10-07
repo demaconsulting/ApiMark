@@ -871,8 +871,12 @@ public sealed class XmlDocReader
         }
 
         // Single-line context, or no embedded newline — always fall back to an inline code
-        // span, flattening any embedded newlines first.
-        var inline = dedented.Contains('\n') ? NormalizeSingleLine(dedented) : dedented;
+        // span, flattening any embedded newlines first. Unlike NormalizeSingleLine (used for
+        // surrounding prose), this must NOT collapse each line's internal whitespace runs: the
+        // content is code, where significant spacing (alignment, multiple spaces, tabs) must
+        // survive flattening into one line, with only line-boundary whitespace trimmed and lines
+        // joined by a single space.
+        var inline = dedented.Contains('\n') ? FlattenCodeToSingleLine(dedented) : dedented;
         if (inline.Length == 0)
         {
             return;
@@ -1346,7 +1350,7 @@ public sealed class XmlDocReader
             // and constructor crefs) always ignore this request and return the escaped,
             // prose-safe form internally, since they are never wrapped.
             var (text, isMemberReference) = FormatCref(cref, forCodeSpan: true);
-            return isMemberReference ? FormatAsInlineCodeSpan(text) : text;
+            return isMemberReference && text.Length > 0 ? FormatAsInlineCodeSpan(text) : text;
         }
 
         return string.Empty;
@@ -1602,6 +1606,32 @@ public sealed class XmlDocReader
                 .Replace('\r', '\n')
                 .Split('\n')
                 .Select(CollapseWhitespace)
+                .Select(line => line.Trim())
+                .Where(line => line.Length > 0));
+    }
+
+    /// <summary>
+    ///     Joins all non-empty trimmed lines from <paramref name="text"/> into a single
+    ///     space-separated string, WITHOUT collapsing each line's internal whitespace runs.
+    /// </summary>
+    /// <remarks>
+    ///     Used to flatten a multi-line <c>&lt;code&gt;</c> element into a single-line inline code
+    ///     span (see <see cref="AppendCodeElementText"/>): unlike <see cref="NormalizeSingleLine"/>,
+    ///     which is used for surrounding prose and deliberately collapses redundant whitespace, code
+    ///     content may have significant internal spacing (alignment, multiple spaces, tabs) that
+    ///     must survive being joined onto one line. Only leading/trailing whitespace on each line is
+    ///     trimmed, and blank lines are dropped; everything else on a non-blank line is preserved
+    ///     verbatim.
+    /// </remarks>
+    /// <param name="text">Raw multi-line code text (already dedented).</param>
+    /// <returns>A single-line string with line boundaries collapsed to single spaces.</returns>
+    private static string FlattenCodeToSingleLine(string text)
+    {
+        return string.Join(
+            " ",
+            text.Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Replace('\r', '\n')
+                .Split('\n')
                 .Select(line => line.Trim())
                 .Where(line => line.Length > 0));
     }

@@ -184,6 +184,7 @@ sections:
               - XmlDocReader_GetRemarks_MultiLineCodeElementWithInternalMultipleSpacesAndTabs_PreservesExactWhitespace
               - XmlDocReader_GetRemarks_EmptyOrWhitespaceOnlyCodeElement_EmitsNothing
               - XmlDocReader_GetSummary_MultiLineCodeElement_FlattensToInlineBacktickSpanNotFencedBlock
+              - XmlDocReader_GetSummary_MultiLineCodeElementWithInternalMultipleSpacesAndTabs_PreservesInternalWhitespace
               - XmlDocReader_GetRemarks_CodeElementContainingBacktickRun_UsesLongerFence
               - XmlDocReader_GetRemarks_BrAndCodeFromGeneratedRegexExample_RendersAsDistinctBlocks
               - XmlDocReader_GetRemarks_NestedCodeInsideListItemDescription_RendersAsInlineSpanNotFencedBlock
@@ -235,6 +236,7 @@ sections:
               - XmlDocReader_GetSummary_SeeCrefToConstructor_RendersUnwrappedTypeName
               - XmlDocReader_GetSummary_SeeCrefToMemberOnGenericType_RendersUnescapedAngleBracketsInCodeSpan
               - XmlDocReader_GetSummary_SeeCrefToGenericTypeOnly_StillEscapesAngleBracketsInProse
+              - XmlDocReader_GetSummary_SeeCrefWithEmptyMemberTarget_DoesNotThrowAndRendersEmpty
               - XmlDocReader_GetSummary_WithInlineReferences_PreservesReferencedNames
               - XmlDocReader_GetExampleParts_WithSeeCref_RendersInlineReferenceInProsePart
               - XmlDocReader_GetExampleParts_WithMixedInlineElements_ProseAccumulatedAsOnePart

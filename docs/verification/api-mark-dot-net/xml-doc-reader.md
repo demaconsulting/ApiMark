@@ -491,6 +491,14 @@ that `<see cref="M:Type.#ctor" />` — a method-kind cref whose member name is t
 the constructor-collapsing behavior documented on `FormatMemberReference`. This scenario is
 tested by `XmlDocReader_GetSummary_SeeCrefToConstructor_RendersUnwrappedTypeName`.
 
+**GetSummary tolerates an empty-member-target cref without throwing (mandatory
+regression guard)**: Verifies that `<see cref="M:"/>` — a member-kind cref
+prefix with no target name, yielding empty formatted display text that is
+still classified as a member reference — is rendered as an empty string
+instead of throwing `IndexOutOfRangeException` when the (would-be) inline
+code-span wrapping is attempted on empty content. This scenario is tested by
+`XmlDocReader_GetSummary_SeeCrefWithEmptyMemberTarget_DoesNotThrowAndRendersEmpty`.
+
 **GetSummary renders a member cref on a generic type with unescaped angle
 brackets inside its code span**: Verifies that
 `` `<see cref="M:...List`1.Add(`0)" />` `` — a member cref whose declaring
@@ -544,6 +552,16 @@ Verifies that a fenced block is never produced in the single-line summary
 context; embedded newlines are flattened to spaces inside the code span
 instead. This scenario is tested by
 `XmlDocReader_GetSummary_MultiLineCodeElement_FlattensToInlineBacktickSpanNotFencedBlock`.
+
+**Single-line code flattening preserves each line's internal whitespace
+(mandatory regression guard)**: Verifies that when a multi-line `<code>`
+element is flattened into a single-line inline code span (as happens in a
+`<summary>`), a line's significant internal whitespace — multiple consecutive
+spaces, an embedded tab — survives the flattening; only the line boundary
+itself collapses to a single joining space, rather than the whole result
+being run through the prose-oriented whitespace-collapsing normalization used
+elsewhere. This scenario is tested by
+`XmlDocReader_GetSummary_MultiLineCodeElementWithInternalMultipleSpacesAndTabs_PreservesInternalWhitespace`.
 
 **Fenced `<code>` block with an embedded backtick run uses a longer fence**:
 Verifies that content containing a 3-backtick run causes the fence to widen to
