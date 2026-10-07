@@ -25,6 +25,7 @@ words:
   - cstddef
   - dedentation
   - dedented
+  - dedenting
   - declspec
   - deletedmembersclass
   - Dema
@@ -92,6 +93,7 @@ words:
   - sarif
   - sarifmark
   - sbyte
+  - seealso
   - slnx
   - stdarg
   - stddef

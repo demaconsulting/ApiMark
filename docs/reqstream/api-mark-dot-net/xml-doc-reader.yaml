@@ -154,3 +154,71 @@ sections:
               - XmlDocReader_GetSummary_SeeCrefToMethod_StillRendersTypeDotMember
               - XmlDocReader_GetSummary_WithInlineReferences_PreservesReferencedNames
               - DotNetGenerator_Generate_InlineReferences_PreserveSymbolNamesInMarkdown
+          - id: ApiMarkDotNet-XmlDocReader-RenderBrAndCodeInRemarksAndSummary
+            title: XmlDocReader shall render `<br/>` as a paragraph break and `<code>`
+              as an inline code span or fenced Markdown code block — never silently
+              dropping either — within `<remarks>` and `<summary>` content.
+            justification: |
+              A real-world consumer (DemaConsulting.Bicameral.Core, built with
+              ApiMarkVisibility=All) reported that `<br/>` and `<code>` elements
+              nested inside `<remarks>`/`<summary>` were silently dropped from the
+              generated documentation, losing both the authored paragraph breaks and
+              the code examples entirely. `<br/>` must render as a visible paragraph
+              break and `<code>` must render as readable code (an inline backtick
+              span when single-line, a fenced Markdown block when multi-line and the
+              surrounding context supports block-level Markdown) so authored content
+              is never lost.
+            tests:
+              - XmlDocReader_GetRemarks_BrElement_InsertsParagraphBreak
+              - XmlDocReader_GetSummary_BrElement_CollapsesToSingleSpace
+              - XmlDocReader_GetRemarks_SingleLineCodeElement_RendersAsInlineBacktickSpan
+              - XmlDocReader_GetRemarks_MultiLineCodeElement_RendersAsFencedBlock
+              - XmlDocReader_GetRemarks_MultiLineCodeElementWithInternalMultipleSpacesAndTabs_PreservesExactWhitespace
+              - XmlDocReader_GetRemarks_EmptyOrWhitespaceOnlyCodeElement_EmitsNothing
+              - XmlDocReader_GetSummary_MultiLineCodeElement_FlattensToInlineBacktickSpanNotFencedBlock
+              - XmlDocReader_GetRemarks_CodeElementContainingBacktickRun_UsesLongerFence
+              - XmlDocReader_GetRemarks_BrAndCodeFromGeneratedRegexExample_RendersAsDistinctBlocks
+              - XmlDocReader_GetRemarks_NestedCodeInsideListItemDescription_RendersAsInlineSpanNotFencedBlock
+              - XmlDocReader_GetExampleParts_WithMixedInlineElementsContainingMultiLineCodeOutsideCodeTag_RendersAsInlineSpan
+          - id: ApiMarkDotNet-XmlDocReader-CollapseExcessBlankLineRuns
+            title: XmlDocReader shall collapse runs of two or more consecutive blank
+              lines produced by adjacent block-level separators (list, `<br/>`,
+              fenced `<code>`) down to a single blank line in `<remarks>`/`<summary>`
+              output.
+            justification: |
+              Each block-level separator (a `<list>`, a `<br/>`, a fenced `<code>`
+              block) independently surrounds itself with a blank line so it renders
+              correctly in isolation; when two such separators are adjacent, their
+              blank lines compounded into a run of two or more, violating markdownlint
+              MD012 ("no multiple consecutive blank lines") in the generated
+              documentation. Collapsing any run of two or more consecutive blank lines
+              down to exactly one keeps the output both readable and markdownlint-clean
+              regardless of which separators happen to be adjacent.
+            tests:
+              - XmlDocReader_GetRemarks_ListImmediatelyFollowedByCode_AtMostOneBlankLineBetween
+              - XmlDocReader_GetRemarks_MultipleConsecutiveBrTags_AtMostOneBlankLineBetween
+              - XmlDocReader_GetRemarks_BrAndCodeFromGeneratedRegexExample_RendersAsDistinctBlocks
+          - id: ApiMarkDotNet-XmlDocReader-WrapMemberCrefDisplayInCodeSpan
+            title: XmlDocReader shall render the display text of a `<see>`/`<seealso>`
+              reference to a type member (property, field, event, or method) in an
+              inline Markdown code span, while leaving `langword`, explicit inner
+              text, type-only (`T:`) crefs, and constructor crefs unwrapped.
+            justification: |
+              A real-world consumer (DemaConsulting.Bicameral.Core) reported that a
+              `<see cref="Type.Member"/>` reference rendered as plain prose
+              indistinguishable from surrounding text, making it hard for a reader to
+              tell that `Type.Member` was a reference to a specific symbol rather than
+              ordinary words. Wrapping a member-cref's rendered `Type.Member` text in
+              an inline code span — matching how `<c>` content is already rendered —
+              makes the reference visually distinct, without requiring the
+              architectural change needed to turn it into an actual cross-reference
+              link.
+            tests:
+              - XmlDocReader_GetSummary_SeeCrefToProperty_RendersTypeDotMember
+              - XmlDocReader_GetSummary_SeeCrefToField_RendersTypeDotMember
+              - XmlDocReader_GetSummary_SeeCrefToEvent_RendersTypeDotMember
+              - XmlDocReader_GetSummary_SeeCrefToMethod_StillRendersTypeDotMember
+              - XmlDocReader_GetSummary_WithInlineReferences_PreservesReferencedNames
+              - XmlDocReader_GetExampleParts_WithSeeCref_RendersInlineReferenceInProsePart
+              - XmlDocReader_GetExampleParts_WithMixedInlineElements_ProseAccumulatedAsOnePart
+              - DotNetGenerator_Generate_InlineReferences_PreserveSymbolNamesInMarkdown

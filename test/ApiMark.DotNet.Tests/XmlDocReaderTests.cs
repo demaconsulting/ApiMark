@@ -78,7 +78,7 @@ public class XmlDocReaderTests
 
             // Assert
             Assert.Equal(
-                "Returns true when status is SampleStatus.Active or SampleStatus.Pending.",
+                "Returns true when status is `SampleStatus.Active` or `SampleStatus.Pending`.",
                 reader.GetSummary("M:Foo.Bar.IsPassed(Foo.SampleStatus)"));
         }
         finally
@@ -1001,7 +1001,7 @@ public class XmlDocReaderTests
             // Assert: prose part must contain the formatted cref text, not be empty or dropped
             Assert.Equal(2, parts.Count);
             Assert.False(parts[0].IsCode);
-            Assert.Contains("Bar.Run()", parts[0].Content);
+            Assert.Contains("`Bar.Run()`", parts[0].Content);
             Assert.True(parts[1].IsCode);
         }
         finally
@@ -1039,7 +1039,7 @@ public class XmlDocReaderTests
             // The prose part must include the text before the reference, the formatted
             // cref name, and the text after — all in one coherent string
             Assert.Contains("prefer", parts[0].Content);
-            Assert.Contains("Bar.RegisterService()", parts[0].Content);
+            Assert.Contains("`Bar.RegisterService()`", parts[0].Content);
             Assert.Contains("which registers automatically.", parts[0].Content);
 
             Assert.True(parts[1].IsCode);
@@ -2257,7 +2257,7 @@ public class XmlDocReaderTests
             var summary = reader.GetSummary("T:Foo.Bar");
 
             // Assert
-            Assert.Equal("See Widget.Count for details.", summary);
+            Assert.Equal("See `Widget.Count` for details.", summary);
         }
         finally
         {
@@ -2282,7 +2282,7 @@ public class XmlDocReaderTests
             var summary = reader.GetSummary("T:Foo.Bar");
 
             // Assert
-            Assert.Equal("See Widget.MaxCount for details.", summary);
+            Assert.Equal("See `Widget.MaxCount` for details.", summary);
         }
         finally
         {
@@ -2307,7 +2307,7 @@ public class XmlDocReaderTests
             var summary = reader.GetSummary("T:Foo.Bar");
 
             // Assert
-            Assert.Equal("See Widget.Changed for details.", summary);
+            Assert.Equal("See `Widget.Changed` for details.", summary);
         }
         finally
         {
@@ -2332,7 +2332,7 @@ public class XmlDocReaderTests
             var summary = reader.GetSummary("T:Foo.Bar");
 
             // Assert
-            Assert.Equal("See Widget.Reset for details.", summary);
+            Assert.Equal("See `Widget.Reset` for details.", summary);
         }
         finally
         {
@@ -2629,6 +2629,430 @@ public class XmlDocReaderTests
 
             // Assert: the external lookup must not be consulted for a top-level, non-inheritdoc lookup
             Assert.Null(summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetRemarks"/> renders a <c>&lt;br/&gt;</c> element as a paragraph break (two lines separated by exactly one blank line), rather than silently dropping it.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_BrElement_InsertsParagraphBreak()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>Line one.<br/>Line two.</remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert
+            Assert.Equal("Line one.\n\nLine two.", remarks);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummary"/> collapses a <c>&lt;br/&gt;</c> element into a single space rather than leaving residual markup or a newline, since the single-line summary context cannot represent a paragraph break.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_BrElement_CollapsesToSingleSpace()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>Line one.<br/>Line two.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar");
+
+            // Assert
+            Assert.Equal("Line one. Line two.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetRemarks"/> renders a single-line <c>&lt;code&gt;</c> element as an inline backtick span, not a fenced block.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_SingleLineCodeElement_RendersAsInlineBacktickSpan()
+    {
+        // Arrange: code content with internal whitespace runs but no embedded newline
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>Pattern: <code>[ \t]{2,}</code></remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert
+            Assert.Equal("Pattern: `[ \\t]{2,}`", remarks);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetRemarks"/> renders a multi-line <c>&lt;code&gt;</c> element as a fenced Markdown code block, surrounded by blank-line separators.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_MultiLineCodeElement_RendersAsFencedBlock()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>Before.<code>
+            line one
+            line two
+            </code>After.</remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert: fence lines and content lines are each on their own line, with blank-line
+            // separators from the surrounding prose.
+            Assert.Equal("Before.\n\n```\nline one\nline two\n```\n\nAfter.", remarks);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Mandatory regression guard: validates that a fenced <c>&lt;code&gt;</c> block's internal
+    ///     whitespace (multiple consecutive spaces and a tab) survives
+    ///     <see cref="XmlDocReader.GetRemarks"/>'s whitespace-collapsing normalization byte-for-byte,
+    ///     proving the placeholder-token mechanism correctly shields fenced content.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_MultiLineCodeElementWithInternalMultipleSpacesAndTabs_PreservesExactWhitespace()
+    {
+        // Arrange: content with multiple consecutive spaces and a tab that CollapseWhitespace
+        // would otherwise reduce to a single space each
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks><code>
+            a  b	c   d
+            second line
+            </code></remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert: the exact whitespace inside the fenced block is preserved
+            Assert.NotNull(remarks);
+            Assert.Contains("a  b\tc   d", remarks, StringComparison.Ordinal);
+            Assert.Equal("```\na  b\tc   d\nsecond line\n```", remarks.Trim());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetRemarks"/> emits nothing for an empty or whitespace-only <c>&lt;code&gt;</c> element, mirroring the existing empty-skip guard for <c>&lt;c&gt;</c>.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_EmptyOrWhitespaceOnlyCodeElement_EmitsNothing()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>Before.<code>   </code>After.</remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert: no stray backticks or fences are emitted
+            Assert.Equal("Before.After.", remarks);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummary"/> flattens a multi-line <c>&lt;code&gt;</c> element to a single-line inline backtick span rather than a fenced block, since a fenced block is never valid in a single-line context.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_MultiLineCodeElement_FlattensToInlineBacktickSpanNotFencedBlock()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>Before. <code>
+            line one
+            line two
+            </code> After.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar");
+
+            // Assert: single line, no fence, newlines flattened
+            Assert.Equal("Before. `line one line two` After.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that a fenced <c>&lt;code&gt;</c> block whose content contains an embedded 3-backtick run uses a longer (4-backtick) fence so the delimiter is unambiguous.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_CodeElementContainingBacktickRun_UsesLongerFence()
+    {
+        // Arrange: content contains a literal ``` run on one of its lines
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks><code>
+            line with ``` in it
+            second line
+            </code></remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert: the fence uses 4 backticks, not 3, so it cannot be confused with content
+            Assert.NotNull(remarks);
+            Assert.StartsWith("````\n", remarks, StringComparison.Ordinal);
+            Assert.EndsWith("\n````", remarks, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     End-to-end regression test reproducing the exact field-reported symptom: a
+    ///     generated-regex-example remarks block mixing <c>&lt;br/&gt;</c> and <c>&lt;code&gt;</c>
+    ///     (one single-line, one multi-line containing a nested, content-less <c>&lt;br/&gt;</c>).
+    ///     Verifies "Pattern:" and "Explanation:" render as distinct, non-run-together lines, the
+    ///     first code block is an inline span, the second is a fenced block, special Markdown
+    ///     characters survive literally, and no blank-line run exceeds one line anywhere.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_BrAndCodeFromGeneratedRegexExample_RendersAsDistinctBlocks()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>Pattern:<br/><code>[ \t]{2,}</code><br/>Explanation:<br/><code>
+            Matches two or more consecutive space or tab characters, used to detect
+            indentation that repeats atomically at least twice.<br/></code></remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert
+            Assert.NotNull(remarks);
+            var lines = remarks.Split('\n');
+
+            // "Pattern:" and "Explanation:" appear as their own distinct lines, never run together
+            Assert.Contains("Pattern:", lines);
+            Assert.Contains("Explanation:", lines);
+
+            // The first code block is rendered inline, immediately following "Pattern:"
+            Assert.Contains("[ \\t]{2,}", remarks, StringComparison.Ordinal);
+            Assert.DoesNotContain("Pattern: [ \\t]{2,} Explanation:", remarks, StringComparison.Ordinal);
+
+            // The second code block (with its nested <br/>) renders as a fenced block
+            Assert.Contains("```", remarks, StringComparison.Ordinal);
+            Assert.Contains(
+                "atomically at least twice.",
+                remarks,
+                StringComparison.Ordinal);
+
+            // Special Markdown characters survive literally — no stray escaping/mangling
+            Assert.Contains("[ \\t]{2,}", remarks, StringComparison.Ordinal);
+
+            // No run of 3 or more consecutive newlines (i.e. no run of 2+ blank lines) anywhere
+            Assert.DoesNotContain("\n\n\n", remarks, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetRemarks"/> leaves exactly one blank line between a <c>&lt;list&gt;</c> and an immediately following multi-line <c>&lt;code&gt;</c> block, never a run of two or more.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_ListImmediatelyFollowedByCode_AtMostOneBlankLineBetween()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>
+              <list type="bullet">
+                <item><description>Item one.</description></item>
+              </list>
+              <code>
+            example code
+            </code>
+              </remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert: no run of 3+ consecutive newlines (2+ blank lines), and no stray
+            // leading/trailing blank lines
+            Assert.NotNull(remarks);
+            Assert.DoesNotContain("\n\n\n", remarks, StringComparison.Ordinal);
+            Assert.False(remarks.StartsWith("\n", StringComparison.Ordinal));
+            Assert.False(remarks.EndsWith("\n", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetRemarks"/> collapses three or more consecutive <c>&lt;br/&gt;</c> tags to at most one blank line between the surrounding text.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_MultipleConsecutiveBrTags_AtMostOneBlankLineBetween()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>Line one.<br/><br/><br/>Line two.</remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert: exactly one blank line between the two lines of text, never a run of two
+            // or more
+            Assert.Equal("Line one.\n\nLine two.", remarks);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a multi-line <c>&lt;code&gt;</c> element nested inside a
+    ///     <c>&lt;list&gt;&lt;item&gt;&lt;description&gt;</c> renders as an inline span joined into
+    ///     the single bullet line, not a broken fenced block — proving the fenced-vs-inline
+    ///     dispatch is gated on the <c>codeBlocks</c> placeholder map being supplied (only true for
+    ///     <see cref="XmlDocReader.GetRemarks"/>'s top-level call), not on the <c>singleLine</c> flag.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_NestedCodeInsideListItemDescription_RendersAsInlineSpanNotFencedBlock()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>
+              <list type="bullet">
+                <item><description>Example:<code>
+            line one
+            line two
+            </code></description></item>
+              </list>
+              </remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var remarks = reader.GetRemarks("T:Foo.Bar");
+
+            // Assert: the bullet line contains the inline-flattened code span, not a fence
+            Assert.NotNull(remarks);
+            var lines = remarks.Split('\n');
+            Assert.Contains("- Example:`line one line two`", lines);
+            Assert.DoesNotContain("```", remarks, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a multi-line <c>&lt;code&gt;</c> reached through <c>&lt;example&gt;</c>
+    ///     mixed-prose accumulation via a wrapping <c>&lt;para&gt;</c> (not a direct
+    ///     <c>&lt;example&gt;</c>-child <c>&lt;code&gt;</c>, which bypasses the inline dispatch
+    ///     entirely) falls back to an inline span rather than a mangled fenced block, since the
+    ///     example-prose pipeline never supplies a <c>codeBlocks</c> placeholder map.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithMixedInlineElementsContainingMultiLineCodeOutsideCodeTag_RendersAsInlineSpan()
+    {
+        // Arrange: a direct <code> child forces BuildMixedExampleParts dispatch; the <para> here
+        // contains a second, nested <code> that is NOT a direct child of <example>, so it is
+        // reached via the AppendNodeText/AppendElementText dispatch rather than the direct
+        // <code>-child handling in BuildMixedExampleParts.
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example><code>bar.Run();</code><para>See:<code>
+            line one
+            line two
+            </code></para></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert: the direct <code> child is its own fenced code part; the <para>'s nested
+            // code is accumulated into the prose part as an inline-flattened span, not a fence
+            Assert.Equal(2, parts.Count);
+            Assert.True(parts[0].IsCode);
+            Assert.False(parts[1].IsCode);
+            Assert.Contains("`line one line two`", parts[1].Content);
+            Assert.DoesNotContain("```", parts[1].Content, StringComparison.Ordinal);
         }
         finally
         {
