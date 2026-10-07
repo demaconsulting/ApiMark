@@ -184,6 +184,96 @@ internal sealed class TypeLinkResolver
         return LinkifyExternalType(typeRef, externalTypes, isNullableAnnotated);
     }
 
+    /// <summary>
+    ///     Resolves a <c>cref</c> target already known to be a type declared in the assembly
+    ///     being documented to a Markdown link wrapping <paramref name="displayText"/>.
+    /// </summary>
+    /// <remarks>
+    ///     Reuses the same <see cref="GetTypePageKey"/>/<see cref="ComputeRelativePath"/> helpers
+    ///     that <see cref="Linkify"/> already uses for intra-assembly <see cref="TypeReference"/>
+    ///     values — <see cref="TypeDefinition"/> is itself a <see cref="TypeReference"/>, so no new
+    ///     page-key derivation logic is required. Callers are expected to have already confirmed
+    ///     (via <see cref="CrefTargetResolver"/> and the emitter's visibility rules) that
+    ///     <paramref name="type"/> will actually be emitted as a page before calling this method;
+    ///     this method itself performs no such check and always computes a link when link
+    ///     generation is enabled.
+    /// </remarks>
+    /// <param name="type">The resolved intra-assembly type the <c>cref</c> refers to.</param>
+    /// <param name="displayText">
+    ///     The already-formatted display text (e.g. from <c>XmlDocReader.FormatCref</c>) to wrap
+    ///     in the Markdown link.
+    /// </param>
+    /// <param name="currentFolder">Folder path of the containing Markdown file.</param>
+    /// <returns>
+    ///     A Markdown link of the form <c>[displayText](relative/path.md)</c>, or
+    ///     <paramref name="displayText"/> unchanged when link generation is disabled (single-file
+    ///     mode).
+    /// </returns>
+    internal string LinkifyResolvedType(TypeDefinition type, string displayText, string currentFolder)
+    {
+        if (!_generateLinks)
+        {
+            return displayText;
+        }
+
+        var pageKey = GetTypePageKey(type);
+        var relativePath = ComputeRelativePath(currentFolder, pageKey);
+        return $"[{displayText}]({relativePath})";
+    }
+
+    /// <summary>
+    ///     Resolves a <c>cref</c> target already known to be a member declared in the assembly
+    ///     being documented to a Markdown link wrapping <paramref name="displayText"/>, using the
+    ///     gradual-disclosure member-to-page index.
+    /// </summary>
+    /// <remarks>
+    ///     Unlike <see cref="LinkifyResolvedType"/>, there is no closed-form page-key computation
+    ///     for a member — in gradual-disclosure mode, members may share a page with their overloads,
+    ///     with same-named-but-different-kind members (case-collision grouping), or with every
+    ///     other operator overload of the same type, decisions made per-type while generating that
+    ///     type's own pages (see <c>DotNetEmitterGradualDisclosure.BuildMemberPageIndex</c>).
+    ///     <paramref name="memberPageIndex"/> is therefore required to resolve the member's actual
+    ///     page path.
+    /// </remarks>
+    /// <param name="member">The resolved intra-assembly member the <c>cref</c> refers to.</param>
+    /// <param name="displayText">
+    ///     The already-formatted display text (e.g. from <c>XmlDocReader.FormatMemberReference</c>)
+    ///     to wrap in the Markdown link.
+    /// </param>
+    /// <param name="currentFolder">Folder path of the containing Markdown file.</param>
+    /// <param name="memberPageIndex">
+    ///     Map from a member's XML-doc identifier (see <see cref="DotNetEmitter.BuildMemberId"/>)
+    ///     to its page key (a forward-slash-separated relative path, without the <c>.md</c>
+    ///     extension).
+    /// </param>
+    /// <returns>
+    ///     A Markdown link of the form <c>[displayText](relative/path.md)</c>, or
+    ///     <paramref name="displayText"/> unchanged when link generation is disabled (single-file
+    ///     mode) or when <paramref name="member"/> has no entry in
+    ///     <paramref name="memberPageIndex"/> (e.g. the member is filtered out of the generated
+    ///     documentation).
+    /// </returns>
+    internal string LinkifyResolvedMember(
+        IMemberDefinition member,
+        string displayText,
+        string currentFolder,
+        IReadOnlyDictionary<string, string> memberPageIndex)
+    {
+        if (!_generateLinks)
+        {
+            return displayText;
+        }
+
+        var memberId = DotNetEmitter.BuildMemberId(member);
+        if (!memberPageIndex.TryGetValue(memberId, out var pageKey))
+        {
+            return displayText;
+        }
+
+        var relativePath = ComputeRelativePath(currentFolder, pageKey);
+        return $"[{displayText}]({relativePath})";
+    }
+
     /// <summary>Renders a generic type parameter (e.g. <c>T</c>, <c>TKey</c>) as plain text.</summary>
     /// <param name="genericParam">The generic parameter reference.</param>
     /// <param name="isNullableAnnotated">Whether the parameter itself is annotated nullable.</param>

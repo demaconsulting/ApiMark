@@ -247,7 +247,7 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
                 // to the returned model: the resolver may still be consulted for lazy metadata
                 // resolution for as long as the assembly itself is alive, so it must share the
                 // assembly's lifetime rather than being disposed here or left undisposed entirely.
-                return new DotNetEmitter(new DotNetAstModel(new DotNetAstModelArgs(
+                var model = new DotNetAstModel(new DotNetAstModelArgs(
                     assembly,
                     assemblyResolver,
                     xmlDocs,
@@ -256,7 +256,18 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
                     rootNamespaces,
                     namespaceDescriptions,
                     resolver,
-                    _options)));
+                    _options));
+                var emitter = new DotNetEmitter(model);
+
+                // The member-to-page index and emitted-type-id set used for <see cref>/<seealso
+                // cref> link resolution require the emitter's own visibility rules
+                // (ShouldIncludeMember, GetVisibleNestedTypes), so — unlike CrefTargets, which
+                // DotNetAstModel builds eagerly in its own constructor — they can only be computed
+                // now, after the emitter exists.
+                var (memberPageIndex, emittedTypeIds) = BuildCrefLinkIndices(emitter, byNamespace, rootNamespaces);
+                model.SetMemberPageIndex(memberPageIndex, emittedTypeIds);
+
+                return emitter;
             }
             catch
             {
@@ -1137,6 +1148,83 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         var fullName = type.FullName.Replace('/', '.');
         var ns = type.Namespace;
         return excludePatterns.Any(p => p.IsMatch(fullName) || p.IsMatch(ns));
+    }
+
+    /// <summary>
+    ///     Builds the global member-to-page index and emitted-type-id set consulted when
+    ///     resolving <c>&lt;see cref&gt;</c>/<c>&lt;seealso cref&gt;</c> references to real
+    ///     Markdown links, by walking every visible top-level type plus its visible nested types,
+    ///     transitively.
+    /// </summary>
+    /// <remarks>
+    ///     Must be called after <paramref name="emitter"/> has been constructed: it relies on the
+    ///     emitter's own visibility rules (<see cref="DotNetEmitter.ShouldIncludeMember"/>,
+    ///     <see cref="DotNetEmitter.GetVisibleNestedTypes"/>) so that visibility logic is never
+    ///     duplicated. Only meaningful for gradual-disclosure output — single-file mode never
+    ///     consults either result — but is computed unconditionally in <see cref="Parse"/> since
+    ///     the output format is not known until <see cref="IApiEmitter.Emit"/> is called.
+    /// </remarks>
+    /// <param name="emitter">The emitter whose visibility rules govern inclusion.</param>
+    /// <param name="byNamespace">Visible top-level types grouped by namespace name.</param>
+    /// <param name="rootNamespaces">Root namespaces identified during parse.</param>
+    /// <returns>
+    ///     The computed member-to-page index (see <see cref="DotNetAstModel.MemberPageIndex"/>)
+    ///     and emitted-type-id set (see <see cref="DotNetAstModel.EmittedTypeIds"/>).
+    /// </returns>
+    private static (IReadOnlyDictionary<string, string> MemberPageIndex, IReadOnlySet<string> EmittedTypeIds) BuildCrefLinkIndices(
+        DotNetEmitter emitter,
+        IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>> byNamespace,
+        IReadOnlyList<string> rootNamespaces)
+    {
+        var memberPageIndex = new Dictionary<string, string>(StringComparer.Ordinal);
+        var emittedTypeIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var (namespaceName, types) in byNamespace)
+        {
+            var namespaceFolderPath = DotNetEmitter.GetNamespaceFolderPath(namespaceName, rootNamespaces);
+            foreach (var type in types)
+            {
+                CollectTypeCrefLinkIndex(emitter, type, namespaceFolderPath, memberPageIndex, emittedTypeIds);
+            }
+        }
+
+        return (memberPageIndex, emittedTypeIds);
+    }
+
+    /// <summary>
+    ///     Recursively indexes <paramref name="type"/> and all of its visible nested types for
+    ///     <see cref="BuildCrefLinkIndices"/>, mirroring the folder-path recursion
+    ///     <c>DotNetEmitterGradualDisclosure.WriteNestedTypesSection</c> uses when actually writing
+    ///     nested-type pages.
+    /// </summary>
+    /// <param name="emitter">The emitter whose visibility rules govern inclusion.</param>
+    /// <param name="type">The type to index (top-level or nested).</param>
+    /// <param name="namespaceFolderPath">
+    ///     The folder path for <paramref name="type"/>'s own page (its containing namespace's
+    ///     folder for a top-level type, or its containing type's folder for a nested type).
+    /// </param>
+    /// <param name="memberPageIndex">Accumulator for member XML-doc-ID to page-key entries.</param>
+    /// <param name="emittedTypeIds">Accumulator for emitted type XML-doc-ID values.</param>
+    private static void CollectTypeCrefLinkIndex(
+        DotNetEmitter emitter,
+        TypeDefinition type,
+        string namespaceFolderPath,
+        Dictionary<string, string> memberPageIndex,
+        HashSet<string> emittedTypeIds)
+    {
+        emittedTypeIds.Add(DotNetEmitter.BuildTypeId(type));
+
+        foreach (var (memberId, pageKey) in DotNetEmitterGradualDisclosure.BuildMemberPageIndex(
+                     type, namespaceFolderPath, emitter.ShouldIncludeMember))
+        {
+            memberPageIndex[memberId] = pageKey;
+        }
+
+        var nestedFolderPath = $"{namespaceFolderPath}/{DotNetEmitter.FlattenArity(type.Name)}";
+        foreach (var nested in emitter.GetVisibleNestedTypes(type))
+        {
+            CollectTypeCrefLinkIndex(emitter, nested, nestedFolderPath, memberPageIndex, emittedTypeIds);
+        }
     }
 }
 

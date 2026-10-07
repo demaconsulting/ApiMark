@@ -761,6 +761,150 @@ internal sealed class DotNetEmitterGradualDisclosure
     }
 
     // =========================================================================
+    // Member page index (cref cross-reference linking support)
+    // =========================================================================
+
+    /// <summary>
+    ///     Computes, without writing any Markdown, the page key (relative path without the
+    ///     <c>.md</c> extension) that each emitted member of <paramref name="type"/> will be
+    ///     written to, reproducing the same overload-group/operator/case-collision/single-member
+    ///     page-grouping decisions that <see cref="ProcessTypeMembers"/> makes when it actually
+    ///     writes those pages.
+    /// </summary>
+    /// <remarks>
+    ///     Used by <c>DotNetGenerator.Parse</c> to build the global member-to-page index consulted
+    ///     by <see cref="TypeLinkResolver.LinkifyResolvedMember"/> when rendering a <c>&lt;see
+    ///     cref&gt;</c>/<c>&lt;seealso cref&gt;</c> reference to a member. The grouping rules
+    ///     reproduced here (ordering, case-insensitive collision detection, pure-overload-group
+    ///     detection, operator segregation) are intentionally kept parallel to — rather than
+    ///     sourced from a single shared implementation with — <see cref="ProcessTypeMembers"/>,
+    ///     <see cref="ProcessOverloadGroup"/>, and <see cref="ProcessCollisionMember"/>: those
+    ///     methods interleave table-row accumulation and immediate page writing in an order that
+    ///     does not separate cleanly into a reusable "decide groups" step without a much larger,
+    ///     higher-risk rewrite of an already-shipped, fixture-tested code path. Instead, this
+    ///     function's correctness is independently verified by an end-to-end integration test
+    ///     (see <c>DotNetEmitterGradualDisclosureTests</c>) asserting that every page key this
+    ///     function returns matches an actually-written Markdown file for the test fixtures.
+    /// </remarks>
+    /// <param name="type">The type whose member pages to index.</param>
+    /// <param name="namespaceFolderPath">
+    ///     The file-system folder path for the namespace containing <paramref name="type"/> (or,
+    ///     for a nested type, the containing type's own folder — i.e. the same value that would be
+    ///     passed as <c>TypePageWriteContext.NamespaceFolderPath</c> when writing
+    ///     <paramref name="type"/>'s own page).
+    /// </param>
+    /// <param name="isMemberEmitted">
+    ///     Predicate deciding whether a given member will actually be emitted — typically bound to
+    ///     <see cref="DotNetEmitter.ShouldIncludeMember"/> for the active visibility/obsolete
+    ///     settings. Members for which this returns <see langword="false"/> are omitted entirely
+    ///     from the result.
+    /// </param>
+    /// <returns>
+    ///     A map from each emitted member's XML-doc identifier (see
+    ///     <see cref="DotNetEmitter.BuildMemberId"/>) to its page key (a forward-slash-separated
+    ///     relative path, without the <c>.md</c> extension). Empty when <paramref name="type"/> is
+    ///     a delegate (delegates never emit member pages — see <see cref="WriteTypePage"/>) or has
+    ///     no emitted members.
+    /// </returns>
+    internal static IReadOnlyDictionary<string, string> BuildMemberPageIndex(
+        TypeDefinition type,
+        string namespaceFolderPath,
+        Func<IMemberDefinition, bool> isMemberEmitted)
+    {
+        var index = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        // Delegates never reach ProcessTypeMembers/CollectTypePageMembers at all — WriteTypePage
+        // returns immediately after the header sections for a delegate type (see IsDelegate check).
+        if (IsDelegate(type))
+        {
+            return index;
+        }
+
+        var typeFolder = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
+
+        // Mirror CollectTypePageMembers: constructors first, then alphabetically; operators
+        // segregated onto their own shared "operators" page.
+        var allMembers = DotNetEmitter.GetCandidateMembers(type)
+            .Where(isMemberEmitted)
+            .OrderBy(m => m.Name == DotNetEmitter.ConstructorMethodName ? 0 : 1)
+            .ThenBy(m => m.Name)
+            .ToList();
+
+        var operatorMethods = allMembers
+            .OfType<MethodDefinition>()
+            .Where(IsOperator)
+            .ToList();
+        foreach (var op in operatorMethods)
+        {
+            index[BuildMemberId(op)] = $"{typeFolder}/operators";
+        }
+
+        var members = allMembers
+            .Where(m => !(m is MethodDefinition md && IsOperator(md)))
+            .ToList();
+
+        // Mirror ProcessTypeMembers: group by case-insensitive sanitized file name, then decide
+        // single/overload-group/collision handling for each distinct group exactly once.
+        var caseInsensitiveGroups = new Dictionary<string, List<IMemberDefinition>>(StringComparer.Ordinal);
+        foreach (var member in members)
+        {
+            var lowerKey = GetSanitizedMemberFileName(member, type).ToLowerInvariant();
+            if (!caseInsensitiveGroups.TryGetValue(lowerKey, out var list))
+            {
+                list = [];
+                caseInsensitiveGroups[lowerKey] = list;
+            }
+
+            list.Add(member);
+        }
+
+        var processedKeys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var member in members)
+        {
+            var lowerKey = GetSanitizedMemberFileName(member, type).ToLowerInvariant();
+            if (!processedKeys.Add(lowerKey))
+            {
+                continue;
+            }
+
+            var group = caseInsensitiveGroups[lowerKey];
+            if (group.Count == 1)
+            {
+                var sanitizedName = GetSanitizedMemberFileName(group[0], type);
+                index[BuildMemberId(group[0])] = $"{typeFolder}/{sanitizedName}";
+            }
+            else if (IsPureMethodOverloadGroup(group, type))
+            {
+                // Mirror ProcessOverloadGroup's deterministic representative selection — the
+                // representative's sanitized file name is the shared overload-group page name
+                // (matching WriteMethodOverloadPage's use of orderedOverloads[0]).
+                var orderedOverloads = group
+                    .Cast<MethodDefinition>()
+                    .OrderBy(m => m.GenericParameters.Count)
+                    .ThenBy(m => m.Parameters.Count)
+                    .ThenBy(m => string.Join(",", m.Parameters.Select(p => p.ParameterType.FullName)), StringComparer.Ordinal)
+                    .ToList();
+                var overloadFileName = GetSanitizedMemberFileName(orderedOverloads[0], type);
+                var pageKey = $"{typeFolder}/{overloadFileName}";
+                foreach (var overload in orderedOverloads)
+                {
+                    index[BuildMemberId(overload)] = pageKey;
+                }
+            }
+            else
+            {
+                var pageKey = $"{typeFolder}/{lowerKey}";
+                foreach (var collisionMember in group)
+                {
+                    index[BuildMemberId(collisionMember)] = pageKey;
+                }
+            }
+        }
+
+        return index;
+    }
+
+    // =========================================================================
     // Member processing helpers
     // =========================================================================
 

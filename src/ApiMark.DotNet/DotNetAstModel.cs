@@ -129,6 +129,10 @@ internal sealed class DotNetAstModel
         NamespaceDescriptions = args.NamespaceDescriptions;
         Resolver = args.Resolver;
         Options = args.Options;
+
+        // Visibility-agnostic — needs only the assembly, so it can be built eagerly here rather
+        // than deferred to a post-construction step (unlike MemberPageIndex below).
+        CrefTargets = new CrefTargetResolver(args.Assembly);
     }
 
     /// <summary>Gets the assembly definition held open for the duration of emit.</summary>
@@ -160,4 +164,49 @@ internal sealed class DotNetAstModel
 
     /// <summary>Gets the generator configuration options.</summary>
     internal DotNetGeneratorOptions Options { get; }
+
+    /// <summary>
+    ///     Gets the <c>cref</c>-target resolution index for this assembly, used to resolve a raw
+    ///     <c>&lt;see cref&gt;</c>/<c>&lt;seealso cref&gt;</c> value to the type or member it
+    ///     names when that symbol is declared in this assembly.
+    /// </summary>
+    internal CrefTargetResolver CrefTargets { get; }
+
+    /// <summary>
+    ///     Gets the global member-to-page index used by <see cref="TypeLinkResolver.LinkifyResolvedMember"/>
+    ///     to resolve a member <c>cref</c> target to its gradual-disclosure page path. Empty until
+    ///     <see cref="SetMemberPageIndex"/> is called.
+    /// </summary>
+    /// <remarks>
+    ///     Unlike <see cref="CrefTargets"/>, this cannot be computed eagerly in the constructor:
+    ///     it depends on visibility rules that are instance methods on <see cref="DotNetEmitter"/>,
+    ///     which is constructed from this model (and therefore does not yet exist while this
+    ///     constructor runs). <c>DotNetGenerator.Parse</c> instead calls <see cref="SetMemberPageIndex"/>
+    ///     once, immediately after constructing the <see cref="DotNetEmitter"/> that owns this model.
+    /// </remarks>
+    internal IReadOnlyDictionary<string, string> MemberPageIndex { get; private set; } =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>
+    ///     Gets the set of XML-doc type identifiers (see <see cref="DotNetEmitter.BuildTypeId"/>)
+    ///     for every type that will actually be emitted as a page in gradual-disclosure mode
+    ///     (top-level visible types plus all of their visible nested types, transitively). Empty
+    ///     until <see cref="SetMemberPageIndex"/> is called.
+    /// </summary>
+    internal IReadOnlySet<string> EmittedTypeIds { get; private set; } = new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>
+    ///     Sets <see cref="MemberPageIndex"/> and <see cref="EmittedTypeIds"/>. Called exactly
+    ///     once, by <c>DotNetGenerator.Parse</c>, after the owning <see cref="DotNetEmitter"/> has
+    ///     been constructed.
+    /// </summary>
+    /// <param name="memberPageIndex">The computed member-to-page index.</param>
+    /// <param name="emittedTypeIds">The computed set of emitted type identifiers.</param>
+    internal void SetMemberPageIndex(
+        IReadOnlyDictionary<string, string> memberPageIndex,
+        IReadOnlySet<string> emittedTypeIds)
+    {
+        MemberPageIndex = memberPageIndex;
+        EmittedTypeIds = emittedTypeIds;
+    }
 }
