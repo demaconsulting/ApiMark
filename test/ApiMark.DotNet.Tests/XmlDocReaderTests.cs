@@ -78,7 +78,7 @@ public class XmlDocReaderTests
 
             // Assert
             Assert.Equal(
-                "Returns true when status is Active or Pending.",
+                "Returns true when status is SampleStatus.Active or SampleStatus.Pending.",
                 reader.GetSummary("M:Foo.Bar.IsPassed(Foo.SampleStatus)"));
         }
         finally
@@ -1950,6 +1950,382 @@ public class XmlDocReaderTests
             Assert.Contains("- Outer item with nested list: - Inner one. - Inner two.", lines);
             Assert.DoesNotContain("- Inner one.", lines);
             Assert.DoesNotContain("- Inner two.", lines);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummaryMarkdown"/> returns trimmed summary text for a known member with no <c>&lt;list&gt;</c> content, matching <see cref="XmlDocReader.GetSummary"/>'s plain-text behavior.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummaryMarkdown_MemberPresent_ReturnsTrimmedText()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>  A bar class.  </summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+
+            // Assert
+            Assert.Equal("A bar class.", reader.GetSummaryMarkdown("T:Foo.Bar"));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummaryMarkdown"/> returns null for a member not in the XML doc file.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummaryMarkdown_MemberAbsent_ReturnsNull()
+    {
+        // Arrange
+        var path = WriteXmlDoc(string.Empty);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+
+            // Assert
+            Assert.Null(reader.GetSummaryMarkdown("T:Missing.Type"));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummaryMarkdown"/> follows a <c>cref</c> inheritdoc
+    ///     reference and returns the summary from the referenced target member, matching
+    ///     <see cref="XmlDocReader.GetSummary"/>'s inheritdoc-resolution behavior.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummaryMarkdown_InheritDocWithCref_ReturnsSummaryFromTarget()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:MyNamespace.MyClass.MyMethod">
+                <inheritdoc cref="M:MyNamespace.BaseClass.BaseMethod" />
+            </member>
+            <member name="M:MyNamespace.BaseClass.BaseMethod">
+                <summary>Base summary text.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummaryMarkdown("M:MyNamespace.MyClass.MyMethod");
+
+            // Assert
+            Assert.Equal("Base summary text.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummaryMarkdown"/> renders a numbered <c>&lt;list&gt;</c> in a <c>&lt;summary&gt;</c> as real multi-line Markdown, with trailing prose as a separate paragraph.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummaryMarkdown_NumberList_RendersMultiLineOrderedItems()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>
+              Follow these steps:
+              <list type="number">
+                <item><description>Restore.</description></item>
+                <item><description>Build.</description></item>
+              </list>
+              Trailing prose.
+              </summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummaryMarkdown("T:Foo.Bar");
+
+            // Assert: each list item is on its own line, and trailing prose is a separate paragraph
+            Assert.NotNull(summary);
+            var lines = summary.Split('\n');
+            Assert.Contains("1. Restore.", lines);
+            Assert.Contains("1. Build.", lines);
+            Assert.Contains("Trailing prose.", lines);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummary"/> renders a numbered <c>&lt;list&gt;</c> in a <c>&lt;summary&gt;</c> inline as single-line numbered markers, instead of running the items together with no separation.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_NumberList_RendersInlineNumberedMarkers()
+    {
+        // Arrange: identical content to the multi-line test above
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>
+              Follow these steps:
+              <list type="number">
+                <item><description>Restore.</description></item>
+                <item><description>Build.</description></item>
+              </list>
+              Trailing prose.
+              </summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar");
+
+            // Assert: the list collapses to a single line using "(1) ... (2) ..." markers
+            Assert.Equal("Follow these steps: (1) Restore. (2) Build. Trailing prose.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummaryMarkdown"/> renders a bullet <c>&lt;list&gt;</c> in a <c>&lt;summary&gt;</c> as real multi-line Markdown dash items.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummaryMarkdown_BulletList_RendersMultiLineDashItems()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>
+              <list type="bullet">
+                <item><description>First item.</description></item>
+                <item><description>Second item.</description></item>
+              </list>
+              </summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummaryMarkdown("T:Foo.Bar");
+
+            // Assert
+            Assert.NotNull(summary);
+            var lines = summary.Split('\n');
+            Assert.Contains("- First item.", lines);
+            Assert.Contains("- Second item.", lines);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummary"/> renders a bullet <c>&lt;list&gt;</c> in a <c>&lt;summary&gt;</c> inline using the same numbered-marker convention as other list types (bullet lists have no intrinsic single-line ordering, so numbering is still used for separation).</summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_BulletList_RendersInlineNumberedMarkers()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>
+              <list type="bullet">
+                <item><description>First item.</description></item>
+                <item><description>Second item.</description></item>
+              </list>
+              </summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar");
+
+            // Assert
+            Assert.Equal("(1) First item. (2) Second item.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummaryMarkdown"/> renders a table <c>&lt;list&gt;</c> in a <c>&lt;summary&gt;</c> as a real multi-line Markdown table.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummaryMarkdown_TableList_RendersMultiLineTable()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>
+              <list type="table">
+                <listheader><term>Name</term><description>Detail</description></listheader>
+                <item><term>Alpha</term><description>First.</description></item>
+                <item><term>Beta</term><description>Second.</description></item>
+              </list>
+              </summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummaryMarkdown("T:Foo.Bar");
+
+            // Assert
+            Assert.NotNull(summary);
+            var lines = summary.Split('\n');
+            Assert.Contains("| Alpha | First. |", lines);
+            Assert.Contains("| Beta | Second. |", lines);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummary"/> renders a table <c>&lt;list&gt;</c> in a <c>&lt;summary&gt;</c> inline using numbered markers over the term/description pairs, instead of a broken single-line table.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_TableList_RendersInlineNumberedMarkers()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>
+              <list type="table">
+                <listheader><term>Name</term><description>Detail</description></listheader>
+                <item><term>Alpha</term><description>First.</description></item>
+                <item><term>Beta</term><description>Second.</description></item>
+              </list>
+              </summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar");
+
+            // Assert
+            Assert.NotNull(summary);
+            Assert.Contains("(1)", summary, StringComparison.Ordinal);
+            Assert.Contains("(2)", summary, StringComparison.Ordinal);
+            Assert.Contains("Alpha", summary, StringComparison.Ordinal);
+            Assert.Contains("Beta", summary, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummary"/> renders a <c>&lt;see cref="P:..."/&gt;</c> reference to another type's property using the <c>Type.Member</c> form, not the bare member name.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_SeeCrefToProperty_RendersTypeDotMember()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>See <see cref="P:Foo.Widget.Count"/> for details.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar");
+
+            // Assert
+            Assert.Equal("See Widget.Count for details.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummary"/> renders a <c>&lt;see cref="F:..."/&gt;</c> reference to another type's field using the <c>Type.Member</c> form, not the bare member name.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_SeeCrefToField_RendersTypeDotMember()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>See <see cref="F:Foo.Widget.MaxCount"/> for details.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar");
+
+            // Assert
+            Assert.Equal("See Widget.MaxCount for details.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummary"/> renders a <c>&lt;see cref="E:..."/&gt;</c> reference to another type's event using the <c>Type.Member</c> form, not the bare member name.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_SeeCrefToEvent_RendersTypeDotMember()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>See <see cref="E:Foo.Widget.Changed"/> for details.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar");
+
+            // Assert
+            Assert.Equal("See Widget.Changed for details.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <see cref="XmlDocReader.GetSummary"/> continues to render a <c>&lt;see cref="M:..."/&gt;</c> reference using the <c>Type.Member</c> form (unaffected regression guard for the P/F/E fix).</summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_SeeCrefToMethod_StillRendersTypeDotMember()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>See <see cref="M:Foo.Widget.Reset"/> for details.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar");
+
+            // Assert
+            Assert.Equal("See Widget.Reset for details.", summary);
         }
         finally
         {

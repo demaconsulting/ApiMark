@@ -66,6 +66,27 @@ sections:
               - DotNetEmitterSingleFile_Emit_NamespaceWithDoc_EmitsNamespaceRemarks
               - DotNetEmitterSingleFile_Emit_NamespaceWithDoc_EmitsNamespaceExampleCodeBlock
               - DotNetEmitterSingleFile_Emit_TypeWithListRemarks_RendersTableInMarkdown
+          - id: ApiMarkDotNet-DotNetEmitterSingleFile-SuppressPlaceholderWhenRemarksPresent
+            title: DotNetEmitterSingleFile shall render a type's or member's
+              `<summary>` via GetSummaryMarkdown (multi-line list rendering) and
+              suppress the "No description provided." placeholder when a
+              `<summary>` is absent but `<remarks>` content is present, at both
+              the type-section and member-section level.
+            justification: |
+              GetSummary always collapsed a `<summary>` to a single line, which
+              destroyed `<list>` structure in single-file output just as it did in
+              gradual-disclosure output; switching to GetSummaryMarkdown fixes
+              list rendering in both type and member sections. Separately, showing
+              "No description provided." immediately above visible `<remarks>`
+              content read oddly when a member or type had `<remarks>` but no
+              `<summary>` (e.g. a `[GeneratedRegex]` method), so the placeholder is
+              now suppressed whenever remarks are present, mirroring the identical
+              rule already applied in DotNetEmitterGradualDisclosure.
+            tests:
+              - DotNetEmitterSingleFile_Emit_TypeWithListSummary_RendersNumberedListInMarkdown
+              - DotNetEmitterSingleFile_Emit_MemberWithListSummary_RendersNumberedListInMarkdown
+              - DotNetEmitterSingleFile_Emit_TypeWithRemarksOnly_SuppressesPlaceholderAndShowsRemarks
+              - DotNetEmitterSingleFile_Emit_MemberWithRemarksOnly_SuppressesPlaceholderAndShowsRemarks
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-EmitCompactMemberBulletList
             title: DotNetEmitterSingleFile shall emit a compact bullet list of member
               names and summaries before the per-member heading sections within each

@@ -59,7 +59,22 @@ member index.
 
 **GetSummary**: Returns trimmed single-line summary text for `memberId`, or
 `null` if absent. Summary text is normalized to a single line because summaries
-are by convention brief one-liner descriptions. Resolves `<inheritdoc />` first.
+are by convention brief one-liner descriptions, and this method feeds compact
+contexts such as table cells and bullet quick-index lines. Resolves
+`<inheritdoc />` first. When the summary contains a `<list>` element (bullet,
+number, or table), the list is rendered inline using single-line numbered
+markers (`(1) item one (2) item two`) via `AppendInlineMarkerList` rather than
+losing item separation — see "Single-line vs. multi-line list rendering" below.
+
+**GetSummaryMarkdown**: Returns the full multi-line Markdown rendering of the
+`<summary>` element for `memberId`, or `null` if absent. Unlike `GetSummary`,
+this preserves real block structure: a `<list>` element renders as an actual
+multi-line Markdown list/table (blank line before the list, each item on its
+own line, numbered markers for `type="number"`), with any trailing prose after
+`</list>` rendered as its own paragraph — exactly the same multi-line rendering
+already used by `GetRemarks`. Intended for member-detail-page and type-page
+bodies, which have room for full Markdown, as opposed to `GetSummary`'s
+single-line contract for table cells. Resolves `<inheritdoc />` first.
 
 **GetRemarks**: Returns trimmed remarks text for `memberId`, or `null` if
 absent. May contain multiple lines. Resolves `<inheritdoc />` first.
@@ -149,7 +164,38 @@ for a given ID by following `<inheritdoc />` recursively with cycle detection.
 **Whitespace normalization**: `GetDocumentationText` normalizes text by
 collapsing internal whitespace within each line. `GetSingleLineDocumentationText`
 additionally joins all non-empty trimmed lines into a single space-separated
-string. Both normalize line endings to `\n` before processing.
+string. Both normalize line endings to `\n` before processing. Both pass an
+explicit `singleLine` flag down through `AppendNodeText`/`AppendElementText`/
+`AppendListText` so that list rendering (see "Single-line vs. multi-line list
+rendering" below) can tell which of the two contexts it is being called from.
+
+#### Single-line vs. multi-line list rendering
+
+`AppendNodeText`, `AppendElementText`, and `AppendListText` each accept a
+`bool singleLine` parameter that determines how a `<list>` element renders:
+
+- `singleLine: false` (used by `GetDocumentationText`, i.e. `GetRemarks`,
+  `GetExample`/`GetExampleParts`, and the new `GetSummaryMarkdown`) — renders
+  real multi-line Markdown exactly as described in the `<list>` bullet under
+  "Inline Element Rendering" below: a blank line before the list, each item on
+  its own line (dash, numbered, or table-row), and any trailing prose as a
+  separate paragraph.
+- `singleLine: true` (used by `GetSingleLineDocumentationText`, i.e.
+  `GetSummary`) — delegates to `AppendInlineMarkerList`, which renders every
+  list `type` variant (bullet, number, table) uniformly as single-line numbered
+  markers: `(1) item one (2) item two (3) item three`, joined with a single
+  space. None of the three list types can express genuine block structure on
+  one line, so numbering is used consistently across all of them purely to
+  preserve a readable item boundary.
+
+This flag threads through unchanged from the top-level entry point down to
+every recursive call, with one exception: nested inline content inside a
+`<term>`/`<description>` (used by `type="table"` list items, via
+`RenderTermDescription`/`RenderInlineElement`) is always rendered through the
+`singleLine: false` branch and then collapsed with `NormalizeSingleLine`,
+regardless of which context invoked the outer list. This produces the same
+visible single-line result as genuine flag propagation would, but the
+`singleLine` value itself is not passed into that nested call.
 
 #### Inline Element Rendering
 
@@ -209,7 +255,35 @@ display string.
   declaring type name for constructor crefs; appends `()` to method crefs that
   include a parameter list.
 
-**Code block dedentation** (`DedentCode`, private static): Removes common leading
+**FormatMemberReference** (private): Formats a `<see cref>` reference whose
+kind indicates a type member (`M:`, `P:`, `F:`, or `E:`) as `Type.Member` text,
+used by `FormatCref` once the kind-prefix dispatch determines the cref targets
+a member rather than a type.
+
+- *Parameters*: `char kind` — the single-character cref kind prefix (`M`, `P`,
+  `F`, or `E`); `string target` — the qualified type-and-member portion of the
+  cref value; `string parameters` — the method parameter list text (methods
+  only; empty for properties/fields/events).
+- *Algorithm*: Splits `target` into a declaring type name and a member name,
+  formats each individually, and always renders `{formattedTypeName}.{formattedMemberName}`
+  for every one of M/P/F/E — the declaring type name is never omitted. Method
+  crefs additionally append the formatted parameter list.
+- *History*: Prior to this behavior, the declaring type name was included only
+  for `M:` (method) crefs, or when the declaring type happened to be a C#
+  primitive; a `P:`/`F:`/`E:` cref to a non-primitive type rendered as a bare
+  member name with no indication of which type it belonged to — ambiguous
+  whenever multiple types in scope share a member name. The now-removed special
+  case was not an intentional, documented design decision (confirmed via `git
+  blame` and the absence of any test asserting the omitted-type-name behavior
+  by name), so it was corrected to match the already-correct `M:` behavior for
+  all four member kinds.
+- *Scope note*: This fix intentionally stops at rendering the declaring type
+  name as plain text. It does NOT attempt to turn the reference into a link to
+  the member's own page — `XmlDocReader` has no access to `TypeLinkResolver` or
+  any other page-routing context, so making the reference an actual
+  cross-reference link would require an architectural change beyond this
+  method's scope.
+
 indentation from raw `<code>` element content so the result renders flush-left in
 a fenced Markdown code block. The minimum indentation is computed from the leading
 whitespace of every non-blank line (blank lines are excluded from the calculation

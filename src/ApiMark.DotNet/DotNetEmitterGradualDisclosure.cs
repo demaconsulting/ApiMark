@@ -363,11 +363,23 @@ internal sealed class DotNetEmitterGradualDisclosure
 
         var typeMemberId = BuildTypeId(ctx.Type);
 
-        // Always emit a summary paragraph — use the placeholder when no doc is present
-        var typeSummary = ctx.XmlDocs.GetSummary(typeMemberId);
-        typeWriter.WriteParagraph(!string.IsNullOrEmpty(typeSummary) ? typeSummary : DotNetEmitter.NoDescriptionPlaceholder);
-
+        // Fetch remarks first so the placeholder decision below can see whether remarks
+        // content will be shown even when summary is absent (see WriteTypeHeaderSections remarks).
+        var typeSummary = ctx.XmlDocs.GetSummaryMarkdown(typeMemberId);
         var typeRemarks = ctx.XmlDocs.GetRemarks(typeMemberId);
+
+        // Always emit a summary paragraph — use the placeholder only when BOTH summary and
+        // remarks are absent; a remarks-only member already has visible description content
+        // immediately below, so the placeholder would be redundant and misleading noise.
+        if (!string.IsNullOrEmpty(typeSummary))
+        {
+            typeWriter.WriteParagraph(typeSummary);
+        }
+        else if (string.IsNullOrEmpty(typeRemarks))
+        {
+            typeWriter.WriteParagraph(DotNetEmitter.NoDescriptionPlaceholder);
+        }
+
         if (!string.IsNullOrEmpty(typeRemarks))
         {
             typeWriter.WriteParagraph(typeRemarks);
@@ -1005,8 +1017,18 @@ internal sealed class DotNetEmitterGradualDisclosure
         var signature = BuildMemberSignature(member, ctx.NamespaceName);
         writer.WriteSignature(CSharpLanguageId, signature);
 
-        var summary = ctx.XmlDocs.GetSummary(memberId);
-        writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : DotNetEmitter.NoDescriptionPlaceholder);
+        // Fetch remarks first so the placeholder decision below can account for it
+        // (see the remarks on WriteTypeHeaderSections for the placeholder-suppression rationale).
+        var summary = ctx.XmlDocs.GetSummaryMarkdown(memberId);
+        var remarks = ctx.XmlDocs.GetRemarks(memberId);
+        if (!string.IsNullOrEmpty(summary))
+        {
+            writer.WriteParagraph(summary);
+        }
+        else if (string.IsNullOrEmpty(remarks))
+        {
+            writer.WriteParagraph(DotNetEmitter.NoDescriptionPlaceholder);
+        }
 
         var returns = ctx.XmlDocs.GetReturns(memberId);
         if (!string.IsNullOrEmpty(returns))
@@ -1022,7 +1044,6 @@ internal sealed class DotNetEmitterGradualDisclosure
             writer.WriteTable(exHeaders, exRows);
         }
 
-        var remarks = ctx.XmlDocs.GetRemarks(memberId);
         if (!string.IsNullOrEmpty(remarks))
         {
             writer.WriteParagraph(remarks);
@@ -1054,9 +1075,18 @@ internal sealed class DotNetEmitterGradualDisclosure
         var signature = BuildMethodSignature(method, ctx.NamespaceName);
         memberWriter.WriteSignature(CSharpLanguageId, signature);
 
-        // Always emit a summary paragraph — use the placeholder when no doc is present
-        var summary = ctx.XmlDocs.GetSummary(memberId);
-        memberWriter.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : DotNetEmitter.NoDescriptionPlaceholder);
+        // Fetch remarks first so the placeholder decision below can account for it
+        // (see the remarks on WriteTypeHeaderSections for the placeholder-suppression rationale).
+        var summary = ctx.XmlDocs.GetSummaryMarkdown(memberId);
+        var remarks = ctx.XmlDocs.GetRemarks(memberId);
+        if (!string.IsNullOrEmpty(summary))
+        {
+            memberWriter.WriteParagraph(summary);
+        }
+        else if (string.IsNullOrEmpty(remarks))
+        {
+            memberWriter.WriteParagraph(DotNetEmitter.NoDescriptionPlaceholder);
+        }
 
         if (method.HasParameters)
         {
@@ -1087,7 +1117,6 @@ internal sealed class DotNetEmitterGradualDisclosure
             memberWriter.WriteTable(exHeaders, exRows);
         }
 
-        var remarks = ctx.XmlDocs.GetRemarks(memberId);
         if (!string.IsNullOrEmpty(remarks))
         {
             memberWriter.WriteParagraph(remarks);

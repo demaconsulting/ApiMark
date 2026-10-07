@@ -67,7 +67,13 @@ single namespace.
 - *Returns*: `void`
 - *Algorithm*: Creates the type page writer internally via `ctx.Factory.CreateMarkdown`;
   writes an H1 heading with the type's simple name; emits the C# signature
- via `writer.WriteSignature("csharp", ...)`, which produces a fenced C# code block; emits the XML summary and remarks paragraphs; emits structured example blocks via `ctx.XmlDocs.GetExampleParts(typeMemberId)`; groups all
+ via `writer.WriteSignature("csharp", ...)`, which produces a fenced C# code block; fetches the
+  XML summary via `GetSummaryMarkdown` (multi-line rendering) and the remarks text
+  before deciding what to write: when a summary is present it is emitted as a
+  paragraph; otherwise the "No description provided." placeholder is emitted ONLY
+  when remarks are also absent (see "Placeholder Suppression" below) — when remarks
+  alone are present, nothing is written here and the remarks paragraph (emitted next)
+  carries the type's description; emits structured example blocks via `ctx.XmlDocs.GetExampleParts(typeMemberId)`; groups all
   visible members by kind (Constructors, Properties, Fields, Events, Methods,
   Operators, Nested Types) and writes one table row per member (or one representative row
   per method overload group) with a link to the member's dedicated page; calls per-kind page writers for each member or member group.
@@ -80,8 +86,11 @@ for a single method (or one overload) onto the caller-supplied writer.
   XML-doc member ID used for lookup; `MethodDocContext context` — namespace name,
   XML doc reader, resolver, current folder, and external type accumulator.
 - *Returns*: `void`
-- *Algorithm*: Emits the C# method signature via `writer.WriteSignature("csharp", ...)`, which produces a fenced C# code block; writes the XML
-  summary as a paragraph (or the placeholder when absent); if the method has parameters,
+- *Algorithm*: Emits the C# method signature via `writer.WriteSignature("csharp", ...)`, which produces a fenced C# code block; fetches the XML
+  summary via `GetSummaryMarkdown` and the remarks text before deciding what to
+  write: a present summary is written as a paragraph; otherwise the "No
+  description provided." placeholder is written only when remarks are also
+  absent (see "Placeholder Suppression" below); if the method has parameters,
   writes a parameter table with Parameter, Type, and Description columns — type cells are
   resolved via `resolver.Linkify` and external types are accumulated into
   `context.ExternalTypes`; if a returns value is documented, writes a `**Returns:**`
@@ -208,10 +217,29 @@ non-method member (property, field, or event) to the supplied Markdown writer.
   `string memberId`, `MethodDocContext ctx` — provides namespace name, XML docs,
   resolver, current folder, and external type accumulator.
 - *Returns*: `void`
-- *Algorithm*: Emits the C# member signature via `writer.WriteSignature("csharp", ...)`, which produces a fenced C# code block; writes the XML
-  XML summary as a paragraph (or the placeholder when absent); emits returns,
+- *Algorithm*: Emits the C# member signature via `writer.WriteSignature("csharp", ...)`, which produces a fenced C# code block; fetches the XML
+  summary via `GetSummaryMarkdown` and the remarks text before deciding what to
+  write (same placeholder-suppression rule as `WriteMethodDocumentation` — see
+  "Placeholder Suppression" below); emits returns,
   exceptions, remarks, and example sections when present, following the same
   pattern as `WriteMethodDocumentation` for non-method member kinds.
+
+#### Placeholder Suppression
+
+`WriteTypeHeaderSections`, `WriteNonMethodMemberContent`, and
+`WriteMethodDocumentation` each fetch the member's (or type's) remarks text
+*before* deciding whether to emit `DotNetEmitter.NoDescriptionPlaceholder`
+("No description provided."): the placeholder is written only when BOTH the
+summary AND the remarks are absent. When a summary is absent but remarks
+content is present, nothing is written in the summary's place — the remarks
+paragraph, emitted immediately afterward, carries the description instead.
+
+This scoping applies ONLY to member-detail-page and type-page bodies, which
+render both summary and remarks. Table-cell summary fallback (the nested-types
+table, per-kind member-row tables, and overload-group tables on a type page)
+deliberately keeps the unconditional placeholder-on-empty-summary behavior
+unchanged, since table cells never render remarks — the placeholder remains
+the only signal available in that compact context.
 
 ### Path Conventions
 

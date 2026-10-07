@@ -309,4 +309,137 @@ public class TypeLinkResolverTests : IDisposable
         // Assert: nullable string array must render as "string[]?"
         Assert.EndsWith("[]?", result, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    ///     Validates that a nested type used as a field type (<c>NestedTypeConsumerClass.Field</c>,
+    ///     typed as <see cref="OuterClass.Inner"/>) resolves to the nested type's own page under
+    ///     the declaring type's folder, rather than a broken link derived from an empty namespace.
+    /// </summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_NestedTypeAsFieldType_ResolvesToNestedTypePage()
+    {
+        // Arrange
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"], generateLinks: true);
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+        var consumer = _assembly.MainModule.Types.First(t => t.Name == "NestedTypeConsumerClass");
+        var fieldType = consumer.Fields.First(f => f.Name == "Field").FieldType;
+
+        // Act
+        var result = resolver.Linkify(fieldType, "ApiMark.DotNet.Fixtures", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert: the link target must point at OuterClass/Inner.md, not Inner.md
+        Assert.Equal("[Inner](OuterClass/Inner.md)", result);
+    }
+
+    /// <summary>
+    ///     Validates that a nested type used as a method return type
+    ///     (<c>NestedTypeConsumerClass.GetInner()</c>, returning <see cref="OuterClass.Inner"/>)
+    ///     resolves to the nested type's own page.
+    /// </summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_NestedTypeAsReturnType_ResolvesToNestedTypePage()
+    {
+        // Arrange
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"], generateLinks: true);
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+        var consumer = _assembly.MainModule.Types.First(t => t.Name == "NestedTypeConsumerClass");
+        var returnType = consumer.Methods.First(m => m.Name == "GetInner").ReturnType;
+
+        // Act
+        var result = resolver.Linkify(returnType, "ApiMark.DotNet.Fixtures", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert
+        Assert.Equal("[Inner](OuterClass/Inner.md)", result);
+    }
+
+    /// <summary>
+    ///     Validates that a nested type used as a method parameter type
+    ///     (<c>NestedTypeConsumerClass.Process(OuterClass.Inner)</c>) resolves to the nested
+    ///     type's own page.
+    /// </summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_NestedTypeAsParameterType_ResolvesToNestedTypePage()
+    {
+        // Arrange
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"], generateLinks: true);
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+        var consumer = _assembly.MainModule.Types.First(t => t.Name == "NestedTypeConsumerClass");
+        var parameterType = consumer.Methods.First(m => m.Name == "Process").Parameters[0].ParameterType;
+
+        // Act
+        var result = resolver.Linkify(parameterType, "ApiMark.DotNet.Fixtures", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert
+        Assert.Equal("[Inner](OuterClass/Inner.md)", result);
+    }
+
+    /// <summary>
+    ///     Validates that a nested type used as a generic type argument
+    ///     (<c>NestedTypeConsumerClass.GetInnerList()</c>, returning <c>List&lt;OuterClass.Inner&gt;</c>)
+    ///     resolves the generic argument to the nested type's own page.
+    /// </summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_NestedTypeAsGenericArgument_ResolvesToNestedTypePage()
+    {
+        // Arrange
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"], generateLinks: true);
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+        var consumer = _assembly.MainModule.Types.First(t => t.Name == "NestedTypeConsumerClass");
+        var returnType = consumer.Methods.First(m => m.Name == "GetInnerList").ReturnType;
+
+        // Act
+        var result = resolver.Linkify(returnType, "ApiMark.DotNet.Fixtures", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert: the generic argument link must resolve to OuterClass/Inner.md within the List<> notation
+        Assert.Contains("(OuterClass/Inner.md)", result, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that a type nested two levels deep (<see cref="TwoLevelNestedClass.Middle.Inner"/>)
+    ///     resolves to a page path that includes every ancestor folder in order
+    ///     (<c>TwoLevelNestedClass/Middle/Inner</c>).
+    /// </summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_TwoLevelsDeepNestedType_ResolvesFullAncestorPath()
+    {
+        // Arrange
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"], generateLinks: true);
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+        var outer = _assembly.MainModule.Types.First(t => t.Name == "TwoLevelNestedClass");
+        var middle = outer.NestedTypes.First(t => t.Name == "Middle");
+        var inner = middle.NestedTypes.First(t => t.Name == "Inner");
+
+        // Act
+        var result = resolver.Linkify(inner, "ApiMark.DotNet.Fixtures", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert
+        Assert.Equal("[Inner](TwoLevelNestedClass/Middle/Inner.md)", result);
+    }
+
+    /// <summary>
+    ///     Validates that linking to a nested type from within its own parent type's page produces
+    ///     a short relative path (just the nested type's file name), while linking to the same
+    ///     nested type from a completely different type's page produces a path prefixed with the
+    ///     parent type's folder.
+    /// </summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_NestedType_FromParentPageVsOtherPage_ProducesDifferentRelativePaths()
+    {
+        // Arrange
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"], generateLinks: true);
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+        var outer = _assembly.MainModule.Types.First(t => t.Name == "OuterClass");
+        var inner = outer.NestedTypes.First(t => t.Name == "Inner");
+
+        // Act: link from within OuterClass's own page (currentFolder is the OuterClass folder itself,
+        // since nested type pages live one level below their parent's folder context)
+        var fromParentPage = resolver.Linkify(inner, "ApiMark.DotNet.Fixtures/OuterClass", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Act: link from a completely different type's page at the namespace root
+        var fromOtherPage = resolver.Linkify(inner, "ApiMark.DotNet.Fixtures", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert: the parent-page-relative link is shorter and does not repeat the "OuterClass" folder segment
+        Assert.Equal("[Inner](Inner.md)", fromParentPage);
+        Assert.Equal("[Inner](OuterClass/Inner.md)", fromOtherPage);
+    }
 }

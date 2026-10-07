@@ -32,6 +32,10 @@ service or network dependency is needed.
 - When a namespace has a NamespaceDoc XML summary, that summary is emitted as a paragraph below the namespace heading.
 - When a namespace has NamespaceDoc remarks and example parts, they are emitted after the summary (remarks as a paragraph, example code as a fenced code block).
 - A type whose `<remarks>` contains a `<list type="table">` renders the list as a Markdown table in single-file output.
+- A type whose `<summary>` contains a `<list type="number">` renders the list as real multi-line ordered Markdown items in single-file output.
+- A member whose `<summary>` contains a `<list type="number">` renders the list as real multi-line ordered Markdown items in single-file output.
+- A type with no `<summary>` but present `<remarks>` content does not show the "No description provided." placeholder; the remarks content is shown.
+- A member with no `<summary>` but present `<remarks>` content does not show the "No description provided." placeholder; the remarks content is shown.
 - A compact bullet list of member names and summaries is emitted before the per-member heading sections within each type section.
 - Constructor members appear before all other members; remaining members are ordered alphabetically.
 - Delegate types do not emit compiler-generated member sections (Invoke, BeginInvoke, EndInvoke).
@@ -132,3 +136,36 @@ cells in parameter tables contain plain simplified type names without Markdown l
 syntax (`[Name](path.md)`), since relative file links are meaningless inside a
 single document. This scenario is tested by
 `DotNetEmitterSingleFile_Emit_MethodWithParameter_TypeCellIsPlainText`.
+
+**Summary numbered list renders as multi-line Markdown**: Verifies that a type
+whose `<summary>` contains a `<list type="number">` renders the list as real
+multi-line ordered Markdown items — matching the gradual-disclosure behavior —
+confirming the single-file emitter's type sections also switched from the
+single-line `GetSummary` to the multi-line `GetSummaryMarkdown`. This scenario
+is tested by
+`DotNetEmitterSingleFile_Emit_TypeWithListSummary_RendersNumberedListInMarkdown`.
+
+**Member summary numbered list renders as multi-line Markdown**: Verifies the
+same behavior at the member level — a member whose `<summary>` contains a
+`<list type="number">` renders the list as real multi-line ordered Markdown
+items, confirming `WriteSingleFileMemberSection` also switched from the
+single-line `GetSummary` to the multi-line `GetSummaryMarkdown`. This scenario
+is tested by
+`DotNetEmitterSingleFile_Emit_MemberWithListSummary_RendersNumberedListInMarkdown`.
+
+**Type with remarks-only content suppresses the placeholder and shows the
+remarks**: Verifies that a type with a synthetic XML doc giving it only
+`<remarks>` (no `<summary>`) does not show the "No description provided."
+placeholder in its own section of the single-file output, and that its remarks
+content is shown instead — confirming `WriteSingleFileTypeSections` applies the
+same placeholder-suppression rule as the gradual-disclosure emitter's
+member-detail and type-page bodies. This scenario is tested by
+`DotNetEmitterSingleFile_Emit_TypeWithRemarksOnly_SuppressesPlaceholderAndShowsRemarks`.
+
+**Member with remarks-only content suppresses the placeholder and shows the
+remarks**: Verifies the same placeholder-suppression rule at the member level
+— a member with only `<remarks>` (no `<summary>`) does not show the
+"No description provided." placeholder in its own section, and its remarks
+content is shown instead — confirming `WriteSingleFileMemberSection` applies
+the identical rule as `WriteSingleFileTypeSections`. This scenario is tested by
+`DotNetEmitterSingleFile_Emit_MemberWithRemarksOnly_SuppressesPlaceholderAndShowsRemarks`.

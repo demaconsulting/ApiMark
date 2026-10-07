@@ -52,11 +52,13 @@ sections:
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitNestedTypePages
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitOperatorsSummaryDocumentation
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitAssemblyDescription
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-SuppressPlaceholderWhenRemarksPresent
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitAllApiIntoSingleFile
           - ApiMarkDotNet-DotNetEmitterSingleFile-OffsetHeadingsByHeadingDepth
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitAssemblyDescription
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitNamespaceDocSummary
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitNamespaceDocRemarksAndExamples
+          - ApiMarkDotNet-DotNetEmitterSingleFile-SuppressPlaceholderWhenRemarksPresent
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitCompactMemberBulletList
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitMembersConstructorsFirst
           - ApiMarkDotNet-DotNetEmitterSingleFile-SkipMemberListForDelegates
@@ -68,9 +70,13 @@ sections:
           - ApiMarkDotNet-TypeLinkResolver-RenderArrayTypesWithSuffix
           - ApiMarkDotNet-TypeLinkResolver-RenderGenericTypesWithTypeArguments
           - ApiMarkDotNet-TypeLinkResolver-UnwrapNullableValueTypes
+          - ApiMarkDotNet-TypeLinkResolver-ResolveNestedTypesToCorrectPageKey
           - ApiMarkDotNet-XmlDocReader-ProvideMemberDocumentationFromXmlFile
           - ApiMarkDotNet-XmlDocReader-RenderXmlDocLists
           - ApiMarkDotNet-XmlDocReader-InheritDoc
+          - ApiMarkDotNet-XmlDocReader-RenderSummaryListsAsMultiLineMarkdown
+          - ApiMarkDotNet-XmlDocReader-RenderSummaryListsAsInlineMarkersWhenSingleLine
+          - ApiMarkDotNet-XmlDocReader-IncludeTypeNameForPropertyFieldEventCrefs
           - ApiMarkDotNet-ExternalXmlDocResolver-LocateAndCacheReferencedAssemblyDocs
           - ApiMarkDotNet-ExternalXmlDocResolver-RejectNullReferencePaths
           - ApiMarkDotNet-ExternalXmlDocResolver-ProbeHintedAssemblyBeforeFullScan

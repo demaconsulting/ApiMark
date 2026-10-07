@@ -143,11 +143,13 @@ public sealed class XmlDocReader
 
     /// <summary>Returns the trimmed summary text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
     /// <remarks>
-    ///     Summary text is always normalized to a single line because summaries are by convention
-    ///     brief one-liner descriptions. Multi-paragraph content belongs in <c>&lt;remarks&gt;</c>.
-    ///     Use <see cref="GetRemarks"/> to retrieve multi-line content.
-    ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, the summary is
-    ///     resolved from the referenced or inherited base member recursively.
+    ///     Summary text is always normalized to a single line because this accessor feeds compact
+    ///     contexts (table cells and quick-index bullet lines) where real Markdown block structure
+    ///     cannot render. A <c>&lt;list&gt;</c> inside the summary therefore renders as inline
+    ///     numbered markers (e.g. <c>(1) item one (2) item two</c>) rather than a real list — see
+    ///     <see cref="GetSummaryMarkdown"/> for the full multi-line rendering used in member-detail
+    ///     page bodies. When the member carries an <c>&lt;inheritdoc /&gt;</c> element, the summary
+    ///     is resolved from the referenced or inherited base member recursively.
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier (e.g. <c>T:MyNamespace.MyClass</c>).</param>
     /// <returns>Single-line trimmed summary text, or <c>null</c>.</returns>
@@ -161,6 +163,33 @@ public sealed class XmlDocReader
 
         // Use single-line normalization — summaries must fit on one line by convention
         return GetSingleLineDocumentationText(member.Element("summary"));
+    }
+
+    /// <summary>
+    ///     Returns the full multi-line Markdown rendering of the summary for
+    ///     <paramref name="memberId"/>, or <c>null</c> if absent.
+    /// </summary>
+    /// <remarks>
+    ///     Unlike <see cref="GetSummary"/> (always collapsed to a single line for compact
+    ///     contexts), this preserves real multi-line Markdown structure — a <c>&lt;list&gt;</c>
+    ///     renders as a blank-line-separated block with each item on its own line, and any prose
+    ///     following the list renders as a separate paragraph — matching how <see cref="GetRemarks"/>
+    ///     already renders lists. Intended for member-detail-page bodies, where the summary is the
+    ///     primary prose rather than a compact table cell. When the member carries an
+    ///     <c>&lt;inheritdoc /&gt;</c> element, the summary is resolved from the referenced or
+    ///     inherited base member recursively, matching <see cref="GetSummary"/>.
+    /// </remarks>
+    /// <param name="memberId">The XML doc member identifier (e.g. <c>T:MyNamespace.MyClass</c>).</param>
+    /// <returns>Multi-line Markdown summary text, or <c>null</c>.</returns>
+    public string? GetSummaryMarkdown(string memberId)
+    {
+        var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
+        if (member == null)
+        {
+            return null;
+        }
+
+        return GetDocumentationText(member.Element("summary"));
     }
 
     /// <summary>Returns the trimmed remarks text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
@@ -604,7 +633,7 @@ public sealed class XmlDocReader
         }
 
         var builder = new StringBuilder();
-        AppendNodeText(builder, element.Nodes());
+        AppendNodeText(builder, element.Nodes(), singleLine: false);
         var text = NormalizeDocumentationText(builder.ToString());
         return text.Length == 0 ? null : text;
     }
@@ -623,7 +652,7 @@ public sealed class XmlDocReader
         }
 
         var builder = new StringBuilder();
-        AppendNodeText(builder, element.Nodes());
+        AppendNodeText(builder, element.Nodes(), singleLine: true);
         var text = NormalizeSingleLine(builder.ToString());
         return text.Length == 0 ? null : text;
     }
@@ -635,7 +664,13 @@ public sealed class XmlDocReader
     /// </summary>
     /// <param name="builder">The string builder that accumulates the output text.</param>
     /// <param name="nodes">The sequence of XML nodes to process.</param>
-    private static void AppendNodeText(StringBuilder builder, IEnumerable<XNode> nodes)
+    /// <param name="singleLine">
+    ///     When <see langword="true"/>, block-level content such as <c>&lt;list&gt;</c> renders as
+    ///     inline numbered markers suitable for a single-line summary/table-cell context instead
+    ///     of real multi-line Markdown. Defaults to <see langword="false"/> so existing callers
+    ///     (remarks, examples, nested list items) keep their current multi-line rendering.
+    /// </param>
+    private static void AppendNodeText(StringBuilder builder, IEnumerable<XNode> nodes, bool singleLine = false)
     {
         foreach (var node in nodes)
         {
@@ -645,7 +680,7 @@ public sealed class XmlDocReader
                     builder.Append(text.Value);
                     break;
                 case XElement element:
-                    AppendElementText(builder, element);
+                    AppendElementText(builder, element, singleLine);
                     break;
             }
         }
@@ -658,7 +693,8 @@ public sealed class XmlDocReader
     /// </summary>
     /// <param name="builder">The string builder that accumulates the output text.</param>
     /// <param name="node">The single XML node to process.</param>
-    private static void AppendNodeText(StringBuilder builder, XNode node)
+    /// <param name="singleLine">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool)"/>.</param>
+    private static void AppendNodeText(StringBuilder builder, XNode node, bool singleLine = false)
     {
         switch (node)
         {
@@ -666,7 +702,7 @@ public sealed class XmlDocReader
                 builder.Append(text.Value);
                 break;
             case XElement element:
-                AppendElementText(builder, element);
+                AppendElementText(builder, element, singleLine);
                 break;
         }
     }
@@ -678,7 +714,8 @@ public sealed class XmlDocReader
     /// </summary>
     /// <param name="builder">The string builder that accumulates the output text.</param>
     /// <param name="element">The XML element to render.</param>
-    private static void AppendElementText(StringBuilder builder, XElement element)
+    /// <param name="singleLine">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool)"/>.</param>
+    private static void AppendElementText(StringBuilder builder, XElement element, bool singleLine = false)
     {
         switch (element.Name.LocalName)
         {
@@ -691,7 +728,7 @@ public sealed class XmlDocReader
                 builder.Append(element.Attribute("name")?.Value ?? string.Empty);
                 break;
             case "para":
-                AppendNodeText(builder, element.Nodes());
+                AppendNodeText(builder, element.Nodes(), singleLine);
                 builder.AppendLine();
                 break;
             case "c":
@@ -708,10 +745,10 @@ public sealed class XmlDocReader
 
                 break;
             case "list":
-                AppendListText(builder, element);
+                AppendListText(builder, element, singleLine);
                 break;
             default:
-                AppendNodeText(builder, element.Nodes());
+                AppendNodeText(builder, element.Nodes(), singleLine);
                 break;
         }
     }
@@ -722,18 +759,34 @@ public sealed class XmlDocReader
     ///     (<c>bullet</c>, <c>number</c>, or <c>table</c>; defaulting to <c>bullet</c>).
     /// </summary>
     /// <remarks>
-    ///     The rendered block is wrapped in blank lines so that, after
+    ///     In multi-line mode (<paramref name="singleLine"/> is <see langword="false"/>) the
+    ///     rendered block is wrapped in blank lines so that, after
     ///     <see cref="NormalizeDocumentationText"/> trims the string boundaries and
     ///     <c>FileMarkdownWriter.WriteParagraph</c> writes it verbatim, the list is
     ///     separated from surrounding prose and renders as valid CommonMark. Nested
     ///     inline elements inside <c>&lt;term&gt;</c>/<c>&lt;description&gt;</c>/<c>&lt;item&gt;</c>
     ///     (such as <c>&lt;c&gt;</c>, <c>&lt;see&gt;</c>, and <c>&lt;paramref&gt;</c>) are rendered
-    ///     via the existing <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode})"/> dispatch.
+    ///     via the existing <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool)"/> dispatch.
+    ///     In single-line mode (used for table cells and <see cref="GetSummary"/>), a real
+    ///     multi-line list would be collapsed into unreadable run-together text by
+    ///     <see cref="NormalizeSingleLine"/>, so the list instead renders inline as numbered
+    ///     markers — e.g. <c>(1) item one (2) item two</c> — for every list <c>type</c>
+    ///     (<c>bullet</c>, <c>number</c>, and <c>table</c> alike).
     /// </remarks>
     /// <param name="builder">The string builder that accumulates the output text.</param>
     /// <param name="element">The <c>&lt;list&gt;</c> element to render.</param>
-    private static void AppendListText(StringBuilder builder, XElement element)
+    /// <param name="singleLine">
+    ///     When <see langword="true"/>, renders the list as inline numbered markers instead of a
+    ///     real multi-line Markdown block.
+    /// </param>
+    private static void AppendListText(StringBuilder builder, XElement element, bool singleLine)
     {
+        if (singleLine)
+        {
+            AppendInlineMarkerList(builder, element);
+            return;
+        }
+
         var listType = element.Attribute("type")?.Value;
 
         // Separate the list block from any preceding prose so Markdown treats it as a
@@ -756,6 +809,52 @@ public sealed class XmlDocReader
 
         // Separate the list block from any following prose
         builder.Append("\n\n");
+    }
+
+    /// <summary>
+    ///     Appends an inline, single-line rendering of a <c>&lt;list&gt;</c> element's
+    ///     <c>&lt;item&gt;</c> children to <paramref name="builder"/> as numbered markers, e.g.
+    ///     <c>(1) item one (2) item two</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Used wherever a real multi-line Markdown list cannot be rendered — table cells and the
+    ///     single-line <see cref="GetSummary"/> path — because the surrounding normalizer collapses
+    ///     newlines into spaces, which would otherwise run every item together with no separation.
+    ///     Applied uniformly regardless of the list's <c>type</c> attribute (<c>bullet</c>,
+    ///     <c>number</c>, or <c>table</c>) since none of them can express real block structure
+    ///     inline; term/description items reuse <see cref="RenderTermDescription"/> and
+    ///     <see cref="FormatTermDescription"/> so inline content (<c>&lt;c&gt;</c>, <c>&lt;see&gt;</c>,
+    ///     <c>&lt;paramref&gt;</c>) and term/description pairing render identically to the
+    ///     multi-line path.
+    /// </remarks>
+    /// <param name="builder">The string builder that accumulates the output text.</param>
+    /// <param name="element">The <c>&lt;list&gt;</c> element whose items to render.</param>
+    private static void AppendInlineMarkerList(StringBuilder builder, XElement element)
+    {
+        var itemTexts = element.Elements("item")
+            .Select(item => FormatTermDescription(RenderTermDescription(item)))
+            .Where(text => text.Length > 0)
+            .ToList();
+
+        if (itemTexts.Count == 0)
+        {
+            return;
+        }
+
+        // Surround with spaces so the inline list does not collide with adjacent prose once
+        // the single-line normalizer collapses newlines
+        builder.Append(' ');
+        for (var i = 0; i < itemTexts.Count; i++)
+        {
+            if (i > 0)
+            {
+                builder.Append(' ');
+            }
+
+            builder.Append('(').Append(i + 1).Append(") ").Append(itemTexts[i]);
+        }
+
+        builder.Append(' ');
     }
 
     /// <summary>
@@ -897,7 +996,7 @@ public sealed class XmlDocReader
 
     /// <summary>
     ///     Renders the inline content of <paramref name="element"/> to a single line via the
-    ///     shared <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode})"/> dispatch, so
+    ///     shared <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool)"/> dispatch, so
     ///     nested inline elements such as <c>&lt;c&gt;</c>, <c>&lt;see&gt;</c>, and
     ///     <c>&lt;paramref&gt;</c> render correctly inside list items.
     /// </summary>
@@ -1047,12 +1146,12 @@ public sealed class XmlDocReader
             return FormatTypeName(typeName);
         }
 
+        // The declaring type name is always included for M/P/F/E member references — a bare
+        // member name (e.g. "Go" instead of "Bar.Go") is ambiguous to a reader who does not
+        // already know which type declares the referenced member.
         var formattedTypeName = FormatTypeName(typeName);
         var formattedMemberName = StripArity(memberName);
-        var shouldIncludeTypeName = kind == 'M' || IsPrimitiveTypeName(typeName);
-        var memberDisplay = shouldIncludeTypeName
-            ? $"{formattedTypeName}.{formattedMemberName}"
-            : formattedMemberName;
+        var memberDisplay = $"{formattedTypeName}.{formattedMemberName}";
 
         return kind == 'M' && parameters.Length > 0
             ? $"{memberDisplay}()"
@@ -1088,16 +1187,6 @@ public sealed class XmlDocReader
             _ => FormatTypeArity(typeName[(typeName.LastIndexOf('.') + 1)..]),
         };
     }
-
-    /// <summary>Returns <see langword="true"/> when <paramref name="typeName"/> is a <c>System.*</c> type name.</summary>
-    /// <remarks>
-    ///     Used to decide whether to include the declaring type name in a formatted member reference.
-    ///     Any <c>System.*</c> type qualifies, not only the language primitives mapped by
-    ///     <see cref="FormatTypeName"/>.
-    /// </remarks>
-    /// <param name="typeName">Fully-qualified type name to classify.</param>
-    /// <returns><see langword="true"/> when the name starts with <c>System.</c>; <see langword="false"/> otherwise.</returns>
-    private static bool IsPrimitiveTypeName(string typeName) => typeName.StartsWith("System.", StringComparison.Ordinal);
 
     /// <summary>
     ///     Removes the generic arity backtick suffix from a member name, e.g. converting

@@ -192,6 +192,32 @@ public class DotNetEmitterGradualDisclosureTests
                  p.Contains("1. Run the tests.", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    ///     Validates that a type's <c>&lt;summary&gt;</c> numbered list is rendered as real
+    ///     multi-line ordered Markdown items on the type page body (Issue 2: previously the
+    ///     summary was always collapsed to a single line, destroying list structure).
+    /// </summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_TypeWithListSummary_RendersNumberedListInMarkdown()
+    {
+        // Arrange: SummaryNumberListDocClass declares a <list type="number"> in its <summary>
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the type page body renders the summary's list as real ordered Markdown items,
+        // with the trailing prose rendered as its own paragraph
+        var typeWriter = factory.Writers["ApiMark.DotNet.Fixtures/SummaryNumberListDocClass"];
+        var paragraphs = typeWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Contains("1. First summary numbered item.", StringComparison.Ordinal) &&
+                 p.Contains("1. Third summary numbered item.", StringComparison.Ordinal));
+        Assert.Contains(paragraphs, p => p.Contains("Trailing summary prose after the list.", StringComparison.Ordinal));
+    }
+
     /// <summary>Validates that the gradual-disclosure emitter creates a type page for SampleClass.</summary>
     [Fact]
     public void DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesTypePage()
@@ -338,5 +364,92 @@ public class DotNetEmitterGradualDisclosureTests
             factory.Writers.Keys.Any(k => k.Contains("Inner", StringComparison.Ordinal) &&
                                           !k.Contains("OuterClass", StringComparison.Ordinal)),
             "Expected a dedicated page for the ApiMark.DotNet.Fixtures.Inner child namespace");
+    }
+
+    /// <summary>
+    ///     Writes a minimal XML doc file containing <paramref name="membersXml"/> and returns the
+    ///     path so the caller can clean it up after use.
+    /// </summary>
+    /// <param name="membersXml">Raw XML to embed inside the &lt;members&gt; element.</param>
+    /// <returns>Path to the temporary XML documentation file.</returns>
+    private static string WriteXmlDoc(string membersXml)
+    {
+        var path = Path.GetTempFileName();
+        var xml = $"""
+            <?xml version="1.0"?>
+            <doc>
+              <assembly><name>TestAssembly</name></assembly>
+              <members>
+                {membersXml}
+              </members>
+            </doc>
+            """;
+        File.WriteAllText(path, xml);
+        return path;
+    }
+
+    /// <summary>
+    ///     Validates that a member with no <c>&lt;summary&gt;</c> but with <c>&lt;remarks&gt;</c>
+    ///     content does NOT show the "No description provided." placeholder on its detail page,
+    ///     and that the remarks content is still shown. The compiled fixture XML doc for
+    ///     <c>GeneratedRegexClass.DigitsRegex</c> naturally has only &lt;remarks&gt; (the regex
+    ///     source generator replaces the hand-written &lt;summary&gt; at compile time).
+    /// </summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_MemberWithRemarksOnly_SuppressesPlaceholderAndShowsRemarks()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: DigitsRegex's detail page shows its remarks text and not the placeholder
+        var memberKey = factory.Writers.Keys.Single(k =>
+            k.Contains("GeneratedRegexClass", StringComparison.Ordinal) &&
+            k.Contains("DigitsRegex", StringComparison.Ordinal));
+        var memberWriter = factory.Writers[memberKey];
+        var paragraphs = memberWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("Pattern:", StringComparison.Ordinal));
+        Assert.DoesNotContain(paragraphs, p => p.Contains("No description provided", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Regression guard: validates that a member with NEITHER <c>&lt;summary&gt;</c> nor
+    ///     <c>&lt;remarks&gt;</c> still shows the "No description provided." placeholder on its
+    ///     detail page.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_MemberWithNeitherSummaryNorRemarks_StillShowsPlaceholder()
+    {
+        // Arrange: a synthetic XML doc with no entry at all for GeneratedRegexClass.DigitsRegex
+        var docPath = WriteXmlDoc("""
+            <member name="T:ApiMark.DotNet.Fixtures.GeneratedRegexClass">
+              <summary>A class.</summary>
+            </member>
+            """);
+        try
+        {
+            var options = BuildOptions();
+            options.XmlDocPath = docPath;
+            var factory = new InMemoryMarkdownWriterFactory();
+            var emitter = (DotNetEmitter)new DotNetGenerator(options).Parse(new InMemoryContext());
+
+            // Act
+            new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+            // Assert: DigitsRegex's detail page still shows the placeholder (regression guard)
+            var memberKey = factory.Writers.Keys.Single(k =>
+                k.Contains("GeneratedRegexClass", StringComparison.Ordinal) &&
+                k.Contains("DigitsRegex", StringComparison.Ordinal));
+            var memberWriter = factory.Writers[memberKey];
+            var paragraphs = memberWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+            Assert.Contains(paragraphs, p => p.Contains("No description provided", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
     }
 }

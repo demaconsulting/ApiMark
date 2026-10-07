@@ -311,13 +311,37 @@ internal sealed class TypeLinkResolver
     /// <summary>
     ///     Computes the documentation page key (relative path without extension) for a type.
     /// </summary>
+    /// <remarks>
+    ///     Mono.Cecil gives nested types an EMPTY <see cref="TypeReference.Namespace"/> — the
+    ///     namespace belongs only to the outermost non-nested ancestor. Using <c>typeRef.Namespace</c>
+    ///     directly therefore produced broken links for any nested type. This walks
+    ///     <see cref="TypeReference.DeclaringType"/> up to that outermost ancestor to derive the
+    ///     namespace folder, then appends every declaring-type name from outermost to innermost
+    ///     (each flattened via <see cref="TypeNameSimplifier.FlattenArity"/>), mirroring exactly how
+    ///     <c>DotNetEmitterGradualDisclosure.WriteNestedTypesSection</c> builds each nested type's
+    ///     page path (<c>{NamespaceFolderPath}/{ParentTypeName}/{NestedTypeName}</c>, recursively for
+    ///     arbitrary nesting depth).
+    /// </remarks>
     /// <param name="typeRef">The type whose page key to compute.</param>
-    /// <returns>A forward-slash-separated page key such as <c>MyLib/MyType</c>.</returns>
+    /// <returns>A forward-slash-separated page key such as <c>MyLib/MyType</c> or <c>MyLib/Outer/Inner</c>.</returns>
     private string GetTypePageKey(TypeReference typeRef)
     {
-        var folder = DotNetEmitter.GetNamespaceFolderPath(typeRef.Namespace, _rootNamespaces);
-        var name = TypeNameSimplifier.FlattenArity(typeRef.Name);
-        return folder.Length > 0 ? $"{folder}/{name}" : name;
+        // Walk the declaring-type chain, collecting ancestors from outermost to innermost
+        // (including typeRef itself as the last entry).
+        var chain = new List<TypeReference>();
+        for (var current = typeRef; current != null; current = current.DeclaringType)
+        {
+            chain.Insert(0, current);
+        }
+
+        // The namespace folder is derived from the outermost ancestor — the only member of the
+        // chain that carries a non-empty Namespace.
+        var outermost = chain[0];
+        var folder = DotNetEmitter.GetNamespaceFolderPath(outermost.Namespace, _rootNamespaces);
+
+        // Append each declaring-type name outermost-to-innermost, flattened for file-system safety.
+        var path = string.Join('/', chain.Select(t => TypeNameSimplifier.FlattenArity(t.Name)));
+        return folder.Length > 0 ? $"{folder}/{path}" : path;
     }
 
     /// <summary>

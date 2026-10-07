@@ -223,11 +223,20 @@ internal sealed class DotNetEmitterSingleFile
 
         var typeMemberId = BuildTypeId(type);
 
-        // Always emit a summary paragraph — use the placeholder when no doc is present
-        var typeSummary = _model.XmlDocs.GetSummary(typeMemberId);
-        writer.WriteParagraph(!string.IsNullOrEmpty(typeSummary) ? typeSummary : DotNetEmitter.NoDescriptionPlaceholder);
-
+        // Fetch remarks first so the placeholder decision below can account for it —
+        // only show the placeholder when BOTH summary and remarks are absent, since a
+        // remarks-only type already has visible description content immediately below.
+        var typeSummary = _model.XmlDocs.GetSummaryMarkdown(typeMemberId);
         var typeRemarks = _model.XmlDocs.GetRemarks(typeMemberId);
+        if (!string.IsNullOrEmpty(typeSummary))
+        {
+            writer.WriteParagraph(typeSummary);
+        }
+        else if (string.IsNullOrEmpty(typeRemarks))
+        {
+            writer.WriteParagraph(DotNetEmitter.NoDescriptionPlaceholder);
+        }
+
         if (!string.IsNullOrEmpty(typeRemarks))
         {
             writer.WriteParagraph(typeRemarks);
@@ -299,9 +308,26 @@ internal sealed class DotNetEmitterSingleFile
         var signature = BuildMemberSignature(member, context.NamespaceName);
         context.Writer.WriteSignature(CSharpLanguageId, signature);
 
-        // Always emit a summary paragraph — use the placeholder when no doc is present
-        var summary = context.XmlDocs.GetSummary(memberId);
-        context.Writer.WriteParagraph(!string.IsNullOrEmpty(summary) ? summary : DotNetEmitter.NoDescriptionPlaceholder);
+        // Fetch remarks first so the placeholder decision below can account for it —
+        // only show the placeholder when BOTH summary and remarks are absent, since a
+        // remarks-only member already has visible description content immediately below.
+        // Uses the multi-line rendering because this is a member-detail-page body, not a
+        // table cell — list content renders as a real Markdown list rather than inline markers.
+        var summary = context.XmlDocs.GetSummaryMarkdown(memberId);
+        var remarks = context.XmlDocs.GetRemarks(memberId);
+        if (!string.IsNullOrEmpty(summary))
+        {
+            context.Writer.WriteParagraph(summary);
+        }
+        else if (string.IsNullOrEmpty(remarks))
+        {
+            context.Writer.WriteParagraph(DotNetEmitter.NoDescriptionPlaceholder);
+        }
+
+        if (!string.IsNullOrEmpty(remarks))
+        {
+            context.Writer.WriteParagraph(remarks);
+        }
 
         // Emit parameter table for methods with parameters
         if (member is MethodDefinition method && method.HasParameters)
