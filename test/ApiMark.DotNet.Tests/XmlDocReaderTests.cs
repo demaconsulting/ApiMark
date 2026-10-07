@@ -1685,7 +1685,9 @@ public class XmlDocReaderTests
     /// <summary>
     ///     Validates that <see cref="XmlDocReader.GetSummary"/> renders a generic type cref
     ///     (e.g. <c>T:System.Collections.Generic.List`1</c>) using angle-bracket type-parameter
-    ///     placeholders rather than stripping the arity entirely.
+    ///     placeholders rather than stripping the arity entirely, and wraps the result in an inline
+    ///     code span using the raw, unescaped brackets (a code span's content is literal, so escaped
+    ///     backslashes would display as stray visible characters).
     /// </summary>
     [Fact]
     public void XmlDocReader_GetSummary_WithSeeGenericTypeCref_FormatsWithTypeParameters()
@@ -1702,9 +1704,8 @@ public class XmlDocReaderTests
             var reader = new XmlDocReader(path);
             var summary = reader.GetSummary("M:Foo.Bar.UseList");
 
-            // Assert: arity marker is rendered as escaped angle-bracket notation for Markdown prose,
-            // with no surrounding backtick code span (type-only crefs must remain unwrapped)
-            Assert.Equal(@"Returns a List\<T\>.", summary);
+            // Assert: arity marker renders as raw angle brackets inside a backtick code span
+            Assert.Equal("Returns a `List<T>`.", summary);
         }
         finally
         {
@@ -2477,6 +2478,35 @@ public class XmlDocReaderTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> wraps a type-only (<c>T:</c>) cref
+    ///     with no explicit display text in an inline code span, the same as a member cref, so a
+    ///     reference to a type reads as code rather than as plain, indistinguishable prose.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_SeeCrefToTypeOnly_RendersAsInlineCodeSpan()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>Validated by <see cref="T:Foo.ArgumentValidator"/>.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar");
+
+            // Assert
+            Assert.Equal("Validated by `ArgumentValidator`.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
     ///     Validates that <see cref="XmlDocReader.GetSummary"/> renders a constructor cref
     ///     (<c>M:Type.#ctor</c>) as the bare type name with no inline code-span wrapping,
     ///     distinguishing it from a non-constructor member cref.
@@ -2537,13 +2567,14 @@ public class XmlDocReaderTests
     }
 
     /// <summary>
-    ///     Validates that <see cref="XmlDocReader.GetSummary"/> still escapes angle brackets for a
-    ///     type-only (<c>T:</c>) cref referring to a generic type, since that result is rendered as
-    ///     bare prose (never wrapped in a code span) and an unescaped <c>&lt;T&gt;</c> would be
-    ///     parsed as an HTML tag by Markdown renderers.
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> wraps a type-only (<c>T:</c>) cref
+    ///     referring to a generic type in an inline code span using the raw, unescaped angle
+    ///     brackets (e.g. <c>`List&lt;T&gt;`</c>), matching how a member cref on a generic type is
+    ///     rendered — a code span's content is literal, so the escaped prose form would display as
+    ///     stray backslashes.
     /// </summary>
     [Fact]
-    public void XmlDocReader_GetSummary_SeeCrefToGenericTypeOnly_StillEscapesAngleBracketsInProse()
+    public void XmlDocReader_GetSummary_SeeCrefToGenericTypeOnly_RendersUnescapedAngleBracketsInCodeSpan()
     {
         // Arrange
         var path = WriteXmlDoc("""
@@ -2557,8 +2588,8 @@ public class XmlDocReaderTests
             var reader = new XmlDocReader(path);
             var summary = reader.GetSummary("T:Foo.Bar");
 
-            // Assert: escaped prose form, unwrapped (no backticks)
-            Assert.Equal("See List\\<T\\> for details.", summary);
+            // Assert: raw "<T>" inside a backtick code span
+            Assert.Equal("See `List<T>` for details.", summary);
         }
         finally
         {
