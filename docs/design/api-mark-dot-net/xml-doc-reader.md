@@ -380,7 +380,7 @@ according to the following element-to-text mappings:
     table or list well-formed (a documented limitation).
 
 **FormatCref** (private static): Converts a raw `cref` attribute value to a concise
-display string, returning a `(string Text, bool IsMemberReference)` tuple.
+display string, returning a `(string Text, bool ShouldWrapInCodeSpan)` tuple.
 
 - *Algorithm*: Strips the type-kind prefix (`T:`, `M:`, `P:`, `F:`, `E:`); strips
   the namespace path from the remaining qualified name to leave just the type and
@@ -389,10 +389,12 @@ display string, returning a `(string Text, bool IsMemberReference)` tuple.
   `List<T>`,`Dictionary\`2` → `Dictionary<T1, T2>`); replaces`#ctor` with the
   declaring type name for constructor crefs; appends `()` to method crefs that
   include a parameter list.
-- *Return contract*: `IsMemberReference` is `true` only when the kind-prefix
-  dispatch delegates to `FormatMemberReference` and that call itself returns
-  `true` (i.e. the cref is `M:`/`P:`/`F:`/`E:` and is not a constructor); it is
-  `false` for `T:` crefs and any other/unrecognized prefix. This single
+- *Return contract*: `ShouldWrapInCodeSpan` is `false` only for a constructor
+  cref (the kind-prefix dispatch delegates to `FormatMemberReference`, which
+  returns `false` for its `#ctor` branch) or any other/unrecognized prefix.
+  It is `true` for `T:` crefs (the result is forwarded as-is from
+  `FormatTypeName`) and for `M:`/`P:`/`F:`/`E:` crefs that are not
+  constructors. This single
   boolean is the sole source of truth `GetInlineReferenceText` uses to decide
   whether to wrap the returned text in an inline code span (see "Member-cref
   inline code span wrapping" below) — no cref-kind parsing is duplicated at
@@ -401,7 +403,7 @@ display string, returning a `(string Text, bool IsMemberReference)` tuple.
 **FormatMemberReference** (private): Formats a `<see cref>` reference whose
 kind indicates a type member (`M:`, `P:`, `F:`, or `E:`) as `Type.Member` text,
 used by `FormatCref` once the kind-prefix dispatch determines the cref targets
-a member rather than a type. Returns a `(string Text, bool IsMemberReference)`
+a member rather than a type. Returns a `(string Text, bool ShouldWrapInCodeSpan)`
 tuple.
 
 - *Parameters*: `char kind` — the single-character cref kind prefix (`M`, `P`,
@@ -412,7 +414,7 @@ tuple.
   formats each individually, and always renders `{formattedTypeName}.{formattedMemberName}`
   for every one of M/P/F/E — the declaring type name is never omitted. Method
   crefs additionally append the formatted parameter list.
-- *Return contract*: `IsMemberReference` is `false` only for the `kind == 'M'`
+- *Return contract*: `ShouldWrapInCodeSpan` is `false` only for the `kind == 'M'`
   constructor (`#ctor`) branch, which returns the bare type name instead of a
   `Type.Member` form; every other M/P/F/E branch (including the no-dot
   fallback, which returns the raw target unchanged) returns `true`.
@@ -432,26 +434,25 @@ tuple.
   cross-reference link would require an architectural change beyond this
   method's scope.
 
-#### Member-cref inline code span wrapping
+#### Member and type-only cref inline code span wrapping
 
 `GetInlineReferenceText` wraps a `<see>`/`<seealso>` reference's display text
 in an inline Markdown code span (via `FormatAsInlineCodeSpan`/
 `AppendMarkdownCodeSpan`) when that text was derived from a `cref` attribute
-and `FormatCref` reports `IsMemberReference: true` for it — i.e. the cref
-targets a property, field, event, or non-constructor method. This makes a
-member reference read visually distinct from surrounding prose, matching how
-`<c>` content is already rendered, and was driven by a real-world consumer
-report where `Type.Member` text rendered indistinguishably from plain prose.
+and `FormatCref` reports `ShouldWrapInCodeSpan: true` for it — i.e. the cref
+targets a type, or a property, field, event, or non-constructor method. This
+makes a type or member reference read visually distinct from surrounding
+prose, matching how `<c>` content is already rendered, and was driven by
+real-world consumer reports where `Type.Member` text, and then a bare type
+name, rendered indistinguishably from plain prose.
 The following are deliberately left unwrapped:
 
 - A `langword` attribute value (e.g. `null`, `true`, `false`) — not a
   reference to a declared symbol at all.
 - Explicit inner element text (the element supplies its own display text,
   which this method always prefers verbatim over any `cref` formatting).
-- A type-only (`T:`) cref — `FormatCref` reports `IsMemberReference: false`.
 - A constructor cref (`M:...#ctor`) — `FormatMemberReference` collapses it to
-  the bare type name and reports `IsMemberReference: false`, matching how a
-  type-only cref is treated.
+  the bare type name and reports `ShouldWrapInCodeSpan: false`.
 
 #### Generic cref escaping inside a code span
 
@@ -469,17 +470,18 @@ appear as a stray visible character in the output (rendering as
 `List\<T\>.Add()` instead of the intended `List<T>.Add()`).
 
 - `GetInlineReferenceText` passes `forCodeSpan: true` into `FormatCref`,
-  since a member-cref's result is always subsequently wrapped in a code span
-  (see "Member-cref inline code span wrapping" above) when
-  `IsMemberReference` is `true`.
+  since a type or member cref's result is always subsequently wrapped in a
+  code span (see "Member and type-only cref inline code span wrapping" above)
+  when `ShouldWrapInCodeSpan` is `true`.
 - Each layer of the call chain makes its own locally-correct decision about
   whether `forCodeSpan` actually applies to the branch it is in, rather than
   blindly forwarding the caller's request:
-  - `FormatCref`'s type-only (`T:`) branch always hardcodes `forCodeSpan:
-    false`, because a type-only cref's result is never wrapped in a code span
-    regardless of what the caller requested.
+  - `FormatCref`'s type-only (`T:`) branch forwards the caller's
+    `forCodeSpan` value unchanged into `FormatTypeName`, because a type-only
+    cref's result is now always wrapped in a code span by
+    `GetInlineReferenceText`.
   - `FormatMemberReference`'s constructor (`#ctor`) branch always hardcodes
-    `forCodeSpan: false` for the same reason — a constructor cref collapses
+    `forCodeSpan: false`, because a constructor cref collapses
     to the bare type name, which is never wrapped.
   - Every other `FormatMemberReference`/`FormatTypeName` branch forwards the
     caller's `forCodeSpan` value unchanged.

@@ -1317,12 +1317,12 @@ public sealed class XmlDocReader
     /// </summary>
     /// <remarks>
     ///     When the display text is ultimately derived from a <c>cref</c> attribute that refers to
-    ///     a type member (property, field, event, or method — see
+    ///     a type or type member (property, field, event, or method — see
     ///     <see cref="FormatCref"/>/<see cref="FormatMemberReference"/>), it is wrapped in an
     ///     inline Markdown code span via <see cref="FormatAsInlineCodeSpan"/> so it reads visually
     ///     distinct from surrounding prose, matching how <c>&lt;c&gt;</c> content is rendered. A
-    ///     <c>langword</c> value, explicit inner text, a type-only (<c>T:</c>) cref, and a
-    ///     constructor cref are all left unwrapped.
+    ///     <c>langword</c> value, explicit inner text, and a constructor cref are all left
+    ///     unwrapped.
     /// </remarks>
     /// <param name="element">The inline reference element to render.</param>
     /// <returns>A non-null display string; may be empty when no renderable content is found.</returns>
