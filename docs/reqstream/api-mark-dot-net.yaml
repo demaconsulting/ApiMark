@@ -77,6 +77,9 @@ sections:
           - ApiMarkDotNet-XmlDocReader-RenderSummaryListsAsMultiLineMarkdown
           - ApiMarkDotNet-XmlDocReader-RenderSummaryListsAsInlineMarkersWhenSingleLine
           - ApiMarkDotNet-XmlDocReader-IncludeTypeNameForPropertyFieldEventCrefs
+          - ApiMarkDotNet-XmlDocReader-RenderBrAndCodeInRemarksAndSummary
+          - ApiMarkDotNet-XmlDocReader-CollapseExcessBlankLineRuns
+          - ApiMarkDotNet-XmlDocReader-WrapMemberCrefDisplayInCodeSpan
           - ApiMarkDotNet-ExternalXmlDocResolver-LocateAndCacheReferencedAssemblyDocs
           - ApiMarkDotNet-ExternalXmlDocResolver-RejectNullReferencePaths
           - ApiMarkDotNet-ExternalXmlDocResolver-ProbeHintedAssemblyBeforeFullScan
