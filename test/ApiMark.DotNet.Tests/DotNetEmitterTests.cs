@@ -660,6 +660,75 @@ public class DotNetEmitterTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.GetVisibleMembers"/> excludes a record's
+    ///     compiler-synthesized <c>EqualityContract</c> property — for a sealed record (private,
+    ///     visible only at <see cref="ApiVisibility.All"/>), a non-sealed record (protected
+    ///     virtual, visible at <see cref="ApiVisibility.PublicAndProtected"/>), and a derived
+    ///     record (protected override) — while still including the record's genuine,
+    ///     user-declared positional property, and still flagging a hand-written, non-compiler-
+    ///     generated property that happens to share the <c>EqualityContract</c> name.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_GetVisibleMembers_AllVisibility_ExcludesRecordEqualityContract()
+    {
+        // Arrange
+        var options = BuildOptions();
+        options.Visibility = ApiVisibility.All;
+        var emitter = (DotNetEmitter)new DotNetGenerator(options).Parse(new InMemoryContext());
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+
+        var sealedRecord = assembly.MainModule.Types.Single(t => t.Name == "SealedRecordClass");
+        var baseRecord = assembly.MainModule.Types.Single(t => t.Name == "BaseRecordClass");
+        var derivedRecord = assembly.MainModule.Types.Single(t => t.Name == "DerivedRecordClass");
+        var handWritten = assembly.MainModule.Types.Single(t => t.Name == "HandWrittenEqualityContractClass");
+
+        // Act
+        var sealedMembers = emitter.GetVisibleMembers(sealedRecord).ToList();
+        var baseMembers = emitter.GetVisibleMembers(baseRecord).ToList();
+        var derivedMembers = emitter.GetVisibleMembers(derivedRecord).ToList();
+        var handWrittenMembers = emitter.GetVisibleMembers(handWritten).ToList();
+
+        // Assert: EqualityContract is excluded for every record shape...
+        Assert.DoesNotContain(sealedMembers, m => m.Name == "EqualityContract");
+        Assert.DoesNotContain(baseMembers, m => m.Name == "EqualityContract");
+        Assert.DoesNotContain(derivedMembers, m => m.Name == "EqualityContract");
+
+        // ...but the records' genuine positional properties are still visible...
+        Assert.Contains(sealedMembers, m => m.Name == "Name");
+        Assert.Contains(baseMembers, m => m.Name == "Name");
+        Assert.Contains(derivedMembers, m => m.Name == "Extra");
+
+        // ...and a hand-written, non-compiler-generated EqualityContract property is still reported
+        Assert.Contains(handWrittenMembers, m => m.Name == "EqualityContract");
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetEmitter.GetVisibleMembers"/> excludes a field-like
+    ///     event's compiler-generated backing field — which shares the event's exact name (no
+    ///     angle brackets) and is only distinguishable via <c>CompilerGeneratedAttribute</c> —
+    ///     while still including the event itself.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitter_GetVisibleMembers_AllVisibility_ExcludesFieldLikeEventBackingField()
+    {
+        // Arrange
+        var options = BuildOptions();
+        options.Visibility = ApiVisibility.All;
+        var emitter = (DotNetEmitter)new DotNetGenerator(options).Parse(new InMemoryContext());
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.Single(t => t.Name == "FieldLikeEventClass");
+
+        // Act
+        var members = emitter.GetVisibleMembers(type).ToList();
+
+        // Assert: the backing field (a FieldDefinition named "Updated") is excluded...
+        Assert.DoesNotContain(members, m => m is FieldDefinition && m.Name == "Updated");
+
+        // ...but the event itself (an EventDefinition named "Updated") is still visible
+        Assert.Contains(members, m => m is EventDefinition && m.Name == "Updated");
+    }
+
+    /// <summary>
     ///     Validates that <see cref="DotNetEmitter.IsImplicitDefaultConstructor"/> correctly
     ///     distinguishes compiler-synthesized implicit default constructors — including ones on
     ///     types with property initializers, which contribute their own debug sequence points —

@@ -49,6 +49,16 @@ is needed.
   missing summary is reported.
 - A `NamespaceDoc` carrier type is never checked, regardless of its
   documentation state.
+- A record's synthesized `EqualityContract` property is never reported as
+  undocumented, for a sealed record (`All` visibility), a non-sealed public
+  record (`PublicAndProtected` visibility), and a derived record (`All`
+  visibility), while a hand-written property of the same name on a normal
+  class is still reported.
+- A field-like event's compiler-generated backing field is never reported as
+  undocumented when the event itself is documented.
+- A method carrying `GeneratedCodeAttribute` with only a `<remarks>` (no
+  `<summary>`) is not reported as undocumented, while a hand-written method
+  with only a `<remarks>` is still reported.
 
 ### Test Scenarios
 
@@ -129,3 +139,46 @@ scenario is tested by
 the scan, regardless of its own documentation state — it is not a
 documentable API surface member. This scenario is tested by
 `Check_NamespaceDocCarrier_IsNeverChecked`.
+
+**Sealed record at All visibility does not report EqualityContract**:
+Verifies that a sealed record's `private` `EqualityContract` property
+(visible only at `ApiVisibility.All`) is excluded from the scan. This
+scenario is tested by
+`Check_SealedRecordAtAllVisibility_DoesNotReportEqualityContract`.
+
+**Non-sealed public record at PublicAndProtected does not report
+EqualityContract**: Verifies that a non-sealed record's `protected virtual`
+`EqualityContract` property is excluded at `ApiVisibility.PublicAndProtected`,
+not just at `All`. This scenario is tested by
+`Check_NonSealedPublicRecordAtPublicAndProtected_DoesNotReportEqualityContract`.
+
+**Derived record at All visibility does not report EqualityContract**:
+Verifies that a derived record's `protected override` `EqualityContract`
+property is also excluded. This scenario is tested by
+`Check_DerivedRecordAtAllVisibility_DoesNotReportEqualityContract`.
+
+**Hand-written EqualityContract property is still reported**: Verifies that
+a hand-written, non-compiler-generated property named `EqualityContract` on
+a normal (non-record) class is still reported as undocumented, confirming
+the exclusion is scoped to compiler-generated members only, not to the name.
+This scenario is tested by
+`Check_HandWrittenEqualityContractProperty_IsStillReported`.
+
+**Documented field-like event does not report its backing field**: Verifies
+that a field-like event's compiler-generated backing field (which shares the
+event's exact name) is not separately reported as an undocumented `Field`
+when the event itself carries a `<summary>`. This scenario is tested by
+`Check_DocumentedFieldLikeEvent_DoesNotReportBackingField`.
+
+**GeneratedRegex method with only remarks is not reported**: Verifies that a
+`[GeneratedRegex]`-generated partial method, whose compiled XML doc carries
+only a `<remarks>` (the source generator having replaced the author's
+`<summary>`), is not reported as undocumented because it carries
+`GeneratedCodeAttribute`. This scenario is tested by
+`Check_GeneratedRegexMethodWithOnlyRemarks_IsNotReported`.
+
+**Hand-written method with only remarks is still reported**: Verifies that a
+hand-written method with only a `<remarks>` (no `GeneratedCodeAttribute`) is
+still reported as undocumented, confirming the `<remarks>` fallback is
+scoped to generated-code members only. This scenario is tested by
+`Check_HandWrittenMethodWithOnlyRemarks_IsStillReported`.

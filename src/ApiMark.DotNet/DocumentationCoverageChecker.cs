@@ -18,9 +18,17 @@ namespace ApiMark.DotNet;
 ///     tier and therefore cannot reuse <see cref="DotNetEmitter"/>'s emission-scoped instance methods,
 ///     which are bound to the model's single emission tier.
 ///     <para>
-///     The v1 bar for "documented" is deliberately shallow: a type or member is considered
+///     The bar for "documented" is deliberately shallow: a type or member is considered
 ///     documented when <see cref="XmlDocReader.GetSummary"/> returns a non-null, non-whitespace
-///     string for its XML doc member identifier. Checking for complete <c>&lt;param&gt;</c>,
+///     string for its XML doc member identifier, or — for a member carrying
+///     <see cref="System.CodeDom.Compiler.GeneratedCodeAttribute"/> (detected via
+///     <see cref="DotNetEmitter.IsGeneratedCode"/>) — when it has a non-empty
+///     <c>&lt;remarks&gt;</c> instead (see <see cref="HasDocumentation"/>). The fallback exists
+///     because some source generators (e.g. the <c>[GeneratedRegex]</c> partial-method generator)
+///     attach their own <c>&lt;remarks&gt;</c> to the generated implementation, silently replacing
+///     the author's <c>&lt;summary&gt;</c> in the compiled XML doc. This fallback applies to
+///     coverage checking only; it does not change what the emitted Markdown shows for the
+///     member's summary. Checking for complete <c>&lt;param&gt;</c>,
 ///     <c>&lt;returns&gt;</c>, or <c>&lt;exception&gt;</c> coverage is explicitly out of scope and
 ///     noted as a future enhancement.
 ///     </para>
@@ -96,7 +104,7 @@ internal static class DocumentationCoverageChecker
         ref int checkedCount)
     {
         checkedCount++;
-        if (string.IsNullOrWhiteSpace(xmlDocs.GetSummary(DotNetEmitter.BuildTypeId(type))))
+        if (!HasDocumentation(type, DotNetEmitter.BuildTypeId(type), xmlDocs))
         {
             undocumented.Add(new UndocumentedApiItem("Type", type.FullName.Replace('/', '.')));
         }
@@ -104,7 +112,7 @@ internal static class DocumentationCoverageChecker
         foreach (var member in GetVisibleMembers(type, visibility, includeObsolete))
         {
             checkedCount++;
-            if (string.IsNullOrWhiteSpace(xmlDocs.GetSummary(DotNetEmitter.BuildMemberId(member))))
+            if (!HasDocumentation(member, DotNetEmitter.BuildMemberId(member), xmlDocs))
             {
                 undocumented.Add(new UndocumentedApiItem(
                     ToKind(member),
@@ -146,7 +154,11 @@ internal static class DocumentationCoverageChecker
             yield return method;
         }
 
-        foreach (var prop in type.Properties.Where(IsVisible))
+        // Properties: skip compiler-generated properties such as a record's synthesized
+        // `EqualityContract`, mirroring the same filter DotNetEmitter.GetVisibleMembers applies
+        // for emission, and consistent with methods already being filtered on IsCompilerGenerated
+        // above.
+        foreach (var prop in type.Properties.Where(p => !DotNetEmitter.IsCompilerGenerated(p) && IsVisible(p)))
         {
             yield return prop;
         }
@@ -210,4 +222,34 @@ internal static class DocumentationCoverageChecker
         EventDefinition => "Event",
         _ => "Method",
     };
+
+    /// <summary>
+    ///     Returns <see langword="true"/> when <paramref name="id"/> has a non-empty <c>&lt;summary&gt;</c>
+    ///     in <paramref name="xmlDocs"/>, or — for a source-generator-produced element (one carrying
+    ///     <c>GeneratedCodeAttribute</c>, e.g. a <c>[GeneratedRegex]</c> partial method) — a non-empty
+    ///     <c>&lt;remarks&gt;</c> instead.
+    /// </summary>
+    /// <remarks>
+    ///     The regex source generator attaches its own <c>&lt;remarks&gt;</c> (a plain-language
+    ///     pattern explanation) to the compiler-generated partial-method implementation, which
+    ///     silently replaces any hand-written <c>&lt;summary&gt;</c> from the partial method's
+    ///     defining declaration in the compiled XML documentation — see
+    ///     <see cref="DotNetEmitter.IsGeneratedCode(ICustomAttributeProvider)"/>. The <c>&lt;remarks&gt;</c>
+    ///     fallback is scoped to <c>GeneratedCodeAttribute</c>-carrying elements only, so a
+    ///     hand-written member that merely lacks a <c>&lt;summary&gt;</c> in favor of a
+    ///     <c>&lt;remarks&gt;</c> is still reported as undocumented.
+    /// </remarks>
+    /// <param name="provider">The type or member being checked, used to test for <c>GeneratedCodeAttribute</c>.</param>
+    /// <param name="id">The XML doc member identifier to look up.</param>
+    /// <param name="xmlDocs">The XML documentation index.</param>
+    /// <returns><see langword="true"/> when the element is considered documented.</returns>
+    private static bool HasDocumentation(ICustomAttributeProvider provider, string id, XmlDocReader xmlDocs)
+    {
+        if (!string.IsNullOrWhiteSpace(xmlDocs.GetSummary(id)))
+        {
+            return true;
+        }
+
+        return DotNetEmitter.IsGeneratedCode(provider) && !string.IsNullOrWhiteSpace(xmlDocs.GetRemarks(id));
+    }
 }

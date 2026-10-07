@@ -1301,6 +1301,116 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.LogToolOutputLine"/> elevates a per-item
+    ///     <c>[Undocumented]</c> line to a real MSBuild warning (not merely an informational
+    ///     message) when <see cref="ApiMarkTask.ApiMarkEnforceDocs"/> is set and
+    ///     <see cref="ApiMarkTask.ApiMarkEnforceDocsSeverity"/> is left at its default/unset value.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_LogToolOutputLine_UndocumentedLineWithDefaultSeverity_LogsWarning()
+    {
+        // Arrange
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new ApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".csproj",
+            ApiMarkEnforceDocs = "All",
+        };
+
+        // Act
+        task.LogToolOutputLine("  [Undocumented] Property: Some.Type.Member");
+
+        // Assert: a real warning event is raised, and no message/error events are raised for it
+        buildEngine.Received().LogWarningEvent(Arg.Is<BuildWarningEventArgs>(
+            a => a.Message == "  [Undocumented] Property: Some.Type.Member"));
+        buildEngine.DidNotReceive().LogErrorEvent(Arg.Any<BuildErrorEventArgs>());
+        buildEngine.DidNotReceive().LogMessageEvent(Arg.Any<BuildMessageEventArgs>());
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.LogToolOutputLine"/> elevates a per-item
+    ///     <c>[Undocumented]</c> line to a real MSBuild error when
+    ///     <see cref="ApiMarkTask.ApiMarkEnforceDocsSeverity"/> is <c>"Error"</c>
+    ///     (case-insensitively).
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_LogToolOutputLine_UndocumentedLineWithErrorSeverity_LogsError()
+    {
+        // Arrange
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new ApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".csproj",
+            ApiMarkEnforceDocs = "All",
+            ApiMarkEnforceDocsSeverity = "error",
+        };
+
+        // Act
+        task.LogToolOutputLine("  [Undocumented] Method: Some.Type.Member()");
+
+        // Assert
+        buildEngine.Received().LogErrorEvent(Arg.Is<BuildErrorEventArgs>(
+            a => a.Message == "  [Undocumented] Method: Some.Type.Member()"));
+        buildEngine.DidNotReceive().LogWarningEvent(Arg.Any<BuildWarningEventArgs>());
+        buildEngine.DidNotReceive().LogMessageEvent(Arg.Any<BuildMessageEventArgs>());
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.LogToolOutputLine"/> leaves a non-finding line
+    ///     (e.g. the summary line) as a normal informational message, even when enforcement is
+    ///     enabled.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_LogToolOutputLine_NonFindingLine_LogsAsMessage()
+    {
+        // Arrange
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new ApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".csproj",
+            ApiMarkEnforceDocs = "All",
+            ApiMarkEnforceDocsSeverity = "Error",
+        };
+
+        // Act
+        task.LogToolOutputLine("Documentation coverage: 1 undocumented of 10 checked.");
+
+        // Assert
+        buildEngine.Received().LogMessageEvent(Arg.Any<BuildMessageEventArgs>());
+        buildEngine.DidNotReceive().LogWarningEvent(Arg.Any<BuildWarningEventArgs>());
+        buildEngine.DidNotReceive().LogErrorEvent(Arg.Any<BuildErrorEventArgs>());
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="ApiMarkTask.LogToolOutputLine"/> never elevates an
+    ///     <c>[Undocumented]</c> line when <see cref="ApiMarkTask.ApiMarkEnforceDocs"/> is not
+    ///     set, matching the fact that ApiMark.Tool only emits such lines when enforcement is
+    ///     enabled in the first place.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_LogToolOutputLine_EnforceDocsNotSet_LogsAsMessage()
+    {
+        // Arrange
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new ApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ProjectExtension = ".csproj",
+        };
+
+        // Act
+        task.LogToolOutputLine("  [Undocumented] Property: Some.Type.Member");
+
+        // Assert
+        buildEngine.Received().LogMessageEvent(Arg.Any<BuildMessageEventArgs>());
+        buildEngine.DidNotReceive().LogWarningEvent(Arg.Any<BuildWarningEventArgs>());
+        buildEngine.DidNotReceive().LogErrorEvent(Arg.Any<BuildErrorEventArgs>());
+    }
+
+    /// <summary>
     ///     Subclass of <see cref="ApiMarkTask"/> that overrides <c>RunToolProcess</c> to capture
     ///     both the observed argument list and the response file's content (read before the base
     ///     <c>RunToolProcessWithResponseFile</c> deletes it in its <c>finally</c> block).

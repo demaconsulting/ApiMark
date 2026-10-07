@@ -231,9 +231,35 @@ enforcement uses the identical MSBuild properties; if `ApiMarkFormat` is set,
 append `--format`); this full logical argument list (from `BuildArguments`/
 `BuildArgumentsForOutput`, both left entirely unchanged) is then passed through
 `RunToolProcessWithResponseFile` (rather than directly to `RunToolProcess`) —
-start the child process and pipe stdout lines as MSBuild messages and stderr
-lines as MSBuild errors; wait for exit; return true if exit code is zero,
-otherwise log an error with the exit code and return false.
+start the child process and pipe each stdout line through
+`LogToolOutputLine` (stderr lines are still forwarded directly as MSBuild
+errors); wait for exit; return true if exit code is zero, otherwise log an
+error with the exit code and return false.
+
+**ApiMarkTask.LogToolOutputLine** (internal): Routes a single stdout line from
+the spawned ApiMark.Tool process. When `ApiMarkEnforceDocs` is set and the line
+starts with the literal prefix `"  [Undocumented] "` — the exact text
+ApiMark.Tool's `Program.ReportDocumentationCoverage` writes for each
+documentation-coverage finding — the line is elevated to a real MSBuild
+warning (`Log.LogWarning`), or to an error (`Log.LogError`) when
+`ApiMarkEnforceDocsSeverity` case-insensitively equals `"Error"`; the warning
+path is also the default when the property is unset, matching ApiMark.Tool's
+own default severity. Every other line (including all `[Undocumented]` lines
+when `ApiMarkEnforceDocs` is unset) is still logged as an informational
+message via `Log.LogMessage(MessageImportance.Normal, ...)`, exactly as
+before this method existed.
+
+- *Rationale*: `ApiMark.MSBuild` (`netstandard2.0`) and `ApiMark.Tool`
+  (`net8.0`) are separate, out-of-process assemblies with no shared project
+  reference (see the class remarks), so there is no shared constant or type
+  to carry a finding's severity across the process boundary — only
+  ApiMark.Tool's plain stdout text. Matching that exact literal prefix is a
+  deliberate, narrowly-scoped plain-text contract between the two assemblies,
+  chosen so that `--enforce-docs` findings (which were previously only
+  visible as low-visibility informational messages, leaving Warning- and
+  Error-severity findings out of the build summary count) become real,
+  visible build warnings/errors without requiring a shared assembly
+  reference.
 
 The `.targets` file forwards `$(ApiMarkEnforceDocs)` and
 `$(ApiMarkEnforceDocsSeverity)` into the `ApiMarkTask` invocation's

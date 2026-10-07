@@ -336,12 +336,33 @@ sections:
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardStdoutToLog
             title: >-
               ApiMarkTask shall forward the spawned tool's standard output to the
-              MSBuild
-              build log as informational messages.
+              MSBuild build log as informational messages, except per-item
+              [Undocumented] documentation-coverage findings, which are elevated
+              per ApiMarkMsbuild-ApiMarkTask-ElevateUndocumentedFindings.
             justification: |
               ApiMark.Tool writes progress and status to stdout. Forwarding it to the MSBuild
               log makes generation progress visible in the IDE output window and CI build logs.
             tests: [ApiMarkTask_Execute_WithDotNetProject_GeneratesDocumentation]
+          - id: ApiMarkMsbuild-ApiMarkTask-ElevateUndocumentedFindings
+            title: >-
+              ApiMarkTask shall elevate each stdout line reporting an
+              [Undocumented] documentation-coverage finding to a real MSBuild
+              warning, or to an error when ApiMarkEnforceDocsSeverity is
+              "Error" (case-insensitive), whenever ApiMarkEnforceDocs is set.
+            justification: |
+              ApiMark.Tool previously wrote --enforce-docs findings only as plain stdout
+              lines, which ApiMarkTask forwarded as ordinary informational messages. That
+              left Warning-severity (the default) and even Error-severity findings invisible
+              at normal build verbosity and uncounted in the build's Warning/Error summary.
+              Elevating each finding to a genuine MSBuild warning or error makes
+              documentation-coverage enforcement actually visible and actionable in the IDE
+              and CI build output, matching the severity the build author configured via
+              ApiMarkEnforceDocsSeverity.
+            tests:
+              - ApiMarkTask_LogToolOutputLine_UndocumentedLineWithDefaultSeverity_LogsWarning
+              - ApiMarkTask_LogToolOutputLine_UndocumentedLineWithErrorSeverity_LogsError
+              - ApiMarkTask_LogToolOutputLine_NonFindingLine_LogsAsMessage
+              - ApiMarkTask_LogToolOutputLine_EnforceDocsNotSet_LogsAsMessage
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardStderrErrors
             title: >-
               ApiMarkTask shall forward the spawned tool's standard error output to
