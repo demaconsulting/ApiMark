@@ -17,13 +17,20 @@ namespace ApiMark.DotNet;
 /// <param name="Type">Type definition whose pages are being generated.</param>
 /// <param name="XmlDocs">Documentation index for member-level lookups.</param>
 /// <param name="Resolver">Type link resolver for table cell generation.</param>
+/// <param name="LinkContext">
+///     Cross-reference resolution context for <c>&lt;see cref&gt;</c>/<c>&lt;seealso cref&gt;</c>
+///     linking, scoped to this type's own page folder (<see cref="NamespaceFolderPath"/>). Member
+///     pages living in a deeper folder derive their own context from this one via a
+///     <see langword="with"/> expression overriding <see cref="CrefLinkContext.CurrentFolder"/>.
+/// </param>
 internal sealed record TypePageWriteContext(
     IMarkdownWriterFactory Factory,
     string NamespaceName,
     string NamespaceFolderPath,
     TypeDefinition Type,
     XmlDocReader XmlDocs,
-    TypeLinkResolver Resolver);
+    TypeLinkResolver Resolver,
+    CrefLinkContext LinkContext);
 
 /// <summary>
 ///     Bundles the per-method documentation writing context passed to
@@ -35,12 +42,14 @@ internal sealed record TypePageWriteContext(
 /// <param name="Resolver">Type link resolver for table cell generation.</param>
 /// <param name="CurrentFolder">Folder path of the containing Markdown file, relative to the documentation output root.</param>
 /// <param name="ExternalTypes">Mutable accumulator for external type references found during table cell generation.</param>
+/// <param name="LinkContext">Cross-reference resolution context for <c>&lt;see cref&gt;</c>/<c>&lt;seealso cref&gt;</c> linking, scoped to <see cref="CurrentFolder"/>.</param>
 internal sealed record MethodDocContext(
     string NamespaceName,
     XmlDocReader XmlDocs,
     TypeLinkResolver Resolver,
     string CurrentFolder,
-    ISet<ExternalTypeInfo> ExternalTypes);
+    ISet<ExternalTypeInfo> ExternalTypes,
+    CrefLinkContext LinkContext);
 
 /// <summary>
 ///     Bundles the namespace-level documentation sourced from a NamespaceDoc carrier

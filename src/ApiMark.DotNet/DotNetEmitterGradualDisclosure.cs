@@ -67,6 +67,37 @@ internal sealed class DotNetEmitterGradualDisclosure
         _model = model;
     }
 
+    /// <summary>
+    ///     Builds a <see cref="CrefLinkContext"/> scoped to <paramref name="currentFolder"/>,
+    ///     binding the assembly-wide <c>cref</c>-resolution pieces (<see cref="DotNetAstModel.CrefTargets"/>,
+    ///     <see cref="DotNetAstModel.Resolver"/>, <see cref="DotNetAstModel.MemberPageIndex"/>) and
+    ///     the "will this symbol actually be emitted" delegates to the current page's folder.
+    /// </summary>
+    /// <remarks>
+    ///     A type is considered emitted when its XML-doc type identifier is present in
+    ///     <see cref="DotNetAstModel.EmittedTypeIds"/>; a member is considered emitted when its
+    ///     XML-doc member identifier is present in <see cref="DotNetAstModel.MemberPageIndex"/> —
+    ///     both sets are populated once, up front, by <c>DotNetGenerator.Parse</c> using the exact
+    ///     same visibility rules this emitter itself uses when actually writing pages, so no
+    ///     visibility logic is duplicated here.
+    ///     <para>
+    ///     Callers writing a page in a different folder than the one most recently built (e.g. a
+    ///     member page living one level below its type's own page) derive a new context via
+    ///     <c>with { CurrentFolder = ... }</c> instead of calling this method again, since the
+    ///     other fields never change within a single emit run.
+    ///     </para>
+    /// </remarks>
+    /// <param name="currentFolder">Folder path of the Markdown file about to be rendered.</param>
+    /// <returns>A <see cref="CrefLinkContext"/> scoped to <paramref name="currentFolder"/>.</returns>
+    private CrefLinkContext BuildCrefLinkContext(string currentFolder) =>
+        new(
+            _model.CrefTargets,
+            _model.Resolver,
+            _model.MemberPageIndex,
+            type => _model.EmittedTypeIds.Contains(BuildTypeId(type)),
+            member => _model.MemberPageIndex.ContainsKey(BuildMemberId(member)),
+            currentFolder);
+
     /// <summary>Dispatches to <see cref="EmitGradualDisclosure"/>.</summary>
     /// <param name="factory">Factory for creating per-file Markdown writers.</param>
     /// <param name="config">Output configuration (unused for gradual-disclosure format).</param>
@@ -278,10 +309,11 @@ internal sealed class DotNetEmitterGradualDisclosure
         }
 
         var typeHeaders = new[] { "Type", DotNetEmitter.DescriptionColumnHeader };
+        var namespaceLinkContext = BuildCrefLinkContext(subFolder);
         var typeRows = nsTypes.Select(t =>
         {
             var typeMemberId = BuildTypeId(t);
-            var summary = ctx.XmlDocs.GetSummary(typeMemberId) ?? DotNetEmitter.NoDescriptionPlaceholder;
+            var summary = ctx.XmlDocs.GetSummary(typeMemberId, namespaceLinkContext) ?? DotNetEmitter.NoDescriptionPlaceholder;
             var typeDisplayName = StripArity(t.Name);
             var link = $"{shortName}/{FlattenArity(t.Name)}.md";
             return new[] { $"[{typeDisplayName}]({link})", summary };
@@ -290,7 +322,7 @@ internal sealed class DotNetEmitterGradualDisclosure
 
         foreach (var type in nsTypes)
         {
-            var typeCtx = new TypePageWriteContext(factory, namespaceName, folderPath, type, ctx.XmlDocs, ctx.Resolver);
+            var typeCtx = new TypePageWriteContext(factory, namespaceName, folderPath, type, ctx.XmlDocs, ctx.Resolver, BuildCrefLinkContext(folderPath));
             WriteTypePage(typeCtx);
         }
     }
@@ -365,8 +397,8 @@ internal sealed class DotNetEmitterGradualDisclosure
 
         // Fetch remarks first so the placeholder decision below can see whether remarks
         // content will be shown even when summary is absent (see WriteTypeHeaderSections remarks).
-        var typeSummary = ctx.XmlDocs.GetSummaryMarkdown(typeMemberId);
-        var typeRemarks = ctx.XmlDocs.GetRemarks(typeMemberId);
+        var typeSummary = ctx.XmlDocs.GetSummaryMarkdown(typeMemberId, ctx.LinkContext);
+        var typeRemarks = ctx.XmlDocs.GetRemarks(typeMemberId, ctx.LinkContext);
 
         // Always emit a summary paragraph — use the placeholder only when BOTH summary and
         // remarks are absent; a remarks-only member already has visible description content
@@ -386,7 +418,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         }
 
         // Emit structured example blocks for this type
-        WriteExampleParts(typeWriter, ctx.XmlDocs.GetExampleParts(typeMemberId));
+        WriteExampleParts(typeWriter, ctx.XmlDocs.GetExampleParts(typeMemberId, ctx.LinkContext));
     }
 
     /// <summary>
@@ -532,7 +564,7 @@ internal sealed class DotNetEmitterGradualDisclosure
     /// <param name="operatorMethods">The type's operator overload methods; must be non-empty.</param>
     private static void WriteTypeOperatorsSection(IMarkdownWriter typeWriter, TypePageWriteContext ctx, List<MethodDefinition> operatorMethods)
     {
-        WriteTypeOperatorsPage(ctx.Factory, ctx.NamespaceName, ctx.NamespaceFolderPath, ctx.Type, operatorMethods, ctx.XmlDocs, ctx.Resolver);
+        WriteTypeOperatorsPage(ctx.Factory, ctx.NamespaceName, ctx.NamespaceFolderPath, ctx.Type, operatorMethods, ctx.XmlDocs, ctx.Resolver, ctx.LinkContext);
         typeWriter.WriteHeading(2, "Operators");
         typeWriter.WriteTable(
             new[] { MemberColumnHeader, DotNetEmitter.DescriptionColumnHeader },
@@ -558,7 +590,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         var nestedTypeRows = visibleNestedTypes.Select(nested =>
         {
             var nestedTypeId = BuildTypeId(nested);
-            var nestedSummary = ctx.XmlDocs.GetSummary(nestedTypeId) ?? DotNetEmitter.NoDescriptionPlaceholder;
+            var nestedSummary = ctx.XmlDocs.GetSummary(nestedTypeId, ctx.LinkContext) ?? DotNetEmitter.NoDescriptionPlaceholder;
             var nestedDisplayName = StripArity(nested.Name);
             var nestedLink = $"{FlattenArity(ctx.Type.Name)}/{FlattenArity(nested.Name)}.md";
             return new[] { $"[{nestedDisplayName}]({nestedLink})", nestedSummary };
@@ -570,7 +602,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         var nestedFolderPath = $"{ctx.NamespaceFolderPath}/{FlattenArity(ctx.Type.Name)}";
         foreach (var nested in visibleNestedTypes)
         {
-            WriteTypePage(new TypePageWriteContext(ctx.Factory, ctx.NamespaceName, nestedFolderPath, nested, ctx.XmlDocs, ctx.Resolver));
+            WriteTypePage(new TypePageWriteContext(ctx.Factory, ctx.NamespaceName, nestedFolderPath, nested, ctx.XmlDocs, ctx.Resolver, BuildCrefLinkContext(nestedFolderPath)));
         }
     }
 
@@ -598,6 +630,7 @@ internal sealed class DotNetEmitterGradualDisclosure
     {
         var sanitizedName = GetSanitizedMemberFileName(member, ctx.Type);
         var memberCurrentFolder = $"{ctx.NamespaceFolderPath}/{FlattenArity(ctx.Type.Name)}";
+        var memberLinkContext = ctx.LinkContext with { CurrentFolder = memberCurrentFolder };
         using var memberWriter = ctx.Factory.CreateMarkdown(memberCurrentFolder, sanitizedName);
 
         var displayName = GetMemberDisplayName(member);
@@ -607,12 +640,12 @@ internal sealed class DotNetEmitterGradualDisclosure
         {
             // Method pages use the resolver for parameter type cells
             var externalTypes = new SortedSet<ExternalTypeInfo>();
-            WriteMethodDocumentation(memberWriter, method, memberId, new MethodDocContext(ctx.NamespaceName, ctx.XmlDocs, ctx.Resolver, memberCurrentFolder, externalTypes));
+            WriteMethodDocumentation(memberWriter, method, memberId, new MethodDocContext(ctx.NamespaceName, ctx.XmlDocs, ctx.Resolver, memberCurrentFolder, externalTypes, memberLinkContext));
             WriteExternalTypesSection(memberWriter, externalTypes);
             return;
         }
 
-        WriteNonMethodMemberContent(memberWriter, member, memberId, new MethodDocContext(ctx.NamespaceName, ctx.XmlDocs, ctx.Resolver, memberCurrentFolder, new SortedSet<ExternalTypeInfo>()));
+        WriteNonMethodMemberContent(memberWriter, member, memberId, new MethodDocContext(ctx.NamespaceName, ctx.XmlDocs, ctx.Resolver, memberCurrentFolder, new SortedSet<ExternalTypeInfo>(), memberLinkContext));
     }
 
     /// <summary>
@@ -631,6 +664,10 @@ internal sealed class DotNetEmitterGradualDisclosure
     /// <param name="overloads">Ordered list of overload methods (at least one element).</param>
     /// <param name="xmlDocs">Documentation index for per-overload member-ID lookups.</param>
     /// <param name="resolver">Type link resolver for table cell link generation.</param>
+    /// <param name="linkContext">
+    ///     Cross-reference resolution context scoped to the containing type's own page folder;
+    ///     re-scoped internally to this overload page's folder via a <see langword="with"/> expression.
+    /// </param>
     private static void WriteMethodOverloadPage(
         IMarkdownWriterFactory factory,
         string namespaceName,
@@ -638,10 +675,12 @@ internal sealed class DotNetEmitterGradualDisclosure
         TypeDefinition type,
         List<MethodDefinition> overloads,
         XmlDocReader xmlDocs,
-        TypeLinkResolver resolver)
+        TypeLinkResolver resolver,
+        CrefLinkContext linkContext)
     {
         var sanitizedName = BuildMethodFileName(overloads[0], type);
         var overloadCurrentFolder = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
+        var overloadLinkContext = linkContext with { CurrentFolder = overloadCurrentFolder };
         using var memberWriter = factory.CreateMarkdown(overloadCurrentFolder, sanitizedName);
 
         memberWriter.WriteHeading(1, GetMethodGroupName(overloads[0]));
@@ -651,7 +690,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         foreach (var overload in overloads)
         {
             memberWriter.WriteHeading(2, BuildMethodDisplayName(overload));
-            WriteMethodDocumentation(memberWriter, overload, BuildMemberId(overload), new MethodDocContext(namespaceName, xmlDocs, resolver, overloadCurrentFolder, externalTypes));
+            WriteMethodDocumentation(memberWriter, overload, BuildMemberId(overload), new MethodDocContext(namespaceName, xmlDocs, resolver, overloadCurrentFolder, externalTypes, overloadLinkContext));
         }
 
         WriteExternalTypesSection(memberWriter, externalTypes);
@@ -680,6 +719,10 @@ internal sealed class DotNetEmitterGradualDisclosure
     /// </param>
     /// <param name="xmlDocs">XML documentation index for summary and detail lookups.</param>
     /// <param name="resolver">Type link resolver used to linkify parameter type cells.</param>
+    /// <param name="linkContext">
+    ///     Cross-reference resolution context scoped to the containing type's own page folder;
+    ///     re-scoped internally to the operators page's folder via a <see langword="with"/> expression.
+    /// </param>
     private static void WriteTypeOperatorsPage(
         IMarkdownWriterFactory factory,
         string namespaceName,
@@ -687,9 +730,11 @@ internal sealed class DotNetEmitterGradualDisclosure
         TypeDefinition type,
         IReadOnlyList<MethodDefinition> operators,
         XmlDocReader xmlDocs,
-        TypeLinkResolver resolver)
+        TypeLinkResolver resolver,
+        CrefLinkContext linkContext)
     {
         var operatorsCurrentFolder = $"{namespaceFolderPath}/{FlattenArity(type.Name)}";
+        var operatorsLinkContext = linkContext with { CurrentFolder = operatorsCurrentFolder };
         using var writer = factory.CreateMarkdown(operatorsCurrentFolder, "operators");
         writer.WriteHeading(1, "Operators");
 
@@ -697,7 +742,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         foreach (var op in operators)
         {
             writer.WriteHeading(2, BuildMethodDisplayName(op));
-            WriteMethodDocumentation(writer, op, BuildMemberId(op), new MethodDocContext(namespaceName, xmlDocs, resolver, operatorsCurrentFolder, externalTypes));
+            WriteMethodDocumentation(writer, op, BuildMemberId(op), new MethodDocContext(namespaceName, xmlDocs, resolver, operatorsCurrentFolder, externalTypes, operatorsLinkContext));
         }
 
         WriteExternalTypesSection(writer, externalTypes);
@@ -729,6 +774,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         IReadOnlyList<IMemberDefinition> members)
     {
         var combinedCurrentFolder = $"{ctx.NamespaceFolderPath}/{FlattenArity(ctx.Type.Name)}";
+        var combinedLinkContext = ctx.LinkContext with { CurrentFolder = combinedCurrentFolder };
         using var writer = ctx.Factory.CreateMarkdown(combinedCurrentFolder, lowerKey);
 
         // The shared lowercase key serves as the page heading so every member in the group
@@ -749,11 +795,11 @@ internal sealed class DotNetEmitterGradualDisclosure
             {
                 // Reuse the method documentation writer so formatting is consistent
                 // with single-method pages and overload pages
-                WriteMethodDocumentation(writer, method, memberId, new MethodDocContext(ctx.NamespaceName, ctx.XmlDocs, ctx.Resolver, combinedCurrentFolder, externalTypes));
+                WriteMethodDocumentation(writer, method, memberId, new MethodDocContext(ctx.NamespaceName, ctx.XmlDocs, ctx.Resolver, combinedCurrentFolder, externalTypes, combinedLinkContext));
             }
             else
             {
-                WriteNonMethodMemberContent(writer, member, memberId, new MethodDocContext(ctx.NamespaceName, ctx.XmlDocs, ctx.Resolver, combinedCurrentFolder, externalTypes));
+                WriteNonMethodMemberContent(writer, member, memberId, new MethodDocContext(ctx.NamespaceName, ctx.XmlDocs, ctx.Resolver, combinedCurrentFolder, externalTypes, combinedLinkContext));
             }
         }
 
@@ -977,7 +1023,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         MemberRowBuckets buckets)
     {
         var memberId = BuildMemberId(member);
-        var memberSummary = ctx.XmlDocs.GetSummary(memberId) ?? DotNetEmitter.NoDescriptionPlaceholder;
+        var memberSummary = ctx.XmlDocs.GetSummary(memberId, ctx.LinkContext) ?? DotNetEmitter.NoDescriptionPlaceholder;
         var memberTypeRef = GetMemberTypeRef(member);
         var memberTypeName = memberTypeRef != null
             ? ctx.Resolver.Linkify(memberTypeRef, ctx.NamespaceFolderPath, ctx.NamespaceName, buckets.ExternalTypes, IsMemberTypeNullableAnnotated(member))
@@ -1050,7 +1096,7 @@ internal sealed class DotNetEmitterGradualDisclosure
 
         var representative = orderedOverloads[0];
         var representativeMemberId = BuildMemberId(representative);
-        var representativeSummary = ctx.XmlDocs.GetSummary(representativeMemberId) ?? DotNetEmitter.NoDescriptionPlaceholder;
+        var representativeSummary = ctx.XmlDocs.GetSummary(representativeMemberId, ctx.LinkContext) ?? DotNetEmitter.NoDescriptionPlaceholder;
         var representativeTypeRef = GetMemberTypeRef(representative);
         var representativeTypeName = representativeTypeRef != null
             ? ctx.Resolver.Linkify(representativeTypeRef, ctx.NamespaceFolderPath, ctx.NamespaceName, externalTypes, IsMemberTypeNullableAnnotated(representative))
@@ -1060,7 +1106,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         var memberLink = $"{FlattenArity(ctx.Type.Name)}/{overloadFileName}.md";
         var isConstructorGroup = representative.Name == DotNetEmitter.ConstructorMethodName;
 
-        WriteMethodOverloadPage(ctx.Factory, ctx.NamespaceName, ctx.NamespaceFolderPath, ctx.Type, orderedOverloads, ctx.XmlDocs, ctx.Resolver);
+        WriteMethodOverloadPage(ctx.Factory, ctx.NamespaceName, ctx.NamespaceFolderPath, ctx.Type, orderedOverloads, ctx.XmlDocs, ctx.Resolver, ctx.LinkContext);
 
         if (isConstructorGroup)
         {
@@ -1106,7 +1152,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         // Every member in the collision group still contributes its own row to the
         // appropriate sub-table, all linking to the shared combined page
         var memberId = BuildMemberId(member);
-        var memberSummary = ctx.XmlDocs.GetSummary(memberId) ?? DotNetEmitter.NoDescriptionPlaceholder;
+        var memberSummary = ctx.XmlDocs.GetSummary(memberId, ctx.LinkContext) ?? DotNetEmitter.NoDescriptionPlaceholder;
         var memberTypeRef = GetMemberTypeRef(member);
         var memberTypeName = memberTypeRef != null
             ? ctx.Resolver.Linkify(memberTypeRef, ctx.NamespaceFolderPath, ctx.NamespaceName, buckets.ExternalTypes, IsMemberTypeNullableAnnotated(member))
@@ -1163,8 +1209,8 @@ internal sealed class DotNetEmitterGradualDisclosure
 
         // Fetch remarks first so the placeholder decision below can account for it
         // (see the remarks on WriteTypeHeaderSections for the placeholder-suppression rationale).
-        var summary = ctx.XmlDocs.GetSummaryMarkdown(memberId);
-        var remarks = ctx.XmlDocs.GetRemarks(memberId);
+        var summary = ctx.XmlDocs.GetSummaryMarkdown(memberId, ctx.LinkContext);
+        var remarks = ctx.XmlDocs.GetRemarks(memberId, ctx.LinkContext);
         if (!string.IsNullOrEmpty(summary))
         {
             writer.WriteParagraph(summary);
@@ -1174,7 +1220,7 @@ internal sealed class DotNetEmitterGradualDisclosure
             writer.WriteParagraph(DotNetEmitter.NoDescriptionPlaceholder);
         }
 
-        var returns = ctx.XmlDocs.GetReturns(memberId);
+        var returns = ctx.XmlDocs.GetReturns(memberId, ctx.LinkContext);
         if (!string.IsNullOrEmpty(returns))
         {
             writer.WriteParagraph($"**Returns:** {returns}");
@@ -1193,7 +1239,7 @@ internal sealed class DotNetEmitterGradualDisclosure
             writer.WriteParagraph(remarks);
         }
 
-        WriteExampleParts(writer, ctx.XmlDocs.GetExampleParts(memberId));
+        WriteExampleParts(writer, ctx.XmlDocs.GetExampleParts(memberId, ctx.LinkContext));
     }
 
     /// <summary>
@@ -1221,8 +1267,8 @@ internal sealed class DotNetEmitterGradualDisclosure
 
         // Fetch remarks first so the placeholder decision below can account for it
         // (see the remarks on WriteTypeHeaderSections for the placeholder-suppression rationale).
-        var summary = ctx.XmlDocs.GetSummaryMarkdown(memberId);
-        var remarks = ctx.XmlDocs.GetRemarks(memberId);
+        var summary = ctx.XmlDocs.GetSummaryMarkdown(memberId, ctx.LinkContext);
+        var remarks = ctx.XmlDocs.GetRemarks(memberId, ctx.LinkContext);
         if (!string.IsNullOrEmpty(summary))
         {
             memberWriter.WriteParagraph(summary);
@@ -1234,7 +1280,7 @@ internal sealed class DotNetEmitterGradualDisclosure
 
         if (method.HasParameters)
         {
-            var paramDocs = ctx.XmlDocs.GetParams(memberId);
+            var paramDocs = ctx.XmlDocs.GetParams(memberId, ctx.LinkContext);
             var paramHeaders = new[] { "Parameter", "Type", DotNetEmitter.DescriptionColumnHeader };
 
             // Linkify parameter types — resolver tracks external types and emits links for intra-assembly types
@@ -1247,7 +1293,7 @@ internal sealed class DotNetEmitterGradualDisclosure
             memberWriter.WriteTable(paramHeaders, paramRows);
         }
 
-        var returns = ctx.XmlDocs.GetReturns(memberId);
+        var returns = ctx.XmlDocs.GetReturns(memberId, ctx.LinkContext);
         if (!string.IsNullOrEmpty(returns))
         {
             memberWriter.WriteParagraph($"**Returns:** {returns}");
@@ -1266,7 +1312,7 @@ internal sealed class DotNetEmitterGradualDisclosure
             memberWriter.WriteParagraph(remarks);
         }
 
-        WriteExampleParts(memberWriter, ctx.XmlDocs.GetExampleParts(memberId));
+        WriteExampleParts(memberWriter, ctx.XmlDocs.GetExampleParts(memberId, ctx.LinkContext));
     }
 
     /// <summary>

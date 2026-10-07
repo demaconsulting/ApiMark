@@ -19,6 +19,32 @@ public class DotNetEmitterGradualDisclosureTests
         Visibility = ApiVisibility.Public,
     };
 
+    /// <summary>
+    ///     Validates that every page path computed by <c>BuildMemberPageIndex</c> (surfaced on
+    ///     <c>DotNetAstModel.MemberPageIndex</c>) corresponds to an actual page written by the
+    ///     gradual-disclosure emitter — mitigating the risk that the index's independently
+    ///     reimplemented grouping logic silently drifts from the real page-writing logic.
+    /// </summary>
+    [Fact]
+    public void BuildMemberPageIndex_AllEntries_MatchActualWrittenPages()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: every computed member page path is an actual page the emitter wrote
+        Assert.NotEmpty(emitter.Model.MemberPageIndex);
+        foreach (var (memberId, pagePath) in emitter.Model.MemberPageIndex)
+        {
+            Assert.True(
+                factory.Writers.ContainsKey(pagePath),
+                $"MemberPageIndex entry for '{memberId}' points at '{pagePath}', but no such page was written.");
+        }
+    }
+
     /// <summary>Validates that the gradual-disclosure emitter creates the api index page.</summary>
     [Fact]
     public void DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesApiIndexPage()
@@ -496,5 +522,137 @@ public class DotNetEmitterGradualDisclosureTests
         {
             File.Delete(docPath);
         }
+    }
+
+    /// <summary>
+    ///     Validates end-to-end that a <c>&lt;see cref&gt;</c> to another in-assembly, visible
+    ///     type renders as a real relative Markdown link (still code-span-wrapped), not the
+    ///     plain code-span fallback.
+    /// </summary>
+    [Fact]
+    public void CrefLinking_SeeCrefToVisibleType_RendersAsMarkdownLink()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the method summary links directly to the SampleClass type page
+        var memberWriter = factory.Writers["ApiMark.DotNet.Fixtures/CrefLinkingClass/ReferencesVisibleType"];
+        var paragraphs = memberWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Contains("`[SampleClass](../SampleClass.md)`", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates end-to-end that a <c>&lt;see cref&gt;</c> to another in-assembly, visible
+    ///     member renders as a real relative Markdown link to that member's own page.
+    /// </summary>
+    [Fact]
+    public void CrefLinking_SeeCrefToVisibleMember_RendersAsMarkdownLink()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the method summary links directly to the SampleClass.Reset member page
+        var memberWriter = factory.Writers["ApiMark.DotNet.Fixtures/CrefLinkingClass/ReferencesVisibleMember"];
+        var paragraphs = memberWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Contains("`[SampleClass.Reset](../SampleClass/Reset.md)`", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates end-to-end that a <c>&lt;see cref&gt;</c> to a member filtered out of the
+    ///     generated documentation by the active visibility setting keeps today's plain
+    ///     code-span fallback — no link is generated for symbols that won't be emitted.
+    /// </summary>
+    [Fact]
+    public void CrefLinking_SeeCrefToFilteredMember_RendersFallbackWithNoLink()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the private method is not emitted under Public visibility, so the cref falls
+        // back to plain code-span text with no Markdown link
+        var memberWriter = factory.Writers["ApiMark.DotNet.Fixtures/CrefLinkingClass/ReferencesFilteredMember"];
+        var paragraphs = memberWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("`ProtectedMembersClass.PrivateMethod()`", StringComparison.Ordinal));
+        Assert.DoesNotContain(paragraphs, p => p.Contains("](", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates end-to-end that a <c>&lt;see cref&gt;</c> to an external framework type
+    ///     keeps today's plain code-span fallback — external crefs are never linked.
+    /// </summary>
+    [Fact]
+    public void CrefLinking_SeeCrefToExternalType_RendersFallbackWithNoLink()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert
+        var memberWriter = factory.Writers["ApiMark.DotNet.Fixtures/CrefLinkingClass/ReferencesExternalType"];
+        var paragraphs = memberWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("`ArgumentNullException`", StringComparison.Ordinal));
+        Assert.DoesNotContain(paragraphs, p => p.Contains("](", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates end-to-end that a malformed, unresolvable <c>&lt;see cref&gt;</c> string
+    ///     keeps today's fallback rendering — no link is ever generated for it.
+    /// </summary>
+    [Fact]
+    public void CrefLinking_SeeCrefMalformed_RendersFallbackWithNoLink()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert
+        var memberWriter = factory.Writers["ApiMark.DotNet.Fixtures/CrefLinkingClass/ReferencesMalformedCref"];
+        var paragraphs = memberWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("NotAWellFormedCrefString", StringComparison.Ordinal));
+        Assert.DoesNotContain(paragraphs, p => p.Contains("](", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates end-to-end that a <c>&lt;seealso cref&gt;</c> to another
+    ///     in-assembly, visible type also renders as a real relative Markdown link, proving
+    ///     both <c>&lt;see&gt;</c> and <c>&lt;seealso&gt;</c> share the same linking path.
+    /// </summary>
+    [Fact]
+    public void CrefLinking_SeeAlsoCrefToVisibleType_RendersAsMarkdownLink()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the type-level <remarks>See also <seealso cref="SampleClass"/>.</remarks>
+        // renders as a real Markdown link on the CrefLinkingClass type page
+        var typeWriter = factory.Writers["ApiMark.DotNet.Fixtures/CrefLinkingClass"];
+        var paragraphs = typeWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("`[SampleClass](SampleClass.md)`", StringComparison.Ordinal));
     }
 }
