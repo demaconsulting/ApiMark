@@ -558,7 +558,7 @@ public class DotNetGeneratorTests
         Assert.Contains(
             memberWriters,
             writer => writer.Operations.OfType<ParagraphOperation>()
-                .Any(p => p.Text == "Returns true when status is SampleStatus.Active or SampleStatus.Pending."));
+                .Any(p => p.Text == "Returns true when status is `SampleStatus.Active` or `SampleStatus.Pending`."));
     }
 
     /// <summary>Validates that static types render a <c>static class</c> signature.</summary>

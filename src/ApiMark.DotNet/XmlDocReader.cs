@@ -234,7 +234,14 @@ public sealed class XmlDocReader
     /// <summary>Returns exception types and descriptions from <c>&lt;exception&gt;</c> elements for <paramref name="memberId"/>.</summary>
     /// <remarks>
     ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, exception details are
-    ///     resolved from the referenced or inherited base member recursively.
+    ///     resolved from the referenced or inherited base member recursively. The description uses
+    ///     the single-line rendering (<see cref="GetSingleLineDocumentationText"/>), not the
+    ///     multi-line <see cref="GetDocumentationText"/> used by <see cref="GetRemarks"/> and
+    ///     <see cref="GetSummaryMarkdown"/>: every caller of this method writes the description into a
+    ///     raw pipe-delimited Markdown table row (see <c>FileMarkdownWriter.WriteTable</c>), which
+    ///     does not escape embedded newlines — a fenced code block or <c>&lt;br/&gt;</c>-driven
+    ///     paragraph break in the description would otherwise inject extra rows and corrupt the
+    ///     table.
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
     /// <returns>A read-only list of (Type, Description) tuples.</returns>
@@ -250,8 +257,8 @@ public sealed class XmlDocReader
             .Select<XElement, (string Type, string? Description)>(e =>
             {
                 var cref = e.Attribute("cref")?.Value;
-                var type = string.IsNullOrWhiteSpace(cref) ? string.Empty : FormatCref(cref);
-                var description = GetDocumentationText(e);
+                var type = string.IsNullOrWhiteSpace(cref) ? string.Empty : FormatCref(cref).Text;
+                var description = GetSingleLineDocumentationText(e);
                 return (type, description);
             })
             .Where(e => e.Type.Length > 0)
@@ -260,8 +267,12 @@ public sealed class XmlDocReader
 
     /// <summary>Returns parameter names and descriptions for <paramref name="memberId"/>.</summary>
     /// <remarks>
-    ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, parameters are
-    ///     resolved from the referenced or inherited base member recursively.
+    ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, parameters are resolved
+    ///     from the referenced or inherited base member recursively. The description uses the
+    ///     single-line rendering (<see cref="GetSingleLineDocumentationText"/>) for the same reason
+    ///     as <see cref="GetExceptionDetails"/>: every caller writes the description into a raw
+    ///     pipe-delimited Markdown table row, which cannot safely contain an embedded literal
+    ///     newline.
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
     /// <returns>A read-only list of (Name, Description) tuples.</returns>
@@ -276,7 +287,7 @@ public sealed class XmlDocReader
         return member.Elements("param")
             .Select<XElement, (string Name, string? Description)>(p => (
                 p.Attribute("name")?.Value ?? string.Empty,
-                GetDocumentationText(p)))
+                GetSingleLineDocumentationText(p)))
             .Where(p => p.Name.Length > 0)
             .ToList();
     }
@@ -623,6 +634,19 @@ public sealed class XmlDocReader
     ///     Extracts the full (potentially multi-line) text content from <paramref name="element"/>,
     ///     normalizes whitespace, and returns <c>null</c> when the result is empty.
     /// </summary>
+    /// <remarks>
+    ///     Creates a local <c>codeBlocks</c> placeholder map (see <see cref="RegisterCodeBlockPlaceholder"/>)
+    ///     so that any fenced Markdown code block produced for a nested <c>&lt;code&gt;</c> element
+    ///     survives <see cref="NormalizeDocumentationText"/>'s per-line whitespace collapsing and
+    ///     blank-line-run collapsing intact, then restores the real content via
+    ///     <see cref="RestoreCodeBlockPlaceholders"/> immediately before returning. This method and
+    ///     <see cref="GetSingleLineDocumentationText"/> are the only two call sites that supply a
+    ///     non-<see langword="null"/> map; every other caller of
+    ///     <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/>
+    ///     is eventually squashed through <see cref="NormalizeSingleLine"/> directly (not via
+    ///     <see cref="GetSingleLineDocumentationText"/>'s protected path), where a fenced block would
+    ///     never be valid, so those callers deliberately keep passing <see langword="null"/>.
+    /// </remarks>
     /// <param name="element">The XML element whose text content to extract, or <c>null</c>.</param>
     /// <returns>Normalized text, or <c>null</c> when the element is absent or empty.</returns>
     private static string? GetDocumentationText(XElement? element)
@@ -632,9 +656,10 @@ public sealed class XmlDocReader
             return null;
         }
 
+        var codeBlocks = new Dictionary<string, string>(StringComparer.Ordinal);
         var builder = new StringBuilder();
-        AppendNodeText(builder, element.Nodes(), singleLine: false);
-        var text = NormalizeDocumentationText(builder.ToString());
+        AppendNodeText(builder, element.Nodes(), singleLine: false, codeBlocks);
+        var text = RestoreCodeBlockPlaceholders(NormalizeDocumentationText(builder.ToString()), codeBlocks);
         return text.Length == 0 ? null : text;
     }
 
@@ -642,6 +667,12 @@ public sealed class XmlDocReader
     ///     Builds documentation text from <paramref name="element"/> and normalizes it to a
     ///     single line by collapsing all non-empty trimmed lines into one space-separated string.
     /// </summary>
+    /// <remarks>
+    ///     An inline <c>&lt;code&gt;</c> span's content is protected from <see cref="NormalizeSingleLine"/>'s
+    ///     whitespace collapsing via the same placeholder mechanism <see cref="GetDocumentationText"/>
+    ///     uses for fenced blocks (see <see cref="RegisterCodeBlockPlaceholder"/>), so significant
+    ///     internal spacing inside a code span survives this single-line rendering too.
+    /// </remarks>
     /// <param name="element">The XML element whose text content to extract, or <c>null</c>.</param>
     /// <returns>Single-line trimmed text, or <c>null</c> when the element is absent or empty.</returns>
     private static string? GetSingleLineDocumentationText(XElement? element)
@@ -651,9 +682,10 @@ public sealed class XmlDocReader
             return null;
         }
 
+        var codeBlocks = new Dictionary<string, string>(StringComparer.Ordinal);
         var builder = new StringBuilder();
-        AppendNodeText(builder, element.Nodes(), singleLine: true);
-        var text = NormalizeSingleLine(builder.ToString());
+        AppendNodeText(builder, element.Nodes(), singleLine: true, codeBlocks);
+        var text = RestoreCodeBlockPlaceholders(NormalizeSingleLine(builder.ToString()), codeBlocks);
         return text.Length == 0 ? null : text;
     }
 
@@ -670,7 +702,20 @@ public sealed class XmlDocReader
     ///     of real multi-line Markdown. Defaults to <see langword="false"/> so existing callers
     ///     (remarks, examples, nested list items) keep their current multi-line rendering.
     /// </param>
-    private static void AppendNodeText(StringBuilder builder, IEnumerable<XNode> nodes, bool singleLine = false)
+    /// <param name="codeBlocks">
+    ///     Optional placeholder map used to protect fenced Markdown code blocks (produced for
+    ///     multi-line <c>&lt;code&gt;</c> elements) and inline code spans from later whitespace
+    ///     normalization. Only <see cref="GetDocumentationText"/> and
+    ///     <see cref="GetSingleLineDocumentationText"/> supply a non-<see langword="null"/> map;
+    ///     every other caller passes <see langword="null"/>, which forces <c>&lt;code&gt;</c>
+    ///     elements to always render as an unprotected inline span instead of a fenced block (see
+    ///     <see cref="AppendCodeElementText"/>).
+    /// </param>
+    private static void AppendNodeText(
+        StringBuilder builder,
+        IEnumerable<XNode> nodes,
+        bool singleLine = false,
+        Dictionary<string, string>? codeBlocks = null)
     {
         foreach (var node in nodes)
         {
@@ -680,7 +725,7 @@ public sealed class XmlDocReader
                     builder.Append(text.Value);
                     break;
                 case XElement element:
-                    AppendElementText(builder, element, singleLine);
+                    AppendElementText(builder, element, singleLine, codeBlocks);
                     break;
             }
         }
@@ -693,8 +738,13 @@ public sealed class XmlDocReader
     /// </summary>
     /// <param name="builder">The string builder that accumulates the output text.</param>
     /// <param name="node">The single XML node to process.</param>
-    /// <param name="singleLine">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool)"/>.</param>
-    private static void AppendNodeText(StringBuilder builder, XNode node, bool singleLine = false)
+    /// <param name="singleLine">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/>.</param>
+    /// <param name="codeBlocks">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/>.</param>
+    private static void AppendNodeText(
+        StringBuilder builder,
+        XNode node,
+        bool singleLine = false,
+        Dictionary<string, string>? codeBlocks = null)
     {
         switch (node)
         {
@@ -702,7 +752,7 @@ public sealed class XmlDocReader
                 builder.Append(text.Value);
                 break;
             case XElement element:
-                AppendElementText(builder, element, singleLine);
+                AppendElementText(builder, element, singleLine, codeBlocks);
                 break;
         }
     }
@@ -714,8 +764,13 @@ public sealed class XmlDocReader
     /// </summary>
     /// <param name="builder">The string builder that accumulates the output text.</param>
     /// <param name="element">The XML element to render.</param>
-    /// <param name="singleLine">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool)"/>.</param>
-    private static void AppendElementText(StringBuilder builder, XElement element, bool singleLine = false)
+    /// <param name="singleLine">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/>.</param>
+    /// <param name="codeBlocks">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/>.</param>
+    private static void AppendElementText(
+        StringBuilder builder,
+        XElement element,
+        bool singleLine = false,
+        Dictionary<string, string>? codeBlocks = null)
     {
         switch (element.Name.LocalName)
         {
@@ -728,7 +783,7 @@ public sealed class XmlDocReader
                 builder.Append(element.Attribute("name")?.Value ?? string.Empty);
                 break;
             case "para":
-                AppendNodeText(builder, element.Nodes(), singleLine);
+                AppendNodeText(builder, element.Nodes(), singleLine, codeBlocks);
                 builder.AppendLine();
                 break;
             case "c":
@@ -744,13 +799,147 @@ public sealed class XmlDocReader
                 }
 
                 break;
+            case "br":
+                // A <br/> marks an explicit paragraph break. Emit a blank-line separator so
+                // the surrounding text renders as two distinct Markdown paragraphs rather than
+                // being silently dropped; NormalizeDocumentationText's blank-line-run collapsing
+                // keeps runs of several <br/> tags from producing more than one blank line.
+                builder.Append("\n\n");
+                break;
+            case "code":
+                AppendCodeElementText(builder, element, singleLine, codeBlocks);
+                break;
             case "list":
                 AppendListText(builder, element, singleLine);
                 break;
             default:
-                AppendNodeText(builder, element.Nodes(), singleLine);
+                AppendNodeText(builder, element.Nodes(), singleLine, codeBlocks);
                 break;
         }
+    }
+
+    /// <summary>
+    ///     Appends the rendering of a <c>&lt;code&gt;</c> element to <paramref name="builder"/>,
+    ///     choosing between a fenced Markdown code block and an inline code span.
+    /// </summary>
+    /// <remarks>
+    ///     The content is dedented via <see cref="DedentCode"/> first; whitespace-only content
+    ///     contributes nothing, mirroring the empty-skip guard already used for <c>&lt;c&gt;</c>.
+    ///     A fenced block is only ever produced when <paramref name="singleLine"/> is
+    ///     <see langword="false"/>, <paramref name="codeBlocks"/> is non-<see langword="null"/>
+    ///     (i.e. only from <see cref="GetDocumentationText"/>), <em>and</em> the dedented content
+    ///     spans multiple lines; every other caller — including table-cell contexts
+    ///     (<see cref="GetSingleLineDocumentationText"/>, whose callers such as
+    ///     <see cref="GetParams"/> and <see cref="GetExceptionDetails"/> feed raw Markdown table
+    ///     rows where an embedded literal newline would corrupt the table), nested list items
+    ///     (<see cref="RenderInlineElement"/>), and <c>&lt;example&gt;</c> mixed prose
+    ///     (<see cref="BuildMixedExampleParts"/>) — always takes the inline-span branch instead,
+    ///     because a fenced block's literal backtick fences and newlines would otherwise corrupt
+    ///     that single-line/table-cell output. Whenever <paramref name="codeBlocks"/> is supplied
+    ///     (fenced block or inline span alike), the rendered content is registered under a
+    ///     placeholder token (see <see cref="RegisterCodeBlockPlaceholder"/>) so it survives the
+    ///     caller's subsequent whitespace normalization (<see cref="NormalizeDocumentationText"/> or
+    ///     <see cref="NormalizeSingleLine"/>) with its significant internal whitespace intact; when
+    ///     no map is supplied (nested list items, mixed example prose), the span is appended
+    ///     directly and remains subject to the same whitespace-collapsing limitation <c>&lt;c&gt;</c>
+    ///     already has in those contexts.
+    /// </remarks>
+    /// <param name="builder">The string builder that accumulates the output text.</param>
+    /// <param name="element">The <c>&lt;code&gt;</c> element to render.</param>
+    /// <param name="singleLine">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/>.</param>
+    /// <param name="codeBlocks">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/>.</param>
+    private static void AppendCodeElementText(
+        StringBuilder builder,
+        XElement element,
+        bool singleLine,
+        Dictionary<string, string>? codeBlocks)
+    {
+        var dedented = DedentCode(element.Value);
+        if (dedented.Length == 0)
+        {
+            return;
+        }
+
+        if (!singleLine && codeBlocks != null && dedented.Contains('\n'))
+        {
+            var fence = new string('`', Math.Max(3, ComputeFenceLength(dedented)));
+            var fencedBlock = $"{fence}\n{dedented}\n{fence}";
+            builder.Append("\n\n");
+            builder.Append(RegisterCodeBlockPlaceholder(codeBlocks, fencedBlock));
+            builder.Append("\n\n");
+            return;
+        }
+
+        // Single-line context, or no embedded newline — always fall back to an inline code
+        // span, flattening any embedded newlines first. Unlike NormalizeSingleLine (used for
+        // surrounding prose), this must NOT collapse each line's internal whitespace runs: the
+        // content is code, where significant spacing (alignment, multiple spaces, tabs) must
+        // survive flattening into one line, with only line-boundary whitespace trimmed and lines
+        // joined by a single space.
+        var inline = dedented.Contains('\n') ? FlattenCodeToSingleLine(dedented) : dedented;
+        if (inline.Length == 0)
+        {
+            return;
+        }
+
+        if (codeBlocks != null)
+        {
+            // Protect the span's significant internal whitespace from the caller's outer
+            // whitespace-collapsing normalization by routing it through the same placeholder
+            // mechanism used for fenced blocks.
+            var spanBuilder = new StringBuilder();
+            AppendMarkdownCodeSpan(spanBuilder, inline);
+            builder.Append(RegisterCodeBlockPlaceholder(codeBlocks, spanBuilder.ToString()));
+            return;
+        }
+
+        AppendMarkdownCodeSpan(builder, inline);
+    }
+
+    /// <summary>
+    ///     Registers <paramref name="content"/> under a new unique placeholder token in
+    ///     <paramref name="codeBlocks"/> and returns the token.
+    /// </summary>
+    /// <remarks>
+    ///     The token is built from a non-whitespace control character (<c>\u0001</c>), a fixed
+    ///     literal prefix, and a running counter, so it is immune to <see cref="CollapseWhitespace"/>
+    ///     (which only touches whitespace runs) and to <c>Trim()</c> (it neither starts nor ends
+    ///     with whitespace), and occupies a single line (contains no <c>\n</c>) so it passes through
+    ///     <see cref="NormalizeDocumentationText"/>'s per-line pipeline and blank-line-run collapsing
+    ///     completely unchanged. <see cref="RestoreCodeBlockPlaceholders"/> substitutes the real
+    ///     content back in once normalization has completed.
+    /// </remarks>
+    /// <param name="codeBlocks">The placeholder map to register the content into.</param>
+    /// <param name="content">The real (fenced code block) content the token stands in for.</param>
+    /// <returns>The placeholder token to append in place of <paramref name="content"/>.</returns>
+    private static string RegisterCodeBlockPlaceholder(Dictionary<string, string> codeBlocks, string content)
+    {
+        var token = $"\u0001codeblock{codeBlocks.Count}\u0001";
+        codeBlocks[token] = content;
+        return token;
+    }
+
+    /// <summary>
+    ///     Substitutes every placeholder token registered via
+    ///     <see cref="RegisterCodeBlockPlaceholder"/> back to its real content in
+    ///     <paramref name="text"/>.
+    /// </summary>
+    /// <param name="text">The normalized text that may contain placeholder tokens.</param>
+    /// <param name="codeBlocks">The placeholder map populated during rendering.</param>
+    /// <returns><paramref name="text"/> with every placeholder token replaced by its real content.</returns>
+    private static string RestoreCodeBlockPlaceholders(string text, Dictionary<string, string> codeBlocks)
+    {
+        if (codeBlocks.Count == 0)
+        {
+            return text;
+        }
+
+        foreach (var (token, content) in codeBlocks)
+        {
+            text = text.Replace(token, content, StringComparison.Ordinal);
+        }
+
+        return text;
     }
 
     /// <summary>
@@ -766,7 +955,7 @@ public sealed class XmlDocReader
     ///     separated from surrounding prose and renders as valid CommonMark. Nested
     ///     inline elements inside <c>&lt;term&gt;</c>/<c>&lt;description&gt;</c>/<c>&lt;item&gt;</c>
     ///     (such as <c>&lt;c&gt;</c>, <c>&lt;see&gt;</c>, and <c>&lt;paramref&gt;</c>) are rendered
-    ///     via the existing <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool)"/> dispatch.
+    ///     via the existing <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/> dispatch.
     ///     In single-line mode (used for table cells and <see cref="GetSummary"/>), a real
     ///     multi-line list would be collapsed into unreadable run-together text by
     ///     <see cref="NormalizeSingleLine"/>, so the list instead renders inline as numbered
@@ -1040,7 +1229,7 @@ public sealed class XmlDocReader
 
     /// <summary>
     ///     Renders the inline content of <paramref name="element"/> to a single line via the
-    ///     shared <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool)"/> dispatch, so
+    ///     shared <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/> dispatch, so
     ///     nested inline elements such as <c>&lt;c&gt;</c>, <c>&lt;see&gt;</c>, and
     ///     <c>&lt;paramref&gt;</c> render correctly inside list items.
     /// </summary>
@@ -1069,26 +1258,7 @@ public sealed class XmlDocReader
     /// <param name="content">The non-empty, already-normalized code content.</param>
     private static void AppendMarkdownCodeSpan(StringBuilder builder, string content)
     {
-        // Find the longest consecutive run of backticks in the content so the fence is longer
-        var maxRun = 0;
-        var currentRun = 0;
-        foreach (var ch in content)
-        {
-            if (ch == '`')
-            {
-                currentRun++;
-                if (currentRun > maxRun)
-                {
-                    maxRun = currentRun;
-                }
-            }
-            else
-            {
-                currentRun = 0;
-            }
-        }
-
-        var fence = new string('`', maxRun + 1);
+        var fence = new string('`', ComputeFenceLength(content));
 
         // Pad with spaces when content starts or ends with a backtick so the fence
         // character is unambiguous to Markdown parsers (CommonMark §6.1)
@@ -1111,10 +1281,49 @@ public sealed class XmlDocReader
     }
 
     /// <summary>
+    ///     Computes the minimum Markdown backtick fence length required to unambiguously delimit
+    ///     <paramref name="content"/> — one greater than the longest consecutive run of backticks
+    ///     found inside it (or <c>1</c> when <paramref name="content"/> contains no backticks).
+    /// </summary>
+    /// <param name="content">The code content the fence will delimit.</param>
+    /// <returns>The number of backtick characters the fence must use.</returns>
+    private static int ComputeFenceLength(string content)
+    {
+        var maxRun = 0;
+        var currentRun = 0;
+        foreach (var ch in content)
+        {
+            if (ch == '`')
+            {
+                currentRun++;
+                if (currentRun > maxRun)
+                {
+                    maxRun = currentRun;
+                }
+            }
+            else
+            {
+                currentRun = 0;
+            }
+        }
+
+        return maxRun + 1;
+    }
+
+    /// <summary>
     ///     Returns the display text for a <c>&lt;see&gt;</c> or <c>&lt;seealso&gt;</c>
     ///     element, preferring the <c>langword</c> attribute, then explicit element text, then a
     ///     formatted <c>cref</c> attribute, and finally an empty string when none are present.
     /// </summary>
+    /// <remarks>
+    ///     When the display text is ultimately derived from a <c>cref</c> attribute that refers to
+    ///     a type member (property, field, event, or method — see
+    ///     <see cref="FormatCref"/>/<see cref="FormatMemberReference"/>), it is wrapped in an
+    ///     inline Markdown code span via <see cref="FormatAsInlineCodeSpan"/> so it reads visually
+    ///     distinct from surrounding prose, matching how <c>&lt;c&gt;</c> content is rendered. A
+    ///     <c>langword</c> value, explicit inner text, a type-only (<c>T:</c>) cref, and a
+    ///     constructor cref are all left unwrapped.
+    /// </remarks>
     /// <param name="element">The inline reference element to render.</param>
     /// <returns>A non-null display string; may be empty when no renderable content is found.</returns>
     private static string GetInlineReferenceText(XElement element)
@@ -1135,10 +1344,29 @@ public sealed class XmlDocReader
         var cref = element.Attribute("cref")?.Value;
         if (!string.IsNullOrWhiteSpace(cref))
         {
-            return FormatCref(cref);
+            // Request the code-span (unescaped) rendering since a member reference is about to
+            // be wrapped in backticks, where escaped angle brackets would show literal
+            // backslashes — see FormatCref's forCodeSpan parameter. Non-member results (type-only
+            // and constructor crefs) always ignore this request and return the escaped,
+            // prose-safe form internally, since they are never wrapped.
+            var (text, isMemberReference) = FormatCref(cref, forCodeSpan: true);
+            return isMemberReference && text.Length > 0 ? FormatAsInlineCodeSpan(text) : text;
         }
 
         return string.Empty;
+    }
+
+    /// <summary>
+    ///     Wraps <paramref name="text"/> in an inline Markdown code span via
+    ///     <see cref="AppendMarkdownCodeSpan"/>.
+    /// </summary>
+    /// <param name="text">The already-formatted, non-empty display text to wrap.</param>
+    /// <returns>The text wrapped in backtick fences.</returns>
+    private static string FormatAsInlineCodeSpan(string text)
+    {
+        var builder = new StringBuilder();
+        AppendMarkdownCodeSpan(builder, text);
+        return builder.ToString();
     }
 
     /// <summary>
@@ -1146,8 +1374,23 @@ public sealed class XmlDocReader
     ///     by stripping the type-kind prefix and simplifying the qualified member name.
     /// </summary>
     /// <param name="cref">Raw cref string, e.g. <c>T:System.ArgumentNullException</c> or <c>M:Foo.Bar.Go(System.Int32)</c>.</param>
-    /// <returns>A concise display name, e.g. <c>ArgumentNullException</c> or <c>Bar.Go()</c>.</returns>
-    private static string FormatCref(string cref)
+    /// <param name="forCodeSpan">
+    ///     When <see langword="true"/>, requests the unescaped, code-span-safe rendering of any
+    ///     generic angle-bracket notation (e.g. <c>List&lt;T&gt;</c> rather than the prose-escaped
+    ///     <c>List\&lt;T\&gt;</c>) for results that will be wrapped in an inline Markdown code span
+    ///     by the caller. This request only takes effect for the member-reference branch (the one
+    ///     whose <c>IsMemberReference</c> result is <see langword="true"/>) — the type-only and
+    ///     constructor branches are never wrapped, so they always return the escaped, prose-safe
+    ///     form regardless of this flag.
+    /// </param>
+    /// <returns>
+    ///     A concise display name (e.g. <c>ArgumentNullException</c> or <c>Bar.Go()</c>) together with
+    ///     <see langword="true"/> when the cref refers to a type member (property, field, event, or
+    ///     non-constructor method) rather than a type or constructor — the single source of truth
+    ///     <see cref="GetInlineReferenceText"/> uses to decide whether to wrap the text in an inline
+    ///     code span.
+    /// </returns>
+    private static (string Text, bool IsMemberReference) FormatCref(string cref, bool forCodeSpan = false)
     {
         var separatorIndex = cref.IndexOf(':');
         var kind = separatorIndex > 0 ? cref[0] : '\0';
@@ -1159,9 +1402,10 @@ public sealed class XmlDocReader
 
         return kind switch
         {
-            'T' => FormatTypeName(memberTarget),
-            'M' or 'P' or 'F' or 'E' => FormatMemberReference(kind, memberTarget, parameters),
-            _ => target,
+            // Never wrapped in a code span — always use the escaped, prose-safe form.
+            'T' => (FormatTypeName(memberTarget, forCodeSpan: false), false),
+            'M' or 'P' or 'F' or 'E' => FormatMemberReference(kind, memberTarget, parameters, forCodeSpan),
+            _ => (target, false),
         };
     }
 
@@ -1173,13 +1417,27 @@ public sealed class XmlDocReader
     /// <param name="kind">The member kind character from the cref prefix: <c>M</c>, <c>P</c>, <c>F</c>, or <c>E</c>.</param>
     /// <param name="target">Fully-qualified member path without the kind prefix or parameter list.</param>
     /// <param name="parameters">The raw parameter list substring (e.g. <c>(System.Int32)</c>), or empty.</param>
-    /// <returns>A concise display string suitable for inline documentation text.</returns>
-    private static string FormatMemberReference(char kind, string target, string parameters)
+    /// <param name="forCodeSpan">
+    ///     See <see cref="FormatCref"/>. Applied only to the member-reference result (the result
+    ///     returned with <see langword="true"/>) — the constructor branch below always returns
+    ///     the escaped, prose-safe form since it is never wrapped in a code span.
+    /// </param>
+    /// <returns>
+    ///     A concise display string suitable for inline documentation text, together with
+    ///     <see langword="true"/> unless <paramref name="kind"/> is <c>M</c> and
+    ///     <paramref name="target"/> names a constructor (<c>#ctor</c>), in which case the type name
+    ///     alone is returned with <see langword="false"/>.
+    /// </returns>
+    private static (string Text, bool IsMemberReference) FormatMemberReference(
+        char kind,
+        string target,
+        string parameters,
+        bool forCodeSpan = false)
     {
         var lastDot = target.LastIndexOf('.');
         if (lastDot < 0)
         {
-            return target;
+            return (target, true);
         }
 
         var typeName = target[..lastDot];
@@ -1187,19 +1445,20 @@ public sealed class XmlDocReader
 
         if (kind == 'M' && memberName == "#ctor")
         {
-            return FormatTypeName(typeName);
+            // Never wrapped in a code span (IsMemberReference is false here) — always escaped.
+            return (FormatTypeName(typeName, forCodeSpan: false), false);
         }
 
         // The declaring type name is always included for M/P/F/E member references — a bare
         // member name (e.g. "Go" instead of "Bar.Go") is ambiguous to a reader who does not
         // already know which type declares the referenced member.
-        var formattedTypeName = FormatTypeName(typeName);
+        var formattedTypeName = FormatTypeName(typeName, forCodeSpan);
         var formattedMemberName = StripArity(memberName);
         var memberDisplay = $"{formattedTypeName}.{formattedMemberName}";
 
         return kind == 'M' && parameters.Length > 0
-            ? $"{memberDisplay}()"
-            : memberDisplay;
+            ? ($"{memberDisplay}()", true)
+            : (memberDisplay, true);
     }
 
     /// <summary>
@@ -1207,8 +1466,12 @@ public sealed class XmlDocReader
     ///     aliases for well-known <c>System.*</c> types and stripping the namespace from all others.
     /// </summary>
     /// <param name="typeName">Fully-qualified CLR type name, e.g. <c>System.Int32</c> or <c>My.Namespace.Foo</c>.</param>
+    /// <param name="forCodeSpan">
+    ///     See <see cref="FormatCref"/>; forwarded to <see cref="FormatTypeArity"/> to control
+    ///     whether generic angle-bracket notation is escaped for prose or left raw for a code span.
+    /// </param>
     /// <returns>A C# keyword alias (e.g. <c>int</c>) or the unqualified simple name (e.g. <c>Foo</c>).</returns>
-    private static string FormatTypeName(string typeName)
+    private static string FormatTypeName(string typeName, bool forCodeSpan = false)
     {
         return typeName switch
         {
@@ -1228,7 +1491,7 @@ public sealed class XmlDocReader
             "System.UInt32" => "uint",
             "System.UInt64" => "ulong",
             "System.Void" => "void",
-            _ => FormatTypeArity(typeName[(typeName.LastIndexOf('.') + 1)..]),
+            _ => FormatTypeArity(typeName[(typeName.LastIndexOf('.') + 1)..], forCodeSpan),
         };
     }
 
@@ -1254,8 +1517,17 @@ public sealed class XmlDocReader
     ///     Returns the original string unchanged when no backtick is present.
     /// </summary>
     /// <param name="typeName">Raw type name that may contain a backtick arity suffix.</param>
+    /// <param name="forCodeSpan">
+    ///     When <see langword="true"/>, returns raw (unescaped) angle brackets, suitable for
+    ///     content that will be wrapped in an inline Markdown code span — where backslash escapes
+    ///     are literal characters, not Markdown escapes, so an escaped result would display stray
+    ///     backslashes (e.g. <c>List\&lt;T\&gt;</c> instead of <c>List&lt;T&gt;</c>). When
+    ///     <see langword="false"/> (the default), angle brackets are escaped for bare Markdown
+    ///     prose, where an unescaped <c>&lt;T&gt;</c> would otherwise be parsed as an HTML tag and
+    ///     stripped or hidden by Markdown renderers.
+    /// </param>
     /// <returns>The name with angle-bracket placeholder notation, or the original name if no arity marker is present.</returns>
-    private static string FormatTypeArity(string typeName)
+    private static string FormatTypeArity(string typeName, bool forCodeSpan = false)
     {
         var tickIndex = typeName.IndexOf('`');
         if (tickIndex < 0)
@@ -1272,27 +1544,52 @@ public sealed class XmlDocReader
         var typeParams = arity == 1
             ? "T"
             : string.Join(", ", Enumerable.Range(1, arity).Select(i => $"T{i}"));
-        // Escape angle brackets for Markdown prose — bare <T> is parsed as an HTML tag
-        // by Markdown renderers and the type parameter would be stripped or hidden
-        return $"{baseName}\\<{typeParams}\\>";
+
+        return forCodeSpan
+            ? $"{baseName}<{typeParams}>"
+            : $"{baseName}\\<{typeParams}\\>";
     }
 
     /// <summary>
     ///     Normalizes raw documentation text by collapsing runs of internal whitespace on each
-    ///     line, trimming every line, and preserving non-empty lines separated by newlines.
+    ///     line, trimming every line, collapsing runs of two or more consecutive blank lines down
+    ///     to a single blank line, and preserving non-empty lines separated by newlines.
     /// </summary>
+    /// <remarks>
+    ///     The blank-line-run collapsing step guards against markdownlint MD012 violations that
+    ///     would otherwise appear where adjacent block-level separators (a <c>&lt;list&gt;</c>, a
+    ///     <c>&lt;br/&gt;</c>, or a fenced <c>&lt;code&gt;</c> block) each independently surround
+    ///     themselves with a blank line — e.g. a list immediately followed by a fenced code block
+    ///     would otherwise leave two blank lines between them. It runs after per-line collapsing
+    ///     and trimming, and before the final <see cref="string.Trim()"/>, so a run of blank lines
+    ///     at either boundary is first reduced to a single blank line and then removed entirely by
+    ///     the trailing trim.
+    /// </remarks>
     /// <param name="text">Raw text extracted from an XML documentation element.</param>
     /// <returns>Normalized multi-line text with no leading/trailing whitespace.</returns>
     private static string NormalizeDocumentationText(string text)
     {
-        return string.Join(
-                "\n",
-                text.Replace("\r\n", "\n", StringComparison.Ordinal)
-                    .Replace('\r', '\n')
-                    .Split('\n')
-                    .Select(CollapseWhitespace)
-                    .Select(line => line.Trim()))
-            .Trim();
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Split('\n')
+            .Select(CollapseWhitespace)
+            .Select(line => line.Trim());
+
+        var collapsedLines = new List<string>();
+        var previousWasBlank = false;
+        foreach (var line in lines)
+        {
+            var isBlank = line.Length == 0;
+            if (isBlank && previousWasBlank)
+            {
+                continue;
+            }
+
+            collapsedLines.Add(line);
+            previousWasBlank = isBlank;
+        }
+
+        return string.Join("\n", collapsedLines).Trim();
     }
 
     /// <summary>
@@ -1309,6 +1606,32 @@ public sealed class XmlDocReader
                 .Replace('\r', '\n')
                 .Split('\n')
                 .Select(CollapseWhitespace)
+                .Select(line => line.Trim())
+                .Where(line => line.Length > 0));
+    }
+
+    /// <summary>
+    ///     Joins all non-empty trimmed lines from <paramref name="text"/> into a single
+    ///     space-separated string, WITHOUT collapsing each line's internal whitespace runs.
+    /// </summary>
+    /// <remarks>
+    ///     Used to flatten a multi-line <c>&lt;code&gt;</c> element into a single-line inline code
+    ///     span (see <see cref="AppendCodeElementText"/>): unlike <see cref="NormalizeSingleLine"/>,
+    ///     which is used for surrounding prose and deliberately collapses redundant whitespace, code
+    ///     content may have significant internal spacing (alignment, multiple spaces, tabs) that
+    ///     must survive being joined onto one line. Only leading/trailing whitespace on each line is
+    ///     trimmed, and blank lines are dropped; everything else on a non-blank line is preserved
+    ///     verbatim.
+    /// </remarks>
+    /// <param name="text">Raw multi-line code text (already dedented).</param>
+    /// <returns>A single-line string with line boundaries collapsed to single spaces.</returns>
+    private static string FlattenCodeToSingleLine(string text)
+    {
+        return string.Join(
+            " ",
+            text.Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Replace('\r', '\n')
+                .Split('\n')
                 .Select(line => line.Trim())
                 .Where(line => line.Length > 0));
     }

@@ -82,7 +82,13 @@ absent. May contain multiple lines. Resolves `<inheritdoc />` first.
 **GetParams**: Returns parameter names and descriptions for `memberId` as
 `IReadOnlyList<(string Name, string? Description)>`. Returns an empty list
 when the member is absent. `<param>` elements without a `name` attribute are
-silently filtered out. Resolves `<inheritdoc />` first.
+silently filtered out. Resolves `<inheritdoc />` first. Description text is
+rendered via `GetSingleLineDocumentationText`, not `GetDocumentationText`: every
+caller writes the description into a raw pipe-delimited Markdown table cell
+(`FileMarkdownWriter.WriteTable` only escapes `|`, never embedded `\n`), so a
+`<br/>`/multi-line `<code>` in the description must flatten to a single line
+with no embedded literal newline rather than render as a fenced code block,
+which would otherwise corrupt the table.
 
 **GetReturns**: Returns trimmed returns text for `memberId`, or `null` if
 absent. Resolves `<inheritdoc />` first.
@@ -96,7 +102,9 @@ the member is absent. Resolves `<inheritdoc />` first.
 `IReadOnlyList<(string Type, string? Description)>`. The `Type` field is
 the formatted cref value (applying `FormatCref` to strip the type prefix and
 format names); entries with an empty cref are filtered out. Resolves
-`<inheritdoc />` first.
+`<inheritdoc />` first. Like `GetParams`, the `Description` field is rendered
+via `GetSingleLineDocumentationText` for the same table-cell safety reason —
+every caller writes it into a Markdown table cell.
 
 **GetExample**: Returns trimmed example text for `memberId`, or `null` when
 the `<example>` element is absent or contains only whitespace. Resolves
@@ -168,6 +176,22 @@ string. Both normalize line endings to `\n` before processing. Both pass an
 explicit `singleLine` flag down through `AppendNodeText`/`AppendElementText`/
 `AppendListText` so that list rendering (see "Single-line vs. multi-line list
 rendering" below) can tell which of the two contexts it is being called from.
+Both also create and supply their own `codeBlocks` placeholder map (see "Fenced
+code block placeholder protection" below) — `GetSingleLineDocumentationText`
+needs this to protect inline backtick-code-span content (and its internal
+whitespace) from its own line-join/space-collapse pass, exactly as
+`GetDocumentationText` already protects fenced-block content from its
+per-line collapsing — so both entry points are callable interchangeably for
+table-cell-bound text such as `GetParams`/`GetExceptionDetails` descriptions.
+After per-line collapsing and trimming, `NormalizeDocumentationText` also
+collapses any run of two or more consecutive blank lines down to a single
+blank line, before its final `Trim()` call — this guards against markdownlint
+MD012 violations that would otherwise appear where adjacent block-level
+separators (a `<list>`, a `<br/>`, or a fenced `<code>` block) each
+independently surround themselves with a blank line, e.g. a list immediately
+followed by a fenced code block. `NormalizeSingleLine` is not changed by this,
+since it already discards every blank line as part of joining non-empty lines
+with spaces.
 
 #### Single-line vs. multi-line list rendering
 
@@ -197,6 +221,79 @@ regardless of which context invoked the outer list. This produces the same
 visible single-line result as genuine flag propagation would, but the
 `singleLine` value itself is not passed into that nested call.
 
+#### Fenced code block placeholder protection (`codeBlocks`)
+
+`AppendNodeText`/`AppendElementText` accept a fourth, optional
+`Dictionary<string, string>? codeBlocks` parameter (default `null`) used to
+protect a fenced Markdown code block's literal content — its backtick fences
+and internal whitespace/newlines — from `NormalizeDocumentationText`'s
+per-line `CollapseWhitespace` pass and its blank-line-run collapsing, both of
+which would otherwise corrupt a fenced block if applied directly to it. The
+same mechanism also protects an inline backtick code span produced for a
+`<code>` element's internal whitespace (multiple spaces, tabs) from
+`CollapseWhitespace`/`NormalizeSingleLine` when a `codeBlocks` map is
+supplied, since a single-line `<code>` element can appear in either
+rendering context. A `<c>` element's rendering is NOT protected by this
+mechanism — it is always appended directly via `AppendMarkdownCodeSpan`
+(see the `<c>` bullet under "Inline Element Rendering" below) regardless of
+whether a `codeBlocks` map is supplied, so its internal whitespace remains
+subject to the caller's outer whitespace-collapsing normalization.
+
+- **Why it exists**: A multi-line `<code>` element renders as a fenced
+  Markdown code block (see the `<code>` bullet under "Inline Element
+  Rendering" below). Its content must reach the final output byte-for-byte —
+  including runs of multiple spaces, tabs, and blank lines that are
+  semantically meaningful inside the code — but it is accumulated into the
+  same `StringBuilder` as surrounding prose, which later passes through
+  `NormalizeDocumentationText`/`NormalizeSingleLine`. A single-line `<code>`
+  element has the identical problem for its internal whitespace when rendered
+  as an inline backtick span, so the same placeholder mechanism is reused
+  rather than building a second one. Instead of special-casing the
+  normalizer itself to skip these regions, the real content is registered
+  under a unique, single-line placeholder token (`RegisterCodeBlockPlaceholder`)
+  built from a non-whitespace control character (`\u0001`) plus a literal
+  prefix and a running counter; only the token is appended to the builder.
+  The token is immune to `CollapseWhitespace` (which only touches whitespace
+  runs), immune to `Trim()` (it neither starts nor ends with whitespace), and
+  occupies exactly one line (no embedded `\n`), so it passes through every
+  stage of `NormalizeDocumentationText`/`NormalizeSingleLine` completely
+  unchanged. `RestoreCodeBlockPlaceholders` substitutes the real content back
+  in immediately after normalization completes, inside both
+  `GetDocumentationText` and `GetSingleLineDocumentationText`.
+- **Lifecycle**: A new, empty `codeBlocks` map is created once per
+  `GetDocumentationText`/`GetSingleLineDocumentationText` call (the only two
+  call sites that create one) and passed down through the full
+  `AppendNodeText`/`AppendElementText` recursion for that single call; it is
+  discarded once the call returns.
+- **Why `RenderInlineElement` and `BuildMixedExampleParts` never supply one**:
+  Both of these call sites render content that is subsequently squashed
+  through `NormalizeSingleLine` rather than `NormalizeDocumentationText` — a
+  fenced code block (literal triple-backtick fences and internal newlines)
+  would never be valid in that single-line context, and a placeholder token
+  surviving `NormalizeSingleLine`'s line-split/trim/space-join pass would
+  itself be meaningless once restored into single-line text. Both call sites
+  therefore rely on the default `codeBlocks: null`, which forces
+  `AppendCodeElementText`'s fenced-vs-inline decision to always take the
+  inline-span branch instead (see the `<code>` bullet below) — this is
+  evaluated purely from `codeBlocks != null`, deliberately not from the
+  `singleLine` flag, because both of these call sites pass `singleLine: false`
+  into `AppendNodeText` even though their output is later squashed by
+  `NormalizeSingleLine`, not `NormalizeDocumentationText`.
+- **Known limitation — `RenderInlineElement` (`<list type="table">` cells) is
+  not protected**: `RenderInlineElement` renders `<term>`/`<description>`
+  content for `type="table"` list items — written into a literal
+  pipe-delimited Markdown table cell by `AppendListText`, the same corruption
+  hazard class that motivated routing `GetParams`/`GetExceptionDetails`
+  through `GetSingleLineDocumentationText`'s protected path. Because
+  `RenderInlineElement` calls its own unprotected `NormalizeSingleLine`
+  directly rather than going through `GetSingleLineDocumentationText`, an
+  inline `<code>` span's internal whitespace inside a table-list item's
+  `<description>` still collapses. This is a pre-existing limitation, not a
+  regression introduced by this fix, and is intentionally left out of scope
+  here — unlike `GetParams`/`GetExceptionDetails`, it was not part of the
+  reported defect and protecting it would require threading a `codeBlocks` map
+  through `AppendListText`'s nested-list-item rendering as well.
+
 #### Inline Element Rendering
 
 `GetDocumentationText` processes inline XML elements within doc comment nodes
@@ -206,10 +303,48 @@ according to the following element-to-text mappings:
   embedded backticks in the content per CommonMark §6.1. When the code content starts
   or ends with a backtick, a single space is inserted on each side inside the fence so
   that Markdown parsers can unambiguously identify the fence delimiter (CommonMark §6.1).
+- `<br/>` → an explicit paragraph break, rendered as `"\n\n"`. Runs of two or more
+  consecutive `<br/>` tags are collapsed to a single blank line by
+  `NormalizeDocumentationText`'s blank-line-run collapsing (see "Whitespace
+  normalization" above), so authoring several `<br/>` tags in a row never produces
+  more than one blank Markdown paragraph break. In a single-line context
+  (`GetSummary`), the emitted blank line is discarded along with every other blank
+  line by `NormalizeSingleLine`, collapsing the `<br/>` to a single space instead.
+- `<code>text</code>` → dedented via the existing `DedentCode` helper, then rendered
+  as either an inline backtick code span or a fenced Markdown code block, decided by
+  `AppendCodeElementText`:
+  - Whitespace-only content (after dedenting) contributes nothing, mirroring the
+    `<c>` empty-skip guard above.
+  - A fenced block (`` ``` `` fences on their own lines, surrounded by `"\n\n"`) is
+    produced only when a `codeBlocks` placeholder map was supplied (i.e. only from
+    `GetDocumentationText`'s top-level call — see "Fenced code block placeholder
+    protection" above) and the dedented content spans multiple lines. The fence
+    length is `Math.Max(3, ComputeFenceLength(dedented))` backticks, so an embedded
+    backtick run of 3 or more inside the code still cannot be confused with the
+    fence delimiter.
+  - Every other case (single-line content, no `codeBlocks` map supplied, as in
+    nested list items/`<example>` mixed prose) renders an inline backtick code
+    span via `AppendMarkdownCodeSpan` instead, flattening any embedded newlines
+    through `NormalizeSingleLine` first. When a `codeBlocks` placeholder map
+    IS supplied (from `GetDocumentationText` or `GetSingleLineDocumentationText`
+    — including `GetSummary`), the inline span is registered as a placeholder
+    token the same way a fenced block is, so its internal whitespace survives
+    `CollapseWhitespace`/`NormalizeSingleLine` unchanged (see "Fenced code
+    block placeholder protection" above) — this is what keeps `GetParams`/
+    `GetExceptionDetails` descriptions (always written into a Markdown table
+    cell, so they must use `GetSingleLineDocumentationText`, never a fenced
+    block) safe for significant internal spacing.
 - `<see cref="..."/>` → formatted cref value via the `FormatCref` helper (strips the
   type-kind prefix, strips the namespace path to leave just the type name, and replaces
   generic arity markers with angle-bracket type-parameter placeholders via
   `FormatTypeArity`, e.g. `List\`1` → `List<T>`,`Dictionary\`2` → `Dictionary<T1, T2>`).
+  When the cref refers to a type member (property, field, event, or non-constructor
+  method — see "Member-cref inline code span wrapping" below), the formatted text is
+  additionally wrapped in an inline Markdown code span, and in that case the generic
+  arity placeholder is rendered with raw, unescaped angle brackets (`List<T>`) rather
+  than the backslash-escaped prose form (`List\<T\>`), since a code span's content is
+  literal and the escaping backslash would otherwise show up as a stray visible
+  character — see "Generic cref escaping inside a code span" below.
 - `<see langword="..."/>` → the `langword` attribute value directly (e.g., `null`,
   `true`, `false`).
 - `<paramref name="..."/>` and `<typeparamref name="..."/>` → the `name` attribute
@@ -245,7 +380,7 @@ according to the following element-to-text mappings:
     table or list well-formed (a documented limitation).
 
 **FormatCref** (private static): Converts a raw `cref` attribute value to a concise
-display string.
+display string, returning a `(string Text, bool IsMemberReference)` tuple.
 
 - *Algorithm*: Strips the type-kind prefix (`T:`, `M:`, `P:`, `F:`, `E:`); strips
   the namespace path from the remaining qualified name to leave just the type and
@@ -254,11 +389,20 @@ display string.
   `List<T>`,`Dictionary\`2` → `Dictionary<T1, T2>`); replaces`#ctor` with the
   declaring type name for constructor crefs; appends `()` to method crefs that
   include a parameter list.
+- *Return contract*: `IsMemberReference` is `true` only when the kind-prefix
+  dispatch delegates to `FormatMemberReference` and that call itself returns
+  `true` (i.e. the cref is `M:`/`P:`/`F:`/`E:` and is not a constructor); it is
+  `false` for `T:` crefs and any other/unrecognized prefix. This single
+  boolean is the sole source of truth `GetInlineReferenceText` uses to decide
+  whether to wrap the returned text in an inline code span (see "Member-cref
+  inline code span wrapping" below) — no cref-kind parsing is duplicated at
+  the call site.
 
 **FormatMemberReference** (private): Formats a `<see cref>` reference whose
 kind indicates a type member (`M:`, `P:`, `F:`, or `E:`) as `Type.Member` text,
 used by `FormatCref` once the kind-prefix dispatch determines the cref targets
-a member rather than a type.
+a member rather than a type. Returns a `(string Text, bool IsMemberReference)`
+tuple.
 
 - *Parameters*: `char kind` — the single-character cref kind prefix (`M`, `P`,
   `F`, or `E`); `string target` — the qualified type-and-member portion of the
@@ -268,6 +412,10 @@ a member rather than a type.
   formats each individually, and always renders `{formattedTypeName}.{formattedMemberName}`
   for every one of M/P/F/E — the declaring type name is never omitted. Method
   crefs additionally append the formatted parameter list.
+- *Return contract*: `IsMemberReference` is `false` only for the `kind == 'M'`
+  constructor (`#ctor`) branch, which returns the bare type name instead of a
+  `Type.Member` form; every other M/P/F/E branch (including the no-dot
+  fallback, which returns the raw target unchanged) returns `true`.
 - *History*: Prior to this behavior, the declaring type name was included only
   for `M:` (method) crefs, or when the declaring type happened to be a C#
   primitive; a `P:`/`F:`/`E:` cref to a non-primitive type rendered as a bare
@@ -284,6 +432,62 @@ a member rather than a type.
   cross-reference link would require an architectural change beyond this
   method's scope.
 
+#### Member-cref inline code span wrapping
+
+`GetInlineReferenceText` wraps a `<see>`/`<seealso>` reference's display text
+in an inline Markdown code span (via `FormatAsInlineCodeSpan`/
+`AppendMarkdownCodeSpan`) when that text was derived from a `cref` attribute
+and `FormatCref` reports `IsMemberReference: true` for it — i.e. the cref
+targets a property, field, event, or non-constructor method. This makes a
+member reference read visually distinct from surrounding prose, matching how
+`<c>` content is already rendered, and was driven by a real-world consumer
+report where `Type.Member` text rendered indistinguishably from plain prose.
+The following are deliberately left unwrapped:
+
+- A `langword` attribute value (e.g. `null`, `true`, `false`) — not a
+  reference to a declared symbol at all.
+- Explicit inner element text (the element supplies its own display text,
+  which this method always prefers verbatim over any `cref` formatting).
+- A type-only (`T:`) cref — `FormatCref` reports `IsMemberReference: false`.
+- A constructor cref (`M:...#ctor`) — `FormatMemberReference` collapses it to
+  the bare type name and reports `IsMemberReference: false`, matching how a
+  type-only cref is treated.
+
+#### Generic cref escaping inside a code span
+
+`FormatTypeArity` renders a generic arity marker as angle-bracket
+type-parameter placeholder notation (e.g. the one-type-parameter marker
+becomes `List<T>`). By default the angle brackets are backslash-escaped
+(rendered as `List\<T\>`) because the result is normally embedded directly in
+prose, where an unescaped angle-bracket pair would otherwise be parsed as an
+(invalid) HTML tag by a Markdown renderer. A `bool forCodeSpan` parameter
+(default `false`), threaded through the full call chain `FormatCref` →
+`FormatMemberReference` → `FormatTypeName` → `FormatTypeArity`, switches this
+off and returns the raw, unescaped form instead, because a code span's
+content is rendered literally — the escaping backslash would otherwise
+appear as a stray visible character in the output (rendering as
+`List\<T\>.Add()` instead of the intended `List<T>.Add()`).
+
+- `GetInlineReferenceText` passes `forCodeSpan: true` into `FormatCref`,
+  since a member-cref's result is always subsequently wrapped in a code span
+  (see "Member-cref inline code span wrapping" above) when
+  `IsMemberReference` is `true`.
+- Each layer of the call chain makes its own locally-correct decision about
+  whether `forCodeSpan` actually applies to the branch it is in, rather than
+  blindly forwarding the caller's request:
+  - `FormatCref`'s type-only (`T:`) branch always hardcodes `forCodeSpan:
+    false`, because a type-only cref's result is never wrapped in a code span
+    regardless of what the caller requested.
+  - `FormatMemberReference`'s constructor (`#ctor`) branch always hardcodes
+    `forCodeSpan: false` for the same reason — a constructor cref collapses
+    to the bare type name, which is never wrapped.
+  - Every other `FormatMemberReference`/`FormatTypeName` branch forwards the
+    caller's `forCodeSpan` value unchanged.
+  - This resolves the chicken-and-egg problem that `FormatCref` cannot know
+    in advance whether a given `M:` cref will turn out to be a constructor
+    (and thus unwrapped) until it is already inside `FormatMemberReference`.
+
+**DedentCode** (private static): Removes common leading whitespace
 indentation from raw `<code>` element content so the result renders flush-left in
 a fenced Markdown code block. The minimum indentation is computed from the leading
 whitespace of every non-blank line (blank lines are excluded from the calculation
@@ -291,6 +495,12 @@ to avoid artificially reducing the common prefix). That prefix is then stripped
 from every line. Leading and trailing blank lines are removed from the final
 result. Returns `string.Empty` for whitespace-only input so existing
 `string.IsNullOrEmpty` guards remain effective.
+
+**FormatAsInlineCodeSpan** (private static): Wraps already-formatted display
+text in an inline Markdown code span via `AppendMarkdownCodeSpan`. Used by
+`GetInlineReferenceText` to visually distinguish a member-cref's rendered
+`Type.Member` text from surrounding prose — see "Member-cref inline code span
+wrapping" below.
 
 ### Error Handling
 

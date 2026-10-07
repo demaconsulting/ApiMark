@@ -76,10 +76,23 @@ assembly is needed.
 - `GetSummary` renders a `<list type="number">` inside a `<summary>` as single-line inline numbered markers `(1) ... (2) ...`.
 - `GetSummary` renders a `<list type="bullet">` inside a `<summary>` as single-line inline numbered markers.
 - `GetSummary` renders a `<list type="table">` inside a `<summary>` as single-line inline numbered markers.
-- `GetSummary` renders a `<see cref="P:...">` reference as `Type.Member`.
-- `GetSummary` renders a `<see cref="F:...">` reference as `Type.Member`.
-- `GetSummary` renders a `<see cref="E:...">` reference as `Type.Member`.
-- `GetSummary` continues to render a `<see cref="M:...">` reference as `Type.Member` (regression guard; method crefs were unaffected by the fix).
+- `GetSummary` renders a `<see cref="P:...">` reference as `` `Type.Member` `` wrapped in an inline code span.
+- `GetSummary` renders a `<see cref="F:...">` reference as `` `Type.Member` `` wrapped in an inline code span.
+- `GetSummary` renders a `<see cref="E:...">` reference as `` `Type.Member` `` wrapped in an inline code span.
+- `GetSummary` continues to render a `<see cref="M:...">` reference as `` `Type.Member` `` wrapped in an inline code span (regression guard; method crefs were unaffected by the P/F/E type-name fix, but are included in the new code-span-wrapping behavior).
+- A type-only (`T:`) cref and a constructor (`#ctor`) cref render their display text unwrapped (no inline code span), distinguishing them from member crefs.
+- `GetRemarks` renders a `<br/>` element as a paragraph break (a blank line) between the surrounding text.
+- `GetSummary` collapses a `<br/>` element to a single space, since a blank line has no meaning in a single-line context.
+- `GetRemarks` renders a single-line `<code>` element as an inline backtick code span.
+- `GetRemarks` renders a multi-line `<code>` element as a fenced Markdown code block surrounded by blank-line separators.
+- A fenced `<code>` block's internal whitespace (multiple consecutive spaces, tabs) survives whitespace normalization byte-for-byte.
+- An empty or whitespace-only `<code>` element emits nothing, mirroring the existing `<c>` empty-skip guard.
+- `GetSummary` flattens a multi-line `<code>` element to a single-line inline code span rather than a fenced block.
+- A fenced `<code>` block whose content contains an embedded backtick run uses a longer fence so the delimiter is unambiguous.
+- `GetRemarks` leaves at most one blank line between a `<list>` and an immediately following fenced `<code>` block.
+- `GetRemarks` collapses three or more consecutive `<br/>` tags to at most one blank line.
+- A multi-line `<code>` element nested inside a `<list>` item's `<description>` renders as an inline span, not a fenced block.
+- A multi-line `<code>` element reached through `<example>` mixed-prose accumulation (nested inside a `<para>`, not a direct `<example>` child) renders as an inline span, not a fenced block.
 
 ### Test Scenarios
 
@@ -118,9 +131,32 @@ exception type names are formatted (type-kind prefix stripped, primitive aliases
 applied) and descriptions are included. This scenario is tested by
 `XmlDocReader_GetExceptionDetails_MemberWithExceptions_ReturnsFormattedTypesAndDescriptions`.
 
+**GetExceptionDetails flattens a multi-line `<code>`/`<br/>` description to a
+single line**: Verifies that an exception description containing a multi-line
+`<code>` element (and a `<br/>`) is rendered without any embedded literal
+newline, since every caller writes the description into a raw pipe-delimited
+Markdown table cell, where an embedded newline would corrupt the table. This
+scenario is tested by
+`XmlDocReader_GetExceptionDetails_DescriptionWithMultiLineCode_FlattensToSingleLineNoEmbeddedNewline`.
+
 **GetParams returns names and descriptions in order**: Verifies that parameter
 name and description pairs are returned in declaration order. This scenario is
 tested by `XmlDocReader_GetParams_MemberWithParams_ReturnsNamesAndDescriptions`.
+
+**GetParams flattens a multi-line `<code>`/`<br/>` description to a single
+line**: Verifies that a parameter description containing a multi-line `<code>`
+element (and a `<br/>`) is rendered without any embedded literal newline, for
+the same table-cell-safety reason as `GetExceptionDetails`. This scenario is
+tested by
+`XmlDocReader_GetParams_DescriptionWithMultiLineCodeAndBr_FlattensToSingleLineNoEmbeddedNewline`.
+
+**GetParams preserves significant whitespace inside an inline `<code>` span in
+a description**: Verifies that multiple consecutive spaces and a tab inside a
+single-line `<code>` element survive unchanged, proving the placeholder-token
+protection mechanism (previously only exercised via `GetRemarks`'s fenced-block
+path) also protects the inline-code-span path used by table-cell-bound
+rendering. This scenario is tested by
+`XmlDocReader_GetParams_DescriptionWithInlineCodeContainingInternalWhitespace_PreservesExactWhitespace`.
 
 **GetReturns returns trimmed text for a present member**: Verifies that returns
 text is returned with whitespace trimmed. This scenario is tested by
@@ -424,9 +460,9 @@ scenario is tested by `XmlDocReader_GetSummary_TableList_RendersInlineNumberedMa
 
 **GetSummary renders a property cref as Type.Member**: Verifies that
 `<see cref="P:Namespace.Type.PropertyName" />` now always includes the
-declaring type name, rendering as `Type.PropertyName` rather than the bare
-`PropertyName`. This scenario is tested by
-`XmlDocReader_GetSummary_SeeCrefToProperty_RendersTypeDotMember`.
+declaring type name, rendering as `` `Type.PropertyName` `` wrapped in an
+inline code span rather than the bare `PropertyName`. This scenario is tested
+by `XmlDocReader_GetSummary_SeeCrefToProperty_RendersTypeDotMember`.
 
 **GetSummary renders a field cref as Type.Member**: Verifies the same fix for
 `<see cref="F:..." />` field references. This scenario is tested by
@@ -438,6 +474,131 @@ declaring type name, rendering as `Type.PropertyName` rather than the bare
 
 **GetSummary continues to render a method cref as Type.Member (regression
 guard)**: Verifies that `<see cref="M:..." />` method references — which
-already included the type name before this fix — remain unaffected. This
-scenario is tested by
+already included the type name before this fix — remain unaffected by it, and
+are additionally now wrapped in an inline code span along with the other
+member kinds. This scenario is tested by
 `XmlDocReader_GetSummary_SeeCrefToMethod_StillRendersTypeDotMember`.
+
+**GetSummary renders a type-only (`T:`) cref unwrapped (regression guard)**: Verifies that a
+`<see cref="T:..." />` reference to a type — rather than a type member — renders its display
+text as plain prose with no surrounding inline code span, confirmed via an exact string match
+(not a substring match) so a wrapping regression would be caught. This scenario is tested by
+`XmlDocReader_GetSummary_WithSeeGenericTypeCref_FormatsWithTypeParameters`.
+
+**GetSummary renders a constructor (`#ctor`) cref unwrapped as the bare type name**: Verifies
+that `<see cref="M:Type.#ctor" />` — a method-kind cref whose member name is the special
+`#ctor` marker — renders as the declaring type name alone, with no inline code span, matching
+the constructor-collapsing behavior documented on `FormatMemberReference`. This scenario is
+tested by `XmlDocReader_GetSummary_SeeCrefToConstructor_RendersUnwrappedTypeName`.
+
+**GetSummary tolerates an empty-member-target cref without throwing (mandatory
+regression guard)**: Verifies that `<see cref="M:"/>` — a member-kind cref
+prefix with no target name, yielding empty formatted display text that is
+still classified as a member reference — is rendered as an empty string
+instead of throwing `IndexOutOfRangeException` when the (would-be) inline
+code-span wrapping is attempted on empty content. This scenario is tested by
+`XmlDocReader_GetSummary_SeeCrefWithEmptyMemberTarget_DoesNotThrowAndRendersEmpty`.
+
+**GetSummary renders a member cref on a generic type with unescaped angle
+brackets inside its code span**: Verifies that
+`` `<see cref="M:...List`1.Add(`0)" />` `` — a member cref whose declaring
+type is generic — renders as `` `List<T>.Add()` `` with raw, unescaped angle
+brackets, not the backslash-escaped prose form (`List\<T\>.Add()`), since the
+result is wrapped in a code span and a code span's content is literal. This
+scenario is tested by
+`XmlDocReader_GetSummary_SeeCrefToMemberOnGenericType_RendersUnescapedAngleBracketsInCodeSpan`.
+
+**GetSummary still escapes angle brackets for a type-only cref to a generic
+type (regression guard)**: Verifies that `` `<see cref="T:...List`1" />` `` —
+a type-only cref, never wrapped in a code span — still renders the
+backslash-escaped prose form `List\<T\>`, confirming the `forCodeSpan`
+opt-out is scoped correctly to member crefs only. This scenario is tested by
+`XmlDocReader_GetSummary_SeeCrefToGenericTypeOnly_StillEscapesAngleBracketsInProse`.
+
+**GetRemarks renders a `<br/>` element as a paragraph break**: Verifies that
+`<br/>` inserts a blank-line paragraph break between the surrounding text
+rather than being silently dropped. This scenario is tested by
+`XmlDocReader_GetRemarks_BrElement_InsertsParagraphBreak`.
+
+**GetSummary collapses a `<br/>` element to a single space**: Verifies that in
+the single-line summary context, `<br/>` degrades to a plain space separator
+with no residual markup or newline. This scenario is tested by
+`XmlDocReader_GetSummary_BrElement_CollapsesToSingleSpace`.
+
+**GetRemarks renders a single-line `<code>` element as an inline backtick
+span**: Verifies that `<code>` content with no embedded newline renders as an
+inline code span, not a fenced block. This scenario is tested by
+`XmlDocReader_GetRemarks_SingleLineCodeElement_RendersAsInlineBacktickSpan`.
+
+**GetRemarks renders a multi-line `<code>` element as a fenced block**:
+Verifies that multi-line `<code>` content renders as a fenced Markdown code
+block with its own blank-line separators from surrounding prose. This scenario
+is tested by `XmlDocReader_GetRemarks_MultiLineCodeElement_RendersAsFencedBlock`.
+
+**Fenced `<code>` block preserves internal whitespace exactly (mandatory
+regression guard)**: Verifies that multiple consecutive spaces and a tab
+inside a fenced code block survive `GetRemarks`'s whitespace-collapsing
+normalization byte-for-byte, proving the placeholder-token protection
+mechanism works correctly. This scenario is tested by
+`XmlDocReader_GetRemarks_MultiLineCodeElementWithInternalMultipleSpacesAndTabs_PreservesExactWhitespace`.
+
+**GetRemarks emits nothing for an empty or whitespace-only `<code>` element**:
+Verifies the empty-skip guard mirrors the existing `<c>` behavior. This
+scenario is tested by
+`XmlDocReader_GetRemarks_EmptyOrWhitespaceOnlyCodeElement_EmitsNothing`.
+
+**GetSummary flattens a multi-line `<code>` element to an inline span**:
+Verifies that a fenced block is never produced in the single-line summary
+context; embedded newlines are flattened to spaces inside the code span
+instead. This scenario is tested by
+`XmlDocReader_GetSummary_MultiLineCodeElement_FlattensToInlineBacktickSpanNotFencedBlock`.
+
+**Single-line code flattening preserves each line's internal whitespace
+(mandatory regression guard)**: Verifies that when a multi-line `<code>`
+element is flattened into a single-line inline code span (as happens in a
+`<summary>`), a line's significant internal whitespace — multiple consecutive
+spaces, an embedded tab — survives the flattening; only the line boundary
+itself collapses to a single joining space, rather than the whole result
+being run through the prose-oriented whitespace-collapsing normalization used
+elsewhere. This scenario is tested by
+`XmlDocReader_GetSummary_MultiLineCodeElementWithInternalMultipleSpacesAndTabs_PreservesInternalWhitespace`.
+
+**Fenced `<code>` block with an embedded backtick run uses a longer fence**:
+Verifies that content containing a 3-backtick run causes the fence to widen to
+4 backticks so the delimiter remains unambiguous. This scenario is tested by
+`XmlDocReader_GetRemarks_CodeElementContainingBacktickRun_UsesLongerFence`.
+
+**End-to-end `<br/>`/`<code>` reproduction renders as distinct blocks**:
+Verifies the exact field-reported symptom (a generated-regex-example remarks
+block mixing `<br/>` and `<code>`) no longer run "Pattern:"/"Explanation:"
+together, correctly dispatches the single-line code to an inline span and the
+multi-line code (containing a nested, content-less `<br/>`) to a fenced block,
+and produces no blank-line run longer than one line. This scenario is tested
+by `XmlDocReader_GetRemarks_BrAndCodeFromGeneratedRegexExample_RendersAsDistinctBlocks`.
+
+**At most one blank line between a `<list>` and an immediately following
+`<code>` block**: Verifies that two independently blank-line-wrapped block
+separators do not compound into a 2+ blank-line run (markdownlint MD012).
+This scenario is tested by
+`XmlDocReader_GetRemarks_ListImmediatelyFollowedByCode_AtMostOneBlankLineBetween`.
+
+**Multiple consecutive `<br/>` tags collapse to at most one blank line**:
+Verifies that three or more consecutive `<br/>` tags never produce more than
+one blank-line paragraph break. This scenario is tested by
+`XmlDocReader_GetRemarks_MultipleConsecutiveBrTags_AtMostOneBlankLineBetween`.
+
+**Nested `<code>` inside a `<list>` item's `<description>` renders inline, not
+fenced**: Verifies that the fenced-vs-inline dispatch is correctly gated on
+the `codeBlocks` placeholder map being supplied, not on the `singleLine` flag,
+by proving a multi-line `<code>` nested in a list item renders inline and
+coexists with the pre-existing nested-list inline-degradation behavior. This
+scenario is tested by
+`XmlDocReader_GetRemarks_NestedCodeInsideListItemDescription_RendersAsInlineSpanNotFencedBlock`.
+
+**`<code>` reached through `<example>` mixed-prose accumulation renders
+inline, not fenced**: Verifies that a multi-line `<code>` nested inside a
+`<para>` within `<example>` mixed prose (not a direct `<example>`-child
+`<code>`, which bypasses this dispatch entirely) falls back to an inline span
+rather than a mangled fenced block, since the example-prose pipeline never
+supplies a `codeBlocks` placeholder map. This scenario is tested by
+`XmlDocReader_GetExampleParts_WithMixedInlineElementsContainingMultiLineCodeOutsideCodeTag_RendersAsInlineSpan`.

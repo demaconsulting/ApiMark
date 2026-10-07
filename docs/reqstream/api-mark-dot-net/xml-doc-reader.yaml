@@ -14,7 +14,12 @@ sections:
               per-member lookup used during emission — summary, remarks, parameters,
               returns, exceptions, and examples — must be available immediately after
               construction so DotNetEmitter can render developer-authored content for
-              each type and member.
+              each type and member. Parameter and exception descriptions are always
+              written into a raw pipe-delimited Markdown table cell by every caller, so
+              they must render any `<br/>`/`<code>` content as a flattened single line
+              (never an embedded literal newline or a fenced code block), protecting
+              embedded inline-code whitespace from collapsing the same way the
+              `<remarks>`/`<summary>` rendering path already does.
             tests:
               - XmlDocReader_Constructor_FileDoesNotExist_ThrowsFileNotFoundException
               - XmlDocReader_GetSummary_MemberPresent_ReturnsTrimmedText
@@ -23,6 +28,8 @@ sections:
               - XmlDocReader_GetRemarks_MemberPresent_ReturnsTrimmedText
               - XmlDocReader_GetExceptions_MemberWithExceptions_ReturnsCrefValues
               - XmlDocReader_GetParams_MemberWithParams_ReturnsNamesAndDescriptions
+              - XmlDocReader_GetParams_DescriptionWithMultiLineCodeAndBr_FlattensToSingleLineNoEmbeddedNewline
+              - XmlDocReader_GetParams_DescriptionWithInlineCodeContainingInternalWhitespace_PreservesExactWhitespace
               - XmlDocReader_GetReturns_MemberWithReturns_ReturnsTrimmedText
               - XmlDocReader_GetExample_MemberWithExample_ReturnsTrimmedText
               - XmlDocReader_GetExample_WhitespaceOnly_ReturnsNull
@@ -30,6 +37,7 @@ sections:
               - XmlDocReader_GetExampleParts_WithCodeElement_SeparatesProseFromCode
               - XmlDocReader_GetExampleParts_MemberAbsent_ReturnsEmpty
               - XmlDocReader_GetExceptionDetails_MemberWithExceptions_ReturnsFormattedTypesAndDescriptions
+              - XmlDocReader_GetExceptionDetails_DescriptionWithMultiLineCode_FlattensToSingleLineNoEmbeddedNewline
               - XmlDocReader_GetRemarks_MemberAbsent_ReturnsNull
               - XmlDocReader_GetReturns_MemberAbsent_ReturnsNull
               - XmlDocReader_GetExample_MemberAbsent_ReturnsNull
@@ -153,4 +161,83 @@ sections:
               - XmlDocReader_GetSummary_SeeCrefToEvent_RendersTypeDotMember
               - XmlDocReader_GetSummary_SeeCrefToMethod_StillRendersTypeDotMember
               - XmlDocReader_GetSummary_WithInlineReferences_PreservesReferencedNames
+              - DotNetGenerator_Generate_InlineReferences_PreserveSymbolNamesInMarkdown
+          - id: ApiMarkDotNet-XmlDocReader-RenderBrAndCodeInRemarksAndSummary
+            title: XmlDocReader shall render `<br/>` as a paragraph break and `<code>`
+              as an inline code span or fenced Markdown code block — never silently
+              dropping either — within `<remarks>` and `<summary>` content.
+            justification: |
+              A real-world consumer (DemaConsulting.Bicameral.Core, built with
+              ApiMarkVisibility=All) reported that `<br/>` and `<code>` elements
+              nested inside `<remarks>`/`<summary>` were silently dropped from the
+              generated documentation, losing both the authored paragraph breaks and
+              the code examples entirely. `<br/>` must render as a visible paragraph
+              break and `<code>` must render as readable code (an inline backtick
+              span when single-line, a fenced Markdown block when multi-line and the
+              surrounding context supports block-level Markdown) so authored content
+              is never lost.
+            tests:
+              - XmlDocReader_GetRemarks_BrElement_InsertsParagraphBreak
+              - XmlDocReader_GetSummary_BrElement_CollapsesToSingleSpace
+              - XmlDocReader_GetRemarks_SingleLineCodeElement_RendersAsInlineBacktickSpan
+              - XmlDocReader_GetRemarks_MultiLineCodeElement_RendersAsFencedBlock
+              - XmlDocReader_GetRemarks_MultiLineCodeElementWithInternalMultipleSpacesAndTabs_PreservesExactWhitespace
+              - XmlDocReader_GetRemarks_EmptyOrWhitespaceOnlyCodeElement_EmitsNothing
+              - XmlDocReader_GetSummary_MultiLineCodeElement_FlattensToInlineBacktickSpanNotFencedBlock
+              - XmlDocReader_GetSummary_MultiLineCodeElementWithInternalMultipleSpacesAndTabs_PreservesInternalWhitespace
+              - XmlDocReader_GetRemarks_CodeElementContainingBacktickRun_UsesLongerFence
+              - XmlDocReader_GetRemarks_BrAndCodeFromGeneratedRegexExample_RendersAsDistinctBlocks
+              - XmlDocReader_GetRemarks_NestedCodeInsideListItemDescription_RendersAsInlineSpanNotFencedBlock
+              - XmlDocReader_GetExampleParts_WithMixedInlineElementsContainingMultiLineCodeOutsideCodeTag_RendersAsInlineSpan
+          - id: ApiMarkDotNet-XmlDocReader-CollapseExcessBlankLineRuns
+            title: XmlDocReader shall collapse runs of two or more consecutive blank
+              lines produced by adjacent block-level separators (list, `<br/>`,
+              fenced `<code>`) down to a single blank line in `<remarks>`/`<summary>`
+              output.
+            justification: |
+              Each block-level separator (a `<list>`, a `<br/>`, a fenced `<code>`
+              block) independently surrounds itself with a blank line so it renders
+              correctly in isolation; when two such separators are adjacent, their
+              blank lines compounded into a run of two or more, violating markdownlint
+              MD012 ("no multiple consecutive blank lines") in the generated
+              documentation. Collapsing any run of two or more consecutive blank lines
+              down to exactly one keeps the output both readable and markdownlint-clean
+              regardless of which separators happen to be adjacent.
+            tests:
+              - XmlDocReader_GetRemarks_ListImmediatelyFollowedByCode_AtMostOneBlankLineBetween
+              - XmlDocReader_GetRemarks_MultipleConsecutiveBrTags_AtMostOneBlankLineBetween
+              - XmlDocReader_GetRemarks_BrAndCodeFromGeneratedRegexExample_RendersAsDistinctBlocks
+          - id: ApiMarkDotNet-XmlDocReader-WrapMemberCrefDisplayInCodeSpan
+            title: XmlDocReader shall render the display text of a `<see>`/`<seealso>`
+              reference to a type member (property, field, event, or method) in an
+              inline Markdown code span, while leaving `langword`, explicit inner
+              text, type-only (`T:`) crefs, and constructor crefs unwrapped.
+            justification: |
+              A real-world consumer (DemaConsulting.Bicameral.Core) reported that a
+              `<see cref="Type.Member"/>` reference rendered as plain prose
+              indistinguishable from surrounding text, making it hard for a reader to
+              tell that `Type.Member` was a reference to a specific symbol rather than
+              ordinary words. Wrapping a member-cref's rendered `Type.Member` text in
+              an inline code span — matching how `<c>` content is already rendered —
+              makes the reference visually distinct, without requiring the
+              architectural change needed to turn it into an actual cross-reference
+              link. When the declaring type is itself generic, the rendered span must
+              use raw, unescaped angle brackets (`List<T>`, not `List\<T\>`): a code
+              span's content is literal, so the backslash escaping needed to keep
+              prose safe from being parsed as an HTML tag would otherwise show up as
+              stray visible characters. A type-only (`T:`) cref is never wrapped in a
+              code span, so it keeps the escaped form.
+            tests:
+              - XmlDocReader_GetSummary_SeeCrefToProperty_RendersTypeDotMember
+              - XmlDocReader_GetSummary_SeeCrefToField_RendersTypeDotMember
+              - XmlDocReader_GetSummary_SeeCrefToEvent_RendersTypeDotMember
+              - XmlDocReader_GetSummary_SeeCrefToMethod_StillRendersTypeDotMember
+              - XmlDocReader_GetSummary_WithSeeGenericTypeCref_FormatsWithTypeParameters
+              - XmlDocReader_GetSummary_SeeCrefToConstructor_RendersUnwrappedTypeName
+              - XmlDocReader_GetSummary_SeeCrefToMemberOnGenericType_RendersUnescapedAngleBracketsInCodeSpan
+              - XmlDocReader_GetSummary_SeeCrefToGenericTypeOnly_StillEscapesAngleBracketsInProse
+              - XmlDocReader_GetSummary_SeeCrefWithEmptyMemberTarget_DoesNotThrowAndRendersEmpty
+              - XmlDocReader_GetSummary_WithInlineReferences_PreservesReferencedNames
+              - XmlDocReader_GetExampleParts_WithSeeCref_RendersInlineReferenceInProsePart
+              - XmlDocReader_GetExampleParts_WithMixedInlineElements_ProseAccumulatedAsOnePart
               - DotNetGenerator_Generate_InlineReferences_PreserveSymbolNamesInMarkdown
