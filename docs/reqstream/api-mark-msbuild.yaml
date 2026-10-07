@@ -43,6 +43,7 @@ sections:
           - ApiMarkMsbuild-ApiMarkTask-ReportMissingDotNetExe
           - ApiMarkMsbuild-ApiMarkTask-SurfaceToolExitCode
           - ApiMarkMsbuild-ApiMarkTask-ForwardStdoutToLog
+          - ApiMarkMsbuild-ApiMarkTask-ElevateUndocumentedFindings
           - ApiMarkMsbuild-ApiMarkTask-ForwardStderrErrors
         tests:
           - ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoDocumentsOnBuild
