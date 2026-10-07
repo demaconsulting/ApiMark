@@ -558,7 +558,7 @@ public class DotNetGeneratorTests
         Assert.Contains(
             memberWriters,
             writer => writer.Operations.OfType<ParagraphOperation>()
-                .Any(p => p.Text == "Returns true when status is Active or Pending."));
+                .Any(p => p.Text == "Returns true when status is SampleStatus.Active or SampleStatus.Pending."));
     }
 
     /// <summary>Validates that static types render a <c>static class</c> signature.</summary>
@@ -2561,6 +2561,97 @@ public class DotNetGeneratorTests
 
         // Assert: the option is threaded through unchanged into the parsed model
         Assert.Equal("A fast geometry library.", emitter.Model.Options.LibraryDescription);
+    }
+
+    /// <summary>
+    ///     Regression guard for Issue 1 (broken links to nested types): walks every generated
+    ///     Markdown page from the gradual-disclosure emitter, extracts every intra-doc link of the
+    ///     form <c>[Text](relative/path.md)</c>, resolves it relative to the page that contains it,
+    ///     and asserts the resolved target page actually exists. This exercises every nested-type
+    ///     link (including the two-levels-deep <c>TwoLevelNestedClass.Middle.Inner</c> and the
+    ///     cross-type references from <c>NestedTypeConsumerClass</c>) end-to-end rather than
+    ///     spot-checking individual cases.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_GradualDisclosure_EveryGeneratedLinkResolvesToExistingPage()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: every [Text](path.md) link found in every page's paragraphs and tables must
+        // resolve — relative to its containing page's folder — to a page that was actually created
+        var linkPattern = new System.Text.RegularExpressions.Regex(
+            @"\]\(([^)]+\.md)(#[^)]*)?\)",
+            System.Text.RegularExpressions.RegexOptions.None);
+        var brokenLinks = new List<string>();
+
+        foreach (var (pageKey, writer) in factory.Writers)
+        {
+            var sourceFolder = pageKey.Contains('/', StringComparison.Ordinal)
+                ? pageKey[..pageKey.LastIndexOf('/')]
+                : string.Empty;
+
+            var texts = writer.Operations.OfType<ParagraphOperation>().Select(p => p.Text)
+                .Concat(writer.Operations.OfType<TableOperation>().SelectMany(t => t.Rows.SelectMany(r => r)))
+                .Concat(writer.Operations.OfType<LinkOperation>().Select(l => $"[{l.Text}]({l.RelativePath})"));
+
+            foreach (var text in texts)
+            {
+                foreach (System.Text.RegularExpressions.Match match in linkPattern.Matches(text))
+                {
+                    var relativePath = match.Groups[1].Value;
+                    var targetKey = ResolveRelativeLink(sourceFolder, relativePath);
+                    if (!factory.Writers.ContainsKey(targetKey))
+                    {
+                        brokenLinks.Add($"{pageKey} -> {relativePath} (resolved: {targetKey})");
+                    }
+                }
+            }
+        }
+
+        Assert.True(brokenLinks.Count == 0, $"Broken links found:\n{string.Join('\n', brokenLinks)}");
+    }
+
+    /// <summary>
+    ///     Resolves a Markdown-relative link path against the folder of the page containing it,
+    ///     collapsing <c>.</c> and <c>..</c> segments, and strips the trailing <c>.md</c> extension
+    ///     so the result can be compared against <see cref="InMemoryMarkdownWriterFactory"/> page keys.
+    /// </summary>
+    /// <param name="sourceFolder">Folder of the page containing the link (may be empty for root).</param>
+    /// <param name="relativePath">The raw relative path captured from the Markdown link target.</param>
+    /// <returns>The normalized page key the link should resolve to.</returns>
+    private static string ResolveRelativeLink(string sourceFolder, string relativePath)
+    {
+        var withoutExtension = relativePath.EndsWith(".md", StringComparison.Ordinal)
+            ? relativePath[..^3]
+            : relativePath;
+        var combined = sourceFolder.Length > 0 ? $"{sourceFolder}/{withoutExtension}" : withoutExtension;
+
+        var stack = new List<string>();
+        foreach (var segment in combined.Split('/'))
+        {
+            switch (segment)
+            {
+                case "" or ".":
+                    continue;
+                case "..":
+                    if (stack.Count > 0)
+                    {
+                        stack.RemoveAt(stack.Count - 1);
+                    }
+
+                    break;
+                default:
+                    stack.Add(segment);
+                    break;
+            }
+        }
+
+        return string.Join('/', stack);
     }
 }
 

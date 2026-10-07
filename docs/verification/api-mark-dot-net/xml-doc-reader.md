@@ -67,6 +67,19 @@ assembly is needed.
 - Cycle detection catches a resolution chain that crosses the local/external boundary.
 - Constructing an `XmlDocReader` without an external member lookup (the 2-arg overload) preserves the prior local-miss behavior exactly.
 - A local member that is simply undocumented (no local entry, no `<inheritdoc />` anywhere) is never satisfied by an incidentally-colliding member ID in the external member lookup delegate, even when one is configured.
+- `GetSummaryMarkdown` returns trimmed summary text unchanged for a member with no `<list>` content, matching `GetSummary`'s plain-text behavior.
+- `GetSummaryMarkdown` returns `null` for a member not present in the XML doc file.
+- `GetSummaryMarkdown` follows a `cref` inheritdoc reference and returns the summary from the referenced target member, matching `GetSummary`'s inheritdoc-resolution behavior.
+- `GetSummaryMarkdown` renders a `<list type="number">` inside a `<summary>` as real multi-line ordered Markdown items, with trailing prose as a separate paragraph.
+- `GetSummaryMarkdown` renders a `<list type="bullet">` inside a `<summary>` as real multi-line dash items.
+- `GetSummaryMarkdown` renders a `<list type="table">` inside a `<summary>` as a real multi-line Markdown table.
+- `GetSummary` renders a `<list type="number">` inside a `<summary>` as single-line inline numbered markers `(1) ... (2) ...`.
+- `GetSummary` renders a `<list type="bullet">` inside a `<summary>` as single-line inline numbered markers.
+- `GetSummary` renders a `<list type="table">` inside a `<summary>` as single-line inline numbered markers.
+- `GetSummary` renders a `<see cref="P:...">` reference as `Type.Member`.
+- `GetSummary` renders a `<see cref="F:...">` reference as `Type.Member`.
+- `GetSummary` renders a `<see cref="E:...">` reference as `Type.Member`.
+- `GetSummary` continues to render a `<see cref="M:...">` reference as `Type.Member` (regression guard; method crefs were unaffected by the fix).
 
 ### Test Scenarios
 
@@ -348,3 +361,83 @@ return `null` from a top-level call such as `GetSummary`, even when the
 external member lookup delegate has a colliding entry with a summary for that
 exact member ID. This scenario is tested by
 `XmlDocReader_GetSummary_LocalMemberUndocumented_ExternalLookupNotConsulted_ReturnsNull`.
+
+**GetSummaryMarkdown returns trimmed plain text unchanged**: Verifies that for
+a `<summary>` with no `<list>` content, `GetSummaryMarkdown` behaves exactly
+like `GetSummary`, trimming surrounding whitespace and returning the text
+unchanged. This scenario is tested by
+`XmlDocReader_GetSummaryMarkdown_MemberPresent_ReturnsTrimmedText`.
+
+**GetSummaryMarkdown returns null for an absent member**: Verifies that
+`GetSummaryMarkdown` returns `null`, matching `GetSummary`, when the requested
+member ID has no corresponding entry in the XML doc file. This scenario is
+tested by `XmlDocReader_GetSummaryMarkdown_MemberAbsent_ReturnsNull`.
+
+**GetSummaryMarkdown resolves `<inheritdoc cref="..."/>`**: Verifies that
+`GetSummaryMarkdown` follows an explicit `cref` inheritdoc reference and
+returns the summary from the referenced target member, matching `GetSummary`'s
+inheritdoc-resolution behavior. This scenario is tested by
+`XmlDocReader_GetSummaryMarkdown_InheritDocWithCref_ReturnsSummaryFromTarget`.
+
+**GetSummaryMarkdown renders a numbered-list summary as multi-line ordered
+Markdown**: Verifies that a `<list type="number">` inside a `<summary>` element
+renders as real multi-line Markdown — a blank line before the list, each `1.`
+item on its own line, and any trailing prose following `</list>` as a separate
+paragraph — rather than the single-line collapse previously applied to all
+summaries. This scenario is tested by
+`XmlDocReader_GetSummaryMarkdown_NumberList_RendersMultiLineOrderedItems`.
+
+**GetSummary renders a numbered-list summary as single-line inline markers**:
+Verifies that the same `<list type="number">` summary, when rendered via the
+single-line `GetSummary` path (used for table cells and other single-line
+contexts), collapses the list to inline numbered markers
+`(1) item one (2) item two (3) item three` joined with a space, instead of
+silently concatenating item text with no separation. This scenario is tested by
+`XmlDocReader_GetSummary_NumberList_RendersInlineNumberedMarkers`.
+
+**GetSummaryMarkdown renders a bullet-list summary as multi-line dash items**:
+Verifies the multi-line rendering path for `<list type="bullet">` inside a
+`<summary>`, mirroring the number-list behavior. This scenario is tested by
+`XmlDocReader_GetSummaryMarkdown_BulletList_RendersMultiLineDashItems`.
+
+**GetSummary renders a bullet-list summary as single-line inline markers**:
+Verifies the single-line inline-marker rendering for `<list type="bullet">`
+inside a `<summary>`. This scenario is tested by
+`XmlDocReader_GetSummary_BulletList_RendersInlineNumberedMarkers`.
+
+**GetSummaryMarkdown renders a table-list summary as a multi-line Markdown
+table**: Verifies the multi-line rendering path for `<list type="table">`
+inside a `<summary>`, producing a real Markdown pipe table with header and
+separator rows. This scenario is tested by
+`XmlDocReader_GetSummaryMarkdown_TableList_RendersMultiLineTable`.
+
+**GetSummary renders a table-list summary as single-line inline markers**:
+Verifies the single-line inline-marker rendering for `<list type="table">`
+inside a `<summary>`, confirming all three list variants (number, bullet,
+table) are handled consistently for both rendering modes, and that the
+`<listheader>` column labels are preserved rather than silently dropped. The
+header is asserted against the exact expected output
+(`**Name** — **Detail** (1) **Alpha** — First. (2) **Beta** — Second.`) to
+guard against the header being double-bolded (for example `****Name** —
+Detail**`) by a caller wrapping an already-bolded header a second time. This
+scenario is tested by `XmlDocReader_GetSummary_TableList_RendersInlineNumberedMarkers`.
+
+**GetSummary renders a property cref as Type.Member**: Verifies that
+`<see cref="P:Namespace.Type.PropertyName" />` now always includes the
+declaring type name, rendering as `Type.PropertyName` rather than the bare
+`PropertyName`. This scenario is tested by
+`XmlDocReader_GetSummary_SeeCrefToProperty_RendersTypeDotMember`.
+
+**GetSummary renders a field cref as Type.Member**: Verifies the same fix for
+`<see cref="F:..." />` field references. This scenario is tested by
+`XmlDocReader_GetSummary_SeeCrefToField_RendersTypeDotMember`.
+
+**GetSummary renders an event cref as Type.Member**: Verifies the same fix for
+`<see cref="E:..." />` event references. This scenario is tested by
+`XmlDocReader_GetSummary_SeeCrefToEvent_RendersTypeDotMember`.
+
+**GetSummary continues to render a method cref as Type.Member (regression
+guard)**: Verifies that `<see cref="M:..." />` method references — which
+already included the type name before this fix — remain unaffected. This
+scenario is tested by
+`XmlDocReader_GetSummary_SeeCrefToMethod_StillRendersTypeDotMember`.

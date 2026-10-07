@@ -89,3 +89,68 @@ sections:
               - XmlDocReader_GetSummary_InheritDocChain_CrossesLocalAndExternalBoundary_CycleDetected
               - XmlDocReader_GetSummary_NoExternalResolverConfigured_LocalMiss_ReturnsNullUnchanged
               - XmlDocReader_GetSummary_LocalMemberUndocumented_ExternalLookupNotConsulted_ReturnsNull
+          - id: ApiMarkDotNet-XmlDocReader-RenderSummaryListsAsMultiLineMarkdown
+            title: XmlDocReader shall provide a GetSummaryMarkdown method that renders
+              `<list>` elements (bullet, number, table) inside a `<summary>` as real
+              multi-line Markdown — a blank line before the list, each item on its
+              own line, and any trailing prose after the `</list>` as a separate
+              paragraph — for use on member-detail-page bodies.
+            justification: |
+              GetSummary always collapsed `<summary>` text to a single line for compact
+              contexts such as table cells, which destroyed list structure when a
+              `<list>` appeared inside a `<summary>`. Member-detail-page bodies have
+              room for full Markdown, so a dedicated GetSummaryMarkdown method reuses
+              the existing list-rendering internals (already correct for `<remarks>`)
+              with singleLine:false to produce properly structured output instead.
+            tests:
+              - XmlDocReader_GetSummaryMarkdown_MemberPresent_ReturnsTrimmedText
+              - XmlDocReader_GetSummaryMarkdown_MemberAbsent_ReturnsNull
+              - XmlDocReader_GetSummaryMarkdown_InheritDocWithCref_ReturnsSummaryFromTarget
+              - XmlDocReader_GetSummaryMarkdown_NumberList_RendersMultiLineOrderedItems
+              - XmlDocReader_GetSummaryMarkdown_BulletList_RendersMultiLineDashItems
+              - XmlDocReader_GetSummaryMarkdown_TableList_RendersMultiLineTable
+              - DotNetEmitterGradualDisclosure_Emit_TypeWithListSummary_RendersNumberedListInMarkdown
+          - id: ApiMarkDotNet-XmlDocReader-RenderSummaryListsAsInlineMarkersWhenSingleLine
+            title: XmlDocReader's GetSummary shall render a `<list>` element (bullet,
+              number, or table) encountered in a `<summary>` using single-line
+              numbered markers such as "(1) item one (2) item two", instead of
+              concatenating the item text together with no separation, and shall
+              preserve a `<listheader>` label (fully bolded, not double-wrapped)
+              when present rather than silently dropping it.
+            justification: |
+              Table cells and other compact contexts require single-line summary text.
+              Before this fix, a `<list>` inside a `<summary>` was flattened by the
+              single-line normalizer with no separation between items, making the
+              result unreadable. Numbered inline markers preserve a readable item
+              boundary while still fitting on one line, applied consistently across
+              all list type variants since none can express block structure inline.
+              A `<list type="table">`'s `<listheader>` column labels were also
+              initially dropped entirely in this compact form (only `<item>` elements
+              were read), unlike the multi-line table path which keeps them; the
+              header is now rendered first via a dedicated fully-bolded formatter so
+              it is not lost, and so it is not accidentally double-wrapped in an
+              additional `**...**` pair by a caller that also bolds the result.
+            tests:
+              - XmlDocReader_GetSummary_NumberList_RendersInlineNumberedMarkers
+              - XmlDocReader_GetSummary_BulletList_RendersInlineNumberedMarkers
+              - XmlDocReader_GetSummary_TableList_RendersInlineNumberedMarkers
+          - id: ApiMarkDotNet-XmlDocReader-IncludeTypeNameForPropertyFieldEventCrefs
+            title: XmlDocReader shall include the declaring type name (rendered as
+              `Type.Member`) for `<see cref="P:...">`, `<see cref="F:...">`, and
+              `<see cref="E:...">` references to another member, matching the
+              existing behavior for `M:` method crefs.
+            justification: |
+              FormatMemberReference previously only included the declaring type name
+              for method crefs (or when the type was a primitive), so a property,
+              field, or event cref rendered as a bare member name with no indication
+              of which type it belonged to — ambiguous whenever multiple types in
+              scope share a member name. Always including the type name for P/F/E
+              crefs, matching the already-correct M: behavior, removes that ambiguity
+              without requiring architectural changes to link to the member's own page.
+            tests:
+              - XmlDocReader_GetSummary_SeeCrefToProperty_RendersTypeDotMember
+              - XmlDocReader_GetSummary_SeeCrefToField_RendersTypeDotMember
+              - XmlDocReader_GetSummary_SeeCrefToEvent_RendersTypeDotMember
+              - XmlDocReader_GetSummary_SeeCrefToMethod_StillRendersTypeDotMember
+              - XmlDocReader_GetSummary_WithInlineReferences_PreservesReferencedNames
+              - DotNetGenerator_Generate_InlineReferences_PreserveSymbolNamesInMarkdown

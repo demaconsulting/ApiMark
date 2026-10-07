@@ -32,6 +32,9 @@ service or network dependency is needed.
 - A type with a nested type produces a dedicated page under the containing type's folder.
 - When a namespace has NamespaceDoc remarks and example parts, they are emitted on the namespace page after the summary (remarks as a paragraph, example code as a fenced code block).
 - A type whose `<remarks>` contains a `<list type="number">` renders the list as ordered Markdown items on the type page.
+- A type whose `<summary>` contains a `<list type="number">` renders the list as real multi-line ordered Markdown items on the type page body, with trailing prose as a separate paragraph.
+- A member with no `<summary>` but present `<remarks>` content does not show the "No description provided." placeholder on its detail page, and the remarks content is shown.
+- A member with neither `<summary>` nor `<remarks>` still shows the "No description provided." placeholder on its detail page (regression guard).
 
 ### Test Scenarios
 
@@ -110,3 +113,40 @@ placed under the containing type's folder path. This scenario is tested by
 `ApiMark.DotNet.Fixtures.Inner`) also produces a dedicated Markdown summary page,
 confirming that child namespace enumeration works correctly. This scenario is tested by
 `DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesChildNamespacePage`.
+
+**Summary numbered list renders as multi-line Markdown on the type page body**:
+Verifies that a type whose `<summary>` contains a `<list type="number">`
+renders the list as real multi-line ordered Markdown items on the type page
+body — a blank line before the list, each `1.` item on its own line, and
+trailing prose following `</list>` as a separate paragraph — confirming the
+type-page body switched from the single-line `GetSummary` to the multi-line
+`GetSummaryMarkdown`. This scenario is tested by
+`DotNetEmitterGradualDisclosure_Emit_TypeWithListSummary_RendersNumberedListInMarkdown`.
+
+**Member with remarks-only content suppresses the placeholder and shows the
+remarks**: Verifies that `GeneratedRegexClass.DigitsRegex` — whose compiled XML
+documentation genuinely has only `<remarks>` and no `<summary>` — does not show
+the "No description provided." placeholder on its member-detail page, and that
+its remarks content is shown instead, confirming the placeholder-suppression
+rule (summary absent AND remarks present ⇒ no placeholder). This scenario is
+tested by
+`DotNetEmitterGradualDisclosure_Emit_MemberWithRemarksOnly_SuppressesPlaceholderAndShowsRemarks`.
+
+**Member with neither summary nor remarks still shows the placeholder
+(regression guard)**: Verifies that, using a synthetic XML doc that omits any
+`<member>` entry for `GeneratedRegexClass.DigitsRegex`, the member-detail page
+still shows the "No description provided." placeholder — confirming the
+placeholder is suppressed only when remarks content is actually present, not
+unconditionally. This scenario is tested by
+`DotNetEmitterGradualDisclosure_Emit_MemberWithNeitherSummaryNorRemarks_StillShowsPlaceholder`.
+
+**Type with remarks-only content suppresses the placeholder and shows the
+remarks on its type page**: Verifies that, using a synthetic XML doc override
+that gives `SampleClass` only a `<remarks>` entry and no `<summary>`, the
+placeholder-suppression rule applies identically at the type level — the
+type's own page (distinguished from a same-named constructor member page by
+its exact `<namespace-folder>/SampleClass` key) shows the remarks text and not
+the "No description provided." placeholder. Exercises the type-level branch in
+`WriteTypeHeaderSections` directly, which the member-level test above does not
+cover. This scenario is tested by
+`DotNetEmitterGradualDisclosure_Emit_TypeWithRemarksOnly_SuppressesPlaceholderAndShowsRemarksOnTypePage`.

@@ -74,3 +74,25 @@ sections:
               the C# syntax that developers read and write, keeping member signatures idiomatic.
             tests:
               - TypeLinkResolver_Linkify_NullableValueType_ReturnsInnerAliasWithQuestionMark
+          - id: ApiMarkDotNet-TypeLinkResolver-ResolveNestedTypesToCorrectPageKey
+            title: TypeLinkResolver shall resolve nested type references to the
+              correct nested-type page path by deriving the namespace folder from
+              the outermost non-nested ancestor and appending every declaring-type
+              name from outermost to innermost, for arbitrary nesting depth.
+            justification: |
+              Mono.Cecil gives nested types an empty Namespace — only the outermost
+              non-nested ancestor carries the namespace. Using a nested type's own
+              (empty) Namespace to compute its page key produced broken links for
+              every nested type, regardless of whether it appeared as a parameter,
+              return type, field type, or generic type argument. Walking the
+              DeclaringType chain to the outermost ancestor and joining each level's
+              flattened name mirrors exactly how nested type pages are written to
+              disk, restoring correct links at any nesting depth.
+            tests:
+              - TypeLinkResolver_Linkify_NestedTypeAsFieldType_ResolvesToNestedTypePage
+              - TypeLinkResolver_Linkify_NestedTypeAsReturnType_ResolvesToNestedTypePage
+              - TypeLinkResolver_Linkify_NestedTypeAsParameterType_ResolvesToNestedTypePage
+              - TypeLinkResolver_Linkify_NestedTypeAsGenericArgument_ResolvesToNestedTypePage
+              - TypeLinkResolver_Linkify_TwoLevelsDeepNestedType_ResolvesFullAncestorPath
+              - TypeLinkResolver_Linkify_NestedType_FromParentPageVsOtherPage_ProducesDifferentRelativePaths
+              - DotNetGenerator_Generate_GradualDisclosure_EveryGeneratedLinkResolvesToExistingPage

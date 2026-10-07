@@ -420,4 +420,202 @@ public class DotNetEmitterSingleFileTests
         Assert.Equal("string", nameRow[1]);
         Assert.DoesNotContain("[", nameRow[1], StringComparison.Ordinal);
     }
+
+    /// <summary>
+    ///     Validates that a type's <c>&lt;summary&gt;</c> numbered list is rendered as real
+    ///     multi-line ordered Markdown items in single-file output (Issue 2: the single-file
+    ///     emitter's type sections also switched from the single-line GetSummary to the
+    ///     multi-line GetSummaryMarkdown).
+    /// </summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_TypeWithListSummary_RendersNumberedListInMarkdown()
+    {
+        // Arrange: SummaryNumberListDocClass declares a <list type="number"> in its <summary>
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterSingleFile(emitter, emitter.Model).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: the single api.md writer renders the summary's list as real ordered Markdown
+        // items, with the trailing prose rendered as its own paragraph
+        var apiWriter = factory.GetWriter("", "api");
+        var paragraphs = apiWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Contains("1. First summary numbered item.", StringComparison.Ordinal) &&
+                 p.Contains("1. Third summary numbered item.", StringComparison.Ordinal));
+        Assert.Contains(paragraphs, p => p.Contains("Trailing summary prose after the list.", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a member's <c>&lt;summary&gt;</c> numbered list is rendered as real
+    ///     multi-line ordered Markdown items in single-file output, mirroring the type-level
+    ///     coverage above (Issue 2: the single-file emitter's member sections also switched
+    ///     from the single-line GetSummary to the multi-line GetSummaryMarkdown).
+    /// </summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_MemberWithListSummary_RendersNumberedListInMarkdown()
+    {
+        // Arrange: SummaryNumberListDocClass.DoNumberedWork declares a <list type="number"> in its <summary>
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterSingleFile(emitter, emitter.Model).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: the single api.md writer renders the member summary's list as real ordered
+        // Markdown items, with the trailing prose rendered as its own paragraph
+        var apiWriter = factory.GetWriter("", "api");
+        var paragraphs = apiWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Contains("1. First member numbered item.", StringComparison.Ordinal) &&
+                 p.Contains("1. Third member numbered item.", StringComparison.Ordinal));
+        Assert.Contains(paragraphs, p => p.Contains("Trailing member summary prose after the list.", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Writes a minimal XML doc file containing <paramref name="membersXml"/> and returns the
+    ///     path so the caller can clean it up after use.
+    /// </summary>
+    /// <param name="membersXml">Raw XML to embed inside the &lt;members&gt; element.</param>
+    /// <returns>Path to the temporary XML documentation file.</returns>
+    private static string WriteXmlDoc(string membersXml)
+    {
+        var path = Path.GetTempFileName();
+        var xml = $"""
+            <?xml version="1.0"?>
+            <doc>
+              <assembly><name>TestAssembly</name></assembly>
+              <members>
+                {membersXml}
+              </members>
+            </doc>
+            """;
+        File.WriteAllText(path, xml);
+        return path;
+    }
+
+    /// <summary>
+    ///     Validates that a type with no <c>&lt;summary&gt;</c> but with <c>&lt;remarks&gt;</c>
+    ///     content does NOT show the "No description provided." placeholder in single-file
+    ///     output, and that the remarks content is still shown.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_TypeWithRemarksOnly_SuppressesPlaceholderAndShowsRemarks()
+    {
+        // Arrange: a synthetic XML doc giving NumberListDocClass only <remarks>, no <summary>
+        var docPath = WriteXmlDoc("""
+            <member name="T:ApiMark.DotNet.Fixtures.NumberListDocClass">
+              <remarks>Remarks-only type description text.</remarks>
+            </member>
+            """);
+        try
+        {
+            var options = BuildOptions();
+            options.XmlDocPath = docPath;
+            var factory = new InMemoryMarkdownWriterFactory();
+            var emitter = (DotNetEmitter)new DotNetGenerator(options).Parse(new InMemoryContext());
+
+            // Act
+            new DotNetEmitterSingleFile(emitter, emitter.Model).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+            // Assert: within NumberListDocClass's own section (between its heading and the next
+            // heading at the same or a shallower level), the remarks text appears and the
+            // placeholder does not. Other members/types in the single combined page legitimately
+            // still show the placeholder for their own (untouched) missing documentation, so the
+            // assertion must be scoped to this type's section rather than the whole page.
+            var apiWriter = factory.GetWriter("", "api");
+            var operations = apiWriter.Operations.ToList();
+            var headingIndex = operations.FindIndex(o =>
+                o is HeadingOperation h && h.Text.Contains("NumberListDocClass", StringComparison.Ordinal));
+            Assert.True(headingIndex >= 0, "Expected to find a heading for NumberListDocClass.");
+            var sectionLevel = ((HeadingOperation)operations[headingIndex]).Level;
+            var sectionEnd = operations.FindIndex(headingIndex + 1, o =>
+                o is HeadingOperation h && h.Level <= sectionLevel);
+            if (sectionEnd < 0)
+            {
+                sectionEnd = operations.Count;
+            }
+
+            var sectionParagraphs = operations
+                .Skip(headingIndex + 1)
+                .Take(sectionEnd - headingIndex - 1)
+                .OfType<ParagraphOperation>()
+                .Select(p => p.Text)
+                .ToList();
+            Assert.Contains(sectionParagraphs, p => p.Contains("Remarks-only type description text.", StringComparison.Ordinal));
+            Assert.DoesNotContain(sectionParagraphs, p => p.Contains("No description provided", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a member with no <c>&lt;summary&gt;</c> but with <c>&lt;remarks&gt;</c>
+    ///     content does NOT show the "No description provided." placeholder in single-file
+    ///     output, and that the remarks content is still shown (Issue 4, member-level path).
+    /// </summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_MemberWithRemarksOnly_SuppressesPlaceholderAndShowsRemarks()
+    {
+        // Arrange: a synthetic XML doc giving SampleClass.GetGreeting(string) only <remarks>, no <summary>
+        var docPath = WriteXmlDoc("""
+            <member name="M:ApiMark.DotNet.Fixtures.SampleClass.GetGreeting(System.String)">
+              <remarks>Remarks-only member description text.</remarks>
+            </member>
+            """);
+        try
+        {
+            var options = BuildOptions();
+            options.XmlDocPath = docPath;
+            var factory = new InMemoryMarkdownWriterFactory();
+            var emitter = (DotNetEmitter)new DotNetGenerator(options).Parse(new InMemoryContext());
+
+            // Act
+            new DotNetEmitterSingleFile(emitter, emitter.Model).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+            // Assert: within GetGreeting's own section (between its heading and the next heading
+            // at the same or a shallower level), the remarks text appears and the placeholder
+            // does not. Other members/types in the single combined page legitimately still show
+            // the placeholder for their own (untouched) missing documentation, so the assertion
+            // must be scoped to this member's section rather than the whole page.
+            var apiWriter = factory.GetWriter("", "api");
+            var operations = apiWriter.Operations.ToList();
+
+            // Find SampleClass's own type heading first, since ExampleDocClass also declares
+            // a method named GetGreeting — searching for "GetGreeting" alone would incorrectly
+            // match that unrelated method's heading if it is emitted first.
+            var typeHeadingIndex = operations.FindIndex(o =>
+                o is HeadingOperation h && h.Text.Contains("SampleClass", StringComparison.Ordinal));
+            Assert.True(typeHeadingIndex >= 0, "Expected to find a heading for SampleClass.");
+
+            var headingIndex = operations.FindIndex(typeHeadingIndex + 1, o =>
+                o is HeadingOperation h && h.Text.Contains("GetGreeting", StringComparison.Ordinal));
+            Assert.True(headingIndex >= 0, "Expected to find a heading for GetGreeting.");
+            var sectionLevel = ((HeadingOperation)operations[headingIndex]).Level;
+            var sectionEnd = operations.FindIndex(headingIndex + 1, o =>
+                o is HeadingOperation h && h.Level <= sectionLevel);
+            if (sectionEnd < 0)
+            {
+                sectionEnd = operations.Count;
+            }
+
+            var sectionParagraphs = operations
+                .Skip(headingIndex + 1)
+                .Take(sectionEnd - headingIndex - 1)
+                .OfType<ParagraphOperation>()
+                .Select(p => p.Text)
+                .ToList();
+            Assert.Contains(sectionParagraphs, p => p.Contains("Remarks-only member description text.", StringComparison.Ordinal));
+            Assert.DoesNotContain(sectionParagraphs, p => p.Contains("No description provided", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
+    }
 }

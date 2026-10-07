@@ -33,6 +33,12 @@ output location is needed.
 - A multi-dimensional array type appends the multi-dimensional rank suffix (e.g., `[,]` for rank-2) to the element type name.
 - A nullable array type appends the array rank suffix followed by the `?` suffix (e.g., `string[]?`).
 - A generic container type appends angle-bracket notation listing the resolved type arguments.
+- A nested type referenced as a field type resolves to the correct nested-type page path.
+- A nested type referenced as a method return type resolves to the correct nested-type page path.
+- A nested type referenced as a method parameter type resolves to the correct nested-type page path.
+- A nested type referenced as a generic type argument resolves to the correct nested-type page path.
+- A type nested two levels deep (Outer.Middle.Inner) resolves to the full ancestor-chain page path.
+- Linking to a nested type from within its own parent type's page produces a shorter relative path than linking to the same nested type from an unrelated namespace/type's page.
 
 ### Test Scenarios
 
@@ -111,3 +117,45 @@ type reference from a non-System namespace (e.g. `Acme.Widgets.Widget`) is retur
 as plain text and is added to the external types accumulator so that the consuming
 emitter can emit an External Types section. This scenario is tested by
 `TypeLinkResolver_Linkify_ExternalNonSystemType_ReturnsPlainNameAndTracksExternalType`.
+
+**Nested type as field type resolves to the correct nested-type page path**:
+Verifies that a `TypeReference` for a nested type (which Mono.Cecil reports with
+an empty `Namespace`), referenced as a field's type, resolves to a page path
+derived from the outermost declaring ancestor's namespace plus each
+declaring-type name from outermost to innermost (e.g.
+`OuterClass/Inner.md`), rather than treating the empty `Namespace` as the
+folder. This scenario is tested by
+`TypeLinkResolver_Linkify_NestedTypeAsFieldType_ResolvesToNestedTypePage`.
+
+**Nested type as method return type resolves to the correct nested-type page
+path**: Verifies the same nested-type page-key algorithm for a method's return
+type. This scenario is tested by
+`TypeLinkResolver_Linkify_NestedTypeAsReturnType_ResolvesToNestedTypePage`.
+
+**Nested type as method parameter type resolves to the correct nested-type page
+path**: Verifies the same nested-type page-key algorithm for a method
+parameter's type. This scenario is tested by
+`TypeLinkResolver_Linkify_NestedTypeAsParameterType_ResolvesToNestedTypePage`.
+
+**Nested type as generic type argument resolves to the correct nested-type page
+path**: Verifies the same nested-type page-key algorithm when the nested type
+appears as a type argument of a generic container (e.g. `List<OuterClass.Inner>`).
+This scenario is tested by
+`TypeLinkResolver_Linkify_NestedTypeAsGenericArgument_ResolvesToNestedTypePage`.
+
+**Two-levels-deep nested type resolves the full ancestor path**: Verifies that a
+type nested two levels deep (`TwoLevelNestedClass.Middle.Inner`) walks the
+`DeclaringType` chain all the way to the outermost non-nested ancestor and
+joins every intermediate level's flattened name, producing a path such as
+`TwoLevelNestedClass/Middle/Inner.md`. This scenario is tested by
+`TypeLinkResolver_Linkify_TwoLevelsDeepNestedType_ResolvesFullAncestorPath`.
+
+**Linking to a nested type from its own parent page vs. from an unrelated page
+produces different relative paths**: Verifies that `ComputeRelativePath`
+produces a shorter relative path (e.g. `Inner.md`) when the link originates
+from within the nested type's own parent type's page, compared to the longer
+relative path (e.g. `OuterClass/Inner.md`) produced when the link originates
+from a completely different namespace/type's page — confirming the page-key
+construction is independent of the link's source location and only the
+relative-path computation varies. This scenario is tested by
+`TypeLinkResolver_Linkify_NestedType_FromParentPageVsOtherPage_ProducesDifferentRelativePaths`.

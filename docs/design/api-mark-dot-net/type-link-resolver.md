@@ -89,6 +89,37 @@ reference collected during table cell generation.
   8. Non-System external → track in `externalTypes`, return plain name.
 - *Intra-assembly detection*: `TypeReference.Scope is ModuleDefinition`.
 
+**TypeLinkResolver.GetTypePageKey** (private): Computes the documentation page
+key (relative path without extension) for an intra-assembly `TypeReference`,
+correctly handling nested types of arbitrary nesting depth.
+
+- *Problem*: Mono.Cecil gives nested types an **empty** `TypeReference.Namespace`
+  — the namespace is carried only by the outermost non-nested ancestor. Using
+  `typeRef.Namespace` directly for a nested type therefore produced an empty
+  namespace folder and a broken link, regardless of whether the nested type was
+  referenced as a method parameter, return type, field type, or generic type
+  argument.
+- *Algorithm*:
+  1. Walk `TypeReference.DeclaringType` from `typeRef` upward, collecting every
+     ancestor (including `typeRef` itself) into a list ordered outermost to
+     innermost.
+  2. Derive the namespace folder via `DotNetEmitter.GetNamespaceFolderPath` using
+     the **outermost** ancestor's `Namespace` — the only member of the chain
+     guaranteed to carry a non-empty namespace.
+  3. Join every ancestor's name, outermost to innermost, each flattened via
+     `TypeNameSimplifier.FlattenArity`, with `/` separators.
+  4. Prefix the joined path with the namespace folder (when non-empty) to
+     produce the final page key, e.g. `MyLib/Outer/Inner` or, for two levels of
+     nesting, `MyLib/Outer/Middle/Inner`.
+- *Non-nested types*: For a non-nested type, the chain has exactly one element,
+  so the algorithm naturally reduces to the pre-existing non-nested behavior
+  with no special-casing required.
+- *Consistency*: This mirrors exactly how
+  `DotNetEmitterGradualDisclosure.WriteNestedTypesSection` writes nested type
+  pages to disk (`{NamespaceFolderPath}/{ParentTypeName}/{NestedTypeName}`,
+  recursively for arbitrary nesting depth), so every link produced by
+  `GetTypePageKey` resolves to a page that the emitter actually creates.
+
 ### Error Handling
 
 `Linkify` returns `string.Empty` for a null `typeRef` rather than throwing.

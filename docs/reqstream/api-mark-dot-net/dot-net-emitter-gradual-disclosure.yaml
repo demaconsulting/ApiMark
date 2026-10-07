@@ -130,3 +130,19 @@ sections:
               who only need the operator API without navigating to other pages.
             tests:
               - DotNetGenerator_Generate_TypeWithOperators_OperatorsPageContainsSummaries
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-SuppressPlaceholderWhenRemarksPresent
+            title: DotNetEmitterGradualDisclosure shall suppress the "No description
+              provided." placeholder on member-detail-page and type-page bodies when
+              a summary is absent but remarks content is present, showing the
+              placeholder only when both summary and remarks are absent.
+            justification: |
+              Member-detail-page and type-page bodies render both summary and remarks,
+              so showing the no-description placeholder whenever a summary was absent
+              — even though valid remarks content followed immediately below it — was
+              misleading: it suggested the member was undocumented when it was not.
+              Table-cell summary fallback (which never shows remarks) is unaffected,
+              since the placeholder remains the only signal available there.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_MemberWithRemarksOnly_SuppressesPlaceholderAndShowsRemarks
+              - DotNetEmitterGradualDisclosure_Emit_MemberWithNeitherSummaryNorRemarks_StillShowsPlaceholder
+              - DotNetEmitterGradualDisclosure_Emit_TypeWithRemarksOnly_SuppressesPlaceholderAndShowsRemarksOnTypePage

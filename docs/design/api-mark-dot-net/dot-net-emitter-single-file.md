@@ -55,6 +55,12 @@ bullet list, and then dispatches to `WriteSingleFileMemberSection` for each
 visible member. Recursively calls `WriteSingleFileNestedTypes` when the type
 contains nested types.
 
+- The summary is fetched via `GetSummaryMarkdown` (multi-line rendering) and the
+  remarks text is fetched before deciding what to write: a present summary is
+  written as a paragraph; otherwise the "No description provided." placeholder
+  is written only when remarks are also absent — matching the same
+  placeholder-suppression rule as `DotNetEmitterGradualDisclosure`'s
+  member-detail-page bodies (see that unit's design doc for the full rationale).
 - For nested types, a notice paragraph `"Nested type of \`{OuterType}\`."` is
   emitted immediately after the H{depth+2} heading to establish parent context.
 - When the type is a delegate (detected via `DotNetEmitter.IsDelegate`), the
@@ -66,7 +72,16 @@ contains nested types.
 
 **WriteSingleFileMemberSection** (private): Writes the full per-member block for
 one member — member heading, signature code block, summary, parameter table,
-returns documentation, exception table, and example block. A throw-away empty
+returns documentation, exception table, and example block. The summary is
+fetched via `GetSummaryMarkdown` (multi-line rendering), so a `<list>` inside a
+member's `<summary>` renders as real multi-line Markdown here too. Remarks text
+is fetched before deciding what to write, mirroring `WriteSingleFileTypeSections`:
+a present summary is written as a paragraph; otherwise the "No description
+provided." placeholder is written only when remarks are also absent. When
+present, remarks are written as a separate paragraph after the summary (or
+placeholder) — the same placeholder-suppression rule described for
+`WriteSingleFileTypeSections` applies identically at the member level. A
+throw-away empty
 `SortedSet<ExternalTypeInfo>` is passed to each `resolver.Linkify` call; because
 `generateLinks` is `false` and no External Types section is emitted in single-file
 output, this set is never populated or read. Note that `namespaceFolderPath` is
