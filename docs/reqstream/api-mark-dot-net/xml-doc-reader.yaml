@@ -14,7 +14,12 @@ sections:
               per-member lookup used during emission — summary, remarks, parameters,
               returns, exceptions, and examples — must be available immediately after
               construction so DotNetEmitter can render developer-authored content for
-              each type and member.
+              each type and member. Parameter and exception descriptions are always
+              written into a raw pipe-delimited Markdown table cell by every caller, so
+              they must render any `<br/>`/`<code>` content as a flattened single line
+              (never an embedded literal newline or a fenced code block), protecting
+              embedded inline-code whitespace from collapsing the same way the
+              `<remarks>`/`<summary>` rendering path already does.
             tests:
               - XmlDocReader_Constructor_FileDoesNotExist_ThrowsFileNotFoundException
               - XmlDocReader_GetSummary_MemberPresent_ReturnsTrimmedText
@@ -23,6 +28,8 @@ sections:
               - XmlDocReader_GetRemarks_MemberPresent_ReturnsTrimmedText
               - XmlDocReader_GetExceptions_MemberWithExceptions_ReturnsCrefValues
               - XmlDocReader_GetParams_MemberWithParams_ReturnsNamesAndDescriptions
+              - XmlDocReader_GetParams_DescriptionWithMultiLineCodeAndBr_FlattensToSingleLineNoEmbeddedNewline
+              - XmlDocReader_GetParams_DescriptionWithInlineCodeContainingInternalWhitespace_PreservesExactWhitespace
               - XmlDocReader_GetReturns_MemberWithReturns_ReturnsTrimmedText
               - XmlDocReader_GetExample_MemberWithExample_ReturnsTrimmedText
               - XmlDocReader_GetExample_WhitespaceOnly_ReturnsNull
@@ -30,6 +37,7 @@ sections:
               - XmlDocReader_GetExampleParts_WithCodeElement_SeparatesProseFromCode
               - XmlDocReader_GetExampleParts_MemberAbsent_ReturnsEmpty
               - XmlDocReader_GetExceptionDetails_MemberWithExceptions_ReturnsFormattedTypesAndDescriptions
+              - XmlDocReader_GetExceptionDetails_DescriptionWithMultiLineCode_FlattensToSingleLineNoEmbeddedNewline
               - XmlDocReader_GetRemarks_MemberAbsent_ReturnsNull
               - XmlDocReader_GetReturns_MemberAbsent_ReturnsNull
               - XmlDocReader_GetExample_MemberAbsent_ReturnsNull
@@ -212,7 +220,12 @@ sections:
               an inline code span — matching how `<c>` content is already rendered —
               makes the reference visually distinct, without requiring the
               architectural change needed to turn it into an actual cross-reference
-              link.
+              link. When the declaring type is itself generic, the rendered span must
+              use raw, unescaped angle brackets (`List<T>`, not `List\<T\>`): a code
+              span's content is literal, so the backslash escaping needed to keep
+              prose safe from being parsed as an HTML tag would otherwise show up as
+              stray visible characters. A type-only (`T:`) cref is never wrapped in a
+              code span, so it keeps the escaped form.
             tests:
               - XmlDocReader_GetSummary_SeeCrefToProperty_RendersTypeDotMember
               - XmlDocReader_GetSummary_SeeCrefToField_RendersTypeDotMember
@@ -220,6 +233,8 @@ sections:
               - XmlDocReader_GetSummary_SeeCrefToMethod_StillRendersTypeDotMember
               - XmlDocReader_GetSummary_WithSeeGenericTypeCref_FormatsWithTypeParameters
               - XmlDocReader_GetSummary_SeeCrefToConstructor_RendersUnwrappedTypeName
+              - XmlDocReader_GetSummary_SeeCrefToMemberOnGenericType_RendersUnescapedAngleBracketsInCodeSpan
+              - XmlDocReader_GetSummary_SeeCrefToGenericTypeOnly_StillEscapesAngleBracketsInProse
               - XmlDocReader_GetSummary_WithInlineReferences_PreservesReferencedNames
               - XmlDocReader_GetExampleParts_WithSeeCref_RendersInlineReferenceInProsePart
               - XmlDocReader_GetExampleParts_WithMixedInlineElements_ProseAccumulatedAsOnePart

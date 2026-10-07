@@ -190,6 +190,74 @@ public class XmlDocReaderTests
         }
     }
 
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetParams"/> renders a multi-line
+    ///     <c>&lt;code&gt;</c> element inside a <c>&lt;param&gt;</c> description as a flattened
+    ///     single-line inline code span, not a fenced Markdown code block — every caller writes
+    ///     this description into a raw pipe-delimited table row, where an embedded literal newline
+    ///     would corrupt the table (inject extra rows).
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetParams_DescriptionWithMultiLineCodeAndBr_FlattensToSingleLineNoEmbeddedNewline()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Go(System.String)">
+              <param name="host">Before.<br/><code>
+            line one
+            line two
+            </code>After.</param>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var ps = reader.GetParams("M:Foo.Bar.Go(System.String)");
+
+            // Assert: no embedded newline anywhere in the description, and it is still backtick-wrapped
+            Assert.Single(ps);
+            Assert.NotNull(ps[0].Description);
+            Assert.DoesNotContain('\n', ps[0].Description!);
+            Assert.Equal("Before. `line one line two`After.", ps[0].Description);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetParams"/> preserves significant internal
+    ///     whitespace (multiple consecutive spaces and a tab) inside an inline <c>&lt;code&gt;</c>
+    ///     span within a <c>&lt;param&gt;</c> description, proving the placeholder-token mechanism
+    ///     also shields single-line/table-cell rendering, not just the fenced-block path.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetParams_DescriptionWithInlineCodeContainingInternalWhitespace_PreservesExactWhitespace()
+    {
+        // Arrange: CollapseWhitespace would otherwise reduce "a  b\tc" to "a b c"
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Go(System.String)">
+              <param name="host"><code>a  b	c</code></param>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var ps = reader.GetParams("M:Foo.Bar.Go(System.String)");
+
+            // Assert
+            Assert.Single(ps);
+            Assert.Equal("`a  b\tc`", ps[0].Description);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     /// <summary>Validates that <see cref="XmlDocReader.GetReturns"/> returns trimmed returns text for a known member.</summary>
     [Fact]
     public void XmlDocReader_GetReturns_MemberWithReturns_ReturnsTrimmedText()
@@ -372,6 +440,43 @@ public class XmlDocReaderTests
             Assert.Equal("Already open.", details[0].Description);
             Assert.Equal("ArgumentNullException", details[1].Type);
             Assert.Equal("host is null.", details[1].Description);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetExceptionDetails"/> renders a multi-line
+    ///     <c>&lt;code&gt;</c> element inside an <c>&lt;exception&gt;</c> description as a
+    ///     flattened single-line inline code span, not a fenced Markdown code block — every
+    ///     caller writes this description into a raw pipe-delimited table row, where an embedded
+    ///     literal newline would corrupt the table (inject extra rows).
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetExceptionDetails_DescriptionWithMultiLineCode_FlattensToSingleLineNoEmbeddedNewline()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Open(System.String)">
+              <exception cref="T:System.InvalidOperationException">Thrown when:<br/><code>
+            line one
+            line two
+            </code></exception>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var details = reader.GetExceptionDetails("M:Foo.Bar.Open(System.String)");
+
+            // Assert: no embedded newline anywhere in the description
+            Assert.Single(details);
+            Assert.NotNull(details[0].Description);
+            Assert.DoesNotContain('\n', details[0].Description!);
+            Assert.Equal("Thrown when: `line one line two`", details[0].Description);
         }
         finally
         {
@@ -2362,6 +2467,67 @@ public class XmlDocReaderTests
 
             // Assert: constructor cref renders as the bare type name, with no surrounding backticks
             Assert.Equal("See Widget for details.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> renders a member cref whose
+    ///     declaring type is generic using raw, unescaped angle brackets inside the code span
+    ///     (e.g. <c>List&lt;T&gt;.Add()</c>), not the backslash-escaped prose form
+    ///     (<c>List\&lt;T\&gt;.Add()</c>) — a code span's content is literal, so escaped
+    ///     backslashes would display as stray visible characters instead of being interpreted.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_SeeCrefToMemberOnGenericType_RendersUnescapedAngleBracketsInCodeSpan()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>See <see cref="M:System.Collections.Generic.List`1.Add(`0)"/> for details.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar");
+
+            // Assert: raw "<T>", not "\<T\>", inside the backtick span
+            Assert.Equal("See `List<T>.Add()` for details.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> still escapes angle brackets for a
+    ///     type-only (<c>T:</c>) cref referring to a generic type, since that result is rendered as
+    ///     bare prose (never wrapped in a code span) and an unescaped <c>&lt;T&gt;</c> would be
+    ///     parsed as an HTML tag by Markdown renderers.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_SeeCrefToGenericTypeOnly_StillEscapesAngleBracketsInProse()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>See <see cref="T:System.Collections.Generic.List`1"/> for details.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar");
+
+            // Assert: escaped prose form, unwrapped (no backticks)
+            Assert.Equal("See List\\<T\\> for details.", summary);
         }
         finally
         {

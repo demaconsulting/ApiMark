@@ -131,9 +131,32 @@ exception type names are formatted (type-kind prefix stripped, primitive aliases
 applied) and descriptions are included. This scenario is tested by
 `XmlDocReader_GetExceptionDetails_MemberWithExceptions_ReturnsFormattedTypesAndDescriptions`.
 
+**GetExceptionDetails flattens a multi-line `<code>`/`<br/>` description to a
+single line**: Verifies that an exception description containing a multi-line
+`<code>` element (and a `<br/>`) is rendered without any embedded literal
+newline, since every caller writes the description into a raw pipe-delimited
+Markdown table cell, where an embedded newline would corrupt the table. This
+scenario is tested by
+`XmlDocReader_GetExceptionDetails_DescriptionWithMultiLineCode_FlattensToSingleLineNoEmbeddedNewline`.
+
 **GetParams returns names and descriptions in order**: Verifies that parameter
 name and description pairs are returned in declaration order. This scenario is
 tested by `XmlDocReader_GetParams_MemberWithParams_ReturnsNamesAndDescriptions`.
+
+**GetParams flattens a multi-line `<code>`/`<br/>` description to a single
+line**: Verifies that a parameter description containing a multi-line `<code>`
+element (and a `<br/>`) is rendered without any embedded literal newline, for
+the same table-cell-safety reason as `GetExceptionDetails`. This scenario is
+tested by
+`XmlDocReader_GetParams_DescriptionWithMultiLineCodeAndBr_FlattensToSingleLineNoEmbeddedNewline`.
+
+**GetParams preserves significant whitespace inside an inline `<code>` span in
+a description**: Verifies that multiple consecutive spaces and a tab inside a
+single-line `<code>` element survive unchanged, proving the placeholder-token
+protection mechanism (previously only exercised via `GetRemarks`'s fenced-block
+path) also protects the inline-code-span path used by table-cell-bound
+rendering. This scenario is tested by
+`XmlDocReader_GetParams_DescriptionWithInlineCodeContainingInternalWhitespace_PreservesExactWhitespace`.
 
 **GetReturns returns trimmed text for a present member**: Verifies that returns
 text is returned with whitespace trimmed. This scenario is tested by
@@ -467,6 +490,22 @@ that `<see cref="M:Type.#ctor" />` — a method-kind cref whose member name is t
 `#ctor` marker — renders as the declaring type name alone, with no inline code span, matching
 the constructor-collapsing behavior documented on `FormatMemberReference`. This scenario is
 tested by `XmlDocReader_GetSummary_SeeCrefToConstructor_RendersUnwrappedTypeName`.
+
+**GetSummary renders a member cref on a generic type with unescaped angle
+brackets inside its code span**: Verifies that
+`` `<see cref="M:...List`1.Add(`0)" />` `` — a member cref whose declaring
+type is generic — renders as `` `List<T>.Add()` `` with raw, unescaped angle
+brackets, not the backslash-escaped prose form (`List\<T\>.Add()`), since the
+result is wrapped in a code span and a code span's content is literal. This
+scenario is tested by
+`XmlDocReader_GetSummary_SeeCrefToMemberOnGenericType_RendersUnescapedAngleBracketsInCodeSpan`.
+
+**GetSummary still escapes angle brackets for a type-only cref to a generic
+type (regression guard)**: Verifies that `` `<see cref="T:...List`1" />` `` —
+a type-only cref, never wrapped in a code span — still renders the
+backslash-escaped prose form `List\<T\>`, confirming the `forCodeSpan`
+opt-out is scoped correctly to member crefs only. This scenario is tested by
+`XmlDocReader_GetSummary_SeeCrefToGenericTypeOnly_StillEscapesAngleBracketsInProse`.
 
 **GetRemarks renders a `<br/>` element as a paragraph break**: Verifies that
 `<br/>` inserts a blank-line paragraph break between the surrounding text
