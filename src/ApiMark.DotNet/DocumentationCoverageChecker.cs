@@ -225,9 +225,9 @@ internal static class DocumentationCoverageChecker
 
     /// <summary>
     ///     Returns <see langword="true"/> when <paramref name="id"/> has a non-empty <c>&lt;summary&gt;</c>
-    ///     in <paramref name="xmlDocs"/>, or — for a source-generator-produced element (one carrying
-    ///     <c>GeneratedCodeAttribute</c>, e.g. a <c>[GeneratedRegex]</c> partial method) — a non-empty
-    ///     <c>&lt;remarks&gt;</c> instead.
+    ///     in <paramref name="xmlDocs"/>, or — for a source-generator-produced <em>member</em> (one
+    ///     carrying <c>GeneratedCodeAttribute</c>, e.g. a <c>[GeneratedRegex]</c> partial method) — a
+    ///     non-empty <c>&lt;remarks&gt;</c> instead.
     /// </summary>
     /// <remarks>
     ///     The regex source generator attaches its own <c>&lt;remarks&gt;</c> (a plain-language
@@ -235,8 +235,9 @@ internal static class DocumentationCoverageChecker
     ///     silently replaces any hand-written <c>&lt;summary&gt;</c> from the partial method's
     ///     defining declaration in the compiled XML documentation — see
     ///     <see cref="DotNetEmitter.IsGeneratedCode(ICustomAttributeProvider)"/>. The <c>&lt;remarks&gt;</c>
-    ///     fallback is scoped to <c>GeneratedCodeAttribute</c>-carrying elements only, so a
-    ///     hand-written member that merely lacks a <c>&lt;summary&gt;</c> in favor of a
+    ///     fallback is scoped to <c>GeneratedCodeAttribute</c>-carrying <em>members</em> only — never
+    ///     types, even when a type itself carries <c>GeneratedCodeAttribute</c> — so a hand-written
+    ///     member, or any type, that merely lacks a <c>&lt;summary&gt;</c> in favor of a
     ///     <c>&lt;remarks&gt;</c> is still reported as undocumented.
     /// </remarks>
     /// <param name="provider">The type or member being checked, used to test for <c>GeneratedCodeAttribute</c>.</param>
@@ -250,6 +251,8 @@ internal static class DocumentationCoverageChecker
             return true;
         }
 
-        return DotNetEmitter.IsGeneratedCode(provider) && !string.IsNullOrWhiteSpace(xmlDocs.GetRemarks(id));
+        return provider is not TypeDefinition
+            && DotNetEmitter.IsGeneratedCode(provider)
+            && !string.IsNullOrWhiteSpace(xmlDocs.GetRemarks(id));
     }
 }

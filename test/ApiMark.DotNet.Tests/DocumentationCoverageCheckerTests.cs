@@ -305,7 +305,11 @@ public class DocumentationCoverageCheckerTests
             var excludePatterns = ExcludeAllExcept(assembly, "ApiMark.DotNet.Fixtures.FieldLikeEventClass");
 
             // Act
-            var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
+            // ApiVisibility.All is required so the private backing field is in scope for
+            // enumeration in the first place — otherwise IsMemberVisible would filter it out
+            // before IsCompilerGeneratedField is ever consulted, and this test would pass even
+            // without the fix under test.
+            var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.All, includeObsolete: false, excludePatterns);
 
             // Assert — zero violations; the backing field is not separately checked/reported
             Assert.Equal(0, result.UndocumentedCount);
