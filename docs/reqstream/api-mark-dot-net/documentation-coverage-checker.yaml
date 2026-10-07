@@ -59,3 +59,42 @@ sections:
               - Check_IncludeObsoleteFalse_SkipsObsoleteType
               - Check_IncludeObsoleteTrue_ScansObsoleteTypeAndReportsMissingSummary
               - Check_NamespaceDocCarrier_IsNeverChecked
+          - id: ApiMarkDotNet-DocumentationCoverageChecker-ExcludeCompilerGeneratedMembers
+            title: DocumentationCoverageChecker shall never report a record's
+              synthesized `EqualityContract` property or a field-like event's
+              compiler-generated backing field as undocumented, regardless of
+              enforcement visibility tier, while still reporting a hand-written
+              member that happens to share either name.
+            justification: |
+              Both members have no source location an author could attach a
+              `<summary>` to: EqualityContract is synthesized by the compiler for
+              every record (private in a sealed record, protected virtual/override
+              otherwise) to support the generated `Equals`, and a field-like
+              event's backing field is synthesized to store the event's
+              invocation list. Flagging either as undocumented makes
+              `--enforce-docs All` (or `PublicAndProtected` for a public
+              non-sealed record) impossible to set to Error severity for any
+              assembly using records or field-like events.
+            tests:
+              - Check_SealedRecordAtAllVisibility_DoesNotReportEqualityContract
+              - Check_NonSealedPublicRecordAtPublicAndProtected_DoesNotReportEqualityContract
+              - Check_DerivedRecordAtAllVisibility_DoesNotReportEqualityContract
+              - Check_HandWrittenEqualityContractProperty_IsStillReported
+              - Check_DocumentedFieldLikeEvent_DoesNotReportBackingField
+          - id: ApiMarkDotNet-DocumentationCoverageChecker-AcceptRemarksForGeneratedCodeMembers
+            title: DocumentationCoverageChecker shall accept a non-empty `<remarks>`
+              as documentation for a member carrying
+              `System.CodeDom.Compiler.GeneratedCodeAttribute`, when no `<summary>`
+              is present, but shall not extend this fallback to hand-written
+              members.
+            justification: |
+              Some source generators (e.g. the `[GeneratedRegex]` partial-method
+              generator) attach their own `<remarks>` to the generated
+              implementation, which silently replaces the author's `<summary>` on
+              the defining partial declaration in the compiled XML doc — a
+              Roslyn/source-generator quirk that cannot be fixed at the source
+              level. Without this fallback, every `[GeneratedRegex]` method in an
+              assembly is permanently unfixable under `--enforce-docs`.
+            tests:
+              - Check_GeneratedRegexMethodWithOnlyRemarks_IsNotReported
+              - Check_HandWrittenMethodWithOnlyRemarks_IsStillReported

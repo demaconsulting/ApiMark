@@ -100,11 +100,29 @@ These helpers are grouped by concern:
   etc.), even at `ApiVisibility.All`: they carry no source-level documentation,
   and several of their names contain characters (`<`, `>`, `|`) that are invalid
   in Windows file paths, which would otherwise break output generation.
+  `GetVisibleMembers` likewise excludes compiler-generated properties — most
+  notably a record's synthesized `EqualityContract` property (used by the
+  generated `Equals` to distinguish types in an inheritance hierarchy), which
+  has no source line to attach a `<summary>` to — via the same
+  `IsCompilerGenerated` check already applied to methods.
 - *Type/member classification* — `IsOperator`, `IsSpecialNameNonConstructor`,
   `IsCompilerGeneratedField`, `IsDelegate`, `IsExtensionMethod`,
   `IsCompilerGenerated(ICustomAttributeProvider)`, `IsCompilerGenerated(TypeDefinition)`,
-  `IsImplicitDefaultConstructor`, `IsObsolete`, `IsNamespaceDocCarrier`: categorize types
-  and members to drive conditional rendering paths. `IsImplicitDefaultConstructor` is
+  `IsGeneratedCode(ICustomAttributeProvider)`, `IsImplicitDefaultConstructor`,
+  `IsObsolete`, `IsNamespaceDocCarrier`: categorize types
+  and members to drive conditional rendering paths. `IsCompilerGeneratedField`
+  treats a field as compiler-generated when its name contains angle brackets
+  (auto-property and primary-constructor-property backing fields) *or* it
+  carries `CompilerGeneratedAttribute` — the latter check is required for a
+  field-like event's backing field, which is named exactly like the event
+  itself (no angle brackets) and is otherwise indistinguishable from a
+  hand-written field sharing that name. `IsGeneratedCode` checks for
+  `System.CodeDom.Compiler.GeneratedCodeAttribute`, which source generators
+  (e.g. the `[GeneratedRegex]` partial-method generator) attach to their
+  generated members; it is defined here alongside the other
+  `ICustomAttributeProvider`-based attribute checks but is consumed by
+  `DocumentationCoverageChecker`, not by `DotNetEmitter` itself, to accept a
+  `<remarks>` as documentation for such members. `IsImplicitDefaultConstructor` is
   consumed only by `DocumentationCoverageChecker` (to exempt the compiler-synthesized
   implicit parameterless constructor from `--enforce-docs`), not by either sub-emitter —
   the generated Markdown still lists the constructor like any other member. Its algorithm:

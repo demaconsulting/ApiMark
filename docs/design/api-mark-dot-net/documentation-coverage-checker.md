@@ -26,10 +26,23 @@ the ApiMarkCore subsystem).
 checker owns its own vocabulary of declaration kinds and the sole consumer
 (`Program.cs`) only interpolates it into a display string.
 
-**"Documented" bar (v1)**: A type or member is considered documented when
+**"Documented" bar**: A type or member is considered documented when
 `XmlDocReader.GetSummary` returns a non-null, non-whitespace string for its
-XML doc member identifier. Checking for complete `<param>`, `<returns>`, or
-`<exception>` coverage is explicitly out of scope for v1 and is noted as a
+XML doc member identifier, **or** — for a member carrying
+`System.CodeDom.Compiler.GeneratedCodeAttribute` (detected via
+`DotNetEmitter.IsGeneratedCode`) — when it has a non-empty `<remarks>`
+instead. The fallback exists because some source generators (e.g. the
+`[GeneratedRegex]` partial-method generator) attach their own `<remarks>` to
+the generated implementation, which silently replaces the author's
+`<summary>` on the defining partial declaration in the compiled XML doc —
+a Roslyn/source-generator quirk that cannot be fixed at the source level.
+This fallback applies to coverage checking only (`HasDocumentation`); it does
+not change what the emitted Markdown shows for the member's summary — a
+`[GeneratedRegex]` method can pass `--enforce-docs` via its `<remarks>` while
+its generated page still shows "*No description provided.*" for the summary
+(with the remarks rendered separately, by the pre-existing, unrelated
+remarks-rendering code path). Checking for complete `<param>`, `<returns>`,
+or `<exception>` coverage remains explicitly out of scope and is noted as a
 possible future enhancement.
 
 **Implicit default constructors**: a type with no explicit constructor of its
@@ -75,12 +88,24 @@ flags rather than the top-level `IsPublic` flag, via `IsNestedTypeVisible`.
 **GetVisibleMembers** (private): Enumerates methods, properties, fields, and
 events of a type that satisfy the enforcement visibility tier and the
 obsolete filter, reusing `DotNetEmitter.IsSpecialNameNonConstructor`,
-`IsCompilerGenerated`, `IsCompilerGeneratedField`, the `value__` backing
+`IsCompilerGenerated` (applied to methods and, like `DotNetEmitter`'s own
+emission-side filter, to properties — excluding a record's synthesized
+`EqualityContract` property, which carries `CompilerGeneratedAttribute` and
+has no source location for a `<summary>`), `IsCompilerGeneratedField` (which
+also excludes a field-like event's backing field, detected via
+`CompilerGeneratedAttribute` since it shares the event's exact,
+angle-bracket-free name), the `value__` backing
 field exclusion for enums, and `DotNetEmitter.IsImplicitDefaultConstructor`
 (to exclude the compiler-synthesized implicit parameterless constructor,
 which has no source location an author could attach a `<summary>` to) — the
 same shape as `DotNetEmitter.GetVisibleMembers` but parameterized on the
 enforcement tier instead of an emitter instance's fixed emission tier.
+
+**HasDocumentation** (private): Returns whether `provider` (an
+`ICustomAttributeProvider` paired with its XML doc member `id`) counts as
+documented for enforcement purposes — see the "Documented" bar section
+above for the summary-or-remarks-fallback rule it implements. Called from
+both the type-level and member-level checks in `CheckType`.
 
 **IsTypeVisible / IsNestedTypeVisible / IsMemberVisible** (private): Re-derive
 a local three-way visibility switch (`Public`, `PublicAndProtected`, `All`)
@@ -112,8 +137,9 @@ ever invoked.
   concrete subtypes).
 - **DotNetEmitter** (static predicates) — reused for compiler-generated
   detection, `NamespaceDoc`-carrier detection, obsolete detection, implicit
-  default constructor detection (`IsImplicitDefaultConstructor`), member-id
-  construction (`BuildTypeId`/`BuildMemberId`), member display-name
+  default constructor detection (`IsImplicitDefaultConstructor`),
+  generated-code detection (`IsGeneratedCode`, for the `<remarks>` fallback),
+  member-id construction (`BuildTypeId`/`BuildMemberId`), member display-name
   formatting, and the public/public-or-protected member visibility
   predicates.
 - **DotNetGenerator** (static helpers) — reused for exclude-pattern

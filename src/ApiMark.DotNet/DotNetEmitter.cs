@@ -334,7 +334,12 @@ internal sealed class DotNetEmitter : IApiEmitter
             yield return method;
         }
 
-        foreach (var prop in type.Properties.Where(ShouldIncludeMember))
+        // Properties: skip compiler-generated properties such as a record's synthesized
+        // `EqualityContract` (used by the generated `Equals` to distinguish types in an
+        // inheritance hierarchy), which has no source line to attach a <summary> to and is
+        // filtered out the same way the record's other generated members (PrintMembers,
+        // <Clone>$, Deconstruct, Equals(T), etc.) already are via the method filter above.
+        foreach (var prop in type.Properties.Where(p => !IsCompilerGenerated(p) && ShouldIncludeMember(p)))
         {
             yield return prop;
         }
@@ -377,10 +382,21 @@ internal sealed class DotNetEmitter : IApiEmitter
         method.IsSpecialName && method.Name != ConstructorMethodName && !IsOperator(method);
 
     /// <summary>Returns <c>true</c> when <paramref name="field"/> is a compiler-generated backing field.</summary>
+    /// <remarks>
+    ///     Auto-property and primary-constructor-property backing fields are named with angle
+    ///     brackets (e.g. <c>&lt;X&gt;k__BackingField</c>) and are caught by the name check alone.
+    ///     A field-like event's compiler-generated backing field, however, is named exactly like
+    ///     the event itself (no angle brackets) and is only distinguishable by carrying
+    ///     <c>CompilerGeneratedAttribute</c> — checked here via <see cref="IsCompilerGenerated(ICustomAttributeProvider)"/>
+    ///     — which is why both checks are needed.
+    /// </remarks>
     /// <param name="field">The field to test.</param>
-    /// <returns><c>true</c> when the field name contains angle brackets (compiler-generated backing fields).</returns>
+    /// <returns>
+    ///     <c>true</c> when the field name contains angle brackets, or the field carries
+    ///     <c>CompilerGeneratedAttribute</c> (e.g. a field-like event's backing field).
+    /// </returns>
     internal static bool IsCompilerGeneratedField(FieldDefinition field) =>
-        field.Name.Contains('<') || field.Name.Contains('>');
+        field.Name.Contains('<') || field.Name.Contains('>') || IsCompilerGenerated((ICustomAttributeProvider)field);
 
     /// <summary>Returns the display name for a member as it should appear in documentation tables.</summary>
     /// <param name="member">The member whose display name to compute.</param>
@@ -1334,6 +1350,30 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns><c>true</c> when the type is compiler-generated.</returns>
     internal static bool IsCompilerGenerated(TypeDefinition type) =>
         type.Name.Contains('<') || type.Name.Contains('>') || IsCompilerGenerated((ICustomAttributeProvider)type);
+
+    /// <summary>
+    ///     Returns <c>true</c> when <paramref name="provider"/> carries a
+    ///     <c>System.CodeDom.Compiler.GeneratedCodeAttribute</c>, indicating it was produced by a
+    ///     source generator (e.g. the <c>[GeneratedRegex]</c> partial-method generator) rather than
+    ///     hand-written.
+    /// </summary>
+    /// <remarks>
+    ///     Unlike <see cref="IsCompilerGenerated(ICustomAttributeProvider)"/>, source-generator
+    ///     output carries <c>GeneratedCodeAttribute</c>, not <c>CompilerGeneratedAttribute</c>, and
+    ///     is a real, user-visible, callable API member rather than an internal implementation
+    ///     detail — so it is not filtered out of enumeration the way compiler-generated members are.
+    ///     It is used instead to relax the documentation-coverage check: the regex source generator
+    ///     attaches its own <c>&lt;remarks&gt;</c> (a plain-language explanation of the pattern) to
+    ///     the generated partial-method implementation, which silently replaces any hand-written
+    ///     <c>&lt;summary&gt;</c> written on the partial method's defining declaration in the
+    ///     compiled XML documentation — so a <c>&lt;remarks&gt;</c> is accepted as documentation for
+    ///     these members instead of requiring a <c>&lt;summary&gt;</c>.
+    /// </remarks>
+    /// <param name="provider">The metadata element to inspect.</param>
+    /// <returns><c>true</c> when the element carries <c>GeneratedCodeAttribute</c>.</returns>
+    internal static bool IsGeneratedCode(ICustomAttributeProvider provider) =>
+        provider.CustomAttributes.Any(a =>
+            a.AttributeType.FullName == "System.CodeDom.Compiler.GeneratedCodeAttribute");
 
     /// <summary>
     ///     Returns <c>true</c> when <paramref name="method"/> is the compiler-synthesized implicit

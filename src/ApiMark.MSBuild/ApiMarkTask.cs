@@ -25,6 +25,14 @@ public class ApiMarkTask : Task
     /// <summary>Language identifier for C++ documentation generation.</summary>
     private const string CppLanguage = "cpp";
     /// <summary>
+    ///     The literal line prefix <c>ApiMark.Tool</c> writes to stdout for each undocumented API
+    ///     item (see <c>Program.ReportDocumentationCoverage</c> in <c>ApiMark.Tool</c>). ApiMark.Tool
+    ///     and ApiMark.MSBuild are separate, out-of-process assemblies with no shared project
+    ///     reference (see the class remarks), so this prefix is a duplicated plain-text contract
+    ///     rather than a shared constant.
+    /// </summary>
+    private const string UndocumentedLinePrefix = "  [Undocumented] ";
+    /// <summary>
     ///     Gets or sets a value indicating whether documentation generation is suppressed.
     /// </summary>
     /// <remarks>
@@ -144,7 +152,9 @@ public class ApiMarkTask : Task
     ///     (this is a brand-new opt-in feature, so its absence must never change existing build
     ///     behavior). VHDL enforcement is CLI-only — <c>ApiMarkTask</c> has no VHDL language
     ///     support at all today, so this property has no effect for VHDL builds; use the
-    ///     <c>ApiMark.Tool</c> CLI directly for VHDL documentation-coverage enforcement.
+    ///     <c>ApiMark.Tool</c> CLI directly for VHDL documentation-coverage enforcement. Also
+    ///     gates whether <see cref="LogToolOutputLine"/> elevates <c>[Undocumented]</c> findings
+    ///     to real MSBuild warnings/errors.
     /// </remarks>
     public string? ApiMarkEnforceDocs { get; set; }
 
@@ -158,7 +168,9 @@ public class ApiMarkTask : Task
     ///     <c>$(ApiMarkEnforceDocsSeverity)</c>. Accepted values: <c>Warning</c>, <c>Error</c>.
     ///     Optional — when not set, the <c>--enforce-docs-severity</c> flag is omitted and the
     ///     tool applies its own default of <c>Warning</c>. Has no effect for VHDL builds (see
-    ///     <see cref="ApiMarkEnforceDocs"/>).
+    ///     <see cref="ApiMarkEnforceDocs"/>). Also determines whether
+    ///     <see cref="LogToolOutputLine"/> elevates <c>[Undocumented]</c> findings to
+    ///     <c>Log.LogWarning</c> or <c>Log.LogError</c>.
     /// </remarks>
     public string? ApiMarkEnforceDocsSeverity { get; set; }
 
@@ -929,12 +941,15 @@ public class ApiMarkTask : Task
             return false;
         }
 
-        // Route stdout lines as normal informational build messages
+        // Route stdout lines as normal informational build messages, except per-item
+        // [Undocumented] findings, which are elevated to a real MSBuild warning/error so
+        // --enforce-docs results are visible in the build summary and (for Warning severity, the
+        // default) at normal verbosity, not only inside -v normal/detailed message output.
         process.OutputDataReceived += (_, e) =>
         {
             if (e.Data is not null)
             {
-                Log.LogMessage(MessageImportance.Normal, e.Data);
+                LogToolOutputLine(e.Data);
             }
         };
 
@@ -961,6 +976,40 @@ public class ApiMarkTask : Task
         }
 
         return true;
+    }
+
+    /// <summary>
+    ///     Routes a single line of ApiMark.Tool stdout to the appropriate MSBuild log method: a
+    ///     per-item <c>[Undocumented]</c> finding becomes a real build warning or error (so it is
+    ///     counted in the build summary and visible at normal verbosity), while every other line
+    ///     is logged as a normal informational message, exactly as before.
+    /// </summary>
+    /// <remarks>
+    ///     Only lines beginning with the literal <see cref="UndocumentedLinePrefix"/> are elevated,
+    ///     and only when <see cref="ApiMarkEnforceDocs"/> is set — matching the fact that ApiMark.Tool
+    ///     only emits such lines when documentation-coverage enforcement is enabled. The chosen
+    ///     MSBuild log method mirrors <see cref="ApiMarkEnforceDocsSeverity"/> (case-insensitive
+    ///     <c>"Error"</c> maps to <c>Log.LogError</c>; anything else, including the unset/default
+    ///     case, maps to <c>Log.LogWarning</c>, matching ApiMark.Tool's own "Warning" default).
+    /// </remarks>
+    /// <param name="line">A single line of ApiMark.Tool stdout.</param>
+    internal void LogToolOutputLine(string line)
+    {
+        if (!string.IsNullOrEmpty(ApiMarkEnforceDocs) && line.StartsWith(UndocumentedLinePrefix, StringComparison.Ordinal))
+        {
+            if (string.Equals(ApiMarkEnforceDocsSeverity, "Error", StringComparison.OrdinalIgnoreCase))
+            {
+                Log.LogError(line);
+            }
+            else
+            {
+                Log.LogWarning(line);
+            }
+
+            return;
+        }
+
+        Log.LogMessage(MessageImportance.Normal, line);
     }
 
     /// <summary>

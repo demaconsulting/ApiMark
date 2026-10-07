@@ -108,5 +108,7 @@ sections:
           - ApiMarkDotNet-DocumentationCoverageChecker-DetectMissingSummaryByKind
           - ApiMarkDotNet-DocumentationCoverageChecker-RecurseNestedTypes
           - ApiMarkDotNet-DocumentationCoverageChecker-ApplyExcludePatternsAndObsoleteFilter
+          - ApiMarkDotNet-DocumentationCoverageChecker-ExcludeCompilerGeneratedMembers
+          - ApiMarkDotNet-DocumentationCoverageChecker-AcceptRemarksForGeneratedCodeMembers
         tests:
           - DotNetGenerator_CheckDocumentationCoverage_AfterParse_ReturnsViolationsAndAllowsSubsequentEmit

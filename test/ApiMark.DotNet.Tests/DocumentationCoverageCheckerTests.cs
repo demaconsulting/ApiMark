@@ -158,6 +158,244 @@ public class DocumentationCoverageCheckerTests
         }
     }
 
+    /// <summary>
+    ///     Validates that a sealed record's compiler-synthesized <c>EqualityContract</c> property
+    ///     (declared <see langword="private"/> by the compiler) is not reported as undocumented
+    ///     even at the <see cref="ApiVisibility.All"/> enforcement tier, where it would otherwise
+    ///     be the only visibility tier it appears at.
+    /// </summary>
+    [Fact]
+    public void Check_SealedRecordAtAllVisibility_DoesNotReportEqualityContract()
+    {
+        // Arrange — no XML doc at all; only EqualityContract's absence (not the record's other
+        // genuinely undocumented members) is asserted on
+        using var assembly = LoadFixtureAssembly();
+        var docPath = WriteXmlDoc(string.Empty);
+        try
+        {
+            var xmlDocs = new XmlDocReader(docPath);
+            var excludePatterns = ExcludeAllExcept(assembly, "ApiMark.DotNet.Fixtures.SealedRecordClass");
+
+            // Act
+            var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.All, includeObsolete: false, excludePatterns);
+
+            // Assert
+            Assert.DoesNotContain(result.UndocumentedItems, i => i.DisplayName.EndsWith(".EqualityContract", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a non-sealed public record's compiler-synthesized <c>EqualityContract</c>
+    ///     property (declared <see langword="protected virtual"/> by the compiler) is not reported
+    ///     as undocumented at the <see cref="ApiVisibility.PublicAndProtected"/> enforcement tier,
+    ///     where its protected accessibility would otherwise make it visible.
+    /// </summary>
+    [Fact]
+    public void Check_NonSealedPublicRecordAtPublicAndProtected_DoesNotReportEqualityContract()
+    {
+        // Arrange
+        using var assembly = LoadFixtureAssembly();
+        var docPath = WriteXmlDoc(string.Empty);
+        try
+        {
+            var xmlDocs = new XmlDocReader(docPath);
+            var excludePatterns = ExcludeAllExcept(assembly, "ApiMark.DotNet.Fixtures.BaseRecordClass");
+
+            // Act
+            var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.PublicAndProtected, includeObsolete: false, excludePatterns);
+
+            // Assert
+            Assert.DoesNotContain(result.UndocumentedItems, i => i.DisplayName.EndsWith(".EqualityContract", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a derived record's compiler-synthesized <c>EqualityContract</c> property
+    ///     override (declared <see langword="protected override"/> by the compiler) is not reported
+    ///     as undocumented at the <see cref="ApiVisibility.All"/> enforcement tier.
+    /// </summary>
+    [Fact]
+    public void Check_DerivedRecordAtAllVisibility_DoesNotReportEqualityContract()
+    {
+        // Arrange
+        using var assembly = LoadFixtureAssembly();
+        var docPath = WriteXmlDoc(string.Empty);
+        try
+        {
+            var xmlDocs = new XmlDocReader(docPath);
+            var excludePatterns = ExcludeAllExcept(assembly, "ApiMark.DotNet.Fixtures.DerivedRecordClass");
+
+            // Act
+            var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.All, includeObsolete: false, excludePatterns);
+
+            // Assert
+            Assert.DoesNotContain(result.UndocumentedItems, i => i.DisplayName.EndsWith(".EqualityContract", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that the <c>EqualityContract</c> exemption is scoped to compiler-generated
+    ///     members: a hand-written, non-compiler-generated property that happens to be named
+    ///     <c>EqualityContract</c> is still reported as undocumented.
+    /// </summary>
+    [Fact]
+    public void Check_HandWrittenEqualityContractProperty_IsStillReported()
+    {
+        // Arrange
+        using var assembly = LoadFixtureAssembly();
+        var docPath = WriteXmlDoc("""
+            <member name="T:ApiMark.DotNet.Fixtures.HandWrittenEqualityContractClass">
+              <summary>A hand-written class.</summary>
+            </member>
+            """);
+        try
+        {
+            var xmlDocs = new XmlDocReader(docPath);
+            var excludePatterns = ExcludeAllExcept(assembly, "ApiMark.DotNet.Fixtures.HandWrittenEqualityContractClass");
+
+            // Act
+            var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
+
+            // Assert
+            Assert.Contains(result.UndocumentedItems, i =>
+                i.Kind == "Property" && i.DisplayName.EndsWith(".EqualityContract", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a field-like event's compiler-generated backing field — which shares the
+    ///     event's exact name and is only distinguishable via <c>CompilerGeneratedAttribute</c> —
+    ///     is not reported as undocumented when the event itself is documented.
+    /// </summary>
+    [Fact]
+    public void Check_DocumentedFieldLikeEvent_DoesNotReportBackingField()
+    {
+        // Arrange
+        using var assembly = LoadFixtureAssembly();
+        var docPath = WriteXmlDoc("""
+            <member name="T:ApiMark.DotNet.Fixtures.FieldLikeEventClass">
+              <summary>A class.</summary>
+            </member>
+            <member name="E:ApiMark.DotNet.Fixtures.FieldLikeEventClass.Updated">
+              <summary>A documented field-like event.</summary>
+            </member>
+            <member name="M:ApiMark.DotNet.Fixtures.FieldLikeEventClass.RaiseUpdated">
+              <summary>Raises the event.</summary>
+            </member>
+            """);
+        try
+        {
+            var xmlDocs = new XmlDocReader(docPath);
+            var excludePatterns = ExcludeAllExcept(assembly, "ApiMark.DotNet.Fixtures.FieldLikeEventClass");
+
+            // Act
+            // ApiVisibility.All is required so the private backing field is in scope for
+            // enumeration in the first place — otherwise IsMemberVisible would filter it out
+            // before IsCompilerGeneratedField is ever consulted, and this test would pass even
+            // without the fix under test.
+            var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.All, includeObsolete: false, excludePatterns);
+
+            // Assert — zero violations; the backing field is not separately checked/reported
+            Assert.Equal(0, result.UndocumentedCount);
+            Assert.DoesNotContain(result.UndocumentedItems, i =>
+                i.Kind == "Field" && i.DisplayName.EndsWith(".Updated", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
+    }
+
+#if !NETSTANDARD2_0
+    /// <summary>
+    ///     Validates that a <c>[GeneratedRegex]</c> partial method carrying only a
+    ///     <c>&lt;remarks&gt;</c> (as the regex source generator attaches, replacing the
+    ///     hand-written <c>&lt;summary&gt;</c> in the compiled XML doc) is not reported as
+    ///     undocumented, because the method carries <c>GeneratedCodeAttribute</c>.
+    /// </summary>
+    [Fact]
+    public void Check_GeneratedRegexMethodWithOnlyRemarks_IsNotReported()
+    {
+        // Arrange
+        using var assembly = LoadFixtureAssembly();
+        var docPath = WriteXmlDoc("""
+            <member name="T:ApiMark.DotNet.Fixtures.GeneratedRegexClass">
+              <summary>A class.</summary>
+            </member>
+            <member name="M:ApiMark.DotNet.Fixtures.GeneratedRegexClass.DigitsRegex">
+              <remarks>Compiled regex pattern remarks generated by the source generator.</remarks>
+            </member>
+            """);
+        try
+        {
+            var xmlDocs = new XmlDocReader(docPath);
+            var excludePatterns = ExcludeAllExcept(assembly, "ApiMark.DotNet.Fixtures.GeneratedRegexClass");
+
+            // Act
+            var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
+
+            // Assert
+            Assert.Equal(0, result.UndocumentedCount);
+            Assert.DoesNotContain(result.UndocumentedItems, i => i.DisplayName.EndsWith(".DigitsRegex()", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that the <c>&lt;remarks&gt;</c> fallback is scoped to
+    ///     <c>GeneratedCodeAttribute</c>-carrying members: a hand-written method with only a
+    ///     <c>&lt;remarks&gt;</c> and no <c>GeneratedCodeAttribute</c> is still reported undocumented.
+    /// </summary>
+    [Fact]
+    public void Check_HandWrittenMethodWithOnlyRemarks_IsStillReported()
+    {
+        // Arrange — SampleClass.Refresh has no GeneratedCodeAttribute, so give it a <remarks>-only entry
+        using var assembly = LoadFixtureAssembly();
+        var docPath = WriteXmlDoc("""
+            <member name="T:ApiMark.DotNet.Fixtures.SampleClass">
+              <summary>A class.</summary>
+            </member>
+            <member name="M:ApiMark.DotNet.Fixtures.SampleClass.Refresh">
+              <remarks>Some remarks, but no summary.</remarks>
+            </member>
+            """);
+        try
+        {
+            var xmlDocs = new XmlDocReader(docPath);
+            var excludePatterns = ExcludeAllExcept(assembly, "ApiMark.DotNet.Fixtures.SampleClass");
+
+            // Act
+            var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
+
+            // Assert
+            Assert.Contains(result.UndocumentedItems, i => i.DisplayName.EndsWith(".Refresh()", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
+    }
+#endif
+
     /// <summary>Validates that a type missing a summary is reported as an <see cref=""Type""/> violation.</summary>
     [Fact]
     public void Check_TypeMissingSummary_ReportsTypeViolation()

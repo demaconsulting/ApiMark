@@ -297,6 +297,31 @@ output written by the spawned `ApiMark.Tool` child process is routed to the MSBu
 as informational messages, making generation progress visible in the IDE output window and CI
 logs. This scenario is tested by `ApiMarkTask_Execute_WithDotNetProject_GeneratesDocumentation`.
 
+**Undocumented findings elevated to a warning at the default severity**: Verifies that
+`LogToolOutputLine` routes a stdout line beginning with the `[Undocumented]` finding prefix
+to a real MSBuild warning (not merely an informational message) when `ApiMarkEnforceDocs` is
+set and `ApiMarkEnforceDocsSeverity` is left at its default/unset value, so Warning-severity
+documentation-coverage findings are visible at normal build verbosity and counted in the
+build's warning summary. This scenario is tested by
+`ApiMarkTask_LogToolOutputLine_UndocumentedLineWithDefaultSeverity_LogsWarning`.
+
+**Undocumented findings elevated to an error at Error severity**: Verifies that
+`LogToolOutputLine` routes a stdout line beginning with the `[Undocumented]` finding prefix
+to a real MSBuild error when `ApiMarkEnforceDocsSeverity` is `"Error"` (case-insensitive).
+This scenario is tested by
+`ApiMarkTask_LogToolOutputLine_UndocumentedLineWithErrorSeverity_LogsError`.
+
+**Non-finding stdout lines remain informational messages**: Verifies that `LogToolOutputLine`
+leaves a non-finding line (e.g. the documentation-coverage summary line) as a normal
+informational message even when enforcement is enabled, so only genuine per-item findings are
+elevated. This scenario is tested by `ApiMarkTask_LogToolOutputLine_NonFindingLine_LogsAsMessage`.
+
+**Undocumented findings not elevated when enforcement is disabled**: Verifies that
+`LogToolOutputLine` never elevates an `[Undocumented]` line when `ApiMarkEnforceDocs` is not
+set, matching the fact that ApiMark.Tool only emits such lines when documentation-coverage
+enforcement is enabled in the first place. This scenario is tested by
+`ApiMarkTask_LogToolOutputLine_EnforceDocsNotSet_LogsAsMessage`.
+
 **Stderr from spawned tool forwarded as MSBuild errors**: Verifies that standard error output
 written by the spawned tool is routed to the MSBuild build log as error messages, so
 diagnostic information is surfaced in the IDE error list and CI failure summary. This scenario

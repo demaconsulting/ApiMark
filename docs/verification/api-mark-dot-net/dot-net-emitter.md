@@ -142,6 +142,21 @@ both protected, confirming that redundant accessor prefixes are suppressed when 
 property's declared accessibility. This scenario is tested by
 `DotNetEmitter_BuildPropertyAccessors_ProtectedProperty_DoesNotPrefixAccessors`.
 
+**GetVisibleMembers excludes a record's EqualityContract property**: Verifies that
+`DotNetEmitter.GetVisibleMembers` excludes a record's compiler-synthesized `EqualityContract`
+property for a sealed record (private, visible only at `ApiVisibility.All`), a non-sealed
+record (protected virtual, visible at `ApiVisibility.PublicAndProtected`), and a derived record
+(protected override), while still including each record's genuine, user-declared positional
+property, and still including a hand-written, non-compiler-generated property that happens to
+share the `EqualityContract` name. This scenario is tested by
+`DotNetEmitter_GetVisibleMembers_AllVisibility_ExcludesRecordEqualityContract`.
+
+**GetVisibleMembers excludes a field-like event's backing field**: Verifies that
+`DotNetEmitter.GetVisibleMembers` excludes a field-like event's compiler-generated backing
+field — which shares the event's exact name (no angle brackets) and is only distinguishable via
+`CompilerGeneratedAttribute` — while still including the event itself. This scenario is tested
+by `DotNetEmitter_GetVisibleMembers_AllVisibility_ExcludesFieldLikeEventBackingField`.
+
 **IsImplicitDefaultConstructor distinguishes implicit from explicit constructors**: Verifies that
 `DotNetEmitter.IsImplicitDefaultConstructor` returns `true` for a compiler-synthesized implicit
 default constructor — both with no field/property initializers and with multiple initializers,
