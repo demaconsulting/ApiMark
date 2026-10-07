@@ -8,7 +8,7 @@
   files, docstrings, etc.). The output is designed for gradual disclosure: an AI can
   read a lightweight index, drill into a namespace summary, and then read a full type
   page — consuming only as much context as the task requires.
-- **languages**: C#
+- **languages**: C#, C++, VHDL
 - **technologies**: .NET, MSBuild
 
 # Project Structure
@@ -28,17 +28,23 @@
 │   └── verification/
 ├── src/
 │   ├── ApiMark.Core/
+│   ├── ApiMark.Cpp/
 │   ├── ApiMark.DotNet/
 │   ├── ApiMark.MSBuild/
-│   └── ApiMark.Tool/
+│   ├── ApiMark.Tool/
+│   └── ApiMark.Vhdl/
 └── test/
     ├── ApiMark.Core.TestHelpers/
     ├── ApiMark.Core.Tests/
+    ├── ApiMark.Cpp.Fixtures/
+    ├── ApiMark.Cpp.Tests/
     ├── ApiMark.DotNet.Fixtures/
+    ├── ApiMark.DotNet.Fixtures.External/
     ├── ApiMark.DotNet.Tests/
     ├── ApiMark.MSBuild.PackageTests/
     ├── ApiMark.MSBuild.Tests/
-    └── ApiMark.Tool.Tests/
+    ├── ApiMark.Tool.Tests/
+    └── ApiMark.Vhdl.Tests/
 ```
 
 # Language and Spelling (ALL Agents)
