@@ -324,12 +324,31 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// </summary>
     /// <param name="type">The type whose members to inspect.</param>
     /// <returns>An enumerable of visible member definitions.</returns>
-    internal IEnumerable<IMemberDefinition> GetVisibleMembers(TypeDefinition type)
+    internal IEnumerable<IMemberDefinition> GetVisibleMembers(TypeDefinition type) =>
+        GetCandidateMembers(type).Where(ShouldIncludeMember);
+
+    /// <summary>
+    ///     Enumerates all structurally-eligible members of <paramref name="type"/> — i.e. those
+    ///     that pass the same compiler-generated/special-name structural filters as
+    ///     <see cref="GetVisibleMembers"/> — without applying any visibility or obsolete
+    ///     filtering.
+    /// </summary>
+    /// <remarks>
+    ///     Extracted from <see cref="GetVisibleMembers"/> so that
+    ///     <c>DotNetEmitterGradualDisclosure.BuildMemberPageIndex</c> can apply its own
+    ///     caller-supplied <c>isMemberEmitted</c> predicate (needed because it is invoked before
+    ///     the owning <see cref="DotNetEmitter"/> instance's visibility rules have a public,
+    ///     type-agnostic callable surface in some call paths) without duplicating the structural
+    ///     filtering rules in a second, drift-prone copy.
+    /// </remarks>
+    /// <param name="type">The type whose candidate members to inspect.</param>
+    /// <returns>An enumerable of structurally-eligible member definitions, unfiltered by visibility.</returns>
+    internal static IEnumerable<IMemberDefinition> GetCandidateMembers(TypeDefinition type)
     {
         // Methods: exclude special-name accessors (property getters/setters, event add/remove)
         // but always include constructors
         foreach (var method in type.Methods
-            .Where(m => !IsSpecialNameNonConstructor(m) && !IsCompilerGenerated(m) && ShouldIncludeMember(m)))
+            .Where(m => !IsSpecialNameNonConstructor(m) && !IsCompilerGenerated(m)))
         {
             yield return method;
         }
@@ -339,7 +358,7 @@ internal sealed class DotNetEmitter : IApiEmitter
         // inheritance hierarchy), which has no source line to attach a <summary> to and is
         // filtered out the same way the record's other generated members (PrintMembers,
         // <Clone>$, Deconstruct, Equals(T), etc.) already are via the method filter above.
-        foreach (var prop in type.Properties.Where(p => !IsCompilerGenerated(p) && ShouldIncludeMember(p)))
+        foreach (var prop in type.Properties.Where(p => !IsCompilerGenerated(p)))
         {
             yield return prop;
         }
@@ -348,12 +367,12 @@ internal sealed class DotNetEmitter : IApiEmitter
         // the compiler-generated enum backing field named "value__" that does not appear
         // in source and has no meaningful documentation
         foreach (var field in type.Fields
-            .Where(f => f.Name != "value__" && !IsCompilerGeneratedField(f) && ShouldIncludeMember(f)))
+            .Where(f => f.Name != "value__" && !IsCompilerGeneratedField(f)))
         {
             yield return field;
         }
 
-        foreach (var evt in type.Events.Where(ShouldIncludeMember))
+        foreach (var evt in type.Events)
         {
             yield return evt;
         }
