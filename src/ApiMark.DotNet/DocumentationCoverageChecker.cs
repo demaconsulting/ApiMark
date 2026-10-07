@@ -19,7 +19,7 @@ namespace ApiMark.DotNet;
 ///     which are bound to the model's single emission tier.
 ///     <para>
 ///     The bar for "documented" is deliberately shallow: a type or member is considered
-///     documented when <see cref="XmlDocReader.GetSummary"/> returns a non-null, non-whitespace
+///     documented when <see cref="XmlDocReader.GetSummary(string)"/> returns a non-null, non-whitespace
 ///     string for its XML doc member identifier, or — for a member carrying
 ///     <see cref="System.CodeDom.Compiler.GeneratedCodeAttribute"/> (detected via
 ///     <see cref="DotNetEmitter.IsGeneratedCode"/>) — when it has a non-empty
