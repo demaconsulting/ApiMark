@@ -114,7 +114,9 @@ sections:
             title: XmlDocReader's GetSummary shall render a `<list>` element (bullet,
               number, or table) encountered in a `<summary>` using single-line
               numbered markers such as "(1) item one (2) item two", instead of
-              concatenating the item text together with no separation.
+              concatenating the item text together with no separation, and shall
+              preserve a `<listheader>` label (fully bolded, not double-wrapped)
+              when present rather than silently dropping it.
             justification: |
               Table cells and other compact contexts require single-line summary text.
               Before this fix, a `<list>` inside a `<summary>` was flattened by the
@@ -122,6 +124,12 @@ sections:
               result unreadable. Numbered inline markers preserve a readable item
               boundary while still fitting on one line, applied consistently across
               all list type variants since none can express block structure inline.
+              A `<list type="table">`'s `<listheader>` column labels were also
+              initially dropped entirely in this compact form (only `<item>` elements
+              were read), unlike the multi-line table path which keeps them; the
+              header is now rendered first via a dedicated fully-bolded formatter so
+              it is not lost, and so it is not accidentally double-wrapped in an
+              additional `**...**` pair by a caller that also bolds the result.
             tests:
               - XmlDocReader_GetSummary_NumberList_RendersInlineNumberedMarkers
               - XmlDocReader_GetSummary_BulletList_RendersInlineNumberedMarkers

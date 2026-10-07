@@ -2228,6 +2228,11 @@ public class XmlDocReaderTests
             Assert.Contains("Beta", summary, StringComparison.Ordinal);
             Assert.Contains("Name", summary, StringComparison.Ordinal);
             Assert.Contains("Detail", summary, StringComparison.Ordinal);
+
+            // Exact-output assertion: the header must be bolded once per part, not
+            // double-wrapped (for example "****Name** — Detail**"), since this compact
+            // single-line form cannot rely on surrounding structure to disambiguate the header.
+            Assert.Equal("**Name** — **Detail** (1) **Alpha** — First. (2) **Beta** — Second.", summary);
         }
         finally
         {

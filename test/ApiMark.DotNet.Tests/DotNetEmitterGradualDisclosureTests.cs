@@ -452,4 +452,49 @@ public class DotNetEmitterGradualDisclosureTests
             File.Delete(docPath);
         }
     }
+
+    /// <summary>
+    ///     Validates that a TYPE with no <c>&lt;summary&gt;</c> but with <c>&lt;remarks&gt;</c>
+    ///     content does NOT show the "No description provided." placeholder on its type page,
+    ///     and that the remarks content is still shown. Exercises <c>WriteTypeHeaderSections</c>'
+    ///     type-level placeholder-suppression branch directly, which the member-level
+    ///     <see cref="DotNetEmitterGradualDisclosure_Emit_MemberWithRemarksOnly_SuppressesPlaceholderAndShowsRemarks"/>
+    ///     test does not cover.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_TypeWithRemarksOnly_SuppressesPlaceholderAndShowsRemarksOnTypePage()
+    {
+        // Arrange: override SampleClass's compiled XML doc entry with a remarks-only type doc
+        var docPath = WriteXmlDoc("""
+            <member name="T:ApiMark.DotNet.Fixtures.SampleClass">
+              <remarks>This type's remarks explain its internal behavior.</remarks>
+            </member>
+            """);
+        try
+        {
+            var options = BuildOptions();
+            options.XmlDocPath = docPath;
+            var factory = new InMemoryMarkdownWriterFactory();
+            var emitter = (DotNetEmitter)new DotNetGenerator(options).Parse(new InMemoryContext());
+
+            // Act
+            new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+            // Assert: SampleClass's own type page (not its constructor member sub-page, which
+            // happens to share the same sanitized file name) shows the remarks text and not the
+            // placeholder. The type page key is exactly "<namespace-folder>/SampleClass"; a
+            // member sub-page key has one more path segment (e.g. ".../SampleClass/SampleClass"
+            // for the constructor).
+            var typeKey = factory.Writers.Keys.Single(k => k.EndsWith("/SampleClass", StringComparison.Ordinal) &&
+                !k.EndsWith("/SampleClass/SampleClass", StringComparison.Ordinal));
+            var typeWriter = factory.Writers[typeKey];
+            var paragraphs = typeWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+            Assert.Contains(paragraphs, p => p.Contains("This type's remarks explain its internal behavior.", StringComparison.Ordinal));
+            Assert.DoesNotContain(paragraphs, p => p.Contains("No description provided", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
+    }
 }

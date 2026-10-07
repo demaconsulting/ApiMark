@@ -139,3 +139,14 @@ still shows the "No description provided." placeholder — confirming the
 placeholder is suppressed only when remarks content is actually present, not
 unconditionally. This scenario is tested by
 `DotNetEmitterGradualDisclosure_Emit_MemberWithNeitherSummaryNorRemarks_StillShowsPlaceholder`.
+
+**Type with remarks-only content suppresses the placeholder and shows the
+remarks on its type page**: Verifies that, using a synthetic XML doc override
+that gives `SampleClass` only a `<remarks>` entry and no `<summary>`, the
+placeholder-suppression rule applies identically at the type level — the
+type's own page (distinguished from a same-named constructor member page by
+its exact `<namespace-folder>/SampleClass` key) shows the remarks text and not
+the "No description provided." placeholder. Exercises the type-level branch in
+`WriteTypeHeaderSections` directly, which the member-level test above does not
+cover. This scenario is tested by
+`DotNetEmitterGradualDisclosure_Emit_TypeWithRemarksOnly_SuppressesPlaceholderAndShowsRemarksOnTypePage`.

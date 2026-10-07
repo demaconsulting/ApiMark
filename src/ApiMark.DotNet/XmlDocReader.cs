@@ -839,7 +839,7 @@ public sealed class XmlDocReader
             .ToList();
 
         var header = element.Element("listheader");
-        var headerText = header != null ? FormatTermDescription(RenderTermDescription(header)) : string.Empty;
+        var headerText = header != null ? FormatListHeaderText(RenderTermDescription(header)) : string.Empty;
 
         if (itemTexts.Count == 0 && headerText.Length == 0)
         {
@@ -851,7 +851,9 @@ public sealed class XmlDocReader
         builder.Append(' ');
         if (headerText.Length > 0)
         {
-            builder.Append("**").Append(headerText).Append("**");
+            // headerText is already fully bolded by FormatListHeaderText; wrapping it again in
+            // "**...**" here would produce malformed Markdown.
+            builder.Append(headerText);
             if (itemTexts.Count > 0)
             {
                 builder.Append(' ');
@@ -885,10 +887,12 @@ public sealed class XmlDocReader
         var header = element.Element("listheader");
         if (header != null)
         {
-            var headerText = FormatTermDescription(RenderTermDescription(header));
+            var headerText = FormatListHeaderText(RenderTermDescription(header));
             if (headerText.Length > 0)
             {
-                builder.Append("**").Append(headerText).Append("**\n\n");
+                // headerText is already fully bolded by FormatListHeaderText; wrapping it again
+                // in "**...**" here would produce malformed Markdown.
+                builder.Append(headerText).Append("\n\n");
             }
         }
 
@@ -1006,6 +1010,32 @@ public sealed class XmlDocReader
         }
 
         return term.Length > 0 ? term : description;
+    }
+
+    /// <summary>
+    ///     Formats a <c>&lt;listheader&gt;</c>'s rendered term and description as a fully bolded
+    ///     label, e.g. <c>**Name** — **Detail**</c>, or just <c>**Name**</c> when only one part is
+    ///     present. Unlike <see cref="FormatTermDescription"/> (which bolds only the term, for item
+    ///     rows), the entire header label is bolded so it is distinguishable as a heading; callers
+    ///     must not wrap the result in an additional <c>**...**</c> pair, since that would produce
+    ///     malformed Markdown such as <c>****Name** — Detail**</c>.
+    /// </summary>
+    /// <param name="parts">The rendered header term and description.</param>
+    /// <returns>The fully bolded header label text, or an empty string if both parts are empty.</returns>
+    private static string FormatListHeaderText((string Term, string Description) parts)
+    {
+        var (term, description) = parts;
+        if (term.Length > 0 && description.Length > 0)
+        {
+            return $"**{term}** — **{description}**";
+        }
+
+        if (term.Length > 0)
+        {
+            return $"**{term}**";
+        }
+
+        return description.Length > 0 ? $"**{description}**" : string.Empty;
     }
 
     /// <summary>

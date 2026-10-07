@@ -414,8 +414,13 @@ separator rows. This scenario is tested by
 **GetSummary renders a table-list summary as single-line inline markers**:
 Verifies the single-line inline-marker rendering for `<list type="table">`
 inside a `<summary>`, confirming all three list variants (number, bullet,
-table) are handled consistently for both rendering modes. This scenario is
-tested by `XmlDocReader_GetSummary_TableList_RendersInlineNumberedMarkers`.
+table) are handled consistently for both rendering modes, and that the
+`<listheader>` column labels are preserved rather than silently dropped. The
+header is asserted against the exact expected output
+(`**Name** — **Detail** (1) **Alpha** — First. (2) **Beta** — Second.`) to
+guard against the header being double-bolded (for example `****Name** —
+Detail**`) by a caller wrapping an already-bolded header a second time. This
+scenario is tested by `XmlDocReader_GetSummary_TableList_RendersInlineNumberedMarkers`.
 
 **GetSummary renders a property cref as Type.Member**: Verifies that
 `<see cref="P:Namespace.Type.PropertyName" />` now always includes the
