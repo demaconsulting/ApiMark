@@ -218,6 +218,8 @@ sections:
               - XmlDocReader_GetSummary_SeeCrefToField_RendersTypeDotMember
               - XmlDocReader_GetSummary_SeeCrefToEvent_RendersTypeDotMember
               - XmlDocReader_GetSummary_SeeCrefToMethod_StillRendersTypeDotMember
+              - XmlDocReader_GetSummary_WithSeeGenericTypeCref_FormatsWithTypeParameters
+              - XmlDocReader_GetSummary_SeeCrefToConstructor_RendersUnwrappedTypeName
               - XmlDocReader_GetSummary_WithInlineReferences_PreservesReferencedNames
               - XmlDocReader_GetExampleParts_WithSeeCref_RendersInlineReferenceInProsePart
               - XmlDocReader_GetExampleParts_WithMixedInlineElements_ProseAccumulatedAsOnePart

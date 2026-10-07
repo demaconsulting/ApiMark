@@ -456,6 +456,18 @@ are additionally now wrapped in an inline code span along with the other
 member kinds. This scenario is tested by
 `XmlDocReader_GetSummary_SeeCrefToMethod_StillRendersTypeDotMember`.
 
+**GetSummary renders a type-only (`T:`) cref unwrapped (regression guard)**: Verifies that a
+`<see cref="T:..." />` reference to a type — rather than a type member — renders its display
+text as plain prose with no surrounding inline code span, confirmed via an exact string match
+(not a substring match) so a wrapping regression would be caught. This scenario is tested by
+`XmlDocReader_GetSummary_WithSeeGenericTypeCref_FormatsWithTypeParameters`.
+
+**GetSummary renders a constructor (`#ctor`) cref unwrapped as the bare type name**: Verifies
+that `<see cref="M:Type.#ctor" />` — a method-kind cref whose member name is the special
+`#ctor` marker — renders as the declaring type name alone, with no inline code span, matching
+the constructor-collapsing behavior documented on `FormatMemberReference`. This scenario is
+tested by `XmlDocReader_GetSummary_SeeCrefToConstructor_RendersUnwrappedTypeName`.
+
 **GetRemarks renders a `<br/>` element as a paragraph break**: Verifies that
 `<br/>` inserts a blank-line paragraph break between the surrounding text
 rather than being silently dropped. This scenario is tested by

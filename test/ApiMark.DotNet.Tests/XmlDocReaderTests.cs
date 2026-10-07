@@ -1597,9 +1597,9 @@ public class XmlDocReaderTests
             var reader = new XmlDocReader(path);
             var summary = reader.GetSummary("M:Foo.Bar.UseList");
 
-            // Assert: arity marker is rendered as escaped angle-bracket notation for Markdown prose
-            Assert.NotNull(summary);
-            Assert.Contains(@"List\<T\>", summary, StringComparison.Ordinal);
+            // Assert: arity marker is rendered as escaped angle-bracket notation for Markdown prose,
+            // with no surrounding backtick code span (type-only crefs must remain unwrapped)
+            Assert.Equal(@"Returns a List\<T\>.", summary);
         }
         finally
         {
@@ -2333,6 +2333,35 @@ public class XmlDocReaderTests
 
             // Assert
             Assert.Equal("See `Widget.Reset` for details.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="XmlDocReader.GetSummary"/> renders a constructor cref
+    ///     (<c>M:Type.#ctor</c>) as the bare type name with no inline code-span wrapping,
+    ///     distinguishing it from a non-constructor member cref.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_SeeCrefToConstructor_RendersUnwrappedTypeName()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>See <see cref="M:Foo.Widget.#ctor"/> for details.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar");
+
+            // Assert: constructor cref renders as the bare type name, with no surrounding backticks
+            Assert.Equal("See Widget for details.", summary);
         }
         finally
         {
