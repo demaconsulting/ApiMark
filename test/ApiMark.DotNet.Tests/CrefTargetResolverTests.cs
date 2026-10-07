@@ -1,0 +1,176 @@
+// Copyright (c) DemaConsulting LLC. All rights reserved.
+// Licensed under the MIT License.
+
+using ApiMark.DotNet;
+using Mono.Cecil;
+using Xunit;
+
+namespace ApiMark.DotNet.Tests;
+
+/// <summary>Unit tests for <see cref="CrefTargetResolver"/>.</summary>
+public class CrefTargetResolverTests : IDisposable
+{
+    private readonly AssemblyDefinition _assembly;
+    private readonly CrefTargetResolver _resolver;
+
+    /// <summary>Initializes the test fixture by loading the fixture assembly and building the resolver.</summary>
+    public CrefTargetResolverTests()
+    {
+        _assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        _resolver = new CrefTargetResolver(_assembly);
+    }
+
+    /// <summary>Disposes the loaded assembly after each test.</summary>
+    public void Dispose()
+    {
+        _assembly.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>Validates that a top-level type declared in the assembly resolves by its XML-doc type identifier.</summary>
+    [Fact]
+    public void CrefTargetResolver_TryResolveType_TopLevelType_ReturnsTrueAndType()
+    {
+        // Arrange
+        var expected = _assembly.MainModule.Types.First(t => t.Name == "SampleClass");
+        var crefId = DotNetEmitter.BuildTypeId(expected);
+
+        // Act
+        var resolved = _resolver.TryResolveType(crefId, out var type);
+
+        // Assert
+        Assert.True(resolved);
+        Assert.Same(expected, type);
+    }
+
+    /// <summary>Validates that a nested type resolves by its XML-doc type identifier.</summary>
+    [Fact]
+    public void CrefTargetResolver_TryResolveType_NestedType_ReturnsTrueAndType()
+    {
+        // Arrange
+        var outer = _assembly.MainModule.Types.First(t => t.Name == "OuterClass");
+        var expected = outer.NestedTypes.First(t => t.Name == "Inner");
+        var crefId = DotNetEmitter.BuildTypeId(expected);
+
+        // Act
+        var resolved = _resolver.TryResolveType(crefId, out var type);
+
+        // Assert
+        Assert.True(resolved);
+        Assert.Same(expected, type);
+    }
+
+    /// <summary>Validates that an unknown type identifier (never indexed) fails to resolve.</summary>
+    [Fact]
+    public void CrefTargetResolver_TryResolveType_UnknownIdentifier_ReturnsFalse()
+    {
+        // Act
+        var resolved = _resolver.TryResolveType("T:Does.Not.Exist", out var type);
+
+        // Assert
+        Assert.False(resolved);
+        Assert.Null(type);
+    }
+
+    /// <summary>
+    ///     Validates that an external-assembly type identifier (e.g. a BCL type never declared in
+    ///     the indexed assembly) fails to resolve, matching the fallback requirement for external
+    ///     crefs.
+    /// </summary>
+    [Fact]
+    public void CrefTargetResolver_TryResolveType_ExternalAssemblyType_ReturnsFalse()
+    {
+        // Act
+        var resolved = _resolver.TryResolveType("T:System.ArgumentNullException", out var type);
+
+        // Assert
+        Assert.False(resolved);
+        Assert.Null(type);
+    }
+
+    /// <summary>Validates that a method declared in the assembly resolves by its XML-doc member identifier.</summary>
+    [Fact]
+    public void CrefTargetResolver_TryResolveMember_Method_ReturnsTrueAndMember()
+    {
+        // Arrange
+        var type = _assembly.MainModule.Types.First(t => t.Name == "SampleClass");
+        var expected = type.Methods.First(m => m.Name == "Reset");
+        var crefId = DotNetEmitter.BuildMemberId(expected);
+
+        // Act
+        var resolved = _resolver.TryResolveMember(crefId, out var member);
+
+        // Assert
+        Assert.True(resolved);
+        Assert.Same(expected, member);
+    }
+
+    /// <summary>
+    ///     Validates that a filtered-by-visibility member (e.g. a private member) is still indexed
+    ///     and resolvable — <see cref="CrefTargetResolver"/> applies no visibility filtering; the
+    ///     emitted-visibility check is a separate, caller-supplied concern.
+    /// </summary>
+    [Fact]
+    public void CrefTargetResolver_TryResolveMember_PrivateMember_StillResolves()
+    {
+        // Arrange
+        var type = _assembly.MainModule.Types.First(t => t.Name == "ProtectedMembersClass");
+        var expected = type.Methods.First(m => m.Name == "PrivateMethod" && m.IsPrivate);
+        var crefId = DotNetEmitter.BuildMemberId(expected);
+
+        // Act
+        var resolved = _resolver.TryResolveMember(crefId, out var member);
+
+        // Assert
+        Assert.True(resolved);
+        Assert.Same(expected, member);
+    }
+
+    /// <summary>Validates that an unknown member identifier (never indexed) fails to resolve.</summary>
+    [Fact]
+    public void CrefTargetResolver_TryResolveMember_UnknownIdentifier_ReturnsFalse()
+    {
+        // Act
+        var resolved = _resolver.TryResolveMember("M:Does.Not.Exist", out var member);
+
+        // Assert
+        Assert.False(resolved);
+        Assert.Null(member);
+    }
+
+    /// <summary>
+    ///     Validates that a malformed cref string (the compiler's <c>!:</c> "could not resolve"
+    ///     prefix) fails to resolve as either a type or a member.
+    /// </summary>
+    [Fact]
+    public void CrefTargetResolver_TryResolveType_MalformedCref_ReturnsFalse()
+    {
+        // Act
+        var resolvedAsType = _resolver.TryResolveType("!:NotAWellFormedCrefString", out var type);
+        var resolvedAsMember = _resolver.TryResolveMember("!:NotAWellFormedCrefString", out var member);
+
+        // Assert
+        Assert.False(resolvedAsType);
+        Assert.Null(type);
+        Assert.False(resolvedAsMember);
+        Assert.Null(member);
+    }
+
+    /// <summary>Validates that a field declared in the assembly resolves by its XML-doc member identifier.</summary>
+    [Fact]
+    public void CrefTargetResolver_TryResolveMember_Field_ReturnsTrueAndMember()
+    {
+        // Arrange: find any type in the fixture assembly with a field, to avoid depending on a
+        // specific fixture file's internal layout beyond field existence.
+        var type = _assembly.MainModule.GetTypes().First(t => t.Fields.Count > 0);
+        var expected = type.Fields.First();
+        var crefId = DotNetEmitter.BuildMemberId(expected);
+
+        // Act
+        var resolved = _resolver.TryResolveMember(crefId, out var member);
+
+        // Assert
+        Assert.True(resolved);
+        Assert.Same(expected, member);
+    }
+}

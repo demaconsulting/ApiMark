@@ -442,4 +442,105 @@ public class TypeLinkResolverTests : IDisposable
         Assert.Equal("[Inner](Inner.md)", fromParentPage);
         Assert.Equal("[Inner](OuterClass/Inner.md)", fromOtherPage);
     }
+
+    /// <summary>
+    ///     Validates that <see cref="TypeLinkResolver.LinkifyResolvedType"/> produces a Markdown
+    ///     link wrapping the supplied display text when link generation is enabled.
+    /// </summary>
+    [Fact]
+    public void TypeLinkResolver_LinkifyResolvedType_GenerateLinksTrue_ReturnsMarkdownLink()
+    {
+        // Arrange
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"], generateLinks: true);
+        var type = _assembly.MainModule.Types.First(t => t.Name == "SampleClass");
+
+        // Act
+        var result = resolver.LinkifyResolvedType(type, "SampleClass", "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Equal("[SampleClass](SampleClass.md)", result);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="TypeLinkResolver.LinkifyResolvedType"/> returns the display
+    ///     text unchanged when link generation is disabled (single-file mode).
+    /// </summary>
+    [Fact]
+    public void TypeLinkResolver_LinkifyResolvedType_GenerateLinksFalse_ReturnsDisplayTextUnchanged()
+    {
+        // Arrange
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"], generateLinks: false);
+        var type = _assembly.MainModule.Types.First(t => t.Name == "SampleClass");
+
+        // Act
+        var result = resolver.LinkifyResolvedType(type, "SampleClass", "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Equal("SampleClass", result);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="TypeLinkResolver.LinkifyResolvedMember"/> produces a Markdown
+    ///     link using the supplied member page index when link generation is enabled and the
+    ///     member has an entry.
+    /// </summary>
+    [Fact]
+    public void TypeLinkResolver_LinkifyResolvedMember_FoundInIndex_ReturnsMarkdownLink()
+    {
+        // Arrange
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"], generateLinks: true);
+        var type = _assembly.MainModule.Types.First(t => t.Name == "SampleClass");
+        var method = type.Methods.First(m => m.Name == "Reset");
+        var memberId = DotNetEmitter.BuildMemberId(method);
+        var memberPageIndex = new Dictionary<string, string> { [memberId] = "SampleClass/Reset" };
+
+        // Act
+        var result = resolver.LinkifyResolvedMember(method, "SampleClass.Reset", "", memberPageIndex);
+
+        // Assert
+        Assert.Equal("[SampleClass.Reset](SampleClass/Reset.md)", result);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="TypeLinkResolver.LinkifyResolvedMember"/> returns the display
+    ///     text unchanged when the member has no entry in the member page index (for example, it
+    ///     was filtered out of the generated documentation).
+    /// </summary>
+    [Fact]
+    public void TypeLinkResolver_LinkifyResolvedMember_NotInIndex_ReturnsDisplayTextUnchanged()
+    {
+        // Arrange
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"], generateLinks: true);
+        var type = _assembly.MainModule.Types.First(t => t.Name == "SampleClass");
+        var method = type.Methods.First(m => m.Name == "Reset");
+        var memberPageIndex = new Dictionary<string, string>();
+
+        // Act
+        var result = resolver.LinkifyResolvedMember(method, "SampleClass.Reset", "ApiMark.DotNet.Fixtures", memberPageIndex);
+
+        // Assert
+        Assert.Equal("SampleClass.Reset", result);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="TypeLinkResolver.LinkifyResolvedMember"/> returns the display
+    ///     text unchanged when link generation is disabled (single-file mode), regardless of
+    ///     whether the member has an entry in the member page index.
+    /// </summary>
+    [Fact]
+    public void TypeLinkResolver_LinkifyResolvedMember_GenerateLinksFalse_ReturnsDisplayTextUnchanged()
+    {
+        // Arrange
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"], generateLinks: false);
+        var type = _assembly.MainModule.Types.First(t => t.Name == "SampleClass");
+        var method = type.Methods.First(m => m.Name == "Reset");
+        var memberId = DotNetEmitter.BuildMemberId(method);
+        var memberPageIndex = new Dictionary<string, string> { [memberId] = "SampleClass/Reset" };
+
+        // Act
+        var result = resolver.LinkifyResolvedMember(method, "SampleClass.Reset", "ApiMark.DotNet.Fixtures", memberPageIndex);
+
+        // Assert
+        Assert.Equal("SampleClass.Reset", result);
+    }
 }
