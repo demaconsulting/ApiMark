@@ -324,12 +324,31 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// </summary>
     /// <param name="type">The type whose members to inspect.</param>
     /// <returns>An enumerable of visible member definitions.</returns>
-    internal IEnumerable<IMemberDefinition> GetVisibleMembers(TypeDefinition type)
+    internal IEnumerable<IMemberDefinition> GetVisibleMembers(TypeDefinition type) =>
+        GetCandidateMembers(type).Where(ShouldIncludeMember);
+
+    /// <summary>
+    ///     Enumerates all structurally-eligible members of <paramref name="type"/> — i.e. those
+    ///     that pass the same compiler-generated/special-name structural filters as
+    ///     <see cref="GetVisibleMembers"/> — without applying any visibility or obsolete
+    ///     filtering.
+    /// </summary>
+    /// <remarks>
+    ///     Extracted from <see cref="GetVisibleMembers"/> so that
+    ///     <c>DotNetEmitterGradualDisclosure.BuildMemberPageIndex</c> can apply its own
+    ///     caller-supplied <c>isMemberEmitted</c> predicate (needed because it is invoked before
+    ///     the owning <see cref="DotNetEmitter"/> instance's visibility rules have a public,
+    ///     type-agnostic callable surface in some call paths) without duplicating the structural
+    ///     filtering rules in a second, drift-prone copy.
+    /// </remarks>
+    /// <param name="type">The type whose candidate members to inspect.</param>
+    /// <returns>An enumerable of structurally-eligible member definitions, unfiltered by visibility.</returns>
+    internal static IEnumerable<IMemberDefinition> GetCandidateMembers(TypeDefinition type)
     {
         // Methods: exclude special-name accessors (property getters/setters, event add/remove)
         // but always include constructors
         foreach (var method in type.Methods
-            .Where(m => !IsSpecialNameNonConstructor(m) && !IsCompilerGenerated(m) && ShouldIncludeMember(m)))
+            .Where(m => !IsSpecialNameNonConstructor(m) && !IsCompilerGenerated(m)))
         {
             yield return method;
         }
@@ -339,7 +358,7 @@ internal sealed class DotNetEmitter : IApiEmitter
         // inheritance hierarchy), which has no source line to attach a <summary> to and is
         // filtered out the same way the record's other generated members (PrintMembers,
         // <Clone>$, Deconstruct, Equals(T), etc.) already are via the method filter above.
-        foreach (var prop in type.Properties.Where(p => !IsCompilerGenerated(p) && ShouldIncludeMember(p)))
+        foreach (var prop in type.Properties.Where(p => !IsCompilerGenerated(p)))
         {
             yield return prop;
         }
@@ -348,12 +367,12 @@ internal sealed class DotNetEmitter : IApiEmitter
         // the compiler-generated enum backing field named "value__" that does not appear
         // in source and has no meaningful documentation
         foreach (var field in type.Fields
-            .Where(f => f.Name != "value__" && !IsCompilerGeneratedField(f) && ShouldIncludeMember(f)))
+            .Where(f => f.Name != "value__" && !IsCompilerGeneratedField(f)))
         {
             yield return field;
         }
 
-        foreach (var evt in type.Events.Where(ShouldIncludeMember))
+        foreach (var evt in type.Events)
         {
             yield return evt;
         }
@@ -481,6 +500,11 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns>The XML doc parameter type encoding.</returns>
     internal static string ToXmlDocTypeName(string cecilFullName)
     {
+        // Preserved as a pure-string overload for callers (and tests) that only have a
+        // FullName available. Prefer ToXmlDocTypeName(TypeReference) when the Cecil object
+        // is available: it correctly resolves generic parameters to their positional XML
+        // doc notation (`0, ``0), which cannot be recovered from FullName alone (it is just
+        // the source parameter name, e.g. "T").
         var isByRef = cecilFullName.EndsWith('&');
         var name = isByRef ? cecilFullName[..^1] : cecilFullName;
 
@@ -527,17 +551,90 @@ internal sealed class DotNetEmitter : IApiEmitter
         return sb.ToString();
     }
 
+    /// <summary>
+    ///     Converts a Mono.Cecil <see cref="TypeReference"/> to the XML doc member ID encoding.
+    /// </summary>
+    /// <remarks>
+    ///     Unlike the <see cref="ToXmlDocTypeName(string)"/> string overload, this overload
+    ///     operates on the live Cecil object graph so it can correctly resolve generic
+    ///     parameters (e.g. a method's own <c>T</c> parameter, or <c>T</c> nested inside a
+    ///     generic instantiation such as <c>List&lt;T&gt;</c>) to their XML doc positional
+    ///     notation — <c>`N</c> for a type's own generic parameter at position <c>N</c>, and
+    ///     <c>``N</c> for a generic method's own parameter at position <c>N</c>. A generic
+    ///     parameter's <see cref="TypeReference.FullName"/> is just its source name (e.g. "T"),
+    ///     which carries no positional information, so this cannot be done from a string alone.
+    /// </remarks>
+    /// <param name="typeRef">The Cecil type reference to convert.</param>
+    /// <returns>The XML doc parameter type encoding.</returns>
+    internal static string ToXmlDocTypeName(TypeReference typeRef)
+    {
+        switch (typeRef)
+        {
+            // Byref (ref/out/in parameters): recurse on the element type, then append the
+            // trailing XML doc byref marker (only ever the outermost modifier)
+            case ByReferenceType byReferenceType:
+                return $"{ToXmlDocTypeName(byReferenceType.ElementType)}@";
+
+            // Generic parameter: XML doc IDs identify these positionally rather than by name,
+            // since the source name is not necessarily unique/stable across assemblies
+            case GenericParameter genericParameter:
+                var prefix = genericParameter.DeclaringMethod != null ? "``" : "`";
+                return $"{prefix}{genericParameter.Position}";
+
+            // Generic instantiation (e.g. List<T>, IReadOnlyDictionary<TKey, TValue>): recurse
+            // into each type argument so a generic parameter nested inside one is also resolved
+            // positionally, then fall back to the string-based conversion for the element type
+            // name itself (handles arity-backtick stripping and nested-type separators)
+            case GenericInstanceType genericInstanceType:
+                var args = string.Join(",", genericInstanceType.GenericArguments.Select(ToXmlDocTypeName));
+                return $"{ToXmlDocTypeName(genericInstanceType.ElementType.FullName)}{{{args}}}";
+
+            // Array: recurse into the element type so a generic parameter used as an array
+            // element (e.g. T[] in a method of a generic type, or an array nested inside a
+            // generic instantiation such as List<T[]>) is also resolved positionally. XML doc
+            // IDs encode a single-dimension array as a bare "[]" suffix, and a multi-dimensional
+            // array as "[0:,0:,...]" — one "0:" per dimension.
+            case ArrayType arrayType:
+                var dimensions = arrayType.Rank == 1
+                    ? string.Empty
+                    : string.Join(",", Enumerable.Repeat("0:", arrayType.Rank));
+                return $"{ToXmlDocTypeName(arrayType.ElementType)}[{dimensions}]";
+
+            default:
+                return ToXmlDocTypeName(typeRef.FullName);
+        }
+    }
+
     /// <summary>Builds the XML doc member identifier for an arbitrary member.</summary>
     /// <param name="member">The member definition.</param>
     /// <returns>The XML doc member identifier string.</returns>
     internal static string BuildMemberId(IMemberDefinition member) => member switch
     {
         MethodDefinition m => BuildMethodId(m),
-        PropertyDefinition p => $"P:{p.DeclaringType.FullName.Replace('/', '.')}.{p.Name}",
+        PropertyDefinition p => BuildPropertyId(p),
         FieldDefinition f => $"F:{f.DeclaringType.FullName.Replace('/', '.')}.{f.Name}",
         EventDefinition e => $"E:{e.DeclaringType.FullName.Replace('/', '.')}.{e.Name}",
         _ => string.Empty,
     };
+
+    /// <summary>
+    ///     Builds the XML doc member identifier for a property, including an indexer's
+    ///     parameter type list when present (e.g. <c>P:Namespace.Type.Item(System.Int32)</c>).
+    /// </summary>
+    /// <param name="property">The property definition.</param>
+    /// <returns>The XML doc member identifier string.</returns>
+    private static string BuildPropertyId(PropertyDefinition property)
+    {
+        var typeName = property.DeclaringType.FullName.Replace('/', '.');
+
+        if (!property.HasParameters)
+        {
+            return $"P:{typeName}.{property.Name}";
+        }
+
+        var paramList = string.Join(",", property.Parameters.Select(p => ToXmlDocTypeName(p.ParameterType)));
+        return $"P:{typeName}.{property.Name}({paramList})";
+    }
 
     /// <summary>Builds the XML doc member identifier for a method, including parameter type list when present.</summary>
     /// <param name="method">The method definition.</param>
@@ -549,17 +646,26 @@ internal sealed class DotNetEmitter : IApiEmitter
         // XML doc format uses #ctor for constructors; IL metadata uses .ctor
         var methodName = method.Name == ConstructorMethodName ? "#ctor" : method.Name;
 
+        // XML doc IDs encode a generic method's own type-parameter count as a double-backtick
+        // arity suffix on the method name (e.g. M:Type.Method``1(...)) — distinct from the
+        // single-backtick arity on a generic *type* name. Without this, a generic method's ID
+        // collides with (or is indistinguishable from) a non-generic overload of the same name.
+        var genericArity = method.HasGenericParameters ? $"``{method.GenericParameters.Count}" : string.Empty;
+
         // XML doc format includes parenthesized parameter list only when parameters exist
         if (!method.HasParameters)
         {
-            return $"M:{typeName}.{methodName}";
+            return $"M:{typeName}.{methodName}{genericArity}";
         }
 
         // Normalize nested-type separators: Cecil uses '/' in FullName (e.g. Outer/Inner)
         // but XML doc IDs always use '.' (e.g. Outer.Inner). Generic instantiations use
         // angle brackets in Cecil (e.g. IEnumerable`1<T>) but curly braces in XML doc IDs
-        // (e.g. IEnumerable{T}) — ToXmlDocTypeName handles both transformations.
-        var paramList = string.Join(",", method.Parameters.Select(p => ToXmlDocTypeName(p.ParameterType.FullName)));
+        // (e.g. IEnumerable{T}) — ToXmlDocTypeName handles both transformations. The
+        // TypeReference overload is used (rather than the FullName string) so that a
+        // parameter referencing the method's own generic parameter (e.g. T in a param of
+        // T Identity(T value)) resolves to its XML doc positional notation (``0).
+        var paramList = string.Join(",", method.Parameters.Select(p => ToXmlDocTypeName(p.ParameterType)));
 
         // Conversion operators carry a ~ReturnType suffix in the XML doc member ID
         // (e.g. M:Type.op_Implicit(SourceType)~TargetType) that distinguishes overloads
@@ -568,10 +674,10 @@ internal sealed class DotNetEmitter : IApiEmitter
         {
             // Normalize nested-type separators: Cecil uses '/' in FullName (e.g. OuterClass/Inner)
             // but XML doc IDs always use '.' (e.g. OuterClass.Inner)
-            return $"M:{typeName}.{methodName}({paramList})~{ToXmlDocTypeName(method.ReturnType.FullName)}";
+            return $"M:{typeName}.{methodName}{genericArity}({paramList})~{ToXmlDocTypeName(method.ReturnType)}";
         }
 
-        return $"M:{typeName}.{methodName}({paramList})";
+        return $"M:{typeName}.{methodName}{genericArity}({paramList})";
     }
 
     // =========================================================================

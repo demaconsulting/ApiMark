@@ -10,6 +10,7 @@ ignores:
   - '**/third-party/**'
   - '**/3rd-party/**'
   - '**/generated/**'
+  - '**/artifacts/**'
   - '**/VhdlAst/Antlr/**'
   - '**/.agent-logs/**'
   - '**/bin/**'

@@ -28,6 +28,7 @@ words:
   - dedenting
   - declspec
   - deletedmembersclass
+  - desync
   - Dema
   - dllexport
   - docstrings
@@ -62,6 +63,7 @@ words:
   - Linq
   - listheader
   - maxcount
+  - Memberless
   - misattributed
   - modreq
   - msbuild

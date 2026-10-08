@@ -37,6 +37,13 @@ for format selection and Markdown writing. The split across implementation units
 - **ExternalXmlDocResolver.cs** — locates and lazily parses the XML documentation
   files of externally referenced assemblies for cross-assembly `<inheritdoc />`
   resolution. See ExternalXmlDocResolver Design for full details.
+- **CrefTargetResolver.cs** — indexes every type and member declared in the
+  assembly, keyed by XML-doc identifier, so a raw `cref` attribute string can be
+  resolved to the Mono.Cecil symbol it names. See CrefTargetResolver Design for
+  full details.
+- **DocumentationCoverageChecker.cs** — checks parsed types and members against
+  the configured documentation-coverage enforcement level, reporting
+  undocumented items. See DocumentationCoverageChecker Design for full details.
 
 ### Data Model
 
@@ -177,11 +184,15 @@ memory and returns a `DotNetEmitter` ready to emit.
 - *NamespaceDoc processing*: After collecting all visible types, `Parse` calls
   `DotNetEmitter.IsNamespaceDocCarrier` on each type. Carrier types (those named
   `NamespaceDoc` with `internal static` modifiers) are excluded from the type
-  listings passed to the emitter. Their XML documentation is extracted via the
-  `BuildNamespaceDescription` helper — which reads the summary, remarks, and
-  structured example parts (`XmlDocReader.GetSummary`, `GetRemarks`, and
-  `GetExampleParts`) using the type's XML-doc ID — and bundled into a
-  `NamespaceDescription`. The result is stored in the `NamespaceDescriptions`
+  listings passed to the emitter. The `BuildNamespaceDescription` helper selects,
+  per namespace, the winning carrier's member ID for each of summary, remarks,
+  and example — without rendering any text — and bundles them into a
+  `NamespaceDescription`. Rendering is deferred to emission time (via
+  `NamespaceDescription.GetSummary`/`GetRemarks`/`GetExampleParts`) because
+  `Parse` runs before the cref-link index (`CrefTargets`/`MemberPageIndex`)
+  exists, so no `CrefLinkContext` scoped to the eventual output folder is yet
+  available for resolving `<see cref>`/`<seealso cref>` references. The result is
+  stored in the `NamespaceDescriptions`
   dictionary of `DotNetAstModel`, keyed by namespace name, for use when writing
   namespace pages.
 - *Visibility note*: At the top-level type enumeration stage, `PublicAndProtected`
@@ -205,6 +216,60 @@ memory and returns a `DotNetEmitter` ready to emit.
   constructed `XmlDocReader` into private fields (`_assembly`, `_xmlDocs`) so
   that a later `CheckDocumentationCoverage(string? enforceTier)` call can reuse
   them without re-parsing the assembly or XML doc file.
+- *Cref-linking indices*: After constructing `model` (and therefore
+  `model.CrefTargets`, built eagerly by `DotNetAstModel`'s own constructor,
+  which needs only the assembly) `Parse` constructs the `DotNetEmitter`, then
+  calls the private `BuildCrefLinkIndices(emitter, byNamespace,
+  rootNamespaces)` helper and passes its result to
+  `model.SetMemberPageIndex(memberPageIndex, emittedTypeIds)`. This ordering
+  is required because `MemberPageIndex`/`EmittedTypeIds` need visibility
+  predicates (`ShouldIncludeMember`, `GetVisibleNestedTypes`-equivalents) that
+  exist only as instance methods on `DotNetEmitter`, which is itself
+  constructed from `model` — so these two indices cannot be populated until
+  after the emitter exists, unlike `CrefTargets`. `BuildCrefLinkIndices`
+  recursively walks every visible top-level and nested type (via the private
+  `CollectTypeCrefLinkIndex` helper) adding each type's XML-doc ID to
+  `emittedTypeIds` and merging
+  `DotNetEmitterGradualDisclosure.BuildMemberPageIndex`'s per-type result into
+  a single assembly-wide `memberPageIndex` dictionary. This preserves the
+  existing one-pass `Parse` → `new DotNetEmitter(model)` → `return emitter`
+  contract: no second constructor pass over `DotNetAstModel` or `DotNetEmitter`
+  is introduced, only a post-construction setup call on the already-returned
+  `model` instance.
+
+**DotNetGenerator.BuildCrefLinkIndices** (private static): Computes the
+assembly-wide member-to-page index and emitted-type-id set used for `<see
+cref>`/`<seealso cref>` link resolution.
+
+- *Parameters*: `DotNetEmitter emitter` — supplies the visibility predicates;
+  `IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>> byNamespace`,
+  `IReadOnlyList<string> rootNamespaces` — the same namespace/type data
+  already collected during `Parse`.
+- *Returns*: `(IReadOnlyDictionary<string, string> MemberPageIndex,
+  IReadOnlySet<string> EmittedTypeIds)` — see `DotNetAstModel.MemberPageIndex`/
+  `EmittedTypeIds` for the exact field semantics.
+- *Algorithm*: Iterates every visible top-level type under every root
+  namespace and recursively delegates to `CollectTypeCrefLinkIndex` for each.
+
+**DotNetGenerator.CollectTypeCrefLinkIndex** (private static): Recursively
+adds one type's (and all its nested types') XML-doc ID and member-page-index
+entries to the shared accumulators.
+
+- *Parameters*: `DotNetEmitter emitter`, `TypeDefinition type`, `string
+  namespaceFolderPath`, `Dictionary<string, string> memberPageIndex`,
+  `HashSet<string> emittedTypeIds` — all mutated in place.
+- *Algorithm*: Adds `type`'s XML-doc ID (via `DotNetEmitter.BuildTypeId`) to
+  `emittedTypeIds` unconditionally (the walk only ever visits types that are
+  already known to be visible/emitted, since it starts from `byNamespace`'s
+  pre-filtered type lists and recurses only into `emitter`'s own
+  visible-nested-type enumeration). Merges every entry returned by
+  `DotNetEmitterGradualDisclosure.BuildMemberPageIndex(type,
+  namespaceFolderPath, emitter.ShouldIncludeMember)` into `memberPageIndex`.
+  Recurses into each visible nested type with its own nested folder path, so
+  nested types at any depth are indexed identically to top-level types — this
+  is the exact same grouping/visibility logic `WriteMembersSection` itself
+  uses, reused rather than re-derived, per the single-source-of-truth
+  refactor described in the `DotNetEmitterGradualDisclosure` design doc.
 
 **DotNetGenerator.CheckDocumentationCoverage(string? enforceTier)**: Scans the
 assembly parsed by the most recent `Parse` call for types and members lacking
@@ -274,9 +339,13 @@ lookups.
     `CollectPropertyInheritanceTargets`, and `CollectEventInheritanceTargets`, which also
     populate `assemblyHints` for each candidate target via `GetAssemblyNameFromScope`.
   - Method targets are resolved using `FindMatchingMethodDefinition` (matches by parameter
-    count and type name) and `BuildMethodIdFromReference` (reconstructs the XML-doc ID).
-  - Property accessor→property mapping uses `MapAccessorReferenceToPropertyId`; event
-    accessor→event mapping uses `MapAccessorReferenceToEventId`.
+    count and type name) and `BuildMethodIdFromReference` (reconstructs the XML-doc ID,
+    including the method's own `` ``N `` generic-arity suffix, mirroring
+    `DotNetEmitter.BuildMethodId`, so a generic method's explicit-override target ID
+    matches its own XML-doc ID exactly).
+  - Property accessor→property mapping uses `MapAccessorReferenceToPropertyId` (includes
+    an indexer's own index parameter type list, excluding the setter's trailing `value`
+    parameter); event accessor→event mapping uses `MapAccessorReferenceToEventId`.
   - The ordering rule places the direct base-class override first, followed by each
     explicit or implicit interface target in declaration order.
 - *Known limitation*: Complex generic signatures may not always map perfectly to XML-doc

@@ -68,6 +68,15 @@ network dependency, or privileged configuration is needed.
   prior behavior.
 - When `LibraryDescription` is set on `DotNetGeneratorOptions`, `Parse` propagates it
   unchanged into the parsed model's `Options.LibraryDescription`.
+- After `Parse` returns, `DotNetAstModel.MemberPageIndex` and `EmittedTypeIds` are populated
+  with entries for every type/member that gradual-disclosure emission actually writes a
+  page for.
+- Every relative Markdown link produced by gradual-disclosure emission (including cref-based
+  links) resolves to a page that was actually written.
+- An explicit interface implementation of an indexer resolves its index parameter type list
+  via `MapAccessorReferenceToPropertyId`, excluding the setter's trailing `value` parameter.
+- `BuildMethodIdFromReference` produces the same `` ``N`` generic-arity suffix as
+  `DotNetEmitter.BuildMemberId` for an explicit interface implementation of a generic method.
 
 ### Test Scenarios
 
@@ -329,3 +338,44 @@ unchanged into the resulting model's `Options.LibraryDescription`, confirming th
 generator correctly carries this option through to the emitters that implement the
 actual override-with-fallback precedence. This scenario is tested by
 `DotNetGenerator_Parse_WithLibraryDescription_PropagatesToModelOptions`.
+
+**MemberPageIndex and EmittedTypeIds are populated after Parse**: Verifies that after
+`Parse` constructs the `DotNetEmitter` and a subsequent `Emit` call writes
+gradual-disclosure output, `DotNetAstModel.MemberPageIndex` contains an entry for every
+member actually emitted to its own page, and `EmittedTypeIds` contains every emitted
+type's XML-doc ID — confirming `BuildCrefLinkIndices`/`CollectTypeCrefLinkIndex` recurse
+correctly through every visible top-level and nested type using the emitter's own
+visibility rules. This scenario is tested by
+`DotNetAstModel_MemberPageIndexAndEmittedTypeIds_AfterGradualDisclosureEmit_ArePopulated`.
+
+**Every generated gradual-disclosure link resolves to an actually-written page**:
+Verifies, across the full fixture assembly, that every relative Markdown link emitted
+by gradual-disclosure output — including the new `<see cref>`/`<seealso cref>`
+cross-reference links built from `MemberPageIndex`/`CrefTargets` — resolves to a page
+path that a writer actually wrote, confirming `BuildMemberPageIndex`'s grouping
+decisions (overload grouping, operator grouping, case-collision grouping) exactly match
+`WriteMembersSection`'s real output with no drift between the two. This scenario is
+tested by `DotNetGenerator_Generate_GradualDisclosure_EveryGeneratedLinkResolvesToExistingPage`.
+
+**Explicit indexer getter override maps to the interface property ID with its index
+parameter**: Verifies that `MapAccessorReferenceToPropertyId` maps an explicit indexer
+getter's override reference to the interface property's XML doc ID, including the index
+parameter type list (e.g. `P:Namespace.IIndexerSource.Item(System.Int32)`), so an
+explicit indexer implementation's inheritance target resolves to the same identifier the
+interface property's own XML documentation uses. This scenario is tested by
+`DotNetGenerator_MapAccessorReferenceToPropertyId_ExplicitIndexerGetterOverride_IncludesIndexParameter`.
+
+**Explicit indexer setter override excludes the trailing value parameter**: Verifies that
+`MapAccessorReferenceToPropertyId` maps an explicit indexer setter's override reference to
+the same interface property ID as the getter, excluding the setter's own trailing `value`
+parameter from the index parameter type list. This scenario is tested by
+`DotNetGenerator_MapAccessorReferenceToPropertyId_ExplicitIndexerSetterOverride_ExcludesValueParameter`.
+
+**Explicit generic interface override ID matches interface method ID**:
+Verifies that `DotNetGenerator.BuildMethodIdFromReference` (used to resolve
+an explicit-interface-override's inheritance target) produces an identifier
+identical to `DotNetEmitter.BuildMemberId` applied to the interface method's
+own `MethodDefinition` — including the `` ``N`` generic-arity suffix — so an
+explicit override of a generic interface method correctly inherits its
+documentation. This scenario is tested by
+`DotNetGenerator_BuildMethodIdFromReference_ExplicitGenericInterfaceOverride_MatchesInterfaceMethodId`.

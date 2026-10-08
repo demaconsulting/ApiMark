@@ -1,6 +1,7 @@
 using ApiMark.Core;
 using ApiMark.Core.TestHelpers;
 using ApiMark.DotNet;
+using Mono.Cecil;
 using Xunit;
 
 namespace ApiMark.DotNet.Tests;
@@ -546,10 +547,12 @@ public class DotNetGeneratorTests
         // Act
         generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-        // Assert
+        // Assert: SampleStatus is an intra-assembly enum emitted in gradual-disclosure
+        // mode, so its cref now renders as a real relative Markdown link (still
+        // code-span-wrapped), per the cref-cross-reference-linking feature.
         var typeWriter = factory.Writers["ApiMark.DotNet.Fixtures/SampleStatusExtensions"];
         var typeParagraphs = typeWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
-        Assert.Contains("Extensions for the `SampleStatus` enum.", typeParagraphs);
+        Assert.Contains("Extensions for the [`SampleStatus`](SampleStatus.md) enum.", typeParagraphs);
 
         var memberWriters = factory.Writers
             .Where(kvp => kvp.Key.StartsWith("ApiMark.DotNet.Fixtures/SampleStatusExtensions/IsPassed", StringComparison.Ordinal))
@@ -558,7 +561,7 @@ public class DotNetGeneratorTests
         Assert.Contains(
             memberWriters,
             writer => writer.Operations.OfType<ParagraphOperation>()
-                .Any(p => p.Text == "Returns true when status is `SampleStatus.Active` or `SampleStatus.Pending`."));
+                .Any(p => p.Text == "Returns true when status is [`SampleStatus.Active`](../SampleStatus/Active.md) or [`SampleStatus.Pending`](../SampleStatus/Pending.md)."));
     }
 
     /// <summary>Validates that static types render a <c>static class</c> signature.</summary>
@@ -1213,6 +1216,30 @@ public class DotNetGeneratorTests
         Assert.Contains(
             paragraphs,
             p => p.Contains("Namespace-level remarks for verification", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates that a <c>&lt;see cref&gt;</c> inside a NamespaceDoc carrier's
+    ///     <c>&lt;remarks&gt;</c> renders as a cross-reference link on the namespace page, the
+    ///     same way it would inside a type's own remarks.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_NamespacePage_NamespaceDocRemarksSeeCref_RendersAsLink()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the <see cref="SampleClass"/> in the NamespaceDoc <remarks> must render as a
+        // Markdown link to SampleClass's own page, not plain code-span text
+        var nsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
+        var paragraphs = nsWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Contains("[`SampleClass`](ApiMark.DotNet.Fixtures/SampleClass.md)", StringComparison.Ordinal));
     }
 
     /// <summary>Validates that the NamespaceDoc XML example is emitted as a code block on the namespace page.</summary>
@@ -2617,6 +2644,40 @@ public class DotNetGeneratorTests
     }
 
     /// <summary>
+    ///     Regression guard for the cref-link-index/page-emission mismatch flagged in PR review:
+    ///     a type with no own members or operators (a pure container for a nested type, such as
+    ///     <c>TwoLevelNestedClass</c>, whose only content is the nested <c>Middle</c> class) must
+    ///     still get its nested-type page(s) written. Before the fix, <c>WriteTypePage</c> returned
+    ///     before reaching <c>WriteNestedTypesSection</c> whenever the containing type itself had
+    ///     no members/operators, so <c>Middle.md</c> and <c>Middle/Inner.md</c> were silently never
+    ///     created even though <c>DotNetGenerator.CollectTypeCrefLinkIndex</c> unconditionally
+    ///     recursed into them and marked them as valid cref-link targets — a cref resolving to
+    ///     either page would have linked to a file that did not exist.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_GradualDisclosure_MemberlessContainerType_WritesNestedTypePages()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: TwoLevelNestedClass itself has no own members, but its nested Middle (also
+        // memberless) and Middle's nested Inner must still each get a written page
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/TwoLevelNestedClass"),
+            "Expected TwoLevelNestedClass.md to be created");
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/TwoLevelNestedClass/Middle"),
+            "Expected TwoLevelNestedClass/Middle.md to be created even though TwoLevelNestedClass has no own members");
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/TwoLevelNestedClass/Middle/Inner"),
+            "Expected TwoLevelNestedClass/Middle/Inner.md to be created even though Middle has no own members");
+    }
+
+    /// <summary>
     ///     Resolves a Markdown-relative link path against the folder of the page containing it,
     ///     collapsing <c>.</c> and <c>..</c> segments, and strips the trailing <c>.md</c> extension
     ///     so the result can be compared against <see cref="InMemoryMarkdownWriterFactory"/> page keys.
@@ -2652,6 +2713,75 @@ public class DotNetGeneratorTests
         }
 
         return string.Join('/', stack);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.MapAccessorReferenceToPropertyId"/> maps an
+    ///     explicit indexer getter override reference to the interface property's XML doc ID,
+    ///     including the index parameter type list.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_MapAccessorReferenceToPropertyId_ExplicitIndexerGetterOverride_IncludesIndexParameter()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var implType = assembly.MainModule.Types.First(t => t.Name == "ExplicitIndexerClass");
+        var property = implType.Properties.Single();
+        var overrideRef = property.GetMethod!.Overrides.Single();
+
+        // Act
+        var propertyId = DotNetGenerator.MapAccessorReferenceToPropertyId(overrideRef, "get_");
+
+        // Assert
+        Assert.Equal("P:ApiMark.DotNet.Fixtures.IIndexerSource.Item(System.Int32)", propertyId);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.MapAccessorReferenceToPropertyId"/> maps an
+    ///     explicit indexer setter override reference to the interface property's XML doc ID,
+    ///     including the index parameter type list but excluding the trailing <c>value</c> parameter.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_MapAccessorReferenceToPropertyId_ExplicitIndexerSetterOverride_ExcludesValueParameter()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var implType = assembly.MainModule.Types.First(t => t.Name == "ExplicitIndexerClass");
+        var property = implType.Properties.Single();
+        var overrideRef = property.SetMethod!.Overrides.Single();
+
+        // Act
+        var propertyId = DotNetGenerator.MapAccessorReferenceToPropertyId(overrideRef, "set_");
+
+        // Assert: the trailing "value" parameter is excluded; only the index parameter remains
+        Assert.Equal("P:ApiMark.DotNet.Fixtures.IIndexerSource.Item(System.Int32)", propertyId);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.BuildMethodIdFromReference"/> (used to resolve
+    ///     explicit-interface-override targets) produces the same <c>``N</c> generic-arity suffix
+    ///     as <see cref="DotNetEmitter.BuildMemberId"/> (used to build the interface method's own
+    ///     ID), so an explicit override of a generic interface method correctly links to it.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_BuildMethodIdFromReference_ExplicitGenericInterfaceOverride_MatchesInterfaceMethodId()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var implType = assembly.MainModule.Types.First(t => t.Name == "GenericOverrideClass");
+        var ifaceType = assembly.MainModule.Types.First(t => t.Name == "IGenericOverrideSource");
+        var overrideMethod = implType.Methods.First(m => m.Overrides.Count > 0);
+        var overrideRef = overrideMethod.Overrides.Single();
+        var ifaceMethod = ifaceType.Methods.Single(m => m.Name == "Wrap");
+
+        // Act
+        var targetIdFromOverrideReference = DotNetGenerator.BuildMethodIdFromReference(overrideRef);
+        var ifaceMethodId = DotNetEmitter.BuildMemberId(ifaceMethod);
+
+        // Assert: both builders must produce the identical ID, including the ``1 arity suffix,
+        // for the explicit override to resolve against the interface method's documentation
+        Assert.Equal(ifaceMethodId, targetIdFromOverrideReference);
+        Assert.Contains("``1", targetIdFromOverrideReference);
     }
 }
 

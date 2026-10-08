@@ -116,12 +116,17 @@ sections:
               C# types commonly nest supporting types within their declaring type. Emitting
               a dedicated page per nested type under the containing type's folder mirrors
               the C# type hierarchy in the file system and makes nested types independently
-              addressable.
+              addressable. This must hold even when the containing type is a pure
+              namespace-like container with no own members/operators, since
+              DotNetGenerator.CollectTypeCrefLinkIndex recurses into nested types
+              unconditionally and a skipped nested-types section would leave dangling cref
+              links.
             tests:
               - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesNestedTypePage
               - DotNetGenerator_Generate_NestedClass_ListedOnOuterClassPage
               - DotNetGenerator_Generate_NestedClass_CreatesNestedClassPage
               - DotNetGenerator_Generate_NestedClass_PageContainsSummary
+              - DotNetGenerator_Generate_GradualDisclosure_MemberlessContainerType_WritesNestedTypePages
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitOperatorsSummaryDocumentation
             title: DotNetEmitterGradualDisclosure shall include XML summary documentation
               for each operator on the operators page.
@@ -146,3 +151,53 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_MemberWithRemarksOnly_SuppressesPlaceholderAndShowsRemarks
               - DotNetEmitterGradualDisclosure_Emit_MemberWithNeitherSummaryNorRemarks_StillShowsPlaceholder
               - DotNetEmitterGradualDisclosure_Emit_TypeWithRemarksOnly_SuppressesPlaceholderAndShowsRemarksOnTypePage
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-ExtractBuildMemberPageIndex
+            title: DotNetEmitterGradualDisclosure shall assign every member to the
+              same gradual-disclosure page whether the page assignment is queried
+              before emission (for cross-reference linking) or during emission (for
+              writing).
+            justification: |
+              Full <see cref>/<seealso cref> cross-reference linking needs to know,
+              for every member in the assembly, the exact gradual-disclosure page path
+              it will be written to — before any page is written. Re-deriving the
+              grouping logic (overload grouping, operator grouping, case-collision
+              grouping, single-member fallback) a second time, even if initially
+              equivalent, would create two sources of truth that could silently drift
+              apart on a future edit to only one of them. This is satisfied by an
+              internal static BuildMemberPageIndex function that shares the
+              GroupMembersByFileName/GetOrderedOverloads/DecideGroupPageFileName
+              helpers with the actual page writer (ProcessTypeMembers/
+              ProcessOverloadGroup/ProcessCollisionMember), reproducing its exact
+              member-grouping decisions without writing any Markdown, verified
+              against the writer's actual output by a dedicated integration test,
+              with no change to any existing generated output.
+            tests:
+              - BuildMemberPageIndex_AllEntries_MatchActualWrittenPages
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-WireCrefLinkContextThroughPageWriters
+            title: DotNetEmitterGradualDisclosure shall render a resolvable `<see
+              cref>`/`<seealso cref>` target as a real Markdown link in generated
+              member and type pages, for every eligible documentation element except
+              exception type/description text.
+            justification: |
+              Code-span-wrapped plain text for every cref is strictly less useful than
+              a real clickable cross-reference whenever the target is actually present
+              in the generated documentation. This is satisfied by constructing a
+              CrefLinkContext (bound to the model's
+              CrefTargets/MemberPageIndex/Resolver and this emitter's own visibility
+              delegates) and passing it as the trailing argument to every
+              ctx.XmlDocs.Get* call made while writing a page, except
+              GetExceptions/GetExceptionDetails. Constructing the CrefLinkContext once
+              per type-processing pass (re-scoped per folder via the record `with`
+              expression where a page writer executes at a deeper folder than its
+              caller) avoids rebuilding it freshly at every call site while keeping
+              page-writer methods free of a direct emitter-instance dependency,
+              consistent with the existing TypePageWriteContext/MethodDocContext
+              pattern.
+            tests:
+              - CrefLinking_SeeCrefToVisibleType_RendersAsMarkdownLink
+              - CrefLinking_SeeCrefToVisibleMember_RendersAsMarkdownLink
+              - CrefLinking_SeeCrefToFilteredMember_RendersFallbackWithNoLink
+              - CrefLinking_SeeCrefToExternalType_RendersFallbackWithNoLink
+              - CrefLinking_SeeCrefMalformed_RendersFallbackWithNoLink
+              - CrefLinking_SeeAlsoCrefToVisibleType_RendersAsMarkdownLink
+              - DotNetGenerator_NamespacePage_NamespaceDocRemarksSeeCref_RendersAsLink

@@ -19,6 +19,7 @@ package ApiMarkDotNet {
         part dotNetEmitterGradualDisclosure : DotNetEmitterGradualDisclosure;
         part dotNetEmitterSingleFile : DotNetEmitterSingleFile;
         part typeLinkResolver : TypeLinkResolver;
+        part crefTargetResolver : CrefTargetResolver;
         part xmlDocReader : XmlDocReader;
         part externalXmlDocResolver : ExternalXmlDocResolver;
         part typeNameSimplifier : TypeNameSimplifier;

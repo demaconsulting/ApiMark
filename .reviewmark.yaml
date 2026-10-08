@@ -302,6 +302,7 @@ reviews:
       - docs/design/api-mark-dot-net/xml-doc-reader.md
       - docs/verification/api-mark-dot-net/xml-doc-reader.md
       - src/ApiMark.DotNet/XmlDocReader.cs
+      - src/ApiMark.DotNet/CrefLinkContext.cs
       - test/ApiMark.DotNet.Tests/XmlDocReaderTests.cs
   - id: ApiMark-DotNet-ExternalXmlDocResolver
     title: Review that ApiMark DotNet ExternalXmlDocResolver Implementation is Correct
@@ -337,6 +338,17 @@ reviews:
       - docs/verification/api-mark-dot-net/type-link-resolver.md
       - src/ApiMark.DotNet/TypeLinkResolver.cs
       - test/ApiMark.DotNet.Tests/TypeLinkResolverTests.cs
+  - id: ApiMark-DotNet-CrefTargetResolver
+    title: Review that ApiMark DotNet CrefTargetResolver Implementation is Correct
+    context:
+      - docs/design/api-mark-dot-net.md
+      - docs/reqstream/api-mark-dot-net.yaml
+    paths:
+      - docs/reqstream/api-mark-dot-net/cref-target-resolver.yaml
+      - docs/design/api-mark-dot-net/cref-target-resolver.md
+      - docs/verification/api-mark-dot-net/cref-target-resolver.md
+      - src/ApiMark.DotNet/CrefTargetResolver.cs
+      - test/ApiMark.DotNet.Tests/CrefTargetResolverTests.cs
   - id: ApiMark-DotNet-TypeNameSimplifier
     title: Review that ApiMark DotNet TypeNameSimplifier Implementation is Correct
     context:

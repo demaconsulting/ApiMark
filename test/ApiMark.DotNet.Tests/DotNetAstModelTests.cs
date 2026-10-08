@@ -1,6 +1,7 @@
 // Copyright (c) DemaConsulting LLC. All rights reserved.
 // Licensed under the MIT License.
 
+using ApiMark.Core;
 using ApiMark.Core.TestHelpers;
 using ApiMark.DotNet;
 using Xunit;
@@ -109,6 +110,48 @@ public class DotNetAstModelTests
 
         // Act / Assert
         Assert.NotNull(emitter.Model.NamespaceDescriptions);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetAstModel.CrefTargets"/> is constructed eagerly during
+    ///     <see cref="DotNetGenerator.Parse"/> and can resolve a known fixture type.
+    /// </summary>
+    [Fact]
+    public void DotNetAstModel_CrefTargets_AfterParse_ResolvesKnownFixtureType()
+    {
+        // Arrange
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        var resolved = emitter.Model.CrefTargets.TryResolveType("T:ApiMark.DotNet.Fixtures.SampleClass", out var type);
+
+        // Assert
+        Assert.True(resolved);
+        Assert.Equal("SampleClass", type.Name);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetAstModel.MemberPageIndex"/> and
+    ///     <see cref="DotNetAstModel.EmittedTypeIds"/> are populated (via
+    ///     <c>DotNetGenerator.Parse</c>'s post-construction setup step) once a
+    ///     <see cref="DotNetEmitterGradualDisclosure"/> has processed the model, and that the
+    ///     index contains an entry for a known visible fixture member.
+    /// </summary>
+    [Fact]
+    public void DotNetAstModel_MemberPageIndexAndEmittedTypeIds_AfterGradualDisclosureEmit_ArePopulated()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert
+        Assert.NotEmpty(emitter.Model.MemberPageIndex);
+        Assert.NotEmpty(emitter.Model.EmittedTypeIds);
+        Assert.Contains("M:ApiMark.DotNet.Fixtures.SampleClass.Reset", emitter.Model.MemberPageIndex.Keys);
+        Assert.Contains("T:ApiMark.DotNet.Fixtures.SampleClass", emitter.Model.EmittedTypeIds);
     }
 
     /// <summary>

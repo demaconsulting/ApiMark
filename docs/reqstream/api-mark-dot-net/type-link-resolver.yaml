@@ -96,3 +96,28 @@ sections:
               - TypeLinkResolver_Linkify_TwoLevelsDeepNestedType_ResolvesFullAncestorPath
               - TypeLinkResolver_Linkify_NestedType_FromParentPageVsOtherPage_ProducesDifferentRelativePaths
               - DotNetGenerator_Generate_GradualDisclosure_EveryGeneratedLinkResolvesToExistingPage
+          - id: ApiMarkDotNet-TypeLinkResolver-ResolveCrefTargetsToMarkdownLinks
+            title: TypeLinkResolver shall expose LinkifyResolvedType and
+              LinkifyResolvedMember methods that resolve an already-resolved
+              intra-assembly cref target (a TypeDefinition or IMemberDefinition) to
+              a Markdown link wrapping caller-supplied display text, returning the
+              display text unchanged when link generation is disabled or (for
+              members) when the target has no entry in the supplied member-page
+              index.
+            justification: |
+              Full cross-reference linking for `<see cref>`/`<seealso cref>`
+              references requires converting an already-resolved cref target (from
+              CrefTargetResolver) to a Markdown link using the same page-key and
+              relative-path machinery Linkify already uses for table-cell type
+              references, without re-deriving that logic. LinkifyResolvedType
+              reuses GetTypePageKey directly (TypeDefinition is a TypeReference);
+              LinkifyResolvedMember instead consults a member-to-page index because
+              gradual-disclosure member page assignment (overload grouping,
+              operator grouping, case-collision grouping) has no closed-form
+              computation.
+            tests:
+              - TypeLinkResolver_LinkifyResolvedType_GenerateLinksTrue_ReturnsMarkdownLink
+              - TypeLinkResolver_LinkifyResolvedType_GenerateLinksFalse_ReturnsDisplayTextUnchanged
+              - TypeLinkResolver_LinkifyResolvedMember_FoundInIndex_ReturnsMarkdownLink
+              - TypeLinkResolver_LinkifyResolvedMember_NotInIndex_ReturnsDisplayTextUnchanged
+              - TypeLinkResolver_LinkifyResolvedMember_GenerateLinksFalse_ReturnsDisplayTextUnchanged

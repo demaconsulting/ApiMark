@@ -1,5 +1,6 @@
 using System.Xml.Linq;
 using ApiMark.DotNet;
+using Mono.Cecil;
 using Xunit;
 
 namespace ApiMark.DotNet.Tests;
@@ -3350,4 +3351,481 @@ public class XmlDocReaderTests
             File.Delete(path);
         }
     }
+
+    #region CrefLinkContext fallback/success paths
+
+    /// <summary>
+    ///     Builds a <see cref="CrefLinkContext"/> over the fixture assembly, so cref-linking tests
+    ///     can resolve real intra-assembly types/members without needing a full emitter run.
+    /// </summary>
+    /// <param name="isTypeEmitted">Delegate controlling which resolved types count as "emitted".</param>
+    /// <param name="isMemberEmitted">Delegate controlling which resolved members count as "emitted".</param>
+    /// <param name="memberPageIndex">The member XML-doc-ID-to-page-path index; defaults to empty.</param>
+    /// <param name="currentFolder">The folder of the page doing the rendering; defaults to the root.</param>
+    /// <returns>A tuple of the loaded assembly (caller must dispose) and the constructed context.</returns>
+    private static (AssemblyDefinition Assembly, CrefLinkContext Context) BuildFixtureLinkContext(
+        Func<TypeDefinition, bool>? isTypeEmitted = null,
+        Func<IMemberDefinition, bool>? isMemberEmitted = null,
+        IReadOnlyDictionary<string, string>? memberPageIndex = null,
+        string currentFolder = "ApiMark.DotNet.Fixtures")
+    {
+        var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var targets = new CrefTargetResolver(assembly);
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"], generateLinks: true);
+        var context = new CrefLinkContext(
+            targets,
+            resolver,
+            memberPageIndex ?? new Dictionary<string, string>(),
+            isTypeEmitted ?? (_ => true),
+            isMemberEmitted ?? (_ => true),
+            currentFolder);
+        return (assembly, context);
+    }
+
+    /// <summary>
+    ///     Validates that, with a <see langword="null"/> link context, a resolvable intra-assembly
+    ///     type cref still renders exactly as today (code-span, no link) — the baseline unchanged
+    ///     behavior that all ~100 existing call sites rely on.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_NullLinkContext_RendersCodeSpanOnlyNoLink()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>See <see cref="T:ApiMark.DotNet.Fixtures.SampleClass"/>.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar", null);
+
+            // Assert
+            Assert.Equal("See `SampleClass`.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a cref resolving to an intra-assembly type whose
+    ///     <c>IsTypeEmitted</c> delegate returns <see langword="true"/> renders as a real Markdown
+    ///     link wrapped in the same code span the plain text would have used.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_ResolvedEmittedType_RendersLinkedCodeSpan()
+    {
+        // Arrange
+        var (assembly, context) = BuildFixtureLinkContext();
+        try
+        {
+            var path = WriteXmlDoc("""
+                <member name="T:Foo.Bar">
+                  <summary>See <see cref="T:ApiMark.DotNet.Fixtures.SampleClass"/>.</summary>
+                </member>
+                """);
+            try
+            {
+                // Act
+                var reader = new XmlDocReader(path);
+                var summary = reader.GetSummary("T:Foo.Bar", context);
+
+                // Assert
+                Assert.Equal("See [`SampleClass`](SampleClass.md).", summary);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            assembly.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a cref resolving to an intra-assembly member whose
+    ///     <c>IsMemberEmitted</c> delegate returns <see langword="true"/> and which has an entry
+    ///     in the member page index renders as a real Markdown link.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_ResolvedEmittedMember_RendersLinkedCodeSpan()
+    {
+        // Arrange
+        var (assembly, baseContext) = BuildFixtureLinkContext();
+        try
+        {
+            var type = assembly.MainModule.Types.First(t => t.Name == "SampleClass");
+            var method = type.Methods.First(m => m.Name == "Reset");
+            var memberId = DotNetEmitter.BuildMemberId(method);
+            var context = baseContext with { MemberPageIndex = new Dictionary<string, string> { [memberId] = "ApiMark.DotNet.Fixtures/SampleClass/Reset" } };
+
+            var path = WriteXmlDoc($"""
+                <member name="T:Foo.Bar">
+                  <summary>See <see cref="{memberId}"/>.</summary>
+                </member>
+                """);
+            try
+            {
+                // Act
+                var reader = new XmlDocReader(path);
+                var summary = reader.GetSummary("T:Foo.Bar", context);
+
+                // Assert
+                Assert.Equal("See [`SampleClass.Reset`](SampleClass/Reset.md).", summary);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            assembly.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a cref resolving to an intra-assembly type/member whose corresponding
+    ///     <c>IsTypeEmitted</c>/<c>IsMemberEmitted</c> delegate returns <see langword="false"/>
+    ///     (filtered out of the generated documentation, e.g. by visibility) falls back to the
+    ///     existing code-span-only, no-link behavior.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_ResolvedButNotEmittedMember_FallsBackToCodeSpanOnly()
+    {
+        // Arrange
+        var (assembly, baseContext) = BuildFixtureLinkContext(isMemberEmitted: _ => false);
+        try
+        {
+            var type = assembly.MainModule.Types.First(t => t.Name == "ProtectedMembersClass");
+            var method = type.Methods.First(m => m.Name == "PrivateMethod");
+            var memberId = DotNetEmitter.BuildMemberId(method);
+
+            var path = WriteXmlDoc($"""
+                <member name="T:Foo.Bar">
+                  <summary>See <see cref="{memberId}"/>.</summary>
+                </member>
+                """);
+            try
+            {
+                // Act
+                var reader = new XmlDocReader(path);
+                var summary = reader.GetSummary("T:Foo.Bar", baseContext);
+
+                // Assert: unlinked, same as the null-context baseline
+                Assert.Equal("See `ProtectedMembersClass.PrivateMethod()`.", summary);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            assembly.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a cref to an external (out-of-assembly) type falls back to the existing
+    ///     code-span-only, no-link behavior, since <see cref="CrefTargetResolver"/> cannot resolve
+    ///     it.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_ExternalTypeCref_FallsBackToCodeSpanOnly()
+    {
+        // Arrange
+        var (assembly, context) = BuildFixtureLinkContext();
+        try
+        {
+            var path = WriteXmlDoc("""
+                <member name="T:Foo.Bar">
+                  <summary>See <see cref="T:System.ArgumentNullException"/>.</summary>
+                </member>
+                """);
+            try
+            {
+                // Act
+                var reader = new XmlDocReader(path);
+                var summary = reader.GetSummary("T:Foo.Bar", context);
+
+                // Assert
+                Assert.Equal("See `ArgumentNullException`.", summary);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            assembly.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a malformed/unresolvable cref (the compiler's <c>!:</c> prefix) falls
+    ///     back to the existing behavior unchanged, with a non-null link context present.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_MalformedCref_FallsBackUnchanged()
+    {
+        // Arrange
+        var (assembly, context) = BuildFixtureLinkContext();
+        try
+        {
+            var path = WriteXmlDoc("""
+                <member name="T:Foo.Bar">
+                  <summary>See <see cref="!:NotAWellFormedCrefString"/>.</summary>
+                </member>
+                """);
+            try
+            {
+                // Act
+                var reader = new XmlDocReader(path);
+                var summary = reader.GetSummary("T:Foo.Bar", context);
+
+                // Assert
+                Assert.Equal("See NotAWellFormedCrefString.", summary);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            assembly.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a constructor cref (which <c>FormatCref</c> already renders without a
+    ///     code-span wrap) is never linkified, per existing precedent, even when the constructor
+    ///     resolves and is "emitted".
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_ConstructorCref_FallsBackUnchanged()
+    {
+        // Arrange
+        var (assembly, context) = BuildFixtureLinkContext();
+        try
+        {
+            var type = assembly.MainModule.Types.First(t => t.Name == "SampleClass");
+            var ctor = type.Methods.First(m => m.IsConstructor);
+            var memberId = DotNetEmitter.BuildMemberId(ctor);
+
+            var path = WriteXmlDoc($"""
+                <member name="T:Foo.Bar">
+                  <summary>See <see cref="{memberId}"/>.</summary>
+                </member>
+                """);
+            try
+            {
+                // Act
+                var readerNoContext = new XmlDocReader(path);
+                var withoutContext = readerNoContext.GetSummary("T:Foo.Bar", null);
+                var readerWithContext = new XmlDocReader(path);
+                var withContext = readerWithContext.GetSummary("T:Foo.Bar", context);
+
+                // Assert: identical rendering with or without a link context
+                Assert.Equal(withoutContext, withContext);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            assembly.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a <c>&lt;seealso cref&gt;</c> reference honors the same link-context
+    ///     resolution as <c>&lt;see cref&gt;</c>.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_SeeAlsoResolvedEmittedType_RendersLinkedCodeSpan()
+    {
+        // Arrange
+        var (assembly, context) = BuildFixtureLinkContext();
+        try
+        {
+            var path = WriteXmlDoc("""
+                <member name="T:Foo.Bar">
+                  <remarks>Also see <seealso cref="T:ApiMark.DotNet.Fixtures.SampleClass"/>.</remarks>
+                </member>
+                """);
+            try
+            {
+                // Act
+                var reader = new XmlDocReader(path);
+                var remarks = reader.GetRemarks("T:Foo.Bar", context);
+
+                // Assert
+                Assert.Contains("[`SampleClass`](SampleClass.md)", remarks);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            assembly.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a <c>&lt;see cref&gt;</c> element carrying an explicit display label
+    ///     (e.g. <c>&lt;see cref="..."&gt;the validator&lt;/see&gt;</c>) still resolves and links
+    ///     the <c>cref</c> when it refers to a resolvable, emitted intra-assembly type, wrapping
+    ///     the explicit label itself in the link rather than falling back to an unlinked label.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_ExplicitLabelResolvedEmittedType_RendersLinkedLabel()
+    {
+        // Arrange
+        var (assembly, context) = BuildFixtureLinkContext();
+        try
+        {
+            var path = WriteXmlDoc("""
+                <member name="T:Foo.Bar">
+                  <summary>See <see cref="T:ApiMark.DotNet.Fixtures.SampleClass">the sample class</see>.</summary>
+                </member>
+                """);
+            try
+            {
+                // Act
+                var reader = new XmlDocReader(path);
+                var summary = reader.GetSummary("T:Foo.Bar", context);
+
+                // Assert
+                Assert.Equal("See [the sample class](SampleClass.md).", summary);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            assembly.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a <c>&lt;see cref&gt;</c> element with an explicit display label falls
+    ///     back to the unlinked, explicit-label-only rendering (existing behavior) when there is
+    ///     no link context, matching the no-context baseline for a cref-only reference.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_ExplicitLabelNullLinkContext_RendersLabelOnlyNoLink()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>See <see cref="T:ApiMark.DotNet.Fixtures.SampleClass">the sample class</see>.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar", null);
+
+            // Assert
+            Assert.Equal("See the sample class.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a <c>&lt;see cref&gt;</c> element with an explicit display label falls
+    ///     back to the unlinked, explicit-label-only rendering when the <c>cref</c> does not
+    ///     resolve (external/malformed), preserving the existing fallback exactly.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_ExplicitLabelUnresolvedCref_RendersLabelOnlyNoLink()
+    {
+        // Arrange
+        var (assembly, context) = BuildFixtureLinkContext();
+        try
+        {
+            var path = WriteXmlDoc("""
+                <member name="T:Foo.Bar">
+                  <summary>See <see cref="T:System.ArgumentNullException">the exception type</see>.</summary>
+                </member>
+                """);
+            try
+            {
+                // Act
+                var reader = new XmlDocReader(path);
+                var summary = reader.GetSummary("T:Foo.Bar", context);
+
+                // Assert
+                Assert.Equal("See the exception type.", summary);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            assembly.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a <c>&lt;see cref&gt;</c> element with an explicit display label is
+    ///     never linked when the <c>cref</c> targets a constructor, even though the constructor's
+    ///     declaring type is a resolvable, emitted intra-assembly type — matching the no-label
+    ///     branch's existing precedent that a constructor cref's <c>ShouldWrapInCodeSpan</c>
+    ///     result (always <see langword="false"/>) is never linked.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_ExplicitLabelConstructorCref_RendersLabelOnlyNoLink()
+    {
+        // Arrange
+        var (assembly, context) = BuildFixtureLinkContext();
+        try
+        {
+            var path = WriteXmlDoc("""
+                <member name="T:Foo.Bar">
+                  <summary>See <see cref="M:ApiMark.DotNet.Fixtures.SampleClass.#ctor">the constructor</see>.</summary>
+                </member>
+                """);
+            try
+            {
+                // Act
+                var reader = new XmlDocReader(path);
+                var summary = reader.GetSummary("T:Foo.Bar", context);
+
+                // Assert
+                Assert.Equal("See the constructor.", summary);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            assembly.Dispose();
+        }
+    }
+
+    #endregion
 }

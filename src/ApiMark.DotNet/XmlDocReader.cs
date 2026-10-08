@@ -147,13 +147,32 @@ public sealed class XmlDocReader
     ///     contexts (table cells and quick-index bullet lines) where real Markdown block structure
     ///     cannot render. A <c>&lt;list&gt;</c> inside the summary therefore renders as inline
     ///     numbered markers (e.g. <c>(1) item one (2) item two</c>) rather than a real list — see
-    ///     <see cref="GetSummaryMarkdown"/> for the full multi-line rendering used in member-detail
+    ///     <see cref="GetSummaryMarkdown(string)"/> for the full multi-line rendering used in member-detail
     ///     page bodies. When the member carries an <c>&lt;inheritdoc /&gt;</c> element, the summary
     ///     is resolved from the referenced or inherited base member recursively.
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier (e.g. <c>T:MyNamespace.MyClass</c>).</param>
     /// <returns>Single-line trimmed summary text, or <c>null</c>.</returns>
-    public string? GetSummary(string memberId)
+    public string? GetSummary(string memberId) => GetSummary(memberId, null);
+
+    /// <summary>
+    ///     Overload of <see cref="GetSummary(string)"/> accepting an optional
+    ///     <see cref="CrefLinkContext"/>, used internally by the gradual-disclosure emitter to
+    ///     enable <c>&lt;see cref&gt;</c>/<c>&lt;seealso cref&gt;</c> cross-reference linking.
+    ///     Kept as a separate internal overload (rather than adding the parameter to the public
+    ///     method) so the public API surface of <see cref="XmlDocReader"/> is completely
+    ///     unaffected by this feature.
+    /// </summary>
+    /// <param name="memberId">The XML doc member identifier (e.g. <c>T:MyNamespace.MyClass</c>).</param>
+    /// <param name="linkContext">
+    ///     Optional context enabling <c>&lt;see cref&gt;</c>/<c>&lt;seealso cref&gt;</c> references
+    ///     within the summary to render as real relative Markdown links instead of their default
+    ///     code-span-only fallback. See <see cref="CrefLinkContext"/>. <see langword="null"/>
+    ///     preserves the exact current fallback rendering unconditionally — this is how
+    ///     single-file emitter output remains completely unaffected by this feature.
+    /// </param>
+    /// <returns>Single-line trimmed summary text, or <c>null</c>.</returns>
+    internal string? GetSummary(string memberId, CrefLinkContext? linkContext)
     {
         var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
         if (member == null)
@@ -162,7 +181,7 @@ public sealed class XmlDocReader
         }
 
         // Use single-line normalization — summaries must fit on one line by convention
-        return GetSingleLineDocumentationText(member.Element("summary"));
+        return GetSingleLineDocumentationText(member.Element("summary"), linkContext);
     }
 
     /// <summary>
@@ -170,18 +189,27 @@ public sealed class XmlDocReader
     ///     <paramref name="memberId"/>, or <c>null</c> if absent.
     /// </summary>
     /// <remarks>
-    ///     Unlike <see cref="GetSummary"/> (always collapsed to a single line for compact
+    ///     Unlike <see cref="GetSummary(string)"/> (always collapsed to a single line for compact
     ///     contexts), this preserves real multi-line Markdown structure — a <c>&lt;list&gt;</c>
     ///     renders as a blank-line-separated block with each item on its own line, and any prose
-    ///     following the list renders as a separate paragraph — matching how <see cref="GetRemarks"/>
+    ///     following the list renders as a separate paragraph — matching how <see cref="GetRemarks(string)"/>
     ///     already renders lists. Intended for member-detail-page bodies, where the summary is the
     ///     primary prose rather than a compact table cell. When the member carries an
     ///     <c>&lt;inheritdoc /&gt;</c> element, the summary is resolved from the referenced or
-    ///     inherited base member recursively, matching <see cref="GetSummary"/>.
+    ///     inherited base member recursively, matching <see cref="GetSummary(string)"/>.
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier (e.g. <c>T:MyNamespace.MyClass</c>).</param>
     /// <returns>Multi-line Markdown summary text, or <c>null</c>.</returns>
-    public string? GetSummaryMarkdown(string memberId)
+    public string? GetSummaryMarkdown(string memberId) => GetSummaryMarkdown(memberId, null);
+
+    /// <summary>
+    ///     Overload of <see cref="GetSummaryMarkdown(string)"/> accepting an optional
+    ///     <see cref="CrefLinkContext"/>. See <see cref="GetSummary(string, CrefLinkContext?)"/>.
+    /// </summary>
+    /// <param name="memberId">The XML doc member identifier (e.g. <c>T:MyNamespace.MyClass</c>).</param>
+    /// <param name="linkContext">See <see cref="GetSummary(string, CrefLinkContext?)"/>.</param>
+    /// <returns>Multi-line Markdown summary text, or <c>null</c>.</returns>
+    internal string? GetSummaryMarkdown(string memberId, CrefLinkContext? linkContext)
     {
         var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
         if (member == null)
@@ -189,7 +217,7 @@ public sealed class XmlDocReader
             return null;
         }
 
-        return GetDocumentationText(member.Element("summary"));
+        return GetDocumentationText(member.Element("summary"), linkContext);
     }
 
     /// <summary>Returns the trimmed remarks text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
@@ -199,7 +227,16 @@ public sealed class XmlDocReader
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
     /// <returns>Trimmed remarks text, or <c>null</c>.</returns>
-    public string? GetRemarks(string memberId)
+    public string? GetRemarks(string memberId) => GetRemarks(memberId, null);
+
+    /// <summary>
+    ///     Overload of <see cref="GetRemarks(string)"/> accepting an optional
+    ///     <see cref="CrefLinkContext"/>. See <see cref="GetSummary(string, CrefLinkContext?)"/>.
+    /// </summary>
+    /// <param name="memberId">The XML doc member identifier.</param>
+    /// <param name="linkContext">See <see cref="GetSummary(string, CrefLinkContext?)"/>.</param>
+    /// <returns>Trimmed remarks text, or <c>null</c>.</returns>
+    internal string? GetRemarks(string memberId, CrefLinkContext? linkContext)
     {
         var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
         if (member == null)
@@ -207,7 +244,7 @@ public sealed class XmlDocReader
             return null;
         }
 
-        return GetDocumentationText(member.Element("remarks"));
+        return GetDocumentationText(member.Element("remarks"), linkContext);
     }
 
     /// <summary>Returns all <c>cref</c> attribute values from <c>&lt;exception&gt;</c> elements for <paramref name="memberId"/>.</summary>
@@ -236,8 +273,8 @@ public sealed class XmlDocReader
     ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, exception details are
     ///     resolved from the referenced or inherited base member recursively. The description uses
     ///     the single-line rendering (<see cref="GetSingleLineDocumentationText"/>), not the
-    ///     multi-line <see cref="GetDocumentationText"/> used by <see cref="GetRemarks"/> and
-    ///     <see cref="GetSummaryMarkdown"/>: every caller of this method writes the description into a
+    ///     multi-line <see cref="GetDocumentationText"/> used by <see cref="GetRemarks(string)"/> and
+    ///     <see cref="GetSummaryMarkdown(string)"/>: every caller of this method writes the description into a
     ///     raw pipe-delimited Markdown table row (see <c>FileMarkdownWriter.WriteTable</c>), which
     ///     does not escape embedded newlines — a fenced code block or <c>&lt;br/&gt;</c>-driven
     ///     paragraph break in the description would otherwise inject extra rows and corrupt the
@@ -276,7 +313,16 @@ public sealed class XmlDocReader
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
     /// <returns>A read-only list of (Name, Description) tuples.</returns>
-    public IReadOnlyList<(string Name, string? Description)> GetParams(string memberId)
+    public IReadOnlyList<(string Name, string? Description)> GetParams(string memberId) => GetParams(memberId, null);
+
+    /// <summary>
+    ///     Overload of <see cref="GetParams(string)"/> accepting an optional
+    ///     <see cref="CrefLinkContext"/>. See <see cref="GetSummary(string, CrefLinkContext?)"/>.
+    /// </summary>
+    /// <param name="memberId">The XML doc member identifier.</param>
+    /// <param name="linkContext">See <see cref="GetSummary(string, CrefLinkContext?)"/>.</param>
+    /// <returns>A read-only list of (Name, Description) tuples.</returns>
+    internal IReadOnlyList<(string Name, string? Description)> GetParams(string memberId, CrefLinkContext? linkContext)
     {
         var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
         if (member == null)
@@ -287,7 +333,7 @@ public sealed class XmlDocReader
         return member.Elements("param")
             .Select<XElement, (string Name, string? Description)>(p => (
                 p.Attribute("name")?.Value ?? string.Empty,
-                GetSingleLineDocumentationText(p)))
+                GetSingleLineDocumentationText(p, linkContext)))
             .Where(p => p.Name.Length > 0)
             .ToList();
     }
@@ -299,7 +345,16 @@ public sealed class XmlDocReader
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
     /// <returns>Trimmed returns text, or <c>null</c>.</returns>
-    public string? GetReturns(string memberId)
+    public string? GetReturns(string memberId) => GetReturns(memberId, null);
+
+    /// <summary>
+    ///     Overload of <see cref="GetReturns(string)"/> accepting an optional
+    ///     <see cref="CrefLinkContext"/>. See <see cref="GetSummary(string, CrefLinkContext?)"/>.
+    /// </summary>
+    /// <param name="memberId">The XML doc member identifier.</param>
+    /// <param name="linkContext">See <see cref="GetSummary(string, CrefLinkContext?)"/>.</param>
+    /// <returns>Trimmed returns text, or <c>null</c>.</returns>
+    internal string? GetReturns(string memberId, CrefLinkContext? linkContext)
     {
         var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
         if (member == null)
@@ -307,16 +362,24 @@ public sealed class XmlDocReader
             return null;
         }
 
-        return GetDocumentationText(member.Element("returns"));
+        return GetDocumentationText(member.Element("returns"), linkContext);
     }
 
     /// <summary>Returns the trimmed example text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
     /// <remarks>
     ///     Returns <c>null</c> when the <c>&lt;example&gt;</c> element is absent or contains only
-    ///     whitespace, matching the null-for-missing contract of <see cref="GetSummary"/>,
-    ///     <see cref="GetRemarks"/>, and <see cref="GetReturns"/>.
+    ///     whitespace, matching the null-for-missing contract of <see cref="GetSummary(string)"/>,
+    ///     <see cref="GetRemarks(string)"/>, and <see cref="GetReturns(string)"/>.
     ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, the example is
     ///     resolved from the referenced or inherited base member recursively.
+    ///     <para>
+    ///     This method has no <see cref="CrefLinkContext"/> overload: it returns the raw,
+    ///     untransformed element value rather than routing through
+    ///     <see cref="AppendElementText"/>/<see cref="GetInlineReferenceText"/>, so a
+    ///     <c>&lt;see cref&gt;</c> inside an <c>&lt;example&gt;</c> element is never linkified
+    ///     here. Use <see cref="GetExampleParts(string)"/> for structured example rendering that
+    ///     does honor a <see cref="CrefLinkContext"/>.
+    ///     </para>
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
     /// <returns>Trimmed example text, or <c>null</c> when the element is absent or whitespace-only.</returns>
@@ -359,7 +422,19 @@ public sealed class XmlDocReader
     ///     A list of (IsCode, Content) pairs, or an empty list when the member is absent or has
     ///     no <c>&lt;example&gt;</c> element.
     /// </returns>
-    public IReadOnlyList<(bool IsCode, string Content)> GetExampleParts(string memberId)
+    public IReadOnlyList<(bool IsCode, string Content)> GetExampleParts(string memberId) => GetExampleParts(memberId, null);
+
+    /// <summary>
+    ///     Overload of <see cref="GetExampleParts(string)"/> accepting an optional
+    ///     <see cref="CrefLinkContext"/>. See <see cref="GetSummary(string, CrefLinkContext?)"/>.
+    /// </summary>
+    /// <param name="memberId">The XML doc member identifier.</param>
+    /// <param name="linkContext">See <see cref="GetSummary(string, CrefLinkContext?)"/>.</param>
+    /// <returns>
+    ///     A list of (IsCode, Content) pairs, or an empty list when the member is absent or has
+    ///     no <c>&lt;example&gt;</c> element.
+    /// </returns>
+    internal IReadOnlyList<(bool IsCode, string Content)> GetExampleParts(string memberId, CrefLinkContext? linkContext)
     {
         var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
         var el = member?.Element("example");
@@ -370,7 +445,7 @@ public sealed class XmlDocReader
 
         // When no <code> children exist, treat the entire value as a single code block
         return el.Elements("code").Any()
-            ? BuildMixedExampleParts(el)
+            ? BuildMixedExampleParts(el, linkContext)
             : BuildSingleCodeExamplePart(el);
     }
 
@@ -399,8 +474,9 @@ public sealed class XmlDocReader
     ///     within a prose run rather than emitting them as isolated, broken fragments.
     /// </remarks>
     /// <param name="el">The <c>&lt;example&gt;</c> element.</param>
+    /// <param name="linkContext">See <see cref="GetSummary(string)"/>.</param>
     /// <returns>Ordered list of (IsCode, Content) parts.</returns>
-    private static List<(bool IsCode, string Content)> BuildMixedExampleParts(XElement el)
+    private static List<(bool IsCode, string Content)> BuildMixedExampleParts(XElement el, CrefLinkContext? linkContext)
     {
         var parts = new List<(bool IsCode, string Content)>();
         var proseBuilder = new StringBuilder();
@@ -433,13 +509,13 @@ public sealed class XmlDocReader
             {
                 // Render the paragraph into the accumulator, then flush so that each <para>
                 // becomes a distinct prose part rather than merging with adjacent content
-                AppendNodeText(proseBuilder, paraElement.Nodes());
+                AppendNodeText(proseBuilder, paraElement.Nodes(), linkContext: linkContext);
                 FlushProse();
             }
             else
             {
                 // Text nodes and inline elements — accumulate for combined prose rendering
-                AppendNodeText(proseBuilder, node);
+                AppendNodeText(proseBuilder, node, linkContext: linkContext);
             }
         }
 
@@ -642,14 +718,15 @@ public sealed class XmlDocReader
     ///     <see cref="RestoreCodeBlockPlaceholders"/> immediately before returning. This method and
     ///     <see cref="GetSingleLineDocumentationText"/> are the only two call sites that supply a
     ///     non-<see langword="null"/> map; every other caller of
-    ///     <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/>
+    ///     <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?, CrefLinkContext?)"/>
     ///     is eventually squashed through <see cref="NormalizeSingleLine"/> directly (not via
     ///     <see cref="GetSingleLineDocumentationText"/>'s protected path), where a fenced block would
     ///     never be valid, so those callers deliberately keep passing <see langword="null"/>.
     /// </remarks>
     /// <param name="element">The XML element whose text content to extract, or <c>null</c>.</param>
+    /// <param name="linkContext">See <see cref="GetSummary(string)"/>.</param>
     /// <returns>Normalized text, or <c>null</c> when the element is absent or empty.</returns>
-    private static string? GetDocumentationText(XElement? element)
+    private static string? GetDocumentationText(XElement? element, CrefLinkContext? linkContext = null)
     {
         if (element == null)
         {
@@ -658,7 +735,7 @@ public sealed class XmlDocReader
 
         var codeBlocks = new Dictionary<string, string>(StringComparer.Ordinal);
         var builder = new StringBuilder();
-        AppendNodeText(builder, element.Nodes(), singleLine: false, codeBlocks);
+        AppendNodeText(builder, element.Nodes(), singleLine: false, codeBlocks, linkContext);
         var text = RestoreCodeBlockPlaceholders(NormalizeDocumentationText(builder.ToString()), codeBlocks);
         return text.Length == 0 ? null : text;
     }
@@ -674,8 +751,9 @@ public sealed class XmlDocReader
     ///     internal spacing inside a code span survives this single-line rendering too.
     /// </remarks>
     /// <param name="element">The XML element whose text content to extract, or <c>null</c>.</param>
+    /// <param name="linkContext">See <see cref="GetSummary(string)"/>.</param>
     /// <returns>Single-line trimmed text, or <c>null</c> when the element is absent or empty.</returns>
-    private static string? GetSingleLineDocumentationText(XElement? element)
+    private static string? GetSingleLineDocumentationText(XElement? element, CrefLinkContext? linkContext = null)
     {
         if (element == null)
         {
@@ -684,7 +762,7 @@ public sealed class XmlDocReader
 
         var codeBlocks = new Dictionary<string, string>(StringComparer.Ordinal);
         var builder = new StringBuilder();
-        AppendNodeText(builder, element.Nodes(), singleLine: true, codeBlocks);
+        AppendNodeText(builder, element.Nodes(), singleLine: true, codeBlocks, linkContext);
         var text = RestoreCodeBlockPlaceholders(NormalizeSingleLine(builder.ToString()), codeBlocks);
         return text.Length == 0 ? null : text;
     }
@@ -711,11 +789,13 @@ public sealed class XmlDocReader
     ///     elements to always render as an unprotected inline span instead of a fenced block (see
     ///     <see cref="AppendCodeElementText"/>).
     /// </param>
+    /// <param name="linkContext">See <see cref="GetSummary(string)"/>.</param>
     private static void AppendNodeText(
         StringBuilder builder,
         IEnumerable<XNode> nodes,
         bool singleLine = false,
-        Dictionary<string, string>? codeBlocks = null)
+        Dictionary<string, string>? codeBlocks = null,
+        CrefLinkContext? linkContext = null)
     {
         foreach (var node in nodes)
         {
@@ -725,7 +805,7 @@ public sealed class XmlDocReader
                     builder.Append(text.Value);
                     break;
                 case XElement element:
-                    AppendElementText(builder, element, singleLine, codeBlocks);
+                    AppendElementText(builder, element, singleLine, codeBlocks, linkContext);
                     break;
             }
         }
@@ -738,13 +818,15 @@ public sealed class XmlDocReader
     /// </summary>
     /// <param name="builder">The string builder that accumulates the output text.</param>
     /// <param name="node">The single XML node to process.</param>
-    /// <param name="singleLine">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/>.</param>
-    /// <param name="codeBlocks">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/>.</param>
+    /// <param name="singleLine">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?, CrefLinkContext?)"/>.</param>
+    /// <param name="codeBlocks">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?, CrefLinkContext?)"/>.</param>
+    /// <param name="linkContext">See <see cref="GetSummary(string)"/>.</param>
     private static void AppendNodeText(
         StringBuilder builder,
         XNode node,
         bool singleLine = false,
-        Dictionary<string, string>? codeBlocks = null)
+        Dictionary<string, string>? codeBlocks = null,
+        CrefLinkContext? linkContext = null)
     {
         switch (node)
         {
@@ -752,7 +834,7 @@ public sealed class XmlDocReader
                 builder.Append(text.Value);
                 break;
             case XElement element:
-                AppendElementText(builder, element, singleLine, codeBlocks);
+                AppendElementText(builder, element, singleLine, codeBlocks, linkContext);
                 break;
         }
     }
@@ -764,26 +846,28 @@ public sealed class XmlDocReader
     /// </summary>
     /// <param name="builder">The string builder that accumulates the output text.</param>
     /// <param name="element">The XML element to render.</param>
-    /// <param name="singleLine">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/>.</param>
-    /// <param name="codeBlocks">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/>.</param>
+    /// <param name="singleLine">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?, CrefLinkContext?)"/>.</param>
+    /// <param name="codeBlocks">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?, CrefLinkContext?)"/>.</param>
+    /// <param name="linkContext">See <see cref="GetSummary(string)"/>.</param>
     private static void AppendElementText(
         StringBuilder builder,
         XElement element,
         bool singleLine = false,
-        Dictionary<string, string>? codeBlocks = null)
+        Dictionary<string, string>? codeBlocks = null,
+        CrefLinkContext? linkContext = null)
     {
         switch (element.Name.LocalName)
         {
             case "see":
             case "seealso":
-                builder.Append(GetInlineReferenceText(element));
+                builder.Append(GetInlineReferenceText(element, linkContext));
                 break;
             case "paramref":
             case "typeparamref":
                 builder.Append(element.Attribute("name")?.Value ?? string.Empty);
                 break;
             case "para":
-                AppendNodeText(builder, element.Nodes(), singleLine, codeBlocks);
+                AppendNodeText(builder, element.Nodes(), singleLine, codeBlocks, linkContext);
                 builder.AppendLine();
                 break;
             case "c":
@@ -810,10 +894,10 @@ public sealed class XmlDocReader
                 AppendCodeElementText(builder, element, singleLine, codeBlocks);
                 break;
             case "list":
-                AppendListText(builder, element, singleLine);
+                AppendListText(builder, element, singleLine, linkContext);
                 break;
             default:
-                AppendNodeText(builder, element.Nodes(), singleLine, codeBlocks);
+                AppendNodeText(builder, element.Nodes(), singleLine, codeBlocks, linkContext);
                 break;
         }
     }
@@ -830,7 +914,7 @@ public sealed class XmlDocReader
     ///     (i.e. only from <see cref="GetDocumentationText"/>), <em>and</em> the dedented content
     ///     spans multiple lines; every other caller — including table-cell contexts
     ///     (<see cref="GetSingleLineDocumentationText"/>, whose callers such as
-    ///     <see cref="GetParams"/> and <see cref="GetExceptionDetails"/> feed raw Markdown table
+    ///     <see cref="GetParams(string)"/> and <see cref="GetExceptionDetails"/> feed raw Markdown table
     ///     rows where an embedded literal newline would corrupt the table), nested list items
     ///     (<see cref="RenderInlineElement"/>), and <c>&lt;example&gt;</c> mixed prose
     ///     (<see cref="BuildMixedExampleParts"/>) — always takes the inline-span branch instead,
@@ -846,8 +930,8 @@ public sealed class XmlDocReader
     /// </remarks>
     /// <param name="builder">The string builder that accumulates the output text.</param>
     /// <param name="element">The <c>&lt;code&gt;</c> element to render.</param>
-    /// <param name="singleLine">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/>.</param>
-    /// <param name="codeBlocks">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/>.</param>
+    /// <param name="singleLine">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?, CrefLinkContext?)"/>.</param>
+    /// <param name="codeBlocks">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?, CrefLinkContext?)"/>.</param>
     private static void AppendCodeElementText(
         StringBuilder builder,
         XElement element,
@@ -955,8 +1039,8 @@ public sealed class XmlDocReader
     ///     separated from surrounding prose and renders as valid CommonMark. Nested
     ///     inline elements inside <c>&lt;term&gt;</c>/<c>&lt;description&gt;</c>/<c>&lt;item&gt;</c>
     ///     (such as <c>&lt;c&gt;</c>, <c>&lt;see&gt;</c>, and <c>&lt;paramref&gt;</c>) are rendered
-    ///     via the existing <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/> dispatch.
-    ///     In single-line mode (used for table cells and <see cref="GetSummary"/>), a real
+    ///     via the existing <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?, CrefLinkContext?)"/> dispatch.
+    ///     In single-line mode (used for table cells and <see cref="GetSummary(string)"/>), a real
     ///     multi-line list would be collapsed into unreadable run-together text by
     ///     <see cref="NormalizeSingleLine"/>, so the list instead renders inline as numbered
     ///     markers — e.g. <c>(1) item one (2) item two</c> — for every list <c>type</c>
@@ -968,11 +1052,12 @@ public sealed class XmlDocReader
     ///     When <see langword="true"/>, renders the list as inline numbered markers instead of a
     ///     real multi-line Markdown block.
     /// </param>
-    private static void AppendListText(StringBuilder builder, XElement element, bool singleLine)
+    /// <param name="linkContext">See <see cref="GetSummary(string, CrefLinkContext?)"/>.</param>
+    private static void AppendListText(StringBuilder builder, XElement element, bool singleLine, CrefLinkContext? linkContext = null)
     {
         if (singleLine)
         {
-            AppendInlineMarkerList(builder, element);
+            AppendInlineMarkerList(builder, element, linkContext);
             return;
         }
 
@@ -985,14 +1070,14 @@ public sealed class XmlDocReader
         switch (listType)
         {
             case "table":
-                AppendTableList(builder, element);
+                AppendTableList(builder, element, linkContext);
                 break;
             case "number":
-                AppendMarkerList(builder, element, ordered: true);
+                AppendMarkerList(builder, element, ordered: true, linkContext);
                 break;
             default:
                 // "bullet", absent, or any unknown type renders as a bullet list
-                AppendMarkerList(builder, element, ordered: false);
+                AppendMarkerList(builder, element, ordered: false, linkContext);
                 break;
         }
 
@@ -1007,7 +1092,7 @@ public sealed class XmlDocReader
     /// </summary>
     /// <remarks>
     ///     Used wherever a real multi-line Markdown list cannot be rendered — table cells and the
-    ///     single-line <see cref="GetSummary"/> path — because the surrounding normalizer collapses
+    ///     single-line <see cref="GetSummary(string)"/> path — because the surrounding normalizer collapses
     ///     newlines into spaces, which would otherwise run every item together with no separation.
     ///     Applied uniformly regardless of the list's <c>type</c> attribute (<c>bullet</c>,
     ///     <c>number</c>, or <c>table</c>) since none of them can express real block structure
@@ -1020,15 +1105,16 @@ public sealed class XmlDocReader
     /// </remarks>
     /// <param name="builder">The string builder that accumulates the output text.</param>
     /// <param name="element">The <c>&lt;list&gt;</c> element whose items to render.</param>
-    private static void AppendInlineMarkerList(StringBuilder builder, XElement element)
+    /// <param name="linkContext">See <see cref="GetSummary(string, CrefLinkContext?)"/>.</param>
+    private static void AppendInlineMarkerList(StringBuilder builder, XElement element, CrefLinkContext? linkContext = null)
     {
         var itemTexts = element.Elements("item")
-            .Select(item => FormatTermDescription(RenderTermDescription(item)))
+            .Select(item => FormatTermDescription(RenderTermDescription(item, linkContext)))
             .Where(text => text.Length > 0)
             .ToList();
 
         var header = element.Element("listheader");
-        var headerText = header != null ? FormatListHeaderText(RenderTermDescription(header)) : string.Empty;
+        var headerText = header != null ? FormatListHeaderText(RenderTermDescription(header, linkContext)) : string.Empty;
 
         if (itemTexts.Count == 0 && headerText.Length == 0)
         {
@@ -1069,14 +1155,15 @@ public sealed class XmlDocReader
     /// <param name="builder">The string builder that accumulates the output text.</param>
     /// <param name="element">The <c>&lt;list&gt;</c> element whose items to render.</param>
     /// <param name="ordered"><see langword="true"/> for a numbered list; <see langword="false"/> for a bullet list.</param>
-    private static void AppendMarkerList(StringBuilder builder, XElement element, bool ordered)
+    /// <param name="linkContext">See <see cref="GetSummary(string, CrefLinkContext?)"/>.</param>
+    private static void AppendMarkerList(StringBuilder builder, XElement element, bool ordered, CrefLinkContext? linkContext = null)
     {
         // A leading bold line is emitted for a <listheader> when present so header
         // context is not lost in a bullet/number list (which has no header row).
         var header = element.Element("listheader");
         if (header != null)
         {
-            var headerText = FormatListHeaderText(RenderTermDescription(header));
+            var headerText = FormatListHeaderText(RenderTermDescription(header, linkContext));
             if (headerText.Length > 0)
             {
                 // headerText is already fully bolded by FormatListHeaderText; wrapping it again
@@ -1086,7 +1173,7 @@ public sealed class XmlDocReader
         }
 
         var marker = ordered ? "1." : "-";
-        foreach (var itemText in element.Elements("item").Select(item => FormatTermDescription(RenderTermDescription(item))))
+        foreach (var itemText in element.Elements("item").Select(item => FormatTermDescription(RenderTermDescription(item, linkContext))))
         {
             // Skip items that render to no text (for example an empty <description>) so no
             // stray "- "/"1. " marker line is emitted for an item with nothing to show
@@ -1106,7 +1193,8 @@ public sealed class XmlDocReader
     /// </summary>
     /// <param name="builder">The string builder that accumulates the output text.</param>
     /// <param name="element">The <c>&lt;list&gt;</c> element whose items to render as table rows.</param>
-    private static void AppendTableList(StringBuilder builder, XElement element)
+    /// <param name="linkContext">See <see cref="GetSummary(string, CrefLinkContext?)"/>.</param>
+    private static void AppendTableList(StringBuilder builder, XElement element, CrefLinkContext? linkContext = null)
     {
         var termHeader = "Term";
         var descriptionHeader = "Description";
@@ -1114,7 +1202,7 @@ public sealed class XmlDocReader
         var header = element.Element("listheader");
         if (header != null)
         {
-            var (headerTerm, headerDescription) = RenderTermDescription(header);
+            var (headerTerm, headerDescription) = RenderTermDescription(header, linkContext);
             if (headerTerm.Length > 0)
             {
                 termHeader = headerTerm;
@@ -1135,7 +1223,7 @@ public sealed class XmlDocReader
 
         foreach (var item in element.Elements("item"))
         {
-            var (term, description) = RenderTermDescription(item);
+            var (term, description) = RenderTermDescription(item, linkContext);
 
             // Skip rows whose term and description both render empty so no blank table row is
             // emitted; the header row is always kept so the table structure remains valid
@@ -1167,8 +1255,9 @@ public sealed class XmlDocReader
     ///     content is returned as the term.
     /// </summary>
     /// <param name="element">The <c>&lt;item&gt;</c> or <c>&lt;listheader&gt;</c> element.</param>
+    /// <param name="linkContext">See <see cref="GetSummary(string, CrefLinkContext?)"/>.</param>
     /// <returns>A tuple of the rendered term and description; either may be empty.</returns>
-    private static (string Term, string Description) RenderTermDescription(XElement element)
+    private static (string Term, string Description) RenderTermDescription(XElement element, CrefLinkContext? linkContext = null)
     {
         var term = element.Element("term");
         var description = element.Element("description");
@@ -1176,12 +1265,12 @@ public sealed class XmlDocReader
         // A bare item (no <term>/<description>) contributes its inline content as the term
         if (term == null && description == null)
         {
-            return (RenderInlineElement(element), string.Empty);
+            return (RenderInlineElement(element, linkContext), string.Empty);
         }
 
         return (
-            term != null ? RenderInlineElement(term) : string.Empty,
-            description != null ? RenderInlineElement(description) : string.Empty);
+            term != null ? RenderInlineElement(term, linkContext) : string.Empty,
+            description != null ? RenderInlineElement(description, linkContext) : string.Empty);
     }
 
     /// <summary>
@@ -1229,16 +1318,17 @@ public sealed class XmlDocReader
 
     /// <summary>
     ///     Renders the inline content of <paramref name="element"/> to a single line via the
-    ///     shared <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?)"/> dispatch, so
+    ///     shared <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?, CrefLinkContext?)"/> dispatch, so
     ///     nested inline elements such as <c>&lt;c&gt;</c>, <c>&lt;see&gt;</c>, and
     ///     <c>&lt;paramref&gt;</c> render correctly inside list items.
     /// </summary>
     /// <param name="element">The element whose inline content to render.</param>
+    /// <param name="linkContext">See <see cref="GetSummary(string, CrefLinkContext?)"/>.</param>
     /// <returns>The single-line rendered text.</returns>
-    private static string RenderInlineElement(XElement element)
+    private static string RenderInlineElement(XElement element, CrefLinkContext? linkContext = null)
     {
         var builder = new StringBuilder();
-        AppendNodeText(builder, element.Nodes());
+        AppendNodeText(builder, element.Nodes(), linkContext: linkContext);
         return NormalizeSingleLine(builder.ToString());
     }
 
@@ -1323,10 +1413,31 @@ public sealed class XmlDocReader
     ///     distinct from surrounding prose, matching how <c>&lt;c&gt;</c> content is rendered. A
     ///     <c>langword</c> value, explicit inner text, and a constructor cref are all left
     ///     unwrapped.
+    ///     <para>
+    ///     When <paramref name="linkContext"/> is supplied and the <c>cref</c> resolves — via
+    ///     <see cref="CrefTargetResolver.TryResolveType"/>/<see cref="CrefTargetResolver.TryResolveMember"/>
+    ///     — to a symbol declared in the assembly being documented that will actually be emitted
+    ///     (per <see cref="CrefLinkContext.IsTypeEmitted"/>/<see cref="CrefLinkContext.IsMemberEmitted"/>),
+    ///     the code-span-wrapped text is itself wrapped in a real relative Markdown link (via
+    ///     <see cref="TypeLinkResolver.LinkifyResolvedType"/>/<see cref="TypeLinkResolver.LinkifyResolvedMember"/>)
+    ///     — the code span becomes the link's label (e.g. <c>[`Type.Member`](path.md)</c>), never
+    ///     the other way around, since Markdown code span content is rendered literally and a link
+    ///     nested inside one would show as inert <c>[...](...)</c> text rather than a clickable
+    ///     link. In every other case — <paramref name="linkContext"/> is
+    ///     <see langword="null"/>, the cref is external/malformed/unresolvable, or the resolved
+    ///     symbol is filtered out of the generated documentation — rendering is completely
+    ///     unchanged from the code-span-only fallback described above. A constructor cref (whose
+    ///     <c>ShouldWrapInCodeSpan</c> result is always <see langword="false"/>) is never linked,
+    ///     matching this existing precedent.
+    ///     </para>
     /// </remarks>
     /// <param name="element">The inline reference element to render.</param>
+    /// <param name="linkContext">
+    ///     Optional context enabling cross-reference linking for a resolvable intra-assembly
+    ///     <c>cref</c>. See <see cref="CrefLinkContext"/>.
+    /// </param>
     /// <returns>A non-null display string; may be empty when no renderable content is found.</returns>
-    private static string GetInlineReferenceText(XElement element)
+    private static string GetInlineReferenceText(XElement element, CrefLinkContext? linkContext = null)
     {
         var langword = element.Attribute("langword")?.Value;
         if (!string.IsNullOrWhiteSpace(langword))
@@ -1334,11 +1445,28 @@ public sealed class XmlDocReader
             return langword;
         }
 
-        // If the element provides explicit display text, prefer it over formatting the cref.
+        // If the element provides explicit display text, prefer it over formatting the cref,
+        // but still attempt to resolve and link the cref using that explicit text as the link's
+        // label — otherwise a valid in-assembly reference with a custom label (e.g.
+        // <see cref="ArgumentValidator">the validator</see>) would never become a clickable
+        // link. TryLinkifyCref returns the label unchanged when there is no link context or the
+        // cref does not resolve, preserving the existing fallback exactly.
         var explicitText = NormalizeDocumentationText(element.Value);
         if (explicitText.Length > 0)
         {
-            return explicitText;
+            var explicitCref = element.Attribute("cref")?.Value;
+            if (string.IsNullOrWhiteSpace(explicitCref))
+            {
+                return explicitText;
+            }
+
+            // A constructor cref is never linked, matching the no-label branch's precedent below
+            // (ShouldWrapInCodeSpan is false for constructors) — only FormatCref's classification
+            // is needed here, not its formatted text, since the explicit label is always used.
+            var (_, shouldLink) = FormatCref(explicitCref);
+            return shouldLink
+                ? TryLinkifyCref(explicitCref, explicitText, linkContext)
+                : explicitText;
         }
 
         var cref = element.Attribute("cref")?.Value;
@@ -1350,10 +1478,50 @@ public sealed class XmlDocReader
             // this request and returns the escaped, prose-safe form internally, since it is the
             // only case never wrapped.
             var (text, shouldWrapInCodeSpan) = FormatCref(cref, forCodeSpan: true);
-            return shouldWrapInCodeSpan && text.Length > 0 ? FormatAsInlineCodeSpan(text) : text;
+            if (!shouldWrapInCodeSpan || text.Length == 0)
+            {
+                return text;
+            }
+
+            // The code span must be the link's label, not the other way around — Markdown code
+            // span content is literal, so a link nested inside a code span would render as inert
+            // text showing the raw "[...](...)" syntax rather than a clickable link.
+            var codeSpanText = FormatAsInlineCodeSpan(text);
+            return TryLinkifyCref(cref, codeSpanText, linkContext);
         }
 
         return string.Empty;
+    }
+
+    /// <summary>
+    ///     Attempts to resolve <paramref name="cref"/> against <paramref name="linkContext"/> and,
+    ///     when resolution succeeds and the target will actually be emitted, returns
+    ///     <paramref name="codeSpanText"/> wrapped in a real relative Markdown link, with the code
+    ///     span as the link's label. Returns <paramref name="codeSpanText"/> unchanged in every
+    ///     other case (no context, external type, filtered-out member, or malformed cref).
+    /// </summary>
+    /// <param name="cref">The raw <c>cref</c> attribute value, including its kind prefix.</param>
+    /// <param name="codeSpanText">The already backtick-wrapped display text to use as the link label when linking.</param>
+    /// <param name="linkContext">Optional cross-reference linking context.</param>
+    /// <returns><paramref name="codeSpanText"/>, or that text wrapped in a Markdown link.</returns>
+    private static string TryLinkifyCref(string cref, string codeSpanText, CrefLinkContext? linkContext)
+    {
+        if (linkContext == null)
+        {
+            return codeSpanText;
+        }
+
+        if (linkContext.Targets.TryResolveType(cref, out var type) && linkContext.IsTypeEmitted(type))
+        {
+            return linkContext.Resolver.LinkifyResolvedType(type, codeSpanText, linkContext.CurrentFolder);
+        }
+
+        if (linkContext.Targets.TryResolveMember(cref, out var member) && linkContext.IsMemberEmitted(member))
+        {
+            return linkContext.Resolver.LinkifyResolvedMember(member, codeSpanText, linkContext.CurrentFolder, linkContext.MemberPageIndex);
+        }
+
+        return codeSpanText;
     }
 
     /// <summary>

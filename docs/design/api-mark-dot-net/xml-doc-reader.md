@@ -42,6 +42,13 @@ discarded. This is a defensive policy for malformed but real-world XML doc
 files where the compiler emits the same member ID more than once (e.g., due to
 partial-class splits or tooling bugs).
 
+**CrefLinkContext** (external `internal sealed record`, defined in
+`CrefLinkContext.cs`, not a field of `XmlDocReader` itself): Optional
+cross-reference linking context, threaded as a trailing nullable parameter
+through new internal overloads of the rendering methods, reached internally
+from every public rendering method — see "Cross-reference linking
+(CrefLinkContext)" below for its full field list and semantics.
+
 ### Key Methods
 
 **XmlDocReader constructor**: Parses the XML documentation file and builds the
@@ -338,13 +345,14 @@ according to the following element-to-text mappings:
   type-kind prefix, strips the namespace path to leave just the type name, and replaces
   generic arity markers with angle-bracket type-parameter placeholders via
   `FormatTypeArity`, e.g. `List\`1` → `List<T>`,`Dictionary\`2` → `Dictionary<T1, T2>`).
-  When the cref refers to a type member (property, field, event, or non-constructor
-  method — see "Member-cref inline code span wrapping" below), the formatted text is
-  additionally wrapped in an inline Markdown code span, and in that case the generic
-  arity placeholder is rendered with raw, unescaped angle brackets (`List<T>`) rather
-  than the backslash-escaped prose form (`List\<T\>`), since a code span's content is
-  literal and the escaping backslash would otherwise show up as a stray visible
-  character — see "Generic cref escaping inside a code span" below.
+  Unless the cref is a constructor (`#ctor`), the formatted text is additionally
+  wrapped in an inline Markdown code span — this applies to type-only crefs as well
+  as crefs to a type member (property, field, event, or non-constructor method); see
+  "Member and type-only cref inline code span wrapping" below. In that case the
+  generic arity placeholder is rendered with raw, unescaped angle brackets
+  (`List<T>`) rather than the backslash-escaped prose form (`List\<T\>`), since a
+  code span's content is literal and the escaping backslash would otherwise show up
+  as a stray visible character — see "Generic cref escaping inside a code span" below.
 - `<see langword="..."/>` → the `langword` attribute value directly (e.g., `null`,
   `true`, `false`).
 - `<paramref name="..."/>` and `<typeparamref name="..."/>` → the `name` attribute
@@ -396,9 +404,9 @@ display string, returning a `(string Text, bool ShouldWrapInCodeSpan)` tuple.
   `FormatTypeName`) and for `M:`/`P:`/`F:`/`E:` crefs that are not
   constructors. This single
   boolean is the sole source of truth `GetInlineReferenceText` uses to decide
-  whether to wrap the returned text in an inline code span (see "Member-cref
-  inline code span wrapping" below) — no cref-kind parsing is duplicated at
-  the call site.
+  whether to wrap the returned text in an inline code span (see "Member and
+  type-only cref inline code span wrapping" below) — no cref-kind parsing is
+  duplicated at the call site.
 
 **FormatMemberReference** (private): Formats a `<see cref>` reference whose
 kind indicates a type member (`M:`, `P:`, `F:`, or `E:`) as `Type.Member` text,
@@ -450,9 +458,20 @@ The following are deliberately left unwrapped:
 - A `langword` attribute value (e.g. `null`, `true`, `false`) — not a
   reference to a declared symbol at all.
 - Explicit inner element text (the element supplies its own display text,
-  which this method always prefers verbatim over any `cref` formatting).
+  which this method always prefers verbatim over any `cref`-formatted text).
+  The explicit label is still passed to `TryLinkifyCref` alongside the
+  element's own `cref` attribute — see "Cross-reference linking" below — so a
+  resolvable, emitted cref with a custom label (e.g. `<see
+  cref="...">the validator</see>`) still becomes a real link, just without a
+  code-span wrapper around the label. A constructor cref is the one
+  exception: it is never linked even with an explicit label, matching the
+  next bullet.
 - A constructor cref (`M:...#ctor`) — `FormatMemberReference` collapses it to
-  the bare type name and reports `ShouldWrapInCodeSpan: false`.
+  the bare type name and reports `ShouldWrapInCodeSpan: false`. The
+  explicit-label branch consults this same `ShouldWrapInCodeSpan` result
+  before calling `TryLinkifyCref`, so a labeled reference to a constructor
+  (e.g. `<see cref="M:...#ctor">the constructor</see>`) renders its label
+  unlinked too.
 
 #### Generic cref escaping inside a code span
 
@@ -500,9 +519,97 @@ result. Returns `string.Empty` for whitespace-only input so existing
 
 **FormatAsInlineCodeSpan** (private static): Wraps already-formatted display
 text in an inline Markdown code span via `AppendMarkdownCodeSpan`. Used by
-`GetInlineReferenceText` to visually distinguish a member-cref's rendered
-`Type.Member` text from surrounding prose — see "Member-cref inline code span
-wrapping" below.
+`GetInlineReferenceText` to visually distinguish a type- or member-cref's
+rendered text from surrounding prose — see "Member and type-only cref inline
+code span wrapping" below.
+
+#### Cross-reference linking (`CrefLinkContext`)
+
+Every public rendering method (`GetSummary`, `GetSummaryMarkdown`,
+`GetRemarks`, `GetParams`, `GetReturns`, `GetExampleParts` — explicitly NOT
+`GetExceptions`/`GetExceptionDetails`, which are out of scope for linking)
+gains a new `internal` overload accepting an additional optional, trailing,
+nullable `CrefLinkContext? linkContext = null` parameter. The original public
+single-argument overloads are unchanged and simply forward to the new
+internal overload with `linkContext: null`, so the public API surface of
+`XmlDocReader` is completely unaffected by this feature (`GetExample` has no
+such overload — see its own entry above). This parameter is threaded,
+unchanged, down through the entire private rendering chain:
+`GetDocumentationText`/`GetSingleLineDocumentationText` →
+`AppendNodeText` (both overloads) → `AppendElementText`/`AppendListText` →
+`GetInlineReferenceText`, where it is finally consulted — only in the
+`<see>`/`<seealso>` dispatch branch, via the new private helper
+`TryLinkifyCref`.
+
+**`CrefLinkContext`** (`internal sealed record`, in `CrefLinkContext.cs`):
+Bundles everything `XmlDocReader` needs to resolve a `<see cref>`/`<seealso
+cref>` reference to a real relative Markdown link instead of its default
+code-span-only fallback. Fields: `CrefTargetResolver Targets` (resolves a raw
+`cref` identifier to the intra-assembly symbol it names); `TypeLinkResolver
+Resolver` (builds the actual Markdown link once a target has been resolved
+and confirmed to be emitted); `IReadOnlyDictionary<string, string>
+MemberPageIndex` (member XML-doc-ID → gradual-disclosure page key, consulted
+by `TypeLinkResolver.LinkifyResolvedMember`); `Func<TypeDefinition, bool>
+IsTypeEmitted` and `Func<IMemberDefinition, bool> IsMemberEmitted` (typically
+bound to the active `DotNetEmitter`'s own visibility rules, so visibility
+logic is never duplicated here); `string CurrentFolder` (folder path of the
+Markdown file currently being rendered, used to compute the relative link
+path). It deliberately carries only primitives, delegates, and
+`ApiMark.DotNet`-internal peer types (`TypeLinkResolver`,
+`CrefTargetResolver`) — never a `DotNetEmitter`/`DotNetAstModel` reference —
+so `XmlDocReader` does not take on a hard dependency on the emitter/model
+layer merely to support cref linking.
+
+**TryLinkifyCref** (private static): Attempts to resolve a `cref` string
+against `linkContext` and, on success, returns the already code-span-wrapped
+display text wrapped in a real Markdown link, with the code span as the
+link's label; otherwise returns the code-span text unchanged.
+
+- *Parameters*: `string cref` — the raw `cref` attribute value, including its
+  kind prefix; `string codeSpanText` — the already backtick-wrapped display
+  text (produced by `FormatAsInlineCodeSpan` from `FormatCref`'s result) to
+  use as the link label when linking; `CrefLinkContext? linkContext`.
+- *Algorithm*: Returns `codeSpanText` unchanged immediately when `linkContext`
+  is `null` (this is how single-file mode opts out of linking entirely —
+  `DotNetEmitterSingleFile` never constructs or passes a `CrefLinkContext`,
+  so every call site there always resolves this branch). Otherwise tries
+  `linkContext.Targets.TryResolveType` first; if it succeeds AND
+  `linkContext.IsTypeEmitted(type)` is `true`, returns
+  `linkContext.Resolver.LinkifyResolvedType(type, codeSpanText,
+  linkContext.CurrentFolder)`. Otherwise tries
+  `linkContext.Targets.TryResolveMember`; if it succeeds AND
+  `linkContext.IsMemberEmitted(member)` is `true`, returns
+  `linkContext.Resolver.LinkifyResolvedMember(member, codeSpanText,
+  linkContext.CurrentFolder, linkContext.MemberPageIndex)`. Falls back to
+  `codeSpanText` unchanged in every other case — external type, filtered-out
+  member, or malformed/unresolvable cref — identical to today's rendering.
+- *Call site*: `GetInlineReferenceText` has two call sites for
+  `TryLinkifyCref`, both only reached when a `cref` attribute is present:
+  - The explicit-label branch (element has its own display text) calls
+    `FormatCref` first purely to read its `ShouldWrapInCodeSpan`
+    classification (discarding the formatted text, since the explicit label
+    is always used), and only calls `TryLinkifyCref` — with that explicit
+    text, unwrapped, as the label — when it is `true`. A successful link
+    renders as `[the validator](path.md)`, preserving the author's chosen
+    wording rather than substituting the formatted `cref` text. A labeled
+    constructor cref (`ShouldWrapInCodeSpan: false`) is never linked,
+    matching the no-explicit-text branch's precedent below.
+  - The no-explicit-text branch calls `TryLinkifyCref` only when `FormatCref`
+    already reported `ShouldWrapInCodeSpan: true` (i.e. the exact same subset
+    of crefs that were already eligible for code-span wrapping before this
+    feature existed — constructor crefs are excluded by construction, since
+    they report `ShouldWrapInCodeSpan: false` and short-circuit before
+    `TryLinkifyCref` is ever called). The code span is built first via
+    `FormatAsInlineCodeSpan`, and that code-span string is then passed into
+    `TryLinkifyCref` as the link's label, so a successful link renders as
+    `` [`Type.Member`](path.md) `` — the code span nested inside the link's
+    label.
+  - In both cases, an unresolved cref falls back to the label unchanged
+    (plain explicit text, or `` `Type.Member` ``), exactly as it did before
+    this feature existed. The nesting is deliberately link-outside/code-span-
+    inside rather than the reverse: Markdown code-span content is rendered
+    literally, so a link placed inside a code span would show as inert
+    `[...](...)` text rather than a clickable link.
 
 ### Error Handling
 
@@ -520,6 +627,13 @@ degrades to `null`/empty identically to a purely local miss.
 - **System.Xml.Linq** — used to parse and navigate the XML documentation file.
 - **System.Xml.XPath** — used to evaluate the `path` XPath attribute in
   `<inheritdoc path="..." />` elements.
+- **CrefTargetResolver** / **TypeLinkResolver** — consulted (via
+  `CrefLinkContext`, an optional parameter) by `TryLinkifyCref` to resolve and
+  render `<see cref>`/`<seealso cref>` references as real Markdown links when
+  possible — see "Cross-reference linking (CrefLinkContext)" above. Both
+  dependencies are optional at the type level: `XmlDocReader` compiles and
+  behaves identically when every caller omits `linkContext` (passing
+  `null`), so these are not hard dependencies.
 
 ### Callers
 
@@ -528,9 +642,14 @@ degrades to `null`/empty identically to a purely local miss.
   `DotNetGeneratorOptions.ReferencePaths` is non-empty) an `ExternalXmlDocResolver`
   instance's `TryGetMember` method as the external member lookup delegate.
 - **DotNetEmitterGradualDisclosure** — calls all getter methods when writing
-  member detail pages.
+  member detail pages, passing a `CrefLinkContext` built from the ambient
+  `DotNetAstModel`'s `CrefTargets`/`MemberPageIndex`/`Resolver` and the
+  emitter's own visibility delegates, so resolvable intra-assembly crefs
+  render as real links.
 - **DotNetEmitterSingleFile** — calls getter methods when writing member
-  sections in the single-file output.
+  sections in the single-file output, never passing a `CrefLinkContext` (all
+  calls omit the parameter, defaulting it to `null`), so single-file output
+  remains code-span-only exactly as before this feature existed.
 
 ### External Interfaces
 

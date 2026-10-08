@@ -17,13 +17,20 @@ namespace ApiMark.DotNet;
 /// <param name="Type">Type definition whose pages are being generated.</param>
 /// <param name="XmlDocs">Documentation index for member-level lookups.</param>
 /// <param name="Resolver">Type link resolver for table cell generation.</param>
+/// <param name="LinkContext">
+///     Cross-reference resolution context for <c>&lt;see cref&gt;</c>/<c>&lt;seealso cref&gt;</c>
+///     linking, scoped to this type's own page folder (<see cref="NamespaceFolderPath"/>). Member
+///     pages living in a deeper folder derive their own context from this one via a
+///     <see langword="with"/> expression overriding <see cref="CrefLinkContext.CurrentFolder"/>.
+/// </param>
 internal sealed record TypePageWriteContext(
     IMarkdownWriterFactory Factory,
     string NamespaceName,
     string NamespaceFolderPath,
     TypeDefinition Type,
     XmlDocReader XmlDocs,
-    TypeLinkResolver Resolver);
+    TypeLinkResolver Resolver,
+    CrefLinkContext LinkContext);
 
 /// <summary>
 ///     Bundles the per-method documentation writing context passed to
@@ -35,28 +42,78 @@ internal sealed record TypePageWriteContext(
 /// <param name="Resolver">Type link resolver for table cell generation.</param>
 /// <param name="CurrentFolder">Folder path of the containing Markdown file, relative to the documentation output root.</param>
 /// <param name="ExternalTypes">Mutable accumulator for external type references found during table cell generation.</param>
+/// <param name="LinkContext">Cross-reference resolution context for <c>&lt;see cref&gt;</c>/<c>&lt;seealso cref&gt;</c> linking, scoped to <see cref="CurrentFolder"/>.</param>
 internal sealed record MethodDocContext(
     string NamespaceName,
     XmlDocReader XmlDocs,
     TypeLinkResolver Resolver,
     string CurrentFolder,
-    ISet<ExternalTypeInfo> ExternalTypes);
+    ISet<ExternalTypeInfo> ExternalTypes,
+    CrefLinkContext LinkContext);
 
 /// <summary>
 ///     Bundles the namespace-level documentation sourced from a NamespaceDoc carrier
-///     class, carrying the summary, remarks, and structured example parts so that all
-///     three surface on namespace output in the same way they do for types.
+///     class, identifying which carrier's summary, remarks, and example parts win (per
+///     the "first non-empty wins" rule) without pre-rendering their text, so callers can
+///     re-fetch the text on demand through an optional <see cref="CrefLinkContext"/> and
+///     get cross-reference linking in namespace prose the same way type pages do.
 /// </summary>
-/// <param name="Summary">Single-line namespace summary, or <c>null</c> when absent.</param>
-/// <param name="Remarks">Namespace remarks text, or <c>null</c> when absent.</param>
-/// <param name="ExampleParts">
-///     Structured example parts, each flagged as code or prose; empty when no
-///     <c>&lt;example&gt;</c> is present on the carrier.
+/// <param name="SummaryMemberId">
+///     XML-doc identifier of the carrier whose summary should be used, or <c>null</c>
+///     when no carrier has a non-empty summary.
+/// </param>
+/// <param name="RemarksMemberId">
+///     XML-doc identifier of the carrier whose remarks should be used, or <c>null</c>
+///     when no carrier has non-empty remarks.
+/// </param>
+/// <param name="ExampleMemberId">
+///     XML-doc identifier of the carrier whose example parts should be used, or
+///     <c>null</c> when no carrier has a non-empty <c>&lt;example&gt;</c>.
 /// </param>
 internal sealed record NamespaceDescription(
-    string? Summary,
-    string? Remarks,
-    IReadOnlyList<(bool IsCode, string Content)> ExampleParts);
+    string? SummaryMemberId,
+    string? RemarksMemberId,
+    string? ExampleMemberId)
+{
+    /// <summary>
+    ///     Fetches the namespace summary text, optionally resolving <c>&lt;see cref&gt;</c>
+    ///     references to Markdown links via <paramref name="linkContext"/>.
+    /// </summary>
+    /// <param name="xmlDocs">Documentation index to read the summary from.</param>
+    /// <param name="linkContext">
+    ///     Optional cross-reference linking context; <c>null</c> renders plain code-span
+    ///     text with no links, matching pre-cross-reference-linking behavior.
+    /// </param>
+    /// <returns>The summary text, or <c>null</c> when no carrier supplied one.</returns>
+    internal string? GetSummary(XmlDocReader xmlDocs, CrefLinkContext? linkContext = null) =>
+        SummaryMemberId is { } id ? xmlDocs.GetSummary(id, linkContext) : null;
+
+    /// <summary>
+    ///     Fetches the namespace remarks text, optionally resolving <c>&lt;see cref&gt;</c>
+    ///     references to Markdown links via <paramref name="linkContext"/>.
+    /// </summary>
+    /// <param name="xmlDocs">Documentation index to read the remarks from.</param>
+    /// <param name="linkContext">
+    ///     Optional cross-reference linking context; <c>null</c> renders plain code-span
+    ///     text with no links, matching pre-cross-reference-linking behavior.
+    /// </param>
+    /// <returns>The remarks text, or <c>null</c> when no carrier supplied any.</returns>
+    internal string? GetRemarks(XmlDocReader xmlDocs, CrefLinkContext? linkContext = null) =>
+        RemarksMemberId is { } id ? xmlDocs.GetRemarks(id, linkContext) : null;
+
+    /// <summary>
+    ///     Fetches the namespace's structured example parts, optionally resolving
+    ///     <c>&lt;see cref&gt;</c> references to Markdown links via <paramref name="linkContext"/>.
+    /// </summary>
+    /// <param name="xmlDocs">Documentation index to read the example parts from.</param>
+    /// <param name="linkContext">
+    ///     Optional cross-reference linking context; <c>null</c> renders plain code-span
+    ///     text with no links, matching pre-cross-reference-linking behavior.
+    /// </param>
+    /// <returns>The example parts, or empty when no carrier supplied an example.</returns>
+    internal IReadOnlyList<(bool IsCode, string Content)> GetExampleParts(XmlDocReader xmlDocs, CrefLinkContext? linkContext = null) =>
+        ExampleMemberId is { } id ? xmlDocs.GetExampleParts(id, linkContext) : [];
+}
 
 /// <summary>
 ///     Bundles the per-assembly namespace documentation context that is constant
@@ -129,6 +186,10 @@ internal sealed class DotNetAstModel
         NamespaceDescriptions = args.NamespaceDescriptions;
         Resolver = args.Resolver;
         Options = args.Options;
+
+        // Visibility-agnostic — needs only the assembly, so it can be built eagerly here rather
+        // than deferred to a post-construction step (unlike MemberPageIndex below).
+        CrefTargets = new CrefTargetResolver(args.Assembly);
     }
 
     /// <summary>Gets the assembly definition held open for the duration of emit.</summary>
@@ -160,4 +221,49 @@ internal sealed class DotNetAstModel
 
     /// <summary>Gets the generator configuration options.</summary>
     internal DotNetGeneratorOptions Options { get; }
+
+    /// <summary>
+    ///     Gets the <c>cref</c>-target resolution index for this assembly, used to resolve a raw
+    ///     <c>&lt;see cref&gt;</c>/<c>&lt;seealso cref&gt;</c> value to the type or member it
+    ///     names when that symbol is declared in this assembly.
+    /// </summary>
+    internal CrefTargetResolver CrefTargets { get; }
+
+    /// <summary>
+    ///     Gets the global member-to-page index used by <see cref="TypeLinkResolver.LinkifyResolvedMember"/>
+    ///     to resolve a member <c>cref</c> target to its gradual-disclosure page path. Empty until
+    ///     <see cref="SetMemberPageIndex"/> is called.
+    /// </summary>
+    /// <remarks>
+    ///     Unlike <see cref="CrefTargets"/>, this cannot be computed eagerly in the constructor:
+    ///     it depends on visibility rules that are instance methods on <see cref="DotNetEmitter"/>,
+    ///     which is constructed from this model (and therefore does not yet exist while this
+    ///     constructor runs). <c>DotNetGenerator.Parse</c> instead calls <see cref="SetMemberPageIndex"/>
+    ///     once, immediately after constructing the <see cref="DotNetEmitter"/> that owns this model.
+    /// </remarks>
+    internal IReadOnlyDictionary<string, string> MemberPageIndex { get; private set; } =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>
+    ///     Gets the set of XML-doc type identifiers (see <see cref="DotNetEmitter.BuildTypeId"/>)
+    ///     for every type that will actually be emitted as a page in gradual-disclosure mode
+    ///     (top-level visible types plus all of their visible nested types, transitively). Empty
+    ///     until <see cref="SetMemberPageIndex"/> is called.
+    /// </summary>
+    internal IReadOnlySet<string> EmittedTypeIds { get; private set; } = new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>
+    ///     Sets <see cref="MemberPageIndex"/> and <see cref="EmittedTypeIds"/>. Called exactly
+    ///     once, by <c>DotNetGenerator.Parse</c>, after the owning <see cref="DotNetEmitter"/> has
+    ///     been constructed.
+    /// </summary>
+    /// <param name="memberPageIndex">The computed member-to-page index.</param>
+    /// <param name="emittedTypeIds">The computed set of emitted type identifiers.</param>
+    internal void SetMemberPageIndex(
+        IReadOnlyDictionary<string, string> memberPageIndex,
+        IReadOnlySet<string> emittedTypeIds)
+    {
+        MemberPageIndex = memberPageIndex;
+        EmittedTypeIds = emittedTypeIds;
+    }
 }

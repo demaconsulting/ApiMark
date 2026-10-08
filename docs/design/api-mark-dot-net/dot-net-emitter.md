@@ -93,13 +93,20 @@ These helpers are grouped by concern:
   `SplitPath`: compute namespace folder paths and enumerate direct child namespaces.
 - *Visibility filters* — `IsTypeVisible`, `GetVisibleNestedTypes`, `IsMemberVisible`,
   `IsMemberPublic`, `IsMemberPublicOrProtected`, `IsPropertyPublicOrProtected`,
-  `GetVisibleMembers`, `ShouldIncludeMember`: determine which types and members are
-  included based on the configured visibility level and `IncludeObsolete` flag.
-  `GetVisibleNestedTypes` always excludes compiler-generated nested types (the
-  cached-lambda class, closures/display classes, async/iterator state machines,
-  etc.), even at `ApiVisibility.All`: they carry no source-level documentation,
-  and several of their names contain characters (`<`, `>`, `|`) that are invalid
-  in Windows file paths, which would otherwise break output generation.
+  `GetCandidateMembers`, `GetVisibleMembers`, `ShouldIncludeMember`: determine
+  which types and members are included based on the configured visibility level
+  and `IncludeObsolete` flag. `GetVisibleNestedTypes` always excludes
+  compiler-generated nested types (the cached-lambda class, closures/display
+  classes, async/iterator state machines, etc.), even at `ApiVisibility.All`:
+  they carry no source-level documentation, and several of their names contain
+  characters (`<`, `>`, `|`) that are invalid in Windows file paths, which would
+  otherwise break output generation. `GetCandidateMembers` returns the
+  structurally eligible superset of a type's methods, properties, fields, and
+  events — before any visibility/obsolete policy is applied — and is itself
+  consumed both by `GetVisibleMembers` (`GetVisibleMembers(type) =>
+  GetCandidateMembers(type).Where(ShouldIncludeMember)`) and directly by
+  `DotNetEmitterGradualDisclosure.BuildMemberPageIndex`, which needs the same
+  structural superset to build its cref-linking member-page index.
   `GetVisibleMembers` likewise excludes compiler-generated properties — most
   notably a record's synthesized `EqualityContract` property (used by the
   generated `Equals` to distinguish types in an inheritance hierarchy), which
@@ -155,7 +162,7 @@ These helpers are grouped by concern:
   constructor is never the compiler-synthesized one, regardless of how many (necessarily
   zero) sequence points it reports.
 - *ID and file-name builders* — `GetMemberDisplayName`, `BuildTypeId`, `BuildMemberId`,
-  `BuildMethodId`, `GetSanitizedMemberFileName`, `BuildMethodDisplayName`,
+  `BuildPropertyId`, `BuildMethodId`, `GetSanitizedMemberFileName`, `BuildMethodDisplayName`,
   `BuildMethodFileName`, `GetMethodGroupDisplayName`, `GetMethodGroupName`: produce
   the XML-doc member IDs, display names, and sanitized file-name segments used by
   both emitters.
@@ -247,18 +254,33 @@ portion of a property signature.
   the accessor's declared accessibility is strictly less permissive than the property's
   declared accessibility.
 
-**DotNetEmitter.ToXmlDocTypeName** (internal static): Converts a Mono.Cecil
-`TypeReference` full name to an XML documentation ID string suitable for member-key
-lookup in `XmlDocReader`.
+**DotNetEmitter.ToXmlDocTypeName** (internal static, two overloads): Converts a Mono.Cecil
+type reference to an XML documentation ID string suitable for member-key lookup in
+`XmlDocReader`.
 
-- *Parameters*: `string cecilFullName` — the Mono.Cecil `TypeReference.FullName` string.
-- *Returns*: `string` — the normalized XML-doc type name string.
-- *Algorithm*: Strips generic arity markers (backtick + digit(s)) from type names and
-  replaces square-bracket generic parameter notation (found in some Cecil full-name
-  representations) with XML-doc `{` / `}` type-parameter format; normalizes
-  nested-type separators from `/` (Cecil) to `.` (XML-doc format).
-- *Used by*: `BuildMethodId` when constructing the XML-doc member ID for method lookups
-  in `XmlDocReader`.
+- *`string cecilFullName` overload*: Purely textual. Strips generic arity markers
+  (backtick + digit(s)) from type names and replaces angle-bracket generic
+  instantiation notation (found in Cecil full-name representations) with XML-doc
+  `{` / `}` type-parameter format; normalizes nested-type separators from `/` (Cecil)
+  to `.` (XML-doc format); converts a trailing byref `&` to `@`. Retained for callers
+  (and tests) that only have a `TypeReference.FullName` string available, but cannot
+  correctly resolve a generic parameter (its `FullName` is just its source name, e.g.
+  `"T"`, which carries no positional information).
+- *`TypeReference typeRef` overload*: Operates on the live Cecil object graph.
+  Recognizes `ByReferenceType` (recurses into the element type, appends `@`),
+  `GenericParameter` (emits XML-doc positional notation — `` `N `` for a type's own
+  generic parameter at position `N`, `` ``N `` for a generic method's own parameter),
+  `GenericInstanceType` (recurses into each generic argument so a generic
+  parameter nested inside one, e.g. the `T` in `List<T>`, is also resolved
+  positionally), and `ArrayType` (recurses into the element type so a generic
+  parameter used as an array element, e.g. `T[]`, is also resolved positionally;
+  appends `[]` for a single-dimension array or `[0:,0:,...]`, one `0:` per
+  dimension, for a multi-dimensional array); falls back to the string overload for
+  the element type name itself and for any other type reference kind. Preferred
+  whenever the Cecil `TypeReference` is available (i.e. everywhere except the
+  dedicated unit test exercising the string overload directly).
+- *Used by*: `BuildMethodId`, `BuildPropertyId`, and `DotNetGenerator.BuildMethodIdFromReference`
+  when constructing XML-doc member IDs for method/property lookups in `XmlDocReader`.
 
 ### Error Handling
 
@@ -298,8 +320,10 @@ of success or failure — see the known single-use limitation noted under
   the XML-doc member ID for each NamespaceDoc carrier's summary lookup).
 - **DotNetEmitterGradualDisclosure** — holds a `_emitter` reference and calls
   shared static helpers (`BuildTypeSignature`, `GetNamespaceFolderPath`,
-  `GetMemberDisplayName`, `FlattenArity`, and others) throughout gradual-disclosure
-  emission.
+  `GetMemberDisplayName`, `FlattenArity`, `GetCandidateMembers`, and others)
+  throughout gradual-disclosure emission; `GetCandidateMembers` is called
+  directly by `BuildMemberPageIndex` to obtain the same structurally eligible
+  member superset used by `GetVisibleMembers`.
 - **DotNetEmitterSingleFile** — holds a `_emitter` reference and calls shared
   static helpers (`BuildTypeSignature`, `GetNamespaceFolderPath`,
   `GetMemberDisplayName`, and others) throughout single-file emission.
