@@ -80,7 +80,7 @@ assembly is needed.
 - `GetSummary` renders a `<see cref="F:...">` reference as `` `Type.Member` `` wrapped in an inline code span.
 - `GetSummary` renders a `<see cref="E:...">` reference as `` `Type.Member` `` wrapped in an inline code span.
 - `GetSummary` continues to render a `<see cref="M:...">` reference as `` `Type.Member` `` wrapped in an inline code span (regression guard; method crefs were unaffected by the P/F/E type-name fix, but are included in the new code-span-wrapping behavior).
-- A type-only (`T:`) cref and a constructor (`#ctor`) cref render their display text unwrapped (no inline code span), distinguishing them from member crefs.
+- A constructor (`#ctor`) cref renders its display text unwrapped (no inline code span). A type-only (`T:`) cref is wrapped in an inline code span the same as the `P`/`F`/`E`/`M` member crefs above (see "GetSummary wraps a plain type-only cref in a code span" in the Test Scenarios below).
 - `GetRemarks` renders a `<br/>` element as a paragraph break (a blank line) between the surrounding text.
 - `GetSummary` collapses a `<br/>` element to a single space, since a blank line has no meaning in a single-line context.
 - `GetRemarks` renders a single-line `<code>` element as an inline backtick code span.

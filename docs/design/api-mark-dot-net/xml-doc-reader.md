@@ -344,13 +344,14 @@ according to the following element-to-text mappings:
   type-kind prefix, strips the namespace path to leave just the type name, and replaces
   generic arity markers with angle-bracket type-parameter placeholders via
   `FormatTypeArity`, e.g. `List\`1` → `List<T>`,`Dictionary\`2` → `Dictionary<T1, T2>`).
-  When the cref refers to a type member (property, field, event, or non-constructor
-  method — see "Member-cref inline code span wrapping" below), the formatted text is
-  additionally wrapped in an inline Markdown code span, and in that case the generic
-  arity placeholder is rendered with raw, unescaped angle brackets (`List<T>`) rather
-  than the backslash-escaped prose form (`List\<T\>`), since a code span's content is
-  literal and the escaping backslash would otherwise show up as a stray visible
-  character — see "Generic cref escaping inside a code span" below.
+  Unless the cref is a constructor (`#ctor`), the formatted text is additionally
+  wrapped in an inline Markdown code span — this applies to type-only crefs as well
+  as crefs to a type member (property, field, event, or non-constructor method); see
+  "Member and type-only cref inline code span wrapping" below. In that case the
+  generic arity placeholder is rendered with raw, unescaped angle brackets
+  (`List<T>`) rather than the backslash-escaped prose form (`List\<T\>`), since a
+  code span's content is literal and the escaping backslash would otherwise show up
+  as a stray visible character — see "Generic cref escaping inside a code span" below.
 - `<see langword="..."/>` → the `langword` attribute value directly (e.g., `null`,
   `true`, `false`).
 - `<paramref name="..."/>` and `<typeparamref name="..."/>` → the `name` attribute
@@ -402,9 +403,9 @@ display string, returning a `(string Text, bool ShouldWrapInCodeSpan)` tuple.
   `FormatTypeName`) and for `M:`/`P:`/`F:`/`E:` crefs that are not
   constructors. This single
   boolean is the sole source of truth `GetInlineReferenceText` uses to decide
-  whether to wrap the returned text in an inline code span (see "Member-cref
-  inline code span wrapping" below) — no cref-kind parsing is duplicated at
-  the call site.
+  whether to wrap the returned text in an inline code span (see "Member and
+  type-only cref inline code span wrapping" below) — no cref-kind parsing is
+  duplicated at the call site.
 
 **FormatMemberReference** (private): Formats a `<see cref>` reference whose
 kind indicates a type member (`M:`, `P:`, `F:`, or `E:`) as `Type.Member` text,
@@ -506,9 +507,9 @@ result. Returns `string.Empty` for whitespace-only input so existing
 
 **FormatAsInlineCodeSpan** (private static): Wraps already-formatted display
 text in an inline Markdown code span via `AppendMarkdownCodeSpan`. Used by
-`GetInlineReferenceText` to visually distinguish a member-cref's rendered
-`Type.Member` text from surrounding prose — see "Member-cref inline code span
-wrapping" below.
+`GetInlineReferenceText` to visually distinguish a type- or member-cref's
+rendered text from surrounding prose — see "Member and type-only cref inline
+code span wrapping" below.
 
 #### Cross-reference linking (`CrefLinkContext`)
 
