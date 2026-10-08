@@ -1040,38 +1040,61 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
     /// <summary>
     ///     Builds an XML doc method identifier string from a <see cref="MethodReference"/>.
     /// </summary>
+    /// <remarks>
+    ///     Widened from <see langword="private"/> to <see langword="internal"/> so that
+    ///     unit tests (same assembly, via <c>InternalsVisibleTo</c>) can directly verify the
+    ///     generated ID matches <see cref="DotNetEmitter.BuildMemberId"/>'s own output for the
+    ///     same method. This does not change the public API surface of
+    ///     <see cref="DotNetGenerator"/>.
+    /// </remarks>
     /// <param name="methodRef">The method reference to convert.</param>
     /// <returns>The XML doc member identifier (e.g. <c>M:Namespace.Type.Method(ParamType)</c>).</returns>
-    private static string BuildMethodIdFromReference(MethodReference methodRef)
+    internal static string BuildMethodIdFromReference(MethodReference methodRef)
     {
         var typeName = methodRef.DeclaringType.FullName.Replace('/', '.');
 
         // XML doc format uses #ctor for constructors; IL metadata uses .ctor
         var methodName = string.Equals(methodRef.Name, ".ctor", StringComparison.Ordinal) ? "#ctor" : methodRef.Name;
 
+        // Mirrors DotNetEmitter.BuildMethodId's generic arity suffix: an explicit-override
+        // target ID must match the overridden generic method's own ID exactly, or the
+        // inheritdoc-chain lookup will silently fail to find it.
+        var genericArity = methodRef.HasGenericParameters ? $"``{methodRef.GenericParameters.Count}" : string.Empty;
+
         if (!methodRef.HasParameters)
         {
-            return $"M:{typeName}.{methodName}";
+            return $"M:{typeName}.{methodName}{genericArity}";
         }
 
-        var paramList = string.Join(",", methodRef.Parameters.Select(p => DotNetEmitter.ToXmlDocTypeName(p.ParameterType.FullName)));
+        var paramList = string.Join(",", methodRef.Parameters.Select(p => DotNetEmitter.ToXmlDocTypeName(p.ParameterType)));
 
         if (methodRef.Name is "op_Implicit" or "op_Explicit")
         {
-            return $"M:{typeName}.{methodName}({paramList})~{DotNetEmitter.ToXmlDocTypeName(methodRef.ReturnType.FullName)}";
+            return $"M:{typeName}.{methodName}{genericArity}({paramList})~{DotNetEmitter.ToXmlDocTypeName(methodRef.ReturnType)}";
         }
 
-        return $"M:{typeName}.{methodName}({paramList})";
+        return $"M:{typeName}.{methodName}{genericArity}({paramList})";
     }
 
     /// <summary>
-    ///     Maps an accessor method reference (getter or setter) to its owning property's XML doc ID.
-    ///     Returns <c>null</c> when the accessor name does not start with <paramref name="prefix"/>.
+    ///     Maps an accessor method reference (getter or setter) to its owning property's XML doc ID,
+    ///     including an indexer's own parameter type list when present. Returns <c>null</c> when
+    ///     the accessor name does not start with <paramref name="prefix"/>.
     /// </summary>
+    /// <remarks>
+    ///     A setter accessor's parameter list is the indexer's own index parameters followed by
+    ///     the assigned <c>value</c> parameter; the trailing <c>value</c> parameter is excluded
+    ///     since it is not part of the property's own XML doc ID.
+    ///     Widened from <see langword="private"/> to <see langword="internal"/> so that unit tests
+    ///     (same assembly, via <c>InternalsVisibleTo</c>) can directly verify the indexer
+    ///     parameter-list handling for explicit accessor overrides, without depending on the full
+    ///     generator pipeline. This does not change the public API surface of
+    ///     <see cref="DotNetGenerator"/>.
+    /// </remarks>
     /// <param name="accessorRef">The accessor method reference.</param>
     /// <param name="prefix">The accessor prefix to strip (<c>get_</c> or <c>set_</c>).</param>
     /// <returns>The property XML doc ID, or <c>null</c>.</returns>
-    private static string? MapAccessorReferenceToPropertyId(MethodReference accessorRef, string prefix)
+    internal static string? MapAccessorReferenceToPropertyId(MethodReference accessorRef, string prefix)
     {
         if (!accessorRef.Name.StartsWith(prefix, StringComparison.Ordinal))
         {
@@ -1080,7 +1103,19 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
 
         var propertyName = accessorRef.Name[prefix.Length..];
         var typeName = accessorRef.DeclaringType.FullName.Replace('/', '.');
-        return $"P:{typeName}.{propertyName}";
+
+        var isSetter = string.Equals(prefix, "set_", StringComparison.Ordinal);
+        var indexParameters = isSetter
+            ? accessorRef.Parameters.Take(accessorRef.Parameters.Count - 1)
+            : accessorRef.Parameters;
+
+        if (!indexParameters.Any())
+        {
+            return $"P:{typeName}.{propertyName}";
+        }
+
+        var paramList = string.Join(",", indexParameters.Select(p => DotNetEmitter.ToXmlDocTypeName(p.ParameterType)));
+        return $"P:{typeName}.{propertyName}({paramList})";
     }
 
     /// <summary>

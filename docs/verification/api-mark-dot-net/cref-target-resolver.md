@@ -31,6 +31,8 @@ or writable output location is needed.
 - An unknown member identifier returns `false` from `TryResolveMember`.
 - A malformed cref string returns `false` from `TryResolveType`.
 - A field's XML-doc identifier resolves via `TryResolveMember`.
+- An indexer's XML-doc identifier includes its index parameter type list and resolves via `TryResolveMember`.
+- A generic method's own type parameter used as an array element type (e.g. `T[]`) resolves to XML-doc positional notation, not the raw source name.
 
 ### Test Scenarios
 
@@ -89,6 +91,24 @@ field, confirming that all four member kinds (`Methods`/`Properties`/
 **Generic method identifier includes arity and resolves the correct
 overload**: Verifies that a generic method's XML-doc member identifier
 carries the `` `N`` arity suffix distinguishing it from a non-generic
-overload sharing the same name, and that each identifier resolves to its own
-distinct method (not the other overload). This scenario is tested by
+overload sharing the same name, that the method's own generic parameter
+within its parameter list is encoded using XML-doc positional notation
+(`` ``0``) rather than its raw Cecil source name, and that each identifier
+resolves to its own distinct method (not the other overload). This scenario
+is tested by
 `CrefTargetResolver_TryResolveMember_GenericMethod_IncludesArityAndResolvesCorrectOverload`.
+
+**Indexer identifier includes parameter list and resolves**: Verifies that an
+indexer's XML-doc member identifier includes its index parameter type list
+(e.g. `P:Type.Item(System.Int32)`), matching the real compiler-emitted XML
+doc ID, and resolves back to the indexer's `PropertyDefinition` via
+`TryResolveMember`. This scenario is tested by
+`CrefTargetResolver_TryResolveMember_Indexer_IncludesParameterListAndResolves`.
+
+**Generic method with array parameter resolves positional notation**:
+Verifies that a generic method's own type parameter used as an array element
+type (e.g. `T[]`) is encoded as `` ``0[]`` — recursing into the array element
+type rather than falling back to the raw Cecil source name `T[]` — matching
+real compiler-emitted XML doc IDs, and resolves back to the method via
+`TryResolveMember`. This scenario is tested by
+`CrefTargetResolver_TryResolveMember_GenericMethodWithArrayParameter_ResolvesPositionalNotation`.

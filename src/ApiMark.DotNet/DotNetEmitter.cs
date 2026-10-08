@@ -500,6 +500,11 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns>The XML doc parameter type encoding.</returns>
     internal static string ToXmlDocTypeName(string cecilFullName)
     {
+        // Preserved as a pure-string overload for callers (and tests) that only have a
+        // FullName available. Prefer ToXmlDocTypeName(TypeReference) when the Cecil object
+        // is available: it correctly resolves generic parameters to their positional XML
+        // doc notation (`0, ``0), which cannot be recovered from FullName alone (it is just
+        // the source parameter name, e.g. "T").
         var isByRef = cecilFullName.EndsWith('&');
         var name = isByRef ? cecilFullName[..^1] : cecilFullName;
 
@@ -546,17 +551,90 @@ internal sealed class DotNetEmitter : IApiEmitter
         return sb.ToString();
     }
 
+    /// <summary>
+    ///     Converts a Mono.Cecil <see cref="TypeReference"/> to the XML doc member ID encoding.
+    /// </summary>
+    /// <remarks>
+    ///     Unlike the <see cref="ToXmlDocTypeName(string)"/> string overload, this overload
+    ///     operates on the live Cecil object graph so it can correctly resolve generic
+    ///     parameters (e.g. a method's own <c>T</c> parameter, or <c>T</c> nested inside a
+    ///     generic instantiation such as <c>List&lt;T&gt;</c>) to their XML doc positional
+    ///     notation — <c>`N</c> for a type's own generic parameter at position <c>N</c>, and
+    ///     <c>``N</c> for a generic method's own parameter at position <c>N</c>. A generic
+    ///     parameter's <see cref="TypeReference.FullName"/> is just its source name (e.g. "T"),
+    ///     which carries no positional information, so this cannot be done from a string alone.
+    /// </remarks>
+    /// <param name="typeRef">The Cecil type reference to convert.</param>
+    /// <returns>The XML doc parameter type encoding.</returns>
+    internal static string ToXmlDocTypeName(TypeReference typeRef)
+    {
+        switch (typeRef)
+        {
+            // Byref (ref/out/in parameters): recurse on the element type, then append the
+            // trailing XML doc byref marker (only ever the outermost modifier)
+            case ByReferenceType byReferenceType:
+                return $"{ToXmlDocTypeName(byReferenceType.ElementType)}@";
+
+            // Generic parameter: XML doc IDs identify these positionally rather than by name,
+            // since the source name is not necessarily unique/stable across assemblies
+            case GenericParameter genericParameter:
+                var prefix = genericParameter.DeclaringMethod != null ? "``" : "`";
+                return $"{prefix}{genericParameter.Position}";
+
+            // Generic instantiation (e.g. List<T>, IReadOnlyDictionary<TKey, TValue>): recurse
+            // into each type argument so a generic parameter nested inside one is also resolved
+            // positionally, then fall back to the string-based conversion for the element type
+            // name itself (handles arity-backtick stripping and nested-type separators)
+            case GenericInstanceType genericInstanceType:
+                var args = string.Join(",", genericInstanceType.GenericArguments.Select(ToXmlDocTypeName));
+                return $"{ToXmlDocTypeName(genericInstanceType.ElementType.FullName)}{{{args}}}";
+
+            // Array: recurse into the element type so a generic parameter used as an array
+            // element (e.g. T[] in a method of a generic type, or an array nested inside a
+            // generic instantiation such as List<T[]>) is also resolved positionally. XML doc
+            // IDs encode a single-dimension array as a bare "[]" suffix, and a multi-dimensional
+            // array as "[0:,0:,...]" — one "0:" per dimension.
+            case ArrayType arrayType:
+                var dimensions = arrayType.Rank == 1
+                    ? string.Empty
+                    : string.Join(",", Enumerable.Repeat("0:", arrayType.Rank));
+                return $"{ToXmlDocTypeName(arrayType.ElementType)}[{dimensions}]";
+
+            default:
+                return ToXmlDocTypeName(typeRef.FullName);
+        }
+    }
+
     /// <summary>Builds the XML doc member identifier for an arbitrary member.</summary>
     /// <param name="member">The member definition.</param>
     /// <returns>The XML doc member identifier string.</returns>
     internal static string BuildMemberId(IMemberDefinition member) => member switch
     {
         MethodDefinition m => BuildMethodId(m),
-        PropertyDefinition p => $"P:{p.DeclaringType.FullName.Replace('/', '.')}.{p.Name}",
+        PropertyDefinition p => BuildPropertyId(p),
         FieldDefinition f => $"F:{f.DeclaringType.FullName.Replace('/', '.')}.{f.Name}",
         EventDefinition e => $"E:{e.DeclaringType.FullName.Replace('/', '.')}.{e.Name}",
         _ => string.Empty,
     };
+
+    /// <summary>
+    ///     Builds the XML doc member identifier for a property, including an indexer's
+    ///     parameter type list when present (e.g. <c>P:Namespace.Type.Item(System.Int32)</c>).
+    /// </summary>
+    /// <param name="property">The property definition.</param>
+    /// <returns>The XML doc member identifier string.</returns>
+    private static string BuildPropertyId(PropertyDefinition property)
+    {
+        var typeName = property.DeclaringType.FullName.Replace('/', '.');
+
+        if (!property.HasParameters)
+        {
+            return $"P:{typeName}.{property.Name}";
+        }
+
+        var paramList = string.Join(",", property.Parameters.Select(p => ToXmlDocTypeName(p.ParameterType)));
+        return $"P:{typeName}.{property.Name}({paramList})";
+    }
 
     /// <summary>Builds the XML doc member identifier for a method, including parameter type list when present.</summary>
     /// <param name="method">The method definition.</param>
@@ -583,8 +661,11 @@ internal sealed class DotNetEmitter : IApiEmitter
         // Normalize nested-type separators: Cecil uses '/' in FullName (e.g. Outer/Inner)
         // but XML doc IDs always use '.' (e.g. Outer.Inner). Generic instantiations use
         // angle brackets in Cecil (e.g. IEnumerable`1<T>) but curly braces in XML doc IDs
-        // (e.g. IEnumerable{T}) — ToXmlDocTypeName handles both transformations.
-        var paramList = string.Join(",", method.Parameters.Select(p => ToXmlDocTypeName(p.ParameterType.FullName)));
+        // (e.g. IEnumerable{T}) — ToXmlDocTypeName handles both transformations. The
+        // TypeReference overload is used (rather than the FullName string) so that a
+        // parameter referencing the method's own generic parameter (e.g. T in a param of
+        // T Identity(T value)) resolves to its XML doc positional notation (``0).
+        var paramList = string.Join(",", method.Parameters.Select(p => ToXmlDocTypeName(p.ParameterType)));
 
         // Conversion operators carry a ~ReturnType suffix in the XML doc member ID
         // (e.g. M:Type.op_Implicit(SourceType)~TargetType) that distinguishes overloads
@@ -593,7 +674,7 @@ internal sealed class DotNetEmitter : IApiEmitter
         {
             // Normalize nested-type separators: Cecil uses '/' in FullName (e.g. OuterClass/Inner)
             // but XML doc IDs always use '.' (e.g. OuterClass.Inner)
-            return $"M:{typeName}.{methodName}{genericArity}({paramList})~{ToXmlDocTypeName(method.ReturnType.FullName)}";
+            return $"M:{typeName}.{methodName}{genericArity}({paramList})~{ToXmlDocTypeName(method.ReturnType)}";
         }
 
         return $"M:{typeName}.{methodName}{genericArity}({paramList})";

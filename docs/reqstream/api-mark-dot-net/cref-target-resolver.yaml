@@ -25,6 +25,8 @@ sections:
               - CrefTargetResolver_TryResolveMember_Method_ReturnsTrueAndMember
               - CrefTargetResolver_TryResolveMember_Field_ReturnsTrueAndMember
               - CrefTargetResolver_TryResolveMember_GenericMethod_IncludesArityAndResolvesCorrectOverload
+              - CrefTargetResolver_TryResolveMember_Indexer_IncludesParameterListAndResolves
+              - CrefTargetResolver_TryResolveMember_GenericMethodWithArrayParameter_ResolvesPositionalNotation
           - id: ApiMarkDotNet-CrefTargetResolver-ResolveWithoutVisibilityFiltering
             title: CrefTargetResolver shall resolve cref identifiers purely by symbol
               existence in the assembly, applying no visibility, obsolete, or

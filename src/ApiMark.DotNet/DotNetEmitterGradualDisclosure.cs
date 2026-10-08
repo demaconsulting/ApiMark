@@ -359,39 +359,43 @@ internal sealed class DotNetEmitterGradualDisclosure
         // Delegates carry all their useful information in the declaration signature —
         // the compiler-injected Invoke/BeginInvoke/EndInvoke methods and the synthetic
         // (object, IntPtr) constructor are implementation noise that should never appear
-        // in public API docs, analogous to how enum backing fields are suppressed.
-        if (IsDelegate(ctx.Type))
+        // in public API docs, analogous to how enum backing fields are suppressed. A C#
+        // delegate declaration cannot itself contain nested types, but nothing prevents an
+        // assembly from a non-C# compiler from attaching nested types to a delegate-derived
+        // type at the IL level, and DotNetGenerator.CollectTypeCrefLinkIndex indexes any
+        // visible nested type unconditionally, so the Nested Types section below must still
+        // run even here to avoid a dangling cref link.
+        if (!IsDelegate(ctx.Type))
         {
-            return;
-        }
-
-        var (members, operatorMethods) = CollectTypePageMembers(ctx.Type);
-        if (members.Count > 0 || operatorMethods.Count > 0)
-        {
-            var buckets = new MemberRowBuckets();
-            ProcessTypeMembers(ctx, members, buckets);
-
-            // Emit grouped sub-tables in the canonical order: Constructors, Properties, Methods, Fields, Events.
-            // Each section is only emitted when at least one member of that kind is present.
-            WriteMemberRowSections(typeWriter, buckets);
-
-            // Emit Operators section when the type has operator overloads — all operators share
-            // a single page to prevent file-name collisions between op_Addition, op_Subtraction, etc.
-            if (operatorMethods.Count > 0)
+            var (members, operatorMethods) = CollectTypePageMembers(ctx.Type);
+            if (members.Count > 0 || operatorMethods.Count > 0)
             {
-                WriteTypeOperatorsSection(typeWriter, ctx, operatorMethods);
-            }
+                var buckets = new MemberRowBuckets();
+                ProcessTypeMembers(ctx, members, buckets);
 
-            // Emit the External Types section when any non-standard external types were referenced
-            WriteExternalTypesSection(typeWriter, buckets.ExternalTypes);
+                // Emit grouped sub-tables in the canonical order: Constructors, Properties, Methods, Fields, Events.
+                // Each section is only emitted when at least one member of that kind is present.
+                WriteMemberRowSections(typeWriter, buckets);
+
+                // Emit Operators section when the type has operator overloads — all operators share
+                // a single page to prevent file-name collisions between op_Addition, op_Subtraction, etc.
+                if (operatorMethods.Count > 0)
+                {
+                    WriteTypeOperatorsSection(typeWriter, ctx, operatorMethods);
+                }
+
+                // Emit the External Types section when any non-standard external types were referenced
+                WriteExternalTypesSection(typeWriter, buckets.ExternalTypes);
+            }
         }
 
         // Emit Nested Types section when the type has visible nested types — each nested type
         // receives a dedicated page under the containing type's folder so the documentation
         // hierarchy mirrors the C# type hierarchy. This runs even when the containing type has
-        // no own members/operators, since a type can be a pure namespace-like container for
-        // nested types; the cref-link index (DotNetGenerator.CollectTypeCrefLinkIndex) recurses
-        // into nested types unconditionally and must match this to avoid dangling cref links.
+        // no own members/operators (including delegates), since a type can be a pure
+        // namespace-like container for nested types; the cref-link index
+        // (DotNetGenerator.CollectTypeCrefLinkIndex) recurses into nested types unconditionally
+        // and must match this to avoid dangling cref links.
         WriteNestedTypesSection(typeWriter, ctx);
     }
 

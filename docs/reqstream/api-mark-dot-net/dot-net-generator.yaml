@@ -150,6 +150,9 @@ sections:
             tests:
               - DotNetGenerator_Generate_SampleImplementationNameMemberPage_UsesInheritedSummary
               - DotNetGenerator_Generate_SampleImplementationExecuteMemberPage_UsesInheritedSummaryAndParamDescription
+              - DotNetGenerator_BuildMethodIdFromReference_ExplicitGenericInterfaceOverride_MatchesInterfaceMethodId
+              - DotNetGenerator_MapAccessorReferenceToPropertyId_ExplicitIndexerGetterOverride_IncludesIndexParameter
+              - DotNetGenerator_MapAccessorReferenceToPropertyId_ExplicitIndexerSetterOverride_ExcludesValueParameter
           - id: ApiMarkDotNet-DotNetGenerator-ResolveInheritdocAcrossReferencedAssemblies
             title: DotNetGenerator shall resolve `<inheritdoc />` elements that target
               base types, interfaces, or members defined in externally referenced

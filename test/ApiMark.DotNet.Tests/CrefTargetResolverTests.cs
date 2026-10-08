@@ -194,6 +194,11 @@ public class CrefTargetResolverTests : IDisposable
         Assert.Contains("``1", genericCrefId);
         Assert.NotEqual(genericCrefId, nonGenericCrefId);
 
+        // Assert: the method's own generic parameter in its parameter list is encoded using
+        // XML doc positional notation (``0), matching what a real compiler-generated XML doc
+        // file would contain — not the raw Cecil source name ("T")
+        Assert.Equal("M:ApiMark.DotNet.Fixtures.CrefLinkingClass.Identity``1(``0)", genericCrefId);
+
         // Act
         var resolvedGeneric = _resolver.TryResolveMember(genericCrefId, out var resolvedGenericMember);
         var resolvedNonGeneric = _resolver.TryResolveMember(nonGenericCrefId, out var resolvedNonGenericMember);
@@ -203,5 +208,54 @@ public class CrefTargetResolverTests : IDisposable
         Assert.Same(genericMethod, resolvedGenericMember);
         Assert.True(resolvedNonGeneric);
         Assert.Same(nonGenericMethod, resolvedNonGenericMember);
+    }
+
+    /// <summary>
+    ///     Validates that an indexer's XML-doc member identifier includes its index parameter
+    ///     type list (e.g. <c>P:Type.Item(System.Int32)</c>), matching the real compiler-emitted
+    ///     XML doc ID, and resolves back to the indexer's <see cref="PropertyDefinition"/>.
+    /// </summary>
+    [Fact]
+    public void CrefTargetResolver_TryResolveMember_Indexer_IncludesParameterListAndResolves()
+    {
+        // Arrange
+        var type = _assembly.MainModule.Types.First(t => t.Name == "CrefLinkingClass");
+        var indexer = type.Properties.First(p => p.Name == "Item");
+        var crefId = DotNetEmitter.BuildMemberId(indexer);
+
+        // Assert: the ID carries the index parameter type list
+        Assert.Equal("P:ApiMark.DotNet.Fixtures.CrefLinkingClass.Item(System.Int32)", crefId);
+
+        // Act
+        var resolved = _resolver.TryResolveMember(crefId, out var resolvedMember);
+
+        // Assert
+        Assert.True(resolved);
+        Assert.Same(indexer, resolvedMember);
+    }
+
+    /// <summary>
+    ///     Validates that a generic method's own type parameter used as an array element type
+    ///     (e.g. <c>T[]</c>) is resolved to XML doc positional notation (<c>``0</c>), not the
+    ///     raw Cecil source name, matching real compiler-emitted XML doc IDs.
+    /// </summary>
+    [Fact]
+    public void CrefTargetResolver_TryResolveMember_GenericMethodWithArrayParameter_ResolvesPositionalNotation()
+    {
+        // Arrange
+        var type = _assembly.MainModule.Types.First(t => t.Name == "CrefLinkingClass");
+        var method = type.Methods.First(m => m.Name == "IdentityArray");
+        var crefId = DotNetEmitter.BuildMemberId(method);
+
+        // Assert: both the array-element parameter and the array-element return type resolve
+        // positionally, not to the literal source name "T"
+        Assert.Equal("M:ApiMark.DotNet.Fixtures.CrefLinkingClass.IdentityArray``1(``0[])", crefId);
+
+        // Act
+        var resolved = _resolver.TryResolveMember(crefId, out var resolvedMember);
+
+        // Assert
+        Assert.True(resolved);
+        Assert.Same(method, resolvedMember);
     }
 }

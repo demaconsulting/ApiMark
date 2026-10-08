@@ -73,6 +73,10 @@ network dependency, or privileged configuration is needed.
   page for.
 - Every relative Markdown link produced by gradual-disclosure emission (including cref-based
   links) resolves to a page that was actually written.
+- An explicit interface implementation of an indexer resolves its index parameter type list
+  via `MapAccessorReferenceToPropertyId`, excluding the setter's trailing `value` parameter.
+- `BuildMethodIdFromReference` produces the same `` ``N`` generic-arity suffix as
+  `DotNetEmitter.BuildMemberId` for an explicit interface implementation of a generic method.
 
 ### Test Scenarios
 
@@ -352,3 +356,26 @@ path that a writer actually wrote, confirming `BuildMemberPageIndex`'s grouping
 decisions (overload grouping, operator grouping, case-collision grouping) exactly match
 `WriteMembersSection`'s real output with no drift between the two. This scenario is
 tested by `DotNetGenerator_Generate_GradualDisclosure_EveryGeneratedLinkResolvesToExistingPage`.
+
+**Explicit indexer getter override maps to the interface property ID with its index
+parameter**: Verifies that `MapAccessorReferenceToPropertyId` maps an explicit indexer
+getter's override reference to the interface property's XML doc ID, including the index
+parameter type list (e.g. `P:Namespace.IIndexerSource.Item(System.Int32)`), so an
+explicit indexer implementation's inheritance target resolves to the same identifier the
+interface property's own XML documentation uses. This scenario is tested by
+`DotNetGenerator_MapAccessorReferenceToPropertyId_ExplicitIndexerGetterOverride_IncludesIndexParameter`.
+
+**Explicit indexer setter override excludes the trailing value parameter**: Verifies that
+`MapAccessorReferenceToPropertyId` maps an explicit indexer setter's override reference to
+the same interface property ID as the getter, excluding the setter's own trailing `value`
+parameter from the index parameter type list. This scenario is tested by
+`DotNetGenerator_MapAccessorReferenceToPropertyId_ExplicitIndexerSetterOverride_ExcludesValueParameter`.
+
+**Explicit generic interface override ID matches interface method ID**:
+Verifies that `DotNetGenerator.BuildMethodIdFromReference` (used to resolve
+an explicit-interface-override's inheritance target) produces an identifier
+identical to `DotNetEmitter.BuildMemberId` applied to the interface method's
+own `MethodDefinition` — including the `` ``N`` generic-arity suffix — so an
+explicit override of a generic interface method correctly inherits its
+documentation. This scenario is tested by
+`DotNetGenerator_BuildMethodIdFromReference_ExplicitGenericInterfaceOverride_MatchesInterfaceMethodId`.

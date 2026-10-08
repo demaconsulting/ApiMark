@@ -1,6 +1,7 @@
 using ApiMark.Core;
 using ApiMark.Core.TestHelpers;
 using ApiMark.DotNet;
+using Mono.Cecil;
 using Xunit;
 
 namespace ApiMark.DotNet.Tests;
@@ -2712,6 +2713,75 @@ public class DotNetGeneratorTests
         }
 
         return string.Join('/', stack);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.MapAccessorReferenceToPropertyId"/> maps an
+    ///     explicit indexer getter override reference to the interface property's XML doc ID,
+    ///     including the index parameter type list.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_MapAccessorReferenceToPropertyId_ExplicitIndexerGetterOverride_IncludesIndexParameter()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var implType = assembly.MainModule.Types.First(t => t.Name == "ExplicitIndexerClass");
+        var property = implType.Properties.Single();
+        var overrideRef = property.GetMethod!.Overrides.Single();
+
+        // Act
+        var propertyId = DotNetGenerator.MapAccessorReferenceToPropertyId(overrideRef, "get_");
+
+        // Assert
+        Assert.Equal("P:ApiMark.DotNet.Fixtures.IIndexerSource.Item(System.Int32)", propertyId);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.MapAccessorReferenceToPropertyId"/> maps an
+    ///     explicit indexer setter override reference to the interface property's XML doc ID,
+    ///     including the index parameter type list but excluding the trailing <c>value</c> parameter.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_MapAccessorReferenceToPropertyId_ExplicitIndexerSetterOverride_ExcludesValueParameter()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var implType = assembly.MainModule.Types.First(t => t.Name == "ExplicitIndexerClass");
+        var property = implType.Properties.Single();
+        var overrideRef = property.SetMethod!.Overrides.Single();
+
+        // Act
+        var propertyId = DotNetGenerator.MapAccessorReferenceToPropertyId(overrideRef, "set_");
+
+        // Assert: the trailing "value" parameter is excluded; only the index parameter remains
+        Assert.Equal("P:ApiMark.DotNet.Fixtures.IIndexerSource.Item(System.Int32)", propertyId);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetGenerator.BuildMethodIdFromReference"/> (used to resolve
+    ///     explicit-interface-override targets) produces the same <c>``N</c> generic-arity suffix
+    ///     as <see cref="DotNetEmitter.BuildMemberId"/> (used to build the interface method's own
+    ///     ID), so an explicit override of a generic interface method correctly links to it.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_BuildMethodIdFromReference_ExplicitGenericInterfaceOverride_MatchesInterfaceMethodId()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var implType = assembly.MainModule.Types.First(t => t.Name == "GenericOverrideClass");
+        var ifaceType = assembly.MainModule.Types.First(t => t.Name == "IGenericOverrideSource");
+        var overrideMethod = implType.Methods.First(m => m.Overrides.Count > 0);
+        var overrideRef = overrideMethod.Overrides.Single();
+        var ifaceMethod = ifaceType.Methods.Single(m => m.Name == "Wrap");
+
+        // Act
+        var targetIdFromOverrideReference = DotNetGenerator.BuildMethodIdFromReference(overrideRef);
+        var ifaceMethodId = DotNetEmitter.BuildMemberId(ifaceMethod);
+
+        // Assert: both builders must produce the identical ID, including the ``1 arity suffix,
+        // for the explicit override to resolve against the interface method's documentation
+        Assert.Equal(ifaceMethodId, targetIdFromOverrideReference);
+        Assert.Contains("``1", targetIdFromOverrideReference);
     }
 }
 

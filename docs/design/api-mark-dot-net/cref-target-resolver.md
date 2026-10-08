@@ -96,9 +96,12 @@ for crefs that cannot be linked.
 
 - **Mono.Cecil** — CrefTargetResolver walks `AssemblyDefinition`,
   `ModuleDefinition.GetTypes()`, `TypeDefinition`, and `IMemberDefinition`.
-- **DotNetEmitter.BuildTypeId** / **DotNetEmitter.BuildMemberId** — reused,
-  unmodified, to compute index keys; no XML-doc-ID formatting logic is
-  duplicated.
+- **DotNetEmitter.BuildTypeId** / **DotNetEmitter.BuildMemberId** — reused
+  as-is to compute index keys; CrefTargetResolver never duplicates any of
+  their XML-doc-ID formatting logic, so any future change to how those
+  builders encode an ID (e.g. the indexer parameter-list and generic
+  positional-notation fixes) is automatically reflected here without any
+  change to this unit.
 
 ### Callers
 

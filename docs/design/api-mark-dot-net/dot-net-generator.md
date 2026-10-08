@@ -339,9 +339,13 @@ lookups.
     `CollectPropertyInheritanceTargets`, and `CollectEventInheritanceTargets`, which also
     populate `assemblyHints` for each candidate target via `GetAssemblyNameFromScope`.
   - Method targets are resolved using `FindMatchingMethodDefinition` (matches by parameter
-    count and type name) and `BuildMethodIdFromReference` (reconstructs the XML-doc ID).
-  - Property accessor→property mapping uses `MapAccessorReferenceToPropertyId`; event
-    accessor→event mapping uses `MapAccessorReferenceToEventId`.
+    count and type name) and `BuildMethodIdFromReference` (reconstructs the XML-doc ID,
+    including the method's own `` ``N `` generic-arity suffix, mirroring
+    `DotNetEmitter.BuildMethodId`, so a generic method's explicit-override target ID
+    matches its own XML-doc ID exactly).
+  - Property accessor→property mapping uses `MapAccessorReferenceToPropertyId` (includes
+    an indexer's own index parameter type list, excluding the setter's trailing `value`
+    parameter); event accessor→event mapping uses `MapAccessorReferenceToEventId`.
   - The ordering rule places the direct base-class override first, followed by each
     explicit or implicit interface target in declaration order.
 - *Known limitation*: Complex generic signatures may not always map perfectly to XML-doc

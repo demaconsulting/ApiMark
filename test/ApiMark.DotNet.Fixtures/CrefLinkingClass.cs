@@ -70,4 +70,18 @@ public class CrefLinkingClass
     /// <param name="value">The value to return unchanged.</param>
     /// <returns><paramref name="value"/>, unchanged.</returns>
     public int Identity(int value) => value;
+
+    /// <summary>An indexer, whose XML doc ID must carry its index parameter type list.</summary>
+    /// <param name="index">The index to read.</param>
+    /// <returns>Always <c>0</c>.</returns>
+    public int this[int index] => 0;
+
+    /// <summary>
+    ///     A generic method taking its own type parameter as an array element type, whose XML
+    ///     doc ID must resolve <c>T</c> positionally even when wrapped in an array type.
+    /// </summary>
+    /// <typeparam name="T">The array element type.</typeparam>
+    /// <param name="values">The array to return unchanged.</param>
+    /// <returns><paramref name="values"/>, unchanged.</returns>
+    public T[] IdentityArray<T>(T[] values) => values;
 }
