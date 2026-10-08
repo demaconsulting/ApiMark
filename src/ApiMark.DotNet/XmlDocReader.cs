@@ -1317,12 +1317,12 @@ public sealed class XmlDocReader
     /// </summary>
     /// <remarks>
     ///     When the display text is ultimately derived from a <c>cref</c> attribute that refers to
-    ///     a type member (property, field, event, or method — see
+    ///     a type or type member (property, field, event, or method — see
     ///     <see cref="FormatCref"/>/<see cref="FormatMemberReference"/>), it is wrapped in an
     ///     inline Markdown code span via <see cref="FormatAsInlineCodeSpan"/> so it reads visually
     ///     distinct from surrounding prose, matching how <c>&lt;c&gt;</c> content is rendered. A
-    ///     <c>langword</c> value, explicit inner text, a type-only (<c>T:</c>) cref, and a
-    ///     constructor cref are all left unwrapped.
+    ///     <c>langword</c> value, explicit inner text, and a constructor cref are all left
+    ///     unwrapped.
     /// </remarks>
     /// <param name="element">The inline reference element to render.</param>
     /// <returns>A non-null display string; may be empty when no renderable content is found.</returns>
@@ -1344,13 +1344,13 @@ public sealed class XmlDocReader
         var cref = element.Attribute("cref")?.Value;
         if (!string.IsNullOrWhiteSpace(cref))
         {
-            // Request the code-span (unescaped) rendering since a member reference is about to
-            // be wrapped in backticks, where escaped angle brackets would show literal
-            // backslashes — see FormatCref's forCodeSpan parameter. Non-member results (type-only
-            // and constructor crefs) always ignore this request and return the escaped,
-            // prose-safe form internally, since they are never wrapped.
-            var (text, isMemberReference) = FormatCref(cref, forCodeSpan: true);
-            return isMemberReference && text.Length > 0 ? FormatAsInlineCodeSpan(text) : text;
+            // Request the code-span (unescaped) rendering since the result is about to be
+            // wrapped in backticks, where escaped angle brackets would show literal backslashes
+            // — see FormatCref's forCodeSpan parameter. Only the constructor-cref result ignores
+            // this request and returns the escaped, prose-safe form internally, since it is the
+            // only case never wrapped.
+            var (text, shouldWrapInCodeSpan) = FormatCref(cref, forCodeSpan: true);
+            return shouldWrapInCodeSpan && text.Length > 0 ? FormatAsInlineCodeSpan(text) : text;
         }
 
         return string.Empty;
@@ -1378,19 +1378,19 @@ public sealed class XmlDocReader
     ///     When <see langword="true"/>, requests the unescaped, code-span-safe rendering of any
     ///     generic angle-bracket notation (e.g. <c>List&lt;T&gt;</c> rather than the prose-escaped
     ///     <c>List\&lt;T\&gt;</c>) for results that will be wrapped in an inline Markdown code span
-    ///     by the caller. This request only takes effect for the member-reference branch (the one
-    ///     whose <c>IsMemberReference</c> result is <see langword="true"/>) — the type-only and
-    ///     constructor branches are never wrapped, so they always return the escaped, prose-safe
-    ///     form regardless of this flag.
+    ///     by the caller. This request only takes effect for branches whose <c>ShouldWrapInCodeSpan</c>
+    ///     result is <see langword="true"/> — the constructor branch is never wrapped, so it always
+    ///     returns the escaped, prose-safe form regardless of this flag.
     /// </param>
     /// <returns>
     ///     A concise display name (e.g. <c>ArgumentNullException</c> or <c>Bar.Go()</c>) together with
-    ///     <see langword="true"/> when the cref refers to a type member (property, field, event, or
-    ///     non-constructor method) rather than a type or constructor — the single source of truth
-    ///     <see cref="GetInlineReferenceText"/> uses to decide whether to wrap the text in an inline
-    ///     code span.
+    ///     <see langword="true"/> unless the cref refers to a constructor — the single source of
+    ///     truth <see cref="GetInlineReferenceText"/> uses to decide whether to wrap the text in an
+    ///     inline code span. A type-only cref (e.g. <c>ArgumentValidator</c>) is wrapped the same as a
+    ///     member reference, so an inline reference always reads as code regardless of whether it
+    ///     targets a type or one of its members.
     /// </returns>
-    private static (string Text, bool IsMemberReference) FormatCref(string cref, bool forCodeSpan = false)
+    private static (string Text, bool ShouldWrapInCodeSpan) FormatCref(string cref, bool forCodeSpan = false)
     {
         var separatorIndex = cref.IndexOf(':');
         var kind = separatorIndex > 0 ? cref[0] : '\0';
@@ -1402,8 +1402,7 @@ public sealed class XmlDocReader
 
         return kind switch
         {
-            // Never wrapped in a code span — always use the escaped, prose-safe form.
-            'T' => (FormatTypeName(memberTarget, forCodeSpan: false), false),
+            'T' => (FormatTypeName(memberTarget, forCodeSpan), true),
             'M' or 'P' or 'F' or 'E' => FormatMemberReference(kind, memberTarget, parameters, forCodeSpan),
             _ => (target, false),
         };
@@ -1428,7 +1427,7 @@ public sealed class XmlDocReader
     ///     <paramref name="target"/> names a constructor (<c>#ctor</c>), in which case the type name
     ///     alone is returned with <see langword="false"/>.
     /// </returns>
-    private static (string Text, bool IsMemberReference) FormatMemberReference(
+    private static (string Text, bool ShouldWrapInCodeSpan) FormatMemberReference(
         char kind,
         string target,
         string parameters,
@@ -1445,7 +1444,7 @@ public sealed class XmlDocReader
 
         if (kind == 'M' && memberName == "#ctor")
         {
-            // Never wrapped in a code span (IsMemberReference is false here) — always escaped.
+            // Never wrapped in a code span (ShouldWrapInCodeSpan is false here) — always escaped.
             return (FormatTypeName(typeName, forCodeSpan: false), false);
         }
 

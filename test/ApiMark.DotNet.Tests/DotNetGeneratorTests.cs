@@ -549,7 +549,7 @@ public class DotNetGeneratorTests
         // Assert
         var typeWriter = factory.Writers["ApiMark.DotNet.Fixtures/SampleStatusExtensions"];
         var typeParagraphs = typeWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
-        Assert.Contains("Extensions for the SampleStatus enum.", typeParagraphs);
+        Assert.Contains("Extensions for the `SampleStatus` enum.", typeParagraphs);
 
         var memberWriters = factory.Writers
             .Where(kvp => kvp.Key.StartsWith("ApiMark.DotNet.Fixtures/SampleStatusExtensions/IsPassed", StringComparison.Ordinal))

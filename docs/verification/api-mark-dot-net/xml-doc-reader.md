@@ -479,11 +479,17 @@ are additionally now wrapped in an inline code span along with the other
 member kinds. This scenario is tested by
 `XmlDocReader_GetSummary_SeeCrefToMethod_StillRendersTypeDotMember`.
 
-**GetSummary renders a type-only (`T:`) cref unwrapped (regression guard)**: Verifies that a
-`<see cref="T:..." />` reference to a type — rather than a type member — renders its display
-text as plain prose with no surrounding inline code span, confirmed via an exact string match
-(not a substring match) so a wrapping regression would be caught. This scenario is tested by
-`XmlDocReader_GetSummary_WithSeeGenericTypeCref_FormatsWithTypeParameters`.
+**GetSummary wraps a type-only (`T:`) cref in a code span**: Verifies that a
+`<see cref="T:..." />` reference to a type with an arity marker — rather than a type member —
+renders with raw, unescaped angle brackets inside a backtick code span, matching the
+generic-type-parameter placeholder handling used for the member-cref case. This scenario is
+tested by `XmlDocReader_GetSummary_WithSeeGenericTypeCref_FormatsWithTypeParameters`.
+
+**GetSummary wraps a plain type-only cref in a code span (mandatory regression guard)**:
+Verifies that `<see cref="T:Foo.ArgumentValidator"/>`, with no explicit display text, is wrapped
+in an inline code span the same as a member cref — fixing a reported inconsistency where a
+type reference rendered as plain prose right next to a member reference rendered as code. This
+scenario is tested by `XmlDocReader_GetSummary_SeeCrefToTypeOnly_RendersAsInlineCodeSpan`.
 
 **GetSummary renders a constructor (`#ctor`) cref unwrapped as the bare type name**: Verifies
 that `<see cref="M:Type.#ctor" />` — a method-kind cref whose member name is the special
@@ -508,12 +514,11 @@ result is wrapped in a code span and a code span's content is literal. This
 scenario is tested by
 `XmlDocReader_GetSummary_SeeCrefToMemberOnGenericType_RendersUnescapedAngleBracketsInCodeSpan`.
 
-**GetSummary still escapes angle brackets for a type-only cref to a generic
-type (regression guard)**: Verifies that `` `<see cref="T:...List`1" />` `` —
-a type-only cref, never wrapped in a code span — still renders the
-backslash-escaped prose form `List\<T\>`, confirming the `forCodeSpan`
-opt-out is scoped correctly to member crefs only. This scenario is tested by
-`XmlDocReader_GetSummary_SeeCrefToGenericTypeOnly_StillEscapesAngleBracketsInProse`.
+**GetSummary renders a type-only cref to a generic type with unescaped angle brackets inside its
+code span**: Verifies that `` `<see cref="T:...List`1" />` `` — a type-only cref — is wrapped the
+same as a member cref, rendering `` `List<T>` `` with raw, unescaped angle brackets rather than
+the backslash-escaped prose form `List\<T\>`. This scenario is tested by
+`XmlDocReader_GetSummary_SeeCrefToGenericTypeOnly_RendersUnescapedAngleBracketsInCodeSpan`.
 
 **GetRemarks renders a `<br/>` element as a paragraph break**: Verifies that
 `<br/>` inserts a blank-line paragraph break between the surrounding text

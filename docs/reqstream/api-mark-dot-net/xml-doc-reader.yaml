@@ -209,9 +209,9 @@ sections:
               - XmlDocReader_GetRemarks_BrAndCodeFromGeneratedRegexExample_RendersAsDistinctBlocks
           - id: ApiMarkDotNet-XmlDocReader-WrapMemberCrefDisplayInCodeSpan
             title: XmlDocReader shall render the display text of a `<see>`/`<seealso>`
-              reference to a type member (property, field, event, or method) in an
-              inline Markdown code span, while leaving `langword`, explicit inner
-              text, type-only (`T:`) crefs, and constructor crefs unwrapped.
+              reference to a type or type member (property, field, event, or method)
+              in an inline Markdown code span, while leaving `langword`, explicit
+              inner text, and constructor crefs unwrapped.
             justification: |
               A real-world consumer (DemaConsulting.Bicameral.Core) reported that a
               `<see cref="Type.Member"/>` reference rendered as plain prose
@@ -225,17 +225,22 @@ sections:
               use raw, unescaped angle brackets (`List<T>`, not `List\<T\>`): a code
               span's content is literal, so the backslash escaping needed to keep
               prose safe from being parsed as an HTML tag would otherwise show up as
-              stray visible characters. A type-only (`T:`) cref is never wrapped in a
-              code span, so it keeps the escaped form.
+              stray visible characters. The same consumer additionally reported that a
+              type-only (`T:`) cref — e.g. `<see cref="ArgumentValidator"/>` — still
+              rendered as plain prose, inconsistent with a member cref right next to
+              it; a type-only cref is now wrapped the same as a member cref, so a
+              reference always reads as code regardless of whether it targets a type
+              or one of its members.
             tests:
               - XmlDocReader_GetSummary_SeeCrefToProperty_RendersTypeDotMember
               - XmlDocReader_GetSummary_SeeCrefToField_RendersTypeDotMember
               - XmlDocReader_GetSummary_SeeCrefToEvent_RendersTypeDotMember
               - XmlDocReader_GetSummary_SeeCrefToMethod_StillRendersTypeDotMember
               - XmlDocReader_GetSummary_WithSeeGenericTypeCref_FormatsWithTypeParameters
+              - XmlDocReader_GetSummary_SeeCrefToTypeOnly_RendersAsInlineCodeSpan
               - XmlDocReader_GetSummary_SeeCrefToConstructor_RendersUnwrappedTypeName
               - XmlDocReader_GetSummary_SeeCrefToMemberOnGenericType_RendersUnescapedAngleBracketsInCodeSpan
-              - XmlDocReader_GetSummary_SeeCrefToGenericTypeOnly_StillEscapesAngleBracketsInProse
+              - XmlDocReader_GetSummary_SeeCrefToGenericTypeOnly_RendersUnescapedAngleBracketsInCodeSpan
               - XmlDocReader_GetSummary_SeeCrefWithEmptyMemberTarget_DoesNotThrowAndRendersEmpty
               - XmlDocReader_GetSummary_WithInlineReferences_PreservesReferencedNames
               - XmlDocReader_GetExampleParts_WithSeeCref_RendersInlineReferenceInProsePart
