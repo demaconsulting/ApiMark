@@ -458,7 +458,12 @@ The following are deliberately left unwrapped:
 - A `langword` attribute value (e.g. `null`, `true`, `false`) — not a
   reference to a declared symbol at all.
 - Explicit inner element text (the element supplies its own display text,
-  which this method always prefers verbatim over any `cref` formatting).
+  which this method always prefers verbatim over any `cref`-formatted text).
+  The explicit label is still passed to `TryLinkifyCref` alongside the
+  element's own `cref` attribute — see "Cross-reference linking" below — so a
+  resolvable, emitted cref with a custom label (e.g. `<see
+  cref="...">the validator</see>`) still becomes a real link, just without a
+  code-span wrapper around the label.
 - A constructor cref (`M:...#ctor`) — `FormatMemberReference` collapses it to
   the bare type name and reports `ShouldWrapInCodeSpan: false`.
 
@@ -572,20 +577,29 @@ link's label; otherwise returns the code-span text unchanged.
   linkContext.CurrentFolder, linkContext.MemberPageIndex)`. Falls back to
   `codeSpanText` unchanged in every other case — external type, filtered-out
   member, or malformed/unresolvable cref — identical to today's rendering.
-- *Call site*: `GetInlineReferenceText`'s `<see>`/`<seealso>` cref branch
-  calls `TryLinkifyCref` only when `FormatCref` already reported
-  `ShouldWrapInCodeSpan: true` (i.e. the exact same subset of crefs that were
-  already eligible for code-span wrapping before this feature existed —
-  constructor crefs are excluded by construction, since they report
-  `ShouldWrapInCodeSpan: false` and short-circuit before `TryLinkifyCref` is
-  ever called). The code span is built first via `FormatAsInlineCodeSpan`,
-  and that code-span string is then passed into `TryLinkifyCref` as the
-  link's label, so a successful link renders as `` [`Type.Member`](path.md) ``
-  — the code span nested inside the link's label — while an unresolved cref
-  renders exactly as it does today, `` `Type.Member` ``. The nesting is
-  deliberately link-outside/code-span-inside rather than the reverse: Markdown
-  code-span content is rendered literally, so a link placed inside a code span
-  would show as inert `[...](...)` text rather than a clickable link.
+- *Call site*: `GetInlineReferenceText` has two call sites for
+  `TryLinkifyCref`, both only reached when a `cref` attribute is present:
+  - The explicit-label branch (element has its own display text) calls
+    `TryLinkifyCref` with that explicit text, unwrapped, as the label — so a
+    successful link renders as `[the validator](path.md)`, preserving the
+    author's chosen wording rather than substituting the formatted `cref`
+    text.
+  - The no-explicit-text branch calls `TryLinkifyCref` only when `FormatCref`
+    already reported `ShouldWrapInCodeSpan: true` (i.e. the exact same subset
+    of crefs that were already eligible for code-span wrapping before this
+    feature existed — constructor crefs are excluded by construction, since
+    they report `ShouldWrapInCodeSpan: false` and short-circuit before
+    `TryLinkifyCref` is ever called). The code span is built first via
+    `FormatAsInlineCodeSpan`, and that code-span string is then passed into
+    `TryLinkifyCref` as the link's label, so a successful link renders as
+    `` [`Type.Member`](path.md) `` — the code span nested inside the link's
+    label.
+  - In both cases, an unresolved cref falls back to the label unchanged
+    (plain explicit text, or `` `Type.Member` ``), exactly as it did before
+    this feature existed. The nesting is deliberately link-outside/code-span-
+    inside rather than the reverse: Markdown code-span content is rendered
+    literally, so a link placed inside a code span would show as inert
+    `[...](...)` text rather than a clickable link.
 
 ### Error Handling
 

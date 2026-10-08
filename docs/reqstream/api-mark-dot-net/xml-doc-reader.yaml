@@ -279,6 +279,9 @@ sections:
               - XmlDocReader_GetSummary_MalformedCref_FallsBackUnchanged
               - XmlDocReader_GetSummary_ConstructorCref_FallsBackUnchanged
               - XmlDocReader_GetRemarks_SeeAlsoResolvedEmittedType_RendersLinkedCodeSpan
+              - XmlDocReader_GetSummary_ExplicitLabelResolvedEmittedType_RendersLinkedLabel
+              - XmlDocReader_GetSummary_ExplicitLabelNullLinkContext_RendersLabelOnlyNoLink
+              - XmlDocReader_GetSummary_ExplicitLabelUnresolvedCref_RendersLabelOnlyNoLink
               - CrefLinking_SeeCrefToVisibleType_RendersAsMarkdownLink
               - CrefLinking_SeeCrefToVisibleMember_RendersAsMarkdownLink
               - CrefLinking_SeeCrefToFilteredMember_RendersFallbackWithNoLink

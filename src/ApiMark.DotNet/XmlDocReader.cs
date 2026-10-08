@@ -1445,11 +1445,19 @@ public sealed class XmlDocReader
             return langword;
         }
 
-        // If the element provides explicit display text, prefer it over formatting the cref.
+        // If the element provides explicit display text, prefer it over formatting the cref,
+        // but still attempt to resolve and link the cref using that explicit text as the link's
+        // label — otherwise a valid in-assembly reference with a custom label (e.g.
+        // <see cref="ArgumentValidator">the validator</see>) would never become a clickable
+        // link. TryLinkifyCref returns the label unchanged when there is no link context or the
+        // cref does not resolve, preserving the existing fallback exactly.
         var explicitText = NormalizeDocumentationText(element.Value);
         if (explicitText.Length > 0)
         {
-            return explicitText;
+            var explicitCref = element.Attribute("cref")?.Value;
+            return string.IsNullOrWhiteSpace(explicitCref)
+                ? explicitText
+                : TryLinkifyCref(explicitCref, explicitText, linkContext);
         }
 
         var cref = element.Attribute("cref")?.Value;

@@ -3684,5 +3684,109 @@ public class XmlDocReaderTests
         }
     }
 
+    /// <summary>
+    ///     Validates that a <c>&lt;see cref&gt;</c> element carrying an explicit display label
+    ///     (e.g. <c>&lt;see cref="..."&gt;the validator&lt;/see&gt;</c>) still resolves and links
+    ///     the <c>cref</c> when it refers to a resolvable, emitted intra-assembly type, wrapping
+    ///     the explicit label itself in the link rather than falling back to an unlinked label.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_ExplicitLabelResolvedEmittedType_RendersLinkedLabel()
+    {
+        // Arrange
+        var (assembly, context) = BuildFixtureLinkContext();
+        try
+        {
+            var path = WriteXmlDoc("""
+                <member name="T:Foo.Bar">
+                  <summary>See <see cref="T:ApiMark.DotNet.Fixtures.SampleClass">the sample class</see>.</summary>
+                </member>
+                """);
+            try
+            {
+                // Act
+                var reader = new XmlDocReader(path);
+                var summary = reader.GetSummary("T:Foo.Bar", context);
+
+                // Assert
+                Assert.Equal("See [the sample class](SampleClass.md).", summary);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            assembly.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a <c>&lt;see cref&gt;</c> element with an explicit display label falls
+    ///     back to the unlinked, explicit-label-only rendering (existing behavior) when there is
+    ///     no link context, matching the no-context baseline for a cref-only reference.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_ExplicitLabelNullLinkContext_RendersLabelOnlyNoLink()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>See <see cref="T:ApiMark.DotNet.Fixtures.SampleClass">the sample class</see>.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            var summary = reader.GetSummary("T:Foo.Bar", null);
+
+            // Assert
+            Assert.Equal("See the sample class.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a <c>&lt;see cref&gt;</c> element with an explicit display label falls
+    ///     back to the unlinked, explicit-label-only rendering when the <c>cref</c> does not
+    ///     resolve (external/malformed), preserving the existing fallback exactly.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_ExplicitLabelUnresolvedCref_RendersLabelOnlyNoLink()
+    {
+        // Arrange
+        var (assembly, context) = BuildFixtureLinkContext();
+        try
+        {
+            var path = WriteXmlDoc("""
+                <member name="T:Foo.Bar">
+                  <summary>See <see cref="T:System.ArgumentNullException">the exception type</see>.</summary>
+                </member>
+                """);
+            try
+            {
+                // Act
+                var reader = new XmlDocReader(path);
+                var summary = reader.GetSummary("T:Foo.Bar", context);
+
+                // Assert
+                Assert.Equal("See the exception type.", summary);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            assembly.Dispose();
+        }
+    }
+
     #endregion
 }

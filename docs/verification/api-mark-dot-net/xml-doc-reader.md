@@ -100,6 +100,8 @@ assembly is needed.
 - A malformed/unresolvable `cref` string falls back to code-span-only rendering even with a non-null `linkContext`.
 - A `<see cref>` to a constructor falls back to its existing unwrapped-text rendering even with a non-null `linkContext` — constructors are never linked.
 - A `<seealso cref>` to a resolved, emitted intra-assembly type (nested inside `<remarks>`) produces a code span nested inside a Markdown link, confirming `<seealso>` shares the same `TryLinkifyCref` rendering path as `<see>`.
+- A `<see cref>` carrying an explicit display label (e.g. `<see cref="...">custom label</see>`) that resolves to an emitted intra-assembly type is rendered with that label wrapped in a Markdown link, instead of being left unlinked merely because it has a custom label.
+- A `<see cref>` with an explicit display label and no `linkContext`, or whose `cref` does not resolve, falls back to the plain label text with no link, preserving the existing fallback exactly.
 
 ### Test Scenarios
 
@@ -668,3 +670,25 @@ the technical notes) shares the exact same `TryLinkifyCref` rendering path as
 `<see>`, producing a code span nested inside a Markdown link when its
 target resolves and is reported as emitted. This scenario is tested by
 `XmlDocReader_GetRemarks_SeeAlsoResolvedEmittedType_RendersLinkedCodeSpan`.
+
+**A `<see cref>` with an explicit label renders that label as a linked, resolved
+reference**: Verifies that `<see cref="...">custom label</see>` — previously
+returning the explicit label unconditionally before the `cref` was ever
+consulted — now still resolves the `cref` and, when it resolves to an
+emitted intra-assembly type, wraps the explicit label itself in a Markdown
+link (e.g. `[the sample class](SampleClass.md)`), rather than leaving a
+resolvable reference unlinked merely because it carries a custom label. This
+scenario is tested by
+`XmlDocReader_GetSummary_ExplicitLabelResolvedEmittedType_RendersLinkedLabel`.
+
+**A `<see cref>` with an explicit label and no linkContext renders the label
+unlinked**: Verifies that, without a `linkContext`, an explicit label renders
+exactly as it did before this feature existed — the plain label text, with no
+link. This scenario is tested by
+`XmlDocReader_GetSummary_ExplicitLabelNullLinkContext_RendersLabelOnlyNoLink`.
+
+**A `<see cref>` with an explicit label and an unresolved cref renders the
+label unlinked**: Verifies that an explicit label whose `cref` does not
+resolve (external/malformed) falls back to the plain label text, with no
+link, preserving the existing fallback exactly. This scenario is tested by
+`XmlDocReader_GetSummary_ExplicitLabelUnresolvedCref_RendersLabelOnlyNoLink`.
