@@ -102,6 +102,7 @@ assembly is needed.
 - A `<seealso cref>` to a resolved, emitted intra-assembly type (nested inside `<remarks>`) produces a code span nested inside a Markdown link, confirming `<seealso>` shares the same `TryLinkifyCref` rendering path as `<see>`.
 - A `<see cref>` carrying an explicit display label (e.g. `<see cref="...">custom label</see>`) that resolves to an emitted intra-assembly type is rendered with that label wrapped in a Markdown link, instead of being left unlinked merely because it has a custom label.
 - A `<see cref>` with an explicit display label and no `linkContext`, or whose `cref` does not resolve, falls back to the plain label text with no link, preserving the existing fallback exactly.
+- A `<see cref>` carrying an explicit display label that targets a constructor is never linked, even when the constructor's declaring type is a resolvable, emitted intra-assembly type — constructors are never linked regardless of whether the reference has an explicit label.
 
 ### Test Scenarios
 
@@ -692,3 +693,11 @@ label unlinked**: Verifies that an explicit label whose `cref` does not
 resolve (external/malformed) falls back to the plain label text, with no
 link, preserving the existing fallback exactly. This scenario is tested by
 `XmlDocReader_GetSummary_ExplicitLabelUnresolvedCref_RendersLabelOnlyNoLink`.
+
+**A `<see cref>` with an explicit label targeting a constructor renders the
+label unlinked**: Verifies that an explicit label is never linked when its
+`cref` targets a constructor, even though the constructor's declaring type is
+a resolvable, emitted intra-assembly type — matching the no-label branch's
+existing precedent that a constructor cref's `ShouldWrapInCodeSpan` result
+(always `false`) is never linked. This scenario is tested by
+`XmlDocReader_GetSummary_ExplicitLabelConstructorCref_RendersLabelOnlyNoLink`.

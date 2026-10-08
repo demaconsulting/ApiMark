@@ -3788,5 +3788,44 @@ public class XmlDocReaderTests
         }
     }
 
+    /// <summary>
+    ///     Validates that a <c>&lt;see cref&gt;</c> element with an explicit display label is
+    ///     never linked when the <c>cref</c> targets a constructor, even though the constructor's
+    ///     declaring type is a resolvable, emitted intra-assembly type — matching the no-label
+    ///     branch's existing precedent that a constructor cref's <c>ShouldWrapInCodeSpan</c>
+    ///     result (always <see langword="false"/>) is never linked.
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_ExplicitLabelConstructorCref_RendersLabelOnlyNoLink()
+    {
+        // Arrange
+        var (assembly, context) = BuildFixtureLinkContext();
+        try
+        {
+            var path = WriteXmlDoc("""
+                <member name="T:Foo.Bar">
+                  <summary>See <see cref="M:ApiMark.DotNet.Fixtures.SampleClass.#ctor">the constructor</see>.</summary>
+                </member>
+                """);
+            try
+            {
+                // Act
+                var reader = new XmlDocReader(path);
+                var summary = reader.GetSummary("T:Foo.Bar", context);
+
+                // Assert
+                Assert.Equal("See the constructor.", summary);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            assembly.Dispose();
+        }
+    }
+
     #endregion
 }

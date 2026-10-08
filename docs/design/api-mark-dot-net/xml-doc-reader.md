@@ -463,9 +463,15 @@ The following are deliberately left unwrapped:
   element's own `cref` attribute — see "Cross-reference linking" below — so a
   resolvable, emitted cref with a custom label (e.g. `<see
   cref="...">the validator</see>`) still becomes a real link, just without a
-  code-span wrapper around the label.
+  code-span wrapper around the label. A constructor cref is the one
+  exception: it is never linked even with an explicit label, matching the
+  next bullet.
 - A constructor cref (`M:...#ctor`) — `FormatMemberReference` collapses it to
-  the bare type name and reports `ShouldWrapInCodeSpan: false`.
+  the bare type name and reports `ShouldWrapInCodeSpan: false`. The
+  explicit-label branch consults this same `ShouldWrapInCodeSpan` result
+  before calling `TryLinkifyCref`, so a labeled reference to a constructor
+  (e.g. `<see cref="M:...#ctor">the constructor</see>`) renders its label
+  unlinked too.
 
 #### Generic cref escaping inside a code span
 
@@ -580,10 +586,14 @@ link's label; otherwise returns the code-span text unchanged.
 - *Call site*: `GetInlineReferenceText` has two call sites for
   `TryLinkifyCref`, both only reached when a `cref` attribute is present:
   - The explicit-label branch (element has its own display text) calls
-    `TryLinkifyCref` with that explicit text, unwrapped, as the label — so a
-    successful link renders as `[the validator](path.md)`, preserving the
-    author's chosen wording rather than substituting the formatted `cref`
-    text.
+    `FormatCref` first purely to read its `ShouldWrapInCodeSpan`
+    classification (discarding the formatted text, since the explicit label
+    is always used), and only calls `TryLinkifyCref` — with that explicit
+    text, unwrapped, as the label — when it is `true`. A successful link
+    renders as `[the validator](path.md)`, preserving the author's chosen
+    wording rather than substituting the formatted `cref` text. A labeled
+    constructor cref (`ShouldWrapInCodeSpan: false`) is never linked,
+    matching the no-explicit-text branch's precedent below.
   - The no-explicit-text branch calls `TryLinkifyCref` only when `FormatCref`
     already reported `ShouldWrapInCodeSpan: true` (i.e. the exact same subset
     of crefs that were already eligible for code-span wrapping before this

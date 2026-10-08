@@ -282,6 +282,7 @@ sections:
               - XmlDocReader_GetSummary_ExplicitLabelResolvedEmittedType_RendersLinkedLabel
               - XmlDocReader_GetSummary_ExplicitLabelNullLinkContext_RendersLabelOnlyNoLink
               - XmlDocReader_GetSummary_ExplicitLabelUnresolvedCref_RendersLabelOnlyNoLink
+              - XmlDocReader_GetSummary_ExplicitLabelConstructorCref_RendersLabelOnlyNoLink
               - CrefLinking_SeeCrefToVisibleType_RendersAsMarkdownLink
               - CrefLinking_SeeCrefToVisibleMember_RendersAsMarkdownLink
               - CrefLinking_SeeCrefToFilteredMember_RendersFallbackWithNoLink

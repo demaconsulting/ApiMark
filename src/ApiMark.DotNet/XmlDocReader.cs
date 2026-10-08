@@ -1455,9 +1455,18 @@ public sealed class XmlDocReader
         if (explicitText.Length > 0)
         {
             var explicitCref = element.Attribute("cref")?.Value;
-            return string.IsNullOrWhiteSpace(explicitCref)
-                ? explicitText
-                : TryLinkifyCref(explicitCref, explicitText, linkContext);
+            if (string.IsNullOrWhiteSpace(explicitCref))
+            {
+                return explicitText;
+            }
+
+            // A constructor cref is never linked, matching the no-label branch's precedent below
+            // (ShouldWrapInCodeSpan is false for constructors) — only FormatCref's classification
+            // is needed here, not its formatted text, since the explicit label is always used.
+            var (_, shouldLink) = FormatCref(explicitCref);
+            return shouldLink
+                ? TryLinkifyCref(explicitCref, explicitText, linkContext)
+                : explicitText;
         }
 
         var cref = element.Attribute("cref")?.Value;
