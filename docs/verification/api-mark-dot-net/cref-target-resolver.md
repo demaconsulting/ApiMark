@@ -85,3 +85,10 @@ identifier for a field declared in the indexed assembly resolves to that
 field, confirming that all four member kinds (`Methods`/`Properties`/
 `Fields`/`Events`) are indexed, not just methods. This scenario is tested by
 `CrefTargetResolver_TryResolveMember_Field_ReturnsTrueAndMember`.
+
+**Generic method identifier includes arity and resolves the correct
+overload**: Verifies that a generic method's XML-doc member identifier
+carries the `` `N`` arity suffix distinguishing it from a non-generic
+overload sharing the same name, and that each identifier resolves to its own
+distinct method (not the other overload). This scenario is tested by
+`CrefTargetResolver_TryResolveMember_GenericMethod_IncludesArityAndResolvesCorrectOverload`.

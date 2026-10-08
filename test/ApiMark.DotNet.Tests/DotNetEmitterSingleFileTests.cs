@@ -645,4 +645,30 @@ public class DotNetEmitterSingleFileTests
         Assert.DoesNotContain(paragraphs, p => p.Contains("References another in-assembly, publicly visible type", StringComparison.Ordinal) &&
             p.Contains("](", StringComparison.Ordinal));
     }
+
+    /// <summary>
+    ///     Validates that a <c>&lt;see cref&gt;</c> inside a <c>NamespaceDoc</c> carrier's
+    ///     <c>&lt;remarks&gt;</c> renders as plain code-span text with no Markdown link in
+    ///     single-file mode, mirroring the type/member cref behavior: single-file mode never
+    ///     supplies a <c>CrefLinkContext</c>, even when fetching namespace-level documentation
+    ///     via <c>NamespaceDescription</c>'s on-demand accessors.
+    /// </summary>
+    [Fact]
+    public void CrefLinking_SingleFileMode_NamespaceDocRemarksSeeCref_RemainsCodeSpanOnly()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterSingleFile(emitter, emitter.Model).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert: the <see cref="SampleClass"/> in the NamespaceDoc <remarks> must render as plain
+        // code-span text with no Markdown link syntax
+        var writer = factory.GetWriter("", "api");
+        var paragraphs = writer.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("`SampleClass`", StringComparison.Ordinal));
+        Assert.DoesNotContain(paragraphs, p => p.Contains("`SampleClass`", StringComparison.Ordinal) &&
+            p.Contains("](", StringComparison.Ordinal));
+    }
 }

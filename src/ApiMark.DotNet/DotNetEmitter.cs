@@ -568,10 +568,16 @@ internal sealed class DotNetEmitter : IApiEmitter
         // XML doc format uses #ctor for constructors; IL metadata uses .ctor
         var methodName = method.Name == ConstructorMethodName ? "#ctor" : method.Name;
 
+        // XML doc IDs encode a generic method's own type-parameter count as a double-backtick
+        // arity suffix on the method name (e.g. M:Type.Method``1(...)) — distinct from the
+        // single-backtick arity on a generic *type* name. Without this, a generic method's ID
+        // collides with (or is indistinguishable from) a non-generic overload of the same name.
+        var genericArity = method.HasGenericParameters ? $"``{method.GenericParameters.Count}" : string.Empty;
+
         // XML doc format includes parenthesized parameter list only when parameters exist
         if (!method.HasParameters)
         {
-            return $"M:{typeName}.{methodName}";
+            return $"M:{typeName}.{methodName}{genericArity}";
         }
 
         // Normalize nested-type separators: Cecil uses '/' in FullName (e.g. Outer/Inner)
@@ -587,10 +593,10 @@ internal sealed class DotNetEmitter : IApiEmitter
         {
             // Normalize nested-type separators: Cecil uses '/' in FullName (e.g. OuterClass/Inner)
             // but XML doc IDs always use '.' (e.g. OuterClass.Inner)
-            return $"M:{typeName}.{methodName}({paramList})~{ToXmlDocTypeName(method.ReturnType.FullName)}";
+            return $"M:{typeName}.{methodName}{genericArity}({paramList})~{ToXmlDocTypeName(method.ReturnType.FullName)}";
         }
 
-        return $"M:{typeName}.{methodName}({paramList})";
+        return $"M:{typeName}.{methodName}{genericArity}({paramList})";
     }
 
     // =========================================================================

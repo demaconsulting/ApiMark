@@ -173,4 +173,35 @@ public class CrefTargetResolverTests : IDisposable
         Assert.True(resolved);
         Assert.Same(expected, member);
     }
+
+    /// <summary>
+    ///     Validates that a generic method's XML-doc member identifier includes the <c>``N</c>
+    ///     arity suffix and resolves to the generic overload specifically, not the non-generic
+    ///     overload sharing the same name.
+    /// </summary>
+    [Fact]
+    public void CrefTargetResolver_TryResolveMember_GenericMethod_IncludesArityAndResolvesCorrectOverload()
+    {
+        // Arrange
+        var type = _assembly.MainModule.Types.First(t => t.Name == "CrefLinkingClass");
+        var genericMethod = type.Methods.First(m => m.Name == "Identity" && m.HasGenericParameters);
+        var nonGenericMethod = type.Methods.First(m => m.Name == "Identity" && !m.HasGenericParameters);
+        var genericCrefId = DotNetEmitter.BuildMemberId(genericMethod);
+        var nonGenericCrefId = DotNetEmitter.BuildMemberId(nonGenericMethod);
+
+        // Assert: the generic method's ID carries the ``1 arity suffix and the two overloads
+        // produce distinct identifiers
+        Assert.Contains("``1", genericCrefId);
+        Assert.NotEqual(genericCrefId, nonGenericCrefId);
+
+        // Act
+        var resolvedGeneric = _resolver.TryResolveMember(genericCrefId, out var resolvedGenericMember);
+        var resolvedNonGeneric = _resolver.TryResolveMember(nonGenericCrefId, out var resolvedNonGenericMember);
+
+        // Assert: each identifier resolves to its own distinct overload
+        Assert.True(resolvedGeneric);
+        Assert.Same(genericMethod, resolvedGenericMember);
+        Assert.True(resolvedNonGeneric);
+        Assert.Same(nonGenericMethod, resolvedNonGenericMember);
+    }
 }

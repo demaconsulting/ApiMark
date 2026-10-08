@@ -1217,6 +1217,30 @@ public class DotNetGeneratorTests
             p => p.Contains("Namespace-level remarks for verification", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    ///     Validates that a <c>&lt;see cref&gt;</c> inside a NamespaceDoc carrier's
+    ///     <c>&lt;remarks&gt;</c> renders as a cross-reference link on the namespace page, the
+    ///     same way it would inside a type's own remarks.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_NamespacePage_NamespaceDocRemarksSeeCref_RendersAsLink()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the <see cref="SampleClass"/> in the NamespaceDoc <remarks> must render as a
+        // Markdown link to SampleClass's own page, not plain code-span text
+        var nsWriter = factory.Writers["ApiMark.DotNet.Fixtures"];
+        var paragraphs = nsWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(
+            paragraphs,
+            p => p.Contains("[`SampleClass`](ApiMark.DotNet.Fixtures/SampleClass.md)", StringComparison.Ordinal));
+    }
+
     /// <summary>Validates that the NamespaceDoc XML example is emitted as a code block on the namespace page.</summary>
     [Fact]
     public void DotNetGenerator_NamespacePage_NamespaceDocExample_EmitsCodeBlock()
@@ -2616,6 +2640,40 @@ public class DotNetGeneratorTests
         }
 
         Assert.True(brokenLinks.Count == 0, $"Broken links found:\n{string.Join('\n', brokenLinks)}");
+    }
+
+    /// <summary>
+    ///     Regression guard for the cref-link-index/page-emission mismatch flagged in PR review:
+    ///     a type with no own members or operators (a pure container for a nested type, such as
+    ///     <c>TwoLevelNestedClass</c>, whose only content is the nested <c>Middle</c> class) must
+    ///     still get its nested-type page(s) written. Before the fix, <c>WriteTypePage</c> returned
+    ///     before reaching <c>WriteNestedTypesSection</c> whenever the containing type itself had
+    ///     no members/operators, so <c>Middle.md</c> and <c>Middle/Inner.md</c> were silently never
+    ///     created even though <c>DotNetGenerator.CollectTypeCrefLinkIndex</c> unconditionally
+    ///     recursed into them and marked them as valid cref-link targets — a cref resolving to
+    ///     either page would have linked to a file that did not exist.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_GradualDisclosure_MemberlessContainerType_WritesNestedTypePages()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: TwoLevelNestedClass itself has no own members, but its nested Middle (also
+        // memberless) and Middle's nested Inner must still each get a written page
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/TwoLevelNestedClass"),
+            "Expected TwoLevelNestedClass.md to be created");
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/TwoLevelNestedClass/Middle"),
+            "Expected TwoLevelNestedClass/Middle.md to be created even though TwoLevelNestedClass has no own members");
+        Assert.True(
+            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/TwoLevelNestedClass/Middle/Inner"),
+            "Expected TwoLevelNestedClass/Middle/Inner.md to be created even though Middle has no own members");
     }
 
     /// <summary>

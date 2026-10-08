@@ -184,11 +184,15 @@ memory and returns a `DotNetEmitter` ready to emit.
 - *NamespaceDoc processing*: After collecting all visible types, `Parse` calls
   `DotNetEmitter.IsNamespaceDocCarrier` on each type. Carrier types (those named
   `NamespaceDoc` with `internal static` modifiers) are excluded from the type
-  listings passed to the emitter. Their XML documentation is extracted via the
-  `BuildNamespaceDescription` helper — which reads the summary, remarks, and
-  structured example parts (`XmlDocReader.GetSummary`, `GetRemarks`, and
-  `GetExampleParts`) using the type's XML-doc ID — and bundled into a
-  `NamespaceDescription`. The result is stored in the `NamespaceDescriptions`
+  listings passed to the emitter. The `BuildNamespaceDescription` helper selects,
+  per namespace, the winning carrier's member ID for each of summary, remarks,
+  and example — without rendering any text — and bundles them into a
+  `NamespaceDescription`. Rendering is deferred to emission time (via
+  `NamespaceDescription.GetSummary`/`GetRemarks`/`GetExampleParts`) because
+  `Parse` runs before the cref-link index (`CrefTargets`/`MemberPageIndex`)
+  exists, so no `CrefLinkContext` scoped to the eventual output folder is yet
+  available for resolving `<see cref>`/`<seealso cref>` references. The result is
+  stored in the `NamespaceDescriptions`
   dictionary of `DotNetAstModel`, keyed by namespace name, for use when writing
   namespace pages.
 - *Visibility note*: At the top-level type enumeration stage, `PublicAndProtected`

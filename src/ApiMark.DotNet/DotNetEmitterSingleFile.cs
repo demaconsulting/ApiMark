@@ -124,7 +124,7 @@ internal sealed class DotNetEmitterSingleFile
             // the type-level rendering in WriteSingleFileTypeSections
             if (_model.NamespaceDescriptions.TryGetValue(namespaceName, out var nsDescription))
             {
-                WriteNamespaceDescription(writer, nsDescription);
+                WriteNamespaceDescription(writer, nsDescription, _model.XmlDocs);
             }
 
             if (!_model.ByNamespace.TryGetValue(namespaceName, out var nsTypes) || nsTypes.Count == 0)
@@ -145,21 +145,30 @@ internal sealed class DotNetEmitterSingleFile
     ///     Emits the summary, remarks, and structured example parts sourced from a NamespaceDoc
     ///     carrier class, mirroring the type-level rendering in <see cref="WriteSingleFileTypeSections"/>.
     /// </summary>
+    /// <remarks>
+    ///     No <see cref="CrefLinkContext"/> is supplied — single-file output never resolves
+    ///     <c>&lt;see cref&gt;</c> to links (see the <c>noLinkResolver</c> remark in
+    ///     <see cref="EmitSingleFile"/>), so this renders exactly as it did before cross-reference
+    ///     linking existed.
+    /// </remarks>
     /// <param name="writer">The shared single-file Markdown writer.</param>
     /// <param name="nsDescription">The namespace description to render.</param>
-    private static void WriteNamespaceDescription(IMarkdownWriter writer, NamespaceDescription nsDescription)
+    /// <param name="xmlDocs">Documentation index used to fetch the summary/remarks/example text.</param>
+    private static void WriteNamespaceDescription(IMarkdownWriter writer, NamespaceDescription nsDescription, XmlDocReader xmlDocs)
     {
-        if (!string.IsNullOrEmpty(nsDescription.Summary))
+        var summary = nsDescription.GetSummary(xmlDocs);
+        if (!string.IsNullOrEmpty(summary))
         {
-            writer.WriteParagraph(nsDescription.Summary);
+            writer.WriteParagraph(summary);
         }
 
-        if (!string.IsNullOrEmpty(nsDescription.Remarks))
+        var remarks = nsDescription.GetRemarks(xmlDocs);
+        if (!string.IsNullOrEmpty(remarks))
         {
-            writer.WriteParagraph(nsDescription.Remarks);
+            writer.WriteParagraph(remarks);
         }
 
-        WriteExampleParts(writer, nsDescription.ExampleParts);
+        WriteExampleParts(writer, nsDescription.GetExampleParts(xmlDocs));
     }
 
     /// <summary>

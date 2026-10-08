@@ -53,19 +53,67 @@ internal sealed record MethodDocContext(
 
 /// <summary>
 ///     Bundles the namespace-level documentation sourced from a NamespaceDoc carrier
-///     class, carrying the summary, remarks, and structured example parts so that all
-///     three surface on namespace output in the same way they do for types.
+///     class, identifying which carrier's summary, remarks, and example parts win (per
+///     the "first non-empty wins" rule) without pre-rendering their text, so callers can
+///     re-fetch the text on demand through an optional <see cref="CrefLinkContext"/> and
+///     get cross-reference linking in namespace prose the same way type pages do.
 /// </summary>
-/// <param name="Summary">Single-line namespace summary, or <c>null</c> when absent.</param>
-/// <param name="Remarks">Namespace remarks text, or <c>null</c> when absent.</param>
-/// <param name="ExampleParts">
-///     Structured example parts, each flagged as code or prose; empty when no
-///     <c>&lt;example&gt;</c> is present on the carrier.
+/// <param name="SummaryMemberId">
+///     XML-doc identifier of the carrier whose summary should be used, or <c>null</c>
+///     when no carrier has a non-empty summary.
+/// </param>
+/// <param name="RemarksMemberId">
+///     XML-doc identifier of the carrier whose remarks should be used, or <c>null</c>
+///     when no carrier has non-empty remarks.
+/// </param>
+/// <param name="ExampleMemberId">
+///     XML-doc identifier of the carrier whose example parts should be used, or
+///     <c>null</c> when no carrier has a non-empty <c>&lt;example&gt;</c>.
 /// </param>
 internal sealed record NamespaceDescription(
-    string? Summary,
-    string? Remarks,
-    IReadOnlyList<(bool IsCode, string Content)> ExampleParts);
+    string? SummaryMemberId,
+    string? RemarksMemberId,
+    string? ExampleMemberId)
+{
+    /// <summary>
+    ///     Fetches the namespace summary text, optionally resolving <c>&lt;see cref&gt;</c>
+    ///     references to Markdown links via <paramref name="linkContext"/>.
+    /// </summary>
+    /// <param name="xmlDocs">Documentation index to read the summary from.</param>
+    /// <param name="linkContext">
+    ///     Optional cross-reference linking context; <c>null</c> renders plain code-span
+    ///     text with no links, matching pre-cross-reference-linking behavior.
+    /// </param>
+    /// <returns>The summary text, or <c>null</c> when no carrier supplied one.</returns>
+    internal string? GetSummary(XmlDocReader xmlDocs, CrefLinkContext? linkContext = null) =>
+        SummaryMemberId is { } id ? xmlDocs.GetSummary(id, linkContext) : null;
+
+    /// <summary>
+    ///     Fetches the namespace remarks text, optionally resolving <c>&lt;see cref&gt;</c>
+    ///     references to Markdown links via <paramref name="linkContext"/>.
+    /// </summary>
+    /// <param name="xmlDocs">Documentation index to read the remarks from.</param>
+    /// <param name="linkContext">
+    ///     Optional cross-reference linking context; <c>null</c> renders plain code-span
+    ///     text with no links, matching pre-cross-reference-linking behavior.
+    /// </param>
+    /// <returns>The remarks text, or <c>null</c> when no carrier supplied any.</returns>
+    internal string? GetRemarks(XmlDocReader xmlDocs, CrefLinkContext? linkContext = null) =>
+        RemarksMemberId is { } id ? xmlDocs.GetRemarks(id, linkContext) : null;
+
+    /// <summary>
+    ///     Fetches the namespace's structured example parts, optionally resolving
+    ///     <c>&lt;see cref&gt;</c> references to Markdown links via <paramref name="linkContext"/>.
+    /// </summary>
+    /// <param name="xmlDocs">Documentation index to read the example parts from.</param>
+    /// <param name="linkContext">
+    ///     Optional cross-reference linking context; <c>null</c> renders plain code-span
+    ///     text with no links, matching pre-cross-reference-linking behavior.
+    /// </param>
+    /// <returns>The example parts, or empty when no carrier supplied an example.</returns>
+    internal IReadOnlyList<(bool IsCode, string Content)> GetExampleParts(XmlDocReader xmlDocs, CrefLinkContext? linkContext = null) =>
+        ExampleMemberId is { } id ? xmlDocs.GetExampleParts(id, linkContext) : [];
+}
 
 /// <summary>
 ///     Bundles the per-assembly namespace documentation context that is constant

@@ -116,12 +116,17 @@ sections:
               C# types commonly nest supporting types within their declaring type. Emitting
               a dedicated page per nested type under the containing type's folder mirrors
               the C# type hierarchy in the file system and makes nested types independently
-              addressable.
+              addressable. This must hold even when the containing type is a pure
+              namespace-like container with no own members/operators, since
+              DotNetGenerator.CollectTypeCrefLinkIndex recurses into nested types
+              unconditionally and a skipped nested-types section would leave dangling cref
+              links.
             tests:
               - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesNestedTypePage
               - DotNetGenerator_Generate_NestedClass_ListedOnOuterClassPage
               - DotNetGenerator_Generate_NestedClass_CreatesNestedClassPage
               - DotNetGenerator_Generate_NestedClass_PageContainsSummary
+              - DotNetGenerator_Generate_GradualDisclosure_MemberlessContainerType_WritesNestedTypePages
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitOperatorsSummaryDocumentation
             title: DotNetEmitterGradualDisclosure shall include XML summary documentation
               for each operator on the operators page.
@@ -159,11 +164,13 @@ sections:
               grouping, single-member fallback) a second time, even if initially
               equivalent, would create two sources of truth that could silently drift
               apart on a future edit to only one of them. This is satisfied by an
-              internal static BuildMemberPageIndex function that reproduces
-              WriteMembersSection's exact member-grouping decisions without writing
-              any Markdown, verified against WriteMembersSection's actual output by a
-              dedicated integration test, with no change to any existing generated
-              output.
+              internal static BuildMemberPageIndex function that shares the
+              GroupMembersByFileName/GetOrderedOverloads/DecideGroupPageFileName
+              helpers with the actual page writer (ProcessTypeMembers/
+              ProcessOverloadGroup/ProcessCollisionMember), reproducing its exact
+              member-grouping decisions without writing any Markdown, verified
+              against the writer's actual output by a dedicated integration test,
+              with no change to any existing generated output.
             tests:
               - BuildMemberPageIndex_AllEntries_MatchActualWrittenPages
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-WireCrefLinkContextThroughPageWriters
@@ -193,3 +200,4 @@ sections:
               - CrefLinking_SeeCrefToExternalType_RendersFallbackWithNoLink
               - CrefLinking_SeeCrefMalformed_RendersFallbackWithNoLink
               - CrefLinking_SeeAlsoCrefToVisibleType_RendersAsMarkdownLink
+              - DotNetGenerator_NamespacePage_NamespaceDocRemarksSeeCref_RendersAsLink

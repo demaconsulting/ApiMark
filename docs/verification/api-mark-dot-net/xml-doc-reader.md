@@ -94,12 +94,12 @@ assembly is needed.
 - A multi-line `<code>` element nested inside a `<list>` item's `<description>` renders as an inline span, not a fenced block.
 - A multi-line `<code>` element reached through `<example>` mixed-prose accumulation (nested inside a `<para>`, not a direct `<example>` child) renders as an inline span, not a fenced block.
 - Every public `XmlDocReader` method called without a `linkContext` argument (or with `linkContext: null`) renders a resolvable cref exactly as it did before cross-reference linking existed — code-span-only, never linked.
-- A `<see cref>` to an intra-assembly type that will be emitted, rendered with a non-null `linkContext` resolving that type and reporting it as emitted, produces a Markdown link nested inside the code span.
-- A `<see cref>` to an intra-assembly member that will be emitted, rendered with a non-null `linkContext` resolving that member and reporting it as emitted, produces a Markdown link (via the member-page index) nested inside the code span.
+- A `<see cref>` to an intra-assembly type that will be emitted, rendered with a non-null `linkContext` resolving that type and reporting it as emitted, produces a code span nested inside a Markdown link.
+- A `<see cref>` to an intra-assembly member that will be emitted, rendered with a non-null `linkContext` resolving that member and reporting it as emitted, produces a code span (via the member-page index) nested inside a Markdown link.
 - A `<see cref>` to an external (non-indexed) type falls back to code-span-only rendering even with a non-null `linkContext`.
 - A malformed/unresolvable `cref` string falls back to code-span-only rendering even with a non-null `linkContext`.
 - A `<see cref>` to a constructor falls back to its existing unwrapped-text rendering even with a non-null `linkContext` — constructors are never linked.
-- A `<seealso cref>` to a resolved, emitted intra-assembly type (nested inside `<remarks>`) produces a Markdown link nested inside the code span, confirming `<seealso>` shares the same `TryLinkifyCref` rendering path as `<see>`.
+- A `<seealso cref>` to a resolved, emitted intra-assembly type (nested inside `<remarks>`) produces a code span nested inside a Markdown link, confirming `<seealso>` shares the same `TryLinkifyCref` rendering path as `<see>`.
 
 ### Test Scenarios
 
@@ -627,16 +627,16 @@ no existing behavior by default. This scenario is tested by
 **A resolved, emitted intra-assembly type renders as a linked code span**:
 Verifies that `GetSummary`, given a `linkContext` whose `Targets` resolves the
 cref to a `TypeDefinition` and whose `IsTypeEmitted` delegate reports `true`
-for it, renders `` `[Type](path.md)` `` — a Markdown link nested inside the
-code span — rather than plain code-span text. This scenario is tested by
+for it, renders `` [`Type`](path.md) `` — a code span nested inside a
+Markdown link — rather than plain code-span text. This scenario is tested by
 `XmlDocReader_GetSummary_ResolvedEmittedType_RendersLinkedCodeSpan`.
 
 **A resolved, emitted intra-assembly member renders as a linked code span**:
 Verifies the member counterpart of the above: `GetSummary`, given a
 `linkContext` whose `Targets` resolves the cref to an `IMemberDefinition` and
 whose `IsMemberEmitted` delegate reports `true` for it, and whose
-`MemberPageIndex` contains an entry for that member, renders a Markdown link
-nested inside the code span. This scenario is tested by
+`MemberPageIndex` contains an entry for that member, renders a code span
+nested inside a Markdown link. This scenario is tested by
 `XmlDocReader_GetSummary_ResolvedEmittedMember_RendersLinkedCodeSpan`.
 
 **An external type cref falls back to code-span-only even with a non-null
@@ -665,6 +665,6 @@ confirming constructors are deliberately excluded from linking because
 span**: Verifies that `<seealso>` (nested inside `<remarks>` text, the only
 place it is ever rendered — see "Top-level `<seealso>` is never rendered" in
 the technical notes) shares the exact same `TryLinkifyCref` rendering path as
-`<see>`, producing a Markdown link nested inside the code span when its
+`<see>`, producing a code span nested inside a Markdown link when its
 target resolves and is reported as emitted. This scenario is tested by
 `XmlDocReader_GetRemarks_SeeAlsoResolvedEmittedType_RendersLinkedCodeSpan`.

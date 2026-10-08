@@ -51,4 +51,23 @@ public class CrefLinkingClass
     public void ReferencesMalformedCref()
     {
     }
+
+    /// <summary>
+    ///     References a generic method overload by its own XML-doc <c>``N</c> arity suffix:
+    ///     <see cref="Identity{T}(T)"/>.
+    /// </summary>
+    public void ReferencesGenericMethod()
+    {
+    }
+
+    /// <summary>A generic method with its own type parameter, distinct from a non-generic overload of the same name.</summary>
+    /// <typeparam name="T">The type of <paramref name="value"/>.</typeparam>
+    /// <param name="value">The value to return unchanged.</param>
+    /// <returns><paramref name="value"/>, unchanged.</returns>
+    public T Identity<T>(T value) => value;
+
+    /// <summary>A non-generic overload sharing its name with <see cref="Identity{T}(T)"/>.</summary>
+    /// <param name="value">The value to return unchanged.</param>
+    /// <returns><paramref name="value"/>, unchanged.</returns>
+    public int Identity(int value) => value;
 }

@@ -21,8 +21,9 @@ The four context records defined in the same file — `TypePageWriteContext`,
 `MethodDocContext`, `NamespaceDocContext`, and `NamespaceDescription` — reduce
 parameter counts on the helper methods by bundling constant values that are
 threaded through multiple call levels: the first three bundle per-page-type
-writing context (`NamespaceDescription` carries the summary, remarks, and
-example parts extracted from a `NamespaceDoc` carrier). A fifth record,
+writing context (`NamespaceDescription` carries the winning summary/remarks/
+example member IDs extracted from a `NamespaceDoc` carrier, for on-demand,
+link-aware rendering). A fifth record,
 `DotNetAstModelArgs`, bundles the `DotNetAstModel` constructor's own
 parameters (see Key Methods below).
 
@@ -52,7 +53,8 @@ boundary between parse and emit.
   paths.
 - *NamespaceDescriptions* (`IReadOnlyDictionary<string, NamespaceDescription>`):
   Optional per-namespace documentation sourced from `NamespaceDoc` carrier types,
-  each bundling the summary, remarks, and structured example parts.
+  each holding the winning carrier's summary/remarks/example member IDs for
+  on-demand, link-aware rendering.
 - *Resolver* (`TypeLinkResolver`): Type link resolver initialized with the
   root namespaces for gradual-disclosure output.
 - *Options* (`DotNetGeneratorOptions`): Generator configuration options
@@ -112,13 +114,23 @@ writes in a single generation run.
 - *Resolver* (`TypeLinkResolver`): Type link resolver.
 
 **NamespaceDescription** (internal sealed record): Bundles the namespace-level
-documentation sourced from a `NamespaceDoc` carrier class so that all three parts
-surface on namespace output the same way they do for a type.
+documentation sourced from a `NamespaceDoc` carrier class, as member IDs rather
+than pre-rendered text, so rendering can be deferred until a `CrefLinkContext`
+scoped to the correct output folder is available (namespace descriptions are
+selected early in `DotNetGenerator.Parse`, before the cref-link index exists).
 
-- *Summary* (`string?`): Single-line namespace summary, or `null` when absent.
-- *Remarks* (`string?`): Namespace remarks text, or `null` when absent.
-- *ExampleParts* (`IReadOnlyList<(bool IsCode, string Content)>`): Structured
-  example parts, each flagged as code or prose; empty when no `<example>` is present.
+- *SummaryMemberId* (`string?`): Member ID of the carrier whose `<summary>` won,
+  or `null` when absent.
+- *RemarksMemberId* (`string?`): Member ID of the carrier whose `<remarks>` won,
+  or `null` when absent.
+- *ExampleMemberId* (`string?`): Member ID of the carrier whose `<example>` won,
+  or `null` when absent.
+- *GetSummary(XmlDocReader, CrefLinkContext?)* / *GetRemarks(XmlDocReader,
+  CrefLinkContext?)* / *GetExampleParts(XmlDocReader, CrefLinkContext?)*:
+  On-demand accessors that resolve the corresponding member ID's text via
+  `XmlDocReader.GetSummary`/`GetRemarks`/`GetExampleParts`, optionally
+  resolving `<see cref>`/`<seealso cref>` references to Markdown links when a
+  `CrefLinkContext` is supplied; return `null`/empty when no member ID was set.
 
 **DotNetAstModelArgs** (internal sealed record): Bundles the `DotNetAstModel`
 constructor's own parameters into a single value, so the constructor takes one

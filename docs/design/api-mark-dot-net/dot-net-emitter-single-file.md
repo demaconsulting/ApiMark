@@ -48,12 +48,22 @@ into that writer at heading levels `HeadingDepth` (assembly title),
 - A `TypeLinkResolver` with `generateLinks: false` is used so that parameter
   type cells contain plain text rather than relative file links that are
   meaningless inside a single document. For the same reason, every
-  `ctx.XmlDocs.Get*` call in this class uses the parameterless overload, so
-  the optional `CrefLinkContext?` parameter always defaults to `null`: a
+  `ctx.XmlDocs.Get*` call in this class — including the on-demand
+  `NamespaceDescription.GetSummary`/`GetRemarks`/`GetExampleParts` accessor
+  calls in `WriteNamespaceDescription` — always passes `null` for the optional
+  `CrefLinkContext?` parameter: a
   `<see cref>`/`<seealso cref>` reference always renders as code-span-only
   text in single-file output, never as a Markdown link, since relative
   anchors/links are just as meaningless inside a single flat document as the
   relative file links the `generateLinks: false` resolver already avoids.
+
+**WriteNamespaceDescription** (private static): Renders a namespace's
+`NamespaceDoc`-sourced documentation (summary, remarks, structured example
+parts) onto the shared single-file writer, mirroring type-level rendering.
+Calls `NamespaceDescription.GetSummary`/`GetRemarks`/`GetExampleParts` with
+only the `xmlDocs` argument, so the optional `CrefLinkContext?` parameter
+defaults to `null` and cref references never link, consistent with every
+other `XmlDocReader` access in this class.
 
 **WriteSingleFileTypeSections** (private): Writes all content for a single type —
 type heading, signature code block, summary, remarks, example, compact member
@@ -112,7 +122,8 @@ this class.
   type names without Markdown link generation; used when rendering parameter type cells
   in single-file output.
 - **XmlDocReader** — used to retrieve documentation text for each member;
-  every call site uses the parameterless overloads (no `CrefLinkContext`), so
+  every call site passes `null` for the `CrefLinkContext?` parameter (directly,
+  or indirectly via `NamespaceDescription`'s on-demand accessors), so
   `<see cref>`/`<seealso cref>` references never link in single-file output.
 - **IMarkdownWriterFactory** — received from `DotNetEmitter.Emit`.
 

@@ -135,6 +135,7 @@ internal sealed class DotNetEmitterGradualDisclosure
 
         // All-namespaces table — lists every namespace so AI agents get a complete map in one
         // read; counts reflect only the types declared directly in each namespace (not children)
+        var rootLinkContext = BuildCrefLinkContext("");
         var nsHeaders = new[] { "Namespace", "Types", DotNetEmitter.DescriptionColumnHeader };
         var nsRows = _model.AllNamespaces.Select(nsName =>
         {
@@ -142,7 +143,7 @@ internal sealed class DotNetEmitterGradualDisclosure
             var link = $"{folderPath}.md";
             var typeCount = _model.ByNamespace.TryGetValue(nsName, out var nsTypes) ? nsTypes.Count : 0;
             var description = _model.NamespaceDescriptions.TryGetValue(nsName, out var desc)
-                ? NamespaceTableDescription(desc)
+                ? NamespaceTableDescription(desc, _model.XmlDocs, rootLinkContext)
                 : DotNetEmitter.NoDescriptionPlaceholder;
             return new[] { $"[{nsName}]({link})", typeCount.ToString(), description };
         });
@@ -183,27 +184,34 @@ internal sealed class DotNetEmitterGradualDisclosure
 
     /// <summary>
     ///     Computes the description cell value for a namespace row in a single-row Markdown
-    ///     table: the <see cref="NamespaceDescription.Summary"/> when present, otherwise the
-    ///     <see cref="NamespaceDescription.Remarks"/> collapsed to a single line, otherwise the
-    ///     <see cref="DotNetEmitter.NoDescriptionPlaceholder"/>.
+    ///     table: the summary when present, otherwise the remarks collapsed to a single line,
+    ///     otherwise the <see cref="DotNetEmitter.NoDescriptionPlaceholder"/>.
     /// </summary>
     /// <remarks>
     ///     Remarks may span multiple paragraphs, so they are collapsed to a single line to keep
     ///     the one-row table cell well-formed. Summary text is already single-line by convention.
     /// </remarks>
     /// <param name="desc">The namespace description whose summary or remarks to render.</param>
+    /// <param name="xmlDocs">Documentation index used to fetch the summary/remarks text.</param>
+    /// <param name="linkContext">
+    ///     Cross-reference linking context scoped to the table's containing page, so a
+    ///     <c>&lt;see cref&gt;</c> in the namespace summary/remarks links the same way it
+    ///     would in a type's own description.
+    /// </param>
     /// <returns>The single-line description cell value.</returns>
-    private static string NamespaceTableDescription(NamespaceDescription desc)
+    private static string NamespaceTableDescription(NamespaceDescription desc, XmlDocReader xmlDocs, CrefLinkContext linkContext)
     {
         // Prefer the summary, falling back to single-line remarks, then the placeholder
-        if (!string.IsNullOrEmpty(desc.Summary))
+        var summary = desc.GetSummary(xmlDocs, linkContext);
+        if (!string.IsNullOrEmpty(summary))
         {
-            return desc.Summary;
+            return summary;
         }
 
-        if (!string.IsNullOrEmpty(desc.Remarks))
+        var remarks = desc.GetRemarks(xmlDocs, linkContext);
+        if (!string.IsNullOrEmpty(remarks))
         {
-            return CollapseToSingleLine(desc.Remarks);
+            return CollapseToSingleLine(remarks);
         }
 
         return DotNetEmitter.NoDescriptionPlaceholder;
@@ -263,22 +271,28 @@ internal sealed class DotNetEmitterGradualDisclosure
         using var nsWriter = factory.CreateMarkdown(subFolder, shortName);
         nsWriter.WriteHeading(1, namespaceName);
 
+        // Namespace prose and the child-namespace table both live in subFolder, so a single
+        // link context scoped there is correct for both.
+        var namespacePageLinkContext = BuildCrefLinkContext(subFolder);
+
         // Emit the namespace documentation when one was supplied via the NamespaceDoc
         // convention — summary, then remarks, then structured example parts, mirroring the
         // type-level rendering used elsewhere
         if (ctx.NamespaceDescriptions.TryGetValue(namespaceName, out var nsDescription))
         {
-            if (!string.IsNullOrEmpty(nsDescription.Summary))
+            var summary = nsDescription.GetSummary(ctx.XmlDocs, namespacePageLinkContext);
+            if (!string.IsNullOrEmpty(summary))
             {
-                nsWriter.WriteParagraph(nsDescription.Summary);
+                nsWriter.WriteParagraph(summary);
             }
 
-            if (!string.IsNullOrEmpty(nsDescription.Remarks))
+            var remarks = nsDescription.GetRemarks(ctx.XmlDocs, namespacePageLinkContext);
+            if (!string.IsNullOrEmpty(remarks))
             {
-                nsWriter.WriteParagraph(nsDescription.Remarks);
+                nsWriter.WriteParagraph(remarks);
             }
 
-            WriteExampleParts(nsWriter, nsDescription.ExampleParts);
+            WriteExampleParts(nsWriter, nsDescription.GetExampleParts(ctx.XmlDocs, namespacePageLinkContext));
         }
 
         // List immediate child namespaces (gradual disclosure — one level at a time)
@@ -295,7 +309,7 @@ internal sealed class DotNetEmitterGradualDisclosure
                 SplitPath(childFolderPath, out _, out var childShortName);
                 var link = $"{shortName}/{childShortName}.md";
                 var childDesc = ctx.NamespaceDescriptions.TryGetValue(child, out var desc)
-                    ? NamespaceTableDescription(desc)
+                    ? NamespaceTableDescription(desc, ctx.XmlDocs, namespacePageLinkContext)
                     : DotNetEmitter.NoDescriptionPlaceholder;
                 return new[] { $"[{child}]({link})", childDesc };
             });
@@ -309,11 +323,10 @@ internal sealed class DotNetEmitterGradualDisclosure
         }
 
         var typeHeaders = new[] { "Type", DotNetEmitter.DescriptionColumnHeader };
-        var namespaceLinkContext = BuildCrefLinkContext(subFolder);
         var typeRows = nsTypes.Select(t =>
         {
             var typeMemberId = BuildTypeId(t);
-            var summary = ctx.XmlDocs.GetSummary(typeMemberId, namespaceLinkContext) ?? DotNetEmitter.NoDescriptionPlaceholder;
+            var summary = ctx.XmlDocs.GetSummary(typeMemberId, namespacePageLinkContext) ?? DotNetEmitter.NoDescriptionPlaceholder;
             var typeDisplayName = StripArity(t.Name);
             var link = $"{shortName}/{FlattenArity(t.Name)}.md";
             return new[] { $"[{typeDisplayName}]({link})", summary };
@@ -353,32 +366,33 @@ internal sealed class DotNetEmitterGradualDisclosure
         }
 
         var (members, operatorMethods) = CollectTypePageMembers(ctx.Type);
-        if (members.Count == 0 && operatorMethods.Count == 0)
+        if (members.Count > 0 || operatorMethods.Count > 0)
         {
-            return;
-        }
+            var buckets = new MemberRowBuckets();
+            ProcessTypeMembers(ctx, members, buckets);
 
-        var buckets = new MemberRowBuckets();
-        ProcessTypeMembers(ctx, members, buckets);
+            // Emit grouped sub-tables in the canonical order: Constructors, Properties, Methods, Fields, Events.
+            // Each section is only emitted when at least one member of that kind is present.
+            WriteMemberRowSections(typeWriter, buckets);
 
-        // Emit grouped sub-tables in the canonical order: Constructors, Properties, Methods, Fields, Events.
-        // Each section is only emitted when at least one member of that kind is present.
-        WriteMemberRowSections(typeWriter, buckets);
+            // Emit Operators section when the type has operator overloads — all operators share
+            // a single page to prevent file-name collisions between op_Addition, op_Subtraction, etc.
+            if (operatorMethods.Count > 0)
+            {
+                WriteTypeOperatorsSection(typeWriter, ctx, operatorMethods);
+            }
 
-        // Emit Operators section when the type has operator overloads — all operators share
-        // a single page to prevent file-name collisions between op_Addition, op_Subtraction, etc.
-        if (operatorMethods.Count > 0)
-        {
-            WriteTypeOperatorsSection(typeWriter, ctx, operatorMethods);
+            // Emit the External Types section when any non-standard external types were referenced
+            WriteExternalTypesSection(typeWriter, buckets.ExternalTypes);
         }
 
         // Emit Nested Types section when the type has visible nested types — each nested type
         // receives a dedicated page under the containing type's folder so the documentation
-        // hierarchy mirrors the C# type hierarchy
+        // hierarchy mirrors the C# type hierarchy. This runs even when the containing type has
+        // no own members/operators, since a type can be a pure namespace-like container for
+        // nested types; the cref-link index (DotNetGenerator.CollectTypeCrefLinkIndex) recurses
+        // into nested types unconditionally and must match this to avoid dangling cref links.
         WriteNestedTypesSection(typeWriter, ctx);
-
-        // Emit the External Types section when any non-standard external types were referenced
-        WriteExternalTypesSection(typeWriter, buckets.ExternalTypes);
     }
 
     /// <summary>
@@ -463,21 +477,9 @@ internal sealed class DotNetEmitterGradualDisclosure
     /// <param name="buckets">Row accumulators and external-type tracker for the type page.</param>
     private static void ProcessTypeMembers(TypePageWriteContext ctx, List<IMemberDefinition> members, MemberRowBuckets buckets)
     {
-        // Build a case-insensitive map of all members by their sanitized file name to detect
-        // collisions between members whose names differ only in case (e.g. field "name" and
-        // property "Name"). Members sharing a lowercase key are combined onto a single page.
-        var caseInsensitiveGroups = new Dictionary<string, List<IMemberDefinition>>(StringComparer.Ordinal);
-        foreach (var member in members)
-        {
-            var lowerKey = GetSanitizedMemberFileName(member, ctx.Type).ToLowerInvariant();
-            if (!caseInsensitiveGroups.TryGetValue(lowerKey, out var list))
-            {
-                list = [];
-                caseInsensitiveGroups[lowerKey] = list;
-            }
-
-            list.Add(member);
-        }
+        // Shared with BuildMemberPageIndex (the cref-link index) so both always agree on which
+        // members share a page — see GroupMembersByFileName's remarks.
+        var caseInsensitiveGroups = GroupMembersByFileName(members, ctx.Type);
 
         // Track which lowercase keys have had their member page written so collision groups
         // are documented exactly once while their table rows are still emitted individually
@@ -889,61 +891,16 @@ internal sealed class DotNetEmitterGradualDisclosure
             .Where(m => !(m is MethodDefinition md && IsOperator(md)))
             .ToList();
 
-        // Mirror ProcessTypeMembers: group by case-insensitive sanitized file name, then decide
-        // single/overload-group/collision handling for each distinct group exactly once.
-        var caseInsensitiveGroups = new Dictionary<string, List<IMemberDefinition>>(StringComparer.Ordinal);
-        foreach (var member in members)
+        // Shared with ProcessTypeMembers via GroupMembersByFileName, and with ProcessOverloadGroup
+        // via DecideGroupPageFileName/GetOrderedOverloads, so the index can never desync from the
+        // page names the writer actually produces.
+        foreach (var (lowerKey, group) in GroupMembersByFileName(members, type))
         {
-            var lowerKey = GetSanitizedMemberFileName(member, type).ToLowerInvariant();
-            if (!caseInsensitiveGroups.TryGetValue(lowerKey, out var list))
+            var pageFileName = DecideGroupPageFileName(group, lowerKey, type);
+            var pageKey = $"{typeFolder}/{pageFileName}";
+            foreach (var groupMember in group)
             {
-                list = [];
-                caseInsensitiveGroups[lowerKey] = list;
-            }
-
-            list.Add(member);
-        }
-
-        var processedKeys = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var member in members)
-        {
-            var lowerKey = GetSanitizedMemberFileName(member, type).ToLowerInvariant();
-            if (!processedKeys.Add(lowerKey))
-            {
-                continue;
-            }
-
-            var group = caseInsensitiveGroups[lowerKey];
-            if (group.Count == 1)
-            {
-                var sanitizedName = GetSanitizedMemberFileName(group[0], type);
-                index[BuildMemberId(group[0])] = $"{typeFolder}/{sanitizedName}";
-            }
-            else if (IsPureMethodOverloadGroup(group, type))
-            {
-                // Mirror ProcessOverloadGroup's deterministic representative selection — the
-                // representative's sanitized file name is the shared overload-group page name
-                // (matching WriteMethodOverloadPage's use of orderedOverloads[0]).
-                var orderedOverloads = group
-                    .Cast<MethodDefinition>()
-                    .OrderBy(m => m.GenericParameters.Count)
-                    .ThenBy(m => m.Parameters.Count)
-                    .ThenBy(m => string.Join(",", m.Parameters.Select(p => p.ParameterType.FullName)), StringComparer.Ordinal)
-                    .ToList();
-                var overloadFileName = GetSanitizedMemberFileName(orderedOverloads[0], type);
-                var pageKey = $"{typeFolder}/{overloadFileName}";
-                foreach (var overload in orderedOverloads)
-                {
-                    index[BuildMemberId(overload)] = pageKey;
-                }
-            }
-            else
-            {
-                var pageKey = $"{typeFolder}/{lowerKey}";
-                foreach (var collisionMember in group)
-                {
-                    index[BuildMemberId(collisionMember)] = pageKey;
-                }
+                index[BuildMemberId(groupMember)] = pageKey;
             }
         }
 
@@ -953,6 +910,86 @@ internal sealed class DotNetEmitterGradualDisclosure
     // =========================================================================
     // Member processing helpers
     // =========================================================================
+
+    /// <summary>
+    ///     Groups <paramref name="members"/> by case-insensitive sanitized file name.
+    /// </summary>
+    /// <remarks>
+    ///     Shared by <see cref="BuildMemberPageIndex"/> (the cref-link index) and
+    ///     <see cref="ProcessTypeMembers"/> (the actual page writer) so both always agree on
+    ///     which members share a page.
+    /// </remarks>
+    /// <param name="members">The members to group (non-operator members of a single type).</param>
+    /// <param name="type">The declaring type, required by <see cref="GetSanitizedMemberFileName"/>.</param>
+    /// <returns>A map from lowercase sanitized file name to the members sharing that name.</returns>
+    private static Dictionary<string, List<IMemberDefinition>> GroupMembersByFileName(
+        IReadOnlyList<IMemberDefinition> members,
+        TypeDefinition type)
+    {
+        var groups = new Dictionary<string, List<IMemberDefinition>>(StringComparer.Ordinal);
+        foreach (var member in members)
+        {
+            var lowerKey = GetSanitizedMemberFileName(member, type).ToLowerInvariant();
+            if (!groups.TryGetValue(lowerKey, out var list))
+            {
+                list = [];
+                groups[lowerKey] = list;
+            }
+
+            list.Add(member);
+        }
+
+        return groups;
+    }
+
+    /// <summary>
+    ///     Deterministically orders a pure method overload group so the first entry is always
+    ///     the chosen representative (used for the shared overload page's file name and
+    ///     heading, and for the summary table row).
+    /// </summary>
+    /// <remarks>
+    ///     Shared by <see cref="BuildMemberPageIndex"/>, <see cref="DecideGroupPageFileName"/>,
+    ///     and <see cref="ProcessOverloadGroup"/> so the representative selection can never
+    ///     diverge between the cref-link index and the actual overload page written to disk.
+    /// </remarks>
+    /// <param name="group">All members of a pure method overload group.</param>
+    /// <returns>The group's methods, ordered with the representative first.</returns>
+    private static List<MethodDefinition> GetOrderedOverloads(IReadOnlyList<IMemberDefinition> group) =>
+        group
+            .Cast<MethodDefinition>()
+            .OrderBy(m => m.GenericParameters.Count)
+            .ThenBy(m => m.Parameters.Count)
+            .ThenBy(m => string.Join(",", m.Parameters.Select(p => p.ParameterType.FullName)), StringComparer.Ordinal)
+            .ToList();
+
+    /// <summary>
+    ///     Decides the single shared page file name (without extension) that every member of
+    ///     <paramref name="group"/> links to.
+    /// </summary>
+    /// <remarks>
+    ///     Shared by <see cref="BuildMemberPageIndex"/> (the cref-link index) and
+    ///     <see cref="ProcessOverloadGroup"/>/<see cref="ProcessCollisionMember"/> (the actual
+    ///     page writer), so a future change to this decision automatically applies to both and
+    ///     cannot cause a cref link to point at a page different from the one actually written.
+    /// </remarks>
+    /// <param name="group">All members sharing <paramref name="lowerKey"/>.</param>
+    /// <param name="lowerKey">The shared lowercase sanitized file name key for the group.</param>
+    /// <param name="type">The declaring type, required by <see cref="GetSanitizedMemberFileName"/>.</param>
+    /// <returns>The page file name (without extension) for the group.</returns>
+    private static string DecideGroupPageFileName(IReadOnlyList<IMemberDefinition> group, string lowerKey, TypeDefinition type)
+    {
+        if (group.Count == 1)
+        {
+            return GetSanitizedMemberFileName(group[0], type);
+        }
+
+        if (IsPureMethodOverloadGroup(group.ToList(), type))
+        {
+            return GetSanitizedMemberFileName(GetOrderedOverloads(group)[0], type);
+        }
+
+        return lowerKey;
+    }
 
     /// <summary>
     ///     Returns <see langword="true"/> when all members in <paramref name="group"/> are
@@ -1085,14 +1122,9 @@ internal sealed class DotNetEmitterGradualDisclosure
         List<string[]> methodRows,
         SortedSet<ExternalTypeInfo> externalTypes)
     {
-        var methods = group.Cast<MethodDefinition>().ToList();
-
-        // Ensure deterministic ordering for representative selection and page rendering
-        var orderedOverloads = methods
-            .OrderBy(m => m.GenericParameters.Count)
-            .ThenBy(m => m.Parameters.Count)
-            .ThenBy(m => string.Join(",", m.Parameters.Select(p => p.ParameterType.FullName)), StringComparer.Ordinal)
-            .ToList();
+        // Shared with BuildMemberPageIndex (the cref-link index) and DecideGroupPageFileName so
+        // the representative selection — and therefore the page file name — can never diverge.
+        var orderedOverloads = GetOrderedOverloads(group);
 
         var representative = orderedOverloads[0];
         var representativeMemberId = BuildMemberId(representative);

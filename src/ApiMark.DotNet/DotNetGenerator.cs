@@ -437,20 +437,19 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
         // Materialize once — the selection makes multiple passes over the carriers
         var memberIds = carriers.Select(DotNetEmitter.BuildTypeId).ToList();
 
-        var summary = memberIds
-            .Select(xmlDocs.GetSummary)
-            .FirstOrDefault(text => !string.IsNullOrEmpty(text));
+        // Record the winning carrier's ID rather than its rendered text, so the text can be
+        // re-fetched at emission time with a CrefLinkContext scoped to the actual output
+        // folder — see NamespaceDescription's remarks on cross-reference linking.
+        var summaryMemberId = memberIds
+            .FirstOrDefault(id => !string.IsNullOrEmpty(xmlDocs.GetSummary(id)));
 
-        var remarks = memberIds
-            .Select(xmlDocs.GetRemarks)
-            .FirstOrDefault(text => !string.IsNullOrEmpty(text));
+        var remarksMemberId = memberIds
+            .FirstOrDefault(id => !string.IsNullOrEmpty(xmlDocs.GetRemarks(id)));
 
-        var exampleParts = memberIds
-            .Select(xmlDocs.GetExampleParts)
-            .FirstOrDefault(parts => parts.Count > 0)
-            ?? Array.Empty<(bool IsCode, string Content)>();
+        var exampleMemberId = memberIds
+            .FirstOrDefault(id => xmlDocs.GetExampleParts(id).Count > 0);
 
-        return new NamespaceDescription(summary, remarks, exampleParts);
+        return new NamespaceDescription(summaryMemberId, remarksMemberId, exampleMemberId);
     }
 
     /// <summary>

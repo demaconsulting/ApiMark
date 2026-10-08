@@ -180,3 +180,13 @@ renders as plain code-span text with no link in single-file output, proving
 any `XmlDocReader` call site, so the new optional parameter always defaults
 to `null` here. This scenario is tested by
 `CrefLinking_SingleFileMode_SeeCrefToVisibleType_RemainsCodeSpanOnly`.
+
+**Single-file mode never links a namespace-level cref either**: Verifies that
+a `<see cref>` inside a `NamespaceDoc` carrier's `<remarks>` also renders as
+plain code-span text with no link in single-file output — the
+`NamespaceDescription.GetSummary`/`GetRemarks`/`GetExampleParts` accessor
+calls made by `WriteNamespaceDescription` pass only the `xmlDocs` argument,
+so the same `null`-`CrefLinkContext` invariant holds for namespace-level
+documentation as it does for type/member documentation. This scenario is
+tested by
+`CrefLinking_SingleFileMode_NamespaceDocRemarksSeeCref_RemainsCodeSpanOnly`.

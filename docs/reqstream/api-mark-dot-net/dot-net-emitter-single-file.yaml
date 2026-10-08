@@ -139,10 +139,13 @@ sections:
               same reason parameter type cells are already rendered as plain text
               rather than links (see EmitPlainTextParameterTypes above). Full `<see
               cref>`/`<seealso cref>` cross-reference linking is explicitly out of
-              scope for single-file mode. This is satisfied by leaving every
-              XmlDocReader call site in this class completely unmodified — never
-              constructing or passing a CrefLinkContext — so the new optional
-              CrefLinkContext parameter always defaults to null; this is simpler and
-              safer than adding an explicit opt-out branch.
+              scope for single-file mode. This is satisfied by the invariant that no
+              XmlDocReader call site in this class ever constructs or passes a
+              non-null CrefLinkContext — directly, or indirectly via
+              NamespaceDescription's GetSummary/GetRemarks/GetExampleParts
+              accessors — so the optional CrefLinkContext parameter always defaults
+              to or is passed as null; this is simpler and safer than adding an
+              explicit opt-out branch.
             tests:
               - CrefLinking_SingleFileMode_SeeCrefToVisibleType_RemainsCodeSpanOnly
+              - CrefLinking_SingleFileMode_NamespaceDocRemarksSeeCref_RemainsCodeSpanOnly

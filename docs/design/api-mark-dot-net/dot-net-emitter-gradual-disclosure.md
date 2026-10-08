@@ -77,6 +77,11 @@ single namespace.
   visible members by kind (Constructors, Properties, Fields, Events, Methods,
   Operators, Nested Types) and writes one table row per member (or one representative row
   per method overload group) with a link to the member's dedicated page; calls per-kind page writers for each member or member group.
+  The Nested Types section is written unconditionally via `WriteNestedTypesSection`,
+  even when the containing type has no own members/operators, since a type can be a
+  pure namespace-like container for nested types; this must match
+  `DotNetGenerator.CollectTypeCrefLinkIndex`, which recurses into nested types
+  unconditionally, to avoid dangling cref links to pages that were never written.
 
 **WriteMethodDocumentation** (private static): Writes the XML documentation content
 for a single method (or one overload) onto the caller-supplied writer.
@@ -226,8 +231,8 @@ non-method member (property, field, or event) to the supplied Markdown writer.
 
 #### BuildMemberPageIndex and BuildCrefLinkContext
 
-**BuildMemberPageIndex** (`internal static`): Pure function reproducing the
-exact same member-grouping decisions `WriteMembersSection` makes (overload
+**BuildMemberPageIndex** (`internal static`): Pure function computing, for
+every emitted member of a type, the page key it will end up on (overload
 grouping, operator grouping, case-insensitive-filename-collision grouping,
 single-member fallback) without writing any Markdown, returning a map from
 each emitted member's XML-doc ID to its page key.
@@ -239,29 +244,42 @@ each emitted member's XML-doc ID to its page key.
 - *Returns*: `IReadOnlyDictionary<string, string>` — `DotNetEmitter.BuildMemberId(member)
   -> "{folder}/{fileNameNoExt}"` for every member where `isMemberEmitted(member)`
   is `true`.
-- *Why this exists*: Before this refactor, the grouping decisions (which
-  members share an overload page, which operators share `operators.md`, which
-  case-colliding members share a combined page) existed only inline inside
-  `WriteMembersSection` and its four called methods
-  (`WriteMemberPage`/`WriteMethodOverloadPage`/`WriteTypeOperatorsPage`/
-  `WriteCombinedMemberPage`), with no reusable, Markdown-free way to answer
-  "what page will member X end up on". `CrefTargetResolver`/`XmlDocReader`
-  cross-reference linking needs exactly that answer, for every member in the
-  assembly, before any page is written — recomputing the grouping logic a
-  second time (even "equivalently") would create two sources of truth that
-  could silently drift apart over time. `BuildMemberPageIndex` extracts the
-  grouping decisions into a single, independently testable, Markdown-free
-  function; `WriteMembersSection` (and the methods it calls, where they need
-  the same per-member grouping/page-key facts) now call this exact same
-  function
-  rather than duplicating its logic, so there is exactly one source of truth
-  for "what page does this member live on". This refactor is required to be,
-  and was verified to be, fully behavior-preserving: it changes no generated
-  Markdown output.
-- *Callers*: `WriteMembersSection` (via its grouping-decision logic, now
-  delegating to this function); `DotNetGenerator.CollectTypeCrefLinkIndex`
-  (merges every type's result into the assembly-wide
-  `DotNetAstModel.MemberPageIndex`).
+- *Why this exists*: `CrefTargetResolver`/`XmlDocReader` cross-reference
+  linking needs to answer "what page will member X end up on" for every
+  member in the assembly *before* any page is written. The actual page
+  writer (`ProcessTypeMembers` and the methods it calls —
+  `ProcessSingleMember`/`ProcessOverloadGroup`/`ProcessCollisionMember`)
+  interleaves this grouping decision with immediate table-row accumulation
+  and Markdown writing, in an order that does not separate cleanly into a
+  single function both call. Rather than duplicate the grouping decision
+  wholesale (which previously caused a real desync — see the
+  `DotNetGenerator.CollectTypeCrefLinkIndex` note on nested-type pages), the
+  three sub-decisions that actually determine a page's file name are each
+  factored into their own small, shared, Markdown-free helper that both
+  `BuildMemberPageIndex` and the page writer call identically:
+  - `GroupMembersByFileName` — groups members by case-insensitive sanitized
+    file name. Used by both `BuildMemberPageIndex` and `ProcessTypeMembers`.
+  - `GetOrderedOverloads` — deterministically orders a pure method overload
+    group so its first entry is always the chosen representative. Used by
+    `BuildMemberPageIndex` (via `DecideGroupPageFileName`) and
+    `ProcessOverloadGroup`.
+  - `DecideGroupPageFileName` — given a group and its case-insensitive key,
+    returns the single page file name every member in the group links to
+    (the lone member's own name, the representative overload's name, or the
+    shared collision key). Used directly by `BuildMemberPageIndex`; its
+    per-branch logic mirrors what `ProcessOverloadGroup`/
+    `ProcessCollisionMember` independently compute for the pages they write.
+
+  This leaves the table-row accumulation and Markdown-writing responsibilities
+  of `ProcessTypeMembers` and its helpers free to stay separate from indexing,
+  while guaranteeing the file-name decision itself — the one fact that must
+  match exactly for cref links to resolve to real pages — cannot drift between
+  the index and the writer. Overall correctness is additionally verified by
+  an end-to-end integration test (see `DotNetEmitterGradualDisclosureTests`)
+  asserting that every page key `BuildMemberPageIndex` returns matches an
+  actually-written Markdown file for the test fixtures.
+- *Callers*: `DotNetGenerator.CollectTypeCrefLinkIndex` (merges every type's
+  result into the assembly-wide `DotNetAstModel.MemberPageIndex`).
 
 **BuildCrefLinkContext** (private): Constructs a `CrefLinkContext` scoped to a
 given folder, bound to the ambient model's cref-linking indices and the

@@ -116,6 +116,15 @@ a type containing a nested type produces a dedicated page for that nested type
 placed under the containing type's folder path. This scenario is tested by
 `DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesNestedTypePage`.
 
+**Nested Types section is written even when the containing type has no own
+members**: Verifies that a type acting as a pure namespace-like container —
+with no own members/operators, only a nested type — still has its Nested
+Types section written and its nested type's page created, so that cref links
+into the nested type (which `DotNetGenerator.CollectTypeCrefLinkIndex`
+indexes unconditionally) never dangle. This scenario is tested using the
+`TwoLevelNestedClass`/`Middle`/`Inner` fixture by
+`DotNetGenerator_Generate_GradualDisclosure_MemberlessContainerType_WritesNestedTypePages`.
+
 **Child namespace page is created**: Verifies that a child namespace (such as
 `ApiMark.DotNet.Fixtures.Inner`) also produces a dedicated Markdown summary page,
 confirming that child namespace enumeration works correctly. This scenario is tested by
@@ -197,13 +206,23 @@ end-to-end linking path as `<see cref>` in gradual-disclosure output. This
 scenario is tested by
 `CrefLinking_SeeAlsoCrefToVisibleType_RendersAsMarkdownLink`.
 
+**CrefLinking: see cref in a namespace's NamespaceDoc remarks renders as a
+Markdown link**: Verifies that `<see cref>` inside the `<remarks>` of a
+`NamespaceDoc` carrier class is resolved and linkified on the namespace page,
+using a `CrefLinkContext` scoped to the namespace page's own folder — the
+same linking path as type- and member-level summaries, applied to
+namespace-level prose. This scenario is tested by
+`DotNetGenerator_NamespacePage_NamespaceDocRemarksSeeCref_RendersAsLink`.
+
 **Every MemberPageIndex entry matches an actually-written page**: Verifies,
 across the full fixture assembly, that every entry in
 `DotNetAstModel.MemberPageIndex` (populated by `BuildMemberPageIndex` via
 `DotNetGenerator.CollectTypeCrefLinkIndex`) corresponds to a page key that a
 writer actually wrote during `Emit` — directly guarding against
 `BuildMemberPageIndex`'s grouping logic silently drifting out of sync with
-`WriteMembersSection`'s real output, since both now call the same extracted
-function but could in principle diverge again through a future edit to only
-one call site. This scenario is tested by
+the real output of `ProcessTypeMembers`/`ProcessOverloadGroup`/
+`ProcessCollisionMember`, since both the index builder and the page writer
+now call the same extracted `GroupMembersByFileName`/`GetOrderedOverloads`/
+`DecideGroupPageFileName` helpers but could in principle diverge again
+through a future edit to only one call site. This scenario is tested by
 `BuildMemberPageIndex_AllEntries_MatchActualWrittenPages`.

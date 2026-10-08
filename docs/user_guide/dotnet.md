@@ -163,9 +163,11 @@ declared in the assembly being documented renders as a real relative Markdown
 link to that target's own page, in addition to the existing code-span
 styling, whenever the target will actually be emitted under the active
 visibility and obsolete-filter settings. A reference whose target is external
-to the assembly, filtered out of the generated documentation, malformed, or a
-constructor continues to render as plain code-span text with no link, exactly
-as it did before this capability existed.
+to the assembly, filtered out of the generated documentation, or malformed
+continues to render as plain code-span text with no link, exactly as it did
+before this capability existed. A reference to a constructor renders as its
+declaring type's bare name with no code span and no link, also unchanged from
+before this capability existed.
 
 This capability applies only to gradual-disclosure output (`--format gradual`,
 the default), where each type and member has its own page to link to. In
