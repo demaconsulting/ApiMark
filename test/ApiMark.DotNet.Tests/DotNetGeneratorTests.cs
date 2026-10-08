@@ -551,7 +551,7 @@ public class DotNetGeneratorTests
         // code-span-wrapped), per the cref-cross-reference-linking feature.
         var typeWriter = factory.Writers["ApiMark.DotNet.Fixtures/SampleStatusExtensions"];
         var typeParagraphs = typeWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
-        Assert.Contains("Extensions for the `[SampleStatus](SampleStatus.md)` enum.", typeParagraphs);
+        Assert.Contains("Extensions for the [`SampleStatus`](SampleStatus.md) enum.", typeParagraphs);
 
         var memberWriters = factory.Writers
             .Where(kvp => kvp.Key.StartsWith("ApiMark.DotNet.Fixtures/SampleStatusExtensions/IsPassed", StringComparison.Ordinal))
@@ -560,7 +560,7 @@ public class DotNetGeneratorTests
         Assert.Contains(
             memberWriters,
             writer => writer.Operations.OfType<ParagraphOperation>()
-                .Any(p => p.Text == "Returns true when status is `[SampleStatus.Active](../SampleStatus/Active.md)` or `[SampleStatus.Pending](../SampleStatus/Pending.md)`."));
+                .Any(p => p.Text == "Returns true when status is [`SampleStatus.Active`](../SampleStatus/Active.md) or [`SampleStatus.Pending`](../SampleStatus/Pending.md)."));
     }
 
     /// <summary>Validates that static types render a <c>static class</c> signature.</summary>

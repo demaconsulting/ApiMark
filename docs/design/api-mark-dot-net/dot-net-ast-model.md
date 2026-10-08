@@ -7,19 +7,24 @@
 
 ### Purpose
 
-DotNetAstModel is an immutable data class that holds all parsed .NET assembly
-data required during the emit phase. It is created exclusively by
+DotNetAstModel is a data class that holds all parsed .NET assembly data
+required during the emit phase. It is created exclusively by
 `DotNetGenerator.Parse` and transferred to `DotNetEmitter`. All properties are
-read-only after construction and the collections they expose use read-only
-interfaces (`IReadOnlyList`, `IReadOnlyDictionary`), making the model's entire
-observable state immutable after construction. The emitter can safely share the
-model across its internal helper methods without defensive copies.
+read-only — set either at construction or, for `MemberPageIndex`/
+`EmittedTypeIds`, once via `SetMemberPageIndex` shortly after construction
+(see Key Methods below) — and the collections they expose use read-only
+interfaces (`IReadOnlyList`, `IReadOnlyDictionary`), so no caller can mutate
+the model's collections directly. The emitter can safely share the model
+across its internal helper methods without defensive copies.
 
-The three context records defined in the same file — `TypePageWriteContext`,
-`MethodDocContext`, and `NamespaceDocContext` — reduce parameter counts on the
-helper methods by bundling constant values that are threaded through multiple
-call levels. A fourth record, `NamespaceDescription`, carries the summary,
-remarks, and example parts extracted from a `NamespaceDoc` carrier.
+The four context records defined in the same file — `TypePageWriteContext`,
+`MethodDocContext`, `NamespaceDocContext`, and `NamespaceDescription` — reduce
+parameter counts on the helper methods by bundling constant values that are
+threaded through multiple call levels: the first three bundle per-page-type
+writing context (`NamespaceDescription` carries the summary, remarks, and
+example parts extracted from a `NamespaceDoc` carrier). A fifth record,
+`DotNetAstModelArgs`, bundles the `DotNetAstModel` constructor's own
+parameters (see Key Methods below).
 
 ### Data Model
 
@@ -115,18 +120,31 @@ surface on namespace output the same way they do for a type.
 - *ExampleParts* (`IReadOnlyList<(bool IsCode, string Content)>`): Structured
   example parts, each flagged as code or prose; empty when no `<example>` is present.
 
+**DotNetAstModelArgs** (internal sealed record): Bundles the `DotNetAstModel`
+constructor's own parameters into a single value, so the constructor takes one
+parameter instead of nine and the DotNetAstModelArgs record's own XML doc
+comments remain the authoritative per-field description.
+
+- *Assembly* (`AssemblyDefinition`), *AssemblyResolver* (`IAssemblyResolver`),
+  *XmlDocs* (`XmlDocReader`), *AllNamespaces* (`IReadOnlyList<string>`),
+  *ByNamespace* (`IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>>`),
+  *RootNamespaces* (`IReadOnlyList<string>`),
+  *NamespaceDescriptions* (`IReadOnlyDictionary<string, NamespaceDescription>`),
+  *Resolver* (`TypeLinkResolver`), *Options* (`DotNetGeneratorOptions`) — one
+  field per constructor parameter of `DotNetAstModel`, described above under
+  the `DotNetAstModel` entry.
+
 ### Key Methods
 
-**DotNetAstModel constructor**: Accepts all parsed data and stores it in
-read-only properties.
+**DotNetAstModel constructor**: Accepts a `DotNetAstModelArgs` bundling all
+parsed data and stores each field in a read-only property.
 
-- *Parameters*: `AssemblyDefinition assembly`, `IAssemblyResolver assemblyResolver`,
-  `XmlDocReader xmlDocs`, `IReadOnlyList<string> allNamespaces`,
-  `IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>> byNamespace`,
-  `IReadOnlyList<string> rootNamespaces`, `IReadOnlyDictionary<string, NamespaceDescription> namespaceDescriptions`,
-  `TypeLinkResolver resolver`, `DotNetGeneratorOptions options`.
-- *Preconditions*: No parameter may be null.
-- *Postconditions*: All properties are initialized; no mutation is possible.
+- *Parameters*: `DotNetAstModelArgs args`.
+- *Preconditions*: No field of `args` may be null.
+- *Postconditions*: All properties are initialized from `args`; no further
+  mutation of the assigned properties is possible, aside from the deferred
+  `MemberPageIndex`/`EmittedTypeIds` population performed by
+  `SetMemberPageIndex` below.
 
 **SetMemberPageIndex**: Sets `MemberPageIndex` and `EmittedTypeIds` after
 construction. Called exactly once, by `DotNetGenerator.Parse`, immediately

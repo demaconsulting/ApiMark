@@ -544,7 +544,7 @@ public class DotNetEmitterGradualDisclosureTests
         var paragraphs = memberWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
         Assert.Contains(
             paragraphs,
-            p => p.Contains("`[SampleClass](../SampleClass.md)`", StringComparison.Ordinal));
+            p => p.Contains("[`SampleClass`](../SampleClass.md)", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -566,7 +566,7 @@ public class DotNetEmitterGradualDisclosureTests
         var paragraphs = memberWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
         Assert.Contains(
             paragraphs,
-            p => p.Contains("`[SampleClass.Reset](../SampleClass/Reset.md)`", StringComparison.Ordinal));
+            p => p.Contains("[`SampleClass.Reset`](../SampleClass/Reset.md)", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -653,6 +653,6 @@ public class DotNetEmitterGradualDisclosureTests
         // renders as a real Markdown link on the CrefLinkingClass type page
         var typeWriter = factory.Writers["ApiMark.DotNet.Fixtures/CrefLinkingClass"];
         var paragraphs = typeWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
-        Assert.Contains(paragraphs, p => p.Contains("`[SampleClass](SampleClass.md)`", StringComparison.Ordinal));
+        Assert.Contains(paragraphs, p => p.Contains("[`SampleClass`](SampleClass.md)", StringComparison.Ordinal));
     }
 }

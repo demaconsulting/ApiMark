@@ -212,13 +212,9 @@ sections:
             tests:
               - DotNetGenerator_Parse_WithLibraryDescription_PropagatesToModelOptions
           - id: ApiMarkDotNet-DotNetGenerator-BuildCrefLinkingIndicesAfterEmitterConstruction
-            title: DotNetGenerator.Parse shall, after constructing the DotNetEmitter,
-              populate DotNetAstModel's MemberPageIndex and EmittedTypeIds by
-              recursively walking every visible top-level and nested type using the
-              emitter's own visibility rules, merging each type's
-              DotNetEmitterGradualDisclosure.BuildMemberPageIndex result into a
-              single assembly-wide index, without introducing a second construction
-              pass over DotNetAstModel/DotNetEmitter.
+            title: DotNetGenerator shall ensure every visible type and member in the
+              parsed assembly is present in the model's cref link index before
+              DotNetGenerator.Parse returns.
             justification: |
               Full <see cref>/<seealso cref> cross-reference linking requires knowing,
               for every member, the exact gradual-disclosure page path it will be
@@ -230,9 +226,14 @@ sections:
               computed after the emitter exists, unlike CrefTargetResolver (built
               eagerly by DotNetAstModel's own constructor since it needs only the
               assembly). Populating it via a post-construction setup call on the
-              already-returned model, rather than restructuring Parse's single-pass
-              flow, keeps the existing Parse -> new DotNetEmitter(model) -> return
-              emitter contract intact.
+              already-returned model (DotNetGenerator.Parse, after constructing the
+              DotNetEmitter, recursively walks every visible top-level and nested
+              type using the emitter's own visibility rules, merging each type's
+              DotNetEmitterGradualDisclosure.BuildMemberPageIndex result into a
+              single assembly-wide index), rather than restructuring Parse's
+              single-pass flow, keeps the existing Parse -> new DotNetEmitter(model)
+              -> return emitter contract intact and avoids a second construction
+              pass over DotNetAstModel/DotNetEmitter.
             tests:
               - DotNetAstModel_MemberPageIndexAndEmittedTypeIds_AfterGradualDisclosureEmit_ArePopulated
               - DotNetGenerator_Generate_GradualDisclosure_EveryGeneratedLinkResolvesToExistingPage

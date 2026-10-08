@@ -37,6 +37,13 @@ for format selection and Markdown writing. The split across implementation units
 - **ExternalXmlDocResolver.cs** — locates and lazily parses the XML documentation
   files of externally referenced assemblies for cross-assembly `<inheritdoc />`
   resolution. See ExternalXmlDocResolver Design for full details.
+- **CrefTargetResolver.cs** — indexes every type and member declared in the
+  assembly, keyed by XML-doc identifier, so a raw `cref` attribute string can be
+  resolved to the Mono.Cecil symbol it names. See CrefTargetResolver Design for
+  full details.
+- **DocumentationCoverageChecker.cs** — checks parsed types and members against
+  the configured documentation-coverage enforcement level, reporting
+  undocumented items. See DocumentationCoverageChecker Design for full details.
 
 ### Data Model
 

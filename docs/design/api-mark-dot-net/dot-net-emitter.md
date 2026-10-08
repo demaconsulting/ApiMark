@@ -93,13 +93,20 @@ These helpers are grouped by concern:
   `SplitPath`: compute namespace folder paths and enumerate direct child namespaces.
 - *Visibility filters* — `IsTypeVisible`, `GetVisibleNestedTypes`, `IsMemberVisible`,
   `IsMemberPublic`, `IsMemberPublicOrProtected`, `IsPropertyPublicOrProtected`,
-  `GetVisibleMembers`, `ShouldIncludeMember`: determine which types and members are
-  included based on the configured visibility level and `IncludeObsolete` flag.
-  `GetVisibleNestedTypes` always excludes compiler-generated nested types (the
-  cached-lambda class, closures/display classes, async/iterator state machines,
-  etc.), even at `ApiVisibility.All`: they carry no source-level documentation,
-  and several of their names contain characters (`<`, `>`, `|`) that are invalid
-  in Windows file paths, which would otherwise break output generation.
+  `GetCandidateMembers`, `GetVisibleMembers`, `ShouldIncludeMember`: determine
+  which types and members are included based on the configured visibility level
+  and `IncludeObsolete` flag. `GetVisibleNestedTypes` always excludes
+  compiler-generated nested types (the cached-lambda class, closures/display
+  classes, async/iterator state machines, etc.), even at `ApiVisibility.All`:
+  they carry no source-level documentation, and several of their names contain
+  characters (`<`, `>`, `|`) that are invalid in Windows file paths, which would
+  otherwise break output generation. `GetCandidateMembers` returns the
+  structurally eligible superset of a type's methods, properties, fields, and
+  events — before any visibility/obsolete policy is applied — and is itself
+  consumed both by `GetVisibleMembers` (`GetVisibleMembers(type) =>
+  GetCandidateMembers(type).Where(ShouldIncludeMember)`) and directly by
+  `DotNetEmitterGradualDisclosure.BuildMemberPageIndex`, which needs the same
+  structural superset to build its cref-linking member-page index.
   `GetVisibleMembers` likewise excludes compiler-generated properties — most
   notably a record's synthesized `EqualityContract` property (used by the
   generated `Equals` to distinguish types in an inheritance hierarchy), which
@@ -298,8 +305,10 @@ of success or failure — see the known single-use limitation noted under
   the XML-doc member ID for each NamespaceDoc carrier's summary lookup).
 - **DotNetEmitterGradualDisclosure** — holds a `_emitter` reference and calls
   shared static helpers (`BuildTypeSignature`, `GetNamespaceFolderPath`,
-  `GetMemberDisplayName`, `FlattenArity`, and others) throughout gradual-disclosure
-  emission.
+  `GetMemberDisplayName`, `FlattenArity`, `GetCandidateMembers`, and others)
+  throughout gradual-disclosure emission; `GetCandidateMembers` is called
+  directly by `BuildMemberPageIndex` to obtain the same structurally eligible
+  member superset used by `GetVisibleMembers`.
 - **DotNetEmitterSingleFile** — holds a `_emitter` reference and calls shared
   static helpers (`BuildTypeSignature`, `GetNamespaceFolderPath`,
   `GetMemberDisplayName`, and others) throughout single-file emission.

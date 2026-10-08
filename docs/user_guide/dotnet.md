@@ -156,6 +156,24 @@ populated automatically from the project's resolved `@(ReferencePath)` items
 (see the *MSBuild Properties* section below), so most projects do not need to
 set it explicitly.
 
+### Cross-Reference Linking
+
+A `<see cref="..."/>` or `<seealso cref="..."/>` reference to a type or member
+declared in the assembly being documented renders as a real relative Markdown
+link to that target's own page, in addition to the existing code-span
+styling, whenever the target will actually be emitted under the active
+visibility and obsolete-filter settings. A reference whose target is external
+to the assembly, filtered out of the generated documentation, malformed, or a
+constructor continues to render as plain code-span text with no link, exactly
+as it did before this capability existed.
+
+This capability applies only to gradual-disclosure output (`--format gradual`,
+the default), where each type and member has its own page to link to. In
+single-file output (`--format single-file`), every `<see cref>`/`<seealso
+cref>` reference always renders as code-span-only text, since relative links
+are meaningless inside a single flat document — the same reason parameter
+type cells are also rendered as plain text in that mode.
+
 ## Documentation Coverage Enforcement
 
 ApiMark can enforce that your public API surface (or a broader visibility tier)

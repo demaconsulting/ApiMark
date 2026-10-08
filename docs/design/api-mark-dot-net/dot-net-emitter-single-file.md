@@ -47,7 +47,13 @@ into that writer at heading levels `HeadingDepth` (assembly title),
   appendix are emitted.
 - A `TypeLinkResolver` with `generateLinks: false` is used so that parameter
   type cells contain plain text rather than relative file links that are
-  meaningless inside a single document.
+  meaningless inside a single document. For the same reason, every
+  `ctx.XmlDocs.Get*` call in this class uses the parameterless overload, so
+  the optional `CrefLinkContext?` parameter always defaults to `null`: a
+  `<see cref>`/`<seealso cref>` reference always renders as code-span-only
+  text in single-file output, never as a Markdown link, since relative
+  anchors/links are just as meaningless inside a single flat document as the
+  relative file links the `generateLinks: false` resolver already avoids.
 
 **WriteSingleFileTypeSections** (private): Writes all content for a single type —
 type heading, signature code block, summary, remarks, example, compact member
@@ -105,7 +111,9 @@ this class.
 - **TypeLinkResolver** — constructed with `generateLinks: false` to produce plain-text
   type names without Markdown link generation; used when rendering parameter type cells
   in single-file output.
-- **XmlDocReader** — used to retrieve documentation text for each member.
+- **XmlDocReader** — used to retrieve documentation text for each member;
+  every call site uses the parameterless overloads (no `CrefLinkContext`), so
+  `<see cref>`/`<seealso cref>` references never link in single-file output.
 - **IMarkdownWriterFactory** — received from `DotNetEmitter.Emit`.
 
 ### Callers

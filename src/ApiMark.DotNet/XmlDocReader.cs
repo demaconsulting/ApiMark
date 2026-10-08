@@ -1418,10 +1418,12 @@ public sealed class XmlDocReader
     ///     <see cref="CrefTargetResolver.TryResolveType"/>/<see cref="CrefTargetResolver.TryResolveMember"/>
     ///     — to a symbol declared in the assembly being documented that will actually be emitted
     ///     (per <see cref="CrefLinkContext.IsTypeEmitted"/>/<see cref="CrefLinkContext.IsMemberEmitted"/>),
-    ///     the formatted display text is wrapped in a real relative Markdown link (via
+    ///     the code-span-wrapped text is itself wrapped in a real relative Markdown link (via
     ///     <see cref="TypeLinkResolver.LinkifyResolvedType"/>/<see cref="TypeLinkResolver.LinkifyResolvedMember"/>)
-    ///     before being wrapped in the code span, in exactly the position the plain text would
-    ///     otherwise have been wrapped. In every other case — <paramref name="linkContext"/> is
+    ///     — the code span becomes the link's label (e.g. <c>[`Type.Member`](path.md)</c>), never
+    ///     the other way around, since Markdown code span content is rendered literally and a link
+    ///     nested inside one would show as inert <c>[...](...)</c> text rather than a clickable
+    ///     link. In every other case — <paramref name="linkContext"/> is
     ///     <see langword="null"/>, the cref is external/malformed/unresolvable, or the resolved
     ///     symbol is filtered out of the generated documentation — rendering is completely
     ///     unchanged from the code-span-only fallback described above. A constructor cref (whose
@@ -1464,8 +1466,11 @@ public sealed class XmlDocReader
                 return text;
             }
 
-            var linkedText = TryLinkifyCref(cref, text, linkContext);
-            return FormatAsInlineCodeSpan(linkedText);
+            // The code span must be the link's label, not the other way around — Markdown code
+            // span content is literal, so a link nested inside a code span would render as inert
+            // text showing the raw "[...](...)" syntax rather than a clickable link.
+            var codeSpanText = FormatAsInlineCodeSpan(text);
+            return TryLinkifyCref(cref, codeSpanText, linkContext);
         }
 
         return string.Empty;
@@ -1474,32 +1479,32 @@ public sealed class XmlDocReader
     /// <summary>
     ///     Attempts to resolve <paramref name="cref"/> against <paramref name="linkContext"/> and,
     ///     when resolution succeeds and the target will actually be emitted, returns
-    ///     <paramref name="displayText"/> wrapped in a real relative Markdown link. Returns
-    ///     <paramref name="displayText"/> unchanged in every other case (no context, external
-    ///     type, filtered-out member, or malformed cref).
+    ///     <paramref name="codeSpanText"/> wrapped in a real relative Markdown link, with the code
+    ///     span as the link's label. Returns <paramref name="codeSpanText"/> unchanged in every
+    ///     other case (no context, external type, filtered-out member, or malformed cref).
     /// </summary>
     /// <param name="cref">The raw <c>cref</c> attribute value, including its kind prefix.</param>
-    /// <param name="displayText">The already-formatted display text to wrap when linking.</param>
+    /// <param name="codeSpanText">The already backtick-wrapped display text to use as the link label when linking.</param>
     /// <param name="linkContext">Optional cross-reference linking context.</param>
-    /// <returns><paramref name="displayText"/>, or that text wrapped in a Markdown link.</returns>
-    private static string TryLinkifyCref(string cref, string displayText, CrefLinkContext? linkContext)
+    /// <returns><paramref name="codeSpanText"/>, or that text wrapped in a Markdown link.</returns>
+    private static string TryLinkifyCref(string cref, string codeSpanText, CrefLinkContext? linkContext)
     {
         if (linkContext == null)
         {
-            return displayText;
+            return codeSpanText;
         }
 
         if (linkContext.Targets.TryResolveType(cref, out var type) && linkContext.IsTypeEmitted(type))
         {
-            return linkContext.Resolver.LinkifyResolvedType(type, displayText, linkContext.CurrentFolder);
+            return linkContext.Resolver.LinkifyResolvedType(type, codeSpanText, linkContext.CurrentFolder);
         }
 
         if (linkContext.Targets.TryResolveMember(cref, out var member) && linkContext.IsMemberEmitted(member))
         {
-            return linkContext.Resolver.LinkifyResolvedMember(member, displayText, linkContext.CurrentFolder, linkContext.MemberPageIndex);
+            return linkContext.Resolver.LinkifyResolvedMember(member, codeSpanText, linkContext.CurrentFolder, linkContext.MemberPageIndex);
         }
 
-        return displayText;
+        return codeSpanText;
     }
 
     /// <summary>

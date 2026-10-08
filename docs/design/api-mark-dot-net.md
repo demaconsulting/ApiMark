@@ -62,12 +62,16 @@ defined by the Core interfaces. The system contains eleven units:
   Mono.Cecil type references to produce idiomatic C# type names in output.
 - **XmlDocReader** — reads and indexes a .NET XML documentation file for fast
   member-level lookups; resolves `<inheritdoc />` references using the inheritance
-  chain map supplied by DotNetGenerator. Every public rendering method also accepts
-  an optional, trailing `CrefLinkContext?` parameter (default `null`) bundling
+  chain map supplied by DotNetGenerator. Every public rendering method is
+  internally backed by a new `internal` overload accepting an optional,
+  trailing `CrefLinkContext?` parameter (default `null`) bundling
   `CrefTargetResolver`, `TypeLinkResolver`, the member-page index, and
-  visibility-emitted delegates; when supplied and a `<see cref>`/`<seealso cref>`
-  target resolves to a symbol that will actually be emitted, the reference renders
-  as a real relative Markdown link instead of its default code-span-only fallback.
+  visibility-emitted delegates — the public overloads themselves are
+  unchanged, so the public API surface of `XmlDocReader` is unaffected; when
+  the internal overload is supplied a context and a `<see cref>`/`<seealso
+  cref>` target resolves to a symbol that will actually be emitted, the
+  reference renders as a real relative Markdown link instead of its default
+  code-span-only fallback.
 - **ExternalXmlDocResolver** — locates and lazily parses the XML documentation
   files of externally referenced assemblies (e.g. NuGet package dependencies),
   caching both per-file results and per-(declaring-assembly-hint, member-ID)

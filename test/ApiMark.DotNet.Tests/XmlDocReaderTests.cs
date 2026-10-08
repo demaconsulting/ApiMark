@@ -3435,7 +3435,7 @@ public class XmlDocReaderTests
                 var summary = reader.GetSummary("T:Foo.Bar", context);
 
                 // Assert
-                Assert.Equal("See `[SampleClass](SampleClass.md)`.", summary);
+                Assert.Equal("See [`SampleClass`](SampleClass.md).", summary);
             }
             finally
             {
@@ -3477,7 +3477,7 @@ public class XmlDocReaderTests
                 var summary = reader.GetSummary("T:Foo.Bar", context);
 
                 // Assert
-                Assert.Equal("See `[SampleClass.Reset](SampleClass/Reset.md)`.", summary);
+                Assert.Equal("See [`SampleClass.Reset`](SampleClass/Reset.md).", summary);
             }
             finally
             {
@@ -3671,7 +3671,7 @@ public class XmlDocReaderTests
                 var remarks = reader.GetRemarks("T:Foo.Bar", context);
 
                 // Assert
-                Assert.Contains("`[SampleClass](SampleClass.md)`", remarks);
+                Assert.Contains("[`SampleClass`](SampleClass.md)", remarks);
             }
             finally
             {

@@ -27,6 +27,7 @@ service, network dependency, or machine-specific configuration is required.
 - Documentation coverage enforcement correctly identifies undocumented types and members at the
   configured enforcement visibility tier, independent of the emission visibility tier.
 - Cross-assembly `<inheritdoc/>` resolution correctly resolves `<inheritdoc/>` targets defined in externally referenced assemblies (e.g. NuGet package dependencies) via `ExternalXmlDocResolver`, including graceful degradation when a referenced assembly's XML documentation is absent or corrupt.
+- Cross-reference linking correctly renders a resolvable `<see cref>`/`<seealso cref>` target as a real relative Markdown link to that target's page in gradual-disclosure output, and leaves single-file output entirely unaffected.
 
 ## Test Scenarios
 
@@ -67,3 +68,16 @@ documentation file when `DotNetGeneratorOptions.ReferencePaths` is configured. S
 `docs/verification/api-mark-dot-net/external-xml-doc-resolver.md` for the unit-level
 scenarios covering lookup, caching, the `ref/`/`lib/` fallback, and graceful
 degradation on missing/corrupt documentation.
+
+**Cross-reference linking resolves visible crefs to real Markdown links**: Verifies
+that a `<see cref>`/`<seealso cref>` reference to a type or member that is declared
+in the documented assembly and will actually be emitted renders as a real relative
+Markdown link to that target's page in gradual-disclosure output, while an
+external, filtered-out, malformed, or constructor cref continues to render as
+code-span-only text, and single-file output never links a cref regardless of
+resolvability. See `docs/verification/api-mark-dot-net/cref-target-resolver.md`
+and `docs/verification/api-mark-dot-net/type-link-resolver.md` for the unit-level
+resolution/link-building scenarios, and the `CrefLinking_*` scenarios in
+`docs/verification/api-mark-dot-net/dot-net-emitter-gradual-disclosure.md` and
+`docs/verification/api-mark-dot-net/dot-net-emitter-single-file.md` for the
+end-to-end emission scenarios.
