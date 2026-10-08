@@ -41,6 +41,7 @@ service or network dependency is needed.
 - Delegate types do not emit compiler-generated member sections (Invoke, BeginInvoke, EndInvoke).
 - Nested types include a parent-context notice paragraph (e.g., "Nested type of `OuterClass`.").
 - Parameter type cells in tables contain plain text, not Markdown links.
+- A `<see cref>` to a visible in-assembly type renders as plain code-span text with no link, even though the same cref would resolve to a real link in gradual-disclosure mode.
 
 ### Test Scenarios
 
@@ -169,3 +170,13 @@ remarks**: Verifies the same placeholder-suppression rule at the member level
 content is shown instead — confirming `WriteSingleFileMemberSection` applies
 the identical rule as `WriteSingleFileTypeSections`. This scenario is tested by
 `DotNetEmitterSingleFile_Emit_MemberWithRemarksOnly_SuppressesPlaceholderAndShowsRemarks`.
+
+**Single-file mode never links a cref, even when the same target would be
+linked in gradual-disclosure mode**: Verifies that a `<see cref>` pointing at
+an in-assembly, visible type — the same fixture type that gradual-disclosure
+output links in `CrefLinking_SeeCrefToVisibleType_RendersAsMarkdownLink` —
+renders as plain code-span text with no link in single-file output, proving
+`DotNetEmitterSingleFile` never constructs or passes a `CrefLinkContext` to
+any `XmlDocReader` call site, so the new optional parameter always defaults
+to `null` here. This scenario is tested by
+`CrefLinking_SingleFileMode_SeeCrefToVisibleType_RemainsCodeSpanOnly`.

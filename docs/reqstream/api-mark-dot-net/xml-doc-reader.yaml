@@ -246,3 +246,40 @@ sections:
               - XmlDocReader_GetExampleParts_WithSeeCref_RendersInlineReferenceInProsePart
               - XmlDocReader_GetExampleParts_WithMixedInlineElements_ProseAccumulatedAsOnePart
               - DotNetGenerator_Generate_InlineReferences_PreserveSymbolNamesInMarkdown
+          - id: ApiMarkDotNet-XmlDocReader-LinkifyResolvedCrefReferences
+            title: XmlDocReader shall accept an optional, trailing, nullable
+              CrefLinkContext parameter on every public rendering method (except
+              GetExceptions/GetExceptionDetails) and, when supplied and the cref
+              target resolves to an intra-assembly type or member that will actually
+              be emitted, render the cref's existing code-span display text as a
+              real relative Markdown link to that target's page; otherwise it shall
+              continue rendering exactly as before (code-span text, no link) for
+              external types, filtered-out members, malformed crefs, and
+              constructors, and single-file output shall be entirely unaffected
+              because it never supplies a CrefLinkContext.
+            justification: |
+              Code-span-wrapped plain text for every cref (the PR #54 fallback) is
+              strictly less useful than a real clickable cross-reference whenever the
+              target is actually present in the generated documentation. Threading an
+              optional CrefLinkContext through the existing rendering chain, rather
+              than branching the whole chain on a new mode flag, keeps the ~100
+              existing call sites (and the single-file emitter, which never opts in)
+              compiling and behaving identically by construction, while letting the
+              gradual-disclosure emitter opt in with no duplicated rendering logic.
+              Constructors are excluded because FormatCref already reports
+              ShouldWrapInCodeSpan: false for them, so no new special case is needed.
+            tests:
+              - XmlDocReader_GetSummary_NullLinkContext_RendersCodeSpanOnlyNoLink
+              - XmlDocReader_GetSummary_ResolvedEmittedType_RendersLinkedCodeSpan
+              - XmlDocReader_GetSummary_ResolvedEmittedMember_RendersLinkedCodeSpan
+              - XmlDocReader_GetSummary_ExternalTypeCref_FallsBackToCodeSpanOnly
+              - XmlDocReader_GetSummary_MalformedCref_FallsBackUnchanged
+              - XmlDocReader_GetSummary_ConstructorCref_FallsBackUnchanged
+              - XmlDocReader_GetRemarks_SeeAlsoResolvedEmittedType_RendersLinkedCodeSpan
+              - CrefLinking_SeeCrefToVisibleType_RendersAsMarkdownLink
+              - CrefLinking_SeeCrefToVisibleMember_RendersAsMarkdownLink
+              - CrefLinking_SeeCrefToFilteredMember_RendersFallbackWithNoLink
+              - CrefLinking_SeeCrefToExternalType_RendersFallbackWithNoLink
+              - CrefLinking_SeeCrefMalformed_RendersFallbackWithNoLink
+              - CrefLinking_SeeAlsoCrefToVisibleType_RendersAsMarkdownLink
+              - CrefLinking_SingleFileMode_SeeCrefToVisibleType_RemainsCodeSpanOnly

@@ -146,3 +146,47 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_MemberWithRemarksOnly_SuppressesPlaceholderAndShowsRemarks
               - DotNetEmitterGradualDisclosure_Emit_MemberWithNeitherSummaryNorRemarks_StillShowsPlaceholder
               - DotNetEmitterGradualDisclosure_Emit_TypeWithRemarksOnly_SuppressesPlaceholderAndShowsRemarksOnTypePage
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-ExtractBuildMemberPageIndex
+            title: DotNetEmitterGradualDisclosure shall expose an internal static
+              BuildMemberPageIndex function that reproduces WriteMembersSection's
+              exact member-grouping decisions (overload grouping, operator grouping,
+              case-collision grouping, single-member fallback) without writing any
+              Markdown, and WriteMembersSection shall itself call this same function
+              for its grouping decisions so there is a single source of truth, with
+              no change to any existing generated output.
+            justification: |
+              Full <see cref>/<seealso cref> cross-reference linking needs to know,
+              for every member in the assembly, the exact gradual-disclosure page path
+              it will be written to — before any page is written. Re-deriving the
+              grouping logic a second time, even if initially equivalent, would create
+              two sources of truth that could silently drift apart on a future edit to
+              only one of them. Extracting a pure, independently testable function and
+              having WriteMembersSection itself delegate to it removes that risk by
+              construction. This refactor is required to be fully behavior-preserving.
+            tests:
+              - BuildMemberPageIndex_AllEntries_MatchActualWrittenPages
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-WireCrefLinkContextThroughPageWriters
+            title: DotNetEmitterGradualDisclosure shall construct a CrefLinkContext
+              (bound to the model's CrefTargets/MemberPageIndex/Resolver and this
+              emitter's own visibility delegates) and pass it as the trailing
+              argument to every ctx.XmlDocs.Get* call it makes, except
+              GetExceptions/GetExceptionDetails, so that a resolvable `<see
+              cref>`/`<seealso cref>` reference renders as a real relative Markdown
+              link instead of the plain code-span fallback.
+            justification: |
+              Code-span-wrapped plain text for every cref is strictly less useful than
+              a real clickable cross-reference whenever the target is actually present
+              in the generated documentation. Constructing the CrefLinkContext once per
+              type-processing pass (re-scoped per folder via the record `with`
+              expression where a page writer executes at a deeper folder than its
+              caller) avoids rebuilding it freshly at every call site while keeping
+              page-writer methods free of a direct emitter-instance dependency,
+              consistent with the existing TypePageWriteContext/MethodDocContext
+              pattern.
+            tests:
+              - CrefLinking_SeeCrefToVisibleType_RendersAsMarkdownLink
+              - CrefLinking_SeeCrefToVisibleMember_RendersAsMarkdownLink
+              - CrefLinking_SeeCrefToFilteredMember_RendersFallbackWithNoLink
+              - CrefLinking_SeeCrefToExternalType_RendersFallbackWithNoLink
+              - CrefLinking_SeeCrefMalformed_RendersFallbackWithNoLink
+              - CrefLinking_SeeAlsoCrefToVisibleType_RendersAsMarkdownLink

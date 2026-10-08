@@ -1,0 +1,56 @@
+---
+# CrefTargetResolver unit requirements
+sections:
+  - title: ApiMarkDotNet Requirements
+    sections:
+      - title: CrefTargetResolver Requirements
+        requirements:
+          - id: ApiMarkDotNet-CrefTargetResolver-IndexAssemblyTypesAndMembersByXmlDocId
+            title: CrefTargetResolver shall index every type (including nested types at
+              any depth) and every method, property, field, and event declared in a
+              single assembly, keyed by the same XML-doc identifier format the C#
+              compiler emits, so that a raw cref attribute string can be resolved to
+              the Mono.Cecil symbol it names.
+            justification: |
+              Full <see cref>/<seealso cref> cross-reference linking requires knowing
+              whether a cref target is declared in the assembly being documented
+              before a link can be generated for it. Reusing the exact identifier
+              format already produced by DotNetEmitter.BuildTypeId/BuildMemberId
+              (the same format XmlDocReader indexes XML documentation entries by)
+              means no new identifier-parsing or formatting logic is introduced, and
+              resolution is a simple dictionary lookup.
+            tests:
+              - CrefTargetResolver_TryResolveType_TopLevelType_ReturnsTrueAndType
+              - CrefTargetResolver_TryResolveType_NestedType_ReturnsTrueAndType
+              - CrefTargetResolver_TryResolveMember_Method_ReturnsTrueAndMember
+              - CrefTargetResolver_TryResolveMember_Field_ReturnsTrueAndMember
+          - id: ApiMarkDotNet-CrefTargetResolver-ResolveWithoutVisibilityFiltering
+            title: CrefTargetResolver shall resolve cref identifiers purely by symbol
+              existence in the assembly, applying no visibility, obsolete, or
+              exclude-pattern filtering of its own.
+            justification: |
+              Distinguishing "no such symbol" (external assembly, or a malformed
+              cref) from "the symbol exists but is filtered out of the generated
+              documentation" requires that this resolver answer only the former
+              question; a caller-supplied visibility check (see CrefLinkContext) is
+              applied separately. Mixing the two concerns into one resolver would
+              make it impossible for XmlDocReader to decide independently whether a
+              resolved symbol will actually be emitted as a page.
+            tests:
+              - CrefTargetResolver_TryResolveMember_PrivateMember_StillResolves
+          - id: ApiMarkDotNet-CrefTargetResolver-ReturnFalseForUnresolvableIdentifiers
+            title: CrefTargetResolver shall return false, without throwing, from
+              TryResolveType/TryResolveMember for any identifier not found in the
+              indexed assembly, including external-assembly types and malformed cref
+              strings.
+            justification: |
+              External framework types (e.g. System.ArgumentNullException) and
+              malformed/misspelled cref strings must fall back to the existing
+              code-span-only rendering rather than causing a resolution error, so
+              callers can treat "not found" uniformly regardless of the underlying
+              reason.
+            tests:
+              - CrefTargetResolver_TryResolveType_UnknownIdentifier_ReturnsFalse
+              - CrefTargetResolver_TryResolveType_ExternalAssemblyType_ReturnsFalse
+              - CrefTargetResolver_TryResolveMember_UnknownIdentifier_ReturnsFalse
+              - CrefTargetResolver_TryResolveType_MalformedCref_ReturnsFalse

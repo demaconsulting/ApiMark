@@ -68,6 +68,11 @@ network dependency, or privileged configuration is needed.
   prior behavior.
 - When `LibraryDescription` is set on `DotNetGeneratorOptions`, `Parse` propagates it
   unchanged into the parsed model's `Options.LibraryDescription`.
+- After `Parse` returns, `DotNetAstModel.MemberPageIndex` and `EmittedTypeIds` are populated
+  with entries for every type/member that gradual-disclosure emission actually writes a
+  page for.
+- Every relative Markdown link produced by gradual-disclosure emission (including cref-based
+  links) resolves to a page that was actually written.
 
 ### Test Scenarios
 
@@ -329,3 +334,21 @@ unchanged into the resulting model's `Options.LibraryDescription`, confirming th
 generator correctly carries this option through to the emitters that implement the
 actual override-with-fallback precedence. This scenario is tested by
 `DotNetGenerator_Parse_WithLibraryDescription_PropagatesToModelOptions`.
+
+**MemberPageIndex and EmittedTypeIds are populated after Parse**: Verifies that after
+`Parse` constructs the `DotNetEmitter` and a subsequent `Emit` call writes
+gradual-disclosure output, `DotNetAstModel.MemberPageIndex` contains an entry for every
+member actually emitted to its own page, and `EmittedTypeIds` contains every emitted
+type's XML-doc ID — confirming `BuildCrefLinkIndices`/`CollectTypeCrefLinkIndex` recurse
+correctly through every visible top-level and nested type using the emitter's own
+visibility rules. This scenario is tested by
+`DotNetAstModel_MemberPageIndexAndEmittedTypeIds_AfterGradualDisclosureEmit_ArePopulated`.
+
+**Every generated gradual-disclosure link resolves to an actually-written page**:
+Verifies, across the full fixture assembly, that every relative Markdown link emitted
+by gradual-disclosure output — including the new `<see cref>`/`<seealso cref>`
+cross-reference links built from `MemberPageIndex`/`CrefTargets` — resolves to a page
+path that a writer actually wrote, confirming `BuildMemberPageIndex`'s grouping
+decisions (overload grouping, operator grouping, case-collision grouping) exactly match
+`WriteMembersSection`'s real output with no drift between the two. This scenario is
+tested by `DotNetGenerator_Generate_GradualDisclosure_EveryGeneratedLinkResolvesToExistingPage`.

@@ -89,6 +89,49 @@ reference collected during table cell generation.
   8. Non-System external → track in `externalTypes`, return plain name.
 - *Intra-assembly detection*: `TypeReference.Scope is ModuleDefinition`.
 
+**TypeLinkResolver.LinkifyResolvedType**: Resolves a `cref` target already
+known to be a type declared in the assembly being documented to a Markdown
+link wrapping an already-formatted display text — used for cross-reference
+linking of `<see cref>`/`<seealso cref>` references, as distinct from
+`Linkify`'s table-cell type-reference resolution.
+
+- *Parameters*: `TypeDefinition type` — the resolved intra-assembly type;
+  `string displayText` — the already-formatted display text (e.g. from
+  `XmlDocReader.FormatCref`) to wrap in the Markdown link; `string
+  currentFolder` — folder path of the containing Markdown file.
+- *Returns*: `[displayText](relative/path.md)`, or `displayText` unchanged
+  when `_generateLinks` is `false` (single-file mode).
+- *Algorithm*: Reuses `GetTypePageKey`/`ComputeRelativePath` — the same
+  helpers `Linkify` already uses for intra-assembly `TypeReference` values,
+  since `TypeDefinition` is itself a `TypeReference`. Callers are expected to
+  have already confirmed (via `CrefTargetResolver` and the emitter's
+  visibility rules) that `type` will actually be emitted as a page before
+  calling this method; it performs no such check itself and always computes a
+  link when link generation is enabled.
+
+**TypeLinkResolver.LinkifyResolvedMember**: Resolves a `cref` target already
+known to be a member declared in the assembly being documented to a Markdown
+link wrapping an already-formatted display text, using the gradual-disclosure
+member-to-page index.
+
+- *Parameters*: `IMemberDefinition member` — the resolved intra-assembly
+  member; `string displayText` — the already-formatted display text (e.g.
+  from `XmlDocReader.FormatMemberReference`); `string currentFolder` — folder
+  path of the containing Markdown file; `IReadOnlyDictionary<string, string>
+  memberPageIndex` — map from a member's XML-doc identifier (see
+  `DotNetEmitter.BuildMemberId`) to its page key.
+- *Returns*: `[displayText](relative/path.md)`, or `displayText` unchanged
+  when `_generateLinks` is `false`, or when `member` has no entry in
+  `memberPageIndex` (e.g. filtered out of the generated documentation).
+- *Why a lookup table and not a closed-form computation*: unlike
+  `LinkifyResolvedType`, there is no closed-form page-key computation for a
+  member — in gradual-disclosure mode, members may share a page with their
+  overloads, with same-named-but-different-kind members (case-collision
+  grouping), or with every other operator overload of the same type;
+  decisions made per-type while generating that type's own pages (see
+  `DotNetEmitterGradualDisclosure.BuildMemberPageIndex`). `memberPageIndex` is
+  therefore required to resolve the member's actual page path.
+
 **TypeLinkResolver.GetTypePageKey** (private): Computes the documentation page
 key (relative path without extension) for an intra-assembly `TypeReference`,
 correctly handling nested types of arbitrary nesting depth.
@@ -152,6 +195,9 @@ a `DotNetAstModel` that carries the resolver, making it available to sub-emitter
   encountered in member table rows.
 - **DotNetEmitterSingleFile** — constructs a TypeLinkResolver with
   `generateLinks: false` for parameter type display in single-file output.
+- **XmlDocReader** — calls `LinkifyResolvedType`/`LinkifyResolvedMember` (via
+  `CrefLinkContext.Resolver`) from `GetInlineReferenceText` when a resolved
+  `<see cref>`/`<seealso cref>` target will actually be emitted as a page.
 
 ### External Interfaces
 

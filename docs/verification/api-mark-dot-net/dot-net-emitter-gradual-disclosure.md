@@ -35,6 +35,13 @@ service or network dependency is needed.
 - A type whose `<summary>` contains a `<list type="number">` renders the list as real multi-line ordered Markdown items on the type page body, with trailing prose as a separate paragraph.
 - A member with no `<summary>` but present `<remarks>` content does not show the "No description provided." placeholder on its detail page, and the remarks content is shown.
 - A member with neither `<summary>` nor `<remarks>` still shows the "No description provided." placeholder on its detail page (regression guard).
+- A `<see cref>` to a visible intra-assembly type renders as a Markdown link in gradual-disclosure output.
+- A `<see cref>` to a visible intra-assembly member renders as a Markdown link in gradual-disclosure output.
+- A `<see cref>` to a member filtered out by visibility renders as plain code-span text with no link.
+- A `<see cref>` to an external framework type renders as plain code-span text with no link.
+- A malformed/unresolvable `<see cref>` renders as plain code-span text with no link.
+- A `<seealso cref>` to a visible intra-assembly type renders as a Markdown link.
+- Every entry in `DotNetAstModel.MemberPageIndex` corresponds to a page actually written during `Emit`.
 
 ### Test Scenarios
 
@@ -150,3 +157,53 @@ the "No description provided." placeholder. Exercises the type-level branch in
 `WriteTypeHeaderSections` directly, which the member-level test above does not
 cover. This scenario is tested by
 `DotNetEmitterGradualDisclosure_Emit_TypeWithRemarksOnly_SuppressesPlaceholderAndShowsRemarksOnTypePage`.
+
+**CrefLinking: see cref to a visible type renders as a Markdown link**:
+Verifies end-to-end that a `<see cref>` pointing at another in-assembly,
+visible type renders as a real relative Markdown link (code-span wrapped) in
+gradual-disclosure output, confirming the full `CrefLinkContext`
+construction/threading chain from `DotNetGenerator.Parse` through
+`DotNetEmitterGradualDisclosure`'s page writers to `XmlDocReader` works
+end-to-end. This scenario is tested by
+`CrefLinking_SeeCrefToVisibleType_RendersAsMarkdownLink`.
+
+**CrefLinking: see cref to a visible member renders as a Markdown link**:
+Verifies the member counterpart: a `<see cref>` pointing at a visible
+in-assembly member renders as a Markdown link resolved via
+`DotNetAstModel.MemberPageIndex`. This scenario is tested by
+`CrefLinking_SeeCrefToVisibleMember_RendersAsMarkdownLink`.
+
+**CrefLinking: see cref to a member filtered out by visibility falls back
+with no link**: Verifies that a `<see cref>` pointing at a member excluded
+from the generated documentation by the active visibility settings renders
+as plain code-span text, with no link, exactly as it did before this feature
+existed. This scenario is tested by
+`CrefLinking_SeeCrefToFilteredMember_RendersFallbackWithNoLink`.
+
+**CrefLinking: see cref to an external type falls back with no link**:
+Verifies that a `<see cref>` pointing at an external framework type (not
+indexed by `CrefTargetResolver`) renders as plain code-span text, with no
+link. This scenario is tested by
+`CrefLinking_SeeCrefToExternalType_RendersFallbackWithNoLink`.
+
+**CrefLinking: malformed cref falls back with no link**: Verifies that a
+malformed/unresolvable cref string renders as plain code-span text, with no
+link, matching today's fallback. This scenario is tested by
+`CrefLinking_SeeCrefMalformed_RendersFallbackWithNoLink`.
+
+**CrefLinking: seealso cref to a visible type renders as a Markdown link**:
+Verifies that `<seealso cref>` (nested inside `<remarks>`) shares the same
+end-to-end linking path as `<see cref>` in gradual-disclosure output. This
+scenario is tested by
+`CrefLinking_SeeAlsoCrefToVisibleType_RendersAsMarkdownLink`.
+
+**Every MemberPageIndex entry matches an actually-written page**: Verifies,
+across the full fixture assembly, that every entry in
+`DotNetAstModel.MemberPageIndex` (populated by `BuildMemberPageIndex` via
+`DotNetGenerator.CollectTypeCrefLinkIndex`) corresponds to a page key that a
+writer actually wrote during `Emit` — directly guarding against
+`BuildMemberPageIndex`'s grouping logic silently drifting out of sync with
+`WriteMembersSection`'s real output, since both now call the same extracted
+function but could in principle diverge again through a future edit to only
+one call site. This scenario is tested by
+`BuildMemberPageIndex_AllEntries_MatchActualWrittenPages`.

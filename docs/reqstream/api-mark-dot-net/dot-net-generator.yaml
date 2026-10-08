@@ -211,3 +211,29 @@ sections:
               AssemblyDescriptionAttribute.
             tests:
               - DotNetGenerator_Parse_WithLibraryDescription_PropagatesToModelOptions
+          - id: ApiMarkDotNet-DotNetGenerator-BuildCrefLinkingIndicesAfterEmitterConstruction
+            title: DotNetGenerator.Parse shall, after constructing the DotNetEmitter,
+              populate DotNetAstModel's MemberPageIndex and EmittedTypeIds by
+              recursively walking every visible top-level and nested type using the
+              emitter's own visibility rules, merging each type's
+              DotNetEmitterGradualDisclosure.BuildMemberPageIndex result into a
+              single assembly-wide index, without introducing a second construction
+              pass over DotNetAstModel/DotNetEmitter.
+            justification: |
+              Full <see cref>/<seealso cref> cross-reference linking requires knowing,
+              for every member, the exact gradual-disclosure page path it will be
+              written to (accounting for overload grouping, operator grouping, and
+              case-collision grouping) and whether a type/member will be emitted at
+              all under the active visibility settings. Both require visibility
+              predicates that exist only as instance methods on DotNetEmitter, which
+              is itself constructed from DotNetAstModel — so this index can only be
+              computed after the emitter exists, unlike CrefTargetResolver (built
+              eagerly by DotNetAstModel's own constructor since it needs only the
+              assembly). Populating it via a post-construction setup call on the
+              already-returned model, rather than restructuring Parse's single-pass
+              flow, keeps the existing Parse -> new DotNetEmitter(model) -> return
+              emitter contract intact.
+            tests:
+              - DotNetAstModel_MemberPageIndexAndEmittedTypeIds_AfterGradualDisclosureEmit_ArePopulated
+              - DotNetGenerator_Generate_GradualDisclosure_EveryGeneratedLinkResolvesToExistingPage
+              - BuildMemberPageIndex_AllEntries_MatchActualWrittenPages

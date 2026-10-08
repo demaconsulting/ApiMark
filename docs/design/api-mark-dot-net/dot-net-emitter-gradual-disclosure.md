@@ -224,7 +224,76 @@ non-method member (property, field, or event) to the supplied Markdown writer.
   exceptions, remarks, and example sections when present, following the same
   pattern as `WriteMethodDocumentation` for non-method member kinds.
 
-#### Placeholder Suppression
+#### BuildMemberPageIndex and BuildCrefLinkContext
+
+**BuildMemberPageIndex** (`internal static`): Pure function reproducing the
+exact same member-grouping decisions `WriteMembersSection` makes (overload
+grouping, operator grouping, case-insensitive-filename-collision grouping,
+single-member fallback) without writing any Markdown, returning a map from
+each emitted member's XML-doc ID to its page key.
+
+- *Parameters*: `TypeDefinition type` — the type whose members to index;
+  `string namespaceFolderPath` — folder path of `type`'s own page; `Func
+  <IMemberDefinition, bool> isMemberEmitted` — visibility predicate deciding
+  which members are included (typically `DotNetEmitter.ShouldIncludeMember`).
+- *Returns*: `IReadOnlyDictionary<string, string>` — `DotNetEmitter.BuildMemberId(member)
+  -> "{folder}/{fileNameNoExt}"` for every member where `isMemberEmitted(member)`
+  is `true`.
+- *Why this exists*: Before this refactor, the grouping decisions (which
+  members share an overload page, which operators share `operators.md`, which
+  case-colliding members share a combined page) existed only inline inside
+  `WriteMembersSection` and its four called methods
+  (`WriteMemberPage`/`WriteMethodOverloadPage`/`WriteTypeOperatorsPage`/
+  `WriteCombinedMemberPage`), with no reusable, Markdown-free way to answer
+  "what page will member X end up on". `CrefTargetResolver`/`XmlDocReader`
+  cross-reference linking needs exactly that answer, for every member in the
+  assembly, before any page is written — recomputing the grouping logic a
+  second time (even "equivalently") would create two sources of truth that
+  could silently drift apart over time. `BuildMemberPageIndex` extracts the
+  grouping decisions into a single, independently testable, Markdown-free
+  function; `WriteMembersSection` (and the methods it calls, where they need
+  the same per-member grouping/page-key facts) now call this exact same
+  function
+  rather than duplicating its logic, so there is exactly one source of truth
+  for "what page does this member live on". This refactor is required to be,
+  and was verified to be, fully behavior-preserving: it changes no generated
+  Markdown output.
+- *Callers*: `WriteMembersSection` (via its grouping-decision logic, now
+  delegating to this function); `DotNetGenerator.CollectTypeCrefLinkIndex`
+  (merges every type's result into the assembly-wide
+  `DotNetAstModel.MemberPageIndex`).
+
+**BuildCrefLinkContext** (private): Constructs a `CrefLinkContext` scoped to a
+given folder, bound to the ambient model's cref-linking indices and the
+emitter's own visibility delegates.
+
+- *Parameters*: `string currentFolder` — folder path of the Markdown file
+  about to be rendered.
+- *Returns*: `CrefLinkContext` — with `Targets` bound to
+  `_model.CrefTargets`, `Resolver` bound to the model's `TypeLinkResolver`,
+  `MemberPageIndex` bound to `_model.MemberPageIndex`, `IsTypeEmitted`/
+  `IsMemberEmitted` bound to this emitter's own
+  `IsTypeVisible`/`ShouldIncludeMember`-equivalent visibility methods (so
+  visibility logic is never duplicated), and `CurrentFolder` set to the
+  supplied folder.
+- *Usage pattern*: Built once per type-processing pass at the folder level
+  where it first becomes relevant (e.g. once per `WriteNamespacePage` call,
+  once per `WriteTypePage`/`WriteNestedTypesSection` call) rather than freshly
+  per XML-doc getter call site, since it is mostly stable per current folder.
+  Page-writer methods that execute at a deeper folder than their caller (e.g.
+  `WriteMemberPage` relative to `WriteTypePage`) derive a re-scoped
+  `CrefLinkContext` via the C# record `with` expression (`linkContext with {
+  CurrentFolder = memberFolder }`) rather than calling `BuildCrefLinkContext`
+  again or threading the emitter instance itself into those (mostly `static`)
+  page-writer methods — consistent with the existing `TypePageWriteContext`/
+  `MethodDocContext` context-record pattern this class already uses to avoid
+  passing the emitter instance into its static helpers.
+- *Call sites*: Every `ctx.XmlDocs.Get*` call this class makes (except
+  `GetExceptions`/`GetExceptionDetails`, explicitly out of scope for linking)
+  passes the resulting (or re-scoped) `CrefLinkContext` as its trailing
+  argument, so a resolvable intra-assembly `<see cref>`/`<seealso cref>`
+  reference renders as a real Markdown link instead of the plain code-span
+  fallback.
 
 `WriteTypeHeaderSections`, `WriteNonMethodMemberContent`, and
 `WriteMethodDocumentation` each fetch the member's (or type's) remarks text
@@ -271,9 +340,14 @@ this class.
 ### Dependencies
 
 - **DotNetEmitter** — parent emitter providing shared static helpers.
-- **DotNetAstModel** — provides assembly data.
+- **DotNetAstModel** — provides assembly data, including `CrefTargets` and
+  `MemberPageIndex` used for cref cross-reference linking.
 - **TypeLinkResolver** — used to resolve type references to Markdown links in
-  table cells.
+  table cells, and (via `CrefLinkContext`) to resolve `<see cref>`/`<seealso
+  cref>` references to Markdown links.
+- **CrefTargetResolver** (indirectly, via `_model.CrefTargets` bundled into a
+  `CrefLinkContext`) — used to decide whether a cref targets a symbol
+  declared in the documented assembly.
 - **XmlDocReader** — used to retrieve documentation text for each member.
 - **IMarkdownWriterFactory** — received from `DotNetEmitter.Emit`.
 

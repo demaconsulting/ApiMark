@@ -23,3 +23,21 @@ sections:
               - DotNetAstModel_XmlDocs_AfterParse_IsNotNull
               - DotNetAstModel_NamespaceDescriptions_AfterParse_IsNotNull
               - DotNetAstModel_Collections_ExposeReadOnlyInterfaces
+          - id: ApiMarkDotNet-DotNetAstModel-HoldCrefLinkingIndices
+            title: DotNetAstModel shall expose a `CrefTargetResolver` (`CrefTargets`)
+              built eagerly during construction, and a member-to-page index
+              (`MemberPageIndex`) plus a set of emitted type identifiers
+              (`EmittedTypeIds`) populated via `SetMemberPageIndex` once the owning
+              `DotNetEmitter` has been constructed, so that cross-reference linking
+              can resolve a `<see cref>`/`<seealso cref>` target to a real page.
+            justification: |
+              Full cross-reference linking requires knowing, for a given cref
+              string, both whether a symbol with that XML-doc ID exists in this
+              assembly (`CrefTargets`, visibility-agnostic) and whether it will
+              actually be emitted as a page under the active visibility settings
+              (`MemberPageIndex`/`EmittedTypeIds`, which depend on `DotNetEmitter`
+              instance methods and therefore cannot be computed in the model's own
+              constructor).
+            tests:
+              - DotNetAstModel_CrefTargets_AfterParse_ResolvesKnownFixtureType
+              - DotNetAstModel_MemberPageIndexAndEmittedTypeIds_AfterGradualDisclosureEmit_ArePopulated

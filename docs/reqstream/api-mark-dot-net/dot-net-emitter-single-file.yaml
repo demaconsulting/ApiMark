@@ -129,3 +129,21 @@ sections:
               references.
             tests:
               - DotNetEmitterSingleFile_Emit_MethodWithParameter_TypeCellIsPlainText
+          - id: ApiMarkDotNet-DotNetEmitterSingleFile-NeverLinkCrefReferences
+            title: DotNetEmitterSingleFile shall never construct or pass a
+              CrefLinkContext to any XmlDocReader call site, so that a `<see
+              cref>`/`<seealso cref>` reference in single-file output continues to
+              render exactly as it did before cross-reference linking existed —
+              code-span-only, never a Markdown link — regardless of whether the
+              cref's target would otherwise be resolvable and emitted.
+            justification: |
+              Relative Markdown links are meaningless inside a single document, the
+              same reason parameter type cells are already rendered as plain text
+              rather than links (see EmitPlainTextParameterTypes above). Full `<see
+              cref>`/`<seealso cref>` cross-reference linking is explicitly out of
+              scope for single-file mode; leaving every XmlDocReader call site in this
+              class completely unmodified, so the new optional CrefLinkContext
+              parameter always defaults to null, is simpler and safer than adding an
+              explicit opt-out branch.
+            tests:
+              - CrefLinking_SingleFileMode_SeeCrefToVisibleType_RemainsCodeSpanOnly

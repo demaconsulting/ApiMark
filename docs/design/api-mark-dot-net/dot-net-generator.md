@@ -205,6 +205,60 @@ memory and returns a `DotNetEmitter` ready to emit.
   constructed `XmlDocReader` into private fields (`_assembly`, `_xmlDocs`) so
   that a later `CheckDocumentationCoverage(string? enforceTier)` call can reuse
   them without re-parsing the assembly or XML doc file.
+- *Cref-linking indices*: After constructing `model` (and therefore
+  `model.CrefTargets`, built eagerly by `DotNetAstModel`'s own constructor,
+  which needs only the assembly) `Parse` constructs the `DotNetEmitter`, then
+  calls the private `BuildCrefLinkIndices(emitter, byNamespace,
+  rootNamespaces)` helper and passes its result to
+  `model.SetMemberPageIndex(memberPageIndex, emittedTypeIds)`. This ordering
+  is required because `MemberPageIndex`/`EmittedTypeIds` need visibility
+  predicates (`ShouldIncludeMember`, `GetVisibleNestedTypes`-equivalents) that
+  exist only as instance methods on `DotNetEmitter`, which is itself
+  constructed from `model` — so these two indices cannot be populated until
+  after the emitter exists, unlike `CrefTargets`. `BuildCrefLinkIndices`
+  recursively walks every visible top-level and nested type (via the private
+  `CollectTypeCrefLinkIndex` helper) adding each type's XML-doc ID to
+  `emittedTypeIds` and merging
+  `DotNetEmitterGradualDisclosure.BuildMemberPageIndex`'s per-type result into
+  a single assembly-wide `memberPageIndex` dictionary. This preserves the
+  existing one-pass `Parse` → `new DotNetEmitter(model)` → `return emitter`
+  contract: no second constructor pass over `DotNetAstModel` or `DotNetEmitter`
+  is introduced, only a post-construction setup call on the already-returned
+  `model` instance.
+
+**DotNetGenerator.BuildCrefLinkIndices** (private static): Computes the
+assembly-wide member-to-page index and emitted-type-id set used for `<see
+cref>`/`<seealso cref>` link resolution.
+
+- *Parameters*: `DotNetEmitter emitter` — supplies the visibility predicates;
+  `IReadOnlyDictionary<string, IReadOnlyList<TypeDefinition>> byNamespace`,
+  `IReadOnlyList<string> rootNamespaces` — the same namespace/type data
+  already collected during `Parse`.
+- *Returns*: `(IReadOnlyDictionary<string, string> MemberPageIndex,
+  IReadOnlySet<string> EmittedTypeIds)` — see `DotNetAstModel.MemberPageIndex`/
+  `EmittedTypeIds` for the exact field semantics.
+- *Algorithm*: Iterates every visible top-level type under every root
+  namespace and recursively delegates to `CollectTypeCrefLinkIndex` for each.
+
+**DotNetGenerator.CollectTypeCrefLinkIndex** (private static): Recursively
+adds one type's (and all its nested types') XML-doc ID and member-page-index
+entries to the shared accumulators.
+
+- *Parameters*: `DotNetEmitter emitter`, `TypeDefinition type`, `string
+  namespaceFolderPath`, `Dictionary<string, string> memberPageIndex`,
+  `HashSet<string> emittedTypeIds` — all mutated in place.
+- *Algorithm*: Adds `type`'s XML-doc ID (via `DotNetEmitter.BuildTypeId`) to
+  `emittedTypeIds` unconditionally (the walk only ever visits types that are
+  already known to be visible/emitted, since it starts from `byNamespace`'s
+  pre-filtered type lists and recurses only into `emitter`'s own
+  visible-nested-type enumeration). Merges every entry returned by
+  `DotNetEmitterGradualDisclosure.BuildMemberPageIndex(type,
+  namespaceFolderPath, emitter.ShouldIncludeMember)` into `memberPageIndex`.
+  Recurses into each visible nested type with its own nested folder path, so
+  nested types at any depth are indexed identically to top-level types — this
+  is the exact same grouping/visibility logic `WriteMembersSection` itself
+  uses, reused rather than re-derived, per the single-source-of-truth
+  refactor described in the `DotNetEmitterGradualDisclosure` design doc.
 
 **DotNetGenerator.CheckDocumentationCoverage(string? enforceTier)**: Scans the
 assembly parsed by the most recent `Parse` call for types and members lacking

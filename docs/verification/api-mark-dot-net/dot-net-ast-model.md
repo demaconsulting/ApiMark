@@ -26,6 +26,11 @@ No external service, network dependency, or privileged configuration is needed.
 - `XmlDocs` is non-null after parsing.
 - `NamespaceDescriptions` is non-null after parsing.
 - All collection-type properties (`AllNamespaces`, `ByNamespace`, `RootNamespaces`) expose read-only interfaces.
+- `CrefTargets` is populated eagerly by `Parse` and resolves a known fixture
+  type's XML-doc cref ID.
+- `MemberPageIndex` and `EmittedTypeIds` are populated once the
+  gradual-disclosure emitter has processed the model, and contain entries for
+  known visible fixture symbols.
 
 ### Test Scenarios
 
@@ -80,3 +85,17 @@ test is required for the static guarantee. Supplementary runtime test:
 `DotNetAstModel_Collections_ExposeReadOnlyInterfaces` asserts that the runtime
 types satisfy the interface constraints by calling `Assert.IsAssignableFrom` on
 each collection property.
+
+**CrefTargets resolves a known fixture type after Parse**: Verifies that
+`DotNetAstModel.CrefTargets` is constructed eagerly during `DotNetGenerator.Parse`
+(it needs only the assembly, not the emitter's visibility rules) and can resolve
+a known fixture type's XML-doc cref ID to its `TypeDefinition`. This scenario is
+tested by `DotNetAstModel_CrefTargets_AfterParse_ResolvesKnownFixtureType`.
+
+**MemberPageIndex and EmittedTypeIds are populated after gradual-disclosure emit**:
+Verifies that `DotNetAstModel.MemberPageIndex` and `DotNetAstModel.EmittedTypeIds`
+— both empty immediately after `Parse` — are populated once a
+`DotNetEmitterGradualDisclosure` has run `Emit` against the model, and that the
+populated index/set contain entries for a known visible fixture member/type.
+This scenario is tested by
+`DotNetAstModel_MemberPageIndexAndEmittedTypeIds_AfterGradualDisclosureEmit_ArePopulated`.

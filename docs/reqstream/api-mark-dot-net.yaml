@@ -30,6 +30,7 @@ sections:
           - ApiMarkDotNet-DotNetGenerator-ResolveInheritdocAcrossReferencedAssemblies
           - ApiMarkDotNet-DotNetGenerator-ResolveInheritdocAcrossMultipleExternalHops
           - ApiMarkDotNet-DotNetGenerator-AcceptLibraryDescriptionOption
+          - ApiMarkDotNet-DotNetGenerator-BuildCrefLinkingIndicesAfterEmitterConstruction
           - ApiMarkDotNet-DotNetAstModel-HoldParsedAssemblyData
           - ApiMarkDotNet-DotNetEmitter-DispatchToFormatSpecificEmitter
           - ApiMarkDotNet-DotNetEmitter-RejectNullArguments
@@ -53,6 +54,8 @@ sections:
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitOperatorsSummaryDocumentation
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitAssemblyDescription
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-SuppressPlaceholderWhenRemarksPresent
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-ExtractBuildMemberPageIndex
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-WireCrefLinkContextThroughPageWriters
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitAllApiIntoSingleFile
           - ApiMarkDotNet-DotNetEmitterSingleFile-OffsetHeadingsByHeadingDepth
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitAssemblyDescription
@@ -64,6 +67,7 @@ sections:
           - ApiMarkDotNet-DotNetEmitterSingleFile-SkipMemberListForDelegates
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitNestedTypeParentNotice
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitPlainTextParameterTypes
+          - ApiMarkDotNet-DotNetEmitterSingleFile-NeverLinkCrefReferences
           - ApiMarkDotNet-TypeLinkResolver-ResolveIntraAssemblyTypesToMarkdownLinks
           - ApiMarkDotNet-TypeLinkResolver-ResolvePrimitiveAndSystemTypesToPlainText
           - ApiMarkDotNet-TypeLinkResolver-TrackNonSystemExternalTypesForExternalTypesSection
@@ -71,6 +75,11 @@ sections:
           - ApiMarkDotNet-TypeLinkResolver-RenderGenericTypesWithTypeArguments
           - ApiMarkDotNet-TypeLinkResolver-UnwrapNullableValueTypes
           - ApiMarkDotNet-TypeLinkResolver-ResolveNestedTypesToCorrectPageKey
+          - ApiMarkDotNet-TypeLinkResolver-ResolveCrefTargetsToMarkdownLinks
+          - ApiMarkDotNet-CrefTargetResolver-IndexAssemblyTypesAndMembersByXmlDocId
+          - ApiMarkDotNet-CrefTargetResolver-ResolveWithoutVisibilityFiltering
+          - ApiMarkDotNet-CrefTargetResolver-ReturnFalseForUnresolvableIdentifiers
+          - ApiMarkDotNet-DotNetAstModel-HoldCrefLinkingIndices
           - ApiMarkDotNet-XmlDocReader-ProvideMemberDocumentationFromXmlFile
           - ApiMarkDotNet-XmlDocReader-RenderXmlDocLists
           - ApiMarkDotNet-XmlDocReader-InheritDoc
@@ -80,6 +89,7 @@ sections:
           - ApiMarkDotNet-XmlDocReader-RenderBrAndCodeInRemarksAndSummary
           - ApiMarkDotNet-XmlDocReader-CollapseExcessBlankLineRuns
           - ApiMarkDotNet-XmlDocReader-WrapMemberCrefDisplayInCodeSpan
+          - ApiMarkDotNet-XmlDocReader-LinkifyResolvedCrefReferences
           - ApiMarkDotNet-ExternalXmlDocResolver-LocateAndCacheReferencedAssemblyDocs
           - ApiMarkDotNet-ExternalXmlDocResolver-RejectNullReferencePaths
           - ApiMarkDotNet-ExternalXmlDocResolver-ProbeHintedAssemblyBeforeFullScan

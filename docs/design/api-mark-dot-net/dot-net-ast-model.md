@@ -52,6 +52,19 @@ boundary between parse and emit.
   root namespaces for gradual-disclosure output.
 - *Options* (`DotNetGeneratorOptions`): Generator configuration options
   including assembly path, XML doc path, visibility, and obsolete filter.
+- *CrefTargets* (`CrefTargetResolver`): Visibility-agnostic index resolving a
+  raw `<see cref>`/`<seealso cref>` value to the type or member it names when
+  that symbol is declared in this assembly. Built eagerly in the constructor
+  (needs only `Assembly`).
+- *MemberPageIndex* (`IReadOnlyDictionary<string, string>`): Global index
+  mapping a member's XML-doc cref ID to its gradual-disclosure page path
+  (`"{folder}/{fileNameNoExt}"`), covering every member that will actually be
+  emitted as a page. Empty until `SetMemberPageIndex` is called; used by
+  `TypeLinkResolver.LinkifyResolvedMember`.
+- *EmittedTypeIds* (`IReadOnlySet<string>`): Set of XML-doc type IDs for every
+  type that will actually be emitted as a page in gradual-disclosure mode
+  (top-level visible types plus visible nested types, transitively). Empty
+  until `SetMemberPageIndex` is called.
 
 **TypePageWriteContext** (internal sealed record): Bundles the per-type-page
 writing context that is constant across all member pages generated for a single
@@ -64,6 +77,11 @@ pages and table rows.
 - *Type* (`TypeDefinition`): The type definition being documented.
 - *XmlDocs* (`XmlDocReader`): Documentation index for member lookups.
 - *Resolver* (`TypeLinkResolver`): Type link resolver for table cells.
+- *LinkContext* (`CrefLinkContext`): Cross-reference resolution context for
+  `<see cref>`/`<seealso cref>` linking, scoped to this type's own page
+  folder (`NamespaceFolderPath`). Member pages living in a deeper folder
+  derive their own context from this one via a `with` expression overriding
+  `CrefLinkContext.CurrentFolder`.
 
 **MethodDocContext** (internal sealed record): Bundles the per-method
 documentation writing context passed to `DotNetEmitterGradualDisclosure` so
@@ -74,6 +92,8 @@ callers do not need to thread five constant parameters through each call site.
 - *Resolver* (`TypeLinkResolver`): Type link resolver.
 - *CurrentFolder* (`string`): Folder path of the containing Markdown file.
 - *ExternalTypes* (`ISet<ExternalTypeInfo>`): Accumulator for external type references found during table cell generation.
+- *LinkContext* (`CrefLinkContext`): Cross-reference resolution context for
+  `<see cref>`/`<seealso cref>` linking, scoped to `CurrentFolder`.
 
 **NamespaceDocContext** (internal sealed record): Bundles the per-assembly
 namespace documentation context that is constant across all namespace page
@@ -108,6 +128,17 @@ read-only properties.
 - *Preconditions*: No parameter may be null.
 - *Postconditions*: All properties are initialized; no mutation is possible.
 
+**SetMemberPageIndex**: Sets `MemberPageIndex` and `EmittedTypeIds` after
+construction. Called exactly once, by `DotNetGenerator.Parse`, immediately
+after the owning `DotNetEmitter` has been constructed — deferred because the
+index depends on visibility rules that are instance methods on
+`DotNetEmitter`, which does not exist yet while the model's constructor runs.
+
+- *Parameters*: `IReadOnlyDictionary<string, string> memberPageIndex`,
+  `IReadOnlySet<string> emittedTypeIds`.
+- *Postconditions*: `MemberPageIndex` and `EmittedTypeIds` reflect the
+  supplied values for the remainder of the emit run.
+
 ### Error Handling
 
 DotNetAstModel does not throw after construction. All validation is the
@@ -119,6 +150,8 @@ responsibility of `DotNetGenerator.Parse` before constructing the model.
   Mono.Cecil types.
 - **XmlDocReader** — held by reference for per-member documentation lookups.
 - **TypeLinkResolver** — held by reference for type-to-link resolution.
+- **CrefTargetResolver** — held by reference (`CrefTargets`) for cref-target
+  resolution; constructed eagerly by the model constructor itself.
 
 ### Callers
 

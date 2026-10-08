@@ -9,7 +9,7 @@
 
 ApiMarkDotNet provides C#/.NET language support. It reads a compiled .NET assembly
 and its associated XML documentation file, then produces the Markdown output
-defined by the Core interfaces. The system contains ten units:
+defined by the Core interfaces. The system contains eleven units:
 
 - **DotNetGenerator** — reads the assembly via Mono.Cecil, processes XML doc
   comments, applies visibility filtering, builds an inheritance chain map from
@@ -29,6 +29,11 @@ defined by the Core interfaces. The system contains ten units:
   `enforceTier` is null or empty.
 - **DotNetAstModel** — immutable data class holding all parsed assembly data
   (namespaces, types, XML docs, resolver, options) produced by DotNetGenerator.Parse.
+  Also holds the cref cross-reference linking indices: `CrefTargets` (a
+  `CrefTargetResolver`, built eagerly in the constructor since it needs only the
+  assembly) and `MemberPageIndex`/`EmittedTypeIds` (populated via an internal
+  post-construction call from `DotNetGenerator.Parse`, after `DotNetEmitter` exists,
+  since they require the emitter's own visibility rules).
 - **DotNetEmitter** — IApiEmitter dispatcher; reads EmitConfig.Format and forwards
   the call to DotNetEmitterGradualDisclosure or DotNetEmitterSingleFile. Also provides
   shared static helper methods used by both sub-emitters, including
@@ -44,12 +49,25 @@ defined by the Core interfaces. The system contains ten units:
   the containing type's folder.
 - **DotNetEmitterSingleFile** — writes all documentation into a single api.md file.
 - **TypeLinkResolver** — resolves Mono.Cecil TypeReference instances to Markdown link
-  text for use in table cells.
+  text for use in table cells; also resolves already-resolved `<see cref>`/`<seealso
+  cref>` targets (a `TypeDefinition` or `IMemberDefinition`) to Markdown links via
+  `LinkifyResolvedType`/`LinkifyResolvedMember`, for full cref cross-reference linking.
+- **CrefTargetResolver** — indexes every type and member declared in a single
+  assembly, keyed by XML-doc identifier, so a raw `cref` attribute string can be
+  resolved to the Mono.Cecil symbol it names. Applies no visibility filtering of
+  its own; answers only whether a symbol with that identifier exists in the
+  assembly, letting `XmlDocReader` distinguish "external/malformed cref" from
+  "filtered out by visibility" when deciding whether to render a real link.
 - **TypeNameSimplifier** — applies a deterministic set of simplification rules to
   Mono.Cecil type references to produce idiomatic C# type names in output.
 - **XmlDocReader** — reads and indexes a .NET XML documentation file for fast
   member-level lookups; resolves `<inheritdoc />` references using the inheritance
-  chain map supplied by DotNetGenerator.
+  chain map supplied by DotNetGenerator. Every public rendering method also accepts
+  an optional, trailing `CrefLinkContext?` parameter (default `null`) bundling
+  `CrefTargetResolver`, `TypeLinkResolver`, the member-page index, and
+  visibility-emitted delegates; when supplied and a `<see cref>`/`<seealso cref>`
+  target resolves to a symbol that will actually be emitted, the reference renders
+  as a real relative Markdown link instead of its default code-span-only fallback.
 - **ExternalXmlDocResolver** — locates and lazily parses the XML documentation
   files of externally referenced assemblies (e.g. NuGet package dependencies),
   caching both per-file results and per-(declaring-assembly-hint, member-ID)
@@ -70,6 +88,9 @@ flowchart TD
     DotNetGenerator --> XmlDocReader
     DotNetGenerator --> ExternalXmlDocResolver
     XmlDocReader --> ExternalXmlDocResolver
+    XmlDocReader --> CrefTargetResolver
+    XmlDocReader --> TypeLinkResolver
+    DotNetAstModel --> CrefTargetResolver
     DotNetGenerator --> MonoCecil["Mono.Cecil (OTS)"]
     DotNetGenerator --> DocumentationCoverageChecker
     DocumentationCoverageChecker --> XmlDocReader
@@ -233,6 +254,22 @@ N/A - not a safety-classified software item.
     contain it (a stale or otherwise incorrect hint), the resolver still
     falls back to scanning every remaining configured reference path in
     order, so a miss is not guaranteed to avoid the full scan.
+
+11. `DotNetAstModel`'s constructor builds `CrefTargets` (a `CrefTargetResolver`)
+    eagerly from the assembly, since indexing every declared type/member by its
+    XML-doc identifier requires nothing beyond the `AssemblyDefinition` itself.
+    After `DotNetGenerator.Parse` constructs the `DotNetEmitter` (which owns the
+    visibility rules needed to decide which symbols will actually be emitted), it
+    calls `BuildCrefLinkIndices`, which walks the visible type tree (recursing into
+    nested types via `DotNetEmitter.GetVisibleNestedTypes`) calling
+    `DotNetEmitterGradualDisclosure.BuildMemberPageIndex` per type to merge a
+    complete `{member XML-doc ID -> gradual-disclosure page path}` map, and records
+    every visible type's own XML-doc ID into a companion `emittedTypeIds` set. Both
+    results are stored on the model via `DotNetAstModel.SetMemberPageIndex`. At
+    render time, `XmlDocReader` uses `CrefTargets` to resolve a raw `cref` string to
+    a symbol, the `emittedTypeIds`/`MemberPageIndex` to decide whether that symbol
+    will actually be emitted, and `TypeLinkResolver.LinkifyResolvedType`/
+    `LinkifyResolvedMember` to build the Markdown link text when it will be.
 
 ## Design Constraints
 

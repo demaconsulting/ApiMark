@@ -42,6 +42,12 @@ discarded. This is a defensive policy for malformed but real-world XML doc
 files where the compiler emits the same member ID more than once (e.g., due to
 partial-class splits or tooling bugs).
 
+**CrefLinkContext** (external `internal sealed record`, defined in
+`CrefLinkContext.cs`, not a field of `XmlDocReader` itself): Optional
+cross-reference linking context, threaded as a trailing nullable parameter
+through every public rendering method — see "Cross-reference linking
+(CrefLinkContext)" below for its full field list and semantics.
+
 ### Key Methods
 
 **XmlDocReader constructor**: Parses the XML documentation file and builds the
@@ -504,6 +510,72 @@ text in an inline Markdown code span via `AppendMarkdownCodeSpan`. Used by
 `Type.Member` text from surrounding prose — see "Member-cref inline code span
 wrapping" below.
 
+#### Cross-reference linking (`CrefLinkContext`)
+
+Every public `XmlDocReader` method (`GetSummary`, `GetSummaryMarkdown`,
+`GetRemarks`, `GetParams`, `GetReturns`, `GetExample`, `GetExampleParts` —
+explicitly NOT `GetExceptions`/`GetExceptionDetails`, which are out of scope
+for linking) accepts an additional optional, trailing, nullable
+`CrefLinkContext? linkContext = null` parameter. This parameter is threaded,
+unchanged, down through the entire private rendering chain:
+`GetDocumentationText`/`GetSingleLineDocumentationText` →
+`AppendNodeText` (both overloads) → `AppendElementText`/`AppendListText` →
+`GetInlineReferenceText`, where it is finally consulted — only in the
+`<see>`/`<seealso>` dispatch branch, via the new private helper
+`TryLinkifyCref`.
+
+**`CrefLinkContext`** (`internal sealed record`, in `CrefLinkContext.cs`):
+Bundles everything `XmlDocReader` needs to resolve a `<see cref>`/`<seealso
+cref>` reference to a real relative Markdown link instead of its default
+code-span-only fallback. Fields: `CrefTargetResolver Targets` (resolves a raw
+`cref` identifier to the intra-assembly symbol it names); `TypeLinkResolver
+Resolver` (builds the actual Markdown link once a target has been resolved
+and confirmed to be emitted); `IReadOnlyDictionary<string, string>
+MemberPageIndex` (member XML-doc-ID → gradual-disclosure page key, consulted
+by `TypeLinkResolver.LinkifyResolvedMember`); `Func<TypeDefinition, bool>
+IsTypeEmitted` and `Func<IMemberDefinition, bool> IsMemberEmitted` (typically
+bound to the active `DotNetEmitter`'s own visibility rules, so visibility
+logic is never duplicated here); `string CurrentFolder` (folder path of the
+Markdown file currently being rendered, used to compute the relative link
+path). It deliberately carries only primitives, delegates, and
+`ApiMark.DotNet`-internal peer types (`TypeLinkResolver`,
+`CrefTargetResolver`) — never a `DotNetEmitter`/`DotNetAstModel` reference —
+so `XmlDocReader` does not take on a hard dependency on the emitter/model
+layer merely to support cref linking.
+
+**TryLinkifyCref** (private static): Attempts to resolve a `cref` string
+against `linkContext` and, on success, returns the display text wrapped in a
+real Markdown link; otherwise returns the display text unchanged.
+
+- *Parameters*: `string cref` — the raw `cref` attribute value, including its
+  kind prefix; `string displayText` — the already-formatted display text (from
+  `FormatCref`) to wrap when linking; `CrefLinkContext? linkContext`.
+- *Algorithm*: Returns `displayText` unchanged immediately when `linkContext`
+  is `null` (this is how single-file mode opts out of linking entirely —
+  `DotNetEmitterSingleFile` never constructs or passes a `CrefLinkContext`,
+  so every call site there always resolves this branch). Otherwise tries
+  `linkContext.Targets.TryResolveType` first; if it succeeds AND
+  `linkContext.IsTypeEmitted(type)` is `true`, returns
+  `linkContext.Resolver.LinkifyResolvedType(type, displayText,
+  linkContext.CurrentFolder)`. Otherwise tries
+  `linkContext.Targets.TryResolveMember`; if it succeeds AND
+  `linkContext.IsMemberEmitted(member)` is `true`, returns
+  `linkContext.Resolver.LinkifyResolvedMember(member, displayText,
+  linkContext.CurrentFolder, linkContext.MemberPageIndex)`. Falls back to
+  `displayText` unchanged in every other case — external type, filtered-out
+  member, or malformed/unresolvable cref — identical to today's rendering.
+- *Call site*: `GetInlineReferenceText`'s `<see>`/`<seealso>` cref branch
+  calls `TryLinkifyCref` only when `FormatCref` already reported
+  `ShouldWrapInCodeSpan: true` (i.e. the exact same subset of crefs that were
+  already eligible for code-span wrapping before this feature existed —
+  constructor crefs are excluded by construction, since they report
+  `ShouldWrapInCodeSpan: false` and short-circuit before `TryLinkifyCref` is
+  ever called). The returned text (linked or not) is then wrapped in the code
+  span exactly where the current code would have wrapped plain text, so a
+  successful link renders as `` `[Type.Member](path.md)` `` — a Markdown link
+  nested inside the code span — while an unresolved cref renders exactly as
+  it does today, `` `Type.Member` ``.
+
 ### Error Handling
 
 `XmlDocReader` throws `FileNotFoundException` when the XML documentation file
@@ -520,6 +592,13 @@ degrades to `null`/empty identically to a purely local miss.
 - **System.Xml.Linq** — used to parse and navigate the XML documentation file.
 - **System.Xml.XPath** — used to evaluate the `path` XPath attribute in
   `<inheritdoc path="..." />` elements.
+- **CrefTargetResolver** / **TypeLinkResolver** — consulted (via
+  `CrefLinkContext`, an optional parameter) by `TryLinkifyCref` to resolve and
+  render `<see cref>`/`<seealso cref>` references as real Markdown links when
+  possible — see "Cross-reference linking (CrefLinkContext)" above. Both
+  dependencies are optional at the type level: `XmlDocReader` compiles and
+  behaves identically when every caller omits `linkContext` (passing
+  `null`), so these are not hard dependencies.
 
 ### Callers
 
@@ -528,9 +607,14 @@ degrades to `null`/empty identically to a purely local miss.
   `DotNetGeneratorOptions.ReferencePaths` is non-empty) an `ExternalXmlDocResolver`
   instance's `TryGetMember` method as the external member lookup delegate.
 - **DotNetEmitterGradualDisclosure** — calls all getter methods when writing
-  member detail pages.
+  member detail pages, passing a `CrefLinkContext` built from the ambient
+  `DotNetAstModel`'s `CrefTargets`/`MemberPageIndex`/`Resolver` and the
+  emitter's own visibility delegates, so resolvable intra-assembly crefs
+  render as real links.
 - **DotNetEmitterSingleFile** — calls getter methods when writing member
-  sections in the single-file output.
+  sections in the single-file output, never passing a `CrefLinkContext` (all
+  calls omit the parameter, defaulting it to `null`), so single-file output
+  remains code-span-only exactly as before this feature existed.
 
 ### External Interfaces
 

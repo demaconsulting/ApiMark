@@ -39,6 +39,11 @@ output location is needed.
 - A nested type referenced as a generic type argument resolves to the correct nested-type page path.
 - A type nested two levels deep (Outer.Middle.Inner) resolves to the full ancestor-chain page path.
 - Linking to a nested type from within its own parent type's page produces a shorter relative path than linking to the same nested type from an unrelated namespace/type's page.
+- `LinkifyResolvedType` returns a Markdown link to a resolved intra-assembly type's page when link generation is enabled.
+- `LinkifyResolvedType` returns the display text unchanged when link generation is disabled.
+- `LinkifyResolvedMember` returns a Markdown link when the member is found in the supplied member-page index.
+- `LinkifyResolvedMember` returns the display text unchanged when the member has no entry in the member-page index.
+- `LinkifyResolvedMember` returns the display text unchanged when link generation is disabled.
 
 ### Test Scenarios
 
@@ -159,3 +164,34 @@ from a completely different namespace/type's page — confirming the page-key
 construction is independent of the link's source location and only the
 relative-path computation varies. This scenario is tested by
 `TypeLinkResolver_Linkify_NestedType_FromParentPageVsOtherPage_ProducesDifferentRelativePaths`.
+
+**LinkifyResolvedType returns a Markdown link when link generation is enabled**:
+Verifies that a resolved intra-assembly `TypeDefinition` cref target produces a
+Markdown link to its page, wrapping the caller-supplied display text, reusing
+the same `GetTypePageKey`/`ComputeRelativePath` helpers `Linkify` uses for
+intra-assembly `TypeReference` values. This scenario is tested by
+`TypeLinkResolver_LinkifyResolvedType_GenerateLinksTrue_ReturnsMarkdownLink`.
+
+**LinkifyResolvedType returns the display text unchanged when link generation is
+disabled**: Verifies that single-file mode (`generateLinks: false`) short-circuits
+`LinkifyResolvedType` to return the display text verbatim, with no link markup.
+This scenario is tested by
+`TypeLinkResolver_LinkifyResolvedType_GenerateLinksFalse_ReturnsDisplayTextUnchanged`.
+
+**LinkifyResolvedMember returns a Markdown link when found in the member-page
+index**: Verifies that a resolved intra-assembly member cref target, present in
+the supplied `memberPageIndex`, produces a Markdown link to its page. This
+scenario is tested by
+`TypeLinkResolver_LinkifyResolvedMember_FoundInIndex_ReturnsMarkdownLink`.
+
+**LinkifyResolvedMember returns the display text unchanged when not in the
+member-page index**: Verifies that a member with no entry in `memberPageIndex`
+(e.g. filtered out of the generated documentation by visibility) falls back to
+the display text unchanged, with no link markup. This scenario is tested by
+`TypeLinkResolver_LinkifyResolvedMember_NotInIndex_ReturnsDisplayTextUnchanged`.
+
+**LinkifyResolvedMember returns the display text unchanged when link generation
+is disabled**: Verifies that single-file mode (`generateLinks: false`)
+short-circuits `LinkifyResolvedMember` before consulting `memberPageIndex` at
+all. This scenario is tested by
+`TypeLinkResolver_LinkifyResolvedMember_GenerateLinksFalse_ReturnsDisplayTextUnchanged`.
