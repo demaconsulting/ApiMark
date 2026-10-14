@@ -121,3 +121,84 @@ sections:
               - TypeLinkResolver_LinkifyResolvedMember_FoundInIndex_ReturnsMarkdownLink
               - TypeLinkResolver_LinkifyResolvedMember_NotInIndex_ReturnsDisplayTextUnchanged
               - TypeLinkResolver_LinkifyResolvedMember_GenerateLinksFalse_ReturnsDisplayTextUnchanged
+          - id: ApiMarkDotNet-TypeLinkResolver-LinkMappedExternalAssemblies
+            title: TypeLinkResolver shall render a type from a mapped external assembly as
+              a Markdown link into that assembly's documentation, built from the mapped
+              API path and the page key derived with that assembly's root namespaces.
+            justification: |
+              Mapped dependencies are documented by their own ApiMark run, so their types
+              link to that documentation. The mapped API path is either a relative path,
+              resolved from the current page's folder, or an absolute http(s) base URL used
+              unchanged. Generic instances link their container and linkify the type
+              arguments; nested types link to their nested page path. Assembly names match
+              case-insensitively regardless of the caller's dictionary comparer.
+            tests:
+              - TypeLinkResolver_Linkify_MappedHttpsApiPath_ReturnsAbsoluteLinkAndSkipsTracking
+              - TypeLinkResolver_Linkify_MappedRelativeApiPath_ClimbsOutOfCurrentFolder
+              - TypeLinkResolver_Linkify_CaseSensitiveCallerDictionary_StillMatchesCaseInsensitively
+              - TypeLinkResolver_Linkify_MappedGenericType_LinksContainerWithArguments
+              - TypeLinkResolver_Linkify_MappedNestedType_LinksToNestedPagePath
+              - TypeLinkResolver_Linkify_RootedOrFileApiPath_ReturnsAbsoluteFileLink
+              - DotNetGenerator_Generate_ExternalLinksMapped_LinksTypeAndSkipsExternalTypesTable
+          - id: ApiMarkDotNet-TypeLinkResolver-NotTrackMappedExternalTypes
+            title: TypeLinkResolver shall not add types from a mapped external assembly to
+              the caller-supplied external type set.
+            justification: |
+              Types that are linked no longer need an entry in the External Types section;
+              listing them would duplicate the information the link already provides.
+            tests:
+              - TypeLinkResolver_Linkify_MappedHttpsApiPath_ReturnsAbsoluteLinkAndSkipsTracking
+              - TypeLinkResolver_Linkify_MappedGenericType_LinksContainerWithArguments
+          - id: ApiMarkDotNet-TypeLinkResolver-KeepUnmappedOrUnlinkedExternalTypesAsText
+            title: TypeLinkResolver shall render a type from an unmapped assembly, or any
+              external type when generateLinks is false, as plain text tracked as external.
+            justification: |
+              Single-file output never emits links, and assemblies without a mapping have
+              no documentation location to link to, so the table-only behavior applies.
+            tests:
+              - TypeLinkResolver_Linkify_UnmappedAssembly_ReturnsPlainTextAndTracksType
+              - TypeLinkResolver_Linkify_MappedAssemblyWithGenerateLinksFalse_ReturnsPlainTextAndTracksType
+          - id: ApiMarkDotNet-TypeLinkResolver-EscapeExternalLinkTargets
+            title: TypeLinkResolver shall percent-encode spaces, parentheses, and angle
+              brackets in external link targets.
+            justification: |
+              A configured API path containing such characters would otherwise terminate
+              or corrupt the Markdown inline link.
+            tests:
+              - TypeLinkResolver_Linkify_ApiPathWithSpacesAndParentheses_EscapesLinkTarget
+          - id: ApiMarkDotNet-TypeLinkResolver-ApplyNullabilityPerTypePosition
+            title: TypeLinkResolver shall apply the nullable-reference annotation per type
+              position, consuming one flag per position in pre-order (outer type, then
+              array element or generic arguments left to right), and shall not append ? to
+              value types.
+            justification: |
+              Annotations such as List<string?>? or string?[] differ by position, so a single
+              outermost flag is insufficient. Value types are never nullable references, so a
+              flag on a value type is ignored, including when the legacy boolean overload is
+              used with isNullableAnnotated true. When the flags are exhausted the remaining
+              positions use the cursor default (oblivious for the boolean overload).
+            tests:
+              - TypeLinkResolver_Linkify_CursorGenericArgumentFlags_AnnotatesEachPosition
+              - TypeLinkResolver_Linkify_CursorArrayFlags_AnnotatesElementNotArray
+              - TypeLinkResolver_Linkify_AnnotatedValueType_DoesNotAppendQuestionMark
+              - TypeLinkResolver_Linkify_CursorExhausted_LaterPositionsUnannotated
+              - TypeLinkResolver_Linkify_NullableIntraAssemblyType_ReturnsLinkWithQuestionMark
+              - TypeLinkResolver_Linkify_NullableArrayType_AppendsArraySuffixThenQuestionMark
+          - id: ApiMarkDotNet-TypeLinkResolver-UnwrapByReferenceTypes
+            title: TypeLinkResolver shall unwrap by-reference (ref/out/in) types to their
+              element type without consuming a nullable flag.
+            justification: |
+              The ref/out/in keyword is rendered by the caller; the link text and target must
+              use the real element type name, never a name with a trailing ampersand, and the
+              by-reference wrapper occupies no position in the nullable flag array.
+            tests:
+              - TypeLinkResolver_Linkify_ByReferenceType_ReturnsLinkWithPlainTypeName
+              - TypeLinkResolver_Linkify_CursorWithByReference_ByRefConsumesNoFlag
+          - id: ApiMarkDotNet-TypeLinkResolver-LinkGlobalNamespaceTypes
+            title: TypeLinkResolver shall link a type declared in the global namespace to its page
+              under the global-namespace folder.
+            justification: |
+              Types without a namespace are documented under a synthetic folder; links to them
+              must target that folder or they would be broken.
+            tests:
+              - TypeLinkResolver_Linkify_GlobalNamespaceType_LinksToGlobalNamespacePage

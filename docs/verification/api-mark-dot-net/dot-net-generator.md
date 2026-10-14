@@ -77,6 +77,16 @@ network dependency, or privileged configuration is needed.
   via `MapAccessorReferenceToPropertyId`, excluding the setter's trailing `value` parameter.
 - `BuildMethodIdFromReference` produces the same `` ``N`` generic-arity suffix as
   `DotNetEmitter.BuildMemberId` for an explicit interface implementation of a generic method.
+- When `Visibility` is not set, protected members are emitted and private members are not.
+- An example `<code lang="...">` block is emitted with the matching fence language.
+- A mapped external assembly's types link to its documentation (relative path or http(s) URL,
+  case-insensitive key, DLL located via a file or directory reference path) and are omitted
+  from the External Types table.
+- A mapping whose DLL is missing or unreadable, or whose value is not a relative path or
+  http(s) URL, is ignored with a `Warning:` line and the table fallback applies without
+  aborting `Parse`.
+- `ComputeRootNamespaces` treats the global namespace (empty string) as a sibling root: it is
+  always returned and never hides other roots.
 
 ### Test Scenarios
 
@@ -379,3 +389,62 @@ own `MethodDefinition` — including the `` ``N`` generic-arity suffix — so an
 explicit override of a generic interface method correctly inherits its
 documentation. This scenario is tested by
 `DotNetGenerator_BuildMethodIdFromReference_ExplicitGenericInterfaceOverride_MatchesInterfaceMethodId`.
+
+**Default Visibility is PublicAndProtected**: Arrange options with no `Visibility`
+set. Act: `Parse` and `Emit`. Expected: the options report `PublicAndProtected` with
+enforcement disabled, the `ProtectedMembersClass.ProtectedMethod` page is written, and
+the private method page is not. This scenario is tested by
+`DotNetGeneratorOptions_Defaults_VisibilityIsPublicAndProtectedWithNoEnforcement` and
+`DotNetGenerator_Generate_DefaultVisibility_EmitsProtectedMembersButNotPrivate`.
+
+**Example code block honors its lang attribute**: Arrange the `LangExampleClass`
+fixture whose examples use `lang="xml"`, `lang="powershell"`, and no attribute.
+Act: emit gradual-disclosure and single-file output. Expected: each code fence carries
+the declared language, with `csharp` for the unannotated block. This scenario is tested
+by `DotNetGenerator_Generate_ExampleWithLangAttribute_EmitsMatchingCodeFenceLanguage`.
+
+**Mapped external assembly links to its documentation**: Arrange `ReferencePaths`
+containing the logging-abstractions DLL and `ExternalLinks` mapping its name to
+`../OtherLib/api`. Act: `Parse` and `Emit`. Expected: the `ILogger` parameter cell on
+`TypeLinkFixture.Log` is a link into the mapped root and no External Types section is
+written. This scenario is tested by
+`DotNetGenerator_Generate_ExternalLinksMapped_LinksTypeAndSkipsExternalTypesTable`.
+
+**Mapping value may be an http(s) URL**: Same arrangement with the value
+`https://docs.example.com/other/api/`. Expected: the link target is the absolute URL.
+This scenario is tested by `DotNetGenerator_Generate_ExternalLinksHttpsUrl_EmitsAbsoluteLink`.
+
+**Mapping key is case-insensitive**: Same arrangement with the key upper-cased.
+Expected: the link is still produced. This scenario is tested by
+`DotNetGenerator_Generate_ExternalLinksKeyDifferentCase_StillLinks`.
+
+**Reference path may be the directory holding the DLL**: Arrange `ReferencePaths` with
+the DLL's directory. Expected: the DLL is found, links are produced, and no warning is
+written. This scenario is tested by
+`DotNetGenerator_Generate_ExternalLinksDirectoryReferencePath_FindsAssembly`.
+
+**Multiple mappings: an unusable one does not block a usable one**: Arrange one mapping
+for a missing assembly and one for the logging DLL. Expected: a warning names the
+missing assembly and the logging types are still linked. This scenario is tested by
+`DotNetGenerator_Generate_ExternalLinksMultipleMappings_HonorsUsableOnes`.
+
+**Missing mapped DLL falls back to the table with a warning**: Arrange a mapping but no
+matching DLL in `ReferencePaths`. Expected: a `Warning:` line is written through the
+context, and `ILogger` stays in the External Types table. This scenario is tested by
+`DotNetGenerator_Generate_ExternalLinksWithoutReferenceDll_FallsBackToExternalTypesTable`.
+
+**Corrupt mapped DLL falls back to the table with a warning**: Arrange a file named like
+the mapped assembly that is not a .NET assembly. Expected: `Parse` does not throw, a
+warning says the DLL could not be read, and the table fallback applies. This scenario is
+tested by `DotNetGenerator_Generate_ExternalLinksCorruptDll_WarnsAndFallsBack`.
+
+**Unsafe mapping values are rejected**: Arrange mapping values `javascript:alert(1)`,
+`file:///etc/docs`, `/rooted/api`, and an empty string. Expected: each produces a
+warning that the value must be a relative path or an http(s) URL, and the table
+fallback applies. This scenario is tested by
+`DotNetGenerator_Generate_ExternalLinksInvalidValue_WarnsAndFallsBack`.
+
+**The global namespace is a sibling root**: Call `ComputeRootNamespaces` with the namespaces
+`""`, `A`, `A.B`, and `C`. Expected: the result is `""`, `A`, and `C`, so the global namespace is
+kept as a root and does not hide or get hidden by the others. This scenario is tested by
+`DotNetGenerator_ComputeRootNamespaces_GlobalNamespaceAmongNamespaces_TreatedAsSiblingRoot`.

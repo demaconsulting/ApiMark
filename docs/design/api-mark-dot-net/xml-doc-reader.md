@@ -120,21 +120,39 @@ the `<example>` element is absent or contains only whitespace. Resolves
 > **Note**: `GetExample` returns raw text content using `element?.Value.Trim()`
 > rather than the inline element rendering pipeline. Inline elements such as
 > `<see cref>`, `<c>`, and `<paramref>` within `<example>` are silently dropped by
-> `GetExample`. Use `GetExampleParts` for full inline-element rendering.
+> `GetExample`. Use `GetExampleBlocks` (or `GetExampleParts`) for full inline-element rendering.
 
-**GetExampleParts**: Returns the structured example content for `memberId` as
-`IReadOnlyList<(bool IsCode, string Content)>` parts. When the `<example>`
-element contains no `<code>` children, the entire text is returned as a single
-code part after applying `DedentCode`. When `<code>` children are present, text
-nodes become prose parts and `<code>` elements become code parts with `DedentCode`
-applied to each code block. Resolves `<inheritdoc />` first.
+**GetExampleBlocks**: Returns the structured example content for `memberId` as
+`IReadOnlyList<(bool IsCode, string Content, string Language)>` blocks. This is
+the primary example API; emitters consume it so each code block is fenced with
+its own language. When the `<example>` element contains no `<code>` child,
+either directly or nested in a `<para>`, the entire text is returned as a single
+code block after applying `DedentCode`, with the default language. When a `<code>`
+child is present directly or under a `<para>`, text nodes become prose blocks and
+`<code>` elements become code blocks with `DedentCode` applied to each, honoring
+`lang` for nested code. Resolves `<inheritdoc />` first.
 
-> **`<para>` flush behavior**: When a `<para>` element is encountered among the
-> mixed-content children of `<example>`, its text is rendered into the prose
-> accumulator and then the accumulator is immediately flushed as a distinct prose
-> part. This ensures that each `<para>` produces its own separate prose part
-> rather than merging with adjacent text content.
+- **Language**: a code block's language is the trimmed `lang` attribute of its
+  `<code>` element. The value is accepted only if it is non-empty and consists
+  solely of the characters `A-Z`, `a-z`, `0-9`, `_`, `+`, `#` and `-` (an
+  allow-list, because the value is written directly after a Markdown code
+  fence); otherwise, and when the attribute is absent, it falls back to the
+  `DefaultCodeLanguage` constant (`csharp`). Prose blocks carry an empty
+  language so emitters fence only code blocks.
+- **`<para>` handling**: a `<para>` among the mixed-content children is rendered
+  recursively, to any nesting depth. Text becomes prose, and a `<code>` nested in the `<para>` becomes
+  its own code block carrying its `lang`. The detection that selects mixed-content
+  handling follows the same traversal (a helper walks nested `<para>` elements), so a
+  `<code>` several `<para>` levels deep is detected. The accumulator is flushed after each
+  `<para>`, so each `<para>` yields separate blocks rather than merging with
+  adjacent text.
+- **Known limitations**: `lang` is not honored for `<code>` in `<summary>` and
+  `<remarks>`, where code renders as an inline span or a fence without a
+  language; an `<example>` without any `<code>` child is treated as a single
+  `csharp` code block, even if it is really prose.
 
+**GetExampleParts**: Compatibility projection of `GetExampleBlocks` that drops
+the language, returning `IReadOnlyList<(bool IsCode, string Content)>` parts.
 **ResolveMemberElement** (private): Resolves the effective `<member>` element
 for a given ID by following `<inheritdoc />` recursively with cycle detection.
 

@@ -59,6 +59,9 @@ is needed.
 - A method carrying `GeneratedCodeAttribute` with only a `<remarks>` (no
   `<summary>`) is not reported as undocumented, while a hand-written method
   with only a `<remarks>` is still reported.
+- A delegate type's synthesized members are never reported, at any tier and for generic and
+  non-generic delegates; only the delegate type itself is checked (`CheckedCount` is 1 with no
+  XML docs, and a documented delegate reports zero violations).
 
 ### Test Scenarios
 
@@ -182,3 +185,23 @@ hand-written method with only a `<remarks>` (no `GeneratedCodeAttribute`) is
 still reported as undocumented, confirming the `<remarks>` fallback is
 scoped to generated-code members only. This scenario is tested by
 `Check_HandWrittenMethodWithOnlyRemarks_IsStillReported`.
+
+**Delegate members are not reported (non-generic, All tier)**: Arrange the `ServiceEvent`
+delegate with no XML docs, scoped by exclude patterns. Act by calling `Check` at
+`ApiVisibility.All`. Expected: `CheckedCount` is 1 and the single violation has kind `Type`.
+Tested by `Check_DelegateAtAllVisibility_DoesNotReportSynthesizedMembers`.
+
+**Delegate members are not reported (generic delegate)**: Arrange the generic
+`SampleTransform<TInput, TResult>` delegate with no XML docs. Act by calling `Check` at `All`.
+Expected: `CheckedCount` is 1 and the single violation has kind `Type`. Tested by
+`Check_GenericDelegateAtAllVisibility_DoesNotReportSynthesizedMembers`.
+
+**Delegate members are not reported (Public tier)**: Arrange `ServiceEvent` with no XML docs.
+Act by calling `Check` at `ApiVisibility.Public`. Expected: `CheckedCount` is 1 and the single
+violation has kind `Type`. Tested by
+`Check_DelegateAtPublicVisibility_DoesNotReportSynthesizedMembers`.
+
+**Documented delegates report zero violations**: Arrange both fixture delegates with a
+`<summary>` for each type and none for their synthesized members. Act by calling `Check` at `All`.
+Expected: `CheckedCount` is 2 and no violation is reported. Tested by
+`Check_DocumentedDelegates_ReportsZeroViolations`.

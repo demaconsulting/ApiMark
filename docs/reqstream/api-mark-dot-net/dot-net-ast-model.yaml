@@ -23,22 +23,31 @@ sections:
               - DotNetAstModel_XmlDocs_AfterParse_IsNotNull
               - DotNetAstModel_NamespaceDescriptions_AfterParse_IsNotNull
               - DotNetAstModel_Collections_ExposeReadOnlyInterfaces
-          - id: ApiMarkDotNet-DotNetAstModel-HoldCrefLinkingIndices
-            title: DotNetAstModel shall expose a `CrefTargetResolver` (`CrefTargets`),
-              a member-to-page index (`MemberPageIndex`), and a set of emitted type
-              identifiers (`EmittedTypeIds`), so that cross-reference linking can
-              resolve a `<see cref>`/`<seealso cref>` target to a real page.
+          - id: ApiMarkDotNet-DotNetAstModel-HoldCrefTargets
+            title: DotNetAstModel shall expose a `CrefTargetResolver` (`CrefTargets`) built during construction from the assembly, independent of visibility.
             justification: |
-              Full cross-reference linking requires knowing, for a given cref
-              string, both whether a symbol with that XML-doc ID exists in this
-              assembly (`CrefTargets`, visibility-agnostic) and whether it will
-              actually be emitted as a page under the active visibility settings
-              (`MemberPageIndex`/`EmittedTypeIds`, which depend on `DotNetEmitter`
-              instance methods and therefore cannot be computed in the model's own
-              constructor). `CrefTargets` is built eagerly during construction, since
-              it needs only the assembly; `MemberPageIndex`/`EmittedTypeIds` are
-              populated via `SetMemberPageIndex` once the owning `DotNetEmitter` has
-              been constructed.
+              Cross-reference linking must know whether a symbol with a given XML-doc ID exists in
+              this assembly. It needs only the assembly, so it is built eagerly.
             tests:
               - DotNetAstModel_CrefTargets_AfterParse_ResolvesKnownFixtureType
+          - id: ApiMarkDotNet-DotNetAstModel-HoldMemberPageIndex
+            title: DotNetAstModel shall expose a member-to-page index (`MemberPageIndex`) and a set of emitted type identifiers (`EmittedTypeIds`), populated once by `SetMemberPageIndex`, which shall reject a second call.
+            justification: |
+              Whether a target is emitted as a page depends on DotNetEmitter instance methods and
+              the active visibility settings, so the indices are populated after the owning emitter
+              exists. A call-once contract prevents silent replacement of indices that cross-reference
+              links already depend on.
+            tests:
               - DotNetAstModel_MemberPageIndexAndEmittedTypeIds_AfterGradualDisclosureEmit_ArePopulated
+              - DotNetAstModel_SetMemberPageIndex_CalledAfterParse_Throws
+              - DotNetAstModel_DefaultVisibility_IsPublicAndProtected_AndIndexesProtectedMembers
+          - id: ApiMarkDotNet-DotNetAstModel-ExposeNamespaceDescriptions
+            title: DotNetAstModel shall expose per-namespace NamespaceDescription carriers whose summary, remarks and example accessors return null or empty when no documentation IDs are present and otherwise return the carrier text, propagating each example part's language.
+            justification: |
+              Namespace pages and sections render documentation authored on NamespaceDoc carrier
+              types; the accessors must be safe when no carrier exists and must preserve per-block
+              code languages.
+            tests:
+              - NamespaceDescription_NullIds_ReturnNullAndEmpty
+              - NamespaceDescription_WithIds_ReturnsCarrierText
+              - NamespaceDescription_GetExampleParts_PropagatesLanguage

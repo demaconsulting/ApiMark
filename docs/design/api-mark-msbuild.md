@@ -56,7 +56,10 @@ task.
     `ApiMarkReferencePaths` (semicolon-delimited referenced-assembly DLL paths
     for cross-assembly `<inheritdoc/>` resolution, forwarded as repeated
     `--reference-paths` flags; auto-populated from `@(ReferencePath)` when not
-    set; optional), `ApiMarkLibraryDescription` (optional; an explicit value
+    set; optional), `ApiMarkExternalLinks` (semicolon-delimited `Assembly=path` pairs,
+    path being a relative path or `http(s)` URL to separately generated ApiMark docs,
+    forwarded as repeated `--external-link` flags; optional; values containing `;`
+    cannot be expressed), `ApiMarkLibraryDescription` (optional; an explicit value
     overrides the assembly's compiled `AssemblyDescriptionAttribute`)
   - C++: `ApiMarkIncludePaths` (semicolon-delimited `-I` include roots),
     `ApiMarkLibraryName` (defaults to `$(MSBuildProjectName)` via `.targets`),
@@ -87,6 +90,7 @@ executable to perform generation.
   MSBuild properties, and starts the process.
 - *Contract*: `dotnet <ToolDllPath> dotnet --assembly <path> --xml-doc <path>
   [--output <dir>] [--visibility <value>] [--include-obsolete]
+  [--exclude <pattern> ...] [--reference-paths <path> ...] [--external-link <Assembly=path> ...]
   [--format <gradual|single-file>]` for .NET;
   `dotnet <ToolDllPath> cpp
   --includes <path> [--includes <path> ...] [--api-headers <pattern> ...]

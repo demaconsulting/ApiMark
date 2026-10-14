@@ -147,6 +147,113 @@ public class DotNetEmitterTests
         Assert.Equal("Unknown.Namespace", result);
     }
 
+    /// <summary>Validates generic method type parameters in signatures and display names.</summary>
+    /// <param name="methodName">The method name.</param>
+    /// <param name="parameterCount">The parameter count used to select the overload.</param>
+    /// <param name="generic">Whether to select the generic overload.</param>
+    /// <param name="expectedSignature">The expected signature.</param>
+    /// <param name="expectedDisplay">The expected display name.</param>
+    [Theory]
+    [InlineData("Echo", 1, true, "public T Echo<T>(T item)", "Echo<T>(T)")]
+    [InlineData("Over", 1, false, "public void Over(int value)", "Over(int)")]
+    public void DotNetEmitter_BuildMethodSignature_GenericMethods_ShowTypeParameters(
+        string methodName,
+        int parameterCount,
+        bool generic,
+        string expectedSignature,
+        string expectedDisplay)
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.First(t => t.Name == "GenericMethodClass");
+        var method = type.Methods.Single(m =>
+            m.Name == methodName && m.Parameters.Count == parameterCount && m.HasGenericParameters == generic);
+
+        // Act
+        var signature = DotNetEmitter.BuildMethodSignature(method, "ApiMark.DotNet.Fixtures");
+        var display = DotNetEmitter.BuildMethodDisplayName(method);
+
+        // Assert
+        Assert.Equal(expectedSignature, signature);
+        Assert.Equal(expectedDisplay, display);
+        Assert.Equal(methodName, DotNetEmitter.BuildMethodFileName(method, type));
+    }
+
+    /// <summary>Validates generic method where constraints in signatures and display names.</summary>
+    /// <param name="methodName">The method name.</param>
+    /// <param name="parameterCount">The parameter count used to select the overload.</param>
+    /// <param name="expectedSignature">The expected signature.</param>
+    /// <param name="expectedDisplay">The expected display name.</param>
+    [Theory]
+    [InlineData("Map", 1, "public TOut Map<TIn, TOut>(TIn value) where TIn : class, IDisposable where TOut : struct", "Map<TIn, TOut>(TIn)")]
+    [InlineData("Create", 0, "public static T Create<T>() where T : class, new()", "Create<T>()")]
+    [InlineData("Take", 1, "public void Take<T>(T value) where T : unmanaged", "Take<T>(T)")]
+    [InlineData("Over", 1, "public void Over<T>(T value) where T : IComparable<T>", "Over<T>(T)")]
+    public void DotNetEmitter_BuildMethodSignature_GenericMethods_ShowConstraints(
+        string methodName,
+        int parameterCount,
+        string expectedSignature,
+        string expectedDisplay)
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.First(t => t.Name == "GenericMethodClass");
+        var method = type.Methods.Single(m =>
+            m.Name == methodName && m.Parameters.Count == parameterCount && m.HasGenericParameters);
+
+        // Act
+        var signature = DotNetEmitter.BuildMethodSignature(method, "ApiMark.DotNet.Fixtures");
+        var display = DotNetEmitter.BuildMethodDisplayName(method);
+
+        // Assert
+        Assert.Equal(expectedSignature, signature);
+        Assert.Equal(expectedDisplay, display);
+    }
+
+    /// <summary>Validates that source-level record and record struct keywords are rendered.</summary>
+    /// <param name="typeName">The fixture type name.</param>
+    /// <param name="expected">The expected signature.</param>
+    [Theory]
+    [InlineData("SealedRecordClass", "public sealed record SealedRecordClass")]
+    [InlineData("BaseRecordClass", "public record BaseRecordClass")]
+    [InlineData("DerivedRecordClass", "public record DerivedRecordClass : BaseRecordClass")]
+    [InlineData("GenericRecordSample`1", "public record GenericRecordSample<T>")]
+    [InlineData("RecordStructSample", "public record struct RecordStructSample")]
+    [InlineData("ReadOnlyRecordStructSample", "public readonly record struct ReadOnlyRecordStructSample")]
+    public void DotNetEmitter_BuildTypeSignature_RecordKinds_RenderRecordKeywords(string typeName, string expected)
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.First(t => t.Name == typeName);
+
+        // Act
+        var signature = DotNetEmitter.BuildTypeSignature(type, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Equal(expected, signature);
+    }
+
+    /// <summary>Validates that readonly and ref struct modifiers are rendered.</summary>
+    /// <param name="typeName">The fixture type name.</param>
+    /// <param name="expected">The expected signature.</param>
+    [Theory]
+    [InlineData("ReadOnlyStructSample", "public readonly struct ReadOnlyStructSample")]
+    [InlineData("RefStructSample", "public ref struct RefStructSample")]
+    [InlineData("ReadOnlyRefStructSample", "public readonly ref struct ReadOnlyRefStructSample")]
+    [InlineData("DefaultValuePoint", "public struct DefaultValuePoint")]
+    public void DotNetEmitter_BuildTypeSignature_StructKinds_RenderStructModifiers(string typeName, string expected)
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.First(t => t.Name == typeName);
+
+        // Act
+        var signature = DotNetEmitter.BuildTypeSignature(type, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Equal(expected, signature);
+    }
+
     /// <summary>
     ///     Validates that <see cref="DotNetEmitter.BuildTypeSignature"/> includes the <c>abstract</c>
     ///     modifier for an abstract class that is not sealed.
@@ -857,5 +964,360 @@ public class DotNetEmitterTests
 
         // Act / Assert
         Assert.False(DotNetEmitter.IsImplicitDefaultConstructor(constructor));
+    }
+
+    /// <summary>Validates that optional parameter default values are rendered in method signatures.</summary>
+    /// <param name="methodName">The fixture method name.</param>
+    /// <param name="expected">The expected signature.</param>
+    [Theory]
+    [InlineData("ToJson", "public string ToJson(bool indented = true)")]
+    [InlineData("Format", "public string Format(string format = \"N0\")")]
+    [InlineData("Name", "public string Name(string name = null)")]
+    [InlineData("Origin", "public int Origin(DefaultValuePoint point = default)")]
+    [InlineData("Mode", "public DefaultValueMode Mode(DefaultValueMode mode = DefaultValueMode.Slow)")]
+    [InlineData("Optional", "public int Optional(int value = default)")]
+    [InlineData("Explicit", "public int Explicit(int value = 7)")]
+    [InlineData("Rate", "public decimal Rate(decimal rate = 1.5)")]
+    [InlineData("Count", "public int? Count(int? count = null)")]
+    [InlineData("Separate", "public char Separate(char separator = ',', long limit = 42)")]
+    public void DotNetEmitter_BuildMethodSignature_DefaultValues_RendersDefaults(string methodName, string expected)
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.Single(t => t.Name == "DefaultValueClass");
+        var method = type.Methods.Single(m => m.Name == methodName);
+
+        // Act
+        var signature = DotNetEmitter.BuildMethodSignature(method, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Equal(expected, signature);
+    }
+
+    /// <summary>Validates that display names and file names are unchanged by default values.</summary>
+    [Fact]
+    public void DotNetEmitter_BuildMethodDisplayName_DefaultValues_DoesNotIncludeDefaults()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.Single(t => t.Name == "DefaultValueClass");
+        var method = type.Methods.Single(m => m.Name == "ToJson");
+
+        // Act
+        var displayName = DotNetEmitter.BuildMethodDisplayName(method);
+        var fileName = DotNetEmitter.BuildMethodFileName(method, type);
+
+        // Assert
+        Assert.Equal("ToJson(bool)", displayName);
+        Assert.Equal("ToJson", fileName);
+    }
+
+    /// <summary>Validates the additional default value shapes: DateTimeConstant, unnamed enum, nullable enum, and special doubles.</summary>
+    /// <param name="methodName">The fixture method name.</param>
+    /// <param name="expected">The expected signature.</param>
+    [Theory]
+    [InlineData("When", "public DateTime When(DateTime when = new DateTime(630822816000000000))")]
+    [InlineData("Unnamed", "public DefaultValueMode Unnamed(DefaultValueMode mode = (DefaultValueMode)5)")]
+    [InlineData("NullableMode", "public DefaultValueMode? NullableMode(DefaultValueMode? mode = DefaultValueMode.Slow)")]
+    [InlineData("Special", "public double Special(double a = double.NaN, double b = double.PositiveInfinity, double c = double.NegativeInfinity)")]
+    [InlineData("SpecialFloat", "public float SpecialFloat(float a = float.NaN, float b = float.PositiveInfinity, float c = float.NegativeInfinity)")]
+    [InlineData("Negative", "public decimal Negative(decimal rate = -0.25)")]
+    public void DotNetEmitter_BuildMethodSignature_ExtendedDefaultValues_RendersDefaults(string methodName, string expected)
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.Single(t => t.Name == "DefaultValueExtendedClass");
+        var method = type.Methods.Single(m => m.Name == methodName);
+
+        // Act
+        var signature = DotNetEmitter.BuildMethodSignature(method, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Equal(expected, signature);
+    }
+
+    /// <summary>Validates that NaN and infinite floating-point constants render as named members.</summary>
+    [Fact]
+    public void DotNetEmitter_FormatConstantValue_SpecialFloatingPointValues_RendersNamedMembers()
+    {
+        // Act / Assert
+        Assert.Equal("double.NaN", DotNetEmitter.FormatConstantValue(double.NaN));
+        Assert.Equal("double.PositiveInfinity", DotNetEmitter.FormatConstantValue(double.PositiveInfinity));
+        Assert.Equal("double.NegativeInfinity", DotNetEmitter.FormatConstantValue(double.NegativeInfinity));
+        Assert.Equal("float.NaN", DotNetEmitter.FormatConstantValue(float.NaN));
+        Assert.Equal("float.PositiveInfinity", DotNetEmitter.FormatConstantValue(float.PositiveInfinity));
+        Assert.Equal("float.NegativeInfinity", DotNetEmitter.FormatConstantValue(float.NegativeInfinity));
+        Assert.Equal("1.5", DotNetEmitter.FormatConstantValue(1.5d));
+    }
+
+    /// <summary>Creates a synthetic optional parameter (no metadata constant) carrying the given attribute.</summary>
+    /// <param name="module">The module used to create type references.</param>
+    /// <param name="parameterType">The parameter type.</param>
+    /// <param name="attributeNamespace">The attribute namespace.</param>
+    /// <param name="attributeName">The attribute type name.</param>
+    /// <param name="argumentTypes">The constructor parameter types.</param>
+    /// <param name="arguments">The constructor arguments.</param>
+    /// <returns>The synthetic parameter.</returns>
+    private static ParameterDefinition CreateAttributedOptionalParameter(
+        ModuleDefinition module,
+        TypeReference parameterType,
+        string attributeNamespace,
+        string attributeName,
+        TypeReference[] argumentTypes,
+        object?[] arguments)
+    {
+        var attributeType = new TypeReference(attributeNamespace, attributeName, module, module.TypeSystem.CoreLibrary);
+        var constructor = new MethodReference(".ctor", module.TypeSystem.Void, attributeType) { HasThis = true };
+        foreach (var argumentType in argumentTypes)
+        {
+            constructor.Parameters.Add(new ParameterDefinition(argumentType));
+        }
+
+        var attribute = new CustomAttribute(constructor);
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            attribute.ConstructorArguments.Add(new CustomAttributeArgument(argumentTypes[i], arguments[i]));
+        }
+
+        var parameter = new ParameterDefinition("value", ParameterAttributes.Optional, parameterType);
+        parameter.CustomAttributes.Add(attribute);
+        return parameter;
+    }
+
+    /// <summary>Validates that a DefaultParameterValue attribute (direct and boxed argument forms) supplies the default.</summary>
+    [Fact]
+    public void DotNetEmitter_FormatParameterDefault_DefaultParameterValueAttribute_RendersValue()
+    {
+        // Arrange
+        using var module = ModuleDefinition.CreateModule("Synthetic", ModuleKind.Dll);
+        var direct = CreateAttributedOptionalParameter(
+            module,
+            module.TypeSystem.Int32,
+            "System.Runtime.InteropServices",
+            "DefaultParameterValueAttribute",
+            [module.TypeSystem.Object],
+            [42]);
+        var boxed = CreateAttributedOptionalParameter(
+            module,
+            module.TypeSystem.String,
+            "System.Runtime.InteropServices",
+            "DefaultParameterValueAttribute",
+            [module.TypeSystem.Object],
+            [new CustomAttributeArgument(module.TypeSystem.String, "x")]);
+
+        // Act / Assert
+        Assert.Equal("42", DotNetEmitter.FormatParameterDefault(direct));
+        Assert.Equal("\"x\"", DotNetEmitter.FormatParameterDefault(boxed));
+    }
+
+    /// <summary>Validates that DecimalConstant arguments are converted by bit pattern and never throw.</summary>
+    [Fact]
+    public void DotNetEmitter_FormatParameterDefault_DecimalConstantAttribute_HandlesSignedAndOutOfRangeArguments()
+    {
+        // Arrange
+        using var module = ModuleDefinition.CreateModule("Synthetic", ModuleKind.Dll);
+        var types = new[]
+        {
+            module.TypeSystem.Byte,
+            module.TypeSystem.Byte,
+            module.TypeSystem.UInt32,
+            module.TypeSystem.UInt32,
+            module.TypeSystem.UInt32,
+        };
+        var intTypes = new[]
+        {
+            module.TypeSystem.Byte,
+            module.TypeSystem.Byte,
+            module.TypeSystem.Int32,
+            module.TypeSystem.Int32,
+            module.TypeSystem.Int32,
+        };
+        const string attributeName = "DecimalConstantAttribute";
+        const string attributeNamespace = "System.Runtime.CompilerServices";
+
+        var negative = CreateAttributedOptionalParameter(
+            module, module.TypeSystem.Object, attributeNamespace, attributeName, types, [(byte)2, (byte)1, 0u, 0u, 125u]);
+        var signedBits = CreateAttributedOptionalParameter(
+            module, module.TypeSystem.Object, attributeNamespace, attributeName, intTypes, [(byte)0, (byte)0, 0, 0, -1]);
+        var invalidScale = CreateAttributedOptionalParameter(
+            module, module.TypeSystem.Object, attributeNamespace, attributeName, types, [(byte)40, (byte)0, 0u, 0u, 1u]);
+
+        // Act / Assert
+        Assert.Equal("-1.25", DotNetEmitter.FormatParameterDefault(negative));
+        Assert.Equal("4294967295", DotNetEmitter.FormatParameterDefault(signedBits));
+        Assert.Equal("default", DotNetEmitter.FormatParameterDefault(invalidScale));
+    }
+
+    /// <summary>Validates that an operator parameter with a default value renders it in the operator signature.</summary>
+    [Fact]
+    public void DotNetEmitter_BuildOperatorSignature_ParameterWithDefault_RendersDefault()
+    {
+        // Arrange — C# cannot declare optional operator parameters, so patch the metadata of a fixture operator
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.Single(t => t.Name == "OperatorsStruct");
+        var method = type.Methods.Single(m => m.Name == "op_Addition");
+        method.Parameters[1].Attributes |= ParameterAttributes.Optional | ParameterAttributes.HasDefault;
+        method.Parameters[1].Constant = null;
+
+        // Act
+        var signature = DotNetEmitter.BuildMethodSignature(method, "ApiMark.DotNet.Fixtures");
+
+        // Assert — a null constant on a struct parameter is the compiler encoding of default(T)
+        Assert.Equal(
+            "public static OperatorsStruct operator +(OperatorsStruct left, OperatorsStruct right = default)",
+            signature);
+    }
+
+    /// <summary>Validates the <c>notnull</c> constraint is rendered alongside other generic constraints.</summary>
+    /// <param name="methodName">The fixture method name.</param>
+    /// <param name="expected">The expected signature.</param>
+    [Theory]
+    [InlineData("Keep", "public void Keep<T>(T value) where T : notnull")]
+    [InlineData("Make", "public T Make<T>() where T : notnull, new()")]
+    [InlineData("Allow", "public void Allow<T>(T value)")]
+    public void DotNetEmitter_BuildMethodSignature_NotNullConstraint_RendersNotNull(string methodName, string expected)
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.Single(t => t.Name == "DefaultValueExtendedClass");
+        var method = type.Methods.Single(m => m.Name == methodName);
+
+        // Act
+        var signature = DotNetEmitter.BuildMethodSignature(method, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Equal(expected, signature);
+    }
+
+    /// <summary>Validates that nullable reference annotations are rendered at each type position of every member kind.</summary>
+    /// <param name="typeName">The fixture type name.</param>
+    /// <param name="memberName">The member name.</param>
+    /// <param name="expected">The expected signature.</param>
+    [Theory]
+    [InlineData("NullabilityDiagramElement", "Subtitle", "public string? Subtitle { get; set; }")]
+    [InlineData("NullabilityDiagramElement", "Title", "public string Title { get; set; }")]
+    [InlineData("NullabilityDiagramElement", "StyleFunc", "public Func<NullWire, NullWireStyle?>? StyleFunc { get; set; }")]
+    [InlineData("NullabilityDiagramElement", "NonNullStyleFunc", "public Func<NullWire, NullWireStyle?> NonNullStyleFunc { get; set; }")]
+    [InlineData("NullabilityDiagramElement", "NullableElements", "public string?[] NullableElements { get; set; }")]
+    [InlineData("NullabilityDiagramElement", "NullableArray", "public string[]? NullableArray { get; set; }")]
+    [InlineData("NullabilityDiagramElement", "OptionalPoint", "public NullPoint? OptionalPoint { get; set; }")]
+    [InlineData("NullabilityDiagramElement", "Cache", "public List<string?>? Cache")]
+    [InlineData("NullabilityDiagramElement", "StyleChanged", "public event EventHandler<NullWireStyle?>? StyleChanged")]
+    [InlineData("NullabilityDiagramElement", "Style", "public Func<NullWire, NullWireStyle?>? Style(NullWire wire, Dictionary<string, NullWire?>? fallback)")]
+    [InlineData("NullabilityDiagramElement", "TryGetStyle", "public bool TryGetStyle(string name, out NullWireStyle? style)")]
+    [InlineData("NullabilityMostlyNullableElement", "Third", "public string Third { get; set; }")]
+    [InlineData("NullabilityMostlyNullableElement", "Combine", "public string? Combine(string? a, string? b, string c)")]
+    [InlineData("NullabilityObliviousElement", "Name", "public string Name { get; set; }")]
+    [InlineData("NullabilityObliviousElement", "Echo", "public string Echo(string value)")]
+    [InlineData("NullabilityGenericElement`1", "Value", "public T? Value { get; set; }")]
+    public void DotNetEmitter_BuildMemberSignature_NullabilityPositions_RendersAnnotations(
+        string typeName,
+        string memberName,
+        string expected)
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.Single(t => t.Name == typeName);
+        var member = type.Properties.Cast<IMemberDefinition>()
+            .Concat(type.Events)
+            .Concat(type.Fields)
+            .Concat(type.Methods)
+            .First(m => m.Name == memberName);
+
+        // Act
+        var signature = DotNetEmitter.BuildMemberSignature(member, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Equal(expected, signature);
+    }
+
+    /// <summary>Validates that the inherited NullableContext is resolved from the member, type, or defaults to oblivious.</summary>
+    [Fact]
+    public void DotNetEmitter_ResolveNullableContext_ResolvesInheritedContext()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var mostlyNullable = assembly.MainModule.Types.Single(t => t.Name == "NullabilityMostlyNullableElement");
+        var oblivious = assembly.MainModule.Types.Single(t => t.Name == "NullabilityObliviousElement");
+
+        // Act
+        var nullableContext = DotNetEmitter.ResolveNullableContext(mostlyNullable.Methods.Single(m => m.Name == "Combine"));
+        var obliviousContext = DotNetEmitter.ResolveNullableContext(oblivious.Methods.Single(m => m.Name == "Echo"));
+
+        // Assert — the mostly-nullable type is compiled with context 2; the oblivious type has none
+        Assert.Equal(2, nullableContext);
+        Assert.Equal(0, obliviousContext);
+    }
+
+    /// <summary>Validates that CreateMemberTypeNullability reads the primary-type annotation of each member kind.</summary>
+    [Fact]
+    public void DotNetEmitter_CreateMemberTypeNullability_ReadsPrimaryTypeAnnotation()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.Single(t => t.Name == "NullabilityDiagramElement");
+
+        // Act
+        var nullableProperty = DotNetEmitter.CreateMemberTypeNullability(type.Properties.Single(p => p.Name == "Subtitle"));
+        var nonNullProperty = DotNetEmitter.CreateMemberTypeNullability(type.Properties.Single(p => p.Name == "Title"));
+        var nullableField = DotNetEmitter.CreateMemberTypeNullability(type.Fields.Single(f => f.Name == "Cache"));
+
+        // Assert — 2 means annotated (nullable), 1 means not annotated
+        Assert.Equal(2, nullableProperty.Next());
+        Assert.Equal(1, nonNullProperty.Next());
+        Assert.Equal(2, nullableField.Next());
+    }
+
+    /// <summary>Validates that the implicit record <c>IEquatable&lt;Self&gt;</c> is hidden but explicit interfaces are kept.</summary>
+    /// <param name="typeName">The fixture type name.</param>
+    /// <param name="expected">The expected signature.</param>
+    [Theory]
+    [InlineData("SealedRecordClass", "public sealed record SealedRecordClass")]
+    [InlineData("RecordWithInterface", "public record RecordWithInterface : IComparable")]
+    [InlineData("ExplicitEquatableClass", "public sealed class ExplicitEquatableClass : IEquatable<ExplicitEquatableClass>")]
+    public void DotNetEmitter_BuildTypeSignature_SelfEquatable_SuppressedOnlyForRecords(string typeName, string expected)
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.Single(t => t.Name == typeName);
+
+        // Act
+        var signature = DotNetEmitter.BuildTypeSignature(type, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Equal(expected, signature);
+    }
+
+    /// <summary>Validates that the empty (global) namespace maps to the synthetic global-namespace folder for any root set.</summary>
+    [Fact]
+    public void DotNetEmitter_GetNamespaceFolderPath_GlobalNamespace_ReturnsGlobalNamespaceFolder()
+    {
+        Assert.Equal("global-namespace", DotNetEmitter.GetNamespaceFolderPath("", []));
+        Assert.Equal("global-namespace", DotNetEmitter.GetNamespaceFolderPath("", [""]));
+        Assert.Equal("global-namespace", DotNetEmitter.GetNamespaceFolderPath("", ["", "A"]));
+    }
+
+    /// <summary>Validates that the global namespace has no children and is never a child.</summary>
+    [Fact]
+    public void DotNetEmitter_GetImmediateChildNamespaces_GlobalNamespace_IsSiblingRoot()
+    {
+        Assert.Empty(DotNetEmitter.GetImmediateChildNamespaces("", ["", "A", "A.B"]));
+        Assert.Equal(["A.B"], DotNetEmitter.GetImmediateChildNamespaces("A", ["", "A", "A.B"]));
+    }
+
+    /// <summary>Validates the namespace display-name helper.</summary>
+    [Fact]
+    public void DotNetEmitter_GetNamespaceDisplayName_GlobalNamespace_ReturnsPlaceholder()
+    {
+        Assert.Equal("(global namespace)", DotNetEmitter.GetNamespaceDisplayName(""));
+        Assert.Equal("A.B", DotNetEmitter.GetNamespaceDisplayName("A.B"));
+    }
+
+    /// <summary>Validates that the empty namespace is always a root and never hides other roots.</summary>
+    [Fact]
+    public void DotNetGenerator_ComputeRootNamespaces_GlobalNamespace_IsRootAndDoesNotHideOthers()
+    {
+        var roots = DotNetGenerator.ComputeRootNamespaces(["", "A", "A.B"]);
+        Assert.Equal(["", "A"], roots);
     }
 }

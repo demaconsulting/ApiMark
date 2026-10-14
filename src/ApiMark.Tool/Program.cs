@@ -310,6 +310,31 @@ internal static class Program
     }
 
     /// <summary>
+    ///     Converts <c>Assembly=path</c> entries into an assembly-name-to-path dictionary.
+    ///     Later entries for the same assembly replace earlier ones. Entries without a
+    ///     name before the <c>=</c> are ignored defensively (<see cref="Context"/> already
+    ///     rejects them, so this only guards against misuse).
+    /// </summary>
+    /// <param name="entries">The validated entries from <see cref="Context.ExternalLinks"/>.</param>
+    /// <returns>The mapping, keyed case-insensitively by assembly name.</returns>
+    private static Dictionary<string, string> ParseExternalLinks(string[] entries)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in entries)
+        {
+            var separator = entry.IndexOf('=');
+            if (separator <= 0)
+            {
+                continue;
+            }
+
+            map[entry.Substring(0, separator).Trim()] = entry.Substring(separator + 1).Trim();
+        }
+
+        return map;
+    }
+
+    /// <summary>
     ///     Constructs and returns an <see cref="IApiGenerator"/> configured from the parsed context.
     /// </summary>
     /// <param name="context">Fully parsed CLI context.</param>
@@ -324,11 +349,17 @@ internal static class Program
     /// </exception>
     private static IApiGenerator CreateGenerator(Context context)
     {
+        // Resolve the visibility: an explicit --visibility wins; otherwise dotnet defaults to
+        // PublicAndProtected (protected members are part of the inheritance API surface) while
+        // every other language keeps its historical Public default
+        var visibilityText = context.Visibility ??
+            (context.Language == DotNetLanguageId ? nameof(DotNetApiVisibility.PublicAndProtected) : nameof(DotNetApiVisibility.Public));
+
         // Parse the visibility string case-insensitively; reject unknown values early
-        if (!Enum.TryParse<DotNetApiVisibility>(context.Visibility, ignoreCase: true, out var visibility))
+        if (!Enum.TryParse<DotNetApiVisibility>(visibilityText, ignoreCase: true, out var visibility))
         {
             throw new ArgumentException(
-                $"Invalid visibility value '{context.Visibility}'. " +
+                $"Invalid visibility value '{visibilityText}'. " +
                 $"Valid values are: {string.Join(", ", Enum.GetNames<DotNetApiVisibility>())}.");
         }
 
@@ -367,6 +398,7 @@ internal static class Program
                 ExcludePatterns = context.Excludes,
                 EnforceDocsVisibility = enforceDocsVisibility,
                 ReferencePaths = context.ReferencePaths,
+                ExternalLinks = ParseExternalLinks(context.ExternalLinks),
 
                 // Restores parity with cpp/vhdl: the dotnet backend previously silently
                 // ignored --library-description / ApiMarkLibraryDescription.
@@ -513,10 +545,13 @@ internal static class Program
         context.WriteLine("  --assembly <path>          Path to the .NET assembly (required)");
         context.WriteLine("  --xml-doc <path>           Path to the XML documentation file (required)");
         context.WriteLine("  --output <dir>             Output directory for Markdown files (required)");
-        context.WriteLine("  --visibility <value>       Visibility filter: Public, PublicAndProtected, All (default: Public)");
+        context.WriteLine("  --visibility <value>       Visibility filter: Public, PublicAndProtected, All (default: PublicAndProtected)");
         context.WriteLine("  --include-obsolete         Include obsolete members in generated output");
         context.WriteLine("  --exclude <pattern>        Exclude namespaces/types matching a wildcard pattern (repeatable)");
         context.WriteLine("  --reference-paths <path>   Path to a referenced assembly DLL, used to resolve cross-assembly <inheritdoc/> (repeatable)");
+        context.WriteLine("  --external-link <name=path>  Link types from assembly <name> to its ApiMark docs at <path>");
+        context.WriteLine("                             (relative path or http(s) URL); the DLL must also be supplied");
+        context.WriteLine("                             via --reference-paths (repeatable)");
         context.WriteLine("  --enforce-docs <value>     Enforce XML doc <summary> coverage at a visibility tier: Public, PublicAndProtected, All (default: disabled)");
         context.WriteLine("  --enforce-docs-severity <v> Severity when --enforce-docs finds violations: Warning, Error (default: Warning)");
         context.WriteLine("  --library-description <d>  Optional description for the library api.md introduction");

@@ -42,9 +42,10 @@ projects, benchmark projects, or internal tooling.
 
 ### Internal and protected members are showing up in my output
 
-The default visibility is `Public`. If internal or protected members are appearing,
-check whether `ApiMarkVisibility` has been set explicitly upstream (e.g. in a
-`Directory.Build.props`). Set it explicitly in the affected project:
+For C# projects the default visibility is `PublicAndProtected`, so protected members are documented. If you only want public members, or if
+internal members are appearing, set it explicitly in the affected project (also check whether
+`ApiMarkVisibility` is set upstream, e.g. in a `Directory.Build.props`). C++ and VHDL still
+default to `Public`:
 
 ```xml
 <PropertyGroup>

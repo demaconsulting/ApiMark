@@ -92,9 +92,10 @@ internal sealed class Context : IContext, IDisposable
     /// <summary>
     ///     Gets the visibility filter applied to generated documentation.
     ///     Valid values are <c>Public</c>, <c>PublicAndProtected</c>, and <c>All</c>.
-    ///     Defaults to <c>Public</c>.
+    ///     When <see langword="null"/> (the option was not supplied) each language applies its own
+    ///     default: <c>PublicAndProtected</c> for dotnet and <c>Public</c> for cpp and vhdl.
     /// </summary>
-    public string Visibility { get; private init; } = "Public";
+    public string? Visibility { get; private init; }
 
     /// <summary>
     ///     Gets a value indicating whether members marked <c>[Obsolete]</c> are included
@@ -116,6 +117,14 @@ internal sealed class Context : IContext, IDisposable
     ///     cross-assembly resolution unless explicitly supplied.
     /// </summary>
     public string[] ReferencePaths { get; private init; } = [];
+
+    /// <summary>
+    ///     Gets the external documentation links for the .NET language subcommand, as raw
+    ///     <c>Assembly=path</c> entries collected from repeated <c>--external-link</c> invocations.
+    ///     Each entry maps a referenced assembly name to the location of its generated ApiMark
+    ///     documentation (a relative path or an <c>http(s)</c> base URL). Defaults to an empty array.
+    /// </summary>
+    public string[] ExternalLinks { get; private init; } = [];
 
     /// <summary>
     ///     Gets the documentation-coverage enforcement visibility tier for the .NET language
@@ -226,6 +235,7 @@ internal sealed class Context : IContext, IDisposable
             IncludeObsolete = parser.IncludeObsolete,
             Excludes = [.. parser.Excludes],
             ReferencePaths = [.. parser.ReferencePaths],
+            ExternalLinks = [.. parser.ExternalLinks],
             EnforceDocs = parser.EnforceDocs,
             EnforceDocsSeverity = parser.EnforceDocsSeverity,
             LibraryName = parser.LibraryName,
@@ -409,7 +419,7 @@ internal sealed class Context : IContext, IDisposable
         /// <summary>
         ///     Gets the visibility filter value.
         /// </summary>
-        public string Visibility { get; private set; } = "Public";
+        public string? Visibility { get; private set; }
 
         /// <summary>
         ///     Gets a value indicating whether to include obsolete members.
@@ -429,6 +439,12 @@ internal sealed class Context : IContext, IDisposable
         ///     appends one path used to resolve cross-assembly <c>&lt;inheritdoc /&gt;</c> targets.
         /// </summary>
         public List<string> ReferencePaths { get; } = new List<string>();
+
+        /// <summary>
+        ///     Gets the <c>Assembly=path</c> external link entries accumulated by repeated
+        ///     <c>--external-link</c> invocations.
+        /// </summary>
+        public List<string> ExternalLinks { get; } = new List<string>();
 
         /// <summary>
         ///     Gets the documentation-coverage enforcement visibility tier value.
@@ -728,6 +744,30 @@ internal sealed class Context : IContext, IDisposable
                         if (!string.IsNullOrWhiteSpace(path))
                         {
                             ReferencePaths.Add(path);
+                        }
+
+                        return index + 1;
+                    }
+
+                case "--external-link":
+                    {
+                        // Each invocation supplies one Assembly=path mapping. Blank values are skipped
+                        // (MSBuild semicolon-splitting can produce empty segments); malformed entries
+                        // fail fast with a clear message.
+                        var entry = GetRequiredStringArgument(arg, args, index, "an Assembly=path argument");
+                        if (!string.IsNullOrWhiteSpace(entry))
+                        {
+                            var separator = entry.IndexOf('=');
+                            if (separator <= 0 || separator == entry.Length - 1 ||
+                                string.IsNullOrWhiteSpace(entry.Substring(0, separator)) ||
+                                string.IsNullOrWhiteSpace(entry.Substring(separator + 1)))
+                            {
+                                throw new ArgumentException(
+                                    $"--external-link requires an Assembly=path value but got '{entry}'",
+                                    nameof(args));
+                            }
+
+                            ExternalLinks.Add(entry);
                         }
 
                         return index + 1;

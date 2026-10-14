@@ -189,6 +189,129 @@ public class DocumentationCoverageCheckerTests
     }
 
     /// <summary>
+    ///     Validates that a delegate type's compiler-synthesized members (constructor, Invoke,
+    ///     BeginInvoke, EndInvoke) are never reported as undocumented, while the delegate type
+    ///     itself is still checked.
+    /// </summary>
+    [Fact]
+    public void Check_DelegateAtAllVisibility_DoesNotReportSynthesizedMembers()
+    {
+        // Arrange — no XML doc at all
+        using var assembly = LoadFixtureAssembly();
+        var docPath = WriteXmlDoc(string.Empty);
+        try
+        {
+            var xmlDocs = new XmlDocReader(docPath);
+            var excludePatterns = ExcludeAllExcept(assembly, "ApiMark.DotNet.Fixtures.ServiceEvent");
+
+            // Act
+            var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.All, includeObsolete: false, excludePatterns);
+
+            // Assert — only the type itself is checked and reported
+            Assert.Equal(1, result.CheckedCount);
+            Assert.Single(result.UndocumentedItems);
+            Assert.Equal("Type", result.UndocumentedItems[0].Kind);
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a generic delegate's compiler-synthesized members are not reported while the
+    ///     generic delegate type itself is still checked.
+    /// </summary>
+    [Fact]
+    public void Check_GenericDelegateAtAllVisibility_DoesNotReportSynthesizedMembers()
+    {
+        // Arrange — no XML doc at all
+        using var assembly = LoadFixtureAssembly();
+        var docPath = WriteXmlDoc(string.Empty);
+        try
+        {
+            var xmlDocs = new XmlDocReader(docPath);
+            var excludePatterns = ExcludeAllExcept(assembly, "ApiMark.DotNet.Fixtures.SampleTransform`2");
+
+            // Act
+            var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.All, includeObsolete: false, excludePatterns);
+
+            // Assert — only the generic delegate type is checked and reported
+            Assert.Equal(1, result.CheckedCount);
+            Assert.Single(result.UndocumentedItems);
+            Assert.Equal("Type", result.UndocumentedItems[0].Kind);
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a delegate at the <see cref="ApiVisibility.Public"/> tier has only its type
+    ///     checked, with no synthesized member reported.
+    /// </summary>
+    [Fact]
+    public void Check_DelegateAtPublicVisibility_DoesNotReportSynthesizedMembers()
+    {
+        // Arrange — no XML doc at all
+        using var assembly = LoadFixtureAssembly();
+        var docPath = WriteXmlDoc(string.Empty);
+        try
+        {
+            var xmlDocs = new XmlDocReader(docPath);
+            var excludePatterns = ExcludeAllExcept(assembly, "ApiMark.DotNet.Fixtures.ServiceEvent");
+
+            // Act
+            var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
+
+            // Assert
+            Assert.Equal(1, result.CheckedCount);
+            Assert.Single(result.UndocumentedItems);
+            Assert.Equal("Type", result.UndocumentedItems[0].Kind);
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
+    }
+
+    /// <summary>Validates that a documented delegate (generic and non-generic) reports zero violations.</summary>
+    [Fact]
+    public void Check_DocumentedDelegates_ReportsZeroViolations()
+    {
+        // Arrange — summaries for both delegate types, none for their synthesized members
+        using var assembly = LoadFixtureAssembly();
+        var docPath = WriteXmlDoc("""
+            <member name="T:ApiMark.DotNet.Fixtures.ServiceEvent">
+              <summary>A documented delegate.</summary>
+            </member>
+            <member name="T:ApiMark.DotNet.Fixtures.SampleTransform`2">
+              <summary>A documented generic delegate.</summary>
+            </member>
+            """);
+        try
+        {
+            var xmlDocs = new XmlDocReader(docPath);
+            var excludePatterns = ExcludeAllExcept(
+                assembly,
+                "ApiMark.DotNet.Fixtures.ServiceEvent",
+                "ApiMark.DotNet.Fixtures.SampleTransform`2");
+
+            // Act
+            var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.All, includeObsolete: false, excludePatterns);
+
+            // Assert — two types checked, nothing reported
+            Assert.Equal(2, result.CheckedCount);
+            Assert.Empty(result.UndocumentedItems);
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
+    }
+
+    /// <summary>
     ///     Validates that a non-sealed public record's compiler-synthesized <c>EqualityContract</c>
     ///     property (declared <see langword="protected virtual"/> by the compiler) is not reported
     ///     as undocumented at the <see cref="ApiVisibility.PublicAndProtected"/> enforcement tier,

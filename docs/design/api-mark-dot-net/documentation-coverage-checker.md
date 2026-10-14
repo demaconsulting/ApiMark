@@ -55,6 +55,12 @@ debug symbols being loaded for the assembly (see `DotNetGenerator`'s
 given assembly, every constructor — implicit or explicit — is enforced as
 before, since the detection conservatively declines to guess without symbols.
 
+**Delegate types**: the members of a delegate type (constructor, `Invoke`,
+`BeginInvoke`, `EndInvoke`) are compiler-synthesized and cannot carry a
+`<summary>`. `GetVisibleMembers` returns no members for a type where
+`DotNetEmitter.IsDelegate` is `true`; the delegate type itself is still
+checked by `CheckType`.
+
 ### Key Methods
 
 **Check** (internal static): Scans `assembly` for types and members at or
@@ -118,7 +124,10 @@ caller-supplied parameter that may differ from it.
 **ToKind** (private): Maps a Mono.Cecil member definition
 (`MethodDefinition`, `PropertyDefinition`, `FieldDefinition`,
 `EventDefinition`) to the corresponding `Kind` string label (`"Method"`,
-`"Property"`, `"Field"`, `"Event"`).
+`"Property"`, `"Field"`, `"Event"`). Any other `IMemberDefinition` falls back to
+`"Method"` (`_ => "Method"`); the member enumeration only ever yields the four
+concrete kinds above, so the fallback is a defensive default that keeps the
+result well-formed rather than throwing.
 
 ### Error Handling
 
@@ -136,7 +145,9 @@ ever invoked.
   (`AssemblyDefinition`, `TypeDefinition`, `IMemberDefinition` and its
   concrete subtypes).
 - **DotNetEmitter** (static predicates) — reused for compiler-generated
-  detection, `NamespaceDoc`-carrier detection, obsolete detection, implicit
+  detection, `NamespaceDoc`-carrier detection, obsolete detection, delegate
+  detection (`IsDelegate`, used to skip the synthesized members of delegate
+  types), implicit
   default constructor detection (`IsImplicitDefaultConstructor`),
   generated-code detection (`IsGeneratedCode`, for the `<remarks>` fallback),
   member-id construction (`BuildTypeId`/`BuildMemberId`), member display-name

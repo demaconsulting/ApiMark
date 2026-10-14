@@ -15,6 +15,18 @@ internal static class FixturePaths
     public static string GetFixtureIncludeDir() => IncludeDir;
 
     /// <summary>
+    ///     Returns the absolute path to the source MSBuild targets file of the unit under test.
+    /// </summary>
+    /// <param name="sourceFile">The compile-time path of this source file, injected by the compiler.</param>
+    /// <returns>Absolute path to <c>src/ApiMark.MSBuild/build/DemaConsulting.ApiMark.MSBuild.targets</c>.</returns>
+    public static string GetTargetsFilePath([CallerFilePath] string? sourceFile = null)
+    {
+        var testDir = Path.GetDirectoryName(sourceFile)!;
+        return Path.GetFullPath(Path.Join(
+            testDir, "..", "..", "src", "ApiMark.MSBuild", "build", "DemaConsulting.ApiMark.MSBuild.targets"));
+    }
+
+    /// <summary>
     ///     Resolves the fixture include directory at compile time using <see cref="CallerFilePathAttribute"/>.
     /// </summary>
     /// <remarks>

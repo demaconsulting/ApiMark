@@ -276,3 +276,36 @@ sections:
                   - Context_Create_WithResponseFileContainingBlankLines_SkipsBlankLines
                   - Context_Create_WithResponseFileArgumentForMissingFile_ThrowsArgumentException
                   - Context_Create_WithEscapedAtSignArgument_PassesThroughLiteralValue
+              - id: ApiMarkTool-Cli-Context-ExternalLinkOption
+                title: Context shall parse repeatable --external-link options, retaining each
+                  non-blank Assembly=path value in order in ExternalLinks (empty by default).
+                justification: |
+                  External documentation links must be configurable from the command line so
+                  generated documentation can link to separately generated ApiMark docs. Blank
+                  values are skipped because MSBuild semicolon-splitting can yield empty segments.
+                tests:
+                  - Context_Create_WithExternalLinkOption_AccumulatesEntries
+                  - Context_Create_WithBlankExternalLinkValue_SkipsEntry
+                  - Context_Create_WithDuplicateAndCaseDifferingExternalLinks_RetainsAllEntriesInOrder
+                  - Context_Create_WithNoArguments_HasDefaultValues
+              - id: ApiMarkTool-Cli-Context-ExternalLinkValidation
+                title: Context shall throw ArgumentException naming --external-link when the value is
+                  missing, is another flag, or lacks a non-blank assembly name, a "=" separator, or a
+                  non-blank path.
+                justification: |
+                  A malformed mapping would silently produce unlinked documentation; failing fast
+                  with a message naming the option makes the configuration error actionable.
+                tests:
+                  - Context_Create_WithMalformedExternalLink_ThrowsArgumentException
+                  - Context_Create_WithExternalLinkMissingValue_ThrowsArgumentException
+                  - Context_Create_WithExternalLinkFlagAsValue_ThrowsArgumentException
+              - id: ApiMarkTool-Cli-Context-VisibilityDefaultsToNull
+                title: Context shall leave Visibility null when --visibility is not supplied, deferring to
+                  the per-language default applied by Program.
+                justification: |
+                  Different languages have different default visibilities (dotnet
+                  PublicAndProtected; cpp and vhdl Public), so the parser must not impose one;
+                  null signals "not specified".
+                tests:
+                  - Context_Create_WithNoArguments_HasDefaultValues
+                  - Context_Create_WithVisibilityOption_SetsVisibility

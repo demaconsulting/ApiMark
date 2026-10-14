@@ -1,3 +1,6 @@
+// Copyright (c) DemaConsulting LLC. All rights reserved.
+// Licensed under the MIT License.
+
 using ApiMark.Core;
 using Mono.Cecil;
 using static ApiMark.DotNet.DotNetEmitter;
@@ -16,7 +19,7 @@ namespace ApiMark.DotNet;
 /// <param name="NamespaceName">Fully qualified namespace name for signature simplification.</param>
 /// <param name="NamespaceFolderPath">File-system folder path for the namespace.</param>
 /// <param name="SharedExternalTypes">
-///     Shared accumulator passed to all <see cref="TypeLinkResolver.Linkify"/> calls. Non-System
+///     Shared accumulator passed to all <see cref="TypeLinkResolver.Linkify(TypeReference, string, string, ISet{ExternalTypeInfo}, bool)"/> calls. Non-System
 ///     external types are still tracked into it regardless of <c>generateLinks</c>, but the
 ///     single-file emitter never reads it back; reused across all parameters and members to
 ///     avoid allocating a new set per <c>Linkify</c> call.
@@ -117,7 +120,7 @@ internal sealed class DotNetEmitterSingleFile
 
         foreach (var namespaceName in _model.AllNamespaces)
         {
-            writer.WriteHeading(depth + 1, namespaceName);
+            writer.WriteHeading(depth + 1, GetNamespaceDisplayName(namespaceName));
 
             // Emit the namespace documentation when one was supplied via the NamespaceDoc
             // convention — summary, then remarks, then structured example parts, mirroring
@@ -148,8 +151,7 @@ internal sealed class DotNetEmitterSingleFile
     /// <remarks>
     ///     No <see cref="CrefLinkContext"/> is supplied — single-file output never resolves
     ///     <c>&lt;see cref&gt;</c> to links (see the <c>noLinkResolver</c> remark in
-    ///     <see cref="EmitSingleFile"/>), so this renders exactly as it did before cross-reference
-    ///     linking existed.
+    ///     <see cref="EmitSingleFile"/>), so cross-references render as plain code-span text.
     /// </remarks>
     /// <param name="writer">The shared single-file Markdown writer.</param>
     /// <param name="nsDescription">The namespace description to render.</param>
@@ -172,18 +174,18 @@ internal sealed class DotNetEmitterSingleFile
     }
 
     /// <summary>
-    ///     Emits a sequence of structured example parts, rendering code parts as fenced C#
-    ///     code blocks and prose parts as paragraphs.
+    ///     Emits a sequence of structured example parts, rendering code parts as fenced code
+    ///     blocks tagged with each part's language (default C#) and prose parts as paragraphs.
     /// </summary>
     /// <param name="writer">The shared single-file Markdown writer.</param>
     /// <param name="parts">The example parts to render, each flagged as code or prose.</param>
-    private static void WriteExampleParts(IMarkdownWriter writer, IEnumerable<(bool IsCode, string Content)> parts)
+    private static void WriteExampleParts(IMarkdownWriter writer, IEnumerable<(bool IsCode, string Content, string Language)> parts)
     {
-        foreach (var (isCode, content) in parts)
+        foreach (var (isCode, content, language) in parts)
         {
             if (isCode)
             {
-                writer.WriteCodeBlock(CSharpLanguageId, content);
+                writer.WriteCodeBlock(language, content);
             }
             else
             {
@@ -204,7 +206,7 @@ internal sealed class DotNetEmitterSingleFile
     /// <param name="type">The type definition to document.</param>
     /// <param name="resolver">No-link type resolver for parameter type cells.</param>
     /// <param name="sharedExternalTypes">
-    ///     Shared throw-away accumulator passed to all <see cref="TypeLinkResolver.Linkify"/> calls.
+    ///     Shared throw-away accumulator passed to all <see cref="TypeLinkResolver.Linkify(TypeReference, string, string, ISet{ExternalTypeInfo}, bool)"/> calls.
     ///     Never populated because <c>generateLinks</c> is <c>false</c>; reused across all members
     ///     to avoid allocating a new set per call.
     /// </param>
@@ -252,7 +254,7 @@ internal sealed class DotNetEmitterSingleFile
         }
 
         // Emit structured example blocks for this type
-        WriteExampleParts(writer, _model.XmlDocs.GetExampleParts(typeMemberId));
+        WriteExampleParts(writer, _model.XmlDocs.GetExampleBlocks(typeMemberId));
 
         // Delegates carry all their information in the declaration; no member listing is needed
         if (IsDelegate(type))
@@ -348,8 +350,8 @@ internal sealed class DotNetEmitterSingleFile
                 var desc = paramDocs.FirstOrDefault(pd => pd.Name == p.Name).Description ?? NoDescriptionPlaceholder;
                 var typeName = GetRefKindKeyword(p) + context.Resolver.Linkify(p.ParameterType, context.NamespaceFolderPath, context.NamespaceName,
                     // Shared throw-away accumulator — generateLinks is false so it is never populated or read
-                    context.SharedExternalTypes);
-                return new[] { p.Name, typeName, desc };
+                    context.SharedExternalTypes, CreateNullability(p.CustomAttributes, method));
+                return new[] { WithDefault(p.Name, p), typeName, desc };
             });
             context.Writer.WriteTable(paramHeaders, paramRows);
         }
@@ -370,7 +372,7 @@ internal sealed class DotNetEmitterSingleFile
         }
 
         // Emit structured example blocks for this member
-        WriteExampleParts(context.Writer, context.XmlDocs.GetExampleParts(memberId));
+        WriteExampleParts(context.Writer, context.XmlDocs.GetExampleBlocks(memberId));
     }
 
     /// <summary>
@@ -385,7 +387,7 @@ internal sealed class DotNetEmitterSingleFile
     /// <param name="type">The containing type whose nested types are to be emitted.</param>
     /// <param name="resolver">No-link type resolver for parameter type cells.</param>
     /// <param name="sharedExternalTypes">
-    ///     Shared throw-away accumulator threaded through all <see cref="TypeLinkResolver.Linkify"/>
+    ///     Shared throw-away accumulator threaded through all <see cref="TypeLinkResolver.Linkify(TypeReference, string, string, ISet{ExternalTypeInfo}, bool)"/>
     ///     calls for nested type members.
     /// </param>
     private void WriteSingleFileNestedTypes(

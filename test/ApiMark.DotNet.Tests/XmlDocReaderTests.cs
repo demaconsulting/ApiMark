@@ -361,6 +361,186 @@ public class XmlDocReaderTests
         }
     }
 
+    /// <summary>Validates that the <c>lang</c> attribute on <c>&lt;code&gt;</c> selects the fence language, with a sanitized csharp fallback.</summary>
+    [Fact]
+    public void XmlDocReader_GetExampleBlocks_LangAttribute_SelectsLanguageWithFallback()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example><code lang="xml">&lt;a /&gt;</code><code lang="c++">int x;</code><code lang="bad lang!">y</code><code lang="">z</code><code>w</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var blocks = new XmlDocReader(path).GetExampleBlocks("M:Foo.Bar.Sample");
+
+            // Assert
+            Assert.Equal(["xml", "c++", "csharp", "csharp", "csharp"], blocks.Select(b => b.Language).ToArray());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that <c>GetExampleBlocks</c> returns content and code flags together with the language, and trims padded <c>lang</c> values.</summary>
+    [Fact]
+    public void XmlDocReader_GetExampleBlocks_PaddedLang_TrimmedAndContentPreserved()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example><code lang=" xml ">&lt;a /&gt;</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var blocks = new XmlDocReader(path).GetExampleBlocks("M:Foo.Bar.Sample");
+
+            // Assert
+            var block = Assert.Single(blocks);
+            Assert.True(block.IsCode);
+            Assert.Equal("<a />", block.Content);
+            Assert.Equal("xml", block.Language);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that an example without a <c>&lt;code&gt;</c> child is one csharp code block.</summary>
+    [Fact]
+    public void XmlDocReader_GetExampleBlocks_NoCodeChild_SingleCSharpBlock()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>var x = 1;</example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var blocks = new XmlDocReader(path).GetExampleBlocks("M:Foo.Bar.Sample");
+
+            // Assert
+            var block = Assert.Single(blocks);
+            Assert.True(block.IsCode);
+            Assert.Equal("var x = 1;", block.Content);
+            Assert.Equal("csharp", block.Language);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that a <c>&lt;code lang&gt;</c> nested in a <c>&lt;para&gt;</c> is honored and prose parts carry an empty language.</summary>
+    [Fact]
+    public void XmlDocReader_GetExampleBlocks_CodeInsidePara_HonorsLangAndProseHasEmptyLanguage()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example><code>first</code><para>Intro text<code lang="xml">&lt;a /&gt;</code></para><para>Tail text</para></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var blocks = new XmlDocReader(path).GetExampleBlocks("M:Foo.Bar.Sample");
+
+            // Assert
+            Assert.Equal(
+                [(true, "first", "csharp"), (false, "Intro text", string.Empty), (true, "<a />", "xml"), (false, "Tail text", string.Empty)],
+                blocks.ToArray());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that a <c>&lt;code lang&gt;</c> nested in a <c>&lt;para&gt;</c> is honored when the example has no direct <c>&lt;code&gt;</c> child.</summary>
+    [Fact]
+    public void XmlDocReader_GetExampleBlocks_OnlyCodeInsidePara_HonorsLangAndKeepsProseOrdinary()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example><para>Intro text<code lang="xml">&lt;a /&gt;</code></para></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var blocks = new XmlDocReader(path).GetExampleBlocks("M:Foo.Bar.Sample");
+
+            // Assert
+            Assert.Equal(
+                [(false, "Intro text", string.Empty), (true, "<a />", "xml")],
+                blocks.ToArray());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that a <c>&lt;code lang&gt;</c> nested two <c>&lt;para&gt;</c> levels deep is honored.</summary>
+    [Fact]
+    public void XmlDocReader_GetExampleBlocks_CodeInsideNestedPara_HonorsLang()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example><para><para>Intro text<code lang="xml">&lt;a /&gt;</code></para></para></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var blocks = new XmlDocReader(path).GetExampleBlocks("M:Foo.Bar.Sample");
+
+            // Assert
+            Assert.Equal(
+                [(false, "Intro text", string.Empty), (true, "<a />", "xml")],
+                blocks.ToArray());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that the two-part <c>GetExampleParts</c> projection drops the language.</summary>
+    [Fact]
+    public void XmlDocReader_GetExampleParts_WithLang_ProjectsWithoutLanguage()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Sample">
+              <example>Text<code lang="xml">x</code></example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var parts = new XmlDocReader(path).GetExampleParts("M:Foo.Bar.Sample");
+
+            // Assert
+            Assert.Equal([(false, "Text"), (true, "x")], parts.ToArray());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     /// <summary>
     ///     Validates that <see cref="XmlDocReader.GetExampleParts"/> separates prose text nodes from
     ///     <c>&lt;code&gt;</c> child elements when both are present.
@@ -3311,19 +3491,15 @@ public class XmlDocReaderTests
     }
 
     /// <summary>
-    ///     Validates that a multi-line <c>&lt;code&gt;</c> reached through <c>&lt;example&gt;</c>
-    ///     mixed-prose accumulation via a wrapping <c>&lt;para&gt;</c> (not a direct
-    ///     <c>&lt;example&gt;</c>-child <c>&lt;code&gt;</c>, which bypasses the inline dispatch
-    ///     entirely) falls back to an inline span rather than a mangled fenced block, since the
-    ///     example-prose pipeline never supplies a <c>codeBlocks</c> placeholder map.
+    ///     Validates that a multi-line <c>&lt;code&gt;</c> nested in a wrapping <c>&lt;para&gt;</c>
+    ///     inside <c>&lt;example&gt;</c> becomes its own fenced code part (so its <c>lang</c> can be
+    ///     honored) rather than being flattened into the surrounding prose.
     /// </summary>
     [Fact]
-    public void XmlDocReader_GetExampleParts_WithMixedInlineElementsContainingMultiLineCodeOutsideCodeTag_RendersAsInlineSpan()
+    public void XmlDocReader_GetExampleParts_WithMixedInlineElementsContainingMultiLineCodeInsidePara_SplitsIntoCodePart()
     {
         // Arrange: a direct <code> child forces BuildMixedExampleParts dispatch; the <para> here
-        // contains a second, nested <code> that is NOT a direct child of <example>, so it is
-        // reached via the AppendNodeText/AppendElementText dispatch rather than the direct
-        // <code>-child handling in BuildMixedExampleParts.
+        // contains a second, nested <code> that must be emitted as its own code part
         var path = WriteXmlDoc("""
             <member name="M:Foo.Bar.Sample">
               <example><code>bar.Run();</code><para>See:<code>
@@ -3338,13 +3514,14 @@ public class XmlDocReaderTests
             var reader = new XmlDocReader(path);
             var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
 
-            // Assert: the direct <code> child is its own fenced code part; the <para>'s nested
-            // code is accumulated into the prose part as an inline-flattened span, not a fence
-            Assert.Equal(2, parts.Count);
+            // Assert: code part, prose part, then the nested code as a second code part
+            Assert.Equal(3, parts.Count);
             Assert.True(parts[0].IsCode);
             Assert.False(parts[1].IsCode);
-            Assert.Contains("`line one line two`", parts[1].Content);
-            Assert.DoesNotContain("```", parts[1].Content, StringComparison.Ordinal);
+            Assert.Equal("See:", parts[1].Content);
+            Assert.True(parts[2].IsCode);
+            Assert.Contains("line one", parts[2].Content, StringComparison.Ordinal);
+            Assert.Contains("line two", parts[2].Content, StringComparison.Ordinal);
         }
         finally
         {

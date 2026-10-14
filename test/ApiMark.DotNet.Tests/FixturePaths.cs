@@ -25,4 +25,14 @@ internal static class FixturePaths
     /// <returns>Absolute path to the XML documentation file produced alongside the external fixture assembly.</returns>
     public static string GetExternalFixtureXmlDoc() =>
         Path.ChangeExtension(GetExternalFixtureDll(), ".xml");
+
+    /// <summary>Returns the path to the global-namespace fixture DLL.</summary>
+    /// <returns>Absolute path to the ApiMark.DotNet.Fixtures.Global assembly.</returns>
+    public static string GetGlobalFixtureDll() =>
+        typeof(GlobalNamespaceClass).Assembly.Location;
+
+    /// <summary>Returns the path to the global-namespace fixture's XML documentation file.</summary>
+    /// <returns>Absolute path to the XML documentation file produced alongside the global fixture assembly.</returns>
+    public static string GetGlobalFixtureXmlDoc() =>
+        Path.ChangeExtension(GetGlobalFixtureDll(), ".xml");
 }

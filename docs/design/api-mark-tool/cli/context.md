@@ -33,7 +33,7 @@ argument array.
 | `ApiHeaders` | `string[]` | `[]` | Ordered patterns from repeated `--api-headers` invocations (may start with `!`) |
 | `Sources` | `string[]` | `[]` | Ordered glob patterns accumulated from repeated `--source` invocations; `!`-prefixed patterns are exclusions |
 | `Output` | `string?` | `null` | Directory from `--output` |
-| `Visibility` | `string` | `"Public"` | Value from `--visibility` |
+| `Visibility` | `string?` | `null` | Value from `--visibility`; `null` when not supplied so `Program` applies the per-language default (dotnet `PublicAndProtected`, cpp and vhdl `Public`) |
 | `IncludeObsolete` | `bool` | `false` | `--include-obsolete` flag |
 | `LibraryName` | `string?` | `null` | Library name from `--library-name`; optional, used for C++ `api.md` heading |
 | `LibraryDescription` | `string?` | `null` | Library description from `--library-description`; optional, omitted when null |
@@ -44,6 +44,7 @@ argument array.
 | `Format` | `OutputFormat` | `GradualDisclosure` | Output format from `--format` (`gradual` → `GradualDisclosure`, `single-file` → `SingleFile`) |
 | `Excludes` | `string[]` | `[]` | Wildcard patterns accumulated from repeated `--exclude` invocations |
 | `ReferencePaths` | `string[]` | `[]` | Referenced assembly DLL paths accumulated from repeated `--reference-paths` invocations, used to resolve cross-assembly `<inheritdoc/>` |
+| `ExternalLinks` | `string[]` | `[]` | Raw `Assembly=path` entries accumulated from repeated `--external-link` invocations; blank values skipped |
 | `EnforceDocs` | `string?` | `null` | Enforcement visibility tier from `--enforce-docs` (`Public`, `PublicAndProtected`, or `All`); absent disables enforcement |
 | `EnforceDocsSeverity` | `string` | `"Warning"` | Enforcement severity from `--enforce-docs-severity` (`Warning` or `Error`) |
 
@@ -88,7 +89,13 @@ construction path.
   `Sources` list, preserving order for gitignore-style evaluation; each
   `--exclude` flag appends a single wildcard pattern string to the `Excludes`
   list; each `--reference-paths` flag appends a single referenced assembly DLL
-  path to the `ReferencePaths` list. `--enforce-docs` and `--enforce-docs-severity` each take a single
+  path to the `ReferencePaths` list; each `--external-link` flag appends one `Assembly=path` entry
+  to the `ExternalLinks` list (a blank or whitespace-only value is skipped because MSBuild
+  semicolon-splitting can produce empty segments; otherwise the value must contain a non-blank
+  assembly name, a `=` separator at position greater than zero, and a non-blank path, or
+  `ArgumentException` is thrown; the value must not start with `-`). Duplicate and
+  case-differing names are all retained — last-wins, case-insensitive resolution is performed
+  by `Program`. `--enforce-docs` and `--enforce-docs-severity` each take a single
   string value with no accumulation semantics — later flags overwrite
   earlier ones, matching `--visibility` and `--output`.
 - *Preconditions*: `args` must be non-null.
@@ -127,7 +134,9 @@ to stderr (in red) and to the log file.
 - Unknown flags throw `ArgumentException` with the unsupported argument
   name in the message.
 - Flags that require a value (e.g., `--assembly`) throw `ArgumentException`
-  when the value token is absent.
+  when the value token is absent or is another flag.
+- A malformed `--external-link` value (no `=`, empty or whitespace-only assembly name, or empty or whitespace-only path) throws
+  `ArgumentException` whose message names `--external-link` and the offending value.
 - A `@<file>` response-file token referencing a missing or unreadable file
   throws `ArgumentException` naming the offending response-file path, rather
   than propagating the underlying `IOException`/`UnauthorizedAccessException`

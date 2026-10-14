@@ -41,6 +41,10 @@ service or network dependency is needed.
 - Delegate types do not emit compiler-generated member sections (Invoke, BeginInvoke, EndInvoke).
 - Nested types include a parent-context notice paragraph (e.g., "Nested type of `OuterClass`.").
 - Parameter type cells in tables contain plain text, not Markdown links.
+- Parameter rows show default values, nullable annotations are kept, and init-only properties render `init`.
+- No breadcrumb paragraphs are emitted.
+- Generic method signatures include type parameters and constraints; record and struct kind keywords are correct.
+- Each fenced example block carries its own language.
 - A `<see cref>` to a visible in-assembly type renders as plain code-span text with no link, even though the same cref would resolve to a real link in gradual-disclosure mode.
 
 ### Test Scenarios
@@ -60,6 +64,10 @@ by `DotNetEmitterSingleFile_Emit_ValidModel_ApiFileContainsAssemblyHeading`.
 **Api file contains a namespace-level heading**: Verifies that the output file
 includes a heading containing the fixture namespace name. This scenario is tested
 by `DotNetEmitterSingleFile_Emit_ValidModel_ApiFileContainsNamespaceHeading`.
+
+**Global-namespace types**: Verifies that types declared without a namespace are emitted
+under a `(global namespace)` heading together with their type sections. This scenario is
+tested by `DotNetEmitterSingleFile_Emit_GlobalNamespaceTypes_EmitsGlobalNamespaceSection`.
 
 **Api file contains a type-level heading for SampleClass**: Verifies that the
 output file includes a heading for `SampleClass`. This scenario is tested by
@@ -190,3 +198,29 @@ so the same `null`-`CrefLinkContext` invariant holds for namespace-level
 documentation as it does for type/member documentation. This scenario is
 tested by
 `CrefLinking_SingleFileMode_NamespaceDocRemarksSeeCref_RemainsCodeSpanOnly`.
+
+**Defaults and init accessors**: Arrange `DefaultValueClass` and the init-only fixture
+properties. Act by emitting single-file output. Expected: parameter rows show the C#-source
+default for each supported constant kind, and init-only properties render `init`. Tested by
+`DotNetEmitterSingleFile_Emit_DefaultValueParameter_ShowsDefaultInParameterTable`,
+`DotNetEmitterSingleFile_Emit_DefaultValueVariants_RenderDefaults` and
+`DotNetEmitterSingleFile_Emit_InitOnlyProperties_RenderInitAccessor`.
+
+**No breadcrumbs**: Arrange the fixture assembly. Act by emitting single-file output.
+Expected: no paragraph contains a breadcrumb (` › ` with links). Tested by
+`DotNetEmitterSingleFile_Emit_ValidModel_EmitsNoBreadcrumbs`.
+
+**Nullable parameter annotation**: Arrange a nullable reference parameter. Expected: the type
+cell keeps the `?` annotation. Tested by
+`DotNetEmitterSingleFile_Emit_NullableParameter_KeepsAnnotation`.
+
+**Generic method signature**: Expected: type parameters and `where` constraints appear in the
+signature. Tested by
+`DotNetEmitterSingleFile_Emit_GenericMethod_SignatureHasTypeParametersAndConstraints`.
+
+**Record and struct kinds**: Expected: record, record struct and readonly struct keywords appear
+in type signatures. Tested by `DotNetEmitterSingleFile_Emit_RecordAndStructKinds_ShowKindKeywords`.
+
+**Example languages**: Arrange `LangExampleClass`. Expected: each code block is fenced with its
+own language and prose parts are not fenced. Tested by
+`DotNetEmitterSingleFile_Emit_LangExample_TagsCodeBlocksWithLanguage`.

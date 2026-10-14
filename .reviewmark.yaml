@@ -78,6 +78,8 @@ reviews:
       - docs/reqstream/api-mark-core.yaml
     paths:
       - test/ApiMark.Core.TestHelpers/**/*.cs
+      - '!test/**/obj/**'
+      - '!test/**/bin/**'
 
   # ApiMarkCore - Units
   - id: ApiMark-Core-IApiGenerator
@@ -242,6 +244,7 @@ reviews:
       - test/ApiMark.DotNet.Fixtures.External/**/*.cs
       - test/ApiMark.DotNet.Fixtures/ExternalInheritDocClass.cs
       - '!test/**/obj/**'
+      - '!test/**/bin/**'
   - id: ApiMark-DotNet-DotNetAstModel
     title: Review that ApiMark DotNet DotNetAstModel Implementation is Correct
     context:
@@ -263,7 +266,6 @@ reviews:
       - docs/design/api-mark-dot-net/dot-net-emitter.md
       - docs/verification/api-mark-dot-net/dot-net-emitter.md
       - src/ApiMark.DotNet/DotNetEmitter.cs
-      - src/ApiMark.DotNet/ExternalTypeInfo.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterTests.cs
   - id: ApiMark-DotNet-DotNetEmitterGradualDisclosure
     title: Review that ApiMark DotNet DotNetEmitterGradualDisclosure Implementation
@@ -277,8 +279,10 @@ reviews:
       - docs/verification/api-mark-dot-net/dot-net-emitter-gradual-disclosure.md
       - src/ApiMark.DotNet/DotNetEmitterGradualDisclosure.cs
       - test/ApiMark.DotNet.Fixtures/**/*.cs
+      - test/ApiMark.DotNet.Fixtures.Global/*.csproj
       - test/ApiMark.DotNet.Tests/DotNetEmitterGradualDisclosureTests.cs
       - '!test/**/obj/**'
+      - '!test/**/bin/**'
   - id: ApiMark-DotNet-DotNetEmitterSingleFile
     title: Review that ApiMark DotNet DotNetEmitterSingleFile Implementation is Correct
     context:
@@ -292,6 +296,7 @@ reviews:
       - test/ApiMark.DotNet.Fixtures/**/*.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterSingleFileTests.cs
       - '!test/**/obj/**'
+      - '!test/**/bin/**'
   - id: ApiMark-DotNet-XmlDocReader
     title: Review that ApiMark DotNet XmlDocReader Implementation is Correct
     context:
@@ -644,6 +649,8 @@ reviews:
       - test/ApiMark.MSBuild.Tests/ApiMarkTaskTests.cs
       - test/ApiMark.MSBuild.Tests/FixturePaths.cs
       - test/ApiMark.MSBuild.PackageTests/**/*.cs
+      - '!test/**/obj/**'
+      - '!test/**/bin/**'
 
   # ApiMarkTool - Specials
   - id: ApiMark-Tool-Architecture

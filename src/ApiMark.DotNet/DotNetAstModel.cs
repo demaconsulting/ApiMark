@@ -35,7 +35,7 @@ internal sealed record TypePageWriteContext(
 /// <summary>
 ///     Bundles the per-method documentation writing context passed to
 ///     <see cref="DotNetEmitterGradualDisclosure"/> so that callers do not need to
-///     thread five constant parameters through each call site.
+///     thread six constant parameters through each call site.
 /// </summary>
 /// <param name="NamespaceName">Namespace of the type that owns the method.</param>
 /// <param name="XmlDocs">Documentation index for member-level lookups.</param>
@@ -110,9 +110,12 @@ internal sealed record NamespaceDescription(
     ///     Optional cross-reference linking context; <c>null</c> renders plain code-span
     ///     text with no links, matching pre-cross-reference-linking behavior.
     /// </param>
-    /// <returns>The example parts, or empty when no carrier supplied an example.</returns>
-    internal IReadOnlyList<(bool IsCode, string Content)> GetExampleParts(XmlDocReader xmlDocs, CrefLinkContext? linkContext = null) =>
-        ExampleMemberId is { } id ? xmlDocs.GetExampleParts(id, linkContext) : [];
+    /// <returns>
+    ///     The example parts as (IsCode, Content, Language) triples, or empty when no carrier
+    ///     supplied an example. Prose parts carry an empty <c>Language</c>.
+    /// </returns>
+    internal IReadOnlyList<(bool IsCode, string Content, string Language)> GetExampleParts(XmlDocReader xmlDocs, CrefLinkContext? linkContext = null) =>
+        ExampleMemberId is { } id ? xmlDocs.GetExampleBlocks(id, linkContext) : [];
 }
 
 /// <summary>
@@ -259,11 +262,22 @@ internal sealed class DotNetAstModel
     /// </summary>
     /// <param name="memberPageIndex">The computed member-to-page index.</param>
     /// <param name="emittedTypeIds">The computed set of emitted type identifiers.</param>
+    /// <exception cref="InvalidOperationException">Thrown when called more than once.</exception>
     internal void SetMemberPageIndex(
         IReadOnlyDictionary<string, string> memberPageIndex,
         IReadOnlySet<string> emittedTypeIds)
     {
+        // Enforce the documented call-once contract so a second call cannot silently replace the index
+        if (_memberPageIndexSet)
+        {
+            throw new InvalidOperationException("SetMemberPageIndex has already been called.");
+        }
+
+        _memberPageIndexSet = true;
         MemberPageIndex = memberPageIndex;
         EmittedTypeIds = emittedTypeIds;
     }
+
+    /// <summary>Tracks whether <see cref="SetMemberPageIndex"/> has already been called.</summary>
+    private bool _memberPageIndexSet;
 }

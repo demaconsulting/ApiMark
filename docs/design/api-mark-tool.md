@@ -42,11 +42,14 @@ users or CI pipelines.
   `gradual (default)`, `single-file`), `--depth <#>`, `--log <file>`.
   Supported subcommands: `dotnet`, `cpp`, `vhdl`.
   Options for `dotnet`: `--assembly <path>`, `--xml-doc <path>`, `--output <dir>`,
-  `--visibility <value>`, `--include-obsolete`, `--exclude <pattern>` (repeatable;
+  `--visibility <value>` (when omitted the default is per language: `PublicAndProtected` for
+  `dotnet`, `Public` for `cpp` and `vhdl`), `--include-obsolete`, `--exclude <pattern>` (repeatable;
   wildcard namespace/type exclusion patterns), `--reference-paths <path>` (repeatable;
   referenced assembly DLL paths used to resolve cross-assembly `<inheritdoc/>`),
   `--library-description <text>` (overrides the assembly's compiled
   `AssemblyDescriptionAttribute` in the `api.md` introduction when set),
+  `--external-link <Assembly=path>` (repeatable; maps a referenced assembly name to the relative
+  path or http(s) URL of its separately generated ApiMark documentation; blank values are skipped),
   `--enforce-docs <value>` (accepted for
   all three languages, though VHDL enforcement covers only the public interface —
   entities, ports, generics, packages, and exports;
@@ -57,7 +60,8 @@ users or CI pipelines.
   Options for `cpp`: `--includes <path>` (repeatable), `--api-headers <pattern>`
   (repeatable, ordered, supports `!` exclusion patterns),
   `--library-name <name>`, `--library-description <text>`, `--defines <defs>`,
-  `--cpp-standard <std>`, `--clang-path <path>`, `--output <dir>`,
+  `--cpp-standard <std>`, `--clang-path <path>`, `--clang-timeout-ms <ms>` (clang subprocess
+  timeout in milliseconds; default 120000), `--output <dir>`,
   `--visibility <value>`, `--include-obsolete`.
   Options for `vhdl`: `--source <glob>` (repeatable, ordered, supports `!` exclusion patterns),
   `--output <dir>`, `--library-name <name>`, `--library-description <text>`.

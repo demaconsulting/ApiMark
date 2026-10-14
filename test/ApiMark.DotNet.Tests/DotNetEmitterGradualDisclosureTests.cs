@@ -589,7 +589,8 @@ public class DotNetEmitterGradualDisclosureTests
         var memberWriter = factory.Writers["ApiMark.DotNet.Fixtures/CrefLinkingClass/ReferencesFilteredMember"];
         var paragraphs = memberWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
         Assert.Contains(paragraphs, p => p.Contains("`ProtectedMembersClass.PrivateMethod()`", StringComparison.Ordinal));
-        Assert.DoesNotContain(paragraphs, p => p.Contains("](", StringComparison.Ordinal));
+        // The first paragraph is the breadcrumb navigation (which legitimately contains links); only the body must be link-free
+        Assert.DoesNotContain(paragraphs.Skip(1), p => p.Contains("](", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -610,7 +611,8 @@ public class DotNetEmitterGradualDisclosureTests
         var memberWriter = factory.Writers["ApiMark.DotNet.Fixtures/CrefLinkingClass/ReferencesExternalType"];
         var paragraphs = memberWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
         Assert.Contains(paragraphs, p => p.Contains("`ArgumentNullException`", StringComparison.Ordinal));
-        Assert.DoesNotContain(paragraphs, p => p.Contains("](", StringComparison.Ordinal));
+        // The first paragraph is the breadcrumb navigation (which legitimately contains links); only the body must be link-free
+        Assert.DoesNotContain(paragraphs.Skip(1), p => p.Contains("](", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -631,7 +633,8 @@ public class DotNetEmitterGradualDisclosureTests
         var memberWriter = factory.Writers["ApiMark.DotNet.Fixtures/CrefLinkingClass/ReferencesMalformedCref"];
         var paragraphs = memberWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
         Assert.Contains(paragraphs, p => p.Contains("NotAWellFormedCrefString", StringComparison.Ordinal));
-        Assert.DoesNotContain(paragraphs, p => p.Contains("](", StringComparison.Ordinal));
+        // The first paragraph is the breadcrumb navigation (which legitimately contains links); only the body must be link-free
+        Assert.DoesNotContain(paragraphs.Skip(1), p => p.Contains("](", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -654,5 +657,365 @@ public class DotNetEmitterGradualDisclosureTests
         var typeWriter = factory.Writers["ApiMark.DotNet.Fixtures/CrefLinkingClass"];
         var paragraphs = typeWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
         Assert.Contains(paragraphs, p => p.Contains("[`SampleClass`](SampleClass.md)", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that a member page's parameter table shows default values in the Parameter column.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_DefaultValueParameter_ShowsDefaultInParameterTable()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert
+        var memberWriter = factory.Writers["ApiMark.DotNet.Fixtures/DefaultValueClass/ToJson"];
+        var table = memberWriter.Operations.OfType<TableOperation>().Single();
+        Assert.Equal("Parameter", table.Headers[0]);
+        Assert.Equal(3, table.Headers.Length);
+        Assert.Equal("indented = true", table.Rows[0][0]);
+        Assert.Equal("bool", table.Rows[0][1]);
+    }
+
+    /// <summary>Validates breadcrumb paragraphs on type, member, nested-type, and operators pages.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_Pages_HaveRelativeBreadcrumbs()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert
+        string FirstParagraph(string key) => factory.Writers[key].Operations.OfType<ParagraphOperation>().First().Text;
+        Assert.Equal("[ApiMark.DotNet.Fixtures](../ApiMark.DotNet.Fixtures.md)", FirstParagraph("ApiMark.DotNet.Fixtures/DefaultValueClass"));
+        Assert.Equal(
+            "[ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [DefaultValueClass](../DefaultValueClass.md)",
+            FirstParagraph("ApiMark.DotNet.Fixtures/DefaultValueClass/ToJson"));
+        Assert.Equal(
+            "[ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [OperatorsStruct](../OperatorsStruct.md)",
+            FirstParagraph("ApiMark.DotNet.Fixtures/OperatorsStruct/operators"));
+        Assert.Equal(
+            "[ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [OperatorsStruct](../OperatorsStruct.md)",
+            FirstParagraph("ApiMark.DotNet.Fixtures/OperatorsStruct/Wrapped"));
+    }
+
+    /// <summary>Validates that init-only properties (including positional record properties) render <c>init;</c> on gradual-disclosure pages.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_InitOnlyProperties_RenderInitAccessor()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert
+        var allSignatures = factory.Writers
+            .Where(w => w.Key.Contains("InitPropertyClass", StringComparison.Ordinal) || w.Key.Contains("SealedRecordClass", StringComparison.Ordinal))
+            .SelectMany(w => w.Value.Operations.OfType<SignatureOperation>().Select(s => s.Code))
+            .ToList();
+        Assert.Contains("public string InitOnlyProperty { get; init; }", allSignatures);
+        Assert.Contains("public string Name { get; init; }", allSignatures);
+        Assert.DoesNotContain(allSignatures, s => s.Contains("{ get; }", StringComparison.Ordinal) && s.Contains("InitOnlyProperty", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that nullable value-type parameters and function-typed returns render per-type annotations.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_NullableParameterAndFuncReturn_RendersPerTypeFlags()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert
+        var paste = factory.Writers["ApiMark.DotNet.Fixtures/NullabilityDiagramElement/PasteAsync"];
+        var pasteTable = paste.Operations.OfType<TableOperation>().Single();
+        Assert.Contains("NullPoint", pasteTable.Rows[0][1], StringComparison.Ordinal);
+        Assert.EndsWith("?", pasteTable.Rows[0][1].TrimEnd('`'), StringComparison.Ordinal);
+        var style = factory.Writers["ApiMark.DotNet.Fixtures/NullabilityDiagramElement/Style"];
+        var signature = style.Operations.OfType<SignatureOperation>().First();
+        Assert.Contains("Func<NullWire, NullWireStyle?>?", signature.Code, StringComparison.Ordinal);
+    }
+
+    /// <summary>Emits the fixture assembly in gradual-disclosure format into a fresh in-memory factory.</summary>
+    /// <returns>The populated factory.</returns>
+    private static InMemoryMarkdownWriterFactory EmitFixture()
+    {
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+        return factory;
+    }
+
+    /// <summary>Returns the first paragraph written to the page with the given key.</summary>
+    /// <param name="factory">The factory holding the emitted pages.</param>
+    /// <param name="key">The page key.</param>
+    /// <returns>The first paragraph text.</returns>
+    private static string FirstParagraph(InMemoryMarkdownWriterFactory factory, string key) =>
+        factory.Writers[key].Operations.OfType<ParagraphOperation>().First().Text;
+
+    /// <summary>Validates that every default-value fixture variant renders its default in the Parameter column.</summary>
+    [Theory]
+    [InlineData("ToJson", "indented = true")]
+    [InlineData("Format", "format = \"N0\"")]
+    [InlineData("Name", "name = null")]
+    [InlineData("Origin", "point = default")]
+    [InlineData("Mode", "mode = DefaultValueMode.Slow")]
+    [InlineData("Optional", "value = default")]
+    [InlineData("Explicit", "value = 7")]
+    [InlineData("Rate", "rate = 1.5")]
+    [InlineData("Count", "count = null")]
+    public void DotNetEmitterGradualDisclosure_Emit_DefaultValueVariants_RenderDefaults(string method, string expected)
+    {
+        // Arrange / Act
+        var factory = EmitFixture();
+
+        // Assert
+        var table = factory.Writers[$"ApiMark.DotNet.Fixtures/DefaultValueClass/{method}"].Operations.OfType<TableOperation>().Single();
+        Assert.Equal(expected, table.Rows[0][0]);
+    }
+
+    /// <summary>Validates the character and long default-value variants (two parameters on one method).</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_CharAndLongDefaults_RenderDefaults()
+    {
+        // Arrange / Act
+        var factory = EmitFixture();
+
+        // Assert
+        var table = factory.Writers["ApiMark.DotNet.Fixtures/DefaultValueClass/Separate"].Operations.OfType<TableOperation>().Single();
+        Assert.Equal("separator = ','", table.Rows[0][0]);
+        Assert.Equal("limit = 42", table.Rows[1][0]);
+    }
+
+    /// <summary>Validates breadcrumbs on a method-overload page.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_OverloadPage_HasBreadcrumb()
+    {
+        // Arrange / Act
+        var factory = EmitFixture();
+
+        // Assert
+        var key = factory.Writers.Keys.Single(k => k.StartsWith("ApiMark.DotNet.Fixtures/GenericMethodClass/", StringComparison.Ordinal) && k.EndsWith("/Over", StringComparison.Ordinal));
+        Assert.Equal(
+            "[ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [GenericMethodClass](../GenericMethodClass.md)",
+            FirstParagraph(factory, key));
+    }
+
+    /// <summary>Validates breadcrumbs on a combined (case-collision) page.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_CombinedPage_HasBreadcrumb()
+    {
+        // Arrange / Act
+        var factory = EmitFixture();
+
+        // Assert
+        var key = "ApiMark.DotNet.Fixtures/CaseCollisionClass/name";
+        Assert.Equal(
+            "[ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [CaseCollisionClass](../CaseCollisionClass.md)",
+            FirstParagraph(factory, key));
+    }
+
+    /// <summary>Validates breadcrumbs on a nested type's page and on a member page of the nested type.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_NestedType_BreadcrumbsIncludeOuterType()
+    {
+        // Arrange / Act
+        var factory = EmitFixture();
+
+        // Assert
+        Assert.Equal(
+            "[ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [OuterClass](../OuterClass.md)",
+            FirstParagraph(factory, "ApiMark.DotNet.Fixtures/OuterClass/Inner"));
+        Assert.Equal(
+            "[ApiMark.DotNet.Fixtures](../../../ApiMark.DotNet.Fixtures.md) › [OuterClass](../../OuterClass.md) › [Inner](../Inner.md)",
+            FirstParagraph(factory, "ApiMark.DotNet.Fixtures/OuterClass/Inner/InnerValue"));
+    }
+
+    /// <summary>Validates that generic method pages list the type parameters and constraints in the signature.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_GenericMethod_SignatureHasTypeParametersAndConstraints()
+    {
+        // Arrange / Act
+        var factory = EmitFixture();
+
+        // Assert
+        var signature = factory.Writers["ApiMark.DotNet.Fixtures/GenericMethodClass/Map"].Operations.OfType<SignatureOperation>().First().Code;
+        Assert.Contains("Map<TIn, TOut>(TIn value)", signature, StringComparison.Ordinal);
+        Assert.Contains("where TIn : class, IDisposable", signature, StringComparison.Ordinal);
+        Assert.Contains("where TOut : struct", signature, StringComparison.Ordinal);
+    }
+
+    /// <summary>Validates record and struct kind keywords on type pages.</summary>
+    [Theory]
+    [InlineData("RecordStructSample", "public record struct RecordStructSample")]
+    [InlineData("ReadOnlyRecordStructSample", "public readonly record struct ReadOnlyRecordStructSample")]
+    [InlineData("ReadOnlyStructSample", "public readonly struct ReadOnlyStructSample")]
+    [InlineData("GenericRecordSample1", "public record GenericRecordSample<T>")]
+    public void DotNetEmitterGradualDisclosure_Emit_RecordAndStructKinds_ShowKindKeywords(string typeName, string expectedPrefix)
+    {
+        // Arrange / Act
+        var factory = EmitFixture();
+
+        // Assert
+        var signature = factory.Writers[$"ApiMark.DotNet.Fixtures/{typeName}"].Operations.OfType<SignatureOperation>().First().Code;
+        Assert.StartsWith(expectedPrefix, signature, StringComparison.Ordinal);
+    }
+
+    /// <summary>Validates that <c>lang</c> attributes select the fence language of each example code block.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_LangExample_TagsEachCodeBlockWithItsLanguage()
+    {
+        // Arrange / Act
+        var factory = EmitFixture();
+
+        // Assert
+        var blocks = factory.Writers["ApiMark.DotNet.Fixtures/LangExampleClass/Configure"].Operations.OfType<CodeBlockOperation>().ToList();
+        Assert.Equal(["xml", "powershell", "csharp", "csharp"], blocks.Select(b => b.Language).ToArray());
+    }
+
+    /// <summary>Validates that a <c>lang</c> code block nested in a paragraph is honored and prose is not fenced.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_LangExampleInPara_TagsCodeBlocksAndKeepsProseAsParagraphs()
+    {
+        // Arrange / Act
+        var factory = EmitFixture();
+
+        // Assert
+        var operations = factory.Writers["ApiMark.DotNet.Fixtures/LangParaExampleClass"].Operations;
+        Assert.Equal(["xml", "powershell"], operations.OfType<CodeBlockOperation>().Select(b => b.Language).ToArray());
+        Assert.Contains(operations.OfType<ParagraphOperation>(), p => p.Text.Contains("Then run it from a shell.", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that the cref-weakening exemption does not hide links: only the first paragraph of a member page is a breadcrumb.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_MemberPage_FirstParagraphIsBreadcrumb()
+    {
+        // Arrange / Act
+        var factory = EmitFixture();
+
+        // Assert
+        var paragraphs = factory.Writers["ApiMark.DotNet.Fixtures/CrefLinkingClass/ReferencesFilteredMember"].Operations.OfType<ParagraphOperation>().ToList();
+        Assert.Contains(" › ", paragraphs[0].Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>Parses and emits the global-namespace fixture assembly.</summary>
+    private static InMemoryMarkdownWriterFactory EmitGlobalFixture()
+    {
+        var options = new DotNetGeneratorOptions
+        {
+            AssemblyPath = FixturePaths.GetGlobalFixtureDll(),
+            XmlDocPath = FixturePaths.GetGlobalFixtureXmlDoc(),
+            Visibility = ApiVisibility.Public,
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(options).Parse(new InMemoryContext());
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+        return factory;
+    }
+
+    /// <summary>Validates that emitting types declared without a namespace does not throw and writes the synthetic global-namespace page.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_DoesNotThrowAndCreatesPages()
+    {
+        // Arrange / Act
+        var factory = EmitGlobalFixture();
+
+        // Assert
+        Assert.True(factory.HasWriter("", "global-namespace"), "Expected the global-namespace page");
+        Assert.True(factory.Writers.ContainsKey("global-namespace/GlobalNamespaceClass"), "Expected the global type page");
+        var heading = factory.Writers["global-namespace"].Operations.OfType<HeadingOperation>().First();
+        Assert.Equal(1, heading.Level);
+        Assert.Equal("(global namespace)", heading.Text);
+    }
+
+    /// <summary>Validates that the api index lists the global namespace with its type count.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_ApiIndexListsGlobalNamespace()
+    {
+        // Arrange / Act
+        var factory = EmitGlobalFixture();
+
+        // Assert
+        var table = factory.GetWriter("", "api").Operations.OfType<TableOperation>().First();
+        var row = Assert.Single(table.Rows, r => r[0] == "[(global namespace)](global-namespace.md)");
+        Assert.Equal("2", row[1]);
+    }
+
+    /// <summary>Validates that the global-namespace page links to the type pages it contains.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_NamespacePageLinksToTypePages()
+    {
+        // Arrange / Act
+        var factory = EmitGlobalFixture();
+
+        // Assert
+        var tables = factory.Writers["global-namespace"].Operations.OfType<TableOperation>().ToList();
+        Assert.Contains(tables, t => t.Rows.Any(r => r[0].Contains("(global-namespace/GlobalNamespaceClass.md)", StringComparison.Ordinal)));
+    }
+
+    /// <summary>Validates that type, member, and nested-type pages carry a breadcrumb to the global-namespace page.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_BreadcrumbLinksToGlobalNamespacePage()
+    {
+        // Arrange / Act
+        var factory = EmitGlobalFixture();
+
+        // Assert
+        string FirstParagraph(string key) => factory.Writers[key].Operations.OfType<ParagraphOperation>().First().Text;
+        Assert.Equal("[(global namespace)](../global-namespace.md)", FirstParagraph("global-namespace/GlobalNamespaceClass"));
+        Assert.Equal(
+            "[(global namespace)](../../global-namespace.md) › [GlobalNamespaceClass](../GlobalNamespaceClass.md)",
+            FirstParagraph("global-namespace/GlobalNamespaceClass/Echo"));
+        Assert.Equal(
+            "[(global namespace)](../../global-namespace.md) › [GlobalNamespaceClass](../GlobalNamespaceClass.md)",
+            FirstParagraph("global-namespace/GlobalNamespaceClass/NestedGlobalClass"));
+    }
+
+    /// <summary>Validates that a cref to a global-namespace type resolves to a relative link to its page.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_CrefResolvesToTypePage()
+    {
+        // Arrange / Act
+        var factory = EmitGlobalFixture();
+
+        // Assert: the consumer's property summary references GlobalNamespaceClass by cref
+        var all = factory.Writers["global-namespace/GlobalNamespaceConsumer/Create"].Operations
+            .OfType<ParagraphOperation>().Select(p => p.Text);
+        Assert.Contains(all, t => t.Contains("(../GlobalNamespaceClass.md)", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that a type used in another global type's signature is linked to its page.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_SignatureTypeLinksToTypePage()
+    {
+        // Arrange / Act
+        var factory = EmitGlobalFixture();
+
+        // Assert
+        var tables = factory.Writers["global-namespace/GlobalNamespaceConsumer"].Operations.OfType<TableOperation>();
+        Assert.Contains(tables, t => t.Rows.Any(r => r.Any(c => c.Contains("(GlobalNamespaceClass.md)", StringComparison.Ordinal))));
+    }
+
+    /// <summary>Validates that an assembly with no global types produces no global-namespace output.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_NoGlobalNamespaceTypes_NoGlobalNamespaceOutput()
+    {
+        // Arrange / Act
+        var factory = EmitFixture();
+
+        // Assert
+        Assert.DoesNotContain(factory.Writers.Keys, k => k.Contains("global-namespace", StringComparison.Ordinal));
+        var api = factory.GetWriter("", "api").Operations.OfType<TableOperation>().First();
+        Assert.DoesNotContain(api.Rows, r => r[0].Contains("(global namespace)", StringComparison.Ordinal));
     }
 }

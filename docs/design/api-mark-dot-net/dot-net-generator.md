@@ -60,7 +60,10 @@ DotNetGenerator throws `FileNotFoundException` if absent.
 **DotNetGeneratorOptions.Visibility**: `ApiVisibility` enum — controls which members
 are included in the output. Values: `Public` (public members only),
 `PublicAndProtected` (public and protected members), `All` (all members regardless
-of access modifier).
+of access modifier). Defaults to `PublicAndProtected`.
+
+**DotNetGeneratorOptions.ExternalLinks**: `IReadOnlyDictionary<string, string>` — maps an
+external assembly name to the relative path or http(s) URL of its API documentation root.
 
 **DotNetGeneratorOptions.IncludeObsolete**: `bool` — when false, types and members marked
 with `[Obsolete]` are excluded from the output.
@@ -210,7 +213,10 @@ memory and returns a `DotNetEmitter` ready to emit.
   filtered) never becomes a dictionary key and therefore never appears in any
   generated index or page — the same mechanism that already applies to
   obsolete-only namespaces when `IncludeObsolete` is false.
-- *TypeLinkResolver scope*: `TypeLinkResolver` is constructed with `rootNamespaces` only (not all namespaces), which constrains which type references can produce intra-assembly Markdown links; types whose namespace does not map to a known root namespace path fall back to plain text.
+- *TypeLinkResolver scope*: `TypeLinkResolver` is constructed with `rootNamespaces` only (not all namespaces), plus `generateLinks: true` and the external link targets, which constrains which type references can produce intra-assembly Markdown links; types whose namespace does not map to a known root namespace path fall back to plain text.
+- *`ComputeRootNamespaces`*: shared helper reducing a namespace list to its root namespaces; used for both the documented assembly and each mapped external assembly. The empty (global) namespace is never treated as a prefix, so it is always a root and never hides other roots.
+- *`BuildExternalLinkTargets`*: validates each `ExternalLinks` entry (`IsValidExternalLinkPath`), locates the DLL via `FindReferenceAssembly`, reads its namespaces with Mono.Cecil, and returns `ExternalLinkTarget` values keyed by assembly name case-insensitively; failures produce warnings and skipped mappings.
+- *`FindReferenceAssembly`*: resolves each reference path with `Path.GetFullPath` and `PathHelpers.NormalizeCase`, accepting a path naming the DLL, a file beside it, or a directory containing it; blank paths are skipped.
 - *NamespaceDoc selection*: When multiple `NamespaceDoc` carrier types exist in the same namespace, `BuildNamespaceDescription` selects the first non-empty summary, the first non-empty remarks, and the first non-empty example parts independently via `FirstOrDefault`; the historical "first non-empty summary wins" behavior is preserved and extended to remarks and examples.
 - *Coverage-check caching*: `Parse` caches the parsed `AssemblyDefinition` and
   constructed `XmlDocReader` into private fields (`_assembly`, `_xmlDocs`) so
@@ -389,6 +395,12 @@ incremental-build artifact) makes Mono.Cecil throw `SymbolsNotMatchingException`
 `ReadAssemblyWithOptionalSymbols` catches this specific exception and re-reads the
 assembly without symbols rather than letting it abort `Parse`, so a mismatched PDB is
 never fatal.
+Mapped external-link problems are never fatal either. `BuildExternalLinkTargets` writes a
+`Warning:` line through the context and skips the mapping when the key is blank, the value is
+not a relative path or http(s) URL, a key duplicates another differing only in case, the DLL
+is not found in `ReferencePaths`, or the DLL cannot be read (any exception other than
+out-of-memory is caught, covering corrupt files). The affected types then fall back to the
+External Types table.
 `ArgumentNullException` is thrown by the `DotNetGenerator` constructor when `options`
 is null. `CheckDocumentationCoverage` throws `InvalidOperationException` when called
 before `Parse` has completed successfully, or when neither the `enforceTier` argument
@@ -429,7 +441,8 @@ exceptions are not expected to surface through the CLI in normal operation.
 - **DocumentationCoverageChecker** — `CheckDocumentationCoverage` delegates to this
   unit's `Check` static method, passing the cached parsed assembly, XML doc reader,
   and the `EnforceDocsVisibility`/`IncludeObsolete`/`ExcludePatterns` options.
-- **TypeLinkResolver** — constructed during Parse with `rootNamespaces` and stored in
+- **TypeLinkResolver** — constructed during Parse with `rootNamespaces`,
+  `generateLinks: true` and the targets from `BuildExternalLinkTargets`, and stored in
   `DotNetAstModel.Resolver` for use during emission.
 - **Mono.Cecil** — used to read assembly metadata without loading the assembly into
   the current process — see Mono.Cecil Integration Design. `Parse` additionally
@@ -451,3 +464,17 @@ DotNetGenerator implements `IApiGenerator` (from `ApiMark.Core`), which exposes 
 returning `IApiEmitter`. This contract is the integration point between the language-agnostic
 Core pipeline and the .NET-specific parsing logic. See the ApiMarkCore system design for the
 full `IApiGenerator` contract.
+
+### Visibility Default and External Links
+
+`DotNetGeneratorOptions.Visibility` defaults to `PublicAndProtected`; `EnforceDocsVisibility` is
+independent and remains disabled unless set. `DotNetGeneratorOptions.ExternalLinks` maps a
+referenced assembly name (case-insensitive) to its documentation location. A value must be a
+relative path or an `http(s)` URL; other forms (`javascript:`, `file:`, rooted paths, empty
+values) are rejected with a warning. The generator finds the mapped DLL in `ReferencePaths`,
+derives its root namespaces, and passes the resulting targets to `TypeLinkResolver`. Mappings
+that cannot be used fall back to the External Types table with a warning. Single-file output
+never emits cross-page links, so it never emits external links either.
+
+The MSBuild property `ApiMarkExternalLinks` is split on `;`, so a mapping value that itself
+contains `;` cannot be expressed through MSBuild.

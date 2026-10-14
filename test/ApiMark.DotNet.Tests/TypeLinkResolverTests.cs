@@ -543,4 +543,286 @@ public class TypeLinkResolverTests : IDisposable
         // Assert
         Assert.Equal("SampleClass.Reset", result);
     }
+
+    /// <summary>Creates a synthetic type reference scoped to an external (non-documented) assembly.</summary>
+    /// <param name="ns">The type namespace.</param>
+    /// <param name="name">The CLR type name (including any arity suffix).</param>
+    /// <param name="assemblyName">The simple name of the referenced assembly.</param>
+    /// <returns>The synthetic type reference.</returns>
+    private TypeReference MakeExternalType(string ns, string name, string assemblyName = "Acme.Widgets") =>
+        new(ns, name, _assembly.MainModule, new AssemblyNameReference(assemblyName, new Version(1, 0)));
+
+    /// <summary>Builds a resolver whose single mapping points <c>Acme.Widgets</c> at <paramref name="apiPath"/>.</summary>
+    /// <param name="apiPath">The mapped API root.</param>
+    /// <param name="generateLinks">Whether link generation is enabled.</param>
+    /// <param name="comparer">Comparer for the caller-supplied dictionary.</param>
+    /// <returns>The resolver.</returns>
+    private static TypeLinkResolver MakeMappedResolver(
+        string apiPath,
+        bool generateLinks = true,
+        StringComparer? comparer = null) =>
+        new(
+            ["ApiMark.DotNet.Fixtures"],
+            generateLinks: generateLinks,
+            externalLinks: new Dictionary<string, TypeLinkResolver.ExternalLinkTarget>(comparer ?? StringComparer.Ordinal)
+            {
+                ["Acme.Widgets"] = new(apiPath, ["Acme.Widgets"]),
+            });
+
+    /// <summary>Builds a cursor from explicit per-position nullable flags.</summary>
+    /// <param name="flags">The flags in pre-order.</param>
+    /// <returns>The cursor.</returns>
+    private NullabilityCursor MakeCursor(params byte[] flags)
+    {
+        var module = _assembly.MainModule;
+        var attributeType = new TypeReference(
+            "System.Runtime.CompilerServices", "NullableAttribute", module, module.TypeSystem.CoreLibrary);
+        var ctor = new MethodReference(".ctor", module.TypeSystem.Void, attributeType) { HasThis = true };
+        var attribute = new CustomAttribute(ctor);
+        var elements = flags.Select(f => new CustomAttributeArgument(module.TypeSystem.Byte, f)).ToArray();
+        attribute.ConstructorArguments.Add(new CustomAttributeArgument(new ArrayType(module.TypeSystem.Byte), elements));
+        return NullabilityCursor.ForAttributes([attribute], 0);
+    }
+
+    /// <summary>Validates that a type from an unmapped assembly stays plain text and is tracked as external.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_UnmappedAssembly_ReturnsPlainTextAndTracksType()
+    {
+        // Arrange: mapping exists only for a different assembly
+        var resolver = MakeMappedResolver("../Other/api");
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+        var type = MakeExternalType("Example.Gadgets", "Gadget", "Example.Gadgets");
+
+        // Act
+        var result = resolver.Linkify(type, "", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert
+        Assert.Equal("Gadget", result);
+        Assert.Contains(new ExternalTypeInfo("Gadget", "Example.Gadgets"), externalTypes);
+    }
+
+    /// <summary>Validates that an http(s) mapping produces an absolute link that is not made relative.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_MappedHttpsApiPath_ReturnsAbsoluteLinkAndSkipsTracking()
+    {
+        // Arrange
+        var resolver = MakeMappedResolver("https://docs.example.com/widgets/api/");
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+
+        // Act
+        var result = resolver.Linkify(MakeExternalType("Acme.Widgets", "Widget"), "A/B", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert
+        Assert.Equal("[Widget](https://docs.example.com/widgets/api/Acme.Widgets/Widget.md)", result);
+        Assert.Empty(externalTypes);
+    }
+
+    /// <summary>Validates that a relative mapping climbs out of the current folder and normalizes <c>./</c> and backslashes.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_MappedRelativeApiPath_ClimbsOutOfCurrentFolder()
+    {
+        // Arrange
+        var resolver = MakeMappedResolver(".\\Other\\api");
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+
+        // Act
+        var result = resolver.Linkify(MakeExternalType("Acme.Widgets", "Widget"), "A/B", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert
+        Assert.Equal("[Widget](../../Other/api/Acme.Widgets/Widget.md)", result);
+    }
+
+    /// <summary>Validates that assembly-name lookup is case-insensitive even for a case-sensitive caller dictionary.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_CaseSensitiveCallerDictionary_StillMatchesCaseInsensitively()
+    {
+        // Arrange: reference scope name differs in case from the mapping key
+        var resolver = MakeMappedResolver("../Other/api", comparer: StringComparer.Ordinal);
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+        var type = MakeExternalType("Acme.Widgets", "Widget", "ACME.WIDGETS");
+
+        // Act
+        var result = resolver.Linkify(type, "", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert
+        Assert.Equal("[Widget](../Other/api/Acme.Widgets/Widget.md)", result);
+    }
+
+    /// <summary>Validates that a mapping is ignored when link generation is disabled.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_MappedAssemblyWithGenerateLinksFalse_ReturnsPlainTextAndTracksType()
+    {
+        // Arrange
+        var resolver = MakeMappedResolver("../Other/api", generateLinks: false);
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+
+        // Act
+        var result = resolver.Linkify(MakeExternalType("Acme.Widgets", "Widget"), "", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert
+        Assert.Equal("Widget", result);
+        Assert.Contains(new ExternalTypeInfo("Widget", "Acme.Widgets"), externalTypes);
+    }
+
+    /// <summary>Validates that a mapped generic instance links its container and linkifies its arguments.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_MappedGenericType_LinksContainerWithArguments()
+    {
+        // Arrange
+        var resolver = MakeMappedResolver("../Other/api");
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+        var generic = new GenericInstanceType(MakeExternalType("Acme.Widgets", "Box`1"));
+        generic.GenericArguments.Add(_assembly.MainModule.TypeSystem.Int32);
+
+        // Act
+        var result = resolver.Linkify(generic, "", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert
+        Assert.Equal("[Box](../Other/api/Acme.Widgets/Box1.md)\\<int\\>", result);
+        Assert.Empty(externalTypes);
+    }
+
+    /// <summary>Validates that a mapped nested type links to its nested page path.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_MappedNestedType_LinksToNestedPagePath()
+    {
+        // Arrange
+        var resolver = MakeMappedResolver("../Other/api");
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+        var outer = MakeExternalType("Acme.Widgets", "Outer");
+        var inner = new TypeReference(string.Empty, "Inner", _assembly.MainModule, outer.Scope) { DeclaringType = outer };
+
+        // Act
+        var result = resolver.Linkify(inner, "", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert
+        Assert.Equal("[Inner](../Other/api/Acme.Widgets/Outer/Inner.md)", result);
+    }
+
+    /// <summary>Validates that rooted and <c>file:</c> mappings produce absolute <c>file:</c> links, never relative ones.</summary>
+    [Theory]
+    [InlineData("/docs/api", "[Widget](file:///docs/api/Acme.Widgets/Widget.md)")]
+    [InlineData("file:///docs/api", "[Widget](file:///docs/api/Acme.Widgets/Widget.md)")]
+    public void TypeLinkResolver_Linkify_RootedOrFileApiPath_ReturnsAbsoluteFileLink(string apiPath, string expected)
+    {
+        // Arrange
+        var resolver = MakeMappedResolver(apiPath);
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+
+        // Act
+        var result = resolver.Linkify(MakeExternalType("Acme.Widgets", "Widget"), "A", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert
+        Assert.Equal(expected, result);
+    }
+
+    /// <summary>Validates that characters that would break a Markdown link target are percent-encoded.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_ApiPathWithSpacesAndParentheses_EscapesLinkTarget()
+    {
+        // Arrange
+        var resolver = MakeMappedResolver("../My Lib (v2)/api");
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+
+        // Act
+        var result = resolver.Linkify(MakeExternalType("Acme.Widgets", "Widget"), "", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert
+        Assert.Equal("[Widget](../My%20Lib%20%28v2%29/api/Acme.Widgets/Widget.md)", result);
+    }
+
+    /// <summary>Validates that per-position flags annotate the outer generic type and its argument independently.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_CursorGenericArgumentFlags_AnnotatesEachPosition()
+    {
+        // Arrange: List<string> with flags [outer=2, argument=2]
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"]);
+        var listType = new GenericInstanceType(_assembly.MainModule.ImportReference(typeof(List<>)));
+        listType.GenericArguments.Add(_assembly.MainModule.TypeSystem.String);
+
+        // Act
+        var result = resolver.Linkify(listType, "", "ApiMark.DotNet.Fixtures", new HashSet<ExternalTypeInfo>(), MakeCursor(2, 2));
+
+        // Assert
+        Assert.Equal("List\\<string?\\>?", result);
+    }
+
+    /// <summary>Validates that array element and array flags are consumed in pre-order.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_CursorArrayFlags_AnnotatesElementNotArray()
+    {
+        // Arrange: string?[] — array not annotated (1), element annotated (2)
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"]);
+        var arrayType = new ArrayType(_assembly.MainModule.TypeSystem.String);
+
+        // Act
+        var result = resolver.Linkify(arrayType, "", "ApiMark.DotNet.Fixtures", new HashSet<ExternalTypeInfo>(), MakeCursor(1, 2));
+
+        // Assert
+        Assert.Equal("string?[]", result);
+    }
+
+    /// <summary>Validates that value types never receive <c>?</c> from the annotation flag, even via the legacy boolean overload.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_AnnotatedValueType_DoesNotAppendQuestionMark()
+    {
+        // Arrange
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"]);
+        var intType = _assembly.MainModule.TypeSystem.Int32;
+
+        // Act
+        var viaCursor = resolver.Linkify(intType, "", "ApiMark.DotNet.Fixtures", new HashSet<ExternalTypeInfo>(), MakeCursor(2));
+        var viaBool = resolver.Linkify(intType, "", "ApiMark.DotNet.Fixtures", new HashSet<ExternalTypeInfo>(), isNullableAnnotated: true);
+
+        // Assert
+        Assert.Equal("int", viaCursor);
+        Assert.Equal("int", viaBool);
+    }
+
+    /// <summary>Validates that an exhausted flag array falls back to oblivious (no annotation) for later positions.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_CursorExhausted_LaterPositionsUnannotated()
+    {
+        // Arrange: List<string> with the legacy single-position cursor (outer annotated only)
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"]);
+        var listType = new GenericInstanceType(_assembly.MainModule.ImportReference(typeof(List<>)));
+        listType.GenericArguments.Add(_assembly.MainModule.TypeSystem.String);
+
+        // Act
+        var result = resolver.Linkify(
+            listType, "", "ApiMark.DotNet.Fixtures", new HashSet<ExternalTypeInfo>(), NullabilityCursor.ForOutermostFlag(true));
+
+        // Assert
+        Assert.Equal("List\\<string\\>?", result);
+    }
+
+    /// <summary>Validates that a byref wrapper consumes no flag, so the first flag applies to the element type.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_CursorWithByReference_ByRefConsumesNoFlag()
+    {
+        // Arrange
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"]);
+        var byRefString = new ByReferenceType(_assembly.MainModule.TypeSystem.String);
+
+        // Act
+        var result = resolver.Linkify(byRefString, "", "ApiMark.DotNet.Fixtures", new HashSet<ExternalTypeInfo>(), MakeCursor(2));
+
+        // Assert
+        Assert.Equal("string?", result);
+    }
+
+    /// <summary>Validates that a reference to a global-namespace type links to its global-namespace page.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_GlobalNamespaceType_LinksToGlobalNamespacePage()
+    {
+        // Arrange
+        var resolver = new TypeLinkResolver(["", "ApiMark.DotNet.Fixtures"]);
+        var typeRef = new TypeReference("", "GlobalNamespaceClass", _assembly.MainModule, _assembly.MainModule);
+
+        // Act
+        var result = resolver.Linkify(typeRef, "", "", new HashSet<ExternalTypeInfo>());
+
+        // Assert
+        Assert.Equal("[GlobalNamespaceClass](global-namespace/GlobalNamespaceClass.md)", result);
+    }
 }

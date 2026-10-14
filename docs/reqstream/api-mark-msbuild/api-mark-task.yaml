@@ -372,3 +372,22 @@ sections:
               ApiMark.Tool writes error information to stderr. Forwarding it as MSBuild errors
               surfaces problems in the IDE error list and CI failure summary.
             tests: [ApiMarkTask_Execute_ToolWritesToStderr_ForwardsToMsBuildErrors]
+          - id: ApiMarkMsbuild-ApiMarkTask-ForwardExternalLinks
+            title: ApiMarkTask shall forward each non-empty entry of ApiMarkExternalLinks as a
+              separate --external-link argument for the dotnet language.
+            justification: |
+              MSBuild users configure links to separately generated ApiMark documentation through
+              a property; the targets file must pass it to the task and the task must translate
+              it into the tool's repeatable option.
+            tests:
+              - ApiMarkTask_DotNet_ExternalLinks_EmitsOneFlagPerEntry
+              - ApiMarkTargets_PassesExternalLinksToTask
+          - id: ApiMarkMsbuild-ApiMarkTask-OmitUnsetVisibility
+            title: ApiMarkTask shall omit the --visibility argument when ApiMarkVisibility is unset
+              and the targets file shall not force a default value.
+            justification: |
+              The tool owns the per-language visibility default (PublicAndProtected for dotnet,
+              Public for cpp and vhdl); forcing a value in MSBuild would override it.
+            tests:
+              - ApiMarkTask_VisibilityUnset_OmitsVisibilityArgument
+              - ApiMarkTargets_NoForcedVisibilityDefault

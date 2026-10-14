@@ -171,4 +171,98 @@ public class DotNetAstModelTests
         Assert.IsType<IReadOnlyDictionary<string, IReadOnlyList<Mono.Cecil.TypeDefinition>>>(model.ByNamespace, exactMatch: false);
         Assert.IsType<IReadOnlyList<string>>(model.RootNamespaces, exactMatch: false);
     }
+
+    /// <summary>
+    ///     Validates that <see cref="DotNetAstModel.SetMemberPageIndex"/> enforces its call-once contract:
+    ///     <c>Parse</c> has already called it, so a second call throws.
+    /// </summary>
+    [Fact]
+    public void DotNetAstModel_SetMemberPageIndex_CalledAfterParse_Throws()
+    {
+        // Arrange
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act / Assert
+        Assert.Throws<InvalidOperationException>(() => emitter.Model.SetMemberPageIndex(
+            new Dictionary<string, string>(),
+            new HashSet<string>()));
+    }
+
+    /// <summary>
+    ///     Validates that the model built with the default <see cref="ApiVisibility.PublicAndProtected"/>
+    ///     visibility indexes the protected members of a fixture type.
+    /// </summary>
+    [Fact]
+    public void DotNetAstModel_DefaultVisibility_IsPublicAndProtected_AndIndexesProtectedMembers()
+    {
+        // Arrange
+        var options = new DotNetGeneratorOptions
+        {
+            AssemblyPath = FixturePaths.GetFixtureDll(),
+            XmlDocPath = FixturePaths.GetFixtureXmlDoc(),
+        };
+
+        // Act
+        var emitter = (DotNetEmitter)new DotNetGenerator(options).Parse(new InMemoryContext());
+
+        // Assert
+        Assert.Equal(ApiVisibility.PublicAndProtected, emitter.Model.Options.Visibility);
+        Assert.Contains("M:ApiMark.DotNet.Fixtures.ProtectedMembersClass.ProtectedMethod(System.Int32)", emitter.Model.MemberPageIndex.Keys);
+    }
+
+    /// <summary>Validates that a <see cref="NamespaceDescription"/> with no member IDs returns null text and no example parts.</summary>
+    [Fact]
+    public void NamespaceDescription_NullIds_ReturnNullAndEmpty()
+    {
+        // Arrange
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+        var description = new NamespaceDescription(null, null, null);
+
+        // Act / Assert
+        Assert.Null(description.GetSummary(emitter.Model.XmlDocs));
+        Assert.Null(description.GetRemarks(emitter.Model.XmlDocs));
+        Assert.Empty(description.GetExampleParts(emitter.Model.XmlDocs));
+    }
+
+    /// <summary>Validates that <see cref="NamespaceDescription"/> accessors read the text of the carrier IDs they hold.</summary>
+    [Fact]
+    public void NamespaceDescription_WithIds_ReturnsCarrierText()
+    {
+        // Arrange
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+        var description = new NamespaceDescription(
+            "T:ApiMark.DotNet.Fixtures.NamespaceDoc",
+            "T:ApiMark.DotNet.Fixtures.NamespaceDoc",
+            "T:ApiMark.DotNet.Fixtures.LangExampleClass");
+
+        // Act
+        var summary = description.GetSummary(emitter.Model.XmlDocs);
+        var remarks = description.GetRemarks(emitter.Model.XmlDocs);
+
+        // Assert
+        Assert.False(string.IsNullOrWhiteSpace(summary));
+        Assert.False(string.IsNullOrWhiteSpace(remarks));
+        Assert.Equal(
+            emitter.Model.XmlDocs.GetSummary("T:ApiMark.DotNet.Fixtures.NamespaceDoc"),
+            summary);
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="NamespaceDescription.GetExampleParts"/> propagates the per-part
+    ///     <c>lang</c> attribute (including one nested in a paragraph) and gives prose parts an empty language.
+    /// </summary>
+    [Fact]
+    public void NamespaceDescription_GetExampleParts_PropagatesLanguage()
+    {
+        // Arrange
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+        var description = new NamespaceDescription(null, null, "T:ApiMark.DotNet.Fixtures.LangParaExampleClass");
+
+        // Act
+        var parts = description.GetExampleParts(emitter.Model.XmlDocs);
+
+        // Assert
+        Assert.Equal(["xml", "powershell"], parts.Where(p => p.IsCode).Select(p => p.Language).ToArray());
+        Assert.All(parts.Where(p => !p.IsCode), p => Assert.Equal(string.Empty, p.Language));
+    }
 }

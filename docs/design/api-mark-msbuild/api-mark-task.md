@@ -40,7 +40,8 @@ the directory where Markdown output is written.
 **ApiMarkTask.ApiMarkVisibility**: `string` — MSBuild property
 `$(ApiMarkVisibility)`; the visibility filter forwarded to the tool. Accepted
 values: `Public`, `PublicAndProtected`, `All`. When not set, the `--visibility`
-flag is omitted and the tool applies its own default of `Public`.
+flag is omitted (the `.targets` file does not force a default) and the tool applies its own
+per-language default: `PublicAndProtected` for `dotnet`, `Public` for `cpp` and `vhdl`.
 
 **ApiMarkTask.ApiMarkIncludeObsolete**: `bool` — MSBuild property
 `$(ApiMarkIncludeObsolete)`; when true, the tool includes members marked
@@ -80,6 +81,17 @@ auto-harvesting — the `.targets` file still sees an empty value and repopulate
 Projects that need to intentionally disable auto-harvesting (e.g. to pass no
 reference paths at all) must instead set `$(ApiMarkDisableReferencePathsHarvest)` to
 `true`, mirroring the existing `$(DisableApiMark)` boolean opt-out convention.
+
+**ApiMarkTask.ApiMarkExternalLinks**: `string?` — MSBuild property
+`$(ApiMarkExternalLinks)`; for the `dotnet` language, a semicolon-separated list of
+`Assembly=path` pairs mapping a referenced assembly name to the location (a relative
+path or `http(s)` URL) of its separately generated ApiMark documentation. Each
+non-empty entry is forwarded as an individual `--external-link` flag by
+`AppendDotNetArguments`. Optional — when empty, no external links are configured. The
+referenced assembly's DLL must also be available through `ApiMarkReferencePaths`
+(auto-harvested by default). Because `;` is the list separator, a path or URL that
+itself contains `;` cannot be expressed through this property. The `.targets` file
+forwards `$(ApiMarkExternalLinks)` to the task; it is not forwarded for `cpp`.
 
 **ApiMarkTask.ApiMarkEnforceDocs**: `string?` — MSBuild property
 `$(ApiMarkEnforceDocs)`; for the `dotnet` and `cpp` languages, the enforcement
@@ -212,7 +224,8 @@ child process per item using metadata overrides for `OutputDir`, `Format`, and
 according to language-specific mapping (for `dotnet`, append `--assembly` and
 `--xml-doc`, then split `ApiMarkExclude` on `;` and emit one `--exclude` flag
 per non-empty trimmed entry, then split `ApiMarkReferencePaths` on `;` and emit
-one `--reference-paths` flag per non-empty entry, then if
+one `--reference-paths` flag per non-empty entry, then split `ApiMarkExternalLinks` on `;`
+and emit one `--external-link` flag per non-empty entry, then if
 `ApiMarkLibraryDescription` is set, append `--library-description` (shared with
 the `cpp` path below; an explicit value overrides the assembly's compiled
 `AssemblyDescriptionAttribute`), then append `--enforce-docs`
@@ -225,7 +238,8 @@ patterns; if `ApiMarkLibraryName` is set, append `--library-name`; if
 `ApiMarkLibraryDescription` is set, append `--library-description`; if
 `ApiMarkDefines` is set, convert semicolons to commas and append `--defines`; if
 `ApiMarkCppStandard` is set, append `--cpp-standard`; if `ApiMarkClangPath` is set,
-append `--clang-path`; if `ApiMarkClangTimeoutMs` is set, append `--clang-timeout-ms`; then append `--enforce-docs`/`--enforce-docs-severity` using
+append `--clang-path`; if `ApiMarkClangTimeoutMs` is set, append `--clang-timeout-ms`; then append
+`--enforce-docs`/`--enforce-docs-severity` using
 the same non-empty checks as the `dotnet` path, since cpp documentation-coverage
 enforcement uses the identical MSBuild properties; if `ApiMarkFormat` is set,
 append `--format`); this full logical argument list (from `BuildArguments`/

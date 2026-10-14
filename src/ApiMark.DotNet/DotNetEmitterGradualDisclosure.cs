@@ -47,6 +47,9 @@ internal sealed class DotNetEmitterGradualDisclosure
     /// <summary>Fenced code block / signature language identifier for C# content.</summary>
     private const string CSharpLanguageId = "csharp";
 
+    /// <summary>Separator placed between the crumbs of a page's breadcrumb navigation paragraph.</summary>
+    private const string BreadcrumbSeparator = " › ";
+
     /// <summary>Column header used for member-name table columns across type and combined pages.</summary>
     private const string MemberColumnHeader = "Member";
 
@@ -145,7 +148,7 @@ internal sealed class DotNetEmitterGradualDisclosure
             var description = _model.NamespaceDescriptions.TryGetValue(nsName, out var desc)
                 ? NamespaceTableDescription(desc, _model.XmlDocs, rootLinkContext)
                 : DotNetEmitter.NoDescriptionPlaceholder;
-            return new[] { $"[{nsName}]({link})", typeCount.ToString(), description };
+            return new[] { $"[{GetNamespaceDisplayName(nsName)}]({link})", typeCount.ToString(), description };
         });
         apiWriter.WriteTable(nsHeaders, nsRows);
 
@@ -229,18 +232,18 @@ internal sealed class DotNetEmitterGradualDisclosure
     }
 
     /// <summary>
-    ///     Emits a sequence of structured example parts, rendering code parts as fenced C#
-    ///     code blocks and prose parts as paragraphs.
+    ///     Emits a sequence of structured example parts, rendering code parts as fenced code
+    ///     blocks tagged with each part's language (default C#) and prose parts as paragraphs.
     /// </summary>
     /// <param name="writer">The Markdown writer to emit into.</param>
     /// <param name="parts">The example parts to render, each flagged as code or prose.</param>
-    private static void WriteExampleParts(IMarkdownWriter writer, IEnumerable<(bool IsCode, string Content)> parts)
+    private static void WriteExampleParts(IMarkdownWriter writer, IEnumerable<(bool IsCode, string Content, string Language)> parts)
     {
-        foreach (var (isCode, content) in parts)
+        foreach (var (isCode, content, language) in parts)
         {
             if (isCode)
             {
-                writer.WriteCodeBlock(CSharpLanguageId, content);
+                writer.WriteCodeBlock(language, content);
             }
             else
             {
@@ -269,7 +272,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         SplitPath(folderPath, out var subFolder, out var shortName);
 
         using var nsWriter = factory.CreateMarkdown(subFolder, shortName);
-        nsWriter.WriteHeading(1, namespaceName);
+        nsWriter.WriteHeading(1, GetNamespaceDisplayName(namespaceName));
 
         // Namespace prose and the child-namespace table both live in subFolder, so a single
         // link context scoped there is correct for both.
@@ -341,6 +344,61 @@ internal sealed class DotNetEmitterGradualDisclosure
     }
 
     // =========================================================================
+    // Breadcrumb
+    // =========================================================================
+
+    /// <summary>
+    ///     Writes a single navigation paragraph of the form <c>[Namespace](rel) › [Outer](rel) › [Type](rel)</c>
+    ///     immediately after a page's H1 heading.
+    /// </summary>
+    /// <remarks>
+    ///     Links are relative to <paramref name="currentFolder"/> and computed from the same page
+    ///     keys the emitter uses to create pages (namespace page <c>{nsFolder}.md</c>, type page
+    ///     <c>{nsFolder}/{Outer}/{Type}.md</c>), so every crumb resolves to an emitted page. The
+    ///     type itself is included only when <paramref name="includeType"/> is true (member pages);
+    ///     type pages already show the type as their H1.
+    /// </remarks>
+    /// <param name="writer">The writer positioned directly after the page heading.</param>
+    /// <param name="typeFolderPath">The folder that contains the type's own page.</param>
+    /// <param name="type">The type that owns (or is) the page.</param>
+    /// <param name="currentFolder">The folder of the page being written.</param>
+    /// <param name="includeType">Whether the final crumb is the type itself.</param>
+    private static void WriteBreadcrumb(IMarkdownWriter writer, string typeFolderPath, TypeDefinition type, string currentFolder, bool includeType)
+    {
+        var chain = new List<TypeDefinition>();
+        for (var current = type; current != null; current = current.DeclaringType)
+        {
+            chain.Insert(0, current);
+        }
+
+        // Drop the nested-type folder segments to recover the namespace folder
+        var segments = typeFolderPath.Split('/', StringSplitOptions.RemoveEmptyEntries).ToList();
+        var nsFolder = string.Join('/', segments.Take(Math.Max(0, segments.Count - (chain.Count - 1))));
+
+        string Relative(string key) =>
+            Path.GetRelativePath(currentFolder.Length > 0 ? currentFolder : ".", key + ".md").Replace('\\', '/');
+
+        var crumbs = new List<string>();
+        if (nsFolder.Length > 0)
+        {
+            crumbs.Add($"[{GetNamespaceDisplayName(chain[0].Namespace)}]({Relative(nsFolder)})");
+        }
+
+        var key = nsFolder;
+        var linked = includeType ? chain.Count : chain.Count - 1;
+        for (var i = 0; i < linked; i++)
+        {
+            key = key.Length > 0 ? $"{key}/{FlattenArity(chain[i].Name)}" : FlattenArity(chain[i].Name);
+            crumbs.Add($"[{StripArity(chain[i].Name)}]({Relative(key)})");
+        }
+
+        if (crumbs.Count > 0)
+        {
+            writer.WriteParagraph(string.Join(BreadcrumbSeparator, crumbs));
+        }
+    }
+
+    // =========================================================================
     // Type page writer
     // =========================================================================
 
@@ -353,6 +411,7 @@ internal sealed class DotNetEmitterGradualDisclosure
     {
         using var typeWriter = ctx.Factory.CreateMarkdown(ctx.NamespaceFolderPath, FlattenArity(ctx.Type.Name));
         typeWriter.WriteHeading(1, StripArity(ctx.Type.Name));
+        WriteBreadcrumb(typeWriter, ctx.NamespaceFolderPath, ctx.Type, ctx.NamespaceFolderPath, includeType: false);
 
         WriteTypeHeaderSections(typeWriter, ctx);
 
@@ -436,7 +495,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         }
 
         // Emit structured example blocks for this type
-        WriteExampleParts(typeWriter, ctx.XmlDocs.GetExampleParts(typeMemberId, ctx.LinkContext));
+        WriteExampleParts(typeWriter, ctx.XmlDocs.GetExampleBlocks(typeMemberId, ctx.LinkContext));
     }
 
     /// <summary>
@@ -641,6 +700,7 @@ internal sealed class DotNetEmitterGradualDisclosure
 
         var displayName = GetMemberDisplayName(member);
         memberWriter.WriteHeading(1, displayName);
+        WriteBreadcrumb(memberWriter, ctx.NamespaceFolderPath, ctx.Type, memberCurrentFolder, includeType: true);
 
         if (member is MethodDefinition method)
         {
@@ -690,6 +750,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         using var memberWriter = factory.CreateMarkdown(overloadCurrentFolder, sanitizedName);
 
         memberWriter.WriteHeading(1, GetMethodGroupName(overloads[0]));
+        WriteBreadcrumb(memberWriter, namespaceFolderPath, type, overloadCurrentFolder, includeType: true);
 
         // Accumulate external types across all overloads on this shared page
         var externalTypes = new SortedSet<ExternalTypeInfo>();
@@ -743,6 +804,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         var operatorsLinkContext = linkContext with { CurrentFolder = operatorsCurrentFolder };
         using var writer = factory.CreateMarkdown(operatorsCurrentFolder, "operators");
         writer.WriteHeading(1, "Operators");
+        WriteBreadcrumb(writer, namespaceFolderPath, type, operatorsCurrentFolder, includeType: true);
 
         var externalTypes = new SortedSet<ExternalTypeInfo>();
         foreach (var op in operators)
@@ -786,6 +848,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         // The shared lowercase key serves as the page heading so every member in the group
         // can be found at the same predictable path regardless of filesystem case-sensitivity
         writer.WriteHeading(1, lowerKey);
+        WriteBreadcrumb(writer, ctx.NamespaceFolderPath, ctx.Type, combinedCurrentFolder, includeType: true);
 
         // Accumulate external types across all members on this shared page
         var externalTypes = new SortedSet<ExternalTypeInfo>();
@@ -1067,7 +1130,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         var memberSummary = ctx.XmlDocs.GetSummary(memberId, ctx.LinkContext) ?? DotNetEmitter.NoDescriptionPlaceholder;
         var memberTypeRef = GetMemberTypeRef(member);
         var memberTypeName = memberTypeRef != null
-            ? ctx.Resolver.Linkify(memberTypeRef, ctx.NamespaceFolderPath, ctx.NamespaceName, buckets.ExternalTypes, IsMemberTypeNullableAnnotated(member))
+            ? ctx.Resolver.Linkify(memberTypeRef, ctx.NamespaceFolderPath, ctx.NamespaceName, buckets.ExternalTypes, CreateMemberTypeNullability(member))
             : string.Empty;
         var memberDisplayName = GetMemberDisplayName(member);
         var sanitizedName = GetSanitizedMemberFileName(member, ctx.Type);
@@ -1135,7 +1198,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         var representativeSummary = ctx.XmlDocs.GetSummary(representativeMemberId, ctx.LinkContext) ?? DotNetEmitter.NoDescriptionPlaceholder;
         var representativeTypeRef = GetMemberTypeRef(representative);
         var representativeTypeName = representativeTypeRef != null
-            ? ctx.Resolver.Linkify(representativeTypeRef, ctx.NamespaceFolderPath, ctx.NamespaceName, externalTypes, IsMemberTypeNullableAnnotated(representative))
+            ? ctx.Resolver.Linkify(representativeTypeRef, ctx.NamespaceFolderPath, ctx.NamespaceName, externalTypes, CreateMemberTypeNullability(representative))
             : string.Empty;
         var overloadDisplayName = GetMethodGroupDisplayName(representative, orderedOverloads.Count);
         var overloadFileName = GetSanitizedMemberFileName(representative, ctx.Type);
@@ -1191,7 +1254,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         var memberSummary = ctx.XmlDocs.GetSummary(memberId, ctx.LinkContext) ?? DotNetEmitter.NoDescriptionPlaceholder;
         var memberTypeRef = GetMemberTypeRef(member);
         var memberTypeName = memberTypeRef != null
-            ? ctx.Resolver.Linkify(memberTypeRef, ctx.NamespaceFolderPath, ctx.NamespaceName, buckets.ExternalTypes, IsMemberTypeNullableAnnotated(member))
+            ? ctx.Resolver.Linkify(memberTypeRef, ctx.NamespaceFolderPath, ctx.NamespaceName, buckets.ExternalTypes, CreateMemberTypeNullability(member))
             : string.Empty;
         var memberDisplayName = GetMemberDisplayName(member);
 
@@ -1275,7 +1338,7 @@ internal sealed class DotNetEmitterGradualDisclosure
             writer.WriteParagraph(remarks);
         }
 
-        WriteExampleParts(writer, ctx.XmlDocs.GetExampleParts(memberId, ctx.LinkContext));
+        WriteExampleParts(writer, ctx.XmlDocs.GetExampleBlocks(memberId, ctx.LinkContext));
     }
 
     /// <summary>
@@ -1323,8 +1386,8 @@ internal sealed class DotNetEmitterGradualDisclosure
             var paramRows = method.Parameters.Select(p =>
             {
                 var desc = paramDocs.FirstOrDefault(pd => pd.Name == p.Name).Description ?? NoDescriptionPlaceholder;
-                var typeName = GetRefKindKeyword(p) + ctx.Resolver.Linkify(p.ParameterType, ctx.CurrentFolder, ctx.NamespaceName, ctx.ExternalTypes);
-                return new[] { p.Name, typeName, desc };
+                var typeName = GetRefKindKeyword(p) + ctx.Resolver.Linkify(p.ParameterType, ctx.CurrentFolder, ctx.NamespaceName, ctx.ExternalTypes, CreateNullability(p.CustomAttributes, method));
+                return new[] { WithDefault(p.Name, p), typeName, desc };
             });
             memberWriter.WriteTable(paramHeaders, paramRows);
         }
@@ -1348,7 +1411,7 @@ internal sealed class DotNetEmitterGradualDisclosure
             memberWriter.WriteParagraph(remarks);
         }
 
-        WriteExampleParts(memberWriter, ctx.XmlDocs.GetExampleParts(memberId, ctx.LinkContext));
+        WriteExampleParts(memberWriter, ctx.XmlDocs.GetExampleBlocks(memberId, ctx.LinkContext));
     }
 
     /// <summary>
