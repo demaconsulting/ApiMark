@@ -494,17 +494,17 @@ public class ClangAstParserTests
         // quoted #include which also checks the including file's own directory), and a
         // separate entry header — outside the root — that includes it by angle brackets
         // and referenced with a differently-cased spelling of the same root ("MYLIB").
-        var tempParent = Path.Combine(Path.GetTempPath(), "ApiMarkClangAstParserTests_" + Guid.NewGuid().ToString("N"));
-        var actualIncludeDir = Path.Combine(tempParent, "MyLib");
+        var tempParent = Path.Join(Path.GetTempPath(), "ApiMarkClangAstParserTests_" + Guid.NewGuid().ToString("N"));
+        var actualIncludeDir = Path.Join(tempParent, "MyLib");
         Directory.CreateDirectory(actualIncludeDir);
         File.WriteAllText(
-            Path.Combine(actualIncludeDir, "dep.h"),
+            Path.Join(actualIncludeDir, "dep.h"),
             "class Dep { public: int Value() const { return 1; } };");
-        var entryHeader = Path.Combine(tempParent, "entry.h");
+        var entryHeader = Path.Join(tempParent, "entry.h");
         File.WriteAllText(entryHeader, "#include <dep.h>\nDep MakeDep();");
         try
         {
-            var differentlyCasedIncludeDir = Path.Combine(tempParent, "MYLIB");
+            var differentlyCasedIncludeDir = Path.Join(tempParent, "MYLIB");
             var options = new CppGeneratorOptions
             {
                 LibraryName = "Fixtures",
@@ -575,7 +575,7 @@ public class ClangAstParserTests
             // calling CreateProcess, so this can be used directly as CppGeneratorOptions.ClangPath
             // without the caller needing to invoke cmd.exe itself. Verified empirically (process
             // starts successfully) and by this test passing in CI.
-            var scriptPath = Path.Combine(directory, "hang.cmd");
+            var scriptPath = Path.Join(directory, "hang.cmd");
             File.WriteAllText(
                 scriptPath,
                 "@echo off\r\n" +
@@ -585,7 +585,7 @@ public class ClangAstParserTests
             return scriptPath;
         }
 
-        var shPath = Path.Combine(directory, "hang.sh");
+        var shPath = Path.Join(directory, "hang.sh");
         File.WriteAllText(
             shPath,
             "#!/bin/sh\n" +
@@ -611,7 +611,7 @@ public class ClangAstParserTests
         // Arrange: a fake "clang" that ignores its arguments and sleeps indefinitely, combined
         // with a short thread-local timeout override so this test does not actually wait for
         // the production 120-second timeout
-        var tempDir = Path.Combine(Path.GetTempPath(), "ApiMarkClangHangTest_" + Guid.NewGuid().ToString("N"));
+        var tempDir = Path.Join(Path.GetTempPath(), "ApiMarkClangHangTest_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
         try
         {
@@ -689,7 +689,7 @@ public class ClangAstParserTests
     {
         // Arrange: a fake "clang" that hangs, with a short timeout supplied via the
         // production CppGeneratorOptions.ClangTimeoutMilliseconds option (not the test seam)
-        var tempDir = Path.Combine(Path.GetTempPath(), "ApiMarkClangTimeoutOptionTest_" + Guid.NewGuid().ToString("N"));
+        var tempDir = Path.Join(Path.GetTempPath(), "ApiMarkClangTimeoutOptionTest_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
         try
         {
@@ -722,7 +722,7 @@ public class ClangAstParserTests
     public void ClangAstParser_Parse_ClangTimeoutEnvVar_OverridesDefaultTimeout()
     {
         // Arrange: a fake "clang" that hangs, with no options-level timeout set
-        var tempDir = Path.Combine(Path.GetTempPath(), "ApiMarkClangTimeoutEnvTest_" + Guid.NewGuid().ToString("N"));
+        var tempDir = Path.Join(Path.GetTempPath(), "ApiMarkClangTimeoutEnvTest_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
         try
         {
@@ -772,7 +772,7 @@ public class ClangAstParserTests
     public void ClangAstParser_Parse_ClangTimeoutEnvVar_InvalidValue_ThrowsInvalidOperationException()
     {
         // Arrange
-        var tempDir = Path.Combine(Path.GetTempPath(), "ApiMarkClangTimeoutInvalidTest_" + Guid.NewGuid().ToString("N"));
+        var tempDir = Path.Join(Path.GetTempPath(), "ApiMarkClangTimeoutInvalidTest_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
         try
         {

@@ -14,7 +14,7 @@ public class ExternalXmlDocResolverTests
     /// <returns>Path to a newly created, empty temporary directory.</returns>
     private static string CreateTempDirectory()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "ApiMarkTest_" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Join(Path.GetTempPath(), "ApiMarkTest_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         return dir;
     }
@@ -47,7 +47,7 @@ public class ExternalXmlDocResolverTests
         var dir = CreateTempDirectory();
         try
         {
-            var dllPath = Path.Combine(dir, "Foo.dll");
+            var dllPath = Path.Join(dir, "Foo.dll");
             File.WriteAllBytes(dllPath, []);
             WriteXmlDoc(Path.ChangeExtension(dllPath, ".xml"), """
                 <member name="T:Foo.Bar">
@@ -80,7 +80,7 @@ public class ExternalXmlDocResolverTests
         var dir = CreateTempDirectory();
         try
         {
-            var dllPath = Path.Combine(dir, "Foo.dll");
+            var dllPath = Path.Join(dir, "Foo.dll");
             File.WriteAllBytes(dllPath, []);
             var sut = new ExternalXmlDocResolver([dllPath]);
 
@@ -108,14 +108,14 @@ public class ExternalXmlDocResolverTests
         var dir = CreateTempDirectory();
         try
         {
-            var refDir = Path.Combine(dir, "ref", "net8.0");
-            var libDir = Path.Combine(dir, "lib", "net8.0");
+            var refDir = Path.Join(dir, "ref", "net8.0");
+            var libDir = Path.Join(dir, "lib", "net8.0");
             Directory.CreateDirectory(refDir);
             Directory.CreateDirectory(libDir);
 
-            var refDllPath = Path.Combine(refDir, "Foo.dll");
+            var refDllPath = Path.Join(refDir, "Foo.dll");
             File.WriteAllBytes(refDllPath, []);
-            WriteXmlDoc(Path.Combine(libDir, "Foo.xml"), """
+            WriteXmlDoc(Path.Join(libDir, "Foo.xml"), """
                 <member name="T:Foo.Bar">
                     <summary>Lib summary text.</summary>
                 </member>
@@ -147,14 +147,14 @@ public class ExternalXmlDocResolverTests
         var dir = CreateTempDirectory();
         try
         {
-            var refDir = Path.Combine(dir, "ref", "net8.0");
-            var libDir = Path.Combine(dir, "lib", "net8.0");
+            var refDir = Path.Join(dir, "ref", "net8.0");
+            var libDir = Path.Join(dir, "lib", "net8.0");
             Directory.CreateDirectory(refDir);
             Directory.CreateDirectory(libDir);
 
-            var libDllPath = Path.Combine(libDir, "Foo.dll");
+            var libDllPath = Path.Join(libDir, "Foo.dll");
             File.WriteAllBytes(libDllPath, []);
-            WriteXmlDoc(Path.Combine(refDir, "Foo.xml"), """
+            WriteXmlDoc(Path.Join(refDir, "Foo.xml"), """
                 <member name="T:Foo.Bar">
                     <summary>Ref summary text.</summary>
                 </member>
@@ -190,15 +190,15 @@ public class ExternalXmlDocResolverTests
         var dir = CreateTempDirectory();
         try
         {
-            var decoyLibDir = Path.Combine(dir, "lib", ".nuget", "packages", "Pkg");
-            var refDir = Path.Combine(decoyLibDir, "ref", "net8.0");
-            var realLibDir = Path.Combine(decoyLibDir, "lib", "net8.0");
+            var decoyLibDir = Path.Join(dir, "lib", ".nuget", "packages", "Pkg");
+            var refDir = Path.Join(decoyLibDir, "ref", "net8.0");
+            var realLibDir = Path.Join(decoyLibDir, "lib", "net8.0");
             Directory.CreateDirectory(refDir);
             Directory.CreateDirectory(realLibDir);
 
-            var refDllPath = Path.Combine(refDir, "Pkg.dll");
+            var refDllPath = Path.Join(refDir, "Pkg.dll");
             File.WriteAllBytes(refDllPath, []);
-            WriteXmlDoc(Path.Combine(realLibDir, "Pkg.xml"), """
+            WriteXmlDoc(Path.Join(realLibDir, "Pkg.xml"), """
                 <member name="T:Pkg.Bar">
                     <summary>Real lib summary text.</summary>
                 </member>
@@ -232,7 +232,7 @@ public class ExternalXmlDocResolverTests
         var dir = CreateTempDirectory();
         try
         {
-            var firstDllPath = Path.Combine(dir, "First.dll");
+            var firstDllPath = Path.Join(dir, "First.dll");
             File.WriteAllBytes(firstDllPath, []);
             WriteXmlDoc(Path.ChangeExtension(firstDllPath, ".xml"), """
                 <member name="T:Foo.Other">
@@ -240,7 +240,7 @@ public class ExternalXmlDocResolverTests
                 </member>
                 """);
 
-            var secondDllPath = Path.Combine(dir, "Second.dll");
+            var secondDllPath = Path.Join(dir, "Second.dll");
             File.WriteAllBytes(secondDllPath, []);
             WriteXmlDoc(Path.ChangeExtension(secondDllPath, ".xml"), """
                 <member name="T:Foo.Bar">
@@ -282,7 +282,7 @@ public class ExternalXmlDocResolverTests
             var unrelatedPaths = new List<string>();
             for (var i = 0; i < 5; i++)
             {
-                var unrelatedDllPath = Path.Combine(dir, $"Unrelated{i}.dll");
+                var unrelatedDllPath = Path.Join(dir, $"Unrelated{i}.dll");
                 File.WriteAllBytes(unrelatedDllPath, []);
                 WriteXmlDoc(Path.ChangeExtension(unrelatedDllPath, ".xml"), """
                     <member name="T:Foo.Bar">
@@ -292,7 +292,7 @@ public class ExternalXmlDocResolverTests
                 unrelatedPaths.Add(unrelatedDllPath);
             }
 
-            var hintedDllPath = Path.Combine(dir, "Hinted.dll");
+            var hintedDllPath = Path.Join(dir, "Hinted.dll");
             File.WriteAllBytes(hintedDllPath, []);
             WriteXmlDoc(Path.ChangeExtension(hintedDllPath, ".xml"), """
                 <member name="T:Foo.Bar">
@@ -338,7 +338,7 @@ public class ExternalXmlDocResolverTests
         var dir = CreateTempDirectory();
         try
         {
-            var dllPath = Path.Combine(dir, "Actual.dll");
+            var dllPath = Path.Join(dir, "Actual.dll");
             File.WriteAllBytes(dllPath, []);
             WriteXmlDoc(Path.ChangeExtension(dllPath, ".xml"), """
                 <member name="T:Foo.Bar">
@@ -377,7 +377,7 @@ public class ExternalXmlDocResolverTests
         var dir = CreateTempDirectory();
         try
         {
-            var hintedDllPath = Path.Combine(dir, "Hinted.dll");
+            var hintedDllPath = Path.Join(dir, "Hinted.dll");
             File.WriteAllBytes(hintedDllPath, []);
             WriteXmlDoc(Path.ChangeExtension(hintedDllPath, ".xml"), """
                 <member name="T:Foo.SomeOtherType">
@@ -385,7 +385,7 @@ public class ExternalXmlDocResolverTests
                 </member>
                 """);
 
-            var otherDllPath = Path.Combine(dir, "Other.dll");
+            var otherDllPath = Path.Join(dir, "Other.dll");
             File.WriteAllBytes(otherDllPath, []);
             WriteXmlDoc(Path.ChangeExtension(otherDllPath, ".xml"), """
                 <member name="T:Foo.Bar">
@@ -422,7 +422,7 @@ public class ExternalXmlDocResolverTests
         var dir = CreateTempDirectory();
         try
         {
-            var dllPath = Path.Combine(dir, "Foo.dll");
+            var dllPath = Path.Join(dir, "Foo.dll");
             File.WriteAllBytes(dllPath, []);
             var xmlPath = Path.ChangeExtension(dllPath, ".xml");
             WriteXmlDoc(xmlPath, """
@@ -470,14 +470,14 @@ public class ExternalXmlDocResolverTests
         var dir = CreateTempDirectory();
         try
         {
-            var refDir = Path.Combine(dir, "REF", "net8.0");
-            var libDir = Path.Combine(dir, "lib", "net8.0");
+            var refDir = Path.Join(dir, "REF", "net8.0");
+            var libDir = Path.Join(dir, "lib", "net8.0");
             Directory.CreateDirectory(refDir);
             Directory.CreateDirectory(libDir);
 
-            var refDllPath = Path.Combine(refDir, "Foo.dll");
+            var refDllPath = Path.Join(refDir, "Foo.dll");
             File.WriteAllBytes(refDllPath, []);
-            WriteXmlDoc(Path.Combine(libDir, "Foo.xml"), """
+            WriteXmlDoc(Path.Join(libDir, "Foo.xml"), """
                 <member name="T:Foo.Bar">
                     <summary>Lib summary text.</summary>
                 </member>
@@ -523,7 +523,7 @@ public class ExternalXmlDocResolverTests
         var dir = CreateTempDirectory();
         try
         {
-            var dllPath = Path.Combine(dir, "Foo.dll");
+            var dllPath = Path.Join(dir, "Foo.dll");
             File.WriteAllBytes(dllPath, []);
             WriteXmlDoc(Path.ChangeExtension(dllPath, ".xml"), """
                 <member name="T:Foo.Bar">
@@ -535,8 +535,8 @@ public class ExternalXmlDocResolverTests
             // canonical form, and a second form that lexically collapses to the same location via
             // a "Nested/.." segment — Path.GetFullPath performs this lexical collapse without
             // requiring the intermediate "Nested" directory to actually exist on disk.
-            var canonicalDllPath = Path.Combine(dir, "Foo.dll");
-            var lexicallyCollapsingDllPath = Path.Combine(dir, "Nested", "..", "Foo.dll");
+            var canonicalDllPath = Path.Join(dir, "Foo.dll");
+            var lexicallyCollapsingDllPath = Path.Join(dir, "Nested", "..", "Foo.dll");
             var sut = new ExternalXmlDocResolver([canonicalDllPath, lexicallyCollapsingDllPath]);
 
             // Act: query a member ID that exists in neither file so the resolver must walk every
@@ -590,7 +590,7 @@ public class ExternalXmlDocResolverTests
         var dir = CreateTempDirectory();
         try
         {
-            var dllPath = Path.Combine(dir, "Foo.dll");
+            var dllPath = Path.Join(dir, "Foo.dll");
             File.WriteAllBytes(dllPath, []);
             // Deliberately malformed XML (unclosed tags) — a well-known reliable trigger for
             // System.Xml.XmlException when parsed via XDocument.Load.
@@ -622,7 +622,7 @@ public class ExternalXmlDocResolverTests
         var dir = CreateTempDirectory();
         try
         {
-            var dllPath = Path.Combine(dir, "Foo.dll");
+            var dllPath = Path.Join(dir, "Foo.dll");
             File.WriteAllBytes(dllPath, []);
             var xmlPath = Path.ChangeExtension(dllPath, ".xml");
             WriteXmlDoc(xmlPath, """
@@ -670,7 +670,7 @@ public class ExternalXmlDocResolverTests
         var dir = CreateTempDirectory();
         try
         {
-            var firstDllPath = Path.Combine(dir, "First.dll");
+            var firstDllPath = Path.Join(dir, "First.dll");
             File.WriteAllBytes(firstDllPath, []);
             WriteXmlDoc(Path.ChangeExtension(firstDllPath, ".xml"), """
                 <member name="T:Foo.Other">
@@ -689,7 +689,7 @@ public class ExternalXmlDocResolverTests
             // still return null because it never observes the mutation.
             var beforeMutation = sut.TryGetMember("T:Foo.Target");
 
-            var secondDllPath = Path.Combine(dir, "Second.dll");
+            var secondDllPath = Path.Join(dir, "Second.dll");
             File.WriteAllBytes(secondDllPath, []);
             WriteXmlDoc(Path.ChangeExtension(secondDllPath, ".xml"), """
                 <member name="T:Foo.Target">

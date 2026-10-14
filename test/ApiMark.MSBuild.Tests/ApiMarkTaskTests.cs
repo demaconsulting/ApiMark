@@ -1240,9 +1240,8 @@ public class ApiMarkTaskTests
         Assert.NotNull(task.CapturedToolArgs);
         Assert.DoesNotContain("--reference-paths", task.CapturedToolArgs);
         _ = Assert.Single(task.CapturedToolArgs!, a => a.StartsWith('@'));
-        Assert.Equal(
-            new[] { "--reference-paths", "/refs/One.dll", "--reference-paths", "/refs/Two.dll" },
-            task.CapturedResponseFileLines);
+        string[] expectedLines = ["--reference-paths", "/refs/One.dll", "--reference-paths", "/refs/Two.dll"];
+        Assert.Equal(expectedLines, task.CapturedResponseFileLines);
     }
 
     /// <summary>

@@ -3414,8 +3414,8 @@ public class XmlDocReaderTests
             // leading/trailing blank lines
             Assert.NotNull(remarks);
             Assert.DoesNotContain("\n\n\n", remarks, StringComparison.Ordinal);
-            Assert.False(remarks.StartsWith("\n", StringComparison.Ordinal));
-            Assert.False(remarks.EndsWith("\n", StringComparison.Ordinal));
+            Assert.False(remarks.StartsWith('\n'));
+            Assert.False(remarks.EndsWith('\n'));
         }
         finally
         {
@@ -3598,7 +3598,7 @@ public class XmlDocReaderTests
     {
         // Arrange
         var (assembly, context) = BuildFixtureLinkContext();
-        try
+        using (assembly)
         {
             var path = WriteXmlDoc("""
                 <member name="T:Foo.Bar">
@@ -3619,10 +3619,6 @@ public class XmlDocReaderTests
                 File.Delete(path);
             }
         }
-        finally
-        {
-            assembly.Dispose();
-        }
     }
 
     /// <summary>
@@ -3635,7 +3631,7 @@ public class XmlDocReaderTests
     {
         // Arrange
         var (assembly, baseContext) = BuildFixtureLinkContext();
-        try
+        using (assembly)
         {
             var type = assembly.MainModule.Types.First(t => t.Name == "SampleClass");
             var method = type.Methods.First(m => m.Name == "Reset");
@@ -3661,10 +3657,6 @@ public class XmlDocReaderTests
                 File.Delete(path);
             }
         }
-        finally
-        {
-            assembly.Dispose();
-        }
     }
 
     /// <summary>
@@ -3678,7 +3670,7 @@ public class XmlDocReaderTests
     {
         // Arrange
         var (assembly, baseContext) = BuildFixtureLinkContext(isMemberEmitted: _ => false);
-        try
+        using (assembly)
         {
             var type = assembly.MainModule.Types.First(t => t.Name == "ProtectedMembersClass");
             var method = type.Methods.First(m => m.Name == "PrivateMethod");
@@ -3703,10 +3695,6 @@ public class XmlDocReaderTests
                 File.Delete(path);
             }
         }
-        finally
-        {
-            assembly.Dispose();
-        }
     }
 
     /// <summary>
@@ -3719,7 +3707,7 @@ public class XmlDocReaderTests
     {
         // Arrange
         var (assembly, context) = BuildFixtureLinkContext();
-        try
+        using (assembly)
         {
             var path = WriteXmlDoc("""
                 <member name="T:Foo.Bar">
@@ -3740,10 +3728,6 @@ public class XmlDocReaderTests
                 File.Delete(path);
             }
         }
-        finally
-        {
-            assembly.Dispose();
-        }
     }
 
     /// <summary>
@@ -3755,7 +3739,7 @@ public class XmlDocReaderTests
     {
         // Arrange
         var (assembly, context) = BuildFixtureLinkContext();
-        try
+        using (assembly)
         {
             var path = WriteXmlDoc("""
                 <member name="T:Foo.Bar">
@@ -3776,10 +3760,6 @@ public class XmlDocReaderTests
                 File.Delete(path);
             }
         }
-        finally
-        {
-            assembly.Dispose();
-        }
     }
 
     /// <summary>
@@ -3792,7 +3772,7 @@ public class XmlDocReaderTests
     {
         // Arrange
         var (assembly, context) = BuildFixtureLinkContext();
-        try
+        using (assembly)
         {
             var type = assembly.MainModule.Types.First(t => t.Name == "SampleClass");
             var ctor = type.Methods.First(m => m.IsConstructor);
@@ -3819,10 +3799,6 @@ public class XmlDocReaderTests
                 File.Delete(path);
             }
         }
-        finally
-        {
-            assembly.Dispose();
-        }
     }
 
     /// <summary>
@@ -3834,7 +3810,7 @@ public class XmlDocReaderTests
     {
         // Arrange
         var (assembly, context) = BuildFixtureLinkContext();
-        try
+        using (assembly)
         {
             var path = WriteXmlDoc("""
                 <member name="T:Foo.Bar">
@@ -3855,10 +3831,6 @@ public class XmlDocReaderTests
                 File.Delete(path);
             }
         }
-        finally
-        {
-            assembly.Dispose();
-        }
     }
 
     /// <summary>
@@ -3872,7 +3844,7 @@ public class XmlDocReaderTests
     {
         // Arrange
         var (assembly, context) = BuildFixtureLinkContext();
-        try
+        using (assembly)
         {
             var path = WriteXmlDoc("""
                 <member name="T:Foo.Bar">
@@ -3892,10 +3864,6 @@ public class XmlDocReaderTests
             {
                 File.Delete(path);
             }
-        }
-        finally
-        {
-            assembly.Dispose();
         }
     }
 
@@ -3938,7 +3906,7 @@ public class XmlDocReaderTests
     {
         // Arrange
         var (assembly, context) = BuildFixtureLinkContext();
-        try
+        using (assembly)
         {
             var path = WriteXmlDoc("""
                 <member name="T:Foo.Bar">
@@ -3959,10 +3927,6 @@ public class XmlDocReaderTests
                 File.Delete(path);
             }
         }
-        finally
-        {
-            assembly.Dispose();
-        }
     }
 
     /// <summary>
@@ -3977,7 +3941,7 @@ public class XmlDocReaderTests
     {
         // Arrange
         var (assembly, context) = BuildFixtureLinkContext();
-        try
+        using (assembly)
         {
             var path = WriteXmlDoc("""
                 <member name="T:Foo.Bar">
@@ -3997,10 +3961,6 @@ public class XmlDocReaderTests
             {
                 File.Delete(path);
             }
-        }
-        finally
-        {
-            assembly.Dispose();
         }
     }
 

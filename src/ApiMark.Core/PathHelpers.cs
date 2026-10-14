@@ -163,7 +163,7 @@ public static class PathHelpers
         var current = CanonicalizeRoot(root);
         foreach (var segment in segments)
         {
-            current = Path.Combine(current, FindActualEntryName(current, segment, directoryEntryCache) ?? segment);
+            current = Path.Join(current, FindActualEntryName(current, segment, directoryEntryCache) ?? segment);
         }
 
         return current;

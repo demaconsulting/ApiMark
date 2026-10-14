@@ -166,12 +166,12 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         // Arrange: copy the fixture include tree into a fresh temp directory with a known,
         // specific mixed-case spelling, then reference it with a differently-cased directory
         // segment.
-        var tempParent = Path.Combine(Path.GetTempPath(), "ApiMarkCppGeneratorTests_" + Guid.NewGuid().ToString("N"));
-        var actualIncludeDir = Path.Combine(tempParent, "MyLib");
+        var tempParent = Path.Join(Path.GetTempPath(), "ApiMarkCppGeneratorTests_" + Guid.NewGuid().ToString("N"));
+        var actualIncludeDir = Path.Join(tempParent, "MyLib");
         CopyDirectoryRecursive(FixturePaths.GetFixtureIncludeDir(), actualIncludeDir);
         try
         {
-            var differentlyCasedIncludeDir = Path.Combine(tempParent, "MYLIB");
+            var differentlyCasedIncludeDir = Path.Join(tempParent, "MYLIB");
             var options = new CppGeneratorOptions
             {
                 LibraryName = "Fixtures",
@@ -201,12 +201,12 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
         Directory.CreateDirectory(destDir);
         foreach (var file in Directory.GetFiles(sourceDir))
         {
-            File.Copy(file, Path.Combine(destDir, Path.GetFileName(file)));
+            File.Copy(file, Path.Join(destDir, Path.GetFileName(file)));
         }
 
         foreach (var dir in Directory.GetDirectories(sourceDir))
         {
-            CopyDirectoryRecursive(dir, Path.Combine(destDir, Path.GetFileName(dir)));
+            CopyDirectoryRecursive(dir, Path.Join(destDir, Path.GetFileName(dir)));
         }
     }
 
