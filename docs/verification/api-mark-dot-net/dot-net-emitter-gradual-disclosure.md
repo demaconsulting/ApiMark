@@ -42,6 +42,10 @@ service or network dependency is needed.
 - A malformed/unresolvable `<see cref>` renders as plain code-span text with no link.
 - A `<seealso cref>` to a visible intra-assembly type renders as a Markdown link.
 - Every entry in `DotNetAstModel.MemberPageIndex` corresponds to a page actually written during `Emit`.
+- Type, member, overload, operators, combined, nested-type and nested-member pages start with the expected breadcrumb paragraph.
+- Parameter tables show default values of every supported constant kind and per-type nullability.
+- Init-only properties render `init`; generic method signatures include type parameters and constraints; record and struct kind keywords are correct.
+- Each fenced example block carries its own language; prose example parts are not fenced.
 
 ### Test Scenarios
 
@@ -226,3 +230,57 @@ now call the same extracted `GroupMembersByFileName`/`GetOrderedOverloads`/
 `DecideGroupPageFileName` helpers but could in principle diverge again
 through a future edit to only one call site. This scenario is tested by
 `BuildMemberPageIndex_AllEntries_MatchActualWrittenPages`.
+
+**Breadcrumbs on every page kind**: Arrange the fixture assembly. Act by emitting gradual
+disclosure. Expected: the first paragraph of each type, member, overload, operators, combined,
+nested-type and nested-member page is the relative breadcrumb with the expected crumbs and
+`›` separator (type pages omit the type itself; other pages include it). Tested by
+`DotNetEmitterGradualDisclosure_Emit_Pages_HaveRelativeBreadcrumbs`,
+`DotNetEmitterGradualDisclosure_Emit_OverloadPage_HasBreadcrumb`,
+`DotNetEmitterGradualDisclosure_Emit_CombinedPage_HasBreadcrumb`,
+`DotNetEmitterGradualDisclosure_Emit_NestedType_BreadcrumbsIncludeOuterType` and
+`DotNetEmitterGradualDisclosure_Emit_MemberPage_FirstParagraphIsBreadcrumb`. Cross-reference
+tests exempt only that first breadcrumb paragraph from the no-link check, so links in the
+body are still checked.
+
+**Global-namespace types**: Arrange the `ApiMark.DotNet.Fixtures.Global` assembly, whose public
+types are declared without a namespace. Act by emitting gradual disclosure. Expected: no
+exception; a `global-namespace` page with H1 `(global namespace)` and type pages under
+`global-namespace/`; an `api.md` row `[(global namespace)](global-namespace.md)` with the
+type count; namespace-page links to the type pages; breadcrumbs starting with
+`[(global namespace)]`; crefs and signature types linking to the global type pages. An
+assembly without global types produces no `global-namespace` output. Tested by
+`DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_DoesNotThrowAndCreatesPages`,
+`DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_ApiIndexListsGlobalNamespace`,
+`DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_NamespacePageLinksToTypePages`,
+`DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_BreadcrumbLinksToGlobalNamespacePage`,
+`DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_CrefResolvesToTypePage`,
+`DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_SignatureTypeLinksToTypePage` and
+`DotNetEmitterGradualDisclosure_Emit_NoGlobalNamespaceTypes_NoGlobalNamespaceOutput`.
+
+**Parameter default values**: Arrange `DefaultValueClass` members covering null, default,
+enum, bool, numeric, string, char and long defaults. Act by emitting. Expected: each parameter
+table row shows the C#-source default. Tested by
+`DotNetEmitterGradualDisclosure_Emit_DefaultValueParameter_ShowsDefaultInParameterTable`,
+`DotNetEmitterGradualDisclosure_Emit_DefaultValueVariants_RenderDefaults` and
+`DotNetEmitterGradualDisclosure_Emit_CharAndLongDefaults_RenderDefaults`.
+
+**Per-type nullability**: Arrange nullable parameters and a `Func<...>` return. Expected:
+each type keeps its own nullable flags. Tested by
+`DotNetEmitterGradualDisclosure_Emit_NullableParameterAndFuncReturn_RendersPerTypeFlags`.
+
+**Init accessors**: Expected: init-only properties render `init`. Tested by
+`DotNetEmitterGradualDisclosure_Emit_InitOnlyProperties_RenderInitAccessor`.
+
+**Generic method signatures**: Expected: the signature has the type parameters and `where`
+constraints. Tested by
+`DotNetEmitterGradualDisclosure_Emit_GenericMethod_SignatureHasTypeParametersAndConstraints`.
+
+**Record and struct kinds**: Expected: type signatures show `record struct`,
+`readonly record struct` and related kind keywords. Tested by
+`DotNetEmitterGradualDisclosure_Emit_RecordAndStructKinds_ShowKindKeywords`.
+
+**Example languages**: Arrange `LangExampleClass` and `LangParaExampleClass`. Expected: each
+code block is fenced with its own language, and prose parts are paragraphs, not fences. Tested by
+`DotNetEmitterGradualDisclosure_Emit_LangExample_TagsEachCodeBlockWithItsLanguage` and
+`DotNetEmitterGradualDisclosure_Emit_LangExampleInPara_TagsCodeBlocksAndKeepsProseAsParagraphs`.

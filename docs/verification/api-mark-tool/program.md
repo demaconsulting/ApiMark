@@ -29,6 +29,10 @@ output directory. No external service, privileged configuration, or network acce
 - Invalid subcommands and missing required arguments return a non-zero exit code with descriptive
   error text.
 - Invalid visibility option values are rejected with a non-zero exit code.
+- When --visibility is absent, dotnet defaults to PublicAndProtected and cpp/vhdl to Public.
+- `apimark dotnet --external-link <name=path>` (repeatable) maps referenced assemblies to external
+  ApiMark documentation (case-insensitive names, last entry wins, blank values skipped); missing or
+  malformed values return a non-zero exit code naming --external-link.
 - Missing input files produce a non-zero exit code and a clear file-not-found diagnostic.
 - `--help` before and after a subcommand both display usage information and return exit code zero.
 - `--silent` suppresses console output; `--log <file>` captures output to a file.
@@ -104,8 +108,9 @@ self-validation tests and returns exit code zero when all tests pass. This scena
 `Program_Main_WithValidateFlag_ExitsZero`.
 
 **Validate flag with results file writes results**: Verifies that `--validate --results <file>`
-executes internal self-validation tests, writes a results file to the specified path, and returns
-exit code zero. This scenario is tested by `Program_Main_WithValidateAndResultsFile_WritesResultsFile`.
+executes internal self-validation tests, writes a results file to the specified path (verified to
+exist and to contain the expected test names and outcomes), and returns exit code zero. This
+scenario is tested by `Validation_Run_WithResultsTrxFile_CreatesTrxFile`.
 
 **Version flag prints version and exits zero**: Verifies that `--version` prints a non-empty version
 string to stdout and returns exit code zero without printing the application banner. This scenario is
@@ -217,3 +222,46 @@ validation behavior. This scenario is tested by
 report the same undocumented count, since VHDL has no visibility/accessibility concept and
 accepts the shared three-word vocabulary purely for CLI consistency. This scenario is tested
 by `Program_Main_Vhdl_AllThreeEnforceTierValues_AreAcceptedAndReportSameCount`.
+
+**Dotnet visibility default and override**: Arrange the fixture assembly and two temp output
+directories. Act by running `apimark dotnet` once without `--visibility` and once with
+`--visibility Public`. Expected: both exit zero; the default run generates the page for a
+protected member (`AbstractFixtureClass/ProtectedProperty.md`) and the `Public` run does not.
+Tested by `Program_Main_DotNetVisibilityDefault_IsPublicAndProtectedUnlessOverridden`;
+`Program_CreateGenerator_DotNetWithoutVisibility_DefaultsToPublicAndProtected` additionally
+asserts the resolved generator option.
+
+**Cpp and vhdl visibility defaults**: Because `Context.Visibility` is `null` when the option is
+absent, `Program.CreateGenerator` resolves the default per language. These tests do not invoke
+Clang: they arrange a parsed context, invoke `CreateGenerator` by reflection (construction
+only; `Parse` is never called) and inspect the result. For `cpp` the generator's options carry
+`Visibility == Public`
+(`Program_CreateGenerator_CppWithoutVisibility_DefaultsToPublic`). For `vhdl`, which has no
+visibility concept, a `VhdlGenerator` is created without error, proving the `Public` fallback
+parses cleanly (`Program_CreateGenerator_VhdlWithoutVisibility_CreatesGenerator`).
+
+**External link mapping is applied**: Arrange the fixture assembly plus the logging abstractions
+DLL (supplied via `--reference-paths`), whose `ILogger` type appears in the `TypeLinkFixture.Log`
+signature. Act by running `apimark dotnet ... --external-link
+Microsoft.Extensions.Logging.Abstractions=../OtherLib/api`. Expected: exit zero and the
+`Log.md` page contains a link into `OtherLib/api/Microsoft.Extensions.Logging/ILogger1.md`.
+Tested by `Program_Main_DotNetWithExternalLink_LinksExternalType`.
+
+**External link assembly name is case-insensitive**: Same arrangement with the assembly name
+written in upper case. Expected: exit zero and the same link is produced. Tested by
+`Program_Main_DotNetWithExternalLink_AssemblyNameIsCaseInsensitive`.
+
+**Duplicate external link: last entry wins**: Supply two mappings for the same assembly (the
+second with different casing and a different path). Expected: exit zero, the page links into
+the second path and contains no link into the first. Tested by
+`Program_Main_DotNetWithDuplicateExternalLink_LastEntryWins`.
+
+**Blank external link value is skipped**: Supply `--external-link ""`. Expected: exit zero, a
+generated page that still names the type, and no mapped link in the output (the type falls back to
+the unmapped presentation). Tested by
+`Program_Main_DotNetWithBlankExternalLink_IsSkipped`.
+
+**Malformed or missing external link value is rejected**: Supply `NoSeparator`, `=../path`,
+`Assembly=`, or omit the value after `--external-link`. Expected: non-zero exit code and an
+error message naming `--external-link`. Tested by
+`Program_Main_DotNetWithMalformedExternalLink_ReturnsNonZeroExitCode`.

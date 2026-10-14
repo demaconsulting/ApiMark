@@ -17,7 +17,10 @@ up after itself. No other external files, services, or configuration are require
 
 - All `ContextTests` tests pass with zero failures.
 - Each flag and option sets exactly the documented property.
-- Default values match the documented defaults when no argument is supplied.
+- Default values match the documented defaults when no argument is supplied (Visibility = null,
+  ExternalLinks empty).
+- --external-link accumulates Assembly=path entries in order, skips blank values, and rejects
+  malformed, missing, or flag-token values with ArgumentException naming --external-link.
 - Unknown flags produce `ArgumentException`.
 - `WriteError` unconditionally sets `ExitCode` to `1` regardless of the `Silent` flag.
 - `--log <file>` creates the file and captures `WriteLine` output.
@@ -244,3 +247,30 @@ argument → `EnforceDocs = null` (enforcement disabled by default).
 **`Context_Create_WithFlagValueForEnforceDocs_ThrowsArgumentException`**:
 `["--enforce-docs", "--silent"]` — a flag token supplied as the `--enforce-docs` value —
 throws `ArgumentException`.
+
+**`Context_Create_WithExternalLinkOption_AccumulatesEntries`**: Arrange two `--external-link`
+flags (`Lib.One=../One/api`, `Lib.Two=https://example.com/api`). Act: `Context.Create`.
+Expected: `ExternalLinks` contains both raw entries in order.
+
+**`Context_Create_WithMalformedExternalLink_ThrowsArgumentException`**: Arrange a value with no
+`=` (`NoSeparator`), an empty name (`=path`), a whitespace-only name (`=x`) or an empty path (`Assembly=`). Act: `Context.Create`.
+Expected: `ArgumentException` whose message names `--external-link`.
+
+**`Context_Create_WithBlankExternalLinkValue_SkipsEntry`**: Arrange one valid entry and a second
+`--external-link` whose value is empty or whitespace. Expected: only the valid entry is retained,
+no exception.
+
+**`Context_Create_WithExternalLinkMissingValue_ThrowsArgumentException`**: `["--external-link"]`
+with no following token. Expected: `ArgumentException` naming `--external-link`.
+
+**`Context_Create_WithExternalLinkFlagAsValue_ThrowsArgumentException`**:
+`["--external-link", "--silent"]`. Expected: `ArgumentException` naming `--external-link`; the
+flag token is not consumed as a value.
+
+**`Context_Create_WithDuplicateAndCaseDifferingExternalLinks_RetainsAllEntriesInOrder`**:
+`Lib=../a`, `Lib=../b`, `LIB=../c`. Expected: all three entries retained in order; last-wins and
+case-insensitive resolution belong to `Program` (see its verification document).
+
+**Defaults**: `Context_Create_WithNoArguments_HasDefaultValues` additionally asserts
+`Visibility` is `null` (deferring to the per-language default applied by `Program`) and
+`ExternalLinks` is empty.

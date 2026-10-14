@@ -141,6 +141,14 @@ internal static class DocumentationCoverageChecker
     /// <returns>An enumerable of visible member definitions, using the same member-kind shape as <see cref="DotNetEmitter.GetVisibleMembers"/>.</returns>
     private static IEnumerable<IMemberDefinition> GetVisibleMembers(TypeDefinition type, ApiVisibility visibility, bool includeObsolete)
     {
+        // Delegate types have only compiler-synthesized members (constructor, Invoke, BeginInvoke,
+        // EndInvoke) that cannot be documented in source, so none are demanded. The delegate type
+        // itself is still checked by CheckType.
+        if (DotNetEmitter.IsDelegate(type))
+        {
+            yield break;
+        }
+
         bool IsVisible(IMemberDefinition member) =>
             IsMemberVisible(member, visibility) && (includeObsolete || !DotNetEmitter.IsObsolete(member));
 

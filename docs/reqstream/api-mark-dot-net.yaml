@@ -31,6 +31,14 @@ sections:
           - ApiMarkDotNet-DotNetGenerator-ResolveInheritdocAcrossMultipleExternalHops
           - ApiMarkDotNet-DotNetGenerator-AcceptLibraryDescriptionOption
           - ApiMarkDotNet-DotNetGenerator-BuildCrefLinkingIndicesAfterEmitterConstruction
+          - ApiMarkDotNet-DotNetGenerator-DefaultVisibilityPublicAndProtected
+          - ApiMarkDotNet-DotNetGenerator-DefaultDocumentationEnforcementDisabled
+          - ApiMarkDotNet-DotNetGenerator-PropagateExampleCodeLanguage
+          - ApiMarkDotNet-DotNetGenerator-AcceptExternalLinksMapping
+          - ApiMarkDotNet-DotNetGenerator-LinkMappedAssemblyTypes
+          - ApiMarkDotNet-DotNetGenerator-FallBackToExternalTypesTableForUnusableMapping
+          - ApiMarkDotNet-DotNetGenerator-RejectUnsafeExternalLinkValues
+          - ApiMarkDotNet-DotNetGenerator-TreatGlobalNamespaceAsRoot
           - ApiMarkDotNet-DotNetAstModel-HoldParsedAssemblyData
           - ApiMarkDotNet-DotNetEmitter-DispatchToFormatSpecificEmitter
           - ApiMarkDotNet-DotNetEmitter-RejectNullArguments
@@ -42,6 +50,17 @@ sections:
           - ApiMarkDotNet-DotNetEmitter-RenderClassModifiersInTypeSignature
           - ApiMarkDotNet-DotNetEmitter-RenderInitOnlyPropertyAccessor
           - ApiMarkDotNet-DotNetEmitter-RenderConstantFieldValue
+          - ApiMarkDotNet-DotNetEmitter-RenderDefaultParameterValues
+          - ApiMarkDotNet-DotNetEmitter-OmitDefaultValuesFromDisplayNames
+          - ApiMarkDotNet-DotNetEmitter-RenderNonFiniteFloatingPointValues
+          - ApiMarkDotNet-DotNetEmitter-RenderRecordKeywords
+          - ApiMarkDotNet-DotNetEmitter-RenderStructModifiers
+          - ApiMarkDotNet-DotNetEmitter-SuppressImplicitRecordEquatable
+          - ApiMarkDotNet-DotNetEmitter-RenderGenericMethodTypeParameters
+          - ApiMarkDotNet-DotNetEmitter-RenderGenericMethodConstraints
+          - ApiMarkDotNet-DotNetEmitter-RenderNotNullConstraint
+          - ApiMarkDotNet-DotNetEmitter-RenderPerTypeNullability
+          - ApiMarkDotNet-DotNetEmitter-RenderGlobalNamespace
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitApiIndexPage
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitNamespacePages
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitNamespaceDocRemarksAndExamples
@@ -56,6 +75,14 @@ sections:
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-SuppressPlaceholderWhenRemarksPresent
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-ExtractBuildMemberPageIndex
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-WireCrefLinkContextThroughPageWriters
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-ParameterTableDefaults
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-ParameterTableNullability
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-RenderInitAccessors
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-RenderGenericMethodSignatures
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-RenderRecordAndStructKinds
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-HonorCodeLanguage
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-WriteBreadcrumbs
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitGlobalNamespaceTypes
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitAllApiIntoSingleFile
           - ApiMarkDotNet-DotNetEmitterSingleFile-OffsetHeadingsByHeadingDepth
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitAssemblyDescription
@@ -68,6 +95,14 @@ sections:
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitNestedTypeParentNotice
           - ApiMarkDotNet-DotNetEmitterSingleFile-EmitPlainTextParameterTypes
           - ApiMarkDotNet-DotNetEmitterSingleFile-NeverLinkCrefReferences
+          - ApiMarkDotNet-DotNetEmitterSingleFile-ShowParameterDefaults
+          - ApiMarkDotNet-DotNetEmitterSingleFile-RenderInitAccessors
+          - ApiMarkDotNet-DotNetEmitterSingleFile-NoBreadcrumbs
+          - ApiMarkDotNet-DotNetEmitterSingleFile-ShowNullability
+          - ApiMarkDotNet-DotNetEmitterSingleFile-RenderGenericMethodSignatures
+          - ApiMarkDotNet-DotNetEmitterSingleFile-RenderRecordAndStructKinds
+          - ApiMarkDotNet-DotNetEmitterSingleFile-HonorCodeLanguage
+          - ApiMarkDotNet-DotNetEmitterSingleFile-EmitGlobalNamespaceTypes
           - ApiMarkDotNet-TypeLinkResolver-ResolveIntraAssemblyTypesToMarkdownLinks
           - ApiMarkDotNet-TypeLinkResolver-ResolvePrimitiveAndSystemTypesToPlainText
           - ApiMarkDotNet-TypeLinkResolver-TrackNonSystemExternalTypesForExternalTypesSection
@@ -76,13 +111,28 @@ sections:
           - ApiMarkDotNet-TypeLinkResolver-UnwrapNullableValueTypes
           - ApiMarkDotNet-TypeLinkResolver-ResolveNestedTypesToCorrectPageKey
           - ApiMarkDotNet-TypeLinkResolver-ResolveCrefTargetsToMarkdownLinks
+          - ApiMarkDotNet-TypeLinkResolver-LinkMappedExternalAssemblies
+          - ApiMarkDotNet-TypeLinkResolver-NotTrackMappedExternalTypes
+          - ApiMarkDotNet-TypeLinkResolver-KeepUnmappedOrUnlinkedExternalTypesAsText
+          - ApiMarkDotNet-TypeLinkResolver-EscapeExternalLinkTargets
+          - ApiMarkDotNet-TypeLinkResolver-ApplyNullabilityPerTypePosition
+          - ApiMarkDotNet-TypeLinkResolver-UnwrapByReferenceTypes
+          - ApiMarkDotNet-TypeLinkResolver-LinkGlobalNamespaceTypes
           - ApiMarkDotNet-CrefTargetResolver-IndexAssemblyTypesAndMembersByXmlDocId
           - ApiMarkDotNet-CrefTargetResolver-ResolveWithoutVisibilityFiltering
           - ApiMarkDotNet-CrefTargetResolver-ReturnFalseForUnresolvableIdentifiers
-          - ApiMarkDotNet-DotNetAstModel-HoldCrefLinkingIndices
+          - ApiMarkDotNet-DotNetAstModel-HoldCrefTargets
+          - ApiMarkDotNet-DotNetAstModel-HoldMemberPageIndex
+          - ApiMarkDotNet-DotNetAstModel-ExposeNamespaceDescriptions
           - ApiMarkDotNet-XmlDocReader-ProvideMemberDocumentationFromXmlFile
           - ApiMarkDotNet-XmlDocReader-RenderXmlDocLists
           - ApiMarkDotNet-XmlDocReader-InheritDoc
+          - ApiMarkDotNet-XmlDocReader-ExposeCodeLanguage
+          - ApiMarkDotNet-XmlDocReader-TrimCodeLanguage
+          - ApiMarkDotNet-XmlDocReader-CodeLanguageFallback
+          - ApiMarkDotNet-XmlDocReader-NoCodeChildExampleAsCSharp
+          - ApiMarkDotNet-XmlDocReader-SanitizeCodeLanguage
+          - ApiMarkDotNet-XmlDocReader-HonorCodeLanguageInsidePara
           - ApiMarkDotNet-XmlDocReader-RenderSummaryListsAsMultiLineMarkdown
           - ApiMarkDotNet-XmlDocReader-RenderSummaryListsAsInlineMarkersWhenSingleLine
           - ApiMarkDotNet-XmlDocReader-IncludeTypeNameForPropertyFieldEventCrefs
@@ -108,8 +158,13 @@ sections:
           - ApiMarkDotNet-TypeNameSimplifier-RenderNullableValueTypesWithQuestionMark
           - ApiMarkDotNet-TypeNameSimplifier-SimplifyWellKnownNamespaces
           - ApiMarkDotNet-TypeNameSimplifier-SimplifyContextNamespaceTypes
+          - ApiMarkDotNet-TypeNameSimplifier-EmptyContextNamespace
           - ApiMarkDotNet-TypeNameSimplifier-SimplifyGenericArgumentsRecursively
           - ApiMarkDotNet-TypeNameSimplifier-AppendNullableReferenceSuffix
+          - ApiMarkDotNet-TypeNameSimplifier-PerTypeNullability
+          - ApiMarkDotNet-TypeNameSimplifier-PerTypeNullabilityArrays
+          - ApiMarkDotNet-TypeNameSimplifier-UnwrapByReferenceTypes
+          - ApiMarkDotNet-TypeNameSimplifier-InheritNullableContext
         tests: [ApiMarkDotNet_TypeNames_CommonSignatures_RenderReadably]
       - id: ApiMarkDotNet-EnforceDocumentationCoverage
         title: ApiMarkDotNet shall optionally check parsed assemblies for missing
@@ -127,7 +182,9 @@ sections:
           - ApiMarkDotNet-DocumentationCoverageChecker-DetectMissingSummaryByKind
           - ApiMarkDotNet-DocumentationCoverageChecker-RecurseNestedTypes
           - ApiMarkDotNet-DocumentationCoverageChecker-ApplyExcludePatternsAndObsoleteFilter
-          - ApiMarkDotNet-DocumentationCoverageChecker-ExcludeCompilerGeneratedMembers
+          - ApiMarkDotNet-DocumentationCoverageChecker-ExcludeRecordEqualityContract
+          - ApiMarkDotNet-DocumentationCoverageChecker-ExcludeEventBackingField
+          - ApiMarkDotNet-DocumentationCoverageChecker-ExemptDelegateMembers
           - ApiMarkDotNet-DocumentationCoverageChecker-AcceptRemarksForGeneratedCodeMembers
         tests:
           - DotNetGenerator_CheckDocumentationCoverage_AfterParse_ReturnsViolationsAndAllowsSubsequentEmit

@@ -44,6 +44,28 @@ sections:
             tests:
               - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesNamespacePage
               - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesChildNamespacePage
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitGlobalNamespaceTypes
+            title: DotNetEmitterGradualDisclosure shall document types declared without a
+              namespace on a synthetic global-namespace page with working links.
+            justification: |
+              C# types declared in the global namespace are part of the public API. Emitting
+              them under a `global-namespace` page (shown as "(global namespace)"), listed in
+              api.md and reachable via breadcrumbs, type links and cref links, avoids a crash and
+              keeps them discoverable without changing output for other assemblies.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_DoesNotThrowAndCreatesPages
+              - DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_ApiIndexListsGlobalNamespace
+              - DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_NamespacePageLinksToTypePages
+              - DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_BreadcrumbLinksToGlobalNamespacePage
+              - DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_CrefResolvesToTypePage
+              - DotNetEmitterGradualDisclosure_Emit_GlobalNamespaceTypes_SignatureTypeLinksToTypePage
+              - DotNetEmitterGradualDisclosure_Emit_NoGlobalNamespaceTypes_NoGlobalNamespaceOutput
+              - TypeLinkResolver_Linkify_GlobalNamespaceType_LinksToGlobalNamespacePage
+              - DotNetEmitter_GetNamespaceFolderPath_GlobalNamespace_ReturnsGlobalNamespaceFolder
+              - DotNetEmitter_GetImmediateChildNamespaces_GlobalNamespace_IsSiblingRoot
+              - DotNetEmitter_GetNamespaceDisplayName_GlobalNamespace_ReturnsPlaceholder
+              - DotNetGenerator_ComputeRootNamespaces_GlobalNamespace_IsRootAndDoesNotHideOthers
+              - TypeNameSimplifier_Simplify_GlobalContextNamespace_DoesNotStripOrThrow
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitNamespaceDocRemarksAndExamples
             title: DotNetEmitterGradualDisclosure shall emit the NamespaceDoc remarks
               and example parts after the namespace summary on the namespace page.
@@ -201,3 +223,57 @@ sections:
               - CrefLinking_SeeCrefMalformed_RendersFallbackWithNoLink
               - CrefLinking_SeeAlsoCrefToVisibleType_RendersAsMarkdownLink
               - DotNetGenerator_NamespacePage_NamespaceDocRemarksSeeCref_RendersAsLink
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-ParameterTableDefaults
+            title: DotNetEmitterGradualDisclosure shall show each optional parameter's default value in the parameter table, rendered in C# source form for every supported constant kind.
+            justification: |
+              Readers of member pages need the defaults the signature carries, including
+              null, default, enum, boolean, numeric, string, char and long constants.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_DefaultValueParameter_ShowsDefaultInParameterTable
+              - DotNetEmitterGradualDisclosure_Emit_DefaultValueVariants_RenderDefaults
+              - DotNetEmitterGradualDisclosure_Emit_CharAndLongDefaults_RenderDefaults
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-ParameterTableNullability
+            title: DotNetEmitterGradualDisclosure shall show per-type nullability annotations on parameters and return types in generated pages.
+            justification: |
+              Nullability is part of the API contract; nested generic arguments such as
+              Func return types carry their own flags that must not be lost.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_NullableParameterAndFuncReturn_RendersPerTypeFlags
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-RenderInitAccessors
+            title: DotNetEmitterGradualDisclosure shall render init-only property accessors as init.
+            justification: |
+              Init-only setters differ from set accessors in the API contract.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_InitOnlyProperties_RenderInitAccessor
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-RenderGenericMethodSignatures
+            title: DotNetEmitterGradualDisclosure shall render generic method signatures with their type parameters and constraints.
+            justification: |
+              Type parameters and where-constraints are needed to call a generic method correctly.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_GenericMethod_SignatureHasTypeParametersAndConstraints
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-RenderRecordAndStructKinds
+            title: DotNetEmitterGradualDisclosure shall render the correct kind keywords (record, record struct, readonly struct and similar) in type signatures.
+            justification: |
+              The kind keyword conveys value versus reference semantics and mutability to readers.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_RecordAndStructKinds_ShowKindKeywords
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-HonorCodeLanguage
+            title: DotNetEmitterGradualDisclosure shall tag each fenced example code block with its own language, and render prose example parts as paragraphs rather than fenced blocks.
+            justification: |
+              Examples may mix languages (for example XML and PowerShell); each block must be
+              highlighted correctly, and prose carries no language.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_LangExample_TagsEachCodeBlockWithItsLanguage
+              - DotNetEmitterGradualDisclosure_Emit_LangExampleInPara_TagsCodeBlocksAndKeepsProseAsParagraphs
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-WriteBreadcrumbs
+            title: DotNetEmitterGradualDisclosure shall write a relative breadcrumb line as the first paragraph under the heading of type, member, overload, operators and combined pages, including nested types.
+            justification: |
+              Breadcrumbs let readers and agents navigate up to the containing type and namespace
+              without a new layout mode. Namespace folders are recovered so that nested namespace
+              and nested type pages link to the correct ancestors.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_Pages_HaveRelativeBreadcrumbs
+              - DotNetEmitterGradualDisclosure_Emit_OverloadPage_HasBreadcrumb
+              - DotNetEmitterGradualDisclosure_Emit_CombinedPage_HasBreadcrumb
+              - DotNetEmitterGradualDisclosure_Emit_NestedType_BreadcrumbsIncludeOuterType
+              - DotNetEmitterGradualDisclosure_Emit_MemberPage_FirstParagraphIsBreadcrumb

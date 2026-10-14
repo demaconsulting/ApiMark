@@ -1,4 +1,5 @@
 ---
+# cspell:ignore notnull
 # DotNetEmitter unit requirements
 sections:
   - title: ApiMarkDotNet Requirements
@@ -118,3 +119,91 @@ sections:
               - DotNetEmitter_FormatConstantValue_StringWithControlCharacters_EscapesAllOfThem
               - DotNetEmitter_FormatConstantValue_UnnamedControlCharacter_FallsBackToUnicodeEscape
               - DotNetEmitter_FormatConstantValue_C1ControlCharacter_FallsBackToUnicodeEscape
+          - id: ApiMarkDotNet-DotNetEmitter-RenderDefaultParameterValues
+            title: DotNetEmitter shall render the default value of optional parameters in method and operator signatures.
+            justification: |
+              Default values are part of the callable contract. Constants, enum members (or a numeric
+              cast when no member matches), decimal and date-time constants, and
+              DefaultParameterValue attributes must all be rendered so readers know what a call omits.
+            tests:
+              - DotNetEmitter_BuildMethodSignature_DefaultValues_RendersDefaults
+              - DotNetEmitter_BuildMethodSignature_ExtendedDefaultValues_RendersDefaults
+              - DotNetEmitter_FormatParameterDefault_DefaultParameterValueAttribute_RendersValue
+              - DotNetEmitter_FormatParameterDefault_DecimalConstantAttribute_HandlesSignedAndOutOfRangeArguments
+              - DotNetEmitter_BuildOperatorSignature_ParameterWithDefault_RendersDefault
+          - id: ApiMarkDotNet-DotNetEmitter-OmitDefaultValuesFromDisplayNames
+            title: DotNetEmitter shall not include parameter default values in method display names or file names.
+            justification: |
+              Display names and file names are used for overload grouping and file naming; they must
+              stay short and stable regardless of default values.
+            tests:
+              - DotNetEmitter_BuildMethodDisplayName_DefaultValues_DoesNotIncludeDefaults
+          - id: ApiMarkDotNet-DotNetEmitter-RenderNonFiniteFloatingPointValues
+            title: DotNetEmitter shall render NaN and infinite float and double constants as the named members of those types.
+            justification: |
+              The invariant-culture text of these values (NaN, Infinity) is not valid C#; the named
+              members (double.NaN, float.PositiveInfinity, and so on) read correctly in signatures.
+            tests:
+              - DotNetEmitter_FormatConstantValue_SpecialFloatingPointValues_RendersNamedMembers
+              - DotNetEmitter_BuildMethodSignature_ExtendedDefaultValues_RendersDefaults
+          - id: ApiMarkDotNet-DotNetEmitter-RenderRecordKeywords
+            title: DotNetEmitter shall render the record and record struct keywords, including readonly record struct, in type signatures.
+            justification: |
+              Records are a distinct source-level kind; showing them as plain classes or structs
+              misrepresents the API.
+            tests:
+              - DotNetEmitter_BuildTypeSignature_RecordKinds_RenderRecordKeywords
+          - id: ApiMarkDotNet-DotNetEmitter-RenderStructModifiers
+            title: DotNetEmitter shall render the readonly and ref modifiers of structs in type signatures.
+            justification: |
+              Readonly and ref struct modifiers tell readers how a type behaves and where it may be used.
+            tests:
+              - DotNetEmitter_BuildTypeSignature_StructKinds_RenderStructModifiers
+          - id: ApiMarkDotNet-DotNetEmitter-SuppressImplicitRecordEquatable
+            title: DotNetEmitter shall omit the compiler-implied IEquatable of the record itself from a record's base list while keeping explicitly declared interfaces.
+            justification: |
+              Source never spells out the implicit record equality interface, so showing it is noise;
+              hand-written types that implement it, and other interfaces on a record, remain information.
+            tests:
+              - DotNetEmitter_BuildTypeSignature_SelfEquatable_SuppressedOnlyForRecords
+          - id: ApiMarkDotNet-DotNetEmitter-RenderGenericMethodTypeParameters
+            title: DotNetEmitter shall render generic method type parameters in method signatures and display names.
+            justification: |
+              Generic method type parameters are required to call the method correctly and to tell
+              overloads apart.
+            tests:
+              - DotNetEmitter_BuildMethodSignature_GenericMethods_ShowTypeParameters
+          - id: ApiMarkDotNet-DotNetEmitter-RenderGenericMethodConstraints
+            title: DotNetEmitter shall render class, struct, unmanaged, type, and new() where constraints in method signatures.
+            justification: |
+              Generic constraints determine which type arguments a caller may supply.
+            tests:
+              - DotNetEmitter_BuildMethodSignature_GenericMethods_ShowConstraints
+          - id: ApiMarkDotNet-DotNetEmitter-RenderNotNullConstraint
+            title: DotNetEmitter shall render the notnull constraint, ahead of new(), for generic parameters that carry it, and nothing for unconstrained parameters.
+            justification: |
+              The notnull constraint is encoded only through nullable metadata, so it must be
+              recovered explicitly; otherwise the signature would hide a real restriction.
+            tests:
+              - DotNetEmitter_BuildMethodSignature_NotNullConstraint_RendersNotNull
+          - id: ApiMarkDotNet-DotNetEmitter-RenderPerTypeNullability
+            title: DotNetEmitter shall render nullable reference annotations at each type position (generic arguments, array elements, parameters, returns, properties, fields, events), honoring the inherited NullableContext and leaving oblivious code unannotated.
+            justification: |
+              Nullability metadata is positional and inherited from the member, type, or module;
+              signatures that ignore it would mislead callers about null handling.
+            tests:
+              - DotNetEmitter_BuildMemberSignature_NullabilityPositions_RendersAnnotations
+              - DotNetEmitter_ResolveNullableContext_ResolvesInheritedContext
+              - DotNetEmitter_CreateMemberTypeNullability_ReadsPrimaryTypeAnnotation
+          - id: ApiMarkDotNet-DotNetEmitter-RenderGlobalNamespace
+            title: DotNetEmitter shall map the global namespace to the global-namespace folder
+              and the (global namespace) display name, and treat it as a sibling root.
+            justification: |
+              Types declared without a namespace must have a stable folder, a readable display
+              name, and a root of their own so they are neither dropped nor nested under
+              another namespace.
+            tests:
+              - DotNetEmitter_GetNamespaceFolderPath_GlobalNamespace_ReturnsGlobalNamespaceFolder
+              - DotNetEmitter_GetImmediateChildNamespaces_GlobalNamespace_IsSiblingRoot
+              - DotNetEmitter_GetNamespaceDisplayName_GlobalNamespace_ReturnsPlaceholder
+              - DotNetGenerator_ComputeRootNamespaces_GlobalNamespace_IsRootAndDoesNotHideOthers

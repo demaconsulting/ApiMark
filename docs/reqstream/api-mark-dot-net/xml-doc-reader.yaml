@@ -188,7 +188,6 @@ sections:
               - XmlDocReader_GetRemarks_CodeElementContainingBacktickRun_UsesLongerFence
               - XmlDocReader_GetRemarks_BrAndCodeFromGeneratedRegexExample_RendersAsDistinctBlocks
               - XmlDocReader_GetRemarks_NestedCodeInsideListItemDescription_RendersAsInlineSpanNotFencedBlock
-              - XmlDocReader_GetExampleParts_WithMixedInlineElementsContainingMultiLineCodeOutsideCodeTag_RendersAsInlineSpan
           - id: ApiMarkDotNet-XmlDocReader-CollapseExcessBlankLineRuns
             title: XmlDocReader shall collapse runs of two or more consecutive blank
               lines produced by adjacent block-level separators (list, `<br/>`,
@@ -290,3 +289,50 @@ sections:
               - CrefLinking_SeeCrefMalformed_RendersFallbackWithNoLink
               - CrefLinking_SeeAlsoCrefToVisibleType_RendersAsMarkdownLink
               - CrefLinking_SingleFileMode_SeeCrefToVisibleType_RemainsCodeSpanOnly
+          - id: ApiMarkDotNet-XmlDocReader-ExposeCodeLanguage
+            title: XmlDocReader shall expose the lang attribute of each code element in an example as the language of that code part.
+            justification: |
+              Examples in other languages need correct fence languages for syntax highlighting.
+            tests:
+              - XmlDocReader_GetExampleBlocks_LangAttribute_SelectsLanguageWithFallback
+              - XmlDocReader_GetExampleParts_WithLang_ProjectsWithoutLanguage
+              - DotNetGenerator_Generate_ExampleWithLangAttribute_EmitsMatchingCodeFenceLanguage
+          - id: ApiMarkDotNet-XmlDocReader-TrimCodeLanguage
+            title: XmlDocReader shall trim surrounding whitespace from a lang attribute value before using it as the language of an example code part.
+            justification: |
+              Hand-written attributes are often padded; trimming keeps a valid language usable.
+            tests:
+              - XmlDocReader_GetExampleBlocks_PaddedLang_TrimmedAndContentPreserved
+          - id: ApiMarkDotNet-XmlDocReader-CodeLanguageFallback
+            title: XmlDocReader shall use csharp as the language of an example code part when the lang attribute is absent or empty.
+            justification: |
+              Existing examples without a lang attribute are C#, so csharp is the backward-compatible
+              default.
+            tests:
+              - XmlDocReader_GetExampleBlocks_LangAttribute_SelectsLanguageWithFallback
+          - id: ApiMarkDotNet-XmlDocReader-NoCodeChildExampleAsCSharp
+            title: XmlDocReader shall return an example with no code element, direct or nested in a para, as a single csharp code part.
+            justification: |
+              An example without any code element is treated as one C# block for backward
+              compatibility.
+            tests:
+              - XmlDocReader_GetExampleBlocks_NoCodeChild_SingleCSharpBlock
+              - XmlDocReader_GetExampleParts_NoCodeElement_ReturnsWholeTextAsCodePart
+          - id: ApiMarkDotNet-XmlDocReader-SanitizeCodeLanguage
+            title: XmlDocReader shall accept a lang value only when it consists solely of the characters A-Z, a-z, 0-9, underscore, plus, hash and hyphen, and otherwise fall back to csharp.
+            justification: |
+              The language is written directly after a Markdown code fence. Restricting it to an
+              allow-list prevents whitespace, backticks or newlines in the attribute from breaking
+              out of the fence or injecting markup.
+            tests:
+              - XmlDocReader_GetExampleBlocks_LangAttribute_SelectsLanguageWithFallback
+          - id: ApiMarkDotNet-XmlDocReader-HonorCodeLanguageInsidePara
+            title: XmlDocReader shall emit a code element nested in a para inside an example as its own code part carrying its lang, including when the example has no direct code child, with prose parts carrying an empty language.
+            justification: |
+              Authors commonly wrap code in para elements; honoring lang there keeps highlighting
+              correct, and an empty prose language lets emitters fence only code parts.
+            tests:
+              - XmlDocReader_GetExampleBlocks_CodeInsidePara_HonorsLangAndProseHasEmptyLanguage
+              - XmlDocReader_GetExampleBlocks_OnlyCodeInsidePara_HonorsLangAndKeepsProseOrdinary
+              - XmlDocReader_GetExampleBlocks_CodeInsideNestedPara_HonorsLang
+              - XmlDocReader_GetExampleParts_WithMixedInlineElementsContainingMultiLineCodeInsidePara_SplitsIntoCodePart

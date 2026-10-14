@@ -37,10 +37,12 @@ into that writer at heading levels `HeadingDepth` (assembly title),
   present (non-null, non-empty, non-whitespace-only); otherwise the assembly's
   compiled `AssemblyDescriptionAttribute` value is emitted as a fallback when
   present.
+- Types declared without a namespace are grouped under an H{depth+1} heading titled
+  `(global namespace)` (`DotNetEmitter.GetNamespaceDisplayName`).
 - If a namespace has documentation supplied via the `NamespaceDoc` convention, its
   summary is emitted as a paragraph below the H{depth+1} namespace heading, followed
-  by the remarks paragraph (when present) and the structured example parts (code parts
-  as fenced C# blocks, prose parts as paragraphs), mirroring the type-level rendering.
+  by the remarks paragraph (when present) and the structured example blocks (each code block fenced with its own
+  language, prose blocks as paragraphs), mirroring the type-level rendering.
 - Each type section includes a compact bullet list of members
   (`- **Name**: summary`) before the H(depth+3) member sections.
 - No group headings (`Constructors`, `Methods`, `Properties`) or convention
@@ -62,8 +64,13 @@ into that writer at heading levels `HeadingDepth` (assembly title),
 parts) onto the shared single-file writer, mirroring type-level rendering.
 Calls `NamespaceDescription.GetSummary`/`GetRemarks`/`GetExampleParts` with
 only the `xmlDocs` argument, so the optional `CrefLinkContext?` parameter
-defaults to `null` and cref references never link, consistent with every
-other `XmlDocReader` access in this class.
+defaults to `null` and cross-references render as plain code-span text,
+consistent with every other `XmlDocReader` access in this class.
+
+**WriteExampleParts** (private static): Renders example blocks obtained from
+`XmlDocReader.GetExampleBlocks` (or `NamespaceDescription.GetExampleParts`).
+Each code block is written as a fenced block tagged with its own language;
+prose blocks (empty language) are written as paragraphs and are never fenced.
 
 **WriteSingleFileTypeSections** (private): Writes all content for a single type —
 type heading, signature code block, summary, remarks, example, compact member
@@ -103,6 +110,23 @@ throw-away empty
 output, this set is never populated or read. Note that `namespaceFolderPath` is
 passed to `resolver.Linkify` as a required parameter even though it is not used for
 link generation when `generateLinks` is `false`.
+
+**Signature detail** (parameter tables and signatures): single-file output shows the
+same detail as gradual disclosure. Each parameter type is rendered with
+`CreateNullability(p.CustomAttributes, method)` so per-type nullable annotations
+are kept, and each parameter name cell is built with `DotNetEmitter.WithDefault`
+so optional parameters show their C#-source default value. Property accessors
+render `init` for init-only setters, generic methods list their type parameters
+and constraints, and type signatures show the correct record/struct kind
+keywords. These helpers are shared with `DotNetEmitter`.
+
+**Navigation and links**: no breadcrumbs are written, because a single document
+has no page hierarchy and the heading structure already conveys containment.
+External links are not used: the `TypeLinkResolver` is constructed with
+`generateLinks: false` because relative file links, and cross-reference anchors,
+point at page files that do not exist in a single flat document; linking to
+external documentation was deliberately left out of scope so output stays valid
+in any Markdown renderer.
 
 **WriteSingleFileNestedTypes** (private): Recursively emits documentation for
 nested types within a type section by calling `WriteSingleFileTypeSections` for

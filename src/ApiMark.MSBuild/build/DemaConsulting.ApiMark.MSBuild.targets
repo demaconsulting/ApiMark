@@ -4,7 +4,6 @@
 
   <PropertyGroup>
     <ApiMarkOutputDir Condition="'$(ApiMarkOutputDir)' == ''">$(MSBuildProjectDirectory)\api</ApiMarkOutputDir>
-    <ApiMarkVisibility Condition="'$(ApiMarkVisibility)' == ''">Public</ApiMarkVisibility>
     <ApiMarkAssemblyPath Condition="'$(ApiMarkAssemblyPath)' == ''">$(TargetPath)</ApiMarkAssemblyPath>
     <ApiMarkXmlDocPath Condition="'$(ApiMarkXmlDocPath)' == ''">$(DocumentationFile)</ApiMarkXmlDocPath>
     <ApiMarkLibraryName Condition="'$(ApiMarkLibraryName)' == ''">$(MSBuildProjectName)</ApiMarkLibraryName>
@@ -95,6 +94,7 @@
       ApiMarkXmlDocPath="$(ApiMarkXmlDocPath)"
       ApiMarkExclude="$(ApiMarkExclude)"
       ApiMarkReferencePaths="$(ApiMarkReferencePaths)"
+      ApiMarkExternalLinks="$(ApiMarkExternalLinks)"
       ApiMarkIncludePaths="$(ApiMarkIncludePaths)"
       ApiMarkApiHeaders="$(ApiMarkApiHeaders)"
       ApiMarkLibraryName="$(ApiMarkLibraryName)"

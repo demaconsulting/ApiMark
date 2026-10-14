@@ -54,6 +54,14 @@ sections:
               pages.
             tests:
               - DotNetEmitterSingleFile_Emit_NamespaceWithDoc_EmitsNamespaceSummary
+          - id: ApiMarkDotNet-DotNetEmitterSingleFile-EmitGlobalNamespaceTypes
+            title: DotNetEmitterSingleFile shall emit types declared without a namespace
+              under a "(global namespace)" heading.
+            justification: |
+              Types in the global namespace must not abort single-file output; they are grouped
+              under a synthetic "(global namespace)" section like any other namespace.
+            tests:
+              - DotNetEmitterSingleFile_Emit_GlobalNamespaceTypes_EmitsGlobalNamespaceSection
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-EmitNamespaceDocRemarksAndExamples
             title: DotNetEmitterSingleFile shall emit the NamespaceDoc remarks and
               example parts after the namespace summary.
@@ -149,3 +157,47 @@ sections:
             tests:
               - CrefLinking_SingleFileMode_SeeCrefToVisibleType_RemainsCodeSpanOnly
               - CrefLinking_SingleFileMode_NamespaceDocRemarksSeeCref_RemainsCodeSpanOnly
+          - id: ApiMarkDotNet-DotNetEmitterSingleFile-ShowParameterDefaults
+            title: DotNetEmitterSingleFile shall show each optional parameter's default value in the parameter table, rendered in C# source form for every supported constant kind.
+            justification: |
+              Single-file output carries the same signature detail as gradual disclosure.
+            tests:
+              - DotNetEmitterSingleFile_Emit_DefaultValueParameter_ShowsDefaultInParameterTable
+              - DotNetEmitterSingleFile_Emit_DefaultValueVariants_RenderDefaults
+          - id: ApiMarkDotNet-DotNetEmitterSingleFile-RenderInitAccessors
+            title: DotNetEmitterSingleFile shall render init-only property accessors as init.
+            justification: |
+              Init-only setters differ from set accessors in the API contract.
+            tests:
+              - DotNetEmitterSingleFile_Emit_InitOnlyProperties_RenderInitAccessor
+          - id: ApiMarkDotNet-DotNetEmitterSingleFile-NoBreadcrumbs
+            title: DotNetEmitterSingleFile shall not emit breadcrumb navigation lines.
+            justification: |
+              A single document has no page hierarchy to navigate; the heading structure already
+              conveys containment, and relative links would be meaningless.
+            tests:
+              - DotNetEmitterSingleFile_Emit_ValidModel_EmitsNoBreadcrumbs
+          - id: ApiMarkDotNet-DotNetEmitterSingleFile-ShowNullability
+            title: DotNetEmitterSingleFile shall keep nullable annotations on parameter types.
+            justification: |
+              Nullability is part of the API contract and must survive in single-file output.
+            tests:
+              - DotNetEmitterSingleFile_Emit_NullableParameter_KeepsAnnotation
+          - id: ApiMarkDotNet-DotNetEmitterSingleFile-RenderGenericMethodSignatures
+            title: DotNetEmitterSingleFile shall render generic method signatures with their type parameters and constraints.
+            justification: |
+              Type parameters and where-constraints are needed to call a generic method correctly.
+            tests:
+              - DotNetEmitterSingleFile_Emit_GenericMethod_SignatureHasTypeParametersAndConstraints
+          - id: ApiMarkDotNet-DotNetEmitterSingleFile-RenderRecordAndStructKinds
+            title: DotNetEmitterSingleFile shall render the correct kind keywords (record, record struct, readonly struct and similar) in type signatures.
+            justification: |
+              The kind keyword conveys value versus reference semantics and mutability to readers.
+            tests:
+              - DotNetEmitterSingleFile_Emit_RecordAndStructKinds_ShowKindKeywords
+          - id: ApiMarkDotNet-DotNetEmitterSingleFile-HonorCodeLanguage
+            title: DotNetEmitterSingleFile shall tag each fenced example code block with its own language.
+            justification: |
+              Examples may mix languages; each block must be highlighted correctly.
+            tests:
+              - DotNetEmitterSingleFile_Emit_LangExample_TagsCodeBlocksWithLanguage

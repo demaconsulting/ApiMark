@@ -44,6 +44,12 @@ output location is needed.
 - `LinkifyResolvedMember` returns a Markdown link when the member is found in the supplied member-page index.
 - `LinkifyResolvedMember` returns the display text unchanged when the member has no entry in the member-page index.
 - `LinkifyResolvedMember` returns the display text unchanged when link generation is disabled.
+- A type from a mapped external assembly links to that assembly's documentation using an http(s) base or a relative path (normalized and climbed from the current folder), for plain, generic, and nested types, and is not tracked as external.
+- Assembly-name lookup is case-insensitive regardless of the caller dictionary's comparer.
+- Rooted and `file:` API paths produce absolute `file:` links, and spaces/parentheses in link targets are percent-encoded.
+- A type from an unmapped assembly, or any external type when `generateLinks` is `false`, stays plain text and is tracked as external.
+- Nullable flags are applied per position in pre-order (generic arguments, array elements); value types never receive `?`; exhausted flags fall back to the default.
+- A by-reference type resolves to its element type without a trailing `&` and consumes no nullable flag.
 
 ### Test Scenarios
 
@@ -195,3 +201,82 @@ is disabled**: Verifies that single-file mode (`generateLinks: false`)
 short-circuits `LinkifyResolvedMember` before consulting `memberPageIndex` at
 all. This scenario is tested by
 `TypeLinkResolver_LinkifyResolvedMember_GenerateLinksFalse_ReturnsDisplayTextUnchanged`.
+
+**Mapped external type links using an absolute http(s) base**: Arrange a resolver
+whose mapping for `Acme.Widgets` is `https://docs.example.com/widgets/api/` and a
+synthetic `Acme.Widgets.Widget` reference. Act: `Linkify` from folder `A/B`.
+Expected: `[Widget](https://docs.example.com/widgets/api/Acme.Widgets/Widget.md)`,
+unchanged by the current folder, and the external-types accumulator stays empty. This
+scenario is tested by
+`TypeLinkResolver_Linkify_MappedHttpsApiPath_ReturnsAbsoluteLinkAndSkipsTracking`.
+
+**Mapped external type links using a relative path**: Arrange a mapping of
+`.\Other\api` and call `Linkify` from folder `A/B`. Expected:
+`[Widget](../../Other/api/Acme.Widgets/Widget.md)` — backslashes and the leading `./`
+are normalized and the link climbs one `../` per current-folder segment. This scenario
+is tested by `TypeLinkResolver_Linkify_MappedRelativeApiPath_ClimbsOutOfCurrentFolder`.
+
+**Assembly-name lookup is case-insensitive**: Arrange an `Ordinal` caller dictionary
+keyed `Acme.Widgets` and a type scoped to assembly `ACME.WIDGETS`. Expected: the link
+is produced. This scenario is tested by
+`TypeLinkResolver_Linkify_CaseSensitiveCallerDictionary_StillMatchesCaseInsensitively`.
+
+**Mapped generic external type**: Arrange `Box<int>` from the mapped assembly.
+Expected: `[Box](../Other/api/Acme.Widgets/Box1.md)\<int\>` and nothing tracked. This
+scenario is tested by `TypeLinkResolver_Linkify_MappedGenericType_LinksContainerWithArguments`.
+
+**Mapped nested external type**: Arrange `Outer.Inner` from the mapped assembly.
+Expected: `[Inner](../Other/api/Acme.Widgets/Outer/Inner.md)`. This scenario is tested
+by `TypeLinkResolver_Linkify_MappedNestedType_LinksToNestedPagePath`.
+
+**Rooted and file: API paths**: Arrange mappings `/docs/api` and `file:///docs/api`.
+Expected for both: `[Widget](file:///docs/api/Acme.Widgets/Widget.md)` — never a
+relative climb. This scenario is tested by
+`TypeLinkResolver_Linkify_RootedOrFileApiPath_ReturnsAbsoluteFileLink`.
+
+**Link target escaping**: Arrange a mapping `../My Lib (v2)/api`. Expected: spaces and
+parentheses are percent-encoded
+(`../My%20Lib%20%28v2%29/api/Acme.Widgets/Widget.md`). This scenario is tested by
+`TypeLinkResolver_Linkify_ApiPathWithSpacesAndParentheses_EscapesLinkTarget`.
+
+**Unmapped assembly keeps table-only behavior**: Arrange a mapping for a different
+assembly and a type from `Example.Gadgets`. Expected: plain `Gadget`, tracked in the
+accumulator. This scenario is tested by
+`TypeLinkResolver_Linkify_UnmappedAssembly_ReturnsPlainTextAndTracksType`.
+
+**Mapping ignored when generateLinks is false**: Arrange a mapped resolver created
+with `generateLinks: false`. Expected: plain `Widget`, tracked. This scenario is
+tested by
+`TypeLinkResolver_Linkify_MappedAssemblyWithGenerateLinksFalse_ReturnsPlainTextAndTracksType`.
+
+**End-to-end mapped link**: The generator-level scenario is
+`DotNetGenerator_Generate_ExternalLinksMapped_LinksTypeAndSkipsExternalTypesTable`.
+
+**Per-position nullable flags on generic arguments**: Arrange `List<string>` and a
+cursor with flags `[2, 2]`. Expected: `List\<string?\>?`. This scenario is tested by
+`TypeLinkResolver_Linkify_CursorGenericArgumentFlags_AnnotatesEachPosition`.
+
+**Per-position nullable flags on arrays**: Arrange `string[]` and flags `[1, 2]`.
+Expected: `string?[]` (element annotated, array not). This scenario is tested by
+`TypeLinkResolver_Linkify_CursorArrayFlags_AnnotatesElementNotArray`.
+
+**Value types never receive ?**: Arrange `int` with cursor flag `2`, and separately
+with the legacy `isNullableAnnotated: true`. Expected: `int` in both cases. This
+scenario is tested by `TypeLinkResolver_Linkify_AnnotatedValueType_DoesNotAppendQuestionMark`.
+
+**Exhausted flags fall back to the cursor default**: Arrange `List<string>` with the
+single-flag cursor from the boolean overload (`true`). Expected: `List\<string\>?` —
+the argument position is oblivious. This scenario is tested by
+`TypeLinkResolver_Linkify_CursorExhausted_LaterPositionsUnannotated`.
+
+**By-reference types**: Arrange a `ByReferenceType` wrapping an intra-assembly type.
+Expected: the link uses the plain type name and path (`[SampleClass](SampleClass.md)`),
+never a name with a trailing `&`. Arrange a by-reference `string` with flags `[2]`.
+Expected: `string?` — the wrapper consumes no flag. These scenarios are tested by
+`TypeLinkResolver_Linkify_ByReferenceType_ReturnsLinkWithPlainTypeName` and
+`TypeLinkResolver_Linkify_CursorWithByReference_ByRefConsumesNoFlag`.
+
+**Global namespace type links to the global-namespace folder**: Arrange an intra-assembly type
+reference with an empty namespace. Act: call `Linkify`. Expected:
+`[GlobalNamespaceClass](global-namespace/GlobalNamespaceClass.md)`. Tested by
+`TypeLinkResolver_Linkify_GlobalNamespaceType_LinksToGlobalNamespacePage`.

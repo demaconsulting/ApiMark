@@ -38,6 +38,9 @@ assembly is needed.
 - `GetExample` returns trimmed text; `null` for whitespace-only content.
 - `GetExample` returns `null` when the member or element is absent.
 - `GetExampleParts` separates prose text nodes from `<code>` elements.
+- `GetExampleBlocks` exposes each code block's sanitized `lang` (fallback `csharp`),
+  honors `lang` for `<code>` nested in `<para>` (including when it is the only code), and gives
+  prose blocks an empty language.
 - `GetExampleParts` strips common leading indentation from multi-line `<code>` blocks.
 - `GetExampleParts` preserves relative indentation when lines have varying indent depths.
 - `GetExampleParts` preserves blank lines inside `<code>` blocks without counting them in the indent calculation.
@@ -610,14 +613,14 @@ coexists with the pre-existing nested-list inline-degradation behavior. This
 scenario is tested by
 `XmlDocReader_GetRemarks_NestedCodeInsideListItemDescription_RendersAsInlineSpanNotFencedBlock`.
 
-**`<code>` reached through `<example>` mixed-prose accumulation renders
-inline, not fenced**: Verifies that a multi-line `<code>` nested inside a
-`<para>` within `<example>` mixed prose (not a direct `<example>`-child
-`<code>`, which bypasses this dispatch entirely) falls back to an inline span
-rather than a mangled fenced block, since the example-prose pipeline never
-supplies a `codeBlocks` placeholder map. This scenario is tested by
-`XmlDocReader_GetExampleParts_WithMixedInlineElementsContainingMultiLineCodeOutsideCodeTag_RendersAsInlineSpan`.
-
+**`<code>` nested in `<para>` inside `<example>` becomes its own code part**:
+Verifies that a multi-line `<code>` nested inside a `<para>` within `<example>`
+mixed content yields a separate code part (rather than an inline span inside
+prose), so it can carry its own `lang`. Arrange an example with a direct
+`<code>` child followed by a `<para>` containing text and a multi-line
+`<code>`. Act with `GetExampleParts`. Expected: three parts — code, prose
+`See:`, code containing both lines. This scenario is tested by
+`XmlDocReader_GetExampleParts_WithMixedInlineElementsContainingMultiLineCodeInsidePara_SplitsIntoCodePart`.
 **No linkContext renders a resolvable cref exactly as before linking existed**:
 Verifies that calling `GetSummary` without a `linkContext` argument (the
 pre-existing 1-arg call shape used throughout the rest of this file, and by
@@ -701,3 +704,46 @@ a resolvable, emitted intra-assembly type — matching the no-label branch's
 existing precedent that a constructor cref's `ShouldWrapInCodeSpan` result
 (always `false`) is never linked. This scenario is tested by
 `XmlDocReader_GetSummary_ExplicitLabelConstructorCref_RendersLabelOnlyNoLink`.
+
+**Code language exposure, fallback and sanitization**: Arrange an `<example>`
+with several `<code>` children using `lang="xml"`, `lang="c++"`,
+`lang="bad lang!"`, `lang=""` and no `lang`. Act with `GetExampleBlocks`.
+Expected: languages `xml`, `c++`, `csharp`, `csharp`, `csharp` — values outside
+the `A-Za-z0-9_+#-` allow-list or empty fall back to `csharp`. Tested by
+`XmlDocReader_GetExampleBlocks_LangAttribute_SelectsLanguageWithFallback`.
+
+**Padded language is trimmed**: Arrange `lang=" xml "`. Act with
+`GetExampleBlocks`. Expected: language `xml` and the content unchanged. Tested by
+`XmlDocReader_GetExampleBlocks_PaddedLang_TrimmedAndContentPreserved`.
+
+**Example without a code child**: Arrange an `<example>` containing only text (no direct or
+`<para>`-nested `<code>`).
+Act with `GetExampleBlocks`. Expected: one `csharp` code block holding the
+(dedented) text. Tested by
+`XmlDocReader_GetExampleBlocks_NoCodeChild_SingleCSharpBlock` and
+`XmlDocReader_GetExampleParts_NoCodeElement_ReturnsWholeTextAsCodePart`.
+
+**Code inside `<para>` honors `lang`; prose has empty language**: Arrange a
+direct `<code>`, then a `<para>` with text and `<code lang="xml">`, then a
+second `<para>`. Act with `GetExampleBlocks`. Expected: prose blocks carry an
+empty language, the nested code is its own block with language `xml`. Tested by
+`XmlDocReader_GetExampleBlocks_CodeInsidePara_HonorsLangAndProseHasEmptyLanguage`.
+
+**Example whose only code is inside `<para>`**: Arrange an `<example>` holding a single
+`<para>` with text and `<code lang="xml">` and no direct `<code>` child. Act with
+`GetExampleBlocks`. Expected: a prose block with empty language followed by a code block
+with language `xml` (not one whole-value `csharp` block). Tested by
+`XmlDocReader_GetExampleBlocks_OnlyCodeInsidePara_HonorsLangAndKeepsProseOrdinary`.
+
+**Code nested two `<para>` levels deep**: Arrange an `<example>` holding a `<para>` that
+contains a nested `<para>` with text and `<code lang="xml">`, and no direct `<code>` child.
+Act with `GetExampleBlocks`. Expected: a prose block with empty language followed by a code
+block with language `xml`. Tested by
+`XmlDocReader_GetExampleBlocks_CodeInsideNestedPara_HonorsLang`.
+
+**`GetExampleParts` projection**: Arrange an example with `<code lang="xml">`.
+Act with `GetExampleParts`. Expected: two-element tuples without the language.
+Tested by `XmlDocReader_GetExampleParts_WithLang_ProjectsWithoutLanguage`.
+
+**End-to-end language fence**: `lang` reaches the generated Markdown fence,
+tested by `DotNetGenerator_Generate_ExampleWithLangAttribute_EmitsMatchingCodeFenceLanguage`.

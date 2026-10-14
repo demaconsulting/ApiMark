@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net8.0;net9.0;net10.0</TargetFrameworks>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>ApiMark.DotNet.Fixtures.Global</AssemblyName>
+    <RootNamespace>ApiMark.DotNet.Fixtures.Global</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <Description>Test fixture assembly declaring types in the global namespace.</Description>
+    <Authors>DEMA Consulting</Authors>
+    <Company>DEMA Consulting</Company>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\ApiMark.DotNet.Fixtures\GlobalNamespace\*.cs" />
+  </ItemGroup>
+</Project>

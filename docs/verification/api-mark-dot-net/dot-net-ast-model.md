@@ -6,8 +6,9 @@
 `DotNetGenerator.Parse` and then inspecting the resulting model properties.
 No mocking is required because the data model is a plain value object; the
 test simply calls `Parse` to obtain a populated instance. An
-`InMemoryMarkdownWriterFactory` is not needed for these tests because no
-Markdown output is written during model inspection.
+`InMemoryMarkdownWriterFactory` is used only by the test that drives a
+gradual-disclosure emit to inspect the page index; other tests need no
+Markdown output.
 
 ### Test Environment
 
@@ -28,9 +29,12 @@ No external service, network dependency, or privileged configuration is needed.
 - All collection-type properties (`AllNamespaces`, `ByNamespace`, `RootNamespaces`) expose read-only interfaces.
 - `CrefTargets` is populated eagerly by `Parse` and resolves a known fixture
   type's XML-doc cref ID.
-- `MemberPageIndex` and `EmittedTypeIds` are populated once the
-  gradual-disclosure emitter has processed the model, and contain entries for
+- `MemberPageIndex` and `EmittedTypeIds` are populated by `Parse` and contain entries for
   known visible fixture symbols.
+- `SetMemberPageIndex` throws `InvalidOperationException` when called a second time.
+- The default visibility is public and protected, and protected members are indexed.
+- `NamespaceDescription` accessors return `null`/empty when no IDs are set, return carrier
+  text when IDs are set, and propagate each example block's language.
 
 ### Test Scenarios
 
@@ -83,8 +87,8 @@ tested by `DotNetAstModel_NamespaceDescriptions_AfterParse_IsNotNull`.
 `IReadOnly*` interface types, confirmed by the C# compiler type system — no runtime
 test is required for the static guarantee. Supplementary runtime test:
 `DotNetAstModel_Collections_ExposeReadOnlyInterfaces` asserts that the runtime
-types satisfy the interface constraints by calling `Assert.IsAssignableFrom` on
-each collection property.
+types satisfy the interface constraints by calling `Assert.IsType<T>(value, exactMatch: false)`
+on each collection property.
 
 **CrefTargets resolves a known fixture type after Parse**: Verifies that
 `DotNetAstModel.CrefTargets` is constructed eagerly during `DotNetGenerator.Parse`
@@ -94,8 +98,30 @@ tested by `DotNetAstModel_CrefTargets_AfterParse_ResolvesKnownFixtureType`.
 
 **MemberPageIndex and EmittedTypeIds are populated after gradual-disclosure emit**:
 Verifies that `DotNetAstModel.MemberPageIndex` and `DotNetAstModel.EmittedTypeIds`
-— both empty immediately after `Parse` — are populated once a
-`DotNetEmitterGradualDisclosure` has run `Emit` against the model, and that the
-populated index/set contain entries for a known visible fixture member/type.
+are populated (`DotNetGenerator.Parse` calls `SetMemberPageIndex` after constructing
+the emitter) and remain populated after a `DotNetEmitterGradualDisclosure` has run
+`Emit` against the model, and that the index/set contain entries for a known visible
+fixture member/type.
 This scenario is tested by
 `DotNetAstModel_MemberPageIndexAndEmittedTypeIds_AfterGradualDisclosureEmit_ArePopulated`.
+
+**SetMemberPageIndex rejects a second call**: Arrange a parsed model (whose `Parse` already
+called `SetMemberPageIndex`). Act by calling it again. Expected: `InvalidOperationException`.
+Tested by `DotNetAstModel_SetMemberPageIndex_CalledAfterParse_Throws`.
+
+**Default visibility indexes protected members**: Arrange default generator options. Act by
+parsing and reading the model. Expected: visibility is `PublicAndProtected` and protected
+fixture members appear in `MemberPageIndex`. Tested by
+`DotNetAstModel_DefaultVisibility_IsPublicAndProtected_AndIndexesProtectedMembers`.
+
+**NamespaceDescription without IDs**: Arrange a `NamespaceDescription` with null member IDs.
+Act by calling the summary, remarks and example accessors. Expected: `null`, `null` and an empty
+list. Tested by `NamespaceDescription_NullIds_ReturnNullAndEmpty`.
+
+**NamespaceDescription with IDs**: Arrange a description using the NamespaceDoc carrier IDs of
+the fixture. Act by calling the accessors. Expected: the carrier's summary, remarks and examples.
+Tested by `NamespaceDescription_WithIds_ReturnsCarrierText`.
+
+**NamespaceDescription propagates example language**: Arrange a carrier with examples in more
+than one language. Act with `GetExampleParts`. Expected: each code block keeps its own `lang`.
+Tested by `NamespaceDescription_GetExampleParts_PropagatesLanguage`.

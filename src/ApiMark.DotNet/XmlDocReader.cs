@@ -1,3 +1,6 @@
+// Copyright (c) DemaConsulting LLC. All rights reserved.
+// Licensed under the MIT License.
+
 using System.Text;
 using System.Xml.Linq;
 using System.Xml.XPath;
@@ -37,6 +40,9 @@ namespace ApiMark.DotNet;
 /// </remarks>
 public sealed class XmlDocReader
 {
+    /// <summary>The fenced-code language used when a <c>&lt;code&gt;</c> element has no valid <c>lang</c> attribute.</summary>
+    private const string DefaultCodeLanguage = "csharp";
+
     /// <summary>Index of documentation members keyed by their XML doc identifier.</summary>
     private readonly Dictionary<string, XElement> _members;
 
@@ -434,33 +440,81 @@ public sealed class XmlDocReader
     ///     A list of (IsCode, Content) pairs, or an empty list when the member is absent or has
     ///     no <c>&lt;example&gt;</c> element.
     /// </returns>
-    internal IReadOnlyList<(bool IsCode, string Content)> GetExampleParts(string memberId, CrefLinkContext? linkContext)
+    internal IReadOnlyList<(bool IsCode, string Content)> GetExampleParts(string memberId, CrefLinkContext? linkContext) =>
+        GetExampleBlocks(memberId, linkContext).Select(b => (b.IsCode, b.Content)).ToList();
+
+    /// <summary>
+    ///     Returns the ordered example parts for a member, including the fenced-code language of
+    ///     each code part.
+    /// </summary>
+    /// <remarks>
+    ///     The language comes from the optional <c>lang</c> attribute on a <c>&lt;code&gt;</c> element
+    ///     (for example <c>&lt;code lang="xml"&gt;</c>). It is sanitized to the characters
+    ///     <c>[A-Za-z0-9_+#-]</c>; a missing, empty, or invalid value falls back to
+    ///     <c>csharp</c>. Prose parts carry an empty language, which consumers must ignore.
+    ///     <para>
+    ///     Limitations: <c>lang</c> is honored for a <c>&lt;code&gt;</c> element that is a direct
+    ///     child of <c>&lt;example&gt;</c> or is nested in a <c>&lt;para&gt;</c> within it. It is
+    ///     not honored for <c>&lt;code&gt;</c> blocks inside <c>&lt;summary&gt;</c>,
+    ///     <c>&lt;remarks&gt;</c> and other sections (those fenced blocks carry no language), and
+    ///     an <c>&lt;example&gt;</c> without any <c>&lt;code&gt;</c> child (direct or nested in a
+    ///     <c>&lt;para&gt;</c>) is returned as a single
+    ///     <c>csharp</c> block.
+    ///     </para>
+    /// </remarks>
+    /// <param name="memberId">The XML doc member identifier.</param>
+    /// <param name="linkContext">See <see cref="GetSummary(string, CrefLinkContext?)"/>.</param>
+    /// <returns>A list of (IsCode, Content, Language) triples, or an empty list when there is no example.</returns>
+    internal IReadOnlyList<(bool IsCode, string Content, string Language)> GetExampleBlocks(string memberId, CrefLinkContext? linkContext = null)
     {
         var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
         var el = member?.Element("example");
         if (el == null)
         {
-            return Array.Empty<(bool, string)>();
+            return Array.Empty<(bool, string, string)>();
         }
 
-        // When no <code> children exist, treat the entire value as a single code block
-        return el.Elements("code").Any()
+        // When no <code> child exists directly or nested under <para> (at any depth), treat the
+        // entire value as a single code block
+        return HasProcessableCode(el)
             ? BuildMixedExampleParts(el, linkContext)
             : BuildSingleCodeExamplePart(el);
     }
 
     /// <summary>
+    ///     Determines whether a <c>&lt;code&gt;</c> element is a direct child of
+    ///     <paramref name="container"/> or is nested in <c>&lt;para&gt;</c> elements at any depth,
+    ///     matching the traversal used by <see cref="BuildMixedExampleParts"/>.
+    /// </summary>
+    /// <param name="container">The <c>&lt;example&gt;</c> or <c>&lt;para&gt;</c> element.</param>
+    /// <returns><see langword="true"/> when a reachable <c>&lt;code&gt;</c> element exists.</returns>
+    private static bool HasProcessableCode(XElement container) =>
+        container.Elements("code").Any() || container.Elements("para").Any(HasProcessableCode);
+
+    /// <summary>
     ///     Builds a single-part example result by treating the entire <paramref name="el"/> value
-    ///     as one code block. Used when the <c>&lt;example&gt;</c> element has no <c>&lt;code&gt;</c> children.
+    ///     as one code block. Used when the <c>&lt;example&gt;</c> element has no <c>&lt;code&gt;</c> child,
+    ///     either directly or nested in a <c>&lt;para&gt;</c>.
     /// </summary>
     /// <param name="el">The <c>&lt;example&gt;</c> element.</param>
     /// <returns>A single-element code part list, or an empty list when the dedented text is empty.</returns>
-    private static IReadOnlyList<(bool IsCode, string Content)> BuildSingleCodeExamplePart(XElement el)
+    private static IReadOnlyList<(bool IsCode, string Content, string Language)> BuildSingleCodeExamplePart(XElement el)
     {
         var text = DedentCode(el.Value);
         return string.IsNullOrEmpty(text)
-            ? Array.Empty<(bool, string)>()
-            : [(true, text)];
+            ? Array.Empty<(bool, string, string)>()
+            : [(true, text, DefaultCodeLanguage)];
+    }
+
+    /// <summary>Reads and sanitizes the <c>lang</c> attribute of a <c>&lt;code&gt;</c> element.</summary>
+    /// <param name="codeElement">The code element.</param>
+    /// <returns>The sanitized language identifier, or <c>csharp</c> when absent or invalid.</returns>
+    private static string GetCodeLanguage(XElement codeElement)
+    {
+        var lang = ((string?)codeElement.Attribute("lang"))?.Trim();
+        return !string.IsNullOrEmpty(lang) && lang.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '_' or '+' or '#' or '-')
+            ? lang
+            : DefaultCodeLanguage;
     }
 
     /// <summary>
@@ -475,10 +529,10 @@ public sealed class XmlDocReader
     /// </remarks>
     /// <param name="el">The <c>&lt;example&gt;</c> element.</param>
     /// <param name="linkContext">See <see cref="GetSummary(string)"/>.</param>
-    /// <returns>Ordered list of (IsCode, Content) parts.</returns>
-    private static List<(bool IsCode, string Content)> BuildMixedExampleParts(XElement el, CrefLinkContext? linkContext)
+    /// <returns>Ordered list of (IsCode, Content, Language) parts.</returns>
+    private static List<(bool IsCode, string Content, string Language)> BuildMixedExampleParts(XElement el, CrefLinkContext? linkContext)
     {
-        var parts = new List<(bool IsCode, string Content)>();
+        var parts = new List<(bool IsCode, string Content, string Language)>();
         var proseBuilder = new StringBuilder();
 
         // Flushes any accumulated prose content to the parts list and resets the builder
@@ -488,36 +542,43 @@ public sealed class XmlDocReader
             proseBuilder.Clear();
             if (text.Length > 0)
             {
-                parts.Add((false, text));
+                // Prose parts carry no language; consumers only use it for code parts
+                parts.Add((false, text, string.Empty));
             }
         }
 
-        foreach (var node in el.Nodes())
+        // Processes sibling nodes; recurses into <para> so a <code lang> nested there is honored
+        void ProcessNodes(IEnumerable<XNode> nodes)
         {
-            if (node is XElement codeElement && codeElement.Name.LocalName == "code")
+            foreach (var node in nodes)
             {
-                // Emit any accumulated prose before this code block
-                FlushProse();
-
-                var code = DedentCode(codeElement.Value);
-                if (code.Length > 0)
+                if (node is XElement codeElement && codeElement.Name.LocalName == "code")
                 {
-                    parts.Add((true, code));
+                    // Emit any accumulated prose before this code block
+                    FlushProse();
+
+                    var code = DedentCode(codeElement.Value);
+                    if (code.Length > 0)
+                    {
+                        parts.Add((true, code, GetCodeLanguage(codeElement)));
+                    }
+                }
+                else if (node is XElement paraElement && paraElement.Name.LocalName == "para")
+                {
+                    // Flush after so each <para> ends a distinct prose part rather than
+                    // merging with following content
+                    ProcessNodes(paraElement.Nodes());
+                    FlushProse();
+                }
+                else
+                {
+                    // Text nodes and inline elements — accumulate for combined prose rendering
+                    AppendNodeText(proseBuilder, node, linkContext: linkContext);
                 }
             }
-            else if (node is XElement paraElement && paraElement.Name.LocalName == "para")
-            {
-                // Render the paragraph into the accumulator, then flush so that each <para>
-                // becomes a distinct prose part rather than merging with adjacent content
-                AppendNodeText(proseBuilder, paraElement.Nodes(), linkContext: linkContext);
-                FlushProse();
-            }
-            else
-            {
-                // Text nodes and inline elements — accumulate for combined prose rendering
-                AppendNodeText(proseBuilder, node, linkContext: linkContext);
-            }
         }
+
+        ProcessNodes(el.Nodes());
 
         // Flush any remaining prose after the last node
         FlushProse();

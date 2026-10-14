@@ -45,6 +45,8 @@ sections:
           - ApiMarkMsbuild-ApiMarkTask-ForwardStdoutToLog
           - ApiMarkMsbuild-ApiMarkTask-ElevateUndocumentedFindings
           - ApiMarkMsbuild-ApiMarkTask-ForwardStderrErrors
+          - ApiMarkMsbuild-ApiMarkTask-ForwardExternalLinks
+          - ApiMarkMsbuild-ApiMarkTask-OmitUnsetVisibility
         tests:
           - ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoDocumentsOnBuild
           - windows@ApiMarkMsbuild_NuGetPackage_CppVcxprojProject_AutoDocumentsOnBuild

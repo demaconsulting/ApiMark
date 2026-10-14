@@ -24,6 +24,11 @@ DotNetEmitterGradualDisclosure holds references to:
 - *_model* (`DotNetAstModel`): Pre-parsed assembly data (namespaces, types,
   XML docs, resolver, options).
 
+The class is intentionally kept as one large file: the page writers share one context
+(`TypePageWriteContext`, `MethodDocContext`, `CrefLinkContext`) and the single
+`BuildMemberPageIndex` grouping logic; splitting them across files would duplicate or
+scatter those shared decisions, so the size is accepted rather than split.
+
 ### Key Methods
 
 **DotNetEmitterGradualDisclosure.Emit** (internal): Entry point called by
@@ -51,8 +56,8 @@ single namespace.
   and short name; creates the namespace page writer via `factory.CreateMarkdown`;
   writes an H1 heading with the namespace name; if a namespace description is
   present in `NamespaceDescriptions`, emits its summary as a paragraph, then the
-  remarks paragraph (when present) and the structured example parts (code parts as
-  fenced C# blocks, prose parts as paragraphs), mirroring the type-level rendering;
+  remarks paragraph (when present) and the structured example blocks (each code block fenced with its own
+  language, prose blocks as paragraphs), mirroring the type-level rendering;
   writes a table of
   immediate child namespaces with links when any exist; writes a table of all
   visible types in the namespace (columns: Type, Description), with each type
@@ -73,7 +78,7 @@ single namespace.
   paragraph; otherwise the "No description provided." placeholder is emitted ONLY
   when remarks are also absent (see "Placeholder Suppression" below) — when remarks
   alone are present, nothing is written here and the remarks paragraph (emitted next)
-  carries the type's description; emits structured example blocks via `ctx.XmlDocs.GetExampleParts(typeMemberId)`; groups all
+  carries the type's description; emits structured example blocks via `ctx.XmlDocs.GetExampleBlocks(typeMemberId, linkContext)`; groups all
   visible members by kind (Constructors, Properties, Fields, Events, Methods,
   Operators, Nested Types) and writes one table row per member (or one representative row
   per method overload group) with a link to the member's dedicated page; calls per-kind page writers for each member or member group.
@@ -100,7 +105,7 @@ for a single method (or one overload) onto the caller-supplied writer.
   resolved via `resolver.Linkify` and external types are accumulated into
   `context.ExternalTypes`; if a returns value is documented, writes a `**Returns:**`
   paragraph; writes exception and remarks sections when present; writes structured
-  example blocks from `xmlDocs.GetExampleParts`.
+  example blocks from `xmlDocs.GetExampleBlocks`, each code block fenced with its own `lang`.
 
 **WriteMethodOverloadPage** (private static): Writes a single shared Markdown page for a
 pure method overload group (all methods sharing the same exact case-sensitive sanitized file name).
@@ -327,6 +332,43 @@ table, per-kind member-row tables, and overload-group tables on a type page)
 deliberately keeps the unconditional placeholder-on-empty-summary behavior
 unchanged, since table cells never render remarks — the placeholder remains
 the only signal available in that compact context.
+
+**WriteExampleParts** (private static): Renders example blocks from
+`XmlDocReader.GetExampleBlocks` (or `NamespaceDescription.GetExampleParts`). Each code
+block is written as a fenced block tagged with its own language (so one example can mix
+XML and PowerShell); prose blocks carry an empty language and are written as paragraphs,
+never fenced.
+
+**WriteBreadcrumb** (private static): Writes one navigation paragraph of the form
+`[Namespace](rel) › [Outer](rel) › [Type](rel)` as the first paragraph after the page's
+H1, on type, member, overload, operators and combined pages. It is written only in
+gradual-disclosure output; single-file output has no breadcrumbs.
+
+- *Algorithm*: Builds the chain of declaring types from the outermost to the page's type.
+  Recovers the namespace folder by dropping one folder segment per nested level from the
+  type's folder path (so nested and dotted namespace folders resolve correctly). Emits the
+  namespace crumb whenever a namespace folder exists; a global-namespace type gets a
+  `(global namespace)` crumb linking to the synthetic `global-namespace` page. Then emits one crumb per chain entry using
+  the flattened-arity page key, linked relative to the current page folder; the type itself
+  is included only when `includeType` is true (member, overload, operators and combined
+  pages), because a type page already shows its own name as H1. Crumbs are joined with the
+  `BreadcrumbSeparator` constant (`" › "`), and the paragraph is followed by a blank line.
+- Types declared without a namespace (the empty namespace) are documented on a synthetic
+  namespace page whose folder and file short name is `global-namespace`
+  (`DotNetEmitter.GetNamespaceFolderPath("")`); the H1, the `api.md` link text and the
+  breadcrumb crumb use the display name `(global namespace)`
+  (`DotNetEmitter.GetNamespaceDisplayName`). The global namespace is a sibling root: it has
+  no child namespaces and appears first in `api.md` because the empty string sorts first.
+  Output for assemblies without global types is unchanged. A real namespace named
+  `global-namespace` would collide with the synthetic page and is not supported.
+
+**Parameter tables and signatures**: parameter type cells are built with
+`CreateNullability(p.CustomAttributes, method)` so per-type nullable annotations (including
+nested generic arguments and return types such as `Func<...>`) are kept; the name cell is
+built with `DotNetEmitter.WithDefault` so optional parameters show their C#-source default
+(null, default, enum, boolean, numeric, string, char and long constants). Init-only
+properties render `init`, generic methods list type parameters and constraints, and type
+signatures show record, record struct and readonly struct kinds.
 
 ### Path Conventions
 

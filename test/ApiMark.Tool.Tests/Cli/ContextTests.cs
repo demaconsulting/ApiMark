@@ -340,6 +340,104 @@ public sealed class ContextTests
     }
 
     /// <summary>
+    ///     Validates that repeated <c>--external-link</c> flags accumulate Assembly=path entries.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithExternalLinkOption_AccumulatesEntries()
+    {
+        // Arrange
+        var args = new[] { "--external-link", "Lib.One=../One/api", "--external-link", "Lib.Two=https://example.com/api" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert
+        string[] expected = ["Lib.One=../One/api", "Lib.Two=https://example.com/api"];
+        Assert.Equal(expected, context.ExternalLinks);
+    }
+
+    /// <summary>
+    ///     Validates that malformed <c>--external-link</c> values are rejected with a clear message.
+    /// </summary>
+    /// <param name="value">The malformed value.</param>
+    [Theory]
+    [InlineData("NoSeparator")]
+    [InlineData("=path")]
+    [InlineData("  =x")]
+    [InlineData("Assembly=")]
+    public void Context_Create_WithMalformedExternalLink_ThrowsArgumentException(string value)
+    {
+        // Act
+        var ex = Assert.Throws<ArgumentException>(() => Context.Create(["--external-link", value]));
+
+        // Assert
+        Assert.Contains("--external-link", ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that blank or whitespace-only <c>--external-link</c> values are skipped
+    ///     (MSBuild semicolon-splitting can produce empty segments).
+    /// </summary>
+    /// <param name="blank">The blank value.</param>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Context_Create_WithBlankExternalLinkValue_SkipsEntry(string blank)
+    {
+        // Arrange
+        var args = new[] { "--external-link", "Lib.One=../One", "--external-link", blank };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert: only the non-blank entry is retained
+        Assert.Equal(["Lib.One=../One"], context.ExternalLinks);
+    }
+
+    /// <summary>
+    ///     Validates that <c>--external-link</c> without a following value throws.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithExternalLinkMissingValue_ThrowsArgumentException()
+    {
+        // Act
+        var ex = Assert.Throws<ArgumentException>(() => Context.Create(["--external-link"]));
+
+        // Assert
+        Assert.Contains("--external-link", ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that a flag token supplied as the <c>--external-link</c> value is rejected.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithExternalLinkFlagAsValue_ThrowsArgumentException()
+    {
+        // Act
+        var ex = Assert.Throws<ArgumentException>(() => Context.Create(["--external-link", "--silent"]));
+
+        // Assert
+        Assert.Contains("--external-link", ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that duplicate and case-differing assembly names are both retained by the
+    ///     parser; resolution (last wins, case-insensitive) is the responsibility of the Program unit.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithDuplicateAndCaseDifferingExternalLinks_RetainsAllEntriesInOrder()
+    {
+        // Arrange
+        var args = new[] { "--external-link", "Lib=../a", "--external-link", "Lib=../b", "--external-link", "LIB=../c" };
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert
+        Assert.Equal(["Lib=../a", "Lib=../b", "LIB=../c"], context.ExternalLinks);
+    }
+
+    /// <summary>
     ///     Validates that repeated <c>--reference-paths</c> flags accumulate all paths in order.
     /// </summary>
     [Fact]
@@ -566,12 +664,13 @@ public sealed class ContextTests
             () => Assert.Null(context.XmlDoc),
             () => Assert.Null(context.Output),
             () => Assert.Null(context.ResultsFile),
-            () => Assert.Equal("Public", context.Visibility),
+            () => Assert.Null(context.Visibility),
             () => Assert.False(context.IncludeObsolete),
             () => Assert.Equal(1, context.HeadingDepth),
             () => Assert.Empty(context.Includes),
             () => Assert.Empty(context.Excludes),
             () => Assert.Empty(context.ReferencePaths),
+            () => Assert.Empty(context.ExternalLinks),
             () => Assert.Empty(context.ApiHeaders),
             () => Assert.Equal(0, context.ExitCode));
     }

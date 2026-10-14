@@ -150,8 +150,12 @@ Documentation is generated automatically after every build. Output goes to
   <!-- Change the output directory -->
   <ApiMarkOutputDir>$(MSBuildProjectDirectory)\docs\api</ApiMarkOutputDir>
 
-  <!-- Include protected members as well as public ones -->
-  <ApiMarkVisibility>PublicAndProtected</ApiMarkVisibility>
+  <!-- C# projects document public and protected members by default;
+       set Public to document public members only -->
+  <ApiMarkVisibility>Public</ApiMarkVisibility>
+
+  <!-- Link types from referenced assemblies that are also documented with ApiMark (C# only) -->
+  <ApiMarkExternalLinks>Other.Lib=../Other.Lib/api</ApiMarkExternalLinks>
 
   <!-- Include the generated api/ folder in the NuGet package (C# only) -->
   <ApiMarkPackDocs>true</ApiMarkPackDocs>

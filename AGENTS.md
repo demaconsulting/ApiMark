@@ -40,6 +40,7 @@
     ├── ApiMark.Cpp.Tests/
     ├── ApiMark.DotNet.Fixtures/
     ├── ApiMark.DotNet.Fixtures.External/
+    ├── ApiMark.DotNet.Fixtures.Global/
     ├── ApiMark.DotNet.Tests/
     ├── ApiMark.MSBuild.PackageTests/
     ├── ApiMark.MSBuild.Tests/

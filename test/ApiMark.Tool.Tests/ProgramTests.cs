@@ -1,5 +1,6 @@
 using ApiMark.DotNet.Fixtures;
 using ApiMark.Tool;
+using ApiMark.Tool.Cli;
 using Xunit;
 
 namespace ApiMark.Tool.Tests;
@@ -181,6 +182,268 @@ public class ProgramTests
                 Directory.Delete(outputDir, recursive: true);
             }
         }
+    }
+
+    /// <summary>
+    ///     Validates that the dotnet subcommand defaults to <c>PublicAndProtected</c> visibility (a protected
+    ///     member page is generated) and that an explicit <c>--visibility Public</c> suppresses it.
+    /// </summary>
+    [Fact]
+    public void Program_Main_DotNetVisibilityDefault_IsPublicAndProtectedUnlessOverridden()
+    {
+        // Arrange
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
+        var defaultDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var publicDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        const string protectedPage = "ApiMark.DotNet.Fixtures/AbstractFixtureClass/ProtectedProperty.md";
+
+        try
+        {
+            // Act
+            var defaultExit = Program.Main(["dotnet", "--assembly", assemblyPath, "--xml-doc", xmlDocPath, "--output", defaultDir]);
+            var publicExit = Program.Main(["dotnet", "--assembly", assemblyPath, "--xml-doc", xmlDocPath, "--output", publicDir, "--visibility", "Public"]);
+
+            // Assert
+            Assert.Equal(0, defaultExit);
+            Assert.Equal(0, publicExit);
+            Assert.True(File.Exists(Path.Join(defaultDir, protectedPage)), "Default visibility must document protected members.");
+            Assert.False(File.Exists(Path.Join(publicDir, protectedPage)), "Explicit Public must hide protected members.");
+        }
+        finally
+        {
+            foreach (var dir in new[] { defaultDir, publicDir })
+            {
+                if (Directory.Exists(dir))
+                {
+                    Directory.Delete(dir, recursive: true);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Runs the dotnet subcommand against the fixture assembly with the supplied
+    ///     <c>--external-link</c> entries (plus the logging abstractions DLL as a reference path)
+    ///     and returns the exit code and the text of the <c>TypeLinkFixture/Log.md</c> page.
+    /// </summary>
+    /// <param name="externalLinks">The raw <c>--external-link</c> values to pass.</param>
+    /// <returns>The exit code and the page text (empty when the page was not generated).</returns>
+    private static (int ExitCode, string PageText) RunWithExternalLinks(params string[] externalLinks)
+    {
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
+        var loggingDll = Path.Join(
+            Path.GetDirectoryName(assemblyPath),
+            "Microsoft.Extensions.Logging.Abstractions.dll");
+        Assert.True(File.Exists(loggingDll), "Test setup: logging abstractions DLL must be next to the fixtures");
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+
+        var args = new List<string>
+        {
+            "dotnet",
+            "--assembly", assemblyPath,
+            "--xml-doc", xmlDocPath,
+            "--output", outputDir,
+            "--reference-paths", loggingDll,
+        };
+        foreach (var link in externalLinks)
+        {
+            args.Add("--external-link");
+            args.Add(link);
+        }
+
+        try
+        {
+            var exitCode = Program.Main([.. args]);
+            var page = Path.Join(outputDir, "ApiMark.DotNet.Fixtures", "TypeLinkFixture", "Log.md");
+            return (exitCode, File.Exists(page) ? File.ReadAllText(page) : string.Empty);
+        }
+        finally
+        {
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that a valid <c>--external-link</c> mapping turns the external type into a link
+    ///     into the mapped documentation root.
+    /// </summary>
+    [Fact]
+    public void Program_Main_DotNetWithExternalLink_LinksExternalType()
+    {
+        // Act
+        var (exitCode, page) = RunWithExternalLinks("Microsoft.Extensions.Logging.Abstractions=../OtherLib/api");
+
+        // Assert
+        Assert.Equal(0, exitCode);
+        Assert.Contains("OtherLib/api/Microsoft.Extensions.Logging/ILogger1.md", page, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that the assembly name in an <c>--external-link</c> entry matches
+    ///     case-insensitively.
+    /// </summary>
+    [Fact]
+    public void Program_Main_DotNetWithExternalLink_AssemblyNameIsCaseInsensitive()
+    {
+        // Act
+        var (exitCode, page) = RunWithExternalLinks("MICROSOFT.EXTENSIONS.LOGGING.ABSTRACTIONS=../OtherLib/api");
+
+        // Assert
+        Assert.Equal(0, exitCode);
+        Assert.Contains("OtherLib/api/Microsoft.Extensions.Logging/ILogger1.md", page, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that when the same assembly is mapped twice (including with different
+    ///     casing) the last mapping wins.
+    /// </summary>
+    [Fact]
+    public void Program_Main_DotNetWithDuplicateExternalLink_LastEntryWins()
+    {
+        // Act
+        var (exitCode, page) = RunWithExternalLinks(
+            "Microsoft.Extensions.Logging.Abstractions=../OldLib/api",
+            "microsoft.extensions.logging.abstractions=../NewLib/api");
+
+        // Assert
+        Assert.Equal(0, exitCode);
+        Assert.Contains("NewLib/api/", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("OldLib/api/", page, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that blank <c>--external-link</c> values are skipped, leaving the type
+    ///     unlinked (External Types table fallback) without failing the run.
+    /// </summary>
+    [Fact]
+    public void Program_Main_DotNetWithBlankExternalLink_IsSkipped()
+    {
+        // Act
+        var (exitCode, page) = RunWithExternalLinks(string.Empty);
+
+        // Assert
+        Assert.Equal(0, exitCode);
+        Assert.NotEmpty(page);
+        Assert.Contains("ILogger", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("OtherLib", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("ILogger1.md", page, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that malformed or missing <c>--external-link</c> values exit non-zero with a
+    ///     diagnostic naming the option.
+    /// </summary>
+    /// <param name="value">The malformed value; <see langword="null"/> omits the value token.</param>
+    [Theory]
+    [InlineData("NoSeparator")]
+    [InlineData("=../path")]
+    [InlineData("Assembly=")]
+    [InlineData(null)]
+    public void Program_Main_DotNetWithMalformedExternalLink_ReturnsNonZeroExitCode(string? value)
+    {
+        // Arrange
+        var assemblyPath = typeof(SampleClass).Assembly.Location;
+        var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
+        var outputDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+        var args = new List<string> { "dotnet", "--assembly", assemblyPath, "--xml-doc", xmlDocPath, "--output", outputDir, "--external-link" };
+        if (value is not null)
+        {
+            args.Add(value);
+        }
+
+        try
+        {
+            Console.SetError(errorWriter);
+
+            // Act
+            var exitCode = Program.Main([.. args]);
+
+            // Assert
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--external-link", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that, without <c>--visibility</c>, <c>CreateGenerator</c> resolves the
+    ///     per-language default: <c>Public</c> for cpp (no clang is invoked; only construction).
+    /// </summary>
+    [Fact]
+    public void Program_CreateGenerator_CppWithoutVisibility_DefaultsToPublic()
+    {
+        // Arrange
+        using var context = Context.Create(["cpp", "--includes", "include", "--output", "out"]);
+
+        // Act
+        var generator = CreateGeneratorViaReflection(context);
+
+        // Assert: the cpp options carry the Public ordinal
+        var options = generator.GetType()
+            .GetField("_options", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(generator)!;
+        var visibility = options.GetType().GetProperty("Visibility")!.GetValue(options)!;
+        Assert.Equal("Public", visibility.ToString());
+    }
+
+    /// <summary>
+    ///     Validates that, without <c>--visibility</c>, <c>CreateGenerator</c> resolves the
+    ///     <c>PublicAndProtected</c> default for dotnet.
+    /// </summary>
+    [Fact]
+    public void Program_CreateGenerator_DotNetWithoutVisibility_DefaultsToPublicAndProtected()
+    {
+        // Arrange
+        using var context = Context.Create(["dotnet", "--assembly", "a.dll", "--xml-doc", "a.xml", "--output", "out"]);
+
+        // Act
+        var generator = CreateGeneratorViaReflection(context);
+
+        // Assert
+        var options = generator.GetType()
+            .GetField("_options", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(generator)!;
+        var visibility = options.GetType().GetProperty("Visibility")!.GetValue(options)!;
+        Assert.Equal("PublicAndProtected", visibility.ToString());
+    }
+
+    /// <summary>
+    ///     Validates that vhdl (which has no visibility concept) is created successfully without
+    ///     <c>--visibility</c>, i.e. the fallback <c>Public</c> default parses cleanly.
+    /// </summary>
+    [Fact]
+    public void Program_CreateGenerator_VhdlWithoutVisibility_CreatesGenerator()
+    {
+        // Arrange
+        using var context = Context.Create(["vhdl", "--source", "*.vhd", "--output", "out"]);
+
+        // Act
+        var generator = CreateGeneratorViaReflection(context);
+
+        // Assert
+        Assert.NotNull(generator);
+        Assert.Equal("VhdlGenerator", generator.GetType().Name);
+    }
+
+    /// <summary>Invokes the private <c>Program.CreateGenerator</c> method for a parsed context.</summary>
+    /// <param name="context">The parsed context.</param>
+    /// <returns>The constructed generator.</returns>
+    private static object CreateGeneratorViaReflection(Context context)
+    {
+        var method = typeof(Program).GetMethod(
+            "CreateGenerator",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        return method.Invoke(null, [context])!;
     }
 
     /// <summary>

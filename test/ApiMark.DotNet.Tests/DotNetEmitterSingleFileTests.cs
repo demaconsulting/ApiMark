@@ -671,4 +671,158 @@ public class DotNetEmitterSingleFileTests
         Assert.DoesNotContain(paragraphs, p => p.Contains("`SampleClass`", StringComparison.Ordinal) &&
             p.Contains("](", StringComparison.Ordinal));
     }
+
+    /// <summary>Validates that the single-file parameter table shows default values in the Parameter column.</summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_DefaultValueParameter_ShowsDefaultInParameterTable()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterSingleFile(emitter, emitter.Model).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert
+        var writer = factory.GetWriter("", "api");
+        var tables = writer.Operations.OfType<TableOperation>().ToList();
+        Assert.Contains(tables, t => t.Rows.Any(r => r[0] == "indented = true"));
+        Assert.Contains(writer.Operations.OfType<SignatureOperation>(), s => s.Code == "public string ToJson(bool indented = true)");
+    }
+
+    /// <summary>Validates that init-only properties (including positional record properties) render <c>init;</c> in single-file output.</summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_InitOnlyProperties_RenderInitAccessor()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterSingleFile(emitter, emitter.Model).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert
+        var signatures = factory.GetWriter("", "api").Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains("public string InitOnlyProperty { get; init; }", signatures);
+        Assert.Contains("public string Name { get; init; }", signatures);
+        Assert.DoesNotContain("public string InitOnlyProperty { get; }", signatures);
+    }
+
+    /// <summary>Emits the fixture assembly in single-file format.</summary>
+    /// <returns>The in-memory writer holding the single <c>api.md</c> output.</returns>
+    private static InMemoryMarkdownWriter EmitFixture()
+    {
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+        new DotNetEmitterSingleFile(emitter, emitter.Model).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+        return factory.GetWriter("", "api");
+    }
+
+    /// <summary>Validates that single-file output contains no breadcrumb navigation paragraphs.</summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_ValidModel_EmitsNoBreadcrumbs()
+    {
+        // Arrange / Act
+        var writer = EmitFixture();
+
+        // Assert
+        Assert.DoesNotContain(writer.Operations.OfType<ParagraphOperation>(), p => p.Text.Contains(" › ", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates the default-value variants not covered by the basic default test.</summary>
+    [Theory]
+    [InlineData("format = \"N0\"")]
+    [InlineData("name = null")]
+    [InlineData("point = default")]
+    [InlineData("mode = DefaultValueMode.Slow")]
+    [InlineData("value = default")]
+    [InlineData("value = 7")]
+    [InlineData("rate = 1.5")]
+    [InlineData("count = null")]
+    [InlineData("separator = ','")]
+    [InlineData("limit = 42")]
+    public void DotNetEmitterSingleFile_Emit_DefaultValueVariants_RenderDefaults(string expected)
+    {
+        // Arrange / Act
+        var writer = EmitFixture();
+
+        // Assert
+        Assert.Contains(writer.Operations.OfType<TableOperation>(), t => t.Rows.Any(r => r[0] == expected));
+    }
+
+    /// <summary>Validates that generic method signatures show type parameters and constraints.</summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_GenericMethod_SignatureHasTypeParametersAndConstraints()
+    {
+        // Arrange / Act
+        var writer = EmitFixture();
+
+        // Assert
+        var signatures = writer.Operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains(signatures, s => s.Contains("Map<TIn, TOut>(TIn value)", StringComparison.Ordinal) && s.Contains("where TIn : class, IDisposable", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates record and struct kind keywords in type signatures.</summary>
+    [Theory]
+    [InlineData("public record struct RecordStructSample")]
+    [InlineData("public readonly record struct ReadOnlyRecordStructSample")]
+    [InlineData("public record GenericRecordSample<T>")]
+    public void DotNetEmitterSingleFile_Emit_RecordAndStructKinds_ShowKindKeywords(string expectedPrefix)
+    {
+        // Arrange / Act
+        var writer = EmitFixture();
+
+        // Assert
+        Assert.Contains(writer.Operations.OfType<SignatureOperation>(), s => s.Code.StartsWith(expectedPrefix, StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that <c>lang</c> attributes select the fence language of example code blocks in single-file output.</summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_LangExample_TagsCodeBlocksWithLanguage()
+    {
+        // Arrange / Act
+        var writer = EmitFixture();
+
+        // Assert
+        var languages = writer.Operations.OfType<CodeBlockOperation>().Select(b => b.Language).ToList();
+        Assert.Contains("xml", languages);
+        Assert.Contains("powershell", languages);
+    }
+
+    /// <summary>Validates that nullable parameter types keep their <c>?</c> annotation in single-file parameter cells.</summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_NullableParameter_KeepsAnnotation()
+    {
+        // Arrange / Act
+        var writer = EmitFixture();
+
+        // Assert
+        Assert.Contains(
+            writer.Operations.OfType<TableOperation>(),
+            t => t.Rows.Any(r => r[1].Contains("NullPoint", StringComparison.Ordinal) && r[1].TrimEnd('`').EndsWith('?')));
+    }
+
+    /// <summary>Validates that single-file output for types declared without a namespace emits a "(global namespace)" section.</summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_GlobalNamespaceTypes_EmitsGlobalNamespaceSection()
+    {
+        // Arrange
+        var options = new DotNetGeneratorOptions
+        {
+            AssemblyPath = FixturePaths.GetGlobalFixtureDll(),
+            XmlDocPath = FixturePaths.GetGlobalFixtureXmlDoc(),
+            Visibility = ApiVisibility.Public,
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(options).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterSingleFile(emitter, emitter.Model).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert
+        var writer = Assert.Single(factory.Writers).Value;
+        var headings = writer.Operations.OfType<HeadingOperation>().Select(h => h.Text).ToList();
+        Assert.Contains("(global namespace)", headings);
+        Assert.Contains(headings, h => h.Contains("GlobalNamespaceClass", StringComparison.Ordinal));
+    }
 }

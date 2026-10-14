@@ -211,6 +211,57 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
+    ///     Validates that each semicolon-separated <see cref="ApiMarkTask.ApiMarkExternalLinks"/>
+    ///     entry becomes its own <c>--external-link</c> argument, and that none are emitted when unset.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_DotNet_ExternalLinks_EmitsOneFlagPerEntry()
+    {
+        // Arrange
+        var task = new ApiMarkTask
+        {
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/path/api.dll",
+            ApiMarkXmlDocPath = "/some/path/api.xml",
+            ApiMarkExternalLinks = "Lib.One=../One/api;Lib.Two=https://example.com/two/api",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet").ToList();
+        var unsetArgs = new ApiMarkTask
+        {
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/path/api.dll",
+            ApiMarkXmlDocPath = "/some/path/api.xml",
+        }.BuildArguments("dotnet");
+
+        // Assert
+        var first = args.IndexOf("--external-link");
+        var last = args.LastIndexOf("--external-link");
+        Assert.NotEqual(first, last);
+        Assert.Equal("Lib.One=../One/api", args[first + 1]);
+        Assert.Equal("Lib.Two=https://example.com/two/api", args[last + 1]);
+        Assert.DoesNotContain("--external-link", unsetArgs);
+    }
+
+    /// <summary>
+    ///     Validates that the MSBuild targets pass <c>ApiMarkExternalLinks</c> through to the task.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTargets_PassesExternalLinksToTask()
+    {
+        // Arrange
+        var targetsPath = FixturePaths.GetTargetsFilePath();
+        Assert.True(File.Exists(targetsPath), $"Targets file not found at {targetsPath}");
+
+        // Act
+        var text = File.ReadAllText(targetsPath);
+
+        // Assert
+        Assert.Contains("ApiMarkExternalLinks=\"$(ApiMarkExternalLinks)\"", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     Validates that <see cref="ApiMarkTask.BuildArguments"/> omits the
     ///     <c>--reference-paths</c> flag entirely when
     ///     <see cref="ApiMarkTask.ApiMarkReferencePaths"/> is null or empty, consistent with how
@@ -436,6 +487,48 @@ public class ApiMarkTaskTests
         // Assert: the --visibility flag and the configured value must appear
         Assert.Contains("--visibility", args);
         Assert.Contains("Public", args);
+    }
+
+    /// <summary>
+    ///     Validates that the <c>--visibility</c> flag is omitted when <see cref="ApiMarkTask.ApiMarkVisibility"/>
+    ///     is not set, so the tool applies its per-language default (<c>PublicAndProtected</c> for dotnet).
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_VisibilityUnset_OmitsVisibilityArgument()
+    {
+        // Arrange
+        var task = new ApiMarkTask
+        {
+            ProjectExtension = ".csproj",
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/api.dll",
+            ApiMarkXmlDocPath = "/some/api.xml",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet");
+
+        // Assert
+        Assert.DoesNotContain("--visibility", args);
+    }
+
+    /// <summary>
+    ///     Validates that the packaged MSBuild targets file does not force a <c>Public</c> default for
+    ///     <c>ApiMarkVisibility</c>.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTargets_NoForcedVisibilityDefault()
+    {
+        // Arrange
+        var targetsPath = FixturePaths.GetTargetsFilePath();
+        Assert.True(File.Exists(targetsPath), $"Targets file not found at {targetsPath}");
+
+        // Act
+        var text = File.ReadAllText(targetsPath);
+
+        // Assert
+        Assert.DoesNotContain("<ApiMarkVisibility Condition", text, StringComparison.Ordinal);
+        Assert.Contains("ApiMarkVisibility=\"$(ApiMarkVisibility)\"", text, StringComparison.Ordinal);
     }
 
     /// <summary>

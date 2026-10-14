@@ -30,9 +30,10 @@ apimark dotnet [options]
 | `--xml-doc <path>` | Path to the XML documentation file |
 | `--output <dir>` | Output directory for Markdown files (required) |
 | `--format <value>` | Output format: `gradual` (file-per-type) or `single-file` (single `api.md`) (default: `gradual`) |
-| `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `Public`) |
+| `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `PublicAndProtected`) |
 | `--include-obsolete` | Include obsolete members in generated output |
 | `--exclude <pattern>` | Exclude namespaces/types matching a wildcard pattern (repeatable) |
+| `--external-link <Assembly=path>` | Link types from the named referenced assembly to its own ApiMark documentation at `path` (a path relative to this API root, or an `http(s)` base URL). The assembly's DLL must also be supplied via `--reference-paths`. Repeatable |
 | `--reference-paths <path>` | Path to a referenced assembly DLL, used to resolve cross-assembly `<inheritdoc/>` (repeatable; also accepts `@<file>` to read paths/flags from a response file, one argument per line) |
 | `--library-description <text>` | Optional description for the `api.md` introduction paragraph; overrides the assembly's compiled `AssemblyDescriptionAttribute` when set |
 | `--enforce-docs <value>` | Enable documentation-coverage enforcement at the given visibility tier: `Public`, `PublicAndProtected`, `All` (default: disabled) |
@@ -56,14 +57,25 @@ namespace page — the summary and remarks as paragraphs and the example as its 
 parts: prose is rendered as paragraphs and code as fenced code blocks (a single example
 may therefore produce multiple paragraphs and/or code blocks).
 
+Types declared without a namespace (the C# global namespace) are documented under a
+synthetic namespace named `(global namespace)`: its page is `global-namespace.md`, its
+types live in `global-namespace/{type}.md`, and it is listed in `api.md` like any other
+namespace. The page name cannot collide with a real namespace, because a C# namespace
+identifier cannot contain a hyphen.
+
 ### Types
 
 Public classes, interfaces, structs, enums, and delegates are documented. The set of
 visible types is controlled by `--visibility`:
 
-- `Public` — public types only (default)
-- `PublicAndProtected` — public and protected types
+- `Public` — public types only
+- `PublicAndProtected` — public and protected members (default)
 - `All` — all types including internal
+
+> **Default visibility.** The default for C# is `PublicAndProtected`, so protected members appear in
+> output unless you pass `--visibility Public` (or set `ApiMarkVisibility` to `Public`). C++ and VHDL
+> default to `Public`. This setting is independent of `--enforce-docs`, which has its own tier and
+> stays disabled unless set.
 
 ### Members
 
@@ -71,6 +83,20 @@ Methods, properties, fields, events, and constructors are documented on the type
 Operator overloads are grouped together on a dedicated `operators.md` page within the
 type folder. `const` fields and enum members render their compile-time value in the
 signature (e.g. `public const string DefaultName = "default"`, `Active = 0`).
+
+### Signature Details
+
+Signatures follow C# source syntax: parameter default values (`int count = 5`), per-type
+nullability (`Func<Wire, WireStyle?>?`, `Point?`), `record`, `record struct`, `readonly struct`,
+`ref struct` and `readonly ref struct` type kinds, `init` accessors, and generic method type
+parameters with `where` constraints (`Map<T>(...) where T : class, new()`). Display names used for
+file names and overload grouping include type parameters but never default values.
+
+### Breadcrumbs
+
+In gradual-disclosure output, type and member pages begin with a breadcrumb line directly under the
+heading, such as `[Namespace](../Namespace.md) › [Type](../Type.md)`, to navigate back up the tree.
+Single-file output has no breadcrumbs.
 
 ### Nested Types
 
@@ -156,6 +182,21 @@ populated automatically from the project's resolved `@(ReferencePath)` items
 (see the *MSBuild Properties* section below), so most projects do not need to
 set it explicitly.
 
+### Linking to Other Assemblies' Documentation
+
+By default, types from referenced non-System assemblies are listed in an *External Types* table.
+If the dependency is also documented with ApiMark, map it with `--external-link`:
+
+```text
+apimark dotnet ... --reference-paths path/to/Other.Lib.dll --external-link Other.Lib=../Other.Lib/api
+```
+
+Types from `Other.Lib` then render as relative links into that API tree (or into an `http(s)` base
+URL) and are removed from the *External Types* table. The mapped assembly's DLL must be found via
+`--reference-paths` so its namespace layout is known; otherwise the mapping is ignored. Links are
+not verified to exist, and single-file output never emits them. In MSBuild, use
+`ApiMarkExternalLinks` with semicolon-separated `Assembly=path` pairs.
+
 ### Cross-Reference Linking
 
 A `<see cref="..."/>` or `<seealso cref="..."/>` reference to a type or member
@@ -235,7 +276,7 @@ ApiMark reads standard C# XML doc comments (`///`).
 | `<param name="...">` | Description for a method or constructor parameter |
 | `<returns>` | Description for the return value |
 | `<exception cref="...">` | Documents an exception the method may throw |
-| `<example>` | Code example rendered in a fenced code block |
+| `<example>` | Code example rendered in a fenced code block. A `<code lang="xml">` attribute selects the fence language; without it, or with an invalid value, the fence uses `csharp` |
 | `<list>` | Bullet (`type="bullet"`), numbered (`type="number"`), and table (`type="table"`) lists rendered as their Markdown equivalents; `<item>` `<term>`/`<description>` pairs render as **term** — description |
 
 Missing `<summary>` tags render as *No description provided.* in the output. Missing
@@ -304,7 +345,8 @@ After the next `dotnet build`, documentation is written to `$(MSBuildProjectDire
 | --- | --- | --- |
 | `ApiMarkAssemblyPath` | `$(TargetPath)` | Path to the compiled assembly |
 | `ApiMarkXmlDocPath` | `$(DocumentationFile)` | Path to the XML documentation file |
-| `ApiMarkVisibility` | `Public` | Visibility filter: `Public`, `PublicAndProtected`, `All` |
+| `ApiMarkVisibility` | `PublicAndProtected` | Visibility filter: `Public`, `PublicAndProtected`, `All` |
+| `ApiMarkExternalLinks` | (empty) | Semicolon-separated `Assembly=path` pairs linking referenced assemblies' types to their ApiMark documentation (relative path or `http(s)` URL); forwarded as `--external-link` |
 | `ApiMarkIncludeObsolete` | `false` | Include `[Obsolete]` members in generated output |
 | `ApiMarkExclude` | (empty) | Semicolon-separated wildcard patterns identifying namespaces/types to exclude, e.g. `Antlr4.*;MyNamespace.Generated.*` |
 | `ApiMarkLibraryDescription` | *(unset)* | Optional description for the `api.md` introduction paragraph. When set, overrides the assembly's compiled `AssemblyDescriptionAttribute` |

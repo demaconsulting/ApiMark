@@ -241,3 +241,84 @@ sections:
               - DotNetAstModel_MemberPageIndexAndEmittedTypeIds_AfterGradualDisclosureEmit_ArePopulated
               - DotNetGenerator_Generate_GradualDisclosure_EveryGeneratedLinkResolvesToExistingPage
               - BuildMemberPageIndex_AllEntries_MatchActualWrittenPages
+          - id: ApiMarkDotNet-DotNetGenerator-DefaultVisibilityPublicAndProtected
+            title: DotNetGeneratorOptions shall default Visibility to PublicAndProtected,
+              so that protected members are emitted when Visibility is not set.
+            justification: |
+              Protected members are part of the inheritable API surface that derived-type
+              authors rely on, so they belong in the default documentation output.
+            tests:
+              - DotNetGeneratorOptions_Defaults_VisibilityIsPublicAndProtectedWithNoEnforcement
+              - DotNetGenerator_Generate_DefaultVisibility_EmitsProtectedMembersButNotPrivate
+          - id: ApiMarkDotNet-DotNetGenerator-DefaultDocumentationEnforcementDisabled
+            title: DotNetGeneratorOptions shall leave documentation enforcement disabled
+              by default, independently of Visibility.
+            justification: |
+              Enforcement fails a build when documentation is missing, so it must remain an
+              explicit opt-in and must not change when the default Visibility changes.
+            tests:
+              - DotNetGeneratorOptions_Defaults_VisibilityIsPublicAndProtectedWithNoEnforcement
+          - id: ApiMarkDotNet-DotNetGenerator-PropagateExampleCodeLanguage
+            title: DotNetGenerator shall emit each example code block with the language
+              given by its lang attribute, falling back to csharp when absent.
+            justification: |
+              Examples in languages other than C# need the correct code-fence language for
+              syntax highlighting. The attribute parsing itself is specified by
+              ApiMarkDotNet-XmlDocReader-CodeLanguageAttribute; this requirement covers the
+              end-to-end propagation to the generated output in both output formats.
+            tests:
+              - DotNetGenerator_Generate_ExampleWithLangAttribute_EmitsMatchingCodeFenceLanguage
+          - id: ApiMarkDotNet-DotNetGenerator-AcceptExternalLinksMapping
+            title: DotNetGenerator shall accept an ExternalLinks option that maps a referenced
+              assembly simple name (matched case-insensitively) to the location of that
+              assembly's generated ApiMark documentation.
+            justification: |
+              Projects that publish documentation for several assemblies need to point each
+              dependency's types at that dependency's own documentation. The mapping value is
+              either a path relative to this documentation's root or an absolute http(s) base
+              URL; the DLL is located through ReferencePaths, which may name the DLL, a file
+              next to it, or the directory that contains it.
+            tests:
+              - DotNetGenerator_Generate_ExternalLinksMapped_LinksTypeAndSkipsExternalTypesTable
+              - DotNetGenerator_Generate_ExternalLinksHttpsUrl_EmitsAbsoluteLink
+              - DotNetGenerator_Generate_ExternalLinksKeyDifferentCase_StillLinks
+              - DotNetGenerator_Generate_ExternalLinksDirectoryReferencePath_FindsAssembly
+              - DotNetGenerator_Generate_ExternalLinksMultipleMappings_HonorsUsableOnes
+          - id: ApiMarkDotNet-DotNetGenerator-LinkMappedAssemblyTypes
+            title: DotNetGenerator shall render types from a mapped assembly as links into
+              that assembly's documentation and omit them from the External Types table.
+            justification: |
+              Listing a dependency whose documentation is available elsewhere in a table adds
+              no navigation value; a link lets readers follow the type to its documentation.
+              The root namespaces of the mapped assembly are derived with the same rule used
+              for the documented assembly so link targets match that run's folder layout.
+            tests:
+              - DotNetGenerator_Generate_ExternalLinksMapped_LinksTypeAndSkipsExternalTypesTable
+          - id: ApiMarkDotNet-DotNetGenerator-TreatGlobalNamespaceAsRoot
+            title: DotNetGenerator shall treat the global namespace as a sibling root namespace
+              that neither hides nor is hidden by other root namespaces.
+            justification: |
+              Types declared without a namespace must keep their own root so gradual-disclosure
+              output and external link targets include them instead of nesting or dropping them.
+            tests:
+              - DotNetGenerator_ComputeRootNamespaces_GlobalNamespaceAmongNamespaces_TreatedAsSiblingRoot
+          - id: ApiMarkDotNet-DotNetGenerator-FallBackToExternalTypesTableForUnusableMapping
+            title: DotNetGenerator shall ignore an external link mapping whose assembly DLL
+              is not found or cannot be read, emit a warning through the context, and keep
+              listing that assembly's types in the External Types table.
+            justification: |
+              A stale or wrong mapping must not abort documentation generation, and the
+              warning tells the operator why links were not produced. Any failure reading a
+              malformed DLL is treated the same way, not only I/O failures.
+            tests:
+              - DotNetGenerator_Generate_ExternalLinksWithoutReferenceDll_FallsBackToExternalTypesTable
+              - DotNetGenerator_Generate_ExternalLinksCorruptDll_WarnsAndFallsBack
+          - id: ApiMarkDotNet-DotNetGenerator-RejectUnsafeExternalLinkValues
+            title: DotNetGenerator shall accept only a relative path or an http(s) URL as an
+              external link mapping value, ignoring any other value with a warning.
+            justification: |
+              Values such as javascript: or file: URIs would become link targets in generated
+              Markdown; restricting the accepted forms keeps generated documentation safe and
+              its links portable.
+            tests:
+              - DotNetGenerator_Generate_ExternalLinksInvalidValue_WarnsAndFallsBack

@@ -32,6 +32,9 @@ sections:
               - ApiMarkTool-Cli-Context-ParseEnforceDocsOption
               - ApiMarkTool-Cli-Context-ParseEnforceDocsSeverityOption
               - ApiMarkTool-Cli-Context-RejectFlagAsOptionValue
+              - ApiMarkTool-Cli-Context-ExternalLinkOption
+              - ApiMarkTool-Cli-Context-ExternalLinkValidation
+              - ApiMarkTool-Cli-Context-VisibilityDefaultsToNull
               - ApiMarkTool-Cli-SuppressOutputWhenSilent
               - ApiMarkTool-Cli-RouteOutputThroughContext
             tests: [Context_Cli_ParsesAllGlobalFlags]

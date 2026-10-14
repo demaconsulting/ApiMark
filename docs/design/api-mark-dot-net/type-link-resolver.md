@@ -11,8 +11,10 @@ TypeLinkResolver resolves Mono.Cecil `TypeReference` instances to Markdown link
 text suitable for table cells in generated API documentation. It applies
 composite type handling (Nullable\<T\>, arrays, generic instances) before
 determining whether a leaf type is intra-assembly (emitted as a relative
-Markdown link), a C# primitive or System type (plain text), or a non-System
-external type (plain text, tracked for the External Types section).
+Markdown link), a C# primitive or System type (plain text), an external type from an
+assembly mapped through the external link map (a link into that assembly's documentation,
+not tracked), or an unmapped non-System external type (plain text, tracked for the External
+Types section).
 
 Linkification is applied only in table cells — never inside fenced code blocks,
 because Markdown links do not render inside fences.
@@ -30,9 +32,27 @@ parameter.
   rendered as plain text instead of Markdown links. Used by
   `DotNetEmitterSingleFile` where relative file links are meaningless and
   same-name anchors across types would collide.
+- *_externalLinks* (private `Dictionary<string, ExternalLinkTarget>`): Map from a
+  referenced assembly's simple name to the location of its generated documentation.
+  Always a case-insensitive (`OrdinalIgnoreCase`) copy of the caller-supplied
+  dictionary, regardless of the comparer the caller's dictionary uses.
 - *PrimitiveFullNames* (private static `HashSet<string>`): Full CLR names of
   C# primitive types that are always rendered as their keyword alias and never
   tracked as external dependencies.
+
+**ExternalLinkTarget** (nested internal record): Describes where another
+assembly's documentation lives.
+
+- *ApiPath* (`string`): A relative path from this documentation's root to the other
+  API root (e.g. `../OtherLib/api`), or an absolute `http(s)` base URL. A `file:` URI
+  or rooted file-system path is also handled defensively (see External Assembly Links).
+- *RootNamespaces* (`IReadOnlyList<string>`): The other assembly's root namespaces,
+  used to derive namespace folders exactly as that assembly's own run did.
+
+**NullabilityCursor** (internal class, declared in `TypeNameSimplifier.cs`):
+Supplies the per-position nullable flags (0 oblivious, 1 not annotated, 2 annotated)
+of one member in pre-order. It is consumed by `Linkify` and is not thread-safe; one
+cursor is created per member.
 
 **ExternalTypeInfo** (internal record): Represents a non-System external type
 reference collected during table cell generation.
@@ -49,8 +69,8 @@ reference collected during table cell generation.
 
 ### Key Methods
 
-**TypeLinkResolver constructor**: Accepts the root namespaces and an optional
-`generateLinks` flag.
+**TypeLinkResolver constructor**: Accepts the root namespaces, an optional
+`generateLinks` flag, and an optional external-links map.
 
 - *Parameters*:
   - `IReadOnlyList<string> rootNamespaces` — the root namespaces identified in
@@ -58,7 +78,11 @@ reference collected during table cell generation.
     `DotNetEmitter.GetNamespaceFolderPath` when computing target page paths.
   - `bool generateLinks = true` — when `true` (default), intra-assembly types
     are rendered as relative Markdown links; when `false`, all type references
-    render as plain text. Used by the single-file emitter.
+    render as plain text and the external-links map is ignored. Used by the
+    single-file emitter.
+  - `IReadOnlyDictionary<string, ExternalLinkTarget>? externalLinks = null` —
+    map from referenced assembly name to documentation location. Copied into a
+    case-insensitive dictionary.
 - *Postconditions*: The resolver is ready to call `Linkify`.
 
 **TypeLinkResolver.Linkify**: Resolves a `TypeReference` to a Markdown string.
@@ -72,22 +96,54 @@ reference collected during table cell generation.
   - `ISet<ExternalTypeInfo> externalTypes` — mutable accumulator for non-System
     external type references. The caller creates this set per output file and
     emits the External Types section after all table rows have been written.
-  - `bool isNullableAnnotated = false` — when `true`, the member carrying this
-    type reference has a nullable-reference annotation.
+  - `bool isNullableAnnotated = false` — when `true`, the outermost type position
+    is annotated nullable. This public overload wraps the flag in
+    `NullabilityCursor.ForOutermostFlag` and delegates to the cursor overload below,
+    so positions after the first are oblivious.
 - *Returns*: A Markdown string (link, plain name, or generic composite).
+
+**TypeLinkResolver.Linkify (NullabilityCursor overload)** (internal): The same
+resolution with a `NullabilityCursor? nullability` parameter in place of the
+boolean, applying a per-position annotation to the outer type, array elements,
+and generic arguments. This is the overload the emitters call.
+
 - *Algorithm*:
   1. Null `typeRef` → return `string.Empty`.
-  2. `GenericParameter` → return the parameter name (plus `?` if nullable annotated).
-  3. `Nullable<T>` generic instance → recurse on the inner type with nullable flag set.
-  4. `ArrayType` → recurse on element type, append `[]` (plus `?` if nullable annotated).
-  5. `GenericInstanceType` → `LinkifyGenericType`: links the container when
-     intra-assembly, tracks external otherwise.
-  6. Primitive or `System.Nullable<>` open type → `TypeNameSimplifier.Simplify`,
-     append `?` if nullable annotated.
-  7. Intra-assembly (scope is `ModuleDefinition`) → relative Markdown link when `_generateLinks`
-     is `true`; plain-text type name when `_generateLinks` is `false`.
-  8. Non-System external → track in `externalTypes`, return plain name.
+  2. `ByReferenceType` (`ref`/`out`/`in`) → recurse on the element type. The
+     keyword is the caller's responsibility; the wrapper consumes **no** flag.
+  3. Every other position consumes exactly one flag from the cursor, in pre-order
+     (outer type first, then array element or generic arguments left to right).
+     When the cursor is null or its flags are exhausted, the cursor's default
+     (the inherited `NullableContext`, or oblivious) applies.
+     `TypeNameSimplifier.IsAnnotated(typeRef, flag)` turns the flag into a boolean:
+     a value type (and a generic parameter constrained to `struct`) is **never**
+     annotated, so `int` never receives `?` even when flag 2 is supplied or the
+     legacy `isNullableAnnotated: true` is passed.
+  4. `GenericParameter` → return the parameter name (plus `?` if annotated).
+  5. `Nullable<T>` generic instance → the wrapper's flag is consumed in step 3;
+     recurse on the inner type (which consumes its own, ignored, flag) and append `?`.
+  6. `ArrayType` → recurse on the element type, append the rank suffix (`[]`, `[,]`),
+     plus `?` if the array position is annotated.
+  7. `GenericInstanceType` → `LinkifyGenericType`: links the container when
+     intra-assembly; otherwise tries `TryLinkExternalType` and falls back to tracking
+     the container as external. Arguments are linkified recursively, then the
+     angle-bracketed list and any `?` are appended.
+  8. Primitive or `System.Nullable<>` open type → `TypeNameSimplifier.Simplify`,
+     append `?` if annotated.
+  9. Intra-assembly (scope is `ModuleDefinition`) → relative Markdown link when
+     `_generateLinks` is `true`; plain-text type name when `false`.
+  10. Non-System external → `TryLinkExternalType`: when the type's assembly is mapped
+     and links are enabled, return a link into that documentation and do not track
+     the type; otherwise track it in `externalTypes` and return the plain name.
 - *Intra-assembly detection*: `TypeReference.Scope is ModuleDefinition`.
+
+**TypeLinkResolver.TryLinkExternalType** (private): Builds a link for a type whose
+scope is an `AssemblyNameReference` present in `_externalLinks`. Returns `null` when
+links are disabled or the assembly is not mapped. See External Assembly Links.
+
+**TypeLinkResolver.BuildTypePageKey** (private static): Computes a type's page key
+for a given set of root namespaces. `GetTypePageKey` calls it with this assembly's
+root namespaces; `TryLinkExternalType` calls it with the mapped assembly's.
 
 **TypeLinkResolver.LinkifyResolvedType**: Resolves a `cref` target already
 known to be a type declared in the assembly being documented to a Markdown
@@ -148,7 +204,8 @@ correctly handling nested types of arbitrary nesting depth.
      innermost.
   2. Derive the namespace folder via `DotNetEmitter.GetNamespaceFolderPath` using
      the **outermost** ancestor's `Namespace` — the only member of the chain
-     guaranteed to carry a non-empty namespace.
+     guaranteed to carry a namespace (empty for global-namespace types, which map
+     to the `global-namespace` folder).
   3. Join every ancestor's name, outermost to innermost, each flattened via
      `TypeNameSimplifier.FlattenArity`, with `/` separators.
   4. Prefix the joined path with the namespace folder (when non-empty) to
@@ -168,6 +225,14 @@ correctly handling nested types of arbitrary nesting depth.
 `Linkify` returns `string.Empty` for a null `typeRef` rather than throwing.
 No other exceptions are thrown by TypeLinkResolver itself; exceptions from
 `TypeNameSimplifier.Simplify` propagate unchanged.
+
+A type from an assembly with no entry in the external-links map is not an error: it
+keeps the table-only behavior (plain name, tracked as external). An `ApiPath` that is
+not a clean relative path or `http(s)` URL is handled defensively rather than
+rejected here (rejection with a warning happens in `DotNetGenerator`): `file:` URIs
+are used as-is and rooted paths are converted to `file:` URIs instead of being made
+relative. Link targets are always percent-encoded for characters that would break
+Markdown (see External Assembly Links).
 
 ### Dependencies
 
@@ -202,3 +267,31 @@ a `DotNetAstModel` that carries the resolver, making it available to sub-emitter
 ### External Interfaces
 
 N/A — this is an internal class with no external interfaces exposed beyond its assembly.
+
+### External Assembly Links
+
+An optional map of assembly name to `ExternalLinkTarget` (API path plus the other assembly root
+namespaces) lets `TypeLinkResolver` emit `[Name](../../other/api/{namespace}/{Type}.md)` links for
+types whose scope is a mapped assembly, for plain, generic, and nested types. Mapped types are not
+added to the External Types set. Unmapped types and single-file output (`generateLinks: false`,
+which ignores the map entirely) are unchanged.
+
+Algorithm for `TryLinkExternalType`:
+
+1. Look up the type's assembly name (case-insensitive); return `null` when links are
+   disabled or there is no mapping.
+2. Compute the page key with the mapped assembly's root namespaces (nested types
+   append each declaring-type name; generic arity is flattened, e.g. `Box1`).
+3. Normalize the `ApiPath`: backslashes become `/`, trailing `/` is trimmed.
+4. Choose the form:
+   - `http://`, `https://`, or `file:` prefix → used as the base unchanged.
+   - Rooted file-system path (`/x` or `C:/x`) → converted to a `file://` base; it is
+     never made relative.
+   - Otherwise (relative) → strip leading `./` segments, then prefix one `../` per
+     segment of `currentFolder` so the link climbs from the current page to the
+     documentation root before descending into the other API root.
+5. Append `/{pageKey}.md` and percent-encode spaces, parentheses, and angle brackets
+   in the whole target so it cannot terminate the Markdown link early.
+
+For generic instances the container is linked and the type arguments are linkified
+individually. Links are never verified to exist.

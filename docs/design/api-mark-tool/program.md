@@ -137,6 +137,16 @@ a build failure via `context.WriteError` when the configured severity is
   mappings below, so the `dotnet` subcommand also honors an explicitly-supplied
   `--library-description` / `ApiMarkLibraryDescription` override for the `api.md`
   introduction paragraph rather than silently ignoring it.
+- _Visibility resolution_: `context.Visibility` is `null` when `--visibility` was not
+  supplied. In that case `CreateGenerator` applies the per-language default:
+  `PublicAndProtected` for `dotnet` (protected members are part of the inheritance API
+  surface), and `Public` for `cpp` and `vhdl`. The resulting string is parsed
+  case-insensitively into the dotnet `ApiVisibility` enum; an unknown value throws
+  `ArgumentException`. For `cpp` the ordinal is cast to `ApiMark.Cpp.ApiVisibility`
+  (identical values). `vhdl` has no visibility concept, so the value is parsed only
+  for uniform validation and is not forwarded to `VhdlGeneratorOptions`.
+- For the `dotnet` language, `DotNetGeneratorOptions.ExternalLinks` is populated by
+  `ParseExternalLinks(context.ExternalLinks)` (see below).
 - For the `vhdl` language, `VhdlGeneratorOptions` is populated with `Sources`
   (from `context.Sources`), `LibraryName` (from `context.LibraryName`, same
   fallback as C++), and `Description` (from `context.LibraryDescription`).
@@ -156,6 +166,21 @@ a build failure via `context.WriteError` when the configured severity is
   absent, each language's `EnforceDocsVisibility` option remains `null`/empty
   and enforcement stays disabled — the same conservative-default reasoning
   applied to every other opt-in CLI flag.
+
+**Program.ParseExternalLinks** (private static): Converts the raw `Assembly=path`
+entries of `Context.ExternalLinks` into the dictionary consumed by
+`DotNetGeneratorOptions.ExternalLinks`.
+
+- _Parameters_: `string[] entries` — entries already validated by `Context` (non-empty
+  assembly name and non-empty path around the first `=`).
+- _Returns_: `Dictionary<string, string>` keyed with `StringComparer.OrdinalIgnoreCase`
+  by trimmed assembly name; the value is the trimmed path or URL.
+- _Algorithm_: for each entry split at the first `=`; later entries for the same
+  assembly (compared case-insensitively) replace earlier ones (last wins). An entry
+  without a name before the `=` (including one with no `=` at all) is skipped
+  defensively rather than throwing, although `Context` never produces such entries.
+- Downstream validation of the path or URL (relative path or `http(s)` only) and of
+  the referenced DLL is performed by `DotNetGenerator`, not by Program.
 
 **Program.PrintBanner** (private static): Prints the application banner (tool name,
 version, copyright line, and a blank line).

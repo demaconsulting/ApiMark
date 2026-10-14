@@ -11,7 +11,7 @@ namespace ApiMark.DotNet;
 /// </summary>
 /// <remarks>
 ///     Linkification is applied only in table cells — never inside fenced code blocks,
-///     because Markdown links do not render inside fences. Three outcomes are possible
+///     because Markdown links do not render inside fences. Four outcomes are possible
 ///     for each type reference:
 ///     <list type="bullet">
 ///       <item>
@@ -26,12 +26,20 @@ namespace ApiMark.DotNet;
 ///       <item>
 ///         <term>C# primitive or System.* type</term>
 ///         <description>
-///             Emitted as plain text using <see cref="TypeNameSimplifier.Simplify"/>
+///             Emitted as plain text using <see cref="TypeNameSimplifier.Simplify(TypeReference, string, bool)"/>
 ///             and NOT tracked as an external type.
 ///         </description>
 ///       </item>
 ///       <item>
-///         <term>Non-System external type</term>
+///         <term>Mapped external type</term>
+///         <description>
+///             Detected when the type's assembly has an entry in the external link map. A link
+///             into that assembly's documentation is emitted and the type is NOT tracked as an
+///             external type.
+///         </description>
+///       </item>
+///       <item>
+///         <term>Unmapped non-System external type</term>
 ///         <description>
 ///             Emitted as plain text and added to the caller-supplied
 ///             <see cref="ExternalTypeInfo"/> set for later emission in the
@@ -46,6 +54,20 @@ namespace ApiMark.DotNet;
 /// </remarks>
 internal sealed class TypeLinkResolver
 {
+    /// <summary>
+    ///     Describes where another assembly's generated API documentation lives so types from that
+    ///     assembly can be linked instead of listed in the External Types table.
+    /// </summary>
+    /// <param name="ApiPath">
+    ///     Either a relative path from this documentation's root to the other API root
+    ///     (for example <c>../OtherLib/api</c>) or an absolute <c>http(s)</c> base URL.
+    /// </param>
+    /// <param name="RootNamespaces">
+    ///     The other assembly's root namespaces, used to derive its namespace folders exactly as that
+    ///     assembly's own documentation run did.
+    /// </param>
+    internal sealed record ExternalLinkTarget(string ApiPath, IReadOnlyList<string> RootNamespaces);
+
     /// <summary>
     ///     Full CLR names of C# primitive types that are always rendered as their keyword
     ///     alias and never tracked as external dependencies.
@@ -68,6 +90,9 @@ internal sealed class TypeLinkResolver
     /// </summary>
     private readonly bool _generateLinks;
 
+    /// <summary>Map from referenced assembly name to its documentation location (case-insensitive).</summary>
+    private readonly Dictionary<string, ExternalLinkTarget> _externalLinks;
+
     /// <summary>
     ///     Initializes a new instance of <see cref="TypeLinkResolver"/> with the assembly root namespaces.
     /// </summary>
@@ -81,10 +106,88 @@ internal sealed class TypeLinkResolver
     ///     Markdown links. When <see langword="false"/>, all types are rendered as plain text —
     ///     used in single-file output where file-relative links are invalid.
     /// </param>
-    public TypeLinkResolver(IReadOnlyList<string> rootNamespaces, bool generateLinks = true)
+    /// <param name="externalLinks">
+    ///     Optional map from referenced assembly name to the location of that assembly's generated
+    ///     documentation. Types from a mapped assembly are linked and left out of the External Types
+    ///     table; types from unmapped assemblies keep the table-only behavior. Ignored when
+    ///     <paramref name="generateLinks"/> is <see langword="false"/>.
+    /// </param>
+    public TypeLinkResolver(
+        IReadOnlyList<string> rootNamespaces,
+        bool generateLinks = true,
+        IReadOnlyDictionary<string, ExternalLinkTarget>? externalLinks = null)
     {
         _rootNamespaces = rootNamespaces;
         _generateLinks = generateLinks;
+
+        // Always copy into a case-insensitive dictionary: assembly names compare case-insensitively
+        // regardless of the comparer of the caller-supplied dictionary.
+        _externalLinks = new Dictionary<string, ExternalLinkTarget>(StringComparer.OrdinalIgnoreCase);
+        if (externalLinks != null)
+        {
+            foreach (var (name, target) in externalLinks)
+            {
+                _externalLinks[name] = target;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Escapes characters in a link target that would terminate or corrupt a Markdown inline link.
+    /// </summary>
+    /// <param name="target">The raw link target.</param>
+    /// <returns>The target with spaces, parentheses, and angle brackets percent-encoded.</returns>
+    private static string EscapeLinkTarget(string target) =>
+        target
+            .Replace(" ", "%20", StringComparison.Ordinal)
+            .Replace("(", "%28", StringComparison.Ordinal)
+            .Replace(")", "%29", StringComparison.Ordinal)
+            .Replace("<", "%3C", StringComparison.Ordinal)
+            .Replace(">", "%3E", StringComparison.Ordinal);
+
+    /// <summary>
+    ///     Builds a link to a type documented by another assembly's ApiMark run, when that assembly is mapped.
+    /// </summary>
+    /// <param name="typeRef">The external type reference (open type for generic instances).</param>
+    /// <param name="currentFolder">Folder of the page that will contain the link.</param>
+    /// <param name="displayName">The link text.</param>
+    /// <returns>A Markdown link, or <see langword="null"/> when linking is disabled or the assembly is not mapped.</returns>
+    private string? TryLinkExternalType(TypeReference typeRef, string currentFolder, string displayName)
+    {
+        if (!_generateLinks ||
+            typeRef.Scope is not AssemblyNameReference assemblyRef ||
+            !_externalLinks.TryGetValue(assemblyRef.Name, out var target))
+        {
+            return null;
+        }
+
+        var key = BuildTypePageKey(typeRef, target.RootNamespaces);
+        var apiPath = target.ApiPath.Replace('\\', '/').TrimEnd('/');
+
+        // Absolute bases (http(s) URL, file: URI) are used as-is, never made relative
+        if (apiPath.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            apiPath.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+            apiPath.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"[{displayName}]({EscapeLinkTarget($"{apiPath}/{key}.md")})";
+        }
+
+        // Rooted file-system paths (/x or C:/x) become file: URIs; relative climbing would be wrong
+        if (apiPath.StartsWith('/') || Path.IsPathRooted(target.ApiPath))
+        {
+            var fileBase = "file://" + (apiPath.StartsWith('/') ? string.Empty : "/") + apiPath;
+            return $"[{displayName}]({EscapeLinkTarget($"{fileBase}/{key}.md")})";
+        }
+
+        // Relative mapping: climb out of the current folder, then descend into the other API root
+        var depth = currentFolder.Split('/', StringSplitOptions.RemoveEmptyEntries).Length;
+        var prefix = string.Concat(Enumerable.Repeat("../", depth));
+        while (apiPath.StartsWith("./", StringComparison.Ordinal))
+        {
+            apiPath = apiPath.Substring(2);
+        }
+
+        return $"[{displayName}]({EscapeLinkTarget($"{prefix}{apiPath}/{key}.md")})";
     }
 
     /// <summary>
@@ -100,7 +203,7 @@ internal sealed class TypeLinkResolver
     /// </param>
     /// <param name="contextNamespace">
     ///     The namespace of the type that owns this reference. Forwarded to
-    ///     <see cref="TypeNameSimplifier.Simplify"/> so that same-namespace names are
+    ///     <see cref="TypeNameSimplifier.Simplify(TypeReference, string, bool)"/> so that same-namespace names are
     ///     displayed without their namespace prefix.
     /// </param>
     /// <param name="externalTypes">
@@ -111,7 +214,7 @@ internal sealed class TypeLinkResolver
     /// <param name="isNullableAnnotated">
     ///     When <see langword="true"/>, the member carrying this type reference has a
     ///     nullable-reference annotation. See
-    ///     <see cref="TypeNameSimplifier.Simplify"/> for details on when to pass
+    ///     <see cref="TypeNameSimplifier.Simplify(TypeReference, string, bool)"/> for details on when to pass
     ///     <see langword="true"/>.
     /// </param>
     /// <returns>
@@ -124,7 +227,25 @@ internal sealed class TypeLinkResolver
         string currentFolder,
         string contextNamespace,
         ISet<ExternalTypeInfo> externalTypes,
-        bool isNullableAnnotated = false)
+        bool isNullableAnnotated = false) =>
+        Linkify(typeRef, currentFolder, contextNamespace, externalTypes, NullabilityCursor.ForOutermostFlag(isNullableAnnotated));
+
+    /// <summary>
+    ///     Resolves <paramref name="typeRef"/> like the boolean overload, but applies a per-position
+    ///     nullable-reference annotation to the outer type, array elements, and generic arguments.
+    /// </summary>
+    /// <param name="typeRef">The Mono.Cecil type reference to resolve. When <see langword="null"/>, an empty string is returned.</param>
+    /// <param name="currentFolder">Folder path of the Markdown file that will contain the link.</param>
+    /// <param name="contextNamespace">Namespace context for name simplification.</param>
+    /// <param name="externalTypes">Accumulator for non-System external type references.</param>
+    /// <param name="nullability">The nullable flag cursor for the member, or <see langword="null"/> for none.</param>
+    /// <returns>A Markdown string for the type.</returns>
+    internal string Linkify(
+        TypeReference typeRef,
+        string currentFolder,
+        string contextNamespace,
+        ISet<ExternalTypeInfo> externalTypes,
+        NullabilityCursor? nullability)
     {
         if (typeRef == null)
         {
@@ -135,53 +256,58 @@ internal sealed class TypeLinkResolver
         // name. The ref/out/in keyword itself is the caller's responsibility (see
         // DotNetEmitter.GetRefKindKeyword) — unwrap to the underlying element type here so both
         // the display text and the computed link target use the real (un-suffixed) type name.
+        // The byref wrapper consumes no nullable flag.
         if (typeRef is ByReferenceType byRefType)
         {
-            return Linkify(byRefType.ElementType, currentFolder, contextNamespace, externalTypes, isNullableAnnotated);
+            return Linkify(byRefType.ElementType, currentFolder, contextNamespace, externalTypes, nullability);
         }
+
+        // Every other type position consumes exactly one nullable flag, in pre-order
+        var flag = nullability?.Next() ?? 0;
+        var annotated = TypeNameSimplifier.IsAnnotated(typeRef, flag);
 
         // Generic type parameters (e.g. T, TKey) are not real types — render as plain text,
         // appending "?" when the annotation indicates the parameter itself is nullable
         if (typeRef is GenericParameter genericParam)
         {
-            return LinkifyGenericParameter(genericParam, isNullableAnnotated);
+            return LinkifyGenericParameter(genericParam, annotated);
         }
 
-        // Handle Nullable<T> → T? by recursing on the inner type with the nullable flag set
+        // Handle Nullable<T> → T?: the inner value type consumes its own (ignored) flag
         if (typeRef is GenericInstanceType gitNullable &&
             typeRef.FullName.StartsWith("System.Nullable`1<", StringComparison.Ordinal))
         {
             var inner = gitNullable.GenericArguments[0];
-            return Linkify(inner, currentFolder, contextNamespace, externalTypes, true);
+            return Linkify(inner, currentFolder, contextNamespace, externalTypes, nullability) + "?";
         }
 
         // Handle array types by resolving the element type and appending the rank-aware suffix
         if (typeRef is ArrayType arrayType)
         {
-            return LinkifyArrayType(arrayType, currentFolder, contextNamespace, externalTypes, isNullableAnnotated);
+            return LinkifyArrayType(arrayType, currentFolder, contextNamespace, externalTypes, nullability, annotated);
         }
 
         // Handle generic instance types: linkify the container when intra-assembly, else track external
         if (typeRef is GenericInstanceType genericType)
         {
-            return LinkifyGenericType(genericType, currentFolder, contextNamespace, externalTypes, isNullableAnnotated);
+            return LinkifyGenericType(genericType, currentFolder, contextNamespace, externalTypes, nullability, annotated);
         }
 
         // Primitives and Nullable<> open type render as plain C# aliases, never as external types
         if (PrimitiveFullNames.Contains(typeRef.FullName) ||
             typeRef.FullName == "System.Nullable`1")
         {
-            return LinkifyPrimitiveType(typeRef, contextNamespace, isNullableAnnotated);
+            return LinkifyPrimitiveType(typeRef, contextNamespace, annotated);
         }
 
         // Intra-assembly types get a relative Markdown link to their documentation page
         if (IsIntraAssembly(typeRef))
         {
-            return LinkifyIntraAssemblyType(typeRef, currentFolder, isNullableAnnotated);
+            return LinkifyIntraAssemblyType(typeRef, currentFolder, annotated);
         }
 
         // Non-System external types are tracked for the External Types section
-        return LinkifyExternalType(typeRef, externalTypes, isNullableAnnotated);
+        return LinkifyExternalType(typeRef, currentFolder, externalTypes, annotated);
     }
 
     /// <summary>
@@ -190,7 +316,7 @@ internal sealed class TypeLinkResolver
     /// </summary>
     /// <remarks>
     ///     Reuses the same <see cref="GetTypePageKey"/>/<see cref="ComputeRelativePath"/> helpers
-    ///     that <see cref="Linkify"/> already uses for intra-assembly <see cref="TypeReference"/>
+    ///     that <see cref="Linkify(TypeReference, string, string, ISet{ExternalTypeInfo}, bool)"/> already uses for intra-assembly <see cref="TypeReference"/>
     ///     values — <see cref="TypeDefinition"/> is itself a <see cref="TypeReference"/>, so no new
     ///     page-key derivation logic is required. Callers are expected to have already confirmed
     ///     (via <see cref="CrefTargetResolver"/> and the emitter's visibility rules) that
@@ -286,16 +412,18 @@ internal sealed class TypeLinkResolver
     /// <param name="currentFolder">Folder path of the containing Markdown file.</param>
     /// <param name="contextNamespace">Namespace context for name simplification.</param>
     /// <param name="externalTypes">Accumulator for external type references.</param>
-    /// <param name="isNullableAnnotated">Whether the nullable-reference annotation is present.</param>
+    /// <param name="nullability">The nullable flag cursor, positioned at the array's element type.</param>
+    /// <param name="isNullableAnnotated">Whether the array itself is annotated nullable.</param>
     /// <returns>A Markdown cell string for the array type.</returns>
     private string LinkifyArrayType(
         ArrayType arrayType,
         string currentFolder,
         string contextNamespace,
         ISet<ExternalTypeInfo> externalTypes,
+        NullabilityCursor? nullability,
         bool isNullableAnnotated)
     {
-        var elementText = Linkify(arrayType.ElementType, currentFolder, contextNamespace, externalTypes);
+        var elementText = Linkify(arrayType.ElementType, currentFolder, contextNamespace, externalTypes, nullability);
         var suffix = "[" + new string(',', arrayType.Rank - 1) + "]";
         return isNullableAnnotated ? elementText + suffix + "?" : elementText + suffix;
     }
@@ -313,13 +441,20 @@ internal sealed class TypeLinkResolver
 
     /// <summary>Tracks a non-System external type reference and renders its simplified name.</summary>
     /// <param name="typeRef">The external type reference.</param>
+    /// <param name="currentFolder">Folder path of the containing Markdown file.</param>
     /// <param name="externalTypes">Accumulator for external type references.</param>
     /// <param name="isNullableAnnotated">Whether the nullable-reference annotation is present.</param>
     /// <returns>The simplified type name, with a trailing <c>?</c> when nullable-annotated.</returns>
-    private static string LinkifyExternalType(TypeReference typeRef, ISet<ExternalTypeInfo> externalTypes, bool isNullableAnnotated)
+    private string LinkifyExternalType(TypeReference typeRef, string currentFolder, ISet<ExternalTypeInfo> externalTypes, bool isNullableAnnotated)
     {
-        TrackExternalType(typeRef, externalTypes);
         var name = TypeNameSimplifier.StripArity(typeRef.Name);
+        var mapped = TryLinkExternalType(typeRef, currentFolder, name);
+        if (mapped != null)
+        {
+            return isNullableAnnotated ? mapped + "?" : mapped;
+        }
+
+        TrackExternalType(typeRef, externalTypes);
         return isNullableAnnotated ? name + "?" : name;
     }
 
@@ -331,18 +466,20 @@ internal sealed class TypeLinkResolver
     /// <param name="currentFolder">Folder path of the containing Markdown file.</param>
     /// <param name="contextNamespace">Namespace context for name simplification.</param>
     /// <param name="externalTypes">Accumulator for external type references.</param>
-    /// <param name="isNullableAnnotated">Whether the nullable-reference annotation is present.</param>
+    /// <param name="nullability">The nullable flag cursor, positioned at the first generic argument.</param>
+    /// <param name="isNullableAnnotated">Whether the generic type itself is annotated nullable.</param>
     /// <returns>A Markdown cell string for the generic type.</returns>
     private string LinkifyGenericType(
         GenericInstanceType genericType,
         string currentFolder,
         string contextNamespace,
         ISet<ExternalTypeInfo> externalTypes,
+        NullabilityCursor? nullability,
         bool isNullableAnnotated)
     {
         var containerName = TypeNameSimplifier.StripArity(genericType.Name);
         var argTexts = genericType.GenericArguments
-            .Select(arg => Linkify(arg, currentFolder, contextNamespace, externalTypes))
+            .Select(arg => Linkify(arg, currentFolder, contextNamespace, externalTypes, nullability))
             .ToList();
         var argsText = string.Join(", ", argTexts);
         var suffix = isNullableAnnotated ? "?" : string.Empty;
@@ -358,6 +495,12 @@ internal sealed class TypeLinkResolver
             }
 
             return $"{containerName}\\<{argsText}\\>{suffix}";
+        }
+
+        var mappedContainer = TryLinkExternalType(genericType.ElementType, currentFolder, containerName);
+        if (mappedContainer != null)
+        {
+            return $"{mappedContainer}\\<{argsText}\\>{suffix}";
         }
 
         TrackExternalType(genericType, externalTypes);
@@ -414,7 +557,13 @@ internal sealed class TypeLinkResolver
     /// </remarks>
     /// <param name="typeRef">The type whose page key to compute.</param>
     /// <returns>A forward-slash-separated page key such as <c>MyLib/MyType</c> or <c>MyLib/Outer/Inner</c>.</returns>
-    private string GetTypePageKey(TypeReference typeRef)
+    private string GetTypePageKey(TypeReference typeRef) => BuildTypePageKey(typeRef, _rootNamespaces);
+
+    /// <summary>Computes the page key for <paramref name="typeRef"/> using the supplied root namespaces.</summary>
+    /// <param name="typeRef">The type whose page key to compute.</param>
+    /// <param name="rootNamespaces">The root namespaces of the assembly that documents the type.</param>
+    /// <returns>A forward-slash-separated page key.</returns>
+    private static string BuildTypePageKey(TypeReference typeRef, IReadOnlyList<string> rootNamespaces)
     {
         // Walk the declaring-type chain, collecting ancestors from outermost to innermost
         // (including typeRef itself as the last entry).
@@ -427,7 +576,7 @@ internal sealed class TypeLinkResolver
         // The namespace folder is derived from the outermost ancestor — the only member of the
         // chain that carries a non-empty Namespace.
         var outermost = chain[0];
-        var folder = DotNetEmitter.GetNamespaceFolderPath(outermost.Namespace, _rootNamespaces);
+        var folder = DotNetEmitter.GetNamespaceFolderPath(outermost.Namespace, rootNamespaces);
 
         // Append each declaring-type name outermost-to-innermost, flattened for file-system safety.
         var path = string.Join('/', chain.Select(t => TypeNameSimplifier.FlattenArity(t.Name)));

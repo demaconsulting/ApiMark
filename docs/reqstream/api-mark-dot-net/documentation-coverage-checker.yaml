@@ -59,28 +59,53 @@ sections:
               - Check_IncludeObsoleteFalse_SkipsObsoleteType
               - Check_IncludeObsoleteTrue_ScansObsoleteTypeAndReportsMissingSummary
               - Check_NamespaceDocCarrier_IsNeverChecked
-          - id: ApiMarkDotNet-DocumentationCoverageChecker-ExcludeCompilerGeneratedMembers
+          - id: ApiMarkDotNet-DocumentationCoverageChecker-ExcludeRecordEqualityContract
             title: DocumentationCoverageChecker shall never report a record's
-              synthesized `EqualityContract` property or a field-like event's
-              compiler-generated backing field as undocumented, regardless of
-              enforcement visibility tier, while still reporting a hand-written
-              member that happens to share either name.
+              synthesized `EqualityContract` property as undocumented, regardless
+              of enforcement visibility tier, while still reporting a hand-written
+              property that happens to share that name.
             justification: |
-              Both members have no source location an author could attach a
-              `<summary>` to: EqualityContract is synthesized by the compiler for
-              every record (private in a sealed record, protected virtual/override
-              otherwise) to support the generated `Equals`, and a field-like
-              event's backing field is synthesized to store the event's
-              invocation list. Flagging either as undocumented makes
+              EqualityContract is synthesized by the compiler for every record
+              (private in a sealed record, protected virtual/override otherwise)
+              to support the generated `Equals`, and has no source location an
+              author could attach a `<summary>` to. Flagging it makes
               `--enforce-docs All` (or `PublicAndProtected` for a public
               non-sealed record) impossible to set to Error severity for any
-              assembly using records or field-like events.
+              assembly using records.
             tests:
               - Check_SealedRecordAtAllVisibility_DoesNotReportEqualityContract
               - Check_NonSealedPublicRecordAtPublicAndProtected_DoesNotReportEqualityContract
               - Check_DerivedRecordAtAllVisibility_DoesNotReportEqualityContract
               - Check_HandWrittenEqualityContractProperty_IsStillReported
+          - id: ApiMarkDotNet-DocumentationCoverageChecker-ExcludeEventBackingField
+            title: DocumentationCoverageChecker shall never report a field-like
+              event's compiler-generated backing field as undocumented, while
+              still checking the event itself.
+            justification: |
+              A field-like event's backing field is synthesized to store the
+              event's invocation list and is named exactly like the event, so it
+              has no source location an author could document. Flagging it makes
+              `--enforce-docs All` impossible to satisfy for any assembly that
+              declares a field-like event.
+            tests:
               - Check_DocumentedFieldLikeEvent_DoesNotReportBackingField
+          - id: ApiMarkDotNet-DocumentationCoverageChecker-ExemptDelegateMembers
+            title: DocumentationCoverageChecker shall not report the
+              compiler-synthesized members of a delegate type (constructor,
+              Invoke, BeginInvoke, EndInvoke) as undocumented at any enforcement
+              tier, for generic and non-generic delegates, while still checking
+              the delegate type itself.
+            justification: |
+              Delegate members are synthesized by the compiler and have no
+              source location an author could attach a `<summary>` to, so
+              demanding documentation for them makes `--enforce-docs` at
+              Error severity impossible to satisfy for any assembly that
+              declares a delegate.
+            tests:
+              - Check_DelegateAtAllVisibility_DoesNotReportSynthesizedMembers
+              - Check_GenericDelegateAtAllVisibility_DoesNotReportSynthesizedMembers
+              - Check_DelegateAtPublicVisibility_DoesNotReportSynthesizedMembers
+              - Check_DocumentedDelegates_ReportsZeroViolations
           - id: ApiMarkDotNet-DocumentationCoverageChecker-AcceptRemarksForGeneratedCodeMembers
             title: DocumentationCoverageChecker shall accept a non-empty `<remarks>`
               as documentation for a member carrying

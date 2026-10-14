@@ -43,6 +43,14 @@ sections:
             tests:
               - TypeNameSimplifier_Simplify_ContextNamespaceTypes_RenderWithoutSharedPrefix
               - TypeNameSimplifier_Simplify_ContextNamespaceTypes_NestedNamespace_StripsSharedPrefix
+          - id: ApiMarkDotNet-TypeNameSimplifier-EmptyContextNamespace
+            title: TypeNameSimplifier shall strip no namespace prefix, and not throw, when the context
+              namespace is empty (the global namespace).
+            justification: |
+              Types in the global namespace have an empty context namespace; it must not be treated
+              as a prefix that every type matches.
+            tests:
+              - TypeNameSimplifier_Simplify_GlobalContextNamespace_DoesNotStripOrThrow
           - id: ApiMarkDotNet-TypeNameSimplifier-SimplifyGenericArgumentsRecursively
             title: TypeNameSimplifier shall apply simplification recursively to generic
               type arguments.
@@ -58,3 +66,46 @@ sections:
               concise representation in generated signatures.
             tests:
               - TypeNameSimplifier_Simplify_NullableAnnotatedReferenceType_AppendsQuestionMark
+              - TypeNameSimplifier_Simplify_NonAnnotatedReferenceType_DoesNotAppendQuestionMark
+              - TypeNameSimplifier_Simplify_NullContextNamespace_ReturnsExactNames
+          - id: ApiMarkDotNet-TypeNameSimplifier-PerTypeNullability
+            title: TypeNameSimplifier shall apply nullable-reference flags per
+              generic-argument position.
+            justification: |
+              Annotations such as Func<Wire, WireStyle?>? must appear on the correct type,
+              matching compiler semantics.
+            tests:
+              - TypeNameSimplifier_Simplify_NullabilityFixtures_MatchReflectionOracle
+              - TypeNameSimplifier_Simplify_FuncWithNullableResult_AnnotatesInnerAndOuter
+              - TypeNameSimplifier_Simplify_GenericParameterAnnotations_RenderQuestionMarks
+              - TypeNameSimplifier_Simplify_StructConstrainedGenericParameter_InheritedFlagTwo_NoQuestionMark
+              - TypeNameSimplifier_Simplify_ExhaustedFlagArray_UsesContextDefault
+          - id: ApiMarkDotNet-TypeNameSimplifier-PerTypeNullabilityArrays
+            title: TypeNameSimplifier shall apply nullable-reference flags per array
+              position, covering the array itself and its element type.
+            justification: |
+              An array can be nullable independently of its element type (string[]? versus
+              string?[]), so each position needs its own flag.
+            tests:
+              - TypeNameSimplifier_Simplify_MultiDimensionalArrayWithNullability_AnnotatesPerPosition
+              - TypeNameSimplifier_Simplify_MultiDimensionalArray_AppendsRankSuffix
+          - id: ApiMarkDotNet-TypeNameSimplifier-UnwrapByReferenceTypes
+            title: TypeNameSimplifier shall unwrap by-reference types to their element
+              type name without consuming a nullable flag.
+            justification: |
+              ref, out, and in parameters are represented as by-reference wrappers; the
+              keyword is rendered by the caller, so the type name must be that of the
+              underlying element.
+            tests:
+              - TypeNameSimplifier_Simplify_ByReferenceType_UnwrapsToElementTypeName
+              - TypeNameSimplifier_Simplify_ByReferenceWithNullability_AnnotatesElementType
+          - id: ApiMarkDotNet-TypeNameSimplifier-InheritNullableContext
+            title: TypeNameSimplifier shall use the inherited NullableContext as the
+              nullable flag for positions without an explicit NullableAttribute.
+            justification: |
+              The compiler omits NullableAttribute when it matches the enclosing context, so
+              annotations would be lost if the inherited context were ignored.
+            tests:
+              - TypeNameSimplifier_Simplify_NullableContextOnType_IsInherited
+              - TypeNameSimplifier_Simplify_NullableContextOnMethod_OverridesTypeContext
+              - TypeNameSimplifier_Simplify_ExplicitNullableAttribute_OverridesContext

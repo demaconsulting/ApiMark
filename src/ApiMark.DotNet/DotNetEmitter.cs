@@ -83,7 +83,28 @@ internal sealed class DotNetEmitter : IApiEmitter
     // =========================================================================
 
     /// <summary>
+    ///     Folder and short name used for the synthetic page that documents types declared
+    ///     without a namespace.
+    /// </summary>
+    internal const string GlobalNamespaceFolder = "global-namespace";
+
+    /// <summary>
+    ///     Display name used for the global namespace in headings, breadcrumbs, and links.
+    /// </summary>
+    internal const string GlobalNamespaceDisplayName = "(global namespace)";
+
+    /// <summary>
+    ///     Returns the display name for a namespace, mapping the empty (global) namespace
+    ///     to <see cref="GlobalNamespaceDisplayName"/>.
+    /// </summary>
+    /// <param name="namespaceName">The namespace name, possibly empty.</param>
+    /// <returns>The display name.</returns>
+    internal static string GetNamespaceDisplayName(string namespaceName) =>
+        namespaceName.Length == 0 ? GlobalNamespaceDisplayName : namespaceName;
+
+    /// <summary>
     ///     Computes the file-system folder path for a namespace, treating the root namespace as atomic.
+    ///     The empty (global) namespace maps to <see cref="GlobalNamespaceFolder"/>.
     /// </summary>
     /// <param name="namespaceName">The full namespace name.</param>
     /// <param name="rootNamespaces">All root namespaces identified in the assembly.</param>
@@ -95,6 +116,12 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// </returns>
     internal static string GetNamespaceFolderPath(string namespaceName, IReadOnlyList<string> rootNamespaces)
     {
+        // Types declared without a namespace live on the synthetic global-namespace page.
+        if (namespaceName.Length == 0)
+        {
+            return GlobalNamespaceFolder;
+        }
+
         var root = rootNamespaces.FirstOrDefault(r =>
             string.Equals(r, namespaceName, StringComparison.Ordinal) ||
             namespaceName.StartsWith(r + ".", StringComparison.Ordinal));
@@ -124,6 +151,12 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns>An enumerable of immediate child namespace names.</returns>
     internal static IEnumerable<string> GetImmediateChildNamespaces(string parent, IReadOnlyList<string> allNamespaces)
     {
+        // The global namespace is a sibling root, never a parent of other namespaces.
+        if (parent.Length == 0)
+        {
+            return [];
+        }
+
         var prefix = parent + ".";
         return allNamespaces.Where(n =>
             n.StartsWith(prefix, StringComparison.Ordinal) &&
@@ -720,7 +753,10 @@ internal sealed class DotNetEmitter : IApiEmitter
             return $"public delegate void {StripArity(type.Name)}()";
         }
 
-        var returnType = TypeNameSimplifier.Simplify(invoke.ReturnType, contextNamespace);
+        var returnType = TypeNameSimplifier.Simplify(
+            invoke.ReturnType,
+            contextNamespace,
+            CreateNullability(invoke.MethodReturnType.CustomAttributes, invoke));
         var name = StripArity(type.Name);
         if (type.HasGenericParameters)
         {
@@ -729,10 +765,41 @@ internal sealed class DotNetEmitter : IApiEmitter
         }
 
         var parameters = string.Join(", ", invoke.Parameters.Select(p =>
-            $"{GetRefKindKeyword(p)}{TypeNameSimplifier.Simplify(p.ParameterType, contextNamespace)} {p.Name}"));
+            $"{GetRefKindKeyword(p)}{TypeNameSimplifier.Simplify(p.ParameterType, contextNamespace, CreateNullability(p.CustomAttributes, invoke))} {p.Name}"));
 
         return $"public delegate {GetReturnRefKeyword(invoke.ReturnType)}{returnType} {name}({parameters})";
     }
+
+    /// <summary>Determines whether a type was declared with the C# <c>record</c> or <c>record struct</c> keyword.</summary>
+    /// <remarks>
+    ///     Record classes always carry a compiler-synthesized <c>&lt;Clone&gt;$</c> method. Record structs
+    ///     have no clone method but synthesize a <c>PrintMembers(StringBuilder)</c> method instead.
+    /// </remarks>
+    /// <param name="type">The type definition to test.</param>
+    /// <returns><see langword="true"/> when the type is a record; otherwise <see langword="false"/>.</returns>
+    internal static bool IsRecordType(TypeDefinition type) =>
+        !type.IsInterface && !type.IsEnum &&
+        (type.IsValueType
+            ? type.Methods.Any(m => m.Name == "PrintMembers" && m.Parameters.Count == 1 &&
+                                    m.Parameters[0].ParameterType.FullName == "System.Text.StringBuilder")
+            : type.Methods.Any(m => m.Name == "<Clone>$"));
+
+    /// <summary>Determines whether a type carries a custom attribute with the given simple name.</summary>
+    /// <param name="type">The type definition to inspect.</param>
+    /// <param name="attributeName">The attribute type name, without namespace.</param>
+    /// <returns><see langword="true"/> when the attribute is present.</returns>
+    private static bool HasAttributeNamed(TypeDefinition type, string attributeName) =>
+        type.CustomAttributes.Any(a => a.AttributeType.Name == attributeName);
+
+    /// <summary>Determines whether an interface reference is <c>IEquatable&lt;T&gt;</c> over the declaring type itself.</summary>
+    /// <param name="interfaceType">The interface reference.</param>
+    /// <param name="type">The declaring type.</param>
+    /// <returns><see langword="true"/> for the implicit record equality interface.</returns>
+    private static bool IsSelfEquatable(TypeReference interfaceType, TypeDefinition type) =>
+        interfaceType is GenericInstanceType generic &&
+        generic.ElementType.FullName == "System.IEquatable`1" &&
+        generic.GenericArguments.Count == 1 &&
+        generic.GenericArguments[0].GetElementType().FullName == type.FullName;
 
     /// <summary>Builds a human-readable C# declaration signature for a type definition.</summary>
     /// <remarks>
@@ -765,16 +832,24 @@ internal sealed class DotNetEmitter : IApiEmitter
             return BuildDelegateSignature(type, contextNamespace);
         }
 
+        var isRecord = IsRecordType(type);
         var keyword = type switch
         {
             { IsInterface: true } => "interface",
             { IsEnum: true } => "enum",
-            { IsValueType: true } => "struct",
-            _ => "class",
+            { IsValueType: true } => isRecord ? "record struct" : "struct",
+            _ => isRecord ? "record" : "class",
         };
 
         var classModifier = string.Empty;
-        if (keyword == "class")
+        if (type.IsValueType && !type.IsEnum)
+        {
+            // Source-level struct modifiers are carried by compiler attributes rather than metadata flags
+            var readOnly = HasAttributeNamed(type, "IsReadOnlyAttribute") ? "readonly " : string.Empty;
+            var byRefLike = HasAttributeNamed(type, "IsByRefLikeAttribute") ? "ref " : string.Empty;
+            classModifier = readOnly + byRefLike;
+        }
+        else if (keyword is "class" or "record")
         {
             if (type.IsAbstract && type.IsSealed)
             {
@@ -811,10 +886,16 @@ internal sealed class DotNetEmitter : IApiEmitter
             }
         }
 
-        // Include all directly declared interfaces — transitive inheritance is omitted
-        foreach (var interfaceRef in type.Interfaces)
+        // Include all directly declared interfaces — transitive inheritance is omitted.
+        // A record implicitly implements IEquatable<Self>; hide it because source never spells it out.
+        foreach (var interfaceType in type.Interfaces.Select(i => i.InterfaceType))
         {
-            bases.Add(TypeNameSimplifier.Simplify(interfaceRef.InterfaceType, contextNamespace));
+            if (isRecord && IsSelfEquatable(interfaceType, type))
+            {
+                continue;
+            }
+
+            bases.Add(TypeNameSimplifier.Simplify(interfaceType, contextNamespace));
         }
 
         if (bases.Count > 0)
@@ -855,7 +936,7 @@ internal sealed class DotNetEmitter : IApiEmitter
         var returnType = TypeNameSimplifier.Simplify(
             method.ReturnType,
             contextNamespace,
-            HasNullableAnnotation(method.MethodReturnType.CustomAttributes));
+            CreateNullability(method.MethodReturnType.CustomAttributes, method));
         var isExtensionMethod = IsExtensionMethod(method);
 
         // Use the declaring type name for constructors rather than ConstructorMethodName
@@ -869,15 +950,116 @@ internal sealed class DotNetEmitter : IApiEmitter
             var paramType = TypeNameSimplifier.Simplify(
                 p.ParameterType,
                 contextNamespace,
-                HasNullableAnnotation(p.CustomAttributes));
-            return $"{receiverPrefix}{GetRefKindKeyword(p)}{paramType} {p.Name}";
+                CreateNullability(p.CustomAttributes, method));
+            return WithDefault($"{receiverPrefix}{GetRefKindKeyword(p)}{paramType} {p.Name}", p);
         }));
 
         var accessibility = GetAccessibilityKeyword(method);
         var staticModifier = method.IsStatic && method.Name != ConstructorMethodName ? " static" : string.Empty;
-        return method.Name == ConstructorMethodName
-            ? $"{accessibility} {name}({parameters})"
-            : $"{accessibility}{staticModifier} {GetReturnRefKeyword(method.ReturnType)}{returnType} {name}({parameters})";
+        if (method.Name == ConstructorMethodName)
+        {
+            return $"{accessibility} {name}({parameters})";
+        }
+
+        var typeParameters = method.HasGenericParameters
+            ? $"<{string.Join(", ", method.GenericParameters.Select(p => p.Name))}>"
+            : string.Empty;
+        var constraints = BuildGenericConstraints(method.GenericParameters, contextNamespace);
+        return $"{accessibility}{staticModifier} {GetReturnRefKeyword(method.ReturnType)}{returnType} {name}{typeParameters}({parameters}){constraints}";
+    }
+
+    /// <summary>Builds the C# <c>where</c> clauses for a list of generic parameters.</summary>
+    /// <remarks>
+    ///     The order follows C# rules: <c>class</c>/<c>struct</c>/<c>unmanaged</c>/<c>notnull</c> first, then type
+    ///     constraints, then <c>new()</c>. The implicit <c>System.ValueType</c> constraint emitted by the
+    ///     compiler for <c>struct</c> is not shown separately. Parameters with no constraints produce nothing.
+    /// </remarks>
+    /// <param name="parameters">The generic parameters of a method.</param>
+    /// <param name="contextNamespace">Used to simplify constraint type names.</param>
+    /// <returns>A string beginning with a space per clause, or <see cref="string.Empty"/> when unconstrained.</returns>
+    internal static string BuildGenericConstraints(IEnumerable<GenericParameter> parameters, string contextNamespace)
+    {
+        var builder = new StringBuilder();
+        foreach (var parameter in parameters)
+        {
+            var parts = new List<string>();
+            var isUnmanaged = parameter.CustomAttributes.Any(a => a.AttributeType.Name == "IsUnmanagedAttribute")
+                || parameter.Constraints.Any(c =>
+                    c.ConstraintType is RequiredModifierType { ModifierType.Name: "IsUnmanagedAttribute" }
+                    || c.CustomAttributes.Any(a => a.AttributeType.Name == "IsUnmanagedAttribute"));
+            if (isUnmanaged)
+            {
+                parts.Add("unmanaged");
+            }
+            else if (parameter.HasNotNullableValueTypeConstraint)
+            {
+                parts.Add("struct");
+            }
+            else if (parameter.HasReferenceTypeConstraint)
+            {
+                parts.Add("class");
+            }
+            else if (IsNotNullConstrained(parameter))
+            {
+                parts.Add("notnull");
+            }
+
+            foreach (var constraint in parameter.Constraints.Select(c => c.ConstraintType))
+            {
+                var constraintName = constraint is RequiredModifierType modifier
+                    ? modifier.ElementType.FullName
+                    : constraint.FullName;
+                if (constraintName == "System.ValueType" && (parameter.HasNotNullableValueTypeConstraint || isUnmanaged))
+                {
+                    continue;
+                }
+
+                parts.Add(TypeNameSimplifier.Simplify(constraint, contextNamespace));
+            }
+
+            if (parameter.HasDefaultConstructorConstraint && !parameter.HasNotNullableValueTypeConstraint && !isUnmanaged)
+            {
+                parts.Add("new()");
+            }
+
+            if (parts.Count > 0)
+            {
+                builder.Append($" where {parameter.Name} : {string.Join(", ", parts)}");
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>
+    ///     Returns <see langword="true"/> when a generic parameter carries the C# <c>notnull</c> constraint.
+    /// </summary>
+    /// <remarks>
+    ///     The compiler encodes <c>notnull</c> as an effective nullable annotation of <c>1</c> (not annotated)
+    ///     on a type parameter that has no <c>class</c>, <c>struct</c>, <c>unmanaged</c>, or type constraint.
+    ///     The annotation is read from the parameter's own <c>NullableAttribute</c>, falling back to the
+    ///     inherited <c>NullableContext</c> of the owning method or type.
+    /// </remarks>
+    /// <param name="parameter">The generic parameter to inspect.</param>
+    /// <returns><see langword="true"/> when the parameter is constrained to <c>notnull</c>.</returns>
+    private static bool IsNotNullConstrained(GenericParameter parameter)
+    {
+        var hasTypeConstraint = parameter.Constraints.Any(c =>
+            (c.ConstraintType is RequiredModifierType modifier ? modifier.ElementType.FullName : c.ConstraintType.FullName)
+            != "System.Object");
+        if (hasTypeConstraint)
+        {
+            return false;
+        }
+
+        var attribute = parameter.CustomAttributes.FirstOrDefault(
+            a => a.AttributeType.FullName == "System.Runtime.CompilerServices.NullableAttribute");
+        if (attribute is { ConstructorArguments.Count: > 0 } && attribute.ConstructorArguments[0].Value is byte annotated)
+        {
+            return annotated == 1;
+        }
+
+        return parameter.Owner is IMemberDefinition owner && ResolveNullableContext(owner) == 1;
     }
 
     /// <summary>
@@ -923,6 +1105,169 @@ internal sealed class DotNetEmitter : IApiEmitter
         return parameter.IsIn ? "in " : "ref ";
     }
 
+    /// <summary>
+    ///     Renders the default value of an optional parameter as C#-like source text, or returns
+    ///     <see langword="null"/> when the parameter has no default value.
+    /// </summary>
+    /// <remarks>
+    ///     Resolution order: a metadata constant (<see cref="ParameterDefinition.HasConstant"/>);
+    ///     then <c>[DecimalConstant]</c> / <c>[DateTimeConstant]</c> (which C# uses for
+    ///     <see cref="decimal"/> and <see cref="DateTime"/> defaults); then
+    ///     <c>[DefaultParameterValue]</c>; otherwise <c>default</c> for any other optional
+    ///     parameter. A <see langword="null"/> constant on a non-nullable value-type parameter
+    ///     renders as <c>default</c>; on a reference type or <c>Nullable&lt;T&gt;</c> as <c>null</c>.
+    ///     Enum constants render as <c>EnumType.Member</c> when a matching literal exists, else
+    ///     <c>(EnumType)n</c>.
+    /// </remarks>
+    /// <param name="parameter">The parameter definition to inspect.</param>
+    /// <returns>The default value text, or <see langword="null"/> when there is none.</returns>
+    internal static string? FormatParameterDefault(ParameterDefinition parameter)
+    {
+        if (parameter.HasConstant)
+        {
+            return FormatParameterConstant(parameter.ParameterType, parameter.Constant);
+        }
+
+        if (!parameter.IsOptional)
+        {
+            return null;
+        }
+
+        foreach (var attribute in parameter.CustomAttributes)
+        {
+            var attributeName = attribute.AttributeType.FullName;
+            if (attributeName == "System.Runtime.CompilerServices.DecimalConstantAttribute" &&
+                attribute.ConstructorArguments.Count == 5)
+            {
+                var args = attribute.ConstructorArguments;
+                try
+                {
+                    // Constructor arguments are (scale, sign, hi, mid, lo); hi/mid/lo are uint or int
+                    // depending on the overload, so convert by bit pattern rather than by value
+                    var value = new decimal(
+                        ToInt32Bits(args[4].Value),
+                        ToInt32Bits(args[3].Value),
+                        ToInt32Bits(args[2].Value),
+                        Convert.ToByte(args[1].Value, CultureInfo.InvariantCulture) != 0,
+                        Convert.ToByte(args[0].Value, CultureInfo.InvariantCulture));
+                    return value.ToString(CultureInfo.InvariantCulture);
+                }
+                catch (Exception ex) when (ex is OverflowException or ArgumentException or InvalidCastException or FormatException)
+                {
+                    // A malformed attribute cannot be rendered; fall through to the generic default marker
+                    return "default";
+                }
+            }
+
+            if (attributeName == "System.Runtime.CompilerServices.DateTimeConstantAttribute" &&
+                attribute.ConstructorArguments.Count == 1)
+            {
+                return $"new DateTime({Convert.ToString(attribute.ConstructorArguments[0].Value, CultureInfo.InvariantCulture)})";
+            }
+
+            if (attributeName == "System.Runtime.InteropServices.DefaultParameterValueAttribute" &&
+                attribute.ConstructorArguments.Count == 1)
+            {
+                var argument = attribute.ConstructorArguments[0].Value;
+                return FormatParameterConstant(parameter.ParameterType, argument is CustomAttributeArgument nested ? nested.Value : argument);
+            }
+        }
+
+        return "default";
+    }
+
+    /// <summary>Converts a boxed 32-bit integer attribute argument (<c>int</c> or <c>uint</c>) to its 32-bit pattern.</summary>
+    /// <param name="value">The boxed argument value.</param>
+    /// <returns>The value reinterpreted as a signed 32-bit integer.</returns>
+    private static int ToInt32Bits(object? value) => value switch
+    {
+        uint u => unchecked((int)u),
+        int i => i,
+        _ => unchecked((int)Convert.ToInt64(value, CultureInfo.InvariantCulture)),
+    };
+
+    /// <summary>Renders a parameter's constant default value in the context of the parameter type.</summary>
+    /// <param name="parameterType">The declared parameter type.</param>
+    /// <param name="value">The constant value, which may be <see langword="null"/>.</param>
+    /// <returns>The rendered default value text.</returns>
+    private static string FormatParameterConstant(TypeReference parameterType, object? value)
+    {
+        var type = parameterType is ByReferenceType byRef ? byRef.ElementType : parameterType;
+
+        if (value == null)
+        {
+            // A null constant on a non-nullable value type is the compiler encoding of default(T)
+            return type.IsValueType && !IsNullableValueType(type) ? "default" : "null";
+        }
+
+        if (type.IsValueType && !IsNullableValueType(type) && !type.IsPrimitive && TryResolve(type) is { IsEnum: true } enumType)
+        {
+            return EnumLiteral(type, enumType, value);
+        }
+
+        if (IsNullableValueType(type) && type is GenericInstanceType nullable &&
+            TryResolve(nullable.GenericArguments[0]) is { IsEnum: true } innerEnum)
+        {
+            return EnumLiteral(nullable.GenericArguments[0], innerEnum, value);
+        }
+
+        return FormatConstantValue(value);
+    }
+
+    /// <summary>Resolves a type reference to its definition, returning <see langword="null"/> when resolution fails.</summary>
+    /// <param name="type">The type reference to resolve.</param>
+    /// <returns>The type definition, or <see langword="null"/> when it cannot be resolved.</returns>
+    private static TypeDefinition? TryResolve(TypeReference type)
+    {
+        try
+        {
+            return type.Resolve();
+        }
+        catch (AssemblyResolutionException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Returns <see langword="true"/> when <paramref name="type"/> is <c>System.Nullable&lt;T&gt;</c>.</summary>
+    /// <param name="type">The type to test.</param>
+    /// <returns><see langword="true"/> for a closed <c>Nullable&lt;T&gt;</c>.</returns>
+    private static bool IsNullableValueType(TypeReference type) =>
+        type is GenericInstanceType { ElementType.FullName: "System.Nullable`1" };
+
+    /// <summary>Renders an enum constant as <c>EnumType.Member</c>, or <c>(EnumType)n</c> when no literal matches.</summary>
+    /// <param name="typeRef">The enum type reference, used for the display name.</param>
+    /// <param name="enumType">The resolved enum definition.</param>
+    /// <param name="value">The underlying primitive value.</param>
+    /// <returns>The rendered enum value text.</returns>
+    private static string EnumLiteral(TypeReference typeRef, TypeDefinition enumType, object value)
+    {
+        var displayName = StripArity(typeRef.Name);
+        var text = Convert.ToString(value, CultureInfo.InvariantCulture);
+        foreach (var field in enumType.Fields)
+        {
+            if (field.IsLiteral && field.HasConstant &&
+                Convert.ToString(field.Constant, CultureInfo.InvariantCulture) == text)
+            {
+                return $"{displayName}.{field.Name}";
+            }
+        }
+
+        return $"({displayName}){text}";
+    }
+
+    /// <summary>
+    ///     Appends <c> = value</c> to a rendered parameter declaration when the parameter has a default value.
+    /// </summary>
+    /// <param name="declaration">The rendered declaration, for example <c>bool indented</c>.</param>
+    /// <param name="parameter">The parameter definition.</param>
+    /// <returns>The declaration with its default value appended, when one exists.</returns>
+    internal static string WithDefault(string declaration, ParameterDefinition parameter)
+    {
+        var defaultValue = FormatParameterDefault(parameter);
+        return defaultValue == null ? declaration : $"{declaration} = {defaultValue}";
+    }
+
     /// <summary>Builds a human-readable C# property declaration signature.</summary>
     /// <param name="prop">The property definition.</param>
     /// <param name="contextNamespace">Used to simplify the property type name.</param>
@@ -932,7 +1277,7 @@ internal sealed class DotNetEmitter : IApiEmitter
         var typeName = TypeNameSimplifier.Simplify(
             prop.PropertyType,
             contextNamespace,
-            HasNullableAnnotation(prop.CustomAttributes));
+            CreateNullability(prop.CustomAttributes, prop));
         var accessibility = GetAccessibilityKeyword(MostPermissiveAccessor(prop.GetMethod, prop.SetMethod));
 
         // PropertyDefinition has no IsStatic of its own — whether it is static is determined by
@@ -997,7 +1342,7 @@ internal sealed class DotNetEmitter : IApiEmitter
         var typeName = TypeNameSimplifier.Simplify(
             field.FieldType,
             contextNamespace,
-            HasNullableAnnotation(field.CustomAttributes));
+            CreateNullability(field.CustomAttributes, field));
 
         // Determine modifier(s) from compile-time flags; literals imply IsStatic so they
         // must be tested before the IsStatic arm to avoid showing "static const"
@@ -1038,6 +1383,12 @@ internal sealed class DotNetEmitter : IApiEmitter
             string s => $"\"{EscapeStringLiteral(s)}\"",
             char c => $"'{EscapeCharLiteral(c)}'",
             bool b => b ? "true" : "false",
+            double d when double.IsNaN(d) => "double.NaN",
+            double d when double.IsPositiveInfinity(d) => "double.PositiveInfinity",
+            double d when double.IsNegativeInfinity(d) => "double.NegativeInfinity",
+            float f when float.IsNaN(f) => "float.NaN",
+            float f when float.IsPositiveInfinity(f) => "float.PositiveInfinity",
+            float f when float.IsNegativeInfinity(f) => "float.NegativeInfinity",
             _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null",
         };
     }
@@ -1109,7 +1460,7 @@ internal sealed class DotNetEmitter : IApiEmitter
         var typeName = TypeNameSimplifier.Simplify(
             evt.EventType,
             contextNamespace,
-            HasNullableAnnotation(evt.CustomAttributes));
+            CreateNullability(evt.CustomAttributes, evt));
         return $"{GetAccessibilityKeyword(evt)} event {typeName} {evt.Name}";
     }
 
@@ -1216,6 +1567,11 @@ internal sealed class DotNetEmitter : IApiEmitter
     internal static string BuildMethodDisplayName(MethodDefinition method)
     {
         var baseName = GetMethodGroupName(method);
+        if (method.HasGenericParameters)
+        {
+            baseName = $"{baseName}<{string.Join(", ", method.GenericParameters.Select(p => p.Name))}>";
+        }
+
         var parameters = string.Join(", ", method.Parameters.Select(p =>
             $"{GetRefKindKeyword(p)}{TypeNameSimplifier.Simplify(p.ParameterType, method.DeclaringType.Namespace)}"));
         return $"{baseName}({parameters})";
@@ -1348,14 +1704,14 @@ internal sealed class DotNetEmitter : IApiEmitter
         var returnType = TypeNameSimplifier.Simplify(
             method.ReturnType,
             contextNamespace,
-            HasNullableAnnotation(method.MethodReturnType.CustomAttributes));
+            CreateNullability(method.MethodReturnType.CustomAttributes, method));
         var parameters = string.Join(", ", method.Parameters.Select(p =>
         {
             var paramType = TypeNameSimplifier.Simplify(
                 p.ParameterType,
                 contextNamespace,
-                HasNullableAnnotation(p.CustomAttributes));
-            return $"{GetRefKindKeyword(p)}{paramType} {p.Name}";
+                CreateNullability(p.CustomAttributes, method));
+            return WithDefault($"{GetRefKindKeyword(p)}{paramType} {p.Name}", p);
         }));
 
         return method.Name switch
@@ -1371,60 +1727,86 @@ internal sealed class DotNetEmitter : IApiEmitter
     // =========================================================================
 
     /// <summary>
-    ///     Returns <see langword="true"/> when the member's primary type (return type, property
-    ///     type, field type, or event type) carries a <c>NullableAttribute(2)</c> annotation on
-    ///     its outermost position, indicating a C# 8+ nullable reference type.
+    ///     Creates a <see cref="NullabilityCursor"/> for a member's primary type (return type,
+    ///     property type, field type, or event type).
     /// </summary>
-    /// <remarks>
-    ///     Mono.Cecil stores nullable-reference annotations on the containing member (method return
-    ///     parameter, property, field, or event) rather than on the <see cref="TypeReference"/>
-    ///     itself. This method reads the correct <see cref="ICustomAttributeProvider"/> for each
-    ///     member kind and delegates to <see cref="HasNullableAnnotation"/>.
-    /// </remarks>
-    internal static bool IsMemberTypeNullableAnnotated(IMemberDefinition member) => member switch
+    /// <param name="member">The member whose primary type's nullability to read.</param>
+    /// <returns>A new cursor positioned at the outermost type.</returns>
+    internal static NullabilityCursor CreateMemberTypeNullability(IMemberDefinition member) => member switch
     {
-        MethodDefinition m when m.Name != ConstructorMethodName
-            => HasNullableAnnotation(m.MethodReturnType.CustomAttributes),
-        PropertyDefinition p => HasNullableAnnotation(p.CustomAttributes),
-        FieldDefinition f => HasNullableAnnotation(f.CustomAttributes),
-        EventDefinition e => HasNullableAnnotation(e.CustomAttributes),
-        _ => false,
+        MethodDefinition m => CreateNullability(m.MethodReturnType.CustomAttributes, m),
+        PropertyDefinition p => CreateNullability(p.CustomAttributes, p),
+        FieldDefinition f => CreateNullability(f.CustomAttributes, f),
+        EventDefinition e => CreateNullability(e.CustomAttributes, e),
+        _ => NullabilityCursor.ForOutermostFlag(false),
     };
 
     /// <summary>
-    ///     Returns <see langword="true"/> when <paramref name="attrs"/> contains a
-    ///     <c>System.Runtime.CompilerServices.NullableAttribute</c> whose first (or only)
-    ///     byte argument is <c>2</c>, which is the compiler-emitted encoding for a nullable
-    ///     reference type annotation (<c>?</c>).
+    ///     Creates a <see cref="NullabilityCursor"/> for a type position owned by <paramref name="owner"/>,
+    ///     combining the position's own <c>NullableAttribute</c> with the inherited
+    ///     <c>NullableContext</c>.
     /// </summary>
-    /// <remarks>
-    ///     The attribute has two constructor forms: <c>NullableAttribute(byte)</c> for simple
-    ///     types and <c>NullableAttribute(byte[])</c> for composite types (arrays, generics).
-    ///     In the composite form, byte index 0 represents the outermost type's nullability.
-    /// </remarks>
-    internal static bool HasNullableAnnotation(IEnumerable<CustomAttribute> attrs)
+    /// <param name="attributes">The attributes carrying the position's <c>NullableAttribute</c> (the member,
+    /// its return parameter, or the parameter).</param>
+    /// <param name="owner">The member that owns the type position.</param>
+    /// <returns>A new cursor positioned at the outermost type.</returns>
+    internal static NullabilityCursor CreateNullability(IEnumerable<CustomAttribute> attributes, IMemberDefinition owner) =>
+        NullabilityCursor.ForAttributes(attributes, ResolveNullableContext(owner));
+
+    /// <summary>
+    ///     Resolves the inherited <c>NullableContext</c> byte for <paramref name="owner"/>: the method's
+    ///     own attribute (methods only), then the declaring type, each enclosing type, and finally the
+    ///     module and assembly (defensively), defaulting to 0 (oblivious).
+    /// </summary>
+    /// <param name="owner">The member whose context to resolve.</param>
+    /// <returns>The context byte: 0 oblivious, 1 not annotated, 2 annotated.</returns>
+    internal static byte ResolveNullableContext(IMemberDefinition owner)
     {
-        var nullableAttr = attrs.FirstOrDefault(
-            a => a.AttributeType.FullName == "System.Runtime.CompilerServices.NullableAttribute");
-        if (nullableAttr == null || nullableAttr.ConstructorArguments.Count == 0)
+        if (owner is MethodDefinition method && TryGetNullableContext(method.CustomAttributes, out var methodContext))
         {
-            return false;
+            return methodContext;
         }
 
-        var arg = nullableAttr.ConstructorArguments[0];
-
-        // Single-byte form: NullableAttribute(byte)
-        if (arg.Value is byte b)
+        for (var type = owner as TypeDefinition ?? owner.DeclaringType; type != null; type = type.DeclaringType)
         {
-            return b == 2;
+            if (TryGetNullableContext(type.CustomAttributes, out var typeContext))
+            {
+                return typeContext;
+            }
         }
 
-        // Byte-array form: NullableAttribute(byte[]) — index 0 is the outermost type
-        if (arg.Value is CustomAttributeArgument[] arr && arr.Length > 0 && arr[0].Value is byte first)
+        var module = (owner as TypeDefinition ?? owner.DeclaringType)?.Module;
+        if (module != null)
         {
-            return first == 2;
+            if (TryGetNullableContext(module.CustomAttributes, out var moduleContext))
+            {
+                return moduleContext;
+            }
+
+            if (module.Assembly != null && TryGetNullableContext(module.Assembly.CustomAttributes, out var assemblyContext))
+            {
+                return assemblyContext;
+            }
         }
 
+        return 0;
+    }
+
+    /// <summary>Reads a <c>NullableContextAttribute</c> byte from <paramref name="attributes"/>.</summary>
+    /// <param name="attributes">The attributes to search.</param>
+    /// <param name="context">The context byte when found.</param>
+    /// <returns><see langword="true"/> when the attribute is present.</returns>
+    private static bool TryGetNullableContext(IEnumerable<CustomAttribute> attributes, out byte context)
+    {
+        var attribute = attributes.FirstOrDefault(
+            a => a.AttributeType.FullName == "System.Runtime.CompilerServices.NullableContextAttribute");
+        if (attribute != null && attribute.ConstructorArguments.Count > 0 && attribute.ConstructorArguments[0].Value is byte b)
+        {
+            context = b;
+            return true;
+        }
+
+        context = 0;
         return false;
     }
 

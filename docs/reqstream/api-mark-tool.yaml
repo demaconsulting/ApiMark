@@ -23,6 +23,10 @@ sections:
           - ApiMarkTool-Program-SupportSilentAndLogOptions
           - ApiMarkTool-Program-SupportValidateOption
           - ApiMarkTool-Program-ReportInvalidArguments
+          - ApiMarkTool-Program-DotNetDefaultVisibility
+          - ApiMarkTool-Program-OtherLanguagesDefaultVisibility
+          - ApiMarkTool-Program-ExternalLinkMapping
+          - ApiMarkTool-Program-ExternalLinkInvalid
           - ApiMarkTool-Cli-ProvideCliArgumentParsing
           - ApiMarkTool-SelfTest-RunSelfValidation
         tests: [Program_Main_DotNetCommand_GeneratesExpectedOutput]

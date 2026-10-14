@@ -79,7 +79,8 @@ public class ApiMarkTask : Task
     /// <remarks>
     ///     Accepted values: <c>Public</c>, <c>PublicAndProtected</c>, <c>All</c>. Maps to
     ///     <c>$(ApiMarkVisibility)</c>. When not set, the tool applies its own default
-    ///     (<c>Public</c>). Optional — omit the <c>--visibility</c> flag when this property is empty.
+    ///     (<c>PublicAndProtected</c> for dotnet, <c>Public</c> for cpp and vhdl). Optional — the
+    ///     <c>--visibility</c> flag is omitted when this property is empty.
     /// </remarks>
     public string? ApiMarkVisibility { get; set; }
 
@@ -140,6 +141,18 @@ public class ApiMarkTask : Task
     ///     explicitly set.
     /// </remarks>
     public string? ApiMarkReferencePaths { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the semicolon-separated list of <c>Assembly=path</c> pairs mapping a
+    ///     referenced assembly to the location of its generated ApiMark documentation.
+    /// </summary>
+    /// <remarks>
+    ///     Used for the <c>dotnet</c> language only. Maps to <c>$(ApiMarkExternalLinks)</c>. Each
+    ///     entry is forwarded as an individual <c>--external-link</c> argument. The path is relative
+    ///     to this project's API output root or an <c>http(s)</c> base URL. Optional — when empty,
+    ///     external types are listed in the External Types table only.
+    /// </remarks>
+    public string? ApiMarkExternalLinks { get; set; }
 
     /// <summary>
     ///     Gets or sets the visibility tier at which XML doc <c>&lt;summary&gt;</c> coverage is
@@ -363,6 +376,7 @@ public class ApiMarkTask : Task
         // a separate repeatable --reference-paths argument used to resolve cross-assembly
         // <inheritdoc/> targets
         AppendDelimitedRepeatableArgs(args, "--reference-paths", ApiMarkReferencePaths);
+        AppendDelimitedRepeatableArgs(args, "--external-link", ApiMarkExternalLinks);
 
         // Optional library description — shared with cpp (see AppendCppArguments); an explicit
         // value overrides the assembly's compiled AssemblyDescriptionAttribute

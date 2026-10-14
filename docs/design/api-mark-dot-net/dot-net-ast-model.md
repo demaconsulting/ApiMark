@@ -92,7 +92,7 @@ pages and table rows.
 
 **MethodDocContext** (internal sealed record): Bundles the per-method
 documentation writing context passed to `DotNetEmitterGradualDisclosure` so
-callers do not need to thread five constant parameters through each call site.
+callers do not need to thread six constant parameters through each call site.
 
 - *NamespaceName* (`string`): Namespace of the owning type.
 - *XmlDocs* (`XmlDocReader`): Documentation index.
@@ -128,9 +128,12 @@ selected early in `DotNetGenerator.Parse`, before the cref-link index exists).
 - *GetSummary(XmlDocReader, CrefLinkContext?)* / *GetRemarks(XmlDocReader,
   CrefLinkContext?)* / *GetExampleParts(XmlDocReader, CrefLinkContext?)*:
   On-demand accessors that resolve the corresponding member ID's text via
-  `XmlDocReader.GetSummary`/`GetRemarks`/`GetExampleParts`, optionally
+  `XmlDocReader.GetSummary`/`GetRemarks`/`GetExampleBlocks`, optionally
   resolving `<see cref>`/`<seealso cref>` references to Markdown links when a
   `CrefLinkContext` is supplied; return `null`/empty when no member ID was set.
+  `GetExampleParts` returns `(IsCode, Content, Language)` triples, propagating each
+  block's `lang` (prose blocks carry an empty language), so emitters can fence each
+  code block with its own language.
 
 **DotNetAstModelArgs** (internal sealed record): Bundles the `DotNetAstModel`
 constructor's own parameters into a single value, so the constructor takes one
@@ -168,10 +171,13 @@ index depends on visibility rules that are instance methods on
   `IReadOnlySet<string> emittedTypeIds`.
 - *Postconditions*: `MemberPageIndex` and `EmittedTypeIds` reflect the
   supplied values for the remainder of the emit run.
+- *Call-once contract*: a second call throws `InvalidOperationException`, so indices
+  that cross-reference links already depend on are never silently replaced.
 
 ### Error Handling
 
-DotNetAstModel does not throw after construction. All validation is the
+`SetMemberPageIndex` throws `InvalidOperationException` when called more than once.
+Otherwise DotNetAstModel does not throw after construction. All validation is the
 responsibility of `DotNetGenerator.Parse` before constructing the model.
 
 ### Dependencies
@@ -197,3 +203,5 @@ responsibility of `DotNetGenerator.Parse` before constructing the model.
 ### External Interfaces
 
 N/A — this is an internal class with no external interfaces exposed beyond its assembly.
+
+The file intentionally declares several closely related types (the model, its argument record, NamespaceDescription and the context records) together, because they form one data-model unit.

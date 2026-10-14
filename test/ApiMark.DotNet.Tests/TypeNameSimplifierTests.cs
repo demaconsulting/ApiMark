@@ -1,6 +1,11 @@
+using System.Reflection;
 using ApiMark.DotNet;
 using Mono.Cecil;
 using Xunit;
+using GenericParameterAttributes = Mono.Cecil.GenericParameterAttributes;
+using MethodAttributes = Mono.Cecil.MethodAttributes;
+using ParameterAttributes = Mono.Cecil.ParameterAttributes;
+using TypeAttributes = Mono.Cecil.TypeAttributes;
 
 namespace ApiMark.DotNet.Tests;
 
@@ -230,5 +235,377 @@ public class TypeNameSimplifierTests
 
         // Assert: shared "A.B." prefix is stripped; only "C.FooType" remains
         Assert.Equal("C.FooType", result);
+    }
+
+    // =========================================================================
+    // Nullability oracle: compare against System.Reflection.NullabilityInfoContext
+    // =========================================================================
+
+    /// <summary>Fixture types whose members are compared against the reflection oracle.</summary>
+    private static readonly string[] OracleTypeNames =
+    [
+        "NullabilityDiagramElement",
+        "NullabilityMostlyNullableElement",
+        "NullabilityObliviousElement",
+        "ArrayAndNullableClass",
+    ];
+
+    /// <summary>Renders a reflection type using <see cref="NullabilityInfo"/> in the same style as <see cref="TypeNameSimplifier"/>.</summary>
+    /// <param name="type">The reflection type.</param>
+    /// <param name="info">The nullability info for the type position.</param>
+    /// <returns>The rendered type name.</returns>
+    private static string RenderOracle(Type type, NullabilityInfo info)
+    {
+        if (type.IsByRef)
+        {
+            return RenderOracle(type.GetElementType()!, info.ElementType ?? info);
+        }
+
+        var question = info.ReadState == NullabilityState.Nullable && !type.IsGenericParameter ? "?" : string.Empty;
+        if (type.IsArray)
+        {
+            return RenderOracle(type.GetElementType()!, info.ElementType!) + "[]" + question;
+        }
+
+        var underlying = Nullable.GetUnderlyingType(type);
+        if (underlying != null)
+        {
+            return RenderOracle(underlying, info) + "?";
+        }
+
+        if (type.IsGenericType)
+        {
+            var name = type.Name.Substring(0, type.Name.IndexOf('`'));
+            var args = string.Join(", ", type.GetGenericArguments().Select((a, i) => RenderOracle(a, info.GenericTypeArguments[i])));
+            return $"{name}<{args}>{(type.IsValueType ? string.Empty : question)}";
+        }
+
+        var simple = type == typeof(string) ? "string" : type == typeof(int) ? "int" : type == typeof(bool) ? "bool" : type.Name;
+        return simple + (type.IsValueType ? string.Empty : question);
+    }
+
+    /// <summary>Validates that nullable flags rendered for every fixture member agree with the reflection oracle.</summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_NullabilityFixtures_MatchReflectionOracle()
+    {
+        // Arrange
+        var context = new NullabilityInfoContext();
+        var reflectionAssembly = typeof(Fixtures.SampleClass).Assembly;
+        const string ns = "ApiMark.DotNet.Fixtures";
+        var flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
+        var mismatches = new List<string>();
+        var compared = 0;
+
+        void Compare(string where, string expected, string actual)
+        {
+            compared++;
+            if (expected != actual)
+            {
+                mismatches.Add($"{where}: expected '{expected}' but was '{actual}'");
+            }
+        }
+
+        foreach (var typeName in OracleTypeNames)
+        {
+            var cecilType = FixtureAssembly.MainModule.Types.Single(t => t.Name == typeName);
+            var reflectionType = reflectionAssembly.GetTypes().Single(t => t.Name == typeName);
+
+            foreach (var prop in reflectionType.GetProperties(flags))
+            {
+                var cecilProp = cecilType.Properties.Single(p => p.Name == prop.Name);
+                Compare(
+                    $"{typeName}.{prop.Name}",
+                    RenderOracle(prop.PropertyType, context.Create(prop)),
+                    TypeNameSimplifier.Simplify(cecilProp.PropertyType, ns, DotNetEmitter.CreateNullability(cecilProp.CustomAttributes, cecilProp)));
+            }
+
+            foreach (var field in reflectionType.GetFields(flags))
+            {
+                var cecilField = cecilType.Fields.Single(f => f.Name == field.Name);
+                Compare(
+                    $"{typeName}.{field.Name}",
+                    RenderOracle(field.FieldType, context.Create(field)),
+                    TypeNameSimplifier.Simplify(cecilField.FieldType, ns, DotNetEmitter.CreateNullability(cecilField.CustomAttributes, cecilField)));
+            }
+
+            foreach (var evt in reflectionType.GetEvents(flags))
+            {
+                var cecilEvent = cecilType.Events.Single(e => e.Name == evt.Name);
+                Compare(
+                    $"{typeName}.{evt.Name}",
+                    RenderOracle(evt.EventHandlerType!, context.Create(evt)),
+                    TypeNameSimplifier.Simplify(cecilEvent.EventType, ns, DotNetEmitter.CreateNullability(cecilEvent.CustomAttributes, cecilEvent)));
+            }
+
+            foreach (var method in reflectionType.GetMethods(flags).Where(m => !m.IsSpecialName))
+            {
+                var cecilMethod = cecilType.Methods.Single(m => m.Name == method.Name);
+                Compare(
+                    $"{typeName}.{method.Name} return",
+                    RenderOracle(method.ReturnType, context.Create(method.ReturnParameter)),
+                    TypeNameSimplifier.Simplify(cecilMethod.ReturnType, ns, DotNetEmitter.CreateNullability(cecilMethod.MethodReturnType.CustomAttributes, cecilMethod)));
+
+                foreach (var parameter in method.GetParameters())
+                {
+                    var cecilParameter = cecilMethod.Parameters.Single(p => p.Name == parameter.Name);
+                    Compare(
+                        $"{typeName}.{method.Name}({parameter.Name})",
+                        RenderOracle(parameter.ParameterType, context.Create(parameter)),
+                        TypeNameSimplifier.Simplify(cecilParameter.ParameterType, ns, DotNetEmitter.CreateNullability(cecilParameter.CustomAttributes, cecilMethod)));
+                }
+            }
+        }
+
+        // Assert
+        Assert.True(compared > 30, $"Expected the oracle to compare many positions but compared {compared}.");
+        Assert.True(mismatches.Count == 0, string.Join(Environment.NewLine, mismatches));
+    }
+
+    /// <summary>Validates the nullable annotations on generic arguments of a function-typed property.</summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_FuncWithNullableResult_AnnotatesInnerAndOuter()
+    {
+        // Arrange
+        var type = GetType("NullabilityDiagramElement");
+        var method = type.Methods.Single(m => m.Name == "Style");
+
+        // Act
+        var result = TypeNameSimplifier.Simplify(
+            method.ReturnType,
+            "ApiMark.DotNet.Fixtures",
+            DotNetEmitter.CreateNullability(method.MethodReturnType.CustomAttributes, method));
+
+        // Assert
+        Assert.Equal("Func<NullWire, NullWireStyle?>?", result);
+    }
+
+    /// <summary>Validates that nullable annotations on generic type parameters are rendered (reflection reports unconstrained parameters as always nullable, so no oracle).</summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_GenericParameterAnnotations_RenderQuestionMarks()
+    {
+        // Arrange
+        var type = GetType("NullabilityGenericElement`1");
+        string Render(string name)
+        {
+            var p = type.Properties.Single(x => x.Name == name);
+            return TypeNameSimplifier.Simplify(p.PropertyType, "ApiMark.DotNet.Fixtures", DotNetEmitter.CreateNullability(p.CustomAttributes, p));
+        }
+
+        // Act / Assert
+        Assert.Equal("T?", Render("Value"));
+        Assert.Equal("List<T>", Render("Items"));
+        Assert.Equal("List<T?>?", Render("MaybeItems"));
+    }
+
+    // =========================================================================
+    // Synthesized Cecil types (no fixture dependency for the type shapes under test)
+    // =========================================================================
+
+    /// <summary>Synthesized module that owns every type reference created by the synthesized-type tests.</summary>
+    private static readonly ModuleDefinition SynthModule =
+        ModuleDefinition.CreateModule("TypeNameSimplifierSynth", ModuleKind.Dll);
+
+    /// <summary>Creates a synthesized nullability attribute with a single byte argument.</summary>
+    /// <param name="attributeName">The simple attribute type name.</param>
+    /// <param name="value">The byte argument.</param>
+    /// <returns>The custom attribute.</returns>
+    private static CustomAttribute MakeByteAttribute(string attributeName, byte value)
+    {
+        var attrType = new TypeReference("System.Runtime.CompilerServices", attributeName, SynthModule, SynthModule.TypeSystem.CoreLibrary);
+        var ctor = new MethodReference(".ctor", SynthModule.TypeSystem.Void, attrType);
+        var attribute = new CustomAttribute(ctor);
+        attribute.ConstructorArguments.Add(new CustomAttributeArgument(SynthModule.TypeSystem.Byte, value));
+        return attribute;
+    }
+
+    /// <summary>Creates a synthesized <c>NullableAttribute</c> with a per-position byte array.</summary>
+    /// <param name="flags">The per-position flags.</param>
+    /// <returns>The custom attribute.</returns>
+    private static CustomAttribute MakeFlagArrayAttribute(params byte[] flags)
+    {
+        var attrType = new TypeReference("System.Runtime.CompilerServices", "NullableAttribute", SynthModule, SynthModule.TypeSystem.CoreLibrary);
+        var ctor = new MethodReference(".ctor", SynthModule.TypeSystem.Void, attrType);
+        var attribute = new CustomAttribute(ctor);
+        var elements = flags.Select(f => new CustomAttributeArgument(SynthModule.TypeSystem.Byte, f)).ToArray();
+        attribute.ConstructorArguments.Add(new CustomAttributeArgument(new ArrayType(SynthModule.TypeSystem.Byte), elements));
+        return attribute;
+    }
+
+    /// <summary>Creates <c>List&lt;string&gt;</c> as a generic instance type.</summary>
+    /// <returns>The generic instance type reference.</returns>
+    private static GenericInstanceType MakeListOfString()
+    {
+        var list = new TypeReference("System.Collections.Generic", "List`1", SynthModule, SynthModule.TypeSystem.CoreLibrary);
+        var instance = new GenericInstanceType(list);
+        instance.GenericArguments.Add(SynthModule.TypeSystem.String);
+        return instance;
+    }
+
+    /// <summary>Creates a synthesized class with one method returning <paramref name="returnType"/> and taking one parameter of the same type.</summary>
+    /// <param name="returnType">The return and parameter type.</param>
+    /// <param name="typeContext">The type-level NullableContext byte, or <see langword="null"/> for none.</param>
+    /// <param name="methodContext">The method-level NullableContext byte, or <see langword="null"/> for none.</param>
+    /// <returns>The synthesized method.</returns>
+    private static MethodDefinition MakeMethod(TypeReference returnType, byte? typeContext, byte? methodContext)
+    {
+        var type = new TypeDefinition("Synth", "Holder", TypeAttributes.Public | TypeAttributes.Class, SynthModule.TypeSystem.Object);
+        SynthModule.Types.Add(type);
+        var method = new MethodDefinition("M", MethodAttributes.Public, returnType);
+        method.Parameters.Add(new ParameterDefinition("p", ParameterAttributes.None, returnType));
+        type.Methods.Add(method);
+        if (typeContext.HasValue)
+        {
+            type.CustomAttributes.Add(MakeByteAttribute("NullableContextAttribute", typeContext.Value));
+        }
+
+        if (methodContext.HasValue)
+        {
+            method.CustomAttributes.Add(MakeByteAttribute("NullableContextAttribute", methodContext.Value));
+        }
+
+        return method;
+    }
+
+    /// <summary>Validates that a by-reference type with a nullable flag unwraps to the element type and still applies the <c>?</c> suffix, without the byref consuming a flag.</summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_ByReferenceWithNullability_AnnotatesElementType()
+    {
+        // Arrange: ref string? with a single flag of 2; ref List<string?> with flags [1, 2]
+        var byRefString = new ByReferenceType(SynthModule.TypeSystem.String);
+        var byRefList = new ByReferenceType(MakeListOfString());
+        var listCursor = NullabilityCursor.ForAttributes([MakeFlagArrayAttribute(1, 2)], 0);
+
+        // Act
+        var simple = TypeNameSimplifier.Simplify(byRefString, "Synth", NullabilityCursor.ForOutermostFlag(true));
+        var generic = TypeNameSimplifier.Simplify(byRefList, "Synth", listCursor);
+
+        // Assert
+        Assert.Equal("string?", simple);
+        Assert.Equal("List<string?>", generic);
+    }
+
+    /// <summary>Validates that nullable flags are applied per position on a multi-dimensional array (element and array positions).</summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_MultiDimensionalArrayWithNullability_AnnotatesPerPosition()
+    {
+        // Arrange: string[,] with flags in pre-order [array, element]
+        var array = new ArrayType(SynthModule.TypeSystem.String, 2);
+
+        // Act
+        var nullableArray = TypeNameSimplifier.Simplify(array, "Synth", NullabilityCursor.ForAttributes([MakeFlagArrayAttribute(2, 1)], 0));
+        var nullableElement = TypeNameSimplifier.Simplify(array, "Synth", NullabilityCursor.ForAttributes([MakeFlagArrayAttribute(1, 2)], 0));
+
+        // Assert
+        Assert.Equal("string[,]?", nullableArray);
+        Assert.Equal("string?[,]", nullableElement);
+    }
+
+    /// <summary>Validates that a struct-constrained generic parameter never receives a <c>?</c> suffix even when the inherited flag is 2, while an unconstrained one does.</summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_StructConstrainedGenericParameter_InheritedFlagTwo_NoQuestionMark()
+    {
+        // Arrange
+        var owner = new TypeDefinition("Synth", "Generic`2", TypeAttributes.Public | TypeAttributes.Class, SynthModule.TypeSystem.Object);
+        var structParameter = new GenericParameter("TStruct", owner)
+        {
+            Attributes = GenericParameterAttributes.NotNullableValueTypeConstraint,
+        };
+        var plainParameter = new GenericParameter("TPlain", owner);
+        var inherited = NullabilityCursor.ForAttributes([], 2);
+
+        // Act
+        var structResult = TypeNameSimplifier.Simplify(structParameter, "Synth", inherited);
+        var plainResult = TypeNameSimplifier.Simplify(plainParameter, "Synth", NullabilityCursor.ForAttributes([], 2));
+
+        // Assert
+        Assert.Equal("TStruct", structResult);
+        Assert.Equal("TPlain?", plainResult);
+    }
+
+    /// <summary>Validates that the type-level <c>NullableContext</c> is inherited by members without their own attribute.</summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_NullableContextOnType_IsInherited()
+    {
+        // Arrange: context 2 on the type, none on the method
+        var method = MakeMethod(SynthModule.TypeSystem.String, typeContext: 2, methodContext: null);
+
+        // Act
+        var returnType = TypeNameSimplifier.Simplify(method.ReturnType, "Synth", DotNetEmitter.CreateNullability(method.MethodReturnType.CustomAttributes, method));
+        var parameter = TypeNameSimplifier.Simplify(method.Parameters[0].ParameterType, "Synth", DotNetEmitter.CreateNullability(method.Parameters[0].CustomAttributes, method));
+
+        // Assert
+        Assert.Equal("string?", returnType);
+        Assert.Equal("string?", parameter);
+    }
+
+    /// <summary>Validates that a method-level <c>NullableContext</c> overrides the type-level one.</summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_NullableContextOnMethod_OverridesTypeContext()
+    {
+        // Arrange: type says annotated (2), method says not annotated (1)
+        var method = MakeMethod(SynthModule.TypeSystem.String, typeContext: 2, methodContext: 1);
+
+        // Act
+        var result = TypeNameSimplifier.Simplify(method.ReturnType, "Synth", DotNetEmitter.CreateNullability(method.MethodReturnType.CustomAttributes, method));
+
+        // Assert
+        Assert.Equal("string", result);
+    }
+
+    /// <summary>Validates that an explicit <c>NullableAttribute</c> on the position overrides the inherited context.</summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_ExplicitNullableAttribute_OverridesContext()
+    {
+        // Arrange: context 2, explicit single-byte attribute 1 on the parameter
+        var method = MakeMethod(SynthModule.TypeSystem.String, typeContext: 2, methodContext: null);
+        var parameter = method.Parameters[0];
+        parameter.CustomAttributes.Add(MakeByteAttribute("NullableAttribute", 1));
+
+        // Act
+        var result = TypeNameSimplifier.Simplify(parameter.ParameterType, "Synth", DotNetEmitter.CreateNullability(parameter.CustomAttributes, method));
+
+        // Assert
+        Assert.Equal("string", result);
+    }
+
+    /// <summary>Validates that an exhausted per-position flag array falls back to the context default for remaining positions.</summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_ExhaustedFlagArray_UsesContextDefault()
+    {
+        // Arrange: List<string> needs two flags but only one is supplied; context default is 2
+        var cursor = NullabilityCursor.ForAttributes([MakeFlagArrayAttribute(1)], 2);
+
+        // Act
+        var result = TypeNameSimplifier.Simplify(MakeListOfString(), "Synth", cursor);
+
+        // Assert: outer uses flag 1 (no suffix); the argument falls back to context 2
+        Assert.Equal("List<string?>", result);
+    }
+
+    /// <summary>Validates the exact output when the context namespace is null.</summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_NullContextNamespace_ReturnsExactNames()
+    {
+        // Arrange
+        var custom = new TypeReference("A.B", "Foo`1", SynthModule, null);
+
+        // Act / Assert: primitives alias, other types reduce to the simple name without arity
+        Assert.Equal("string", TypeNameSimplifier.Simplify(SynthModule.TypeSystem.String, null!));
+        Assert.Equal("Foo", TypeNameSimplifier.Simplify(custom, null!));
+        Assert.Equal("List<string>", TypeNameSimplifier.Simplify(MakeListOfString(), null!));
+    }
+
+    /// <summary>Validates that an empty (global) context namespace strips nothing and does not throw.</summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_GlobalContextNamespace_DoesNotStripOrThrow()
+    {
+        // Arrange
+        var global = new TypeReference("", "GlobalType", SynthModule, null);
+        var namespaced = new TypeReference("A.B", "Foo", SynthModule, null);
+
+        // Act / Assert
+        Assert.Equal("GlobalType", TypeNameSimplifier.Simplify(global, ""));
+        Assert.Equal("Foo", TypeNameSimplifier.Simplify(namespaced, ""));
+        Assert.Equal("List<string>", TypeNameSimplifier.Simplify(MakeListOfString(), ""));
     }
 }

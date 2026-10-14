@@ -14,8 +14,9 @@ matches the naming conventions a C# developer would write by hand.
 
 ### Data Model
 
-N/A - TypeNameSimplifier is a stateless helper class. It exposes a single
-simplification method and holds no mutable state across calls.
+TypeNameSimplifier is a stateless static class: it holds no mutable state across
+calls. Its data model consists of two lookup tables and the `NullabilityCursor`
+helper type that is declared in the same source file and is part of this unit.
 
 **Primitives** (`private static readonly Dictionary<string, string>`): maps full
 CLR type names to their C# keyword aliases (e.g. `System.Int32` → `int`,
@@ -33,35 +34,74 @@ non-aliased) types always reduce to their simple name via the fallthrough arm of
 plain type rendering. This field is the intended place to add new prefixes as
 the tool evolves.
 
+**NullabilityCursor** (`internal sealed class`, same source file): walks the
+nullable-reference flags the C# compiler encodes for a member's type. The compiler
+emits one flag per position of the type tree in pre-order — the outer type first,
+then the array element or the generic arguments left to right. A by-reference
+wrapper is not a position and consumes no flag. Flag values are `0` (oblivious),
+`1` (not annotated) and `2` (annotated, rendered with `?`).
+
+- `ForOutermostFlag(bool annotated)` — creates a cursor whose first position is
+  `2` when annotated and `0` otherwise; all later positions are `0`. Used by the
+  `bool` overload of `Simplify`.
+- `ForAttributes(IEnumerable<CustomAttribute> attributes, byte context)` — reads the
+  member's `NullableAttribute`. A single-byte argument applies to every position.
+  A byte-array argument is indexed by position. With no attribute (or an
+  unrecognized argument) every position uses `context`, the inherited
+  `NullableContext` byte.
+- `Next()` — returns the flag for the next position and advances. When a flag array
+  is present it is consumed in order; once the array is exhausted, and whenever
+  there is no array, `Next()` returns the context default supplied at construction
+  (not `0` and not the last array value).
+
+The cursor is not thread-safe; one cursor is created per type position by the
+caller (`DotNetEmitter.CreateNullability`, which resolves the inherited context from
+the method, its declaring and enclosing types, the module and the assembly).
+
 ### Key Methods
 
-**TypeNameSimplifier.Simplify**: Produces a simplified C# type name from a
-Mono.Cecil TypeReference.
+**TypeNameSimplifier.Simplify (bool overload)**: Produces a simplified C# type name
+from a Mono.Cecil TypeReference.
 
 - *Parameters*:
   - `TypeReference typeRef` — Mono.Cecil type reference to simplify.
   - `string contextNamespace` — namespace of the type currently being documented;
     used for context-relative name shortening.
-  - `bool isNullableAnnotated` (optional, default `false`) — when `true`, a `?`
-    suffix is appended for reference types carrying a `NullableAttribute(2)`
-    annotation (C# 8+ nullable reference type syntax). This information is stored
-    on the containing member by the compiler, not on the `TypeReference` itself;
-    callers must inspect member custom attributes and pass `true` when byte value
-    2 is found.
+  - `bool isNullableAnnotated` (optional, default `false`) — when `true`, the
+    outermost position is treated as annotated (flag `2`) and receives a `?`
+    suffix when it is a reference type. It is a convenience wrapper that creates a
+    cursor with `NullabilityCursor.ForOutermostFlag`.
 - *Returns*: `string` — simplified C# type name string.
 - *Preconditions*: `typeRef` must not be null.
-- *Postconditions*: The returned string is a valid C# type name that a developer
-  would recognize; all applicable simplification rules have been applied.
+- *Postconditions*: The returned string is a C# type name; all applicable
+  simplification rules have been applied.
 
-Simplification rules applied in order:
+**TypeNameSimplifier.Simplify (cursor overload, internal)**: Same as above, but takes
+a `NullabilityCursor?` instead of the boolean. Every type position (except
+by-reference wrappers) consumes one flag, so annotations on generic arguments and
+array elements are rendered on the correct position. A `null` cursor means no
+annotations. Both overloads delegate to the private `SimplifyCore`, which
+recurses through the type tree.
 
+**TypeNameSimplifier.IsAnnotated** (internal static): decides whether a position
+with a given flag renders `?`. True only when the flag is `2` and the type is not a
+value type and not a generic parameter with the `struct` (not-nullable value type)
+constraint. A flag of `2` inherited from `NullableContext` therefore never leaks
+onto value types or struct-constrained parameters.
+
+Simplification rules, numbered 0 through 7 (eight rules), applied in this order:
+
+0. **By-reference unwrapping** — a Mono.Cecil `ByReferenceType` (used for `ref`,
+   `out` and `in` parameters) is unwrapped to its element type, which is then
+   simplified. The wrapper consumes no nullable flag. Rendering the `ref`/`out`/`in`
+   keyword is the caller's responsibility (`DotNetEmitter.GetRefKindKeyword`).
 1. **C# primitive aliases** — CLR primitive types are replaced by their C# keyword
    equivalents: `System.Int32` → `int`, `System.String` → `string`,
    `System.Boolean` → `bool`, `System.Void` → `void`, and so on for all standard
    C# keyword aliases. These aliases apply only to the primitive leaf types reached
    after composite arms (array, nullable, generic) have been evaluated. Plain
    (non-generic, non-aliased) types reduce to their simple name; `WellKnownNamespaces`
-   governs namespace stripping for generic type arguments only.
+   governs namespace stripping for generic type containers only.
 2. **Array syntax** — `System.ArrayType` with element type `T` is rendered as `T[]`
    using the Mono.Cecil `ArrayType.ElementType` property; the element type is itself
    simplified recursively. Multi-dimensional arrays use rank-aware bracket notation:
@@ -85,8 +125,16 @@ Simplification rules applied in order:
    recursively by applying all of the above rules, producing compact forms such as
    `List<MyType>` rather than
    `System.Collections.Generic.List<MyNamespace.MyType>`.
-7. **Nullable reference type suffix** — reference types annotated as nullable by
-   the Mono.Cecil nullable annotation receive a `?` suffix, e.g. `string?`.
+7. **Per-position nullable reference suffix** — every type position consumes one
+   flag from the `NullabilityCursor` in pre-order (outer type, then array element or
+   generic arguments left to right). A position whose flag is `2` and which is
+   a reference type gets a `?` suffix, e.g. `string?`, `List<T?>?` or
+   `Func<Wire, WireStyle?>?`. For arrays the array position and the element
+   position are independent (`string[]?` versus `string?[]`). `Nullable<T>`
+   (Rule 3) renders `T?` regardless of the flag; it consumes two flags — one for the
+   `Nullable<T>` position itself and one for its type argument `T` — so any following
+   positions stay aligned with the compiler's pre-order encoding. An empty (global) context
+   namespace strips no namespace prefix and does not throw.
 
 **TypeNameSimplifier.StripArity** (internal static): Removes the generic arity
 suffix from a type name.
@@ -117,10 +165,14 @@ still distinguishes generic types by parameter count.
 
 ### Error Handling
 
-TypeNameSimplifier does not throw exceptions for well-formed Mono.Cecil type
-references. If a type reference is in an unexpected or malformed state, Simplify
-returns the unqualified type name as a safe fallback rather than throwing. Callers
-can rely on always receiving a non-null string.
+TypeNameSimplifier performs no explicit validation and has no fallback path. It
+does not throw for well-formed Mono.Cecil type references, and a null
+`contextNamespace` is tolerated (no context prefix is stripped); an empty
+`contextNamespace` (a type in the global namespace) likewise strips nothing. For an unexpected
+reference shape (for example a type with an empty name) the simple-name fallthrough
+arm returns whatever name the reference carries; a null `typeRef` raises a
+`NullReferenceException`, which is a caller contract violation. Callers can rely on
+receiving a non-null string for any non-null reference.
 
 ### Dependencies
 

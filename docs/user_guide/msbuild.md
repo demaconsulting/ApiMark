@@ -41,6 +41,18 @@ and an optional `Format`. When `ApiMarkOutput` items are present they replace th
 </ItemGroup>
 ```
 
+## Default Visibility
+
+For C# projects, `ApiMarkVisibility` defaults to `PublicAndProtected`. Set
+`<ApiMarkVisibility>Public</ApiMarkVisibility>` to document public members only. C++ and VHDL
+default to `Public`. `ApiMarkEnforceDocs` is independent of this setting.
+
+## External Links
+
+`ApiMarkExternalLinks` is a semicolon-separated list of `Assembly=path` pairs (path is a relative path or an
+`http(s)` URL to that assembly's separately generated ApiMark documentation); it applies to C# projects. As
+`;` is the list separator, a path or URL containing `;` cannot be expressed.
+
 ## Including Docs in the NuGet Package
 
 When `ApiMarkPackDocs` is set to `true`, the generated `api/` folder is included in the
@@ -54,7 +66,7 @@ included if they already exist on disk at pack time.
 
 See the _.NET Documentation_ section for C#-specific MSBuild properties such as
 `ApiMarkAssemblyPath`, `ApiMarkXmlDocPath`, `ApiMarkVisibility`,
-`ApiMarkIncludeObsolete`, and the opt-in `ApiMarkEnforceDocs`/
+`ApiMarkIncludeObsolete`, `ApiMarkExternalLinks`, and the opt-in `ApiMarkEnforceDocs`/
 `ApiMarkEnforceDocsSeverity` documentation-coverage enforcement properties.
 
 See the _C++ Documentation_ section for C++-specific MSBuild properties such as

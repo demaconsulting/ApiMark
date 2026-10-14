@@ -1519,6 +1519,226 @@ public class DotNetGeneratorTests
     }
 
     /// <summary>
+    ///     Validates that a mapped external assembly produces a relative link to its API pages and is
+    ///     omitted from the External Types table, while an unmapped assembly keeps the table fallback.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ExternalLinksMapped_LinksTypeAndSkipsExternalTypesTable()
+    {
+        // Arrange
+        var loggerAssembly = typeof(Microsoft.Extensions.Logging.ILogger).Assembly;
+        var options = BuildOptions();
+        options.ReferencePaths = [loggerAssembly.Location];
+        options.ExternalLinks = new Dictionary<string, string>
+        {
+            [loggerAssembly.GetName().Name!] = "../OtherLib/api",
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+
+        // Act
+        new DotNetGenerator(options).Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the parameter type is a link into the mapped API root and no External Types section exists
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/TypeLinkFixture/Log"];
+        var rows = writer.Operations.OfType<TableOperation>().SelectMany(t => t.Rows).ToList();
+        Assert.Contains(
+            rows,
+            row => row.Any(cell => cell.Contains("[ILogger](../../../OtherLib/api/Microsoft.Extensions.Logging/ILogger1.md)", StringComparison.Ordinal)));
+        Assert.DoesNotContain(
+            writer.Operations.OfType<HeadingOperation>(),
+            h => h.Text == "External Types");
+    }
+
+    /// <summary>
+    ///     Validates that a mapping whose assembly DLL cannot be found is ignored with a warning and the type
+    ///     stays in the External Types table.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ExternalLinksWithoutReferenceDll_FallsBackToExternalTypesTable()
+    {
+        // Arrange
+        var options = BuildOptions();
+        options.ExternalLinks = new Dictionary<string, string>
+        {
+            ["Microsoft.Extensions.Logging.Abstractions"] = "../OtherLib/api",
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+        var context = new InMemoryContext();
+
+        // Act
+        new DotNetGenerator(options).Parse(context).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert
+        var writer = factory.Writers["ApiMark.DotNet.Fixtures/TypeLinkFixture/Log"];
+        Assert.Contains(
+            writer.Operations.OfType<HeadingOperation>(),
+            h => h.Text == "External Types");
+        Assert.Contains(context.Lines, l => l.StartsWith("Warning:", StringComparison.Ordinal) && l.Contains("was not found", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Runs generation with the logging-abstractions assembly mapped and returns the Log member page plus the parse context.
+    /// </summary>
+    /// <param name="mappings">The ExternalLinks mapping.</param>
+    /// <param name="referencePaths">The reference paths.</param>
+    /// <returns>The Log member page writer and the context used for Parse.</returns>
+    private static (InMemoryMarkdownWriter Writer, InMemoryContext Context) GenerateLogPage(
+        IReadOnlyDictionary<string, string> mappings,
+        IReadOnlyList<string> referencePaths)
+    {
+        var options = BuildOptions();
+        options.ReferencePaths = referencePaths;
+        options.ExternalLinks = mappings;
+        var factory = new InMemoryMarkdownWriterFactory();
+        var context = new InMemoryContext();
+        new DotNetGenerator(options).Parse(context).Emit(factory, new EmitConfig(), new InMemoryContext());
+        return (factory.Writers["ApiMark.DotNet.Fixtures/TypeLinkFixture/Log"], context);
+    }
+
+    /// <summary>Validates that an absolute http(s) mapping value produces an absolute link.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ExternalLinksHttpsUrl_EmitsAbsoluteLink()
+    {
+        // Arrange
+        var loggerAssembly = typeof(Microsoft.Extensions.Logging.ILogger).Assembly;
+
+        // Act
+        var (writer, _) = GenerateLogPage(
+            new Dictionary<string, string> { [loggerAssembly.GetName().Name!] = "https://docs.example.com/other/api/" },
+            [loggerAssembly.Location]);
+
+        // Assert
+        var rows = writer.Operations.OfType<TableOperation>().SelectMany(t => t.Rows).ToList();
+        Assert.Contains(
+            rows,
+            row => row.Any(cell => cell.Contains("[ILogger](https://docs.example.com/other/api/Microsoft.Extensions.Logging/ILogger1.md)", StringComparison.Ordinal)));
+    }
+
+    /// <summary>Validates that the mapping key is matched case-insensitively.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ExternalLinksKeyDifferentCase_StillLinks()
+    {
+        // Arrange
+        var loggerAssembly = typeof(Microsoft.Extensions.Logging.ILogger).Assembly;
+
+        // Act
+        var (writer, _) = GenerateLogPage(
+            new Dictionary<string, string> { [loggerAssembly.GetName().Name!.ToUpperInvariant()] = "../OtherLib/api" },
+            [loggerAssembly.Location]);
+
+        // Assert
+        Assert.DoesNotContain(writer.Operations.OfType<HeadingOperation>(), h => h.Text == "External Types");
+    }
+
+    /// <summary>Validates that a reference path naming a directory that holds the DLL is searched.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ExternalLinksDirectoryReferencePath_FindsAssembly()
+    {
+        // Arrange
+        var loggerAssembly = typeof(Microsoft.Extensions.Logging.ILogger).Assembly;
+        var directory = Path.GetDirectoryName(loggerAssembly.Location)!;
+
+        // Act
+        var (writer, context) = GenerateLogPage(
+            new Dictionary<string, string> { [loggerAssembly.GetName().Name!] = "../OtherLib/api" },
+            [directory]);
+
+        // Assert
+        Assert.DoesNotContain(writer.Operations.OfType<HeadingOperation>(), h => h.Text == "External Types");
+        Assert.DoesNotContain(context.Lines, l => l.StartsWith("Warning:", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that a corrupt mapped DLL produces a warning and the table fallback instead of aborting Parse.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ExternalLinksCorruptDll_WarnsAndFallsBack()
+    {
+        // Arrange
+        var tempDir = Directory.CreateTempSubdirectory("ApiMarkCorruptDllTest");
+        try
+        {
+            var corrupt = Path.Combine(tempDir.FullName, "Microsoft.Extensions.Logging.Abstractions.dll");
+            File.WriteAllText(corrupt, "this is not a .NET assembly");
+
+            // Act
+            var (writer, context) = GenerateLogPage(
+                new Dictionary<string, string> { ["Microsoft.Extensions.Logging.Abstractions"] = "../OtherLib/api" },
+                [corrupt]);
+
+            // Assert
+            Assert.Contains(writer.Operations.OfType<HeadingOperation>(), h => h.Text == "External Types");
+            Assert.Contains(context.Lines, l => l.StartsWith("Warning:", StringComparison.Ordinal) && l.Contains("could not be read", StringComparison.Ordinal));
+        }
+        finally
+        {
+            Directory.Delete(tempDir.FullName, recursive: true);
+        }
+    }
+
+    /// <summary>Validates that one unusable mapping does not prevent another mapping from linking.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ExternalLinksMultipleMappings_HonorsUsableOnes()
+    {
+        // Arrange
+        var loggerAssembly = typeof(Microsoft.Extensions.Logging.ILogger).Assembly;
+
+        // Act
+        var (writer, context) = GenerateLogPage(
+            new Dictionary<string, string>
+            {
+                ["Missing.Library"] = "../Missing/api",
+                [loggerAssembly.GetName().Name!] = "../OtherLib/api",
+            },
+            [loggerAssembly.Location]);
+
+        // Assert
+        Assert.DoesNotContain(writer.Operations.OfType<HeadingOperation>(), h => h.Text == "External Types");
+        Assert.Contains(context.Lines, l => l.Contains("'Missing.Library'", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that values other than a relative path or http(s) URL are rejected with a warning.</summary>
+    [Theory]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("file:///etc/docs")]
+    [InlineData("/rooted/api")]
+    [InlineData("")]
+    public void DotNetGenerator_Generate_ExternalLinksInvalidValue_WarnsAndFallsBack(string value)
+    {
+        // Arrange
+        var loggerAssembly = typeof(Microsoft.Extensions.Logging.ILogger).Assembly;
+
+        // Act
+        var (writer, context) = GenerateLogPage(
+            new Dictionary<string, string> { [loggerAssembly.GetName().Name!] = value },
+            [loggerAssembly.Location]);
+
+        // Assert
+        Assert.Contains(writer.Operations.OfType<HeadingOperation>(), h => h.Text == "External Types");
+        Assert.Contains(context.Lines, l => l.StartsWith("Warning:", StringComparison.Ordinal) && l.Contains("relative path or an http(s) URL", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates end to end that default options (no explicit Visibility) emit protected members.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_Generate_DefaultVisibility_EmitsProtectedMembersButNotPrivate()
+    {
+        // Arrange: do not set Visibility
+        var options = new DotNetGeneratorOptions
+        {
+            AssemblyPath = FixturePaths.GetFixtureDll(),
+            XmlDocPath = FixturePaths.GetFixtureXmlDoc(),
+        };
+        var factory = new InMemoryMarkdownWriterFactory();
+
+        // Act
+        new DotNetGenerator(options).Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert
+        Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ProtectedMembersClass/ProtectedMethod"));
+        Assert.False(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/ProtectedMembersClass/PrivateMethod"));
+    }
+
+    /// <summary>
     ///     Validates that a delegate type produces a page with a <c>public delegate</c>
     ///     signature rather than <c>public sealed class</c>, using the parameter list
     ///     from the compiler-injected <c>Invoke</c> method.
@@ -2034,6 +2254,43 @@ public class DotNetGeneratorTests
 
         // Assert: at least one csharp code block is emitted from the <example><code> content
         Assert.Contains(codeBlocks, cb => cb.Language == "csharp" && cb.Code.Contains("GetGreeting", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that a <c>lang</c> attribute on an example code block flows to the emitted code fence in both output formats.</summary>
+    [Fact]
+    public void DotNetGenerator_Generate_ExampleWithLangAttribute_EmitsMatchingCodeFenceLanguage()
+    {
+        // Arrange
+        var gradual = new InMemoryMarkdownWriterFactory();
+        var single = new InMemoryMarkdownWriterFactory();
+        var generator = new DotNetGenerator(BuildOptions());
+
+        // Act
+        generator.Parse(new InMemoryContext()).Emit(gradual, new EmitConfig(), new InMemoryContext());
+        generator.Parse(new InMemoryContext()).Emit(single, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert
+        var memberBlocks = gradual.Writers["ApiMark.DotNet.Fixtures/LangExampleClass/Configure"].Operations.OfType<CodeBlockOperation>().ToList();
+        var singleBlocks = single.GetWriter("", "api").Operations.OfType<CodeBlockOperation>().ToList();
+        foreach (var blocks in new[] { memberBlocks, singleBlocks })
+        {
+            Assert.Contains(blocks, b => b.Language == "xml" && b.Code.Contains("setting", StringComparison.Ordinal));
+            Assert.Contains(blocks, b => b.Language == "powershell" && b.Code.Contains("Get-Item", StringComparison.Ordinal));
+            Assert.Contains(blocks, b => b.Language == "csharp" && b.Code.Contains("plain", StringComparison.Ordinal));
+            Assert.Contains(blocks, b => b.Language == "csharp" && b.Code.Contains("var x = 1", StringComparison.Ordinal));
+        }
+    }
+
+    /// <summary>Validates that the Visibility option defaults to <c>PublicAndProtected</c> and is independent of EnforceDocsVisibility.</summary>
+    [Fact]
+    public void DotNetGeneratorOptions_Defaults_VisibilityIsPublicAndProtectedWithNoEnforcement()
+    {
+        // Act
+        var options = new DotNetGeneratorOptions();
+
+        // Assert
+        Assert.Equal(ApiVisibility.PublicAndProtected, options.Visibility);
+        Assert.Null(options.EnforceDocsVisibility);
     }
 
     /// <summary>
@@ -2783,5 +3040,18 @@ public class DotNetGeneratorTests
         Assert.Equal(ifaceMethodId, targetIdFromOverrideReference);
         Assert.Contains("``1", targetIdFromOverrideReference);
     }
-}
 
+    /// <summary>
+    ///     Verifies that <see cref="DotNetGenerator.ComputeRootNamespaces"/> treats the global
+    ///     namespace (empty string) as a sibling root that neither hides nor is hidden by others.
+    /// </summary>
+    [Fact]
+    public void DotNetGenerator_ComputeRootNamespaces_GlobalNamespaceAmongNamespaces_TreatedAsSiblingRoot()
+    {
+        // Act
+        var roots = DotNetGenerator.ComputeRootNamespaces(["", "A", "A.B", "C"]);
+
+        // Assert
+        Assert.Equal(["", "A", "C"], roots);
+    }
+}

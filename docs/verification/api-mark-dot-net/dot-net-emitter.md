@@ -1,3 +1,5 @@
+<!-- cspell:ignore notnull -->
+
 ## DotNetEmitter
 
 ### Verification Approach
@@ -50,6 +52,20 @@ service or network dependency is needed.
 - `BuildFieldSignature` appends `" = " + FormatConstantValue(field.Constant)` to the signature
   for a field with `HasConstant == true`, including enum members rendered via their underlying
   numeric constant.
+- `BuildMethodSignature` renders parameter default values (including `[DateTimeConstant]`,
+  `[DefaultParameterValue]`, decimals, enums as `Type.Member` or `(Type)n`, nullable enums, and
+  `default`), and operator signatures render them the same way; display and file names never do.
+- NaN and infinite `double`/`float` constants render as named members, and a malformed
+  `[DecimalConstant]` never throws.
+- `BuildTypeSignature` renders `record`, `record struct`, `readonly`/`ref` struct modifiers, and
+  suppresses only the implicit record `IEquatable<Self>`.
+- Generic methods render type parameters, `class`/`struct`/`unmanaged`/type/`new()` constraints, and
+  `notnull`; unconstrained parameters render no clause.
+- Nullable annotations render per type position (generic arguments, arrays, parameters, returns,
+  properties, fields, events) honoring the inherited `NullableContext` and leaving oblivious
+  code unannotated.
+- The empty (global) namespace renders with the `global-namespace` folder, the
+  `(global namespace)` display name, and as a sibling root that hides no other root.
 
 ### Test Scenarios
 
@@ -100,6 +116,21 @@ slash-separated path. This scenario is tested by
 that a namespace that matches no configured root returns its full dotted name as a
 safe fallback. This scenario is tested by
 `DotNetEmitter_GetNamespaceFolderPath_UnknownNamespace_ReturnsFullName`.
+
+**Global namespace helpers**: Verifies that `GetNamespaceFolderPath("")` returns
+`global-namespace` for any root list, that `GetImmediateChildNamespaces("")` is empty,
+that `GetNamespaceDisplayName("")` returns `(global namespace)`, and that
+`ComputeRootNamespaces` keeps the empty namespace as a root without hiding others.
+Tested by `DotNetEmitter_GetNamespaceFolderPath_GlobalNamespace_ReturnsGlobalNamespaceFolder`,
+`DotNetEmitter_GetImmediateChildNamespaces_GlobalNamespace_IsSiblingRoot`,
+`DotNetEmitter_GetNamespaceDisplayName_GlobalNamespace_ReturnsPlaceholder` and
+`DotNetGenerator_ComputeRootNamespaces_GlobalNamespace_IsRootAndDoesNotHideOthers`.
+
+**TypeNameSimplifier and TypeLinkResolver with the global namespace**: Verifies that an
+empty context namespace strips nothing and that a global type links to
+`global-namespace/{Type}.md`. Tested by
+`TypeNameSimplifier_Simplify_GlobalContextNamespace_DoesNotStripOrThrow` and
+`TypeLinkResolver_Linkify_GlobalNamespaceType_LinksToGlobalNamespacePage`.
 
 **Abstract class type signature contains abstract modifier**: Verifies that
 `DotNetEmitter.BuildTypeSignature` includes the `abstract` keyword for a class that
@@ -227,3 +258,88 @@ via the same `FormatConstantValue` path used for plain `const` fields, since Mon
 stores enum member constants using the enum's underlying primitive type. This scenario is
 tested by
 `DotNetEmitter_BuildFieldSignature_EnumMemberWithExplicitValue_AppendsUnderlyingNumericValue`.
+
+**Default values render in method signatures**: Arrange the `DefaultValueClass` fixture
+methods (bool, string, null, struct `default`, enum member, `[Optional]` with no default,
+`[DefaultParameterValue]`, decimal, nullable int, char and long). Act by calling
+`BuildMethodSignature`. Expected: each signature appends `= value` in C# form (`true`,
+`"N0"`, `null`, `default`, `DefaultValueMode.Slow`, `default`, `7`, `1.5`, `null`, `','`/`42`).
+Tested by `DotNetEmitter_BuildMethodSignature_DefaultValues_RendersDefaults`.
+
+**Extended default values render**: Arrange the `DefaultValueExtendedClass` fixture methods
+(`[DateTimeConstant]`, an enum value with no named member, a nullable enum, double and float
+NaN/infinities, a negative decimal). Act by calling `BuildMethodSignature`. Expected:
+`new DateTime(ticks)`, `(DefaultValueMode)5`, `DefaultValueMode.Slow`, `double.NaN` /
+`double.PositiveInfinity` / `double.NegativeInfinity` (and `float.` forms), and `-0.25`. Tested by
+`DotNetEmitter_BuildMethodSignature_ExtendedDefaultValues_RendersDefaults`.
+
+**DefaultParameterValue attribute supplies a default**: Arrange synthetic optional parameters (no
+metadata constant) carrying `[DefaultParameterValue]` with a direct and a boxed argument. Act by
+calling `FormatParameterDefault`. Expected: `42` and `"x"`. Tested by
+`DotNetEmitter_FormatParameterDefault_DefaultParameterValueAttribute_RendersValue`.
+
+**DecimalConstant is converted safely**: Arrange synthetic `[DecimalConstant]` parameters with
+unsigned arguments and a sign, signed (negative `int`) arguments, and an out-of-range scale. Act by
+calling `FormatParameterDefault`. Expected: `-1.25`, `4294967295`, and `default` with no exception.
+Tested by
+`DotNetEmitter_FormatParameterDefault_DecimalConstantAttribute_HandlesSignedAndOutOfRangeArguments`.
+
+**Operator parameter defaults render**: Arrange the `op_Addition` operator of
+`OperatorsStruct` with its second parameter patched to be optional with a null constant. Act by
+calling `BuildMethodSignature`. Expected: the parameter renders `right = default`. Tested by
+`DotNetEmitter_BuildOperatorSignature_ParameterWithDefault_RendersDefault`.
+
+**Display names omit defaults**: Arrange `DefaultValueClass.ToJson`. Act by calling
+`BuildMethodDisplayName` and `BuildMethodFileName`. Expected: `ToJson(bool)` and `ToJson`. Tested
+by `DotNetEmitter_BuildMethodDisplayName_DefaultValues_DoesNotIncludeDefaults`.
+
+**Non-finite floating-point constants render as named members**: Act by calling
+`FormatConstantValue` with NaN and both infinities of `double` and `float`, and an ordinary
+value. Expected: `double.NaN` and so on, and `1.5` for the ordinary value. Tested by
+`DotNetEmitter_FormatConstantValue_SpecialFloatingPointValues_RendersNamedMembers`.
+
+**Record kinds render**: Arrange sealed, base, derived, generic record classes and record structs.
+Act by calling `BuildTypeSignature`. Expected: `record`, `sealed record`, `record struct`,
+`readonly record struct`, with the derived base in the base list. Tested by
+`DotNetEmitter_BuildTypeSignature_RecordKinds_RenderRecordKeywords`.
+
+**Struct modifiers render**: Arrange readonly, ref, readonly ref, and plain structs. Act by
+calling `BuildTypeSignature`. Expected: `readonly struct`, `ref struct`, `readonly ref struct`,
+`struct`. Tested by `DotNetEmitter_BuildTypeSignature_StructKinds_RenderStructModifiers`.
+
+**Implicit record IEquatable is suppressed**: Arrange a sealed record, a record with an extra
+interface, and a hand-written class implementing `IEquatable<Self>`. Act by calling
+`BuildTypeSignature`. Expected: no base list for the first, `: IComparable` for the second, and
+`: IEquatable<ExplicitEquatableClass>` kept for the third. Tested by
+`DotNetEmitter_BuildTypeSignature_SelfEquatable_SuppressedOnlyForRecords`.
+
+**Generic method type parameters render**: Arrange `Echo<T>` and a non-generic overload `Over`.
+Act by calling `BuildMethodSignature`, `BuildMethodDisplayName`, and `BuildMethodFileName`.
+Expected: `Echo<T>` appears in the signature and display name, the non-generic overload is
+unchanged, and file names are unchanged. Tested by
+`DotNetEmitter_BuildMethodSignature_GenericMethods_ShowTypeParameters`.
+
+**Generic method constraints render**: Arrange methods constrained by `class, IDisposable` and
+`struct`, `class, new()`, `unmanaged`, and `IComparable<T>`. Act by calling `BuildMethodSignature`.
+Expected: the corresponding `where` clauses in C# order. Tested by
+`DotNetEmitter_BuildMethodSignature_GenericMethods_ShowConstraints`.
+
+**notnull constraint renders**: Arrange methods constrained by `notnull`, `notnull, new()`, and
+an unconstrained one. Act by calling `BuildMethodSignature`. Expected: `where T : notnull`,
+`where T : notnull, new()`, and no clause. Tested by
+`DotNetEmitter_BuildMethodSignature_NotNullConstraint_RendersNotNull`.
+
+**Per-position nullability renders**: Arrange properties, a field, an event, and methods of the
+nullability fixtures (nested generics, arrays, nullable value types, an `out` parameter, a
+generic `T?`, an oblivious class, and a class using context 2). Act by calling
+`BuildMemberSignature`. Expected: `?` appears exactly at the annotated positions and never in
+oblivious code. Tested by
+`DotNetEmitter_BuildMemberSignature_NullabilityPositions_RendersAnnotations`.
+
+**NullableContext is resolved**: Arrange a method on a context-2 type and a method on an
+oblivious type. Act by calling `ResolveNullableContext`. Expected: `2` and `0`. Tested by
+`DotNetEmitter_ResolveNullableContext_ResolvesInheritedContext`.
+
+**Member type nullability cursor**: Arrange a nullable property, a non-null property, and a
+nullable field. Act by calling `CreateMemberTypeNullability`. Expected: the first position reads
+`2`, `1`, and `2`. Tested by `DotNetEmitter_CreateMemberTypeNullability_ReadsPrimaryTypeAnnotation`.

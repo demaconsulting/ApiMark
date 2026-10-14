@@ -229,14 +229,12 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
                 context.WriteLine($"Found {visibleTypes.Count} types across {allNamespaces.Count} namespace(s).");
 
                 // Root namespaces: those not prefixed by any other namespace present in the assembly
-                var rootNamespaces = allNamespaces
-                    .Where(n => !allNamespaces.Any(
-                        other => !string.Equals(other, n, StringComparison.Ordinal) &&
-                                 n.StartsWith(other + ".", StringComparison.Ordinal)))
-                    .OrderBy(n => n)
-                    .ToList();
+                var rootNamespaces = ComputeRootNamespaces(allNamespaces);
 
-                var resolver = new TypeLinkResolver(rootNamespaces);
+                var resolver = new TypeLinkResolver(
+                    rootNamespaces,
+                    generateLinks: true,
+                    externalLinks: BuildExternalLinkTargets(context));
 
                 // Cache the parsed assembly and XML doc index so CheckDocumentationCoverage can be
                 // called after Parse returns and before Emit disposes the assembly.
@@ -280,6 +278,166 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             assemblyResolver.Dispose();
             throw;
         }
+    }
+
+    /// <summary>
+    ///     Builds the external-link targets for <see cref="DotNetGeneratorOptions.ExternalLinks"/>,
+    ///     reading each mapped assembly's public namespaces from <see cref="DotNetGeneratorOptions.ReferencePaths"/>.
+    /// </summary>
+    /// <remarks>
+    ///     Every mapping that cannot be honored produces a <c>Warning:</c> line through
+    ///     <paramref name="context"/> (informational channel, so the run still succeeds) and is
+    ///     skipped: an invalid value, a DLL that cannot be found, a DLL that cannot be read, or a
+    ///     key that duplicates an earlier key differing only in case.
+    /// </remarks>
+    /// <param name="context">Output channel for warning messages.</param>
+    /// <returns>
+    ///     A map of assembly name to link target. Mappings whose DLL cannot be found or read are
+    ///     omitted so those types fall back to the External Types table.
+    /// </returns>
+    private Dictionary<string, TypeLinkResolver.ExternalLinkTarget> BuildExternalLinkTargets(IContext context)
+    {
+        var result = new Dictionary<string, TypeLinkResolver.ExternalLinkTarget>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (assemblyName, apiPath) in _options.ExternalLinks)
+        {
+            if (string.IsNullOrWhiteSpace(assemblyName) || !IsValidExternalLinkPath(apiPath))
+            {
+                context.WriteLine(
+                    $"Warning: external link mapping '{assemblyName}' ignored: value '{apiPath}' must be a relative path or an http(s) URL.");
+                continue;
+            }
+
+            if (result.ContainsKey(assemblyName))
+            {
+                context.WriteLine(
+                    $"Warning: external link mapping '{assemblyName}' ignored: duplicate of an earlier mapping that differs only in case.");
+                continue;
+            }
+
+            var dllPath = FindReferenceAssembly(assemblyName);
+            if (dllPath == null)
+            {
+                context.WriteLine(
+                    $"Warning: external link mapping '{assemblyName}' ignored: {assemblyName}.dll was not found in the reference paths.");
+                continue;
+            }
+
+            try
+            {
+                using var module = ModuleDefinition.ReadModule(dllPath, new ReaderParameters { ReadingMode = ReadingMode.Deferred });
+                var namespaces = module.Types
+                    .Where(t => t.IsPublic && !string.IsNullOrEmpty(t.Namespace))
+                    .Select(t => t.Namespace)
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(n => n, StringComparer.Ordinal)
+                    .ToList();
+                result[assemblyName] = new TypeLinkResolver.ExternalLinkTarget(apiPath, ComputeRootNamespaces(namespaces));
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                // Mono.Cecil can fail in many ways on a malformed DLL (BadImageFormatException,
+                // ArgumentException, NullReferenceException, ...): leave the assembly unmapped so the
+                // table fallback applies instead of aborting Parse.
+                context.WriteLine(
+                    $"Warning: external link mapping '{assemblyName}' ignored: '{dllPath}' could not be read ({ex.GetType().Name}).");
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    ///     Computes the root namespaces of a namespace list: those not prefixed by any other
+    ///     namespace in the list. Shared by the documented assembly and mapped external assemblies
+    ///     so both derive namespace folders identically.
+    /// </summary>
+    /// <param name="namespaces">The distinct namespaces of an assembly.</param>
+    /// <returns>The root namespaces, sorted.</returns>
+    internal static List<string> ComputeRootNamespaces(IReadOnlyList<string> namespaces) =>
+        namespaces
+            .Where(n => !namespaces.Any(
+                other => other.Length > 0 &&
+                         !string.Equals(other, n, StringComparison.Ordinal) &&
+                         n.StartsWith(other + ".", StringComparison.Ordinal)))
+            .OrderBy(n => n)
+            .ToList();
+
+    /// <summary>
+    ///     Returns <see langword="true"/> when <paramref name="value"/> is a relative path or an
+    ///     absolute <c>http(s)</c> URL; any other form (rooted paths, <c>file:</c>,
+    ///     <c>javascript:</c>, and other schemes) is rejected.
+    /// </summary>
+    /// <param name="value">The configured mapping value.</param>
+    /// <returns><see langword="true"/> when the value is acceptable.</returns>
+    internal static bool IsValidExternalLinkPath(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            value.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
+                   (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+        }
+
+        // Anything else must be a plain relative path: no scheme or drive (':'), not rooted
+        return !value.Contains(':') &&
+               !Path.IsPathRooted(value) &&
+               !value.StartsWith('/') &&
+               !value.StartsWith('\\');
+    }
+
+    /// <summary>Locates <c>{assemblyName}.dll</c> among the configured reference paths.</summary>
+    /// <remarks>
+    ///     Each reference path may name the DLL itself (matched by file name, case-insensitively),
+    ///     a file whose containing directory holds the DLL, or a directory holding the DLL. Candidates
+    ///     are normalized with <see cref="PathHelpers.NormalizeCase(string, Dictionary{string, string[]}?)"/>
+    ///     before the existence check, consistent with the search-directory seeding in <see cref="Parse"/>.
+    /// </remarks>
+    /// <param name="assemblyName">The assembly simple name.</param>
+    /// <returns>The DLL path, or <see langword="null"/> when not found.</returns>
+    private string? FindReferenceAssembly(string assemblyName)
+    {
+        var fileName = assemblyName + ".dll";
+        var cache = new Dictionary<string, string[]>(PathHelpers.Comparer);
+        foreach (var path in _options.ReferencePaths.Where(p => !string.IsNullOrWhiteSpace(p)))
+        {
+            var fullPath = Path.GetFullPath(path);
+            if (string.Equals(Path.GetFileName(fullPath), fileName, StringComparison.OrdinalIgnoreCase))
+            {
+                var normalizedFile = PathHelpers.NormalizeCase(fullPath, cache);
+                if (File.Exists(normalizedFile))
+                {
+                    return normalizedFile;
+                }
+            }
+
+            var candidateDirectories = new List<string>();
+            if (Directory.Exists(fullPath))
+            {
+                candidateDirectories.Add(fullPath);
+            }
+
+            var parent = ResolveReferenceSearchDirectory(path);
+            if (parent != null)
+            {
+                candidateDirectories.Add(parent);
+            }
+
+            foreach (var directory in candidateDirectories)
+            {
+                var candidate = PathHelpers.NormalizeCase(Path.Combine(directory, fileName), cache);
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -1287,8 +1445,12 @@ public sealed class DotNetGeneratorOptions
     /// </summary>
     public string XmlDocPath { get; set; } = string.Empty;
 
-    /// <summary>Gets or sets which members are visible in the generated output. Defaults to <see cref="ApiVisibility.Public"/>.</summary>
-    public ApiVisibility Visibility { get; set; } = ApiVisibility.Public;
+    /// <summary>
+    ///     Gets or sets which members are visible in the generated output. Defaults to
+    ///     <see cref="ApiVisibility.PublicAndProtected"/> so that protected members, which form part of the
+    ///     inheritance API surface of unsealed public types, are documented by default.
+    /// </summary>
+    public ApiVisibility Visibility { get; set; } = ApiVisibility.PublicAndProtected;
 
     /// <summary>Gets or sets a value indicating whether obsolete members are included. Defaults to <c>false</c>.</summary>
     public bool IncludeObsolete { get; set; }
@@ -1340,6 +1502,25 @@ public sealed class DotNetGeneratorOptions
     ///     the corresponding documentation content is simply absent, with no error.
     /// </remarks>
     public IReadOnlyList<string> ReferencePaths { get; set; } = [];
+
+    /// <summary>
+    ///     Gets or sets the mapping from referenced assembly name to the location of that assembly's
+    ///     generated ApiMark documentation. Defaults to empty (no external links).
+    /// </summary>
+    /// <remarks>
+    ///     Keys are assembly simple names (case-insensitive). Values are either a path relative to this
+    ///     documentation's root (for example <c>../OtherLib/api</c>) or an absolute <c>http(s)</c> base URL.
+    ///     Types from a mapped assembly are rendered as links in gradual-disclosure output instead of
+    ///     appearing in the External Types table. The mapped assembly's DLL must be found in
+    ///     <see cref="ReferencePaths"/> so its root namespaces can be computed; when it cannot be found
+    ///     the mapping is ignored with a warning and the table fallback is used. Values that are neither
+    ///     a relative path nor an <c>http(s)</c> URL (for example <c>javascript:</c>) are rejected with a
+    ///     warning. Links are not verified to exist. Single-file output never emits links.
+    ///     Callers that serialize the mapping into a single delimited string (such as the MSBuild
+    ///     <c>ApiMarkExternalLinks</c> property) cannot represent a <c>;</c> inside a path or URL,
+    ///     because <c>;</c> separates entries there.
+    /// </remarks>
+    public IReadOnlyDictionary<string, string> ExternalLinks { get; set; } = new Dictionary<string, string>();
 
     /// <summary>
     ///     Gets or sets an optional description for the library, emitted as an introductory

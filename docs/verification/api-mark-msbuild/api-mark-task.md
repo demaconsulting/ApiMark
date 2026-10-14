@@ -23,6 +23,9 @@ MSBuild and VC++ tools installed; those tests skip gracefully when the package i
 ### Acceptance Criteria
 
 - All `ApiMarkTask` integration tests pass with zero failures.
+- For the `dotnet` language, each non-empty `ApiMarkExternalLinks` entry is forwarded as its own
+  `--external-link` argument, the targets file binds the property, and nothing is emitted when unset.
+- `--visibility` is omitted when `ApiMarkVisibility` is unset and the targets file forces no default.
 - The task resolves the language from `ApiMarkLanguage` or infers it from the project
   extension (`.vcxproj` → `cpp`, otherwise → `dotnet`).
 - For the `dotnet` language, the spawned command includes `--assembly` and `--xml-doc`
@@ -384,3 +387,37 @@ task invocation, which the task-level unit tests above cannot verify because the
 construct `ApiMarkTask` directly rather than going through the `.targets` import. This
 scenario is tested by
 `ApiMarkMsbuild_NuGetPackage_DotNetProject_EnforceDocs_FailsBuildOnUndocumentedApi`.
+
+**External links are forwarded one flag per entry**: Arrange a dotnet task with
+`ApiMarkExternalLinks` set to `Lib.One=../One/api;Lib.Two=https://example.com/two/api` and a
+second task with the property unset. Act: call
+`BuildArguments("dotnet")` on both. Expected: the first yields two `--external-link` flags in order,
+each followed by its entry; the second yields none. Tested by
+`ApiMarkTask_DotNet_ExternalLinks_EmitsOneFlagPerEntry`. Because `;` is the list separator, a value
+containing `;` cannot be expressed (documented limitation; not tested).
+
+**Targets file binds ApiMarkExternalLinks to the task**: Arrange the source targets file located
+relative to the test source file. Act: read it. Expected: the file exists (the test fails if it does
+not) and contains `ApiMarkExternalLinks="$(ApiMarkExternalLinks)"` in the task invocation. Tested by
+`ApiMarkTargets_PassesExternalLinksToTask`.
+
+**Unset visibility is not forwarded**: Arrange a dotnet task with `ApiMarkVisibility` unset. Act:
+`BuildArguments("dotnet")`. Expected: no `--visibility` argument, so the tool's per-language default
+applies. Tested by `ApiMarkTask_VisibilityUnset_OmitsVisibilityArgument`.
+
+**Deferred: package-level unset visibility and external links**: The packaged-build tests do not
+yet cover a consuming project that leaves ApiMarkVisibility and ApiMarkExternalLinks unset. This
+is deliberately deferred; the unit-level scenarios here and the targets-file scenarios cover the
+behavior until a package-level test is added.
+
+**Targets file does not force a visibility default**: Arrange the source targets file as above. Act:
+read it. Expected: the file exists (failing otherwise), contains no `<ApiMarkVisibility Condition`
+default assignment, and still forwards `ApiMarkVisibility="$(ApiMarkVisibility)"`. Tested by
+`ApiMarkTargets_NoForcedVisibilityDefault`.
+
+**Deferred: end-to-end Warning-severity package test**: A package-level test proving that
+default (Warning) severity findings surface as MSBuild warnings is deferred. The elevation logic is
+fully covered by the four `LogToolOutputLine` unit tests, and the end-to-end path requires packing
+the NuGet package and building a fixture project, which the existing Error-severity package test
+already exercises for property binding; adding a second full pack/build cycle would substantially
+lengthen the package test run for a gap limited to a single log-method choice.
