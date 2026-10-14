@@ -239,7 +239,7 @@ public sealed class PathHelpersTests
     /// <returns>The full path of the newly created temporary directory.</returns>
     private static string CreateTempDirectory()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "ApiMarkPathHelpersTests_" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Join(Path.GetTempPath(), "ApiMarkPathHelpersTests_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         return dir;
     }
@@ -258,14 +258,14 @@ public sealed class PathHelpersTests
         var root = CreateTempDirectory();
         try
         {
-            var actualSubDir = Path.Combine(root, "MyLib");
+            var actualSubDir = Path.Join(root, "MyLib");
             Directory.CreateDirectory(actualSubDir);
-            var actualFilePath = Path.Combine(actualSubDir, "Foo.dll");
+            var actualFilePath = Path.Join(actualSubDir, "Foo.dll");
             File.WriteAllBytes(actualFilePath, []);
 
             // Act: normalize an input path that names the same file but with different casing on
             // both the directory and file-name segments.
-            var differentlyCasedInput = Path.Combine(root, "MYLIB", "FOO.DLL");
+            var differentlyCasedInput = Path.Join(root, "MYLIB", "FOO.DLL");
             var normalized = PathHelpers.NormalizeCase(differentlyCasedInput);
 
             // Assert: the normalized result matches the real on-disk casing exactly, not the
@@ -292,7 +292,7 @@ public sealed class PathHelpersTests
         var root = CreateTempDirectory();
         try
         {
-            var actualFilePath = Path.Combine(root, "Foo.dll");
+            var actualFilePath = Path.Join(root, "Foo.dll");
             File.WriteAllBytes(actualFilePath, []);
 
             // This scenario only applies on platforms with a drive-letter root (Windows); on
@@ -330,13 +330,13 @@ public sealed class PathHelpersTests
         var root = CreateTempDirectory();
         try
         {
-            var actualSubDir = Path.Combine(root, "Lib");
+            var actualSubDir = Path.Join(root, "Lib");
             Directory.CreateDirectory(actualSubDir);
-            var actualFilePath = Path.Combine(actualSubDir, "Foo.dll");
+            var actualFilePath = Path.Join(actualSubDir, "Foo.dll");
             File.WriteAllBytes(actualFilePath, []);
 
-            var normalizedLower = PathHelpers.NormalizeCase(Path.Combine(root, "lib", "foo.dll"));
-            var normalizedUpper = PathHelpers.NormalizeCase(Path.Combine(root, "LIB", "FOO.DLL"));
+            var normalizedLower = PathHelpers.NormalizeCase(Path.Join(root, "lib", "foo.dll"));
+            var normalizedUpper = PathHelpers.NormalizeCase(Path.Join(root, "LIB", "FOO.DLL"));
 
             Assert.Equal(normalizedLower, normalizedUpper, StringComparer.Ordinal);
         }
@@ -357,7 +357,7 @@ public sealed class PathHelpersTests
         var root = CreateTempDirectory();
         try
         {
-            var nonExistentPath = Path.Combine(root, "DoesNotExist", "Missing.dll");
+            var nonExistentPath = Path.Join(root, "DoesNotExist", "Missing.dll");
 
             var normalized = PathHelpers.NormalizeCase(nonExistentPath);
 
@@ -381,8 +381,8 @@ public sealed class PathHelpersTests
         var root = CreateTempDirectory();
         try
         {
-            var lower = Path.Combine(root, "foo.dll");
-            var upper = Path.Combine(root, "Foo.dll");
+            var lower = Path.Join(root, "foo.dll");
+            var upper = Path.Join(root, "Foo.dll");
             File.WriteAllBytes(lower, []);
             File.WriteAllBytes(upper, []);
 
@@ -419,8 +419,8 @@ public sealed class PathHelpersTests
         var root = CreateTempDirectory();
         try
         {
-            var lower = Path.Combine(root, "foo.dll");
-            var upper = Path.Combine(root, "Foo.dll");
+            var lower = Path.Join(root, "foo.dll");
+            var upper = Path.Join(root, "Foo.dll");
             File.WriteAllBytes(lower, []);
             File.WriteAllBytes(upper, []);
 
@@ -433,7 +433,7 @@ public sealed class PathHelpersTests
             }
 
             // Act: request a third casing that matches neither coexisting entry exactly
-            var thirdCasing = Path.Combine(root, "FOO.dll");
+            var thirdCasing = Path.Join(root, "FOO.dll");
             var normalized = PathHelpers.NormalizeCase(thirdCasing);
 
             // Assert: neither coexisting entry is guessed at; the supplied casing is preserved
@@ -458,16 +458,16 @@ public sealed class PathHelpersTests
         var root = CreateTempDirectory();
         try
         {
-            var actualSubDir = Path.Combine(root, "Shared");
+            var actualSubDir = Path.Join(root, "Shared");
             Directory.CreateDirectory(actualSubDir);
-            var fileA = Path.Combine(actualSubDir, "A.dll");
-            var fileB = Path.Combine(actualSubDir, "B.dll");
+            var fileA = Path.Join(actualSubDir, "A.dll");
+            var fileB = Path.Join(actualSubDir, "B.dll");
             File.WriteAllBytes(fileA, []);
             File.WriteAllBytes(fileB, []);
 
             var cache = new Dictionary<string, string[]>(PathHelpers.Comparer);
-            var normalizedA = PathHelpers.NormalizeCase(Path.Combine(root, "SHARED", "a.dll"), cache);
-            var normalizedB = PathHelpers.NormalizeCase(Path.Combine(root, "SHARED", "b.dll"), cache);
+            var normalizedA = PathHelpers.NormalizeCase(Path.Join(root, "SHARED", "a.dll"), cache);
+            var normalizedB = PathHelpers.NormalizeCase(Path.Join(root, "SHARED", "b.dll"), cache);
 
             Assert.Equal(fileA, normalizedA, StringComparer.Ordinal);
             Assert.Equal(fileB, normalizedB, StringComparer.Ordinal);
@@ -523,7 +523,7 @@ public sealed class PathHelpersTests
         var root = CreateTempDirectory();
         try
         {
-            var actualSubDir = Path.Combine(root, "Lib", "Include");
+            var actualSubDir = Path.Join(root, "Lib", "Include");
             Directory.CreateDirectory(actualSubDir);
 
             // Supply the subdirectory without a trailing separator.
@@ -548,7 +548,7 @@ public sealed class PathHelpersTests
         var root = CreateTempDirectory();
         try
         {
-            var actualSubDir = Path.Combine(root, "Lib");
+            var actualSubDir = Path.Join(root, "Lib");
             Directory.CreateDirectory(actualSubDir);
 
             var result = PathHelpers.NormalizeCaseDirectory(actualSubDir + Path.DirectorySeparatorChar);

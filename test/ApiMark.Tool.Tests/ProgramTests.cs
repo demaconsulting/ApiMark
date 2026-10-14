@@ -212,12 +212,9 @@ public class ProgramTests
         }
         finally
         {
-            foreach (var dir in new[] { defaultDir, publicDir })
+            foreach (var dir in new[] { defaultDir, publicDir }.Where(Directory.Exists))
             {
-                if (Directory.Exists(dir))
-                {
-                    Directory.Delete(dir, recursive: true);
-                }
+                Directory.Delete(dir, recursive: true);
             }
         }
     }

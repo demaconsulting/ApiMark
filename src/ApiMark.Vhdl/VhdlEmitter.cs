@@ -60,7 +60,7 @@ internal sealed class VhdlEmitter : IApiEmitter
     /// <param name="doc">The doc comment to extract from, or null.</param>
     /// <returns>The summary text, or null if doc is null.</returns>
     internal static string? GetSummary(VhdlDocComment? doc) =>
-        string.IsNullOrEmpty(doc?.Summary) ? null : doc!.Summary;
+        string.IsNullOrEmpty(doc?.Summary) ? null : doc.Summary;
 
     /// <summary>
     ///     Formats a subprogram parameter type for display, combining direction and type name

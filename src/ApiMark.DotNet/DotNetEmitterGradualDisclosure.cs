@@ -1043,14 +1043,14 @@ internal sealed class DotNetEmitterGradualDisclosure
     /// <param name="lowerKey">The shared lowercase sanitized file name key for the group.</param>
     /// <param name="type">The declaring type, required by <see cref="GetSanitizedMemberFileName"/>.</param>
     /// <returns>The page file name (without extension) for the group.</returns>
-    private static string DecideGroupPageFileName(IReadOnlyList<IMemberDefinition> group, string lowerKey, TypeDefinition type)
+    private static string DecideGroupPageFileName(List<IMemberDefinition> group, string lowerKey, TypeDefinition type)
     {
         if (group.Count == 1)
         {
             return GetSanitizedMemberFileName(group[0], type);
         }
 
-        if (IsPureMethodOverloadGroup(group.ToList(), type))
+        if (IsPureMethodOverloadGroup(group, type))
         {
             return GetSanitizedMemberFileName(GetOrderedOverloads(group)[0], type);
         }

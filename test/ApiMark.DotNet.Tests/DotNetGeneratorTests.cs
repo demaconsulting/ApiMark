@@ -73,9 +73,9 @@ public class DotNetGeneratorTests
         var tempDir = Directory.CreateTempSubdirectory("ApiMarkMismatchedPdbTest");
         try
         {
-            var dllPath = Path.Combine(tempDir.FullName, "Fixture.dll");
-            var xmlPath = Path.Combine(tempDir.FullName, "Fixture.xml");
-            var pdbPath = Path.Combine(tempDir.FullName, "Fixture.pdb");
+            var dllPath = Path.Join(tempDir.FullName, "Fixture.dll");
+            var xmlPath = Path.Join(tempDir.FullName, "Fixture.xml");
+            var pdbPath = Path.Join(tempDir.FullName, "Fixture.pdb");
             File.Copy(FixturePaths.GetFixtureDll(), dllPath);
             File.Copy(FixturePaths.GetFixtureXmlDoc(), xmlPath);
             File.Copy(
@@ -1656,7 +1656,7 @@ public class DotNetGeneratorTests
         var tempDir = Directory.CreateTempSubdirectory("ApiMarkCorruptDllTest");
         try
         {
-            var corrupt = Path.Combine(tempDir.FullName, "Microsoft.Extensions.Logging.Abstractions.dll");
+            var corrupt = Path.Join(tempDir.FullName, "Microsoft.Extensions.Logging.Abstractions.dll");
             File.WriteAllText(corrupt, "this is not a .NET assembly");
 
             // Act
@@ -2738,19 +2738,19 @@ public class DotNetGeneratorTests
         // Arrange: copy the external fixture DLL/XML doc into a fresh temp directory with a
         // known, specific mixed-case spelling, then reference it with a differently-cased
         // directory segment.
-        var tempRoot = Path.Combine(Path.GetTempPath(), "ApiMarkDotNetGeneratorTests_" + Guid.NewGuid().ToString("N"));
-        var actualSubDir = Path.Combine(tempRoot, "MyLib");
+        var tempRoot = Path.Join(Path.GetTempPath(), "ApiMarkDotNetGeneratorTests_" + Guid.NewGuid().ToString("N"));
+        var actualSubDir = Path.Join(tempRoot, "MyLib");
         Directory.CreateDirectory(actualSubDir);
         try
         {
-            var actualDllPath = Path.Combine(actualSubDir, Path.GetFileName(FixturePaths.GetExternalFixtureDll()));
-            var actualXmlPath = Path.Combine(actualSubDir, Path.GetFileName(FixturePaths.GetExternalFixtureXmlDoc()));
+            var actualDllPath = Path.Join(actualSubDir, Path.GetFileName(FixturePaths.GetExternalFixtureDll()));
+            var actualXmlPath = Path.Join(actualSubDir, Path.GetFileName(FixturePaths.GetExternalFixtureXmlDoc()));
             File.Copy(FixturePaths.GetExternalFixtureDll(), actualDllPath);
             File.Copy(FixturePaths.GetExternalFixtureXmlDoc(), actualXmlPath);
 
             // A differently-cased spelling of the same directory (upper-cased last segment).
-            var differentlyCasedDir = Path.Combine(tempRoot, "MYLIB");
-            var differentlyCasedDllPath = Path.Combine(differentlyCasedDir, Path.GetFileName(actualDllPath));
+            var differentlyCasedDir = Path.Join(tempRoot, "MYLIB");
+            var differentlyCasedDllPath = Path.Join(differentlyCasedDir, Path.GetFileName(actualDllPath));
 
             var options = BuildOptions();
             options.ReferencePaths = [differentlyCasedDllPath];
@@ -2885,9 +2885,8 @@ public class DotNetGeneratorTests
 
             foreach (var text in texts)
             {
-                foreach (System.Text.RegularExpressions.Match match in linkPattern.Matches(text))
+                foreach (var relativePath in linkPattern.Matches(text).Select(m => m.Groups[1].Value))
                 {
-                    var relativePath = match.Groups[1].Value;
                     var targetKey = ResolveRelativeLink(sourceFolder, relativePath);
                     if (!factory.Writers.ContainsKey(targetKey))
                     {

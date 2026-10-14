@@ -4,6 +4,10 @@
 namespace ApiMark.DotNet.Fixtures;
 
 /// <summary>A hand-written class that explicitly implements <c>IEquatable</c> over itself.</summary>
+/// <remarks>
+///     Intentionally does not override <c>Equals(object)</c>/<c>GetHashCode()</c>: the fixture
+///     exercises explicit <c>IEquatable</c> handling (CodeQL cs/class-missing-equals is expected).
+/// </remarks>
 public sealed class ExplicitEquatableClass : IEquatable<ExplicitEquatableClass>
 {
     /// <summary>Determines whether another instance is equal to this one.</summary>

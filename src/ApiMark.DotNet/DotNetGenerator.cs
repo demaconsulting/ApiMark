@@ -429,7 +429,7 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
 
             foreach (var directory in candidateDirectories)
             {
-                var candidate = PathHelpers.NormalizeCase(Path.Combine(directory, fileName), cache);
+                var candidate = PathHelpers.NormalizeCase(Path.Join(directory, fileName), cache);
                 if (File.Exists(candidate))
                 {
                     return candidate;

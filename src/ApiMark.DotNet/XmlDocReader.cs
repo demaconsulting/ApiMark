@@ -498,7 +498,7 @@ public sealed class XmlDocReader
     /// </summary>
     /// <param name="el">The <c>&lt;example&gt;</c> element.</param>
     /// <returns>A single-element code part list, or an empty list when the dedented text is empty.</returns>
-    private static IReadOnlyList<(bool IsCode, string Content, string Language)> BuildSingleCodeExamplePart(XElement el)
+    private static (bool IsCode, string Content, string Language)[] BuildSingleCodeExamplePart(XElement el)
     {
         var text = DedentCode(el.Value);
         return string.IsNullOrEmpty(text)

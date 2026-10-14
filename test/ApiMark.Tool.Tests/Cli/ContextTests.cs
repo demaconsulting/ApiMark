@@ -391,7 +391,8 @@ public sealed class ContextTests
         using var context = Context.Create(args);
 
         // Assert: only the non-blank entry is retained
-        Assert.Equal(["Lib.One=../One"], context.ExternalLinks);
+        string[] expectedLinks = ["Lib.One=../One"];
+        Assert.Equal(expectedLinks, context.ExternalLinks);
     }
 
     /// <summary>
@@ -414,7 +415,8 @@ public sealed class ContextTests
     public void Context_Create_WithExternalLinkFlagAsValue_ThrowsArgumentException()
     {
         // Act
-        var ex = Assert.Throws<ArgumentException>(() => Context.Create(["--external-link", "--silent"]));
+        string[] args = ["--external-link", "--silent"];
+        var ex = Assert.Throws<ArgumentException>(() => Context.Create(args));
 
         // Assert
         Assert.Contains("--external-link", ex.Message, StringComparison.Ordinal);
@@ -434,7 +436,8 @@ public sealed class ContextTests
         using var context = Context.Create(args);
 
         // Assert
-        Assert.Equal(["Lib=../a", "Lib=../b", "LIB=../c"], context.ExternalLinks);
+        string[] expectedLinks = ["Lib=../a", "Lib=../b", "LIB=../c"];
+        Assert.Equal(expectedLinks, context.ExternalLinks);
     }
 
     /// <summary>
@@ -579,7 +582,7 @@ public sealed class ContextTests
     public void Context_Create_WithResponseFileArgumentForMissingFile_ThrowsArgumentException()
     {
         // Arrange: a response-file token referencing a path that does not exist
-        var missingPath = Path.Combine(Path.GetTempPath(), "ApiMarkTest_" + Guid.NewGuid().ToString("N") + ".rsp");
+        var missingPath = Path.Join(Path.GetTempPath(), "ApiMarkTest_" + Guid.NewGuid().ToString("N") + ".rsp");
         var args = new[] { $"@{missingPath}" };
 
         // Act / Assert: a clear, actionable ArgumentException naming the missing path is thrown

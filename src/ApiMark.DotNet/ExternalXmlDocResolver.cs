@@ -221,9 +221,8 @@ public sealed class ExternalXmlDocResolver
         if (!string.IsNullOrEmpty(declaringAssemblyHint)
             && _referencePathsByAssemblyName.TryGetValue(declaringAssemblyHint, out var hintedPaths))
         {
-            foreach (var hintedPath in hintedPaths)
+            foreach (var hintedMembers in hintedPaths.Select(GetOrLoadMembers))
             {
-                var hintedMembers = GetOrLoadMembers(hintedPath);
                 if (hintedMembers != null && hintedMembers.TryGetValue(memberId, out var hintedMember))
                 {
                     result = hintedMember;
@@ -236,9 +235,8 @@ public sealed class ExternalXmlDocResolver
         // hint was supplied, or the hinted path did not actually contain the member.
         if (result == null)
         {
-            foreach (var referenceAssemblyPath in _referenceAssemblyPaths)
+            foreach (var members in _referenceAssemblyPaths.Select(GetOrLoadMembers))
             {
-                var members = GetOrLoadMembers(referenceAssemblyPath);
                 if (members != null && members.TryGetValue(memberId, out var member))
                 {
                     result = member;

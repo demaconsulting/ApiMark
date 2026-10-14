@@ -841,29 +841,7 @@ internal sealed class DotNetEmitter : IApiEmitter
             _ => isRecord ? "record" : "class",
         };
 
-        var classModifier = string.Empty;
-        if (type.IsValueType && !type.IsEnum)
-        {
-            // Source-level struct modifiers are carried by compiler attributes rather than metadata flags
-            var readOnly = HasAttributeNamed(type, "IsReadOnlyAttribute") ? "readonly " : string.Empty;
-            var byRefLike = HasAttributeNamed(type, "IsByRefLikeAttribute") ? "ref " : string.Empty;
-            classModifier = readOnly + byRefLike;
-        }
-        else if (keyword is "class" or "record")
-        {
-            if (type.IsAbstract && type.IsSealed)
-            {
-                classModifier = "static ";
-            }
-            else if (type.IsAbstract)
-            {
-                classModifier = "abstract ";
-            }
-            else if (type.IsSealed)
-            {
-                classModifier = "sealed ";
-            }
-        }
+        var classModifier = GetTypeModifier(type, keyword);
 
         var name = StripArity(type.Name);
         if (type.HasGenericParameters)
@@ -872,6 +850,54 @@ internal sealed class DotNetEmitter : IApiEmitter
             name = $"{name}<{args}>";
         }
 
+        var bases = CollectTypeBases(type, isRecord, contextNamespace);
+        if (bases.Count > 0)
+        {
+            name = $"{name} : {string.Join(", ", bases)}";
+        }
+
+        return $"public {classModifier}{keyword} {name}";
+    }
+
+    /// <summary>Determines the source-level modifier prefix (<c>static</c>, <c>abstract</c>, <c>sealed</c>, <c>readonly</c>, <c>ref</c>) for a type.</summary>
+    /// <param name="type">The type definition to inspect.</param>
+    /// <param name="keyword">The type keyword already selected for the declaration.</param>
+    /// <returns>The modifier text including a trailing space, or <see cref="string.Empty"/>.</returns>
+    private static string GetTypeModifier(TypeDefinition type, string keyword)
+    {
+        if (type.IsValueType && !type.IsEnum)
+        {
+            // Source-level struct modifiers are carried by compiler attributes rather than metadata flags
+            var readOnly = HasAttributeNamed(type, "IsReadOnlyAttribute") ? "readonly " : string.Empty;
+            var byRefLike = HasAttributeNamed(type, "IsByRefLikeAttribute") ? "ref " : string.Empty;
+            return readOnly + byRefLike;
+        }
+
+        if (keyword is not ("class" or "record"))
+        {
+            return string.Empty;
+        }
+
+        if (type.IsAbstract && type.IsSealed)
+        {
+            return "static ";
+        }
+
+        if (type.IsAbstract)
+        {
+            return "abstract ";
+        }
+
+        return type.IsSealed ? "sealed " : string.Empty;
+    }
+
+    /// <summary>Collects the simplified direct base class and directly declared interfaces of a type.</summary>
+    /// <param name="type">The type definition to inspect.</param>
+    /// <param name="isRecord">Whether the type is a record (hides the implicit self <c>IEquatable</c>).</param>
+    /// <param name="contextNamespace">Used to simplify type names.</param>
+    /// <returns>The base type names in declaration order.</returns>
+    private static List<string> CollectTypeBases(TypeDefinition type, bool isRecord, string contextNamespace)
+    {
         // Collect direct base class (excluding well-known root types) and directly declared interfaces
         // so the signature shows inheritance at a glance without opening the source file
         var bases = new List<string>();
@@ -888,22 +914,12 @@ internal sealed class DotNetEmitter : IApiEmitter
 
         // Include all directly declared interfaces — transitive inheritance is omitted.
         // A record implicitly implements IEquatable<Self>; hide it because source never spells it out.
-        foreach (var interfaceType in type.Interfaces.Select(i => i.InterfaceType))
-        {
-            if (isRecord && IsSelfEquatable(interfaceType, type))
-            {
-                continue;
-            }
+        bases.AddRange(type.Interfaces
+            .Select(i => i.InterfaceType)
+            .Where(i => !(isRecord && IsSelfEquatable(i, type)))
+            .Select(i => TypeNameSimplifier.Simplify(i, contextNamespace)));
 
-            bases.Add(TypeNameSimplifier.Simplify(interfaceType, contextNamespace));
-        }
-
-        if (bases.Count > 0)
-        {
-            name = $"{name} : {string.Join(", ", bases)}";
-        }
-
-        return $"public {classModifier}{keyword} {name}";
+        return bases;
     }
 
     /// <summary>Dispatches to the appropriate signature builder based on the runtime member type.</summary>
@@ -982,40 +998,19 @@ internal sealed class DotNetEmitter : IApiEmitter
         var builder = new StringBuilder();
         foreach (var parameter in parameters)
         {
+            var isUnmanaged = IsUnmanagedConstrained(parameter);
             var parts = new List<string>();
-            var isUnmanaged = parameter.CustomAttributes.Any(a => a.AttributeType.Name == "IsUnmanagedAttribute")
-                || parameter.Constraints.Any(c =>
-                    c.ConstraintType is RequiredModifierType { ModifierType.Name: "IsUnmanagedAttribute" }
-                    || c.CustomAttributes.Any(a => a.AttributeType.Name == "IsUnmanagedAttribute"));
-            if (isUnmanaged)
+            var primaryConstraint = GetPrimaryConstraintKeyword(parameter, isUnmanaged);
+            if (primaryConstraint != null)
             {
-                parts.Add("unmanaged");
-            }
-            else if (parameter.HasNotNullableValueTypeConstraint)
-            {
-                parts.Add("struct");
-            }
-            else if (parameter.HasReferenceTypeConstraint)
-            {
-                parts.Add("class");
-            }
-            else if (IsNotNullConstrained(parameter))
-            {
-                parts.Add("notnull");
+                parts.Add(primaryConstraint);
             }
 
-            foreach (var constraint in parameter.Constraints.Select(c => c.ConstraintType))
-            {
-                var constraintName = constraint is RequiredModifierType modifier
-                    ? modifier.ElementType.FullName
-                    : constraint.FullName;
-                if (constraintName == "System.ValueType" && (parameter.HasNotNullableValueTypeConstraint || isUnmanaged))
-                {
-                    continue;
-                }
-
-                parts.Add(TypeNameSimplifier.Simplify(constraint, contextNamespace));
-            }
+            parts.AddRange(parameter.Constraints
+                .Select(c => c.ConstraintType)
+                .Where(constraint => !(GetConstraintTypeName(constraint) == "System.ValueType"
+                    && (parameter.HasNotNullableValueTypeConstraint || isUnmanaged)))
+                .Select(constraint => TypeNameSimplifier.Simplify(constraint, contextNamespace)));
 
             if (parameter.HasDefaultConstructorConstraint && !parameter.HasNotNullableValueTypeConstraint && !isUnmanaged)
             {
@@ -1030,6 +1025,45 @@ internal sealed class DotNetEmitter : IApiEmitter
 
         return builder.ToString();
     }
+
+    /// <summary>Determines whether a generic parameter carries the C# <c>unmanaged</c> constraint.</summary>
+    /// <param name="parameter">The generic parameter to inspect.</param>
+    /// <returns><see langword="true"/> when the parameter is constrained to <c>unmanaged</c>.</returns>
+    private static bool IsUnmanagedConstrained(GenericParameter parameter) =>
+        parameter.CustomAttributes.Any(a => a.AttributeType.Name == "IsUnmanagedAttribute")
+        || parameter.Constraints.Any(c =>
+            c.ConstraintType is RequiredModifierType { ModifierType.Name: "IsUnmanagedAttribute" }
+            || c.CustomAttributes.Any(a => a.AttributeType.Name == "IsUnmanagedAttribute"));
+
+    /// <summary>Returns the leading special constraint keyword (<c>unmanaged</c>, <c>struct</c>, <c>class</c>, <c>notnull</c>) for a generic parameter.</summary>
+    /// <param name="parameter">The generic parameter to inspect.</param>
+    /// <param name="isUnmanaged">Whether the parameter is already known to be <c>unmanaged</c>-constrained.</param>
+    /// <returns>The keyword, or <see langword="null"/> when none applies.</returns>
+    private static string? GetPrimaryConstraintKeyword(GenericParameter parameter, bool isUnmanaged)
+    {
+        if (isUnmanaged)
+        {
+            return "unmanaged";
+        }
+
+        if (parameter.HasNotNullableValueTypeConstraint)
+        {
+            return "struct";
+        }
+
+        if (parameter.HasReferenceTypeConstraint)
+        {
+            return "class";
+        }
+
+        return IsNotNullConstrained(parameter) ? "notnull" : null;
+    }
+
+    /// <summary>Returns the full name of a constraint type, looking through a required-modifier wrapper.</summary>
+    /// <param name="constraint">The constraint type.</param>
+    /// <returns>The full type name.</returns>
+    private static string GetConstraintTypeName(TypeReference constraint) =>
+        constraint is RequiredModifierType modifier ? modifier.ElementType.FullName : constraint.FullName;
 
     /// <summary>
     ///     Returns <see langword="true"/> when a generic parameter carries the C# <c>notnull</c> constraint.
@@ -1135,45 +1169,65 @@ internal sealed class DotNetEmitter : IApiEmitter
 
         foreach (var attribute in parameter.CustomAttributes)
         {
-            var attributeName = attribute.AttributeType.FullName;
-            if (attributeName == "System.Runtime.CompilerServices.DecimalConstantAttribute" &&
-                attribute.ConstructorArguments.Count == 5)
+            var formatted = TryFormatDefaultFromAttribute(parameter, attribute);
+            if (formatted != null)
             {
-                var args = attribute.ConstructorArguments;
-                try
-                {
-                    // Constructor arguments are (scale, sign, hi, mid, lo); hi/mid/lo are uint or int
-                    // depending on the overload, so convert by bit pattern rather than by value
-                    var value = new decimal(
-                        ToInt32Bits(args[4].Value),
-                        ToInt32Bits(args[3].Value),
-                        ToInt32Bits(args[2].Value),
-                        Convert.ToByte(args[1].Value, CultureInfo.InvariantCulture) != 0,
-                        Convert.ToByte(args[0].Value, CultureInfo.InvariantCulture));
-                    return value.ToString(CultureInfo.InvariantCulture);
-                }
-                catch (Exception ex) when (ex is OverflowException or ArgumentException or InvalidCastException or FormatException)
-                {
-                    // A malformed attribute cannot be rendered; fall through to the generic default marker
-                    return "default";
-                }
-            }
-
-            if (attributeName == "System.Runtime.CompilerServices.DateTimeConstantAttribute" &&
-                attribute.ConstructorArguments.Count == 1)
-            {
-                return $"new DateTime({Convert.ToString(attribute.ConstructorArguments[0].Value, CultureInfo.InvariantCulture)})";
-            }
-
-            if (attributeName == "System.Runtime.InteropServices.DefaultParameterValueAttribute" &&
-                attribute.ConstructorArguments.Count == 1)
-            {
-                var argument = attribute.ConstructorArguments[0].Value;
-                return FormatParameterConstant(parameter.ParameterType, argument is CustomAttributeArgument nested ? nested.Value : argument);
+                return formatted;
             }
         }
 
         return "default";
+    }
+
+    /// <summary>Renders an optional parameter's default from a single well-known default-value attribute.</summary>
+    /// <param name="parameter">The parameter the attribute is applied to.</param>
+    /// <param name="attribute">The custom attribute to inspect.</param>
+    /// <returns>The default value text, or <see langword="null"/> when the attribute is not a recognized default-value attribute.</returns>
+    private static string? TryFormatDefaultFromAttribute(ParameterDefinition parameter, CustomAttribute attribute)
+    {
+        var attributeName = attribute.AttributeType.FullName;
+        var args = attribute.ConstructorArguments;
+        if (attributeName == "System.Runtime.CompilerServices.DecimalConstantAttribute" && args.Count == 5)
+        {
+            return FormatDecimalConstantAttribute(args);
+        }
+
+        if (attributeName == "System.Runtime.CompilerServices.DateTimeConstantAttribute" && args.Count == 1)
+        {
+            return $"new DateTime({Convert.ToString(args[0].Value, CultureInfo.InvariantCulture)})";
+        }
+
+        if (attributeName == "System.Runtime.InteropServices.DefaultParameterValueAttribute" && args.Count == 1)
+        {
+            var argument = args[0].Value;
+            return FormatParameterConstant(parameter.ParameterType, argument is CustomAttributeArgument nested ? nested.Value : argument);
+        }
+
+        return null;
+    }
+
+    /// <summary>Renders the arguments of a <c>[DecimalConstant]</c> attribute as a decimal literal.</summary>
+    /// <param name="args">The five constructor arguments (scale, sign, hi, mid, lo).</param>
+    /// <returns>The decimal text, or <c>default</c> when the attribute is malformed.</returns>
+    private static string FormatDecimalConstantAttribute(Mono.Collections.Generic.Collection<CustomAttributeArgument> args)
+    {
+        try
+        {
+            // Constructor arguments are (scale, sign, hi, mid, lo); hi/mid/lo are uint or int
+            // depending on the overload, so convert by bit pattern rather than by value
+            var value = new decimal(
+                ToInt32Bits(args[4].Value),
+                ToInt32Bits(args[3].Value),
+                ToInt32Bits(args[2].Value),
+                Convert.ToByte(args[1].Value, CultureInfo.InvariantCulture) != 0,
+                Convert.ToByte(args[0].Value, CultureInfo.InvariantCulture));
+            return value.ToString(CultureInfo.InvariantCulture);
+        }
+        catch (Exception ex) when (ex is OverflowException or ArgumentException or InvalidCastException or FormatException)
+        {
+            // A malformed attribute cannot be rendered; fall through to the generic default marker
+            return "default";
+        }
     }
 
     /// <summary>Converts a boxed 32-bit integer attribute argument (<c>int</c> or <c>uint</c>) to its 32-bit pattern.</summary>

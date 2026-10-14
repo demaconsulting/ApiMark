@@ -30,6 +30,9 @@ internal sealed class ClangAstParser
     /// <summary>JSON property name for a node's child array.</summary>
     private const string InnerProperty = "inner";
 
+    /// <summary>JSON property name for a literal node's value.</summary>
+    private const string ValueProperty = "value";
+
     /// <summary>JSON node "kind" value for a C++ class/struct declaration.</summary>
     private const string CxxRecordDeclKind = "CXXRecordDecl";
 
@@ -2125,7 +2128,7 @@ internal sealed class ClangAstParser
             // Numeric and string literals carry their value as a JSON string, already formatted
             // the way clang would print them (strings already include surrounding quotes)
             "IntegerLiteral" or "FloatingLiteral" or "StringLiteral" =>
-                node.TryGetProperty("value", out var v) ? v.GetString() : null,
+                node.TryGetProperty(ValueProperty, out var v) ? v.GetString() : null,
 
             // Boolean literals carry their value as a JSON boolean, not a string
             "CXXBoolLiteralExpr" => ExtractBoolLiteralDefaultValue(node),
@@ -2215,7 +2218,7 @@ internal sealed class ClangAstParser
     /// </returns>
     private static string? ExtractCharacterLiteralValue(JsonElement node)
     {
-        if (!node.TryGetProperty("value", out var v) || v.ValueKind != JsonValueKind.Number ||
+        if (!node.TryGetProperty(ValueProperty, out var v) || v.ValueKind != JsonValueKind.Number ||
             !v.TryGetInt32(out var codePoint))
         {
             return null;
@@ -2277,14 +2280,14 @@ internal sealed class ClangAstParser
         {
             // Numeric literals carry their value as a JSON string
             "IntegerLiteral" or "FloatingLiteral" =>
-                node.TryGetProperty("value", out var v) ? v.GetString() : null,
+                node.TryGetProperty(ValueProperty, out var v) ? v.GetString() : null,
 
             // Boolean literals carry their value as a JSON boolean, not a string
             "CXXBoolLiteralExpr" => ExtractBoolLiteralDefaultValue(node),
 
             // String literals carry their value (already includes surrounding quotes)
             "StringLiteral" =>
-                node.TryGetProperty("value", out var sv) ? sv.GetString() : null,
+                node.TryGetProperty(ValueProperty, out var sv) ? sv.GetString() : null,
 
             // nullptr literal
             "CXXNullPtrLiteralExpr" => "nullptr",
@@ -2313,7 +2316,7 @@ internal sealed class ClangAstParser
     /// <returns>The literal boolean text, or <see langword="null"/> when the value is absent.</returns>
     private static string? ExtractBoolLiteralDefaultValue(JsonElement node)
     {
-        if (!node.TryGetProperty("value", out var bv))
+        if (!node.TryGetProperty(ValueProperty, out var bv))
         {
             return null;
         }
