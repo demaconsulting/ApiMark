@@ -277,7 +277,7 @@ public class ProgramTests
 
         // Assert
         Assert.Equal(0, exitCode);
-        Assert.Contains("OtherLib/api/Microsoft.Extensions.Logging/ILogger-1.md", page, StringComparison.Ordinal);
+        Assert.Contains("OtherLib/api/Microsoft.Extensions.Logging/ILogger{1}.md", page, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -292,7 +292,7 @@ public class ProgramTests
 
         // Assert
         Assert.Equal(0, exitCode);
-        Assert.Contains("OtherLib/api/Microsoft.Extensions.Logging/ILogger-1.md", page, StringComparison.Ordinal);
+        Assert.Contains("OtherLib/api/Microsoft.Extensions.Logging/ILogger{1}.md", page, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -328,7 +328,7 @@ public class ProgramTests
         Assert.NotEmpty(page);
         Assert.Contains("ILogger", page, StringComparison.Ordinal);
         Assert.DoesNotContain("OtherLib", page, StringComparison.Ordinal);
-        Assert.DoesNotContain("ILogger-1.md", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("ILogger{1}.md", page, StringComparison.Ordinal);
     }
 
     /// <summary>
