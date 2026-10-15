@@ -16,7 +16,7 @@ sections:
               while keeping shared utilities (visibility filters, signature builders,
               include-path resolution) in one place.
             children:
-              - ApiMarkCpp-CppEmitter-WriteCombinedMemberPageForCaseCollisions
+              - ApiMarkCpp-CppEmitter-WriteSharedPageForOverloads
               - ApiMarkCpp-CppEmitter-RejectNullFactory
               - ApiMarkCpp-CppEmitter-FileNames
               - ApiMarkCpp-CppEmitter-BuildClassDeclaration
@@ -24,14 +24,15 @@ sections:
             tests:
               - CppEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
               - CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
-          - id: ApiMarkCpp-CppEmitter-WriteCombinedMemberPageForCaseCollisions
+          - id: ApiMarkCpp-CppEmitter-WriteSharedPageForOverloads
             title: >-
-              CppEmitter shall emit a combined member page for case-insensitive
-              filename collisions within a single type.
+              CppEmitter shall emit one shared member page for all overloads of a
+              member name within a single type.
             justification: |
-              On case-insensitive filesystems members whose names differ only in case
-              collide at the file-system level. CppEmitter must detect these collisions
-              and merge the affected members onto one shared page.
+              Overloads of one member name are documented together so a reader finds every
+              signature on one page. Members whose names differ only in case are not
+              overloads and keep separate pages (see
+              ApiMarkCpp-CppGenerator-EmitSeparatePagesForCaseInsensitiveCollisions).
             tests:
               - CppEmitter_WriteCombinedMemberPage_Overloads_ProducesSingleCombinedPage
           - id: ApiMarkCpp-CppEmitter-RejectNullFactory

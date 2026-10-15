@@ -29,8 +29,8 @@ Tests run with the standard xUnit.net test runner.
 **Legal file names**: Verifies, with synthetic models and no clang, that a class named
 `Foo<int>`, a class `Aux`, an enum `CON`, aliases named `a:b`, and a namespace key `aux`
 produce only legal path segments (the in-memory factory does not validate, so each recorded
-key is asserted explicitly), that pages exist at the sanitized paths (`Foo{int}`, `Aux-`,
-`CON-`, `aux-`), and that every emitted relative link resolves to a written page. Tested by
+key is asserted explicitly), that pages exist at the sanitized paths (`Foo{int}`, `Aux_`,
+`CON_`, and the namespace folder `aux_`), and that every emitted relative link resolves to a written page. Tested by
 `CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_AllWrittenSegmentsAreLegal`,
 `CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_PagesUseApprovedPaths`, and
 `CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_AllLinksResolveToWrittenPages`.
@@ -43,8 +43,8 @@ page. Tested by `CppEmitterGradualDisclosure_Emit_GenericAndOddNames_MemberPageL
 and `CppEmitterGradualDisclosure_Emit_ReservedAndGenericNames_AllLinksResolveToWrittenPages`.
 
 **Names equal to reserved pages**: Verifies that a method or case-colliding member group named
-`operators` is written to `operators-` beside the shared `operators` page, that a class, nested
-class, or free function named `operators` and a namespace named `api` are moved aside the same way
+`operators` is written to `operators-2` beside the shared `operators` page, that a class, nested
+class, or free function named `operators` and a namespace named `api` (moved to `api-2`) are moved aside the same way
 with matching links, and that only real operator overloads (not identifiers such as `operators`)
 are routed to the operators page. Tested by
 `CppEmitterGradualDisclosure_Emit_MemberNamedOperators_DoesNotOverwriteOperatorsPage`,

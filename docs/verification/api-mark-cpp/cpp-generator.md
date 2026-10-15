@@ -21,7 +21,7 @@ Tests require the fixture headers and a system clang installation accessible on 
 - Deprecated filtering occurs during parse-time namespace collection; visibility filtering is
   applied during emit-time member selection.
 - Every visible non-operator member and regular free function receives a deterministic detail
-  page unless case-insensitive collisions require a combined page.
+  page unless a case-insensitive collision requires a numbered page name.
 - Class operators and namespace operators are grouped onto shared operator pages.
 - Intra-library type references emit Markdown links in table cells; unknown non-std types are
   tracked for External Types sections.
@@ -47,10 +47,10 @@ Tests require the fixture headers and a system clang installation accessible on 
 base class in the rendered class declaration line. Tested by
 `CppGenerator_Generate_InheritanceClass_EmitsBaseClassInSignature`.
 
-**Case-collision members share one page**: Verifies that members whose names differ only by case
-are emitted on a single combined detail page. Tested by
-`CppGenerator_Generate_CaseCollisionClass_CreatesCombinedPage` and
-`CppGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers`.
+**Case-collision members get separate pages**: Verifies that members whose names differ only by
+case are emitted on separate detail pages, `Name` and `name-2`. Tested by
+`CppGenerator_Generate_CaseCollisionClass_FirstCaseTwinKeepsPlainName` and
+`CppGenerator_Generate_CaseCollisionClass_SecondCaseTwinGetsNumberedPage`.
 
 **Namespace operators share one page**: Verifies that namespace-level operator overloads are
 combined onto one operators page. Tested by
@@ -175,10 +175,9 @@ return type is a known intra-library type produces a Markdown hyperlink in the R
 the Methods table. Tested by
 `CppGenerator_Generate_IntraLibraryReturnType_EmitsMarkdownLinkInReturnsCell`.
 
-**Case-collision members do not create separate cased page**: Verifies that when a
-case-insensitive collision exists, no separate page is created for the upper-case member name —
-only the combined lowercase page exists. Tested by
-`CppGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPage`.
+**Each case-collision member page documents one member**: Verifies that each case twin page has
+its own title and documents only that member. Tested by
+`CppGenerator_Generate_CaseCollisionClass_EachPageDocumentsOneMember`.
 
 **External type reference emits External Types section**: Verifies that when a documented type
 references a non-library, non-`std` external type in its member table cells, the generated output

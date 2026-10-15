@@ -31,8 +31,12 @@ state.
 names in tier order (rules NR-14 to NR-16) and gives displaced entries a `-N` suffix. Parents are resolved
 before children. May be called once.
 
-**SymbolNameRegistry.GetName / GetPath / GetDirectory / GetAllPaths / Contains** (`public`): Read the
+**SymbolNameRegistry.GetName / GetPath / GetDirectory / GetAllPaths** (`public`): Read the
 approved names. They throw `InvalidOperationException` before `Resolve` and for an unregistered key.
+
+**SymbolNameRegistry.Contains** (`public`): A registration-presence check that does not require
+`Resolve`. It can be called during registration (for example to skip an overload that is already
+registered) and after resolution, and returns `false` for an unregistered key instead of throwing.
 
 **FileNameRules.Escape** (`public static`): Escapes a raw name into a legal segment (NR-06 to NR-09) and
 reports whether it was transformed. **FileNameRules.IsLegalSegment** (`public static`): Reports whether a

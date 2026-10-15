@@ -18,7 +18,7 @@ Tests run with the standard xUnit.net test runner.
 - Single-file dispatch produces exactly one `api` file.
 - File names come from the shared registry: illegal characters, template brackets, and reserved device names become legal forms once, and collisions are resolved up front.
 - `BuildClassDeclaration` renders non-final, final, and inherited class declarations correctly.
-- `WriteCombinedMemberPage` emits one shared page for case-insensitive member collisions.
+- `WriteCombinedMemberPage` emits one shared page for all overloads of a member name.
 - `WriteCombinedMemberPage` rejects a `members` list containing fewer than two elements with `ArgumentException`.
 - `GetIncludePath` returns a root-relative path when the source file is under a configured public root; returns the full normalized path when no root matches.
 - `GetIncludePath` rejects a null `sourceFile` with `ArgumentNullException`.
@@ -62,8 +62,8 @@ the class declaration line in the form `class X : public Base`. Tested by
 produces a declaration string containing only the class keyword and name. Tested by
 `CppEmitter_BuildClassDeclaration_NonFinalNoBase_ReturnsJustClassName`.
 
-**WriteCombinedMemberPage for case-insensitive collisions**: Verifies that members whose
-names differ only in case are merged onto a single lowercase-keyed page. Tested by
+**WriteCombinedMemberPage for overloads**: Verifies that overloads of one member name are written
+onto a single shared page. Tested by
 `CppEmitter_WriteCombinedMemberPage_Overloads_ProducesSingleCombinedPage`.
 
 **GetIncludePath returns relative path for matching root**: Verifies that a source file

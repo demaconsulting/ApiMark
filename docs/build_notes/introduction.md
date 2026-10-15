@@ -48,6 +48,9 @@ symbol-name registry that resolves every collision before anything is written. O
 each build, so no migration is needed. The rules are in
 `docs/design/api-mark-core/file-naming-rules.md`.
 
+The public `ApiMark.Core.FileNameSanitizer` type was removed. Use `SymbolNameRegistry`,
+`FileNameRules` and `LinkPath` instead.
+
 ## References
 
 [ApiMark releases](https://github.com/DemaConsulting/ApiMark/releases)

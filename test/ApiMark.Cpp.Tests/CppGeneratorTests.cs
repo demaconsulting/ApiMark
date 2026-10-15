@@ -613,59 +613,67 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
     }
 
     /// <summary>
-    ///     Validates that two members whose names differ only in case are combined onto a
-    ///     single page named after the lowercase key.
+    ///     Validates that the member whose name is first in ordinal order keeps the plain page
+    ///     name when two members differ only in case.
     /// </summary>
     [Fact]
-    public void CppGenerator_Generate_CaseCollisionClass_CreatesCombinedPage()
+    public void CppGenerator_Generate_CaseCollisionClass_FirstCaseTwinKeepsPlainName()
     {
         // Arrange
         var factory = _fixture.PublicFactory;
 
-        // Assert: the combined page is written at the lowercase key path
+        // Assert
         Assert.True(
-            factory.Writers.ContainsKey("fixtures/CaseCollisionClass/name"),
-            "Expected a combined page at the lowercase key 'name' for the colliding members");
-    }
-
-    /// <summary>
-    ///     Validates that the generator does not create a separate page for the upper-case
-    ///     member when a case-insensitive collision exists.
-    /// </summary>
-    [Fact]
-    public void CppGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPage()
-    {
-        // Arrange
-        var factory = _fixture.PublicFactory;
-
-        // Assert: no page should be created using the exact-case name "Name" when a collision
-        // exists — the combined lowercase page replaces all individual pages for the group
-        Assert.False(
             factory.Writers.ContainsKey("fixtures/CaseCollisionClass/Name"),
-            "Expected no separate page for 'Name' when a case-insensitive collision exists");
+            "Expected the page 'Name' for the first case twin");
     }
 
     /// <summary>
-    ///     Validates that the combined collision page contains H2 headings for both the
-    ///     method <c>Name()</c> and the field <c>name</c>.
+    ///     Validates that the other case twin gets its own numbered page instead of sharing
+    ///     a page or overwriting the first one.
     /// </summary>
     [Fact]
-    public void CppGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers()
+    public void CppGenerator_Generate_CaseCollisionClass_SecondCaseTwinGetsNumberedPage()
     {
         // Arrange
         var factory = _fixture.PublicFactory;
 
-        // Assert: combined page exists
-        Assert.True(factory.Writers.TryGetValue("fixtures/CaseCollisionClass/name", out var writer));
+        // Assert
+        Assert.True(
+            factory.Writers.ContainsKey("fixtures/CaseCollisionClass/name-2"),
+            "Expected the page 'name-2' for the second case twin");
+        Assert.False(
+            factory.Writers.ContainsKey("fixtures/CaseCollisionClass/name"),
+            "Expected no page named 'name' that differs from 'Name' only by case");
+    }
 
-        // Assert: both members appear as distinct H2 headings on the combined page
-        var level2Headings = writer.Operations
+    /// <summary>
+    ///     Validates that each case twin page documents only its own member: the method
+    ///     <c>Name()</c> on <c>Name</c> and the field <c>name</c> on <c>name-2</c>.
+    /// </summary>
+    [Fact]
+    public void CppGenerator_Generate_CaseCollisionClass_EachPageDocumentsOneMember()
+    {
+        // Arrange
+        var factory = _fixture.PublicFactory;
+        Assert.True(factory.Writers.TryGetValue("fixtures/CaseCollisionClass/Name", out var methodWriter));
+        Assert.True(factory.Writers.TryGetValue("fixtures/CaseCollisionClass/name-2", out var fieldWriter));
+
+        // Act
+        var methodHeadings = methodWriter.Operations
             .OfType<HeadingOperation>()
-            .Where(h => h.Level == 2)
+            .Where(h => h.Level == 1)
             .Select(h => h.Text)
             .ToList();
-        Assert.Contains(level2Headings, h => h.StartsWith("Name", StringComparison.Ordinal));
-        Assert.Contains(level2Headings, h => h.StartsWith("name", StringComparison.Ordinal));
+        var fieldHeadings = fieldWriter.Operations
+            .OfType<HeadingOperation>()
+            .Where(h => h.Level == 1)
+            .Select(h => h.Text)
+            .ToList();
+
+        // Assert
+        Assert.Equal(["CaseCollisionClass.Name"], methodHeadings);
+        Assert.Equal(["CaseCollisionClass.name"], fieldHeadings);
     }
 
     /// <summary>
@@ -1294,10 +1302,10 @@ public class CppGeneratorTests : IClassFixture<CppGeneratorFixture>
             factory.Writers.ContainsKey("fixtures/DeletedMembersClass"),
             "Expected type page for DeletedMembersClass");
 
-        // Assert: both constructors share the same base name, so they are combined onto
-        // a single page keyed by the lowercase class name
+        // Assert: both constructors share the same base name, so they share a single page
+        // named after the class
         Assert.True(
-            factory.Writers.TryGetValue("fixtures/DeletedMembersClass/deletedmembersclass", out var writer),
+            factory.Writers.TryGetValue("fixtures/DeletedMembersClass/DeletedMembersClass", out var writer),
             "Expected combined constructor page for DeletedMembersClass");
 
         // Assert: the combined constructor page must contain "= delete" for the deleted overload
