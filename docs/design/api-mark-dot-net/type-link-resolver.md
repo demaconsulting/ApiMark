@@ -90,7 +90,8 @@ reference collected during table cell generation.
   - `ModuleDefinition? documentedModule = null` — the module of the assembly being
     documented. When supplied, only types scoped to exactly this module are intra-assembly;
     a type scoped to any other module is external. When `null`, any `ModuleDefinition` scope
-    is intra-assembly (the previous behavior).: The resolver is ready to call `Linkify`.
+    is intra-assembly (the previous behavior).
+- *Postcondition*: The resolver is ready to call `Linkify`.
 
 **TypeLinkResolver.Linkify**: Resolves a `TypeReference` to a Markdown string.
 
