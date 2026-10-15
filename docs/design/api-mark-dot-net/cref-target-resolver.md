@@ -89,9 +89,11 @@ a member declared in the indexed assembly.
 assembly, or a member (existing or not) whose declaring type is one.
 
 - *Parameters*: `string crefId` — the raw `cref` attribute value, including its kind prefix.
-- *Algorithm*: Strips the kind prefix and any parameter list, then tests the whole name as a `T:` key in
-  `_types` and progressively shorter dot-separated prefixes as the declaring type of a member.
-- *Returns*: `true` when a prefix matches an indexed type; `false` otherwise, including for malformed input.
+- *Algorithm*: Rejects malformed input and kinds other than `T`, `M`, `P`, `F`, `E`. A `T:` cref is
+  looked up exactly in `_types`. A member cref has its parameter list removed and its last segment
+  dropped, and the remaining name must be exactly an indexed type; no shorter prefix is tried, so a local
+  `Ns.Outer` never claims an external `Ns.Outer.Inner`.
+- *Returns*: `true` when the exact type matches an indexed type; `false` otherwise, including for malformed input.
 - *Purpose*: Lets `XmlDocReader` keep a cref of the documented assembly out of any external link mapping
   even when it is filtered out or not indexed.
 

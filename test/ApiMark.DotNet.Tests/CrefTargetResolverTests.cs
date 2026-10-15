@@ -104,6 +104,9 @@ public class CrefTargetResolverTests : IDisposable
     /// <summary>Validates that foreign, unknown and malformed crefs are not declared by the assembly.</summary>
     /// <param name="crefId">The cref identifier.</param>
     [Theory]
+    [InlineData("T:ApiMark.DotNet.Fixtures.SampleClass.ExternalNested")]
+    [InlineData("T:ApiMark.DotNet.Fixtures.SampleClass+Other")]
+    [InlineData("X:ApiMark.DotNet.Fixtures.SampleClass")]
     [InlineData("T:System.ArgumentNullException")]
     [InlineData("M:System.String.Concat(System.String,System.String)")]
     [InlineData("T:ApiMark.DotNet.Fixtures.NoSuchType")]

@@ -103,18 +103,21 @@ internal sealed class CrefTargetResolver
         _members.TryGetValue(crefId, out member!);
 
     /// <summary>
-    ///     Returns <see langword="true"/> when <paramref name="crefId"/> names a type of the indexed
-    ///     assembly, or a member (existing or not) whose declaring type is a type of the indexed assembly.
+    ///     Returns <see langword="true"/> when <paramref name="crefId"/> is a type cref naming exactly a
+    ///     type of the indexed assembly, or a member cref (existing or not) whose declaring type, the
+    ///     name minus its last segment, is exactly a type of the indexed assembly.
     /// </summary>
     /// <remarks>
     ///     Used to keep a cref that belongs to the documented assembly out of any external link mapping,
     ///     whatever the reason it is not linked locally (filtered out, or a member the index does not hold).
+    ///     No shorter prefix is considered: a local <c>Ns.Outer</c> must not claim a cref to an
+    ///     external <c>Ns.Outer.Inner</c>.
     /// </remarks>
     /// <param name="crefId">The raw <c>cref</c> attribute value, including its kind prefix.</param>
     /// <returns><see langword="true"/> when the cref's type is declared in the indexed assembly.</returns>
     internal bool DeclaresCrefType(string crefId)
     {
-        if (crefId.Length < 3 || crefId[1] != ':')
+        if (crefId.Length < 3 || crefId[1] != ':' || crefId[0] is not ('T' or 'M' or 'P' or 'F' or 'E'))
         {
             return false;
         }
@@ -126,19 +129,13 @@ internal sealed class CrefTargetResolver
             name = name.Substring(0, parenthesis);
         }
 
-        // Try the whole name as a type, then progressively shorter prefixes as the declaring type of a member
-        var end = name.Length;
-        while (end > 0)
+        if (crefId[0] == 'T')
         {
-            if (_types.ContainsKey("T:" + name.Substring(0, end)))
-            {
-                return true;
-            }
-
-            end = name.LastIndexOf('.', end - 1);
+            return _types.ContainsKey(crefId);
         }
 
-        return false;
+        var lastDot = name.LastIndexOf('.');
+        return lastDot > 0 && _types.ContainsKey("T:" + name.Substring(0, lastDot));
     }
 
     /// <summary>
