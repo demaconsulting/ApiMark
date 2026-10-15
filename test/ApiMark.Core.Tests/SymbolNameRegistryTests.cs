@@ -68,6 +68,35 @@ public class SymbolNameRegistryTests
         Assert.Equal("a_b-2", registry.GetName("a"));
     }
 
+    /// <summary>
+    ///     Validates the sanitizer collision cases of the earlier review: literal braces never collide with
+    ///     escaped angle brackets, and names that look like escapes or hashes are never merged.
+    /// </summary>
+    [Fact]
+    public void SymbolNameRegistry_Resolve_BracesBracketsAndEscapeLookalikes_AreDistinctAndExact()
+    {
+        // Arrange / Act
+        var registry = Resolved(
+            ("k1", null, "A<B>", SymbolKind.Type),
+            ("k2", null, "A{B}", SymbolKind.Type),
+            ("k3", null, "A_B_", SymbolKind.Type),
+            ("k4", null, "A_B_-2", SymbolKind.Type),
+            ("k5", null, "Foo_1a2b3c4d", SymbolKind.Type),
+            ("k6", null, "Foo?", SymbolKind.Type),
+            ("k7", null, "Foo*", SymbolKind.Type));
+
+        // Assert: literal braces are kept; identity names win; transformed twins take the next free suffix
+        Assert.Equal("A{B}", registry.GetName("k2"));
+        Assert.Equal("A_B_", registry.GetName("k3"));
+        Assert.Equal("A_B_-2", registry.GetName("k4"));
+        Assert.Equal("A_B_-3", registry.GetName("k1"));
+        Assert.Equal("Foo_1a2b3c4d", registry.GetName("k5"));
+        Assert.Equal("Foo_", registry.GetName("k6"));
+        Assert.Equal("Foo_-2", registry.GetName("k7"));
+        var paths = registry.GetAllPaths();
+        Assert.Equal(paths.Count, paths.Select(p => p.ToLowerInvariant()).Distinct().Count());
+    }
+
     /// <summary>Validates that a namespace keeps the plain name when a type claims the same name.</summary>
     [Fact]
     public void SymbolNameRegistry_Resolve_NamespaceAndType_NamespaceWins()

@@ -313,6 +313,54 @@ public class CppFileNamingTests
         Assert.Equal(1, factory.Requests.Count(r => r == "api"));
     }
 
+    /// <summary>Template names written with angle brackets and with literal braces never share a page.</summary>
+    [Fact]
+    public void CppNames_AngleTemplateAndLiteralBraceNames_AreDistinctPages()
+    {
+        // Arrange
+        var lib = Ns("lib");
+        lib.Classes.Add(Cls("Foo<int>"));
+        lib.Classes.Add(Cls("Foo{int}"));
+        lib.Classes.Add(Cls("Foo_int_"));
+
+        // Act
+        var names = CppNames.Build(Decls(("lib", lib)));
+        var ns = CppNames.NamespaceKey("lib");
+
+        // Assert
+        Assert.Equal("lib/Foo{int}", names.Path(CppNames.ClassKey(ns, "Foo<int>")));
+        Assert.Equal("lib/Foo{int}-2", names.Path(CppNames.ClassKey(ns, "Foo{int}")));
+        Assert.Equal("lib/Foo_int_", names.Path(CppNames.ClassKey(ns, "Foo_int_")));
+    }
+
+    /// <summary>A link to a nested, templated class in an escaped namespace points at exactly the page that is written.</summary>
+    [Fact]
+    public void CppEmitter_NestedTemplateInEscapedNamespace_LinkTargetEqualsWrittenPath()
+    {
+        // Arrange
+        var odd = Ns("a::b");
+        odd.Classes.Add(Cls("Outer<T>", null, null, [Cls("Inner")]));
+        odd.Classes.Add(Cls("Plain", [Fn("Get", "a::b::Outer::Inner", new CppParameter("o", "Outer<int>"))]));
+
+        // Act
+        var factory = Emit(Decls(("a::b", odd)));
+
+        // Assert: pages are written once under the once-escaped names
+        Assert.Contains("a__b/Outer{T}/Inner", factory.Requests);
+        Assert.Contains("a__b/Plain/Get", factory.Requests);
+        Assert.DoesNotContain(factory.Requests, r => r.Contains("__b__", StringComparison.Ordinal));
+
+        // The member page links to the nested class and the template with the same paths
+        var cells = factory.Writers["a__b/Plain/Get"].Operations
+            .OfType<TableOperation>().SelectMany(t => t.Rows.SelectMany(r => r))
+            .Concat(factory.Writers["a__b/Plain/Get"].Operations.OfType<ParagraphOperation>().Select(p => p.Text))
+            .Concat(factory.Writers["a__b/Plain/Get"].Operations.OfType<SignatureOperation>().Select(s => s.Code))
+            .ToList();
+        Assert.Contains(cells, c => c.Contains("](../Outer{T}/Inner.md)", StringComparison.Ordinal));
+        Assert.Contains(cells, c => c.Contains("](../Outer{T}.md)", StringComparison.Ordinal));
+        Assert.True(AssertAllLinksResolve(factory.Writers) > 3);
+    }
+
     /// <summary>Emitting the same model twice yields identical page sets.</summary>
     [Fact]
     public void CppEmitter_CollisionModel_IsDeterministic()

@@ -216,6 +216,34 @@ public class VhdlFileNamingTests
         AssertUniqueLegalAndLinked(factory);
     }
 
+    /// <summary>
+    ///     An entity <c>Api</c>, a package <c>API</c> and a package <c>Aux</c> never overwrite the index page; the
+    ///     package page, its folder and every subprogram link all use the same resolved name.
+    /// </summary>
+    [Fact]
+    public void VhdlNames_EntityApiPackageApiAndAux_ShareOneResolvedNamePerSymbol()
+    {
+        // Arrange and Act
+        var factory = Emit(new VhdlFileModel("a.vhd", [Entity("Api")], [], [Pkg("API", Func("Run"), Func("Aux")), Pkg("Aux", Func("Aux"))]));
+
+        // Assert: the reserved index keeps api; the entity then beats the package of the same name
+        Assert.Equal(
+            ["API-3", "API-3/Aux_", "API-3/Run", "Api-2", "Aux_", "Aux_/Aux_", "api"],
+            factory.Requests.OrderBy(r => r, StringComparer.Ordinal).ToList());
+
+        // The index links every symbol by its resolved name
+        var index = factory.Writers["api"].Operations.OfType<TableOperation>().SelectMany(t => t.Rows).Select(r => r[0]).ToList();
+        Assert.Contains("[Api](Api-2.md)", index);
+        Assert.Contains("[API](API-3.md)", index);
+        Assert.Contains("[Aux](Aux_.md)", index);
+
+        // The package page links its subprograms into the folder that carries the same resolved name
+        var paragraphs = factory.Writers["API-3"].Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains("**[Run](API-3/Run.md)** — *Function*", paragraphs);
+        Assert.Contains("**[Aux](API-3/Aux_.md)** — *Function*", paragraphs);
+        Assert.True(AssertUniqueLegalAndLinked(factory) >= 5);
+    }
+
     /// <summary>Names are the same for every run.</summary>
     [Fact]
     public void VhdlNames_SameModel_IsDeterministic()
