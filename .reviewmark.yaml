@@ -39,6 +39,7 @@ reviews:
       - requirements.yaml
       - docs/design/introduction.md
       - docs/sysml2/**/*.sysml
+      - docs/reqstream/quality.yaml
 
   # ApiMarkCore - Specials
   - id: ApiMark-Core-Architecture
@@ -115,6 +116,7 @@ reviews:
       - docs/verification/api-mark-core/emit-config.md
       - src/ApiMark.Core/EmitConfig.cs
       - src/ApiMark.Core/OutputFormat.cs
+      - test/ApiMark.Core.Tests/EmitConfigTests.cs
   - id: ApiMark-Core-IContext
     title: Review that ApiMark Core IContext Implementation is Correct
     context:
@@ -305,6 +307,9 @@ reviews:
       - test/ApiMark.DotNet.Tests/DotNetEmitterGradualDisclosureGenericsTests.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterBreadcrumbTests.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterFileNameLegalityTests.cs
+      - src/ApiMark.DotNet/DotNetNames.cs
+      - test/ApiMark.DotNet.Tests/DotNetFileNamingTests.cs
+      - test/ApiMark.DotNet.Tests/DotNetSyntheticNamingTests.cs
       - test/ApiMark.DotNet.Fixtures/LegalNames/LegalNameShapes.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterOverloadIndexTests.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterInheritanceDocsTests.cs
@@ -465,6 +470,9 @@ reviews:
       - src/ApiMark.Cpp/CppEmitterGradualDisclosure.cs
       - test/ApiMark.Cpp.Fixtures/**/*.h
       - test/ApiMark.Cpp.Tests/CppEmitterGradualDisclosureTests.cs
+      - src/ApiMark.Cpp/CppNames.cs
+      - test/ApiMark.Cpp.Tests/CppFileNamingTests.cs
+      - test/ApiMark.Cpp.Tests/CppFixtureFileNamingTests.cs
   - id: ApiMark-Cpp-CppEmitterSingleFile
     title: Review that ApiMark Cpp CppEmitterSingleFile Implementation is Correct
     context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
@@ -506,6 +514,7 @@ reviews:
       - test/ApiMark.Cpp.Fixtures/**/*.h
       - test/ApiMark.Cpp.Tests/ClangAstParserTests.cs
       - test/ApiMark.Cpp.Tests/ClangDiscoveryTests.cs
+      - test/ApiMark.Cpp.Tests/ClangEnvironmentCollection.cs
   - id: ApiMark-Cpp-DocumentationCoverageChecker
     title: Review that ApiMark Cpp DocumentationCoverageChecker Implementation is
       Correct
@@ -587,6 +596,8 @@ reviews:
       - src/ApiMark.Vhdl/VhdlEmitterGradualDisclosure.cs
       - test/ApiMark.Vhdl.Tests/Fixtures/counter.vhd
       - test/ApiMark.Vhdl.Tests/VhdlEmitterGradualDisclosureTests.cs
+      - src/ApiMark.Vhdl/VhdlNames.cs
+      - test/ApiMark.Vhdl.Tests/VhdlFileNamingTests.cs
   - id: ApiMark-Vhdl-VhdlEmitterSingleFile
     title: Review that ApiMark Vhdl VhdlEmitterSingleFile Implementation is Correct
     context:
@@ -731,6 +742,7 @@ reviews:
       - docs/verification/api-mark-tool/program.md
       - src/ApiMark.Tool/Program.cs
       - test/ApiMark.Tool.Tests/ProgramTests.cs
+      - test/ApiMark.Tool.Tests/ConsoleCollection.cs
 
   # ApiMarkTool.Cli - Units
   - id: ApiMark-Tool-Cli
@@ -778,6 +790,7 @@ reviews:
       - docs/design/api-mark-tool/self-test/validation.md
       - docs/verification/api-mark-tool/self-test/validation.md
       - src/ApiMark.Tool/SelfTest/Validation.cs
+      - src/ApiMark.Tool/SelfTest/Validation.*.cs
       - test/ApiMark.Tool.Tests/SelfTest/ValidationTests.cs
 
   # OTS Items
