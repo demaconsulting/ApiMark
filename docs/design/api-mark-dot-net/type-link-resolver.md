@@ -36,6 +36,10 @@ parameter.
   referenced assembly's simple name to the location of its generated documentation.
   Always a case-insensitive (`OrdinalIgnoreCase`) copy of the caller-supplied
   dictionary, regardless of the comparer the caller's dictionary uses.
+- *_documentedModule* (private `ModuleDefinition?`): The module of the assembly being documented, or
+  `null` when unknown. A base type resolved from another assembly carries that assembly's own
+  `ModuleDefinition` as its scope, so a module scope alone does not prove a type belongs to the documented
+  assembly; this identity is what distinguishes the two.
 - *PrimitiveFullNames* (private static `HashSet<string>`): Full CLR names of
   C# primitive types that are always rendered as their keyword alias and never
   tracked as external dependencies.
@@ -83,7 +87,11 @@ reference collected during table cell generation.
   - `IReadOnlyDictionary<string, ExternalLinkTarget>? externalLinks = null` —
     map from referenced assembly name to documentation location. Copied into a
     case-insensitive dictionary.
-- *Postconditions*: The resolver is ready to call `Linkify`.
+  - `ModuleDefinition? documentedModule = null` — the module of the assembly being
+    documented. When supplied, only types scoped to exactly this module are intra-assembly;
+    a type scoped to any other module is external. When `null`, any `ModuleDefinition` scope
+    is intra-assembly (the previous behavior).
+- *Postcondition*: The resolver is ready to call `Linkify`.
 
 **TypeLinkResolver.Linkify**: Resolves a `TypeReference` to a Markdown string.
 
@@ -130,15 +138,18 @@ and generic arguments. This is the overload the emitters call.
      angle-bracketed list and any `?` are appended.
   8. Primitive or `System.Nullable<>` open type → `TypeNameSimplifier.Simplify`,
      append `?` if annotated.
-  9. Intra-assembly (scope is `ModuleDefinition`) → relative Markdown link when
+  9. Intra-assembly (scope is the documented `ModuleDefinition`) → relative Markdown link when
      `_generateLinks` is `true`; plain-text type name when `false`.
   10. Non-System external → `TryLinkExternalType`: when the type's assembly is mapped
      and links are enabled, return a link into that documentation and do not track
      the type; otherwise track it in `externalTypes` and return the plain name.
-- *Intra-assembly detection*: `TypeReference.Scope is ModuleDefinition`.
+- *Intra-assembly detection*: `TypeReference.Scope is ModuleDefinition` and, when a documented module was
+  supplied, that module is the documented module. A type scoped to another module (for example a base type of
+  a referenced assembly, resolved from that assembly) is external, never a page of the documented tree.
 
 **TypeLinkResolver.TryLinkExternalType** (private): Builds a link for a type whose
-scope is an `AssemblyNameReference` present in `_externalLinks`. Returns `null` when
+scope is an `AssemblyNameReference`, or the `ModuleDefinition` of another assembly (its
+owning assembly's name is used), present in `_externalLinks`. Returns `null` when
 links are disabled or the assembly is not mapped. See External Assembly Links.
 
 **TypeLinkResolver.BuildTypePageKey** (private static; type file names come from `DotNetEmitter.GetTypeFileName`, which reads the approved names from the symbol-name registry): Computes a type's page key

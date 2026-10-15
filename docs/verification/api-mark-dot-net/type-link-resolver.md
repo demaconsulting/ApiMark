@@ -50,6 +50,7 @@ output location is needed.
 - A type from an unmapped assembly, or any external type when `generateLinks` is `false`, stays plain text and is tracked as external.
 - Nullable flags are applied per position in pre-order (generic arguments, array elements); value types never receive `?`; exhausted flags fall back to the default.
 - A by-reference type resolves to its element type without a trailing `&` and consumes no nullable flag.
+- A type scoped to a module other than the documented module (a base type of a referenced assembly) is treated as external: plain text and tracked when unmapped, linked into the mapped documentation when mapped, and never rendered as a link into the documented tree.
 
 ### Test Scenarios
 
@@ -313,3 +314,7 @@ and `NestedGenericHost<T>.Inner<U>` link to `.../NestedHost/Inner.md`, `.../Nest
 `DotNetEmitterGradualDisclosure_Emit_ExternalNestedPropertyTypes_LinkToNestedPages`. External link names equal
 the names the target assembly's own registry produces; tested by
 `DotNetEmitterGradualDisclosure_Emit_ExternalLinks_MatchTargetAssemblyRegistryNames`.
+
+**Foreign-module types are external (unit level)**: Construct the resolver with the documented module and linkify a type read from the external fixture assembly (a different module). Expected: unmapped, plain text and the type is tracked as external; mapped, a link into the mapped documentation; a type of the documented module still links locally. Tested by `TypeLinkResolver_Linkify_ForeignModuleType_RendersPlainTextAndTracksExternal`, `TypeLinkResolver_Linkify_ForeignModuleType_MappedAssembly_LinksExternally`, and `TypeLinkResolver_Linkify_DocumentedModuleType_StillLinksLocally`.
+
+**Foreign-module types are external**: Arrange `InheritedFromExternalChain`, whose base `ExternalChainMiddle` derives from `ExternalChainTop` in the same external assembly, and emit with reference paths, first unmapped and then with `ExternalLinks` mapping the external fixture assembly. Expected: unmapped, both inherited headings are plain text; mapped, both link into the external documentation; and every relative link on every page resolves to an emitted page. Tested by `DotNetEmitterGradualDisclosure_Emit_ExternalBaseChain_Unmapped_RendersPlainTextHeadings`, `DotNetEmitterGradualDisclosure_Emit_ExternalBaseChain_Mapped_LinksEveryHeadingIntoExternalDocs`, and `DotNetEmitterGradualDisclosure_Emit_WithReferences_AllRelativeLinksResolveToEmittedPages`.

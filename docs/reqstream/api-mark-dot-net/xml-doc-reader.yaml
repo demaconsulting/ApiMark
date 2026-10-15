@@ -283,6 +283,7 @@ sections:
               - XmlDocReader_GetSummary_ExplicitLabelUnresolvedCref_RendersLabelOnlyNoLink
               - XmlDocReader_GetSummary_ExplicitLabelConstructorCref_RendersLabelOnlyNoLink
               - CrefLinking_SeeCrefToVisibleType_RendersAsMarkdownLink
+              - DotNetEmitterGradualDisclosure_Emit_OwnAssemblyCref_NotEmitted_NeverLinksExternally
               - CrefLinking_SeeCrefToVisibleMember_RendersAsMarkdownLink
               - CrefLinking_SeeCrefToFilteredMember_RendersFallbackWithNoLink
               - CrefLinking_SeeCrefToExternalType_RendersFallbackWithNoLink

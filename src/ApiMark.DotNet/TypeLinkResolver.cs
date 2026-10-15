@@ -17,9 +17,10 @@ namespace ApiMark.DotNet;
 ///       <item>
 ///         <term>Intra-assembly type</term>
 ///         <description>
-///             Detected when <see cref="TypeReference.Scope"/> is a
+///             Detected when <see cref="TypeReference.Scope"/> is the documented
 ///             <see cref="ModuleDefinition"/>, meaning the type is declared inside the
-///             assembly being documented. A relative Markdown link to the type's page is
+///             assembly being documented (any module scope when no documented module is
+///             supplied). A relative Markdown link to the type's page is
 ///             emitted.
 ///         </description>
 ///       </item>
@@ -98,6 +99,13 @@ internal sealed class TypeLinkResolver
     private readonly Dictionary<string, ExternalLinkTarget> _externalLinks;
 
     /// <summary>
+    ///     The module being documented, or <see langword="null"/> when unknown. Resolved base types of
+    ///     other assemblies carry their own <see cref="ModuleDefinition"/> as scope, so a module scope
+    ///     alone does not prove a type belongs to the documented assembly.
+    /// </summary>
+    private readonly ModuleDefinition? _documentedModule;
+
+    /// <summary>
     ///     Initializes a new instance of <see cref="TypeLinkResolver"/> with the assembly root namespaces.
     /// </summary>
     /// <param name="rootNamespaces">
@@ -116,13 +124,19 @@ internal sealed class TypeLinkResolver
     ///     table; types from unmapped assemblies keep the table-only behavior. Ignored when
     ///     <paramref name="generateLinks"/> is <see langword="false"/>.
     /// </param>
+    /// <param name="documentedModule">
+    ///     The module of the assembly being documented. When supplied, only types scoped to exactly
+    ///     this module are treated as intra-assembly; types of any other module are external.
+    /// </param>
     public TypeLinkResolver(
         IReadOnlyList<string> rootNamespaces,
         bool generateLinks = true,
-        IReadOnlyDictionary<string, ExternalLinkTarget>? externalLinks = null)
+        IReadOnlyDictionary<string, ExternalLinkTarget>? externalLinks = null,
+        ModuleDefinition? documentedModule = null)
     {
         _rootNamespaces = rootNamespaces;
         _generateLinks = generateLinks;
+        _documentedModule = documentedModule;
 
         // Always copy into a case-insensitive dictionary: assembly names compare case-insensitively
         // regardless of the comparer of the caller-supplied dictionary.
@@ -158,9 +172,17 @@ internal sealed class TypeLinkResolver
     /// <returns>A Markdown link, or <see langword="null"/> when linking is disabled or the assembly is not mapped.</returns>
     private string? TryLinkExternalType(TypeReference typeRef, string currentFolder, string displayName)
     {
+        // A base type resolved from another assembly is scoped to that assembly's own module
+        var assemblyName = typeRef.Scope switch
+        {
+            AssemblyNameReference assemblyRef => assemblyRef.Name,
+            ModuleDefinition module => module.Assembly?.Name?.Name,
+            _ => null,
+        };
+
         if (!_generateLinks ||
-            typeRef.Scope is not AssemblyNameReference assemblyRef ||
-            !_externalLinks.TryGetValue(assemblyRef.Name, out var target))
+            assemblyName == null ||
+            !_externalLinks.TryGetValue(assemblyName, out var target))
         {
             return null;
         }
@@ -662,15 +684,18 @@ internal sealed class TypeLinkResolver
 
     /// <summary>
     ///     Returns <see langword="true"/> when <paramref name="typeRef"/> is declared in the
-    ///     assembly being documented, identified by its scope being a <see cref="ModuleDefinition"/>.
+    ///     assembly being documented, identified by its scope being the documented
+    ///     <see cref="ModuleDefinition"/>. When no documented module was supplied, any
+    ///     <see cref="ModuleDefinition"/> scope counts as intra-assembly.
     /// </summary>
     /// <param name="typeRef">The type reference to test.</param>
     /// <returns>
-    ///     <see langword="true"/> when the type is in the current module; <see langword="false"/>
-    ///     when it is from an external assembly.
+    ///     <see langword="true"/> when the type is in the documented module (or in any module when
+    ///     none was supplied); <see langword="false"/> when it is from another assembly, including a
+    ///     base type resolved into its own module.
     /// </returns>
-    private static bool IsIntraAssembly(TypeReference typeRef) =>
-        typeRef.Scope is ModuleDefinition;
+    private bool IsIntraAssembly(TypeReference typeRef) =>
+        typeRef.Scope is ModuleDefinition module && (_documentedModule == null || module == _documentedModule);
 
     /// <summary>
     ///     Computes the documentation page key (relative path without extension) for a type.

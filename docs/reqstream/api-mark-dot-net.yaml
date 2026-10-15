@@ -150,6 +150,8 @@ sections:
           - ApiMarkDotNet-TypeLinkResolver-ExternalCrefLinks
           - ApiMarkDotNet-TypeLinkResolver-OverloadAnchorLinks
           - ApiMarkDotNet-TypeLinkResolver-ExternalNestedCrefs
+          - ApiMarkDotNet-TypeLinkResolver-ForeignModuleTypesAreExternal
+          - ApiMarkDotNet-CrefTargetResolver-DeclareOwnAssemblyCrefTypes
           - ApiMarkDotNet-CrefTargetResolver-IndexAssemblyTypesAndMembersByXmlDocId
           - ApiMarkDotNet-CrefTargetResolver-ResolveWithoutVisibilityFiltering
           - ApiMarkDotNet-CrefTargetResolver-ReturnFalseForUnresolvableIdentifiers

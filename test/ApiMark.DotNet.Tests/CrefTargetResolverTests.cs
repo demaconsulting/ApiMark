@@ -88,6 +88,51 @@ public class CrefTargetResolverTests : IDisposable
         Assert.Null(type);
     }
 
+    /// <summary>Validates that a cref to an own type or to a member of an own type counts as declared by the assembly.</summary>
+    /// <param name="crefId">The cref identifier.</param>
+    [Theory]
+    [InlineData("T:ApiMark.DotNet.Fixtures.SampleClass")]
+    [InlineData("M:ApiMark.DotNet.Fixtures.SampleClass.Reset")]
+    [InlineData("M:ApiMark.DotNet.Fixtures.ProtectedMembersClass.NoSuchMember(System.Int32)")]
+    [InlineData("P:ApiMark.DotNet.Fixtures.SampleClass.NoSuchProperty")]
+    public void CrefTargetResolver_DeclaresCrefType_OwnAssemblyType_ReturnsTrue(string crefId)
+    {
+        // Act / Assert
+        Assert.True(_resolver.DeclaresCrefType(crefId));
+    }
+
+    /// <summary>Validates that an indexed explicit-interface member, whose name contains dots, counts as declared by the assembly.</summary>
+    [Fact]
+    public void CrefTargetResolver_DeclaresCrefType_ExplicitInterfaceMember_ReturnsTrue()
+    {
+        // Arrange
+        var implType = _assembly.MainModule.Types.First(t => t.Name == "ExplicitIndexerClass");
+        var member = implType.Properties.First(p => p.Name.Contains('.', StringComparison.Ordinal));
+        var crefId = DotNetEmitter.BuildMemberId(member);
+
+        // Act / Assert
+        Assert.Contains("ExplicitIndexerClass.", crefId, StringComparison.Ordinal);
+        Assert.True(_resolver.DeclaresCrefType(crefId));
+    }
+
+    /// <summary>Validates that foreign, unknown and malformed crefs are not declared by the assembly.</summary>
+    /// <param name="crefId">The cref identifier.</param>
+    [Theory]
+    [InlineData("T:ApiMark.DotNet.Fixtures.SampleClass.ExternalNested")]
+    [InlineData("T:ApiMark.DotNet.Fixtures.SampleClass+Other")]
+    [InlineData("X:ApiMark.DotNet.Fixtures.SampleClass")]
+    [InlineData("T:System.ArgumentNullException")]
+    [InlineData("M:System.String.Concat(System.String,System.String)")]
+    [InlineData("T:ApiMark.DotNet.Fixtures.NoSuchType")]
+    [InlineData("!:NotAWellFormedCrefString")]
+    [InlineData("T:")]
+    [InlineData("")]
+    public void CrefTargetResolver_DeclaresCrefType_ForeignOrMalformed_ReturnsFalse(string crefId)
+    {
+        // Act / Assert
+        Assert.False(_resolver.DeclaresCrefType(crefId));
+    }
+
     /// <summary>Validates that a method declared in the assembly resolves by its XML-doc member identifier.</summary>
     [Fact]
     public void CrefTargetResolver_TryResolveMember_Method_ReturnsTrueAndMember()

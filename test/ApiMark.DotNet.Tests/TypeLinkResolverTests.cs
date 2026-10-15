@@ -26,6 +26,59 @@ public class TypeLinkResolverTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>Validates that a type scoped to another assembly's module is external when the documented module is known.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_ForeignModuleType_RendersPlainTextAndTracksExternal()
+    {
+        // Arrange
+        using var foreign = AssemblyDefinition.ReadAssembly(FixturePaths.GetExternalFixtureDll());
+        var foreignType = foreign.MainModule.Types.First(t => t.Name == "ExternalChainTop");
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"], documentedModule: _assembly.MainModule);
+        var externalTypes = new HashSet<ExternalTypeInfo>();
+
+        // Act
+        var result = resolver.Linkify(foreignType, "", "ApiMark.DotNet.Fixtures", externalTypes);
+
+        // Assert
+        Assert.Equal("ExternalChainTop", result);
+        Assert.Single(externalTypes);
+    }
+
+    /// <summary>Validates that a foreign-module type links into the documentation mapped for its assembly.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_ForeignModuleType_MappedAssembly_LinksExternally()
+    {
+        // Arrange
+        using var foreign = AssemblyDefinition.ReadAssembly(FixturePaths.GetExternalFixtureDll());
+        var foreignType = foreign.MainModule.Types.First(t => t.Name == "ExternalChainTop");
+        var target = new TypeLinkResolver.ExternalLinkTarget("../OtherLib/api", ["ApiMark.DotNet.Fixtures.External"]);
+        var resolver = new TypeLinkResolver(
+            ["ApiMark.DotNet.Fixtures"],
+            externalLinks: new Dictionary<string, TypeLinkResolver.ExternalLinkTarget> { ["ApiMark.DotNet.Fixtures.External"] = target },
+            documentedModule: _assembly.MainModule);
+
+        // Act
+        var result = resolver.Linkify(foreignType, "", "ApiMark.DotNet.Fixtures", new HashSet<ExternalTypeInfo>());
+
+        // Assert
+        Assert.Equal("[ExternalChainTop](../OtherLib/api/ApiMark.DotNet.Fixtures.External/ExternalChainTop.md)", result);
+    }
+
+    /// <summary>Validates that a type of the documented module still links locally when the module is known.</summary>
+    [Fact]
+    public void TypeLinkResolver_Linkify_DocumentedModuleType_StillLinksLocally()
+    {
+        // Arrange
+        var local = _assembly.MainModule.Types.First(t => t.Name == "SampleClass");
+        var resolver = new TypeLinkResolver(["ApiMark.DotNet.Fixtures"], documentedModule: _assembly.MainModule);
+
+        // Act
+        var result = resolver.Linkify(local, "", "ApiMark.DotNet.Fixtures", new HashSet<ExternalTypeInfo>());
+
+        // Assert
+        Assert.StartsWith("[SampleClass](", result, StringComparison.Ordinal);
+    }
+
     /// <summary>Validates that a null type reference returns an empty string.</summary>
     [Fact]
     public void TypeLinkResolver_Linkify_NullTypeRef_ReturnsEmptyString()

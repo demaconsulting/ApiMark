@@ -238,7 +238,8 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
                 var resolver = new TypeLinkResolver(
                     rootNamespaces,
                     generateLinks: true,
-                    externalLinks: BuildExternalLinkTargets(context));
+                    externalLinks: BuildExternalLinkTargets(context),
+                    documentedModule: assembly.MainModule);
 
                 // Cache the parsed assembly and XML doc index so CheckDocumentationCoverage can be
                 // called after Parse returns and before Emit disposes the assembly.

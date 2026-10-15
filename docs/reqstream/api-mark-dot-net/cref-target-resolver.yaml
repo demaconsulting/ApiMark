@@ -57,3 +57,18 @@ sections:
               - CrefTargetResolver_TryResolveType_ExternalAssemblyType_ReturnsFalse
               - CrefTargetResolver_TryResolveMember_UnknownIdentifier_ReturnsFalse
               - CrefTargetResolver_TryResolveType_MalformedCref_ReturnsFalse
+          - id: ApiMarkDotNet-CrefTargetResolver-DeclareOwnAssemblyCrefTypes
+            title: CrefTargetResolver shall report, through DeclaresCrefType, whether a cref
+              names a type of the indexed assembly or a member (existing or not) whose
+              declaring type is a type of the indexed assembly.
+            justification: |
+              A cref that belongs to the documented assembly but is not linked locally (filtered
+              out, or a member the index does not hold) must never be routed to an external
+              documentation mapping whose namespaces happen to be a prefix of the documented
+              assembly's own namespaces. XmlDocReader uses this answer to keep such a cref a
+              plain code span.
+            tests:
+              - CrefTargetResolver_DeclaresCrefType_OwnAssemblyType_ReturnsTrue
+              - CrefTargetResolver_DeclaresCrefType_ExplicitInterfaceMember_ReturnsTrue
+              - CrefTargetResolver_DeclaresCrefType_ForeignOrMalformed_ReturnsFalse
+              - DotNetEmitterGradualDisclosure_Emit_OwnAssemblyCref_NotEmitted_NeverLinksExternally

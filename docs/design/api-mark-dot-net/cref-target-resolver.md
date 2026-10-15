@@ -85,6 +85,20 @@ a member declared in the indexed assembly.
 - *Returns*: `true` when a member with this exact identifier was indexed;
   otherwise `false`.
 
+**CrefTargetResolver.DeclaresCrefType** (internal): Reports whether a cref names a type of the indexed
+assembly, or a member (existing or not) whose declaring type is one.
+
+- *Parameters*: `string crefId` — the raw `cref` attribute value, including its kind prefix.
+- *Algorithm*: Rejects malformed input and kinds other than `T`, `M`, `P`, `F`, `E`. A `T:` cref is
+  looked up exactly in `_types`. A member cref that is exactly an indexed member (including a member
+  filtered out of the output, and explicit-interface members with dotted names) is declared. Otherwise
+  its parameter list is removed and its last segment dropped, and the remaining name must be exactly an
+  indexed type; no shorter prefix is tried, so a local
+  `Ns.Outer` never claims an external `Ns.Outer.Inner`.
+- *Returns*: `true` when the exact type matches an indexed type; `false` otherwise, including for malformed input.
+- *Purpose*: Lets `XmlDocReader` keep a cref of the documented assembly out of any external link mapping
+  even when it is filtered out or not indexed.
+
 ### Error Handling
 
 CrefTargetResolver does not throw. An unresolvable `crefId` (external

@@ -103,6 +103,49 @@ internal sealed class CrefTargetResolver
         _members.TryGetValue(crefId, out member!);
 
     /// <summary>
+    ///     Returns <see langword="true"/> when <paramref name="crefId"/> is a type cref naming exactly a
+    ///     type of the indexed assembly, or a member cref (existing or not) whose declaring type, the
+    ///     name minus its last segment, is exactly a type of the indexed assembly.
+    /// </summary>
+    /// <remarks>
+    ///     Used to keep a cref that belongs to the documented assembly out of any external link mapping,
+    ///     whatever the reason it is not linked locally (filtered out, or a member the index does not hold).
+    ///     No shorter prefix is considered: a local <c>Ns.Outer</c> must not claim a cref to an
+    ///     external <c>Ns.Outer.Inner</c>.
+    /// </remarks>
+    /// <param name="crefId">The raw <c>cref</c> attribute value, including its kind prefix.</param>
+    /// <returns><see langword="true"/> when the cref's type is declared in the indexed assembly.</returns>
+    internal bool DeclaresCrefType(string crefId)
+    {
+        if (crefId.Length < 3 || crefId[1] != ':' || crefId[0] is not ('T' or 'M' or 'P' or 'F' or 'E'))
+        {
+            return false;
+        }
+
+        var name = crefId.Substring(2);
+        var parenthesis = name.IndexOf('(', StringComparison.Ordinal);
+        if (parenthesis >= 0)
+        {
+            name = name.Substring(0, parenthesis);
+        }
+
+        if (crefId[0] == 'T')
+        {
+            return _types.ContainsKey(crefId);
+        }
+
+        // An indexed member (even one filtered out of the output) is ours; this also covers
+        // explicit-interface members, whose dotted names defeat the last-dot split below
+        if (_members.ContainsKey(crefId))
+        {
+            return true;
+        }
+
+        var lastDot = name.LastIndexOf('.');
+        return lastDot > 0 && _types.ContainsKey("T:" + name.Substring(0, lastDot));
+    }
+
+    /// <summary>
     ///     Enumerates every method, property, field, and event declared directly on
     ///     <paramref name="type"/>, for indexing purposes only (no visibility filtering).
     /// </summary>

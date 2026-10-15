@@ -216,6 +216,50 @@ public class DotNetEmitterInheritedMembersTests
             InheritedLines(factory, "InheritedFromExternal"));
     }
 
+    /// <summary>
+    ///     Validates a chain of external bases declared in the same external assembly renders every
+    ///     heading as plain text when unmapped: such types are never pages of the documented assembly.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_ExternalBaseChain_Unmapped_RendersPlainTextHeadings()
+    {
+        // Arrange / Act
+        var factory = Emit(ApiVisibility.Public, withReferences: true);
+
+        // Assert
+        Assert.Equal(
+            new[]
+            {
+                "### Inherited from ExternalChainMiddle",
+                "MiddleOp | Method",
+                "### Inherited from ExternalChainTop",
+                "TopOp | Method",
+            },
+            InheritedLines(factory, "InheritedFromExternalChain"));
+    }
+
+    /// <summary>Validates every base in an external chain links into the mapped external documentation.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_ExternalBaseChain_Mapped_LinksEveryHeadingIntoExternalDocs()
+    {
+        // Arrange / Act
+        var factory = Emit(
+            ApiVisibility.Public,
+            withReferences: true,
+            externalLinks: new Dictionary<string, string> { ["ApiMark.DotNet.Fixtures.External"] = "../OtherLib/api" });
+
+        // Assert
+        Assert.Equal(
+            new[]
+            {
+                "### Inherited from [ExternalChainMiddle](../../OtherLib/api/ApiMark.DotNet.Fixtures.External/ExternalChainMiddle.md)",
+                "MiddleOp | Method",
+                "### Inherited from [ExternalChainTop](../../OtherLib/api/ApiMark.DotNet.Fixtures.External/ExternalChainTop.md)",
+                "TopOp | Method",
+            },
+            InheritedLines(factory, "InheritedFromExternalChain"));
+    }
+
     /// <summary>Validates generic and nested bases render a correct heading and only link to existing pages.</summary>
     [Fact]
     public void DotNetEmitterGradualDisclosure_Emit_GenericAndNestedBases_RenderExpectedHeadings()
@@ -261,6 +305,57 @@ public class DotNetEmitterInheritedMembersTests
         }
 
         Assert.True(checkedLinks >= 5, $"Expected several inherited-from links, saw {checkedLinks}");
+    }
+
+    /// <summary>
+    ///     Validates every relative Markdown link on every page, whatever the section, resolves to an
+    ///     emitted page when external assemblies are resolvable but unmapped — an unmapped external
+    ///     type must never be rendered as a link into the documented tree.
+    /// </summary>
+    /// <param name="visibility">The visibility tier.</param>
+    [Theory]
+    [InlineData(ApiVisibility.Public)]
+    [InlineData(ApiVisibility.All)]
+    public void DotNetEmitterGradualDisclosure_Emit_WithReferences_AllRelativeLinksResolveToEmittedPages(ApiVisibility visibility)
+    {
+        // Arrange
+        var factory = Emit(visibility, withReferences: true);
+        var linkPattern = new Regex(@"\]\(((?!https?:|file:|#)[^)#\s]+)\.md(?:#[^)\s]*)?\)");
+        var checkedLinks = 0;
+
+        // Act / Assert
+        foreach (var (key, writer) in factory.Writers)
+        {
+            var folder = key.Contains('/', StringComparison.Ordinal) ? key.Substring(0, key.LastIndexOf('/')) : string.Empty;
+            var texts = writer.Operations.SelectMany(op => op switch
+            {
+                HeadingOperation h => new[] { h.Text },
+                ParagraphOperation p => new[] { p.Text },
+                TableOperation t => t.Rows.SelectMany(r => r),
+                _ => Array.Empty<string>(),
+            });
+            foreach (var match in texts.SelectMany(t => linkPattern.Matches(t).Cast<Match>()))
+            {
+                var segments = new List<string>(folder.Split('/', StringSplitOptions.RemoveEmptyEntries));
+                foreach (var part in Uri.UnescapeDataString(match.Groups[1].Value).Split('/'))
+                {
+                    if (part == "..")
+                    {
+                        segments.RemoveAt(segments.Count - 1);
+                    }
+                    else if (part != ".")
+                    {
+                        segments.Add(part);
+                    }
+                }
+
+                var target = string.Join('/', segments);
+                Assert.True(factory.Writers.ContainsKey(target), $"'{key}' links to missing page '{target}'");
+                checkedLinks++;
+            }
+        }
+
+        Assert.True(checkedLinks > 100, $"Expected many relative links, saw {checkedLinks}");
     }
 
     /// <summary>Validates the single-file emitter lists protected inherited members at the protected tier.</summary>
