@@ -103,6 +103,45 @@ internal sealed class CrefTargetResolver
         _members.TryGetValue(crefId, out member!);
 
     /// <summary>
+    ///     Returns <see langword="true"/> when <paramref name="crefId"/> names a type of the indexed
+    ///     assembly, or a member (existing or not) whose declaring type is a type of the indexed assembly.
+    /// </summary>
+    /// <remarks>
+    ///     Used to keep a cref that belongs to the documented assembly out of any external link mapping,
+    ///     whatever the reason it is not linked locally (filtered out, or a member the index does not hold).
+    /// </remarks>
+    /// <param name="crefId">The raw <c>cref</c> attribute value, including its kind prefix.</param>
+    /// <returns><see langword="true"/> when the cref's type is declared in the indexed assembly.</returns>
+    internal bool DeclaresCrefType(string crefId)
+    {
+        if (crefId.Length < 3 || crefId[1] != ':')
+        {
+            return false;
+        }
+
+        var name = crefId.Substring(2);
+        var parenthesis = name.IndexOf('(', StringComparison.Ordinal);
+        if (parenthesis >= 0)
+        {
+            name = name.Substring(0, parenthesis);
+        }
+
+        // Try the whole name as a type, then progressively shorter prefixes as the declaring type of a member
+        var end = name.Length;
+        while (end > 0)
+        {
+            if (_types.ContainsKey("T:" + name.Substring(0, end)))
+            {
+                return true;
+            }
+
+            end = name.LastIndexOf('.', end - 1);
+        }
+
+        return false;
+    }
+
+    /// <summary>
     ///     Enumerates every method, property, field, and event declared directly on
     ///     <paramref name="type"/>, for indexing purposes only (no visibility filtering).
     /// </summary>

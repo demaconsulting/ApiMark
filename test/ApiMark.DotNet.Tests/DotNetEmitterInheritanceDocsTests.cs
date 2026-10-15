@@ -329,6 +329,28 @@ public class DotNetEmitterInheritanceDocsTests
         Assert.Contains("[`ExternalBaseClass`](https://example.com/other/api/ApiMark.DotNet.Fixtures.External/ExternalBaseClass.md)", text, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     Validates a cref to a type or member of the documented assembly is never routed into a
+    ///     mapped external documentation tree, even when that mapping's namespaces are a prefix of
+    ///     the documented type's namespace (the documented assembly is mapped onto itself here to
+    ///     force the overlap).
+    /// </summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_OwnAssemblyCref_NotEmitted_NeverLinksExternally()
+    {
+        // Arrange
+        var options = Options(externalLinks: new Dictionary<string, string> { [Ns] = "../OtherLib/api" });
+        options.ReferencePaths = [FixturePaths.GetFixtureDll()];
+
+        // Act
+        var page = EmitGradual(options).Writers[$"{Ns}/CrefLinkingClass/ReferencesFilteredMember"];
+
+        // Assert: the filtered private member keeps its plain code span; only the breadcrumb links
+        var paragraphs = Paragraphs(page);
+        Assert.Contains(paragraphs, p => p.Contains("`ProtectedMembersClass.PrivateMethod(int)`", StringComparison.Ordinal));
+        Assert.DoesNotContain(paragraphs.Skip(1), p => p.Contains("OtherLib", StringComparison.Ordinal));
+    }
+
     /// <summary>Validates an unmapped external cref stays a plain code span.</summary>
     [Fact]
     public void DotNetEmitterGradualDisclosure_Emit_ExternalCref_UnmappedStaysPlainCodeSpan()

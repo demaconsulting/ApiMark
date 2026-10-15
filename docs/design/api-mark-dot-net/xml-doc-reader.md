@@ -641,7 +641,10 @@ link's label; otherwise returns the code-span text unchanged.
 `GetEffectiveSummary` and `GetEffectiveSummaryMarkdown` return "Inherits documentation from base member."
 when the summary is empty and `HasInheritDoc` is true; `GetSummary` itself is unchanged. An external-assembly
 `cref` that is not resolved locally falls back to `TypeLinkResolver.TryLinkifyExternalCref` before the
-plain code span.
+plain code span. A `cref` that `CrefTargetResolver.DeclaresCrefType` reports as belonging to the documented
+assembly (a type of it, or a member of one of its types, whether or not that member is indexed or emitted) is
+never passed to `TryLinkifyExternalCref`: it stays a plain code span, because a mapped assembly's namespaces
+may be a prefix of the documented assembly's own.
 
 ### Error Handling
 

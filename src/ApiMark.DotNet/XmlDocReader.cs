@@ -1628,6 +1628,13 @@ public sealed class XmlDocReader
             return linkContext.Resolver.LinkifyResolvedMember(member, codeSpanText, linkContext.CurrentFolder, linkContext.MemberPageIndex);
         }
 
+        // A cref into the documented assembly never leaves it, even when it is filtered out or not
+        // indexed: a mapped assembly's namespaces may be a prefix of this assembly's own namespaces
+        if (linkContext.Targets.DeclaresCrefType(cref))
+        {
+            return codeSpanText;
+        }
+
         // Not documented by this assembly: link to another assembly's documentation when its
         // root namespaces are mapped via ExternalLinks; otherwise keep the plain code span
         return linkContext.Resolver.TryLinkifyExternalCref(cref, codeSpanText, linkContext.CurrentFolder) ?? codeSpanText;

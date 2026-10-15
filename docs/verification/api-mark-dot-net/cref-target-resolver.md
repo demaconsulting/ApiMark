@@ -33,6 +33,7 @@ or writable output location is needed.
 - A field's XML-doc identifier resolves via `TryResolveMember`.
 - An indexer's XML-doc identifier includes its index parameter type list and resolves via `TryResolveMember`.
 - A generic method's own type parameter used as an array element type (e.g. `T[]`) resolves to XML-doc positional notation, not the raw source name.
+- `DeclaresCrefType` reports a cref of a type, or of a member (existing or not) of a type, of the indexed assembly, so such a cref is never routed to an external link mapping.
 
 ### Test Scenarios
 
@@ -112,3 +113,5 @@ type rather than falling back to the raw Cecil source name `T[]` — matching
 real compiler-emitted XML doc IDs, and resolves back to the method via
 `TryResolveMember`. This scenario is tested by
 `CrefTargetResolver_TryResolveMember_GenericMethodWithArrayParameter_ResolvesPositionalNotation`.
+
+**Own-assembly crefs never link externally**: Arrange the fixture assembly mapped onto itself in `ExternalLinks` (forcing a namespace-prefix overlap) and a cref to a filtered-out private member. Expected: the cref stays a plain code span and no external link is emitted. Tested by `DotNetEmitterGradualDisclosure_Emit_OwnAssemblyCref_NotEmitted_NeverLinksExternally`.

@@ -164,6 +164,11 @@ public class InheritedFromNested : InheritedNestedHost.NestedBase
 {
 }
 
+/// <summary>A class deriving from an external base that itself derives from another type in that external assembly.</summary>
+public class InheritedFromExternalChain : ExternalChainMiddle
+{
+}
+
 /// <summary>A type overriding one member of an external base and inheriting the rest.</summary>
 public class InheritedFromExternalOverride : ExternalBaseClass
 {

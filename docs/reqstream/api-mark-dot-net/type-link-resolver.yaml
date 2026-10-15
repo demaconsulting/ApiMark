@@ -246,3 +246,17 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_ExternalNestedTypeCrefs_LinkToNestedPages
               - DotNetEmitterGradualDisclosure_Emit_ExternalNestedPropertyTypes_LinkToNestedPages
               - DotNetEmitterGradualDisclosure_Emit_ExternalLinks_MatchTargetAssemblyRegistryNames
+          - id: ApiMarkDotNet-TypeLinkResolver-ForeignModuleTypesAreExternal
+            title: TypeLinkResolver shall, when given the documented module, treat only types
+              scoped to exactly that module as intra-assembly, and shall treat a type scoped to
+              any other module (such as a base type resolved from another assembly) as external,
+              linking it into the mapped documentation or rendering it as plain text.
+            justification: |
+              Resolving a base type from a referenced assembly yields a type whose scope is that
+              assembly's own module, which is indistinguishable by scope kind from a type of the
+              documented assembly. Without comparing the module identity such a type would be
+              rendered as a link to a page that does not exist in the documented tree.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_ExternalBaseChain_Unmapped_RendersPlainTextHeadings
+              - DotNetEmitterGradualDisclosure_Emit_ExternalBaseChain_Mapped_LinksEveryHeadingIntoExternalDocs
+              - DotNetEmitterGradualDisclosure_Emit_WithReferences_AllRelativeLinksResolveToEmittedPages
