@@ -70,7 +70,7 @@ public class DotNetFileNamingTests
         Assert.Equal("A/B/C", names.Registry.GetPath("T:A.B.C"));
     }
 
-    /// <summary>Case-twin namespaces get separate paths; the ordinally first keeps the plain name.</summary>
+    /// <summary>Case-twin namespaces get separate paths; the first in ordinal order keeps the plain name.</summary>
     [Fact]
     public void DotNetNames_CaseTwinNamespaces_SecondGetsSuffix()
     {

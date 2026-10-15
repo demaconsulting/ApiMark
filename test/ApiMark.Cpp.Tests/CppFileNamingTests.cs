@@ -177,7 +177,7 @@ public class CppFileNamingTests
         Assert.Equal("lib/Foo-4", names.Path(CppNames.FunctionKey(ns, "Foo")));
     }
 
-    /// <summary>Declarations that differ only by case are separate pages; the ordinally first keeps the plain name.</summary>
+    /// <summary>Declarations that differ only by case are separate pages; the first in ordinal order keeps the plain name.</summary>
     [Fact]
     public void CppNames_CaseTwinClasses_SecondGetsSuffix()
     {

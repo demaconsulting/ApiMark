@@ -163,7 +163,11 @@ internal sealed class DotNetEmitterGradualDisclosure
         // the namespace table is immediately accessible without scrolling past prose
         apiWriter.WriteHeading(2, "File Naming and Path Convention");
         apiWriter.WriteParagraph(
-            "Documentation paths are derived deterministically from fully-qualified symbol names.");
+            "Documentation paths are derived deterministically from fully-qualified symbol names. " +
+            "A generic type adds its arity in braces (`Foo{1}`), illegal characters become `_`, and when two " +
+            "symbols would share a name (compared without regard to case) the plain name goes to the " +
+            "namespace, then the type, then the member, and the other symbol gets a numeric suffix (`-2`) " +
+            "only as a last resort.");
         var conventionHeaders = new[] { "Symbol kind", "Path pattern" };
         var conventionRows = new[]
         {

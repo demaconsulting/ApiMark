@@ -1284,7 +1284,7 @@ public class DotNetGeneratorTests
 
     /// <summary>
     ///     Validates that two members whose names differ only in case get separate pages: the
-    ///     ordinally first keeps its plain name and the other receives the <c>-2</c> collision suffix.
+    ///     first in ordinal order keeps its plain name and the other receives the <c>-2</c> collision suffix.
     /// </summary>
     [Fact]
     public void DotNetGenerator_Generate_CaseCollisionClass_CreatesSeparatePages()

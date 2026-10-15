@@ -144,7 +144,7 @@ public class VhdlFileNamingTests
         AssertUniqueLegalAndLinked(factory);
     }
 
-    /// <summary>Entities that differ only by case are separated; the ordinally first keeps the plain name.</summary>
+    /// <summary>Entities that differ only by case are separated; the first in ordinal order keeps the plain name.</summary>
     [Fact]
     public void VhdlNames_CaseTwinEntities_SecondGetsSuffix()
     {

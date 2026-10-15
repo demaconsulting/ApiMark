@@ -283,7 +283,7 @@ public class DotNetEmitterGradualDisclosureTests
 
     /// <summary>Validates that the gradual-disclosure emitter creates a combined page for case-colliding members.</summary>
     [Fact]
-    public void DotNetEmitterGradualDisclosure_Emit_CaseCollision_CreatesCombinedPage()
+    public void DotNetEmitterGradualDisclosure_Emit_CaseCollision_CreatesSeparatePages()
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
