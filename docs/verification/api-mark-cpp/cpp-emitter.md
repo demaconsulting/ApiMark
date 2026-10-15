@@ -30,7 +30,7 @@ Tests run with the standard xUnit.net test runner.
 legal characters deterministically instead of causing output-path failures. Tested by
 `CppEmitter_SanitizeFileName_InvalidCharacters_AreReplacedWithLegalCharacters`,
 `CppEmitter_SanitizeFileName_TemplateQualifiedAndReservedNames_AreLegal`,
-`CppEmitter_SanitizeFileName_IsIdempotent`, and
+`CppEmitter_SanitizeFileName_IsDeterministic`, and
 `CppEmitter_SanitizePath_NestedAndReservedSegments_AreSanitizedPerSegment`.
 
 **Null factory rejection**: Verifies that passing null to `CppEmitter.Emit` throws

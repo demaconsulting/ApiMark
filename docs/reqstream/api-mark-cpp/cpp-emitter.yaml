@@ -53,7 +53,7 @@ sections:
               - CppEmitter_SanitizeFileName_RegularName_IsUnchanged
               - CppEmitter_SanitizeFileName_InvalidCharacters_AreReplacedWithLegalCharacters
               - CppEmitter_SanitizeFileName_TemplateQualifiedAndReservedNames_AreLegal
-              - CppEmitter_SanitizeFileName_IsIdempotent
+              - CppEmitter_SanitizeFileName_IsDeterministic
               - CppEmitter_SanitizePath_NestedAndReservedSegments_AreSanitizedPerSegment
           - id: ApiMarkCpp-CppEmitter-BuildClassDeclaration
             title: >-

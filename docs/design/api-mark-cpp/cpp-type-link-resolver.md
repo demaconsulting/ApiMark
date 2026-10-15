@@ -51,7 +51,7 @@ private `_knownTypes` field.
   A null `currentFolder` is treated as an empty string (root-level file).
   Both the target page key and `currentFolder` are sanitized per `/` segment with
   `CppEmitter.SanitizePath` before the relative path is computed, so links match the legal
-  file names written by the emitter (sanitizing is idempotent for already legal names).
+  file names written by the emitter (each raw key is sanitized exactly once).
   `knownTypes` values stay raw page keys.
 - **FindPageKey** — performs exact qualified lookup first, then a short-name scan
   that returns null when the short name is ambiguous.

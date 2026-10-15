@@ -17,7 +17,8 @@ N/A - standard test environment using the .NET test runner is sufficient.
 - Angle brackets become braces; legal names are unchanged.
 - Every illegal character, a trailing dot, and an empty name produce a legal segment.
 - Reserved device names (with and without an extension part) are moved aside.
-- Distinct lossy inputs remain distinct and sanitizing is idempotent.
+- Distinct lossy inputs remain distinct; `A<B>` and `A{B}` do not collide.
+- Inputs imitating the sanitizer's own output forms do not collide with it.
 - `IsLegalSegment` rejects every illegal shape and accepts legal names.
 
 ### Test Scenarios
@@ -44,9 +45,16 @@ becomes `_`.
 **FileNameSanitizer_SanitizeSegment_NullName_ThrowsArgumentNullException**: Verifies a
 null argument is rejected.
 
-**FileNameSanitizer_SanitizeSegment_DistinctLossyInputs_StayDistinctAndIdempotent**:
-Verifies different lossy inputs map to different segments and sanitizing twice changes
-nothing.
+**FileNameSanitizer_SanitizeSegment_DistinctLossyInputs_StayDistinctAndDeterministic**:
+Verifies different lossy inputs map to different segments and the mapping is
+deterministic.
+
+**FileNameSanitizer_SanitizeSegment_AngleBracketsVersusLiteralBraces_AreDistinct**:
+Verifies `A<B>` becomes `A{B}` while `A{B}` gets a hash suffix and stays legal.
+
+**FileNameSanitizer_SanitizeSegment_InputsImitatingOutputForms_AreDistinct**: Verifies
+inputs that equal a hashed output, `CON-`, or `Con-.Foo` do not collide with the output of
+the names they imitate.
 
 **FileNameSanitizer_IsLegalSegment_IllegalName_ReturnsFalse**: Verifies each illegal shape
 (null, empty, illegal characters, control characters, trailing dot or space, reserved

@@ -149,7 +149,8 @@ a breadcrumb back to `api.md`, and `api.md` has a Start here link and a Key Type
 ### Legal File Names
 
 Every generated file and folder name is legal on Windows and Linux. `<` and `>` (explicit interface
-implementations such as `IGenericSource<int>.GetItem`) are written as `{` and `}`. Other illegal
+implementations such as `IGenericSource<int>.GetItem`) are written as `{` and `}`. A literal `{` or `}`
+in a name is treated like the other illegal characters so it cannot collide with them. Other illegal
 characters (`: " | ? * \ /`, control characters, spaces, brackets) become `-` and a short hash of the
 original name is appended so distinct names stay distinct. Names that Windows reserves (`CON`, `NUL`,
 `PRN`, `AUX`, `COM1`, `LPT1`, and so on) get a `-` suffix (`CON-.md`), as does a member named

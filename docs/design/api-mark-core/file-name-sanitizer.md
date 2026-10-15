@@ -29,12 +29,18 @@ functions and are safe to call concurrently.
   1. `<` becomes `{` and `>` becomes `}` (the brace notation of XML documentation
      identifiers); neither counts as a lossy substitution.
   2. Each character from `: " | ? * \ /`, control characters, DEL, `[ ] ( ) # % ^`,
-     backtick, and space becomes `-` (lossy).
+     backtick, space, and a literal `{` or `}` becomes `-` (lossy). Literal braces are
+     lossy so they cannot collide with the mapped `<` and `>` (`A<B>` is `A{B}`, while
+     `A{B}` is `A-B--<hash>`).
   3. Trailing dots become `-` (lossy). An empty result becomes `_`.
-  4. When a lossy substitution occurred, `-` and the first eight lowercase hexadecimal
+  4. An input that is otherwise unchanged but already ends in `-` plus eight lowercase
+     hexadecimal characters, or whose part before the first dot is a reserved device name
+     followed by `-` (for example `CON-`), also counts as lossy, so it cannot equal the
+     output produced for another input.
+  5. When a lossy substitution occurred, `-` and the first eight lowercase hexadecimal
      characters of the SHA-256 of the UTF-8 original are appended so distinct originals
      stay distinct.
-  5. When the part before the first dot is a reserved device name (compared
+  6. When the part before the first dot is a reserved device name (compared
      case-insensitively, including the superscript digit variants), `-` is appended to
      that part: `CON` becomes `CON-` and `Con.Foo` becomes `Con-.Foo`.
 - *Throws*: `ArgumentNullException` when `rawName` is null.
@@ -46,6 +52,14 @@ and is not a reserved device name.
 **FileNameSanitizer.Hash** (`public`): Returns the eight-character hash suffix used above.
 
 ### Design Decisions
+
+- **Distinctness guarantee**: the mapping is deterministic, and distinct inputs yield
+  distinct outputs except for a collision of the truncated 32-bit SHA-256 hash between two
+  lossy inputs. Outputs without a hash tail are produced only by inputs with no
+  substitution other than `<`/`>` and the reserved-name suffix, which is a one-to-one
+  mapping; hashed
+  outputs end in `-<hash>`, a form no output without a hash can have. The mapping is not
+  idempotent: a hashed output re-sanitized is hashed again.
 
 - The mapping never calls `Path.GetInvalidFileNameChars`, which differs per operating
   system; fixed rules keep output identical everywhere.

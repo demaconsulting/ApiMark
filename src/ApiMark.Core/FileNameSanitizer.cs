@@ -17,7 +17,8 @@ namespace ApiMark.Core;
 ///     <para>
 ///         The rules are: <c>&lt;</c> becomes <c>{</c> and <c>&gt;</c> becomes <c>}</c> (the
 ///         brace notation of XML documentation identifiers); every other illegal or link-hostile
-///         character (<c>: " | ? * \ /</c>, control characters, <c>[ ] ( ) # % ^ `</c> and space) becomes
+///         character (<c>: " | ? * \ /</c>, control characters, <c>[ ] ( ) # % ^ `</c>, space, and a
+///         literal <c>{</c> or <c>}</c>, which must not collide with the mapped brackets) becomes
 ///         <c>-</c>, in which case an eight-character hexadecimal hash of the original name is appended so
 ///         that distinct originals stay distinct; a trailing dot or space becomes <c>-</c> (with the
 ///         hash); and a Windows reserved device name (<c>CON</c>, <c>PRN</c>, <c>AUX</c>, <c>NUL</c>,
@@ -70,8 +71,9 @@ public static class FileNameSanitizer
             {
                 builder.Append('}');
             }
-            else if (ReplacedCharacters.Contains(c) || c < 0x20 || c == 0x7F)
+            else if (ReplacedCharacters.Contains(c) || c is '{' or '}' || c < 0x20 || c == 0x7F)
             {
+                // Literal braces are replaced so they cannot collide with the mapped '<' and '>'.
                 builder.Append('-');
                 lossy = true;
             }
@@ -79,6 +81,13 @@ public static class FileNameSanitizer
             {
                 builder.Append(c);
             }
+        }
+
+        // Inputs that already look like one of this method's own outputs (a "-xxxxxxxx" hash tail, or a
+        // reserved device name followed by the "-" suffix) are hashed so they cannot collide with it.
+        if (!lossy && (HasHashTail(rawName) || LooksLikeSuffixedReservedName(rawName)))
+        {
+            lossy = true;
         }
 
         // Windows silently strips trailing dots and spaces, so they must not appear.
@@ -141,6 +150,29 @@ public static class FileNameSanitizer
         var dot = name.IndexOf('.');
         var baseName = dot < 0 ? name : name[..dot];
         return !ReservedNames.Contains(baseName.TrimEnd(' '));
+    }
+
+    /// <summary>Determines whether a name ends in <c>-</c> followed by exactly eight lowercase hexadecimal characters.</summary>
+    /// <param name="name">The name to test.</param>
+    /// <returns><see langword="true"/> when the name ends with a hash tail.</returns>
+    private static bool HasHashTail(string name)
+    {
+        if (name.Length < HashLength + 1 || name[^(HashLength + 1)] != '-')
+        {
+            return false;
+        }
+
+        return name[^HashLength..].All(c => c is (>= '0' and <= '9') or (>= 'a' and <= 'f'));
+    }
+
+    /// <summary>Determines whether the part of a name before its first dot is a reserved device name plus a <c>-</c>.</summary>
+    /// <param name="name">The name to test.</param>
+    /// <returns><see langword="true"/> when the name equals the output form of a reserved-name rewrite.</returns>
+    private static bool LooksLikeSuffixedReservedName(string name)
+    {
+        var dot = name.IndexOf('.');
+        var baseName = dot < 0 ? name : name[..dot];
+        return baseName.EndsWith('-') && ReservedNames.Contains(baseName[..^1]);
     }
 
     /// <summary>Computes the lowercase hexadecimal hash suffix for a raw name.</summary>

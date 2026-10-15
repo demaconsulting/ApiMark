@@ -720,9 +720,14 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns>A string suitable for use as a file name (without extension).</returns>
     internal static string GetSanitizedMemberFileName(IMemberDefinition member, TypeDefinition declaringType)
     {
+        // Methods are already sanitized by BuildMethodFileName; sanitizing twice would hash the result.
+        if (member is MethodDefinition method)
+        {
+            return BuildMethodFileName(method, declaringType);
+        }
+
         var raw = member switch
         {
-            MethodDefinition m => BuildMethodFileName(m, declaringType),
             PropertyDefinition p => p.Name,
             FieldDefinition f => f.Name,
             EventDefinition e => e.Name,

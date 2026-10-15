@@ -101,9 +101,9 @@ public class FileNameSanitizerTests
         Assert.Throws<ArgumentNullException>(() => FileNameSanitizer.SanitizeSegment(null!));
     }
 
-    /// <summary>Validates that distinct lossy inputs stay distinct and the mapping is idempotent.</summary>
+    /// <summary>Validates that distinct lossy inputs stay distinct and the mapping is deterministic.</summary>
     [Fact]
-    public void FileNameSanitizer_SanitizeSegment_DistinctLossyInputs_StayDistinctAndIdempotent()
+    public void FileNameSanitizer_SanitizeSegment_DistinctLossyInputs_StayDistinctAndDeterministic()
     {
         // Arrange
         string[] inputs = ["a:b", "a|b", "a?b", "a_b", "A<B>", "CON", "x.", "x-"];
@@ -113,9 +113,40 @@ public class FileNameSanitizerTests
 
         // Assert
         Assert.Equal(inputs.Length, results.Distinct(StringComparer.Ordinal).Count());
-        Assert.All(results, r => Assert.Equal(r, FileNameSanitizer.SanitizeSegment(r)));
         Assert.Equal(FileNameSanitizer.SanitizeSegment("a:b"), FileNameSanitizer.SanitizeSegment("a:b"));
         Assert.NotEqual(FileNameSanitizer.SanitizeSegment("a:b"), FileNameSanitizer.SanitizeSegment("a|b"));
+    }
+
+    /// <summary>Validates that angle brackets and literal braces do not collide (F-001).</summary>
+    [Fact]
+    public void FileNameSanitizer_SanitizeSegment_AngleBracketsVersusLiteralBraces_AreDistinct()
+    {
+        // Arrange / Act
+        var angle = FileNameSanitizer.SanitizeSegment("A<B>");
+        var brace = FileNameSanitizer.SanitizeSegment("A{B}");
+
+        // Assert
+        Assert.Equal("A{B}", angle);
+        Assert.NotEqual(angle, brace);
+        Assert.True(FileNameSanitizer.IsLegalSegment(brace), brace);
+        Assert.EndsWith(FileNameSanitizer.Hash("A{B}"), brace, StringComparison.Ordinal);
+    }
+
+    /// <summary>Validates that inputs imitating the sanitizer's own output forms do not collide with it.</summary>
+    [Fact]
+    public void FileNameSanitizer_SanitizeSegment_InputsImitatingOutputForms_AreDistinct()
+    {
+        // Arrange
+        var hashed = FileNameSanitizer.SanitizeSegment("a:b");
+        string[] inputs = ["a:b", hashed, "CON", "CON-", "Con.Foo", "Con-.Foo", "a<b>", "a{b}", "a}b{"];
+
+        // Act
+        var results = inputs.Select(FileNameSanitizer.SanitizeSegment).ToList();
+
+        // Assert
+        Assert.Equal(inputs.Length, results.Distinct(StringComparer.Ordinal).Count());
+        Assert.All(results, r => Assert.True(FileNameSanitizer.IsLegalSegment(r), r));
+        Assert.All(inputs, i => Assert.Equal(FileNameSanitizer.SanitizeSegment(i), FileNameSanitizer.SanitizeSegment(i)));
     }
 
     /// <summary>Validates the legality predicate rejects each illegal shape.</summary>

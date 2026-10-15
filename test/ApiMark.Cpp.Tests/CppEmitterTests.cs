@@ -224,19 +224,20 @@ public class CppEmitterTests
         Assert.All(CppEmitter.SanitizePath("a:b/CON").Split('/'), s => Assert.True(FileNameSanitizer.IsLegalSegment(s)));
     }
 
-    /// <summary>Validates that sanitizing an already sanitized name does not change it.</summary>
+    /// <summary>Validates that sanitizing the same name twice yields the same, legal result.</summary>
     /// <param name="name">The raw declaration name.</param>
     [Theory]
     [InlineData("Foo<int>")]
     [InlineData("a:b")]
     [InlineData("CON")]
-    public void CppEmitter_SanitizeFileName_IsIdempotent(string name)
+    public void CppEmitter_SanitizeFileName_IsDeterministic(string name)
     {
         // Arrange / Act
         var once = CppEmitter.SanitizeFileName(name);
 
         // Assert
-        Assert.Equal(once, CppEmitter.SanitizeFileName(once));
+        Assert.Equal(once, CppEmitter.SanitizeFileName(name));
+        Assert.True(FileNameSanitizer.IsLegalSegment(once));
     }
 
     /// <summary>Validates that base-class names are appended to the class declaration line.</summary>
