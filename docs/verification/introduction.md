@@ -25,6 +25,7 @@ Local items:
   Markdown syntax for all write operations.
 - **IContext**: unit verification of the output-channel contract interface.
 - **PathHelpers**: unit verification of the safe path-combination utility.
+- **FileNameSanitizer**: unit verification of the legal file-name utility.
 - **IApiEmitter**: unit verification of the language-emitter contract interface.
 - **EmitConfig**: unit verification of the emit-configuration value object and output-format enum.
 - **GlobFileCollector**: unit verification of glob-based file discovery — inclusion and exclusion
@@ -132,6 +133,7 @@ Local items have parallel artifacts in:
   `docs/reqstream/api-mark-core/i-markdown-writer-factory.yaml`,
   `docs/reqstream/api-mark-core/i-markdown-writer.yaml`,
   `docs/reqstream/api-mark-core/path-helpers.yaml`,
+  `docs/reqstream/api-mark-core/file-name-sanitizer.yaml`,
   `docs/reqstream/api-mark-core/glob-file-collector.yaml`,
   `docs/reqstream/api-mark-cpp.yaml`,
   `docs/reqstream/api-mark-cpp/cpp-generator.yaml`,
@@ -173,6 +175,7 @@ Local items have parallel artifacts in:
   `docs/design/api-mark-core/i-markdown-writer-factory.md`,
   `docs/design/api-mark-core/i-markdown-writer.md`,
   `docs/design/api-mark-core/path-helpers.md`,
+  `docs/design/api-mark-core/file-name-sanitizer.md`,
   `docs/design/api-mark-core/glob-file-collector.md`,
   `docs/design/api-mark-cpp.md`, `docs/design/api-mark-cpp/cpp-generator.md`,
   `docs/design/api-mark-cpp/cpp-ast-model.md`,
@@ -210,6 +213,7 @@ Local items have parallel artifacts in:
   `docs/verification/api-mark-core/i-markdown-writer-factory.md`,
   `docs/verification/api-mark-core/i-markdown-writer.md`,
   `docs/verification/api-mark-core/path-helpers.md`,
+  `docs/verification/api-mark-core/file-name-sanitizer.md`,
   `docs/verification/api-mark-core/glob-file-collector.md`,
   `docs/verification/api-mark-cpp.md`,
   `docs/verification/api-mark-cpp/cpp-generator.md`,

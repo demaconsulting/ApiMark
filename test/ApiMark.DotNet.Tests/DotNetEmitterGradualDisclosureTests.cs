@@ -693,15 +693,15 @@ public class DotNetEmitterGradualDisclosureTests
 
         // Assert
         string FirstParagraph(string key) => factory.Writers[key].Operations.OfType<ParagraphOperation>().First().Text;
-        Assert.Equal("[ApiMark.DotNet.Fixtures](../ApiMark.DotNet.Fixtures.md)", FirstParagraph("ApiMark.DotNet.Fixtures/DefaultValueClass"));
+        Assert.Equal("[API Reference](../api.md) › [ApiMark.DotNet.Fixtures](../ApiMark.DotNet.Fixtures.md)", FirstParagraph("ApiMark.DotNet.Fixtures/DefaultValueClass"));
         Assert.Equal(
-            "[ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [DefaultValueClass](../DefaultValueClass.md)",
+            "[API Reference](../../api.md) › [ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [DefaultValueClass](../DefaultValueClass.md)",
             FirstParagraph("ApiMark.DotNet.Fixtures/DefaultValueClass/ToJson"));
         Assert.Equal(
-            "[ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [OperatorsStruct](../OperatorsStruct.md)",
+            "[API Reference](../../api.md) › [ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [OperatorsStruct](../OperatorsStruct.md)",
             FirstParagraph("ApiMark.DotNet.Fixtures/OperatorsStruct/operators"));
         Assert.Equal(
-            "[ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [OperatorsStruct](../OperatorsStruct.md)",
+            "[API Reference](../../api.md) › [ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [OperatorsStruct](../OperatorsStruct.md)",
             FirstParagraph("ApiMark.DotNet.Fixtures/OperatorsStruct/Wrapped"));
     }
 
@@ -808,7 +808,7 @@ public class DotNetEmitterGradualDisclosureTests
         // Assert
         var key = factory.Writers.Keys.Single(k => k.StartsWith("ApiMark.DotNet.Fixtures/GenericMethodClass/", StringComparison.Ordinal) && k.EndsWith("/Over", StringComparison.Ordinal));
         Assert.Equal(
-            "[ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [GenericMethodClass](../GenericMethodClass.md)",
+            "[API Reference](../../api.md) › [ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [GenericMethodClass](../GenericMethodClass.md)",
             FirstParagraph(factory, key));
     }
 
@@ -822,7 +822,7 @@ public class DotNetEmitterGradualDisclosureTests
         // Assert
         var key = "ApiMark.DotNet.Fixtures/CaseCollisionClass/name";
         Assert.Equal(
-            "[ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [CaseCollisionClass](../CaseCollisionClass.md)",
+            "[API Reference](../../api.md) › [ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [CaseCollisionClass](../CaseCollisionClass.md)",
             FirstParagraph(factory, key));
     }
 
@@ -835,10 +835,10 @@ public class DotNetEmitterGradualDisclosureTests
 
         // Assert
         Assert.Equal(
-            "[ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [OuterClass](../OuterClass.md)",
+            "[API Reference](../../api.md) › [ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [OuterClass](../OuterClass.md)",
             FirstParagraph(factory, "ApiMark.DotNet.Fixtures/OuterClass/Inner"));
         Assert.Equal(
-            "[ApiMark.DotNet.Fixtures](../../../ApiMark.DotNet.Fixtures.md) › [OuterClass](../../OuterClass.md) › [Inner](../Inner.md)",
+            "[API Reference](../../../api.md) › [ApiMark.DotNet.Fixtures](../../../ApiMark.DotNet.Fixtures.md) › [OuterClass](../../OuterClass.md) › [Inner](../Inner.md)",
             FirstParagraph(factory, "ApiMark.DotNet.Fixtures/OuterClass/Inner/InnerValue"));
     }
 
@@ -973,12 +973,12 @@ public class DotNetEmitterGradualDisclosureTests
 
         // Assert
         string FirstParagraph(string key) => factory.Writers[key].Operations.OfType<ParagraphOperation>().First().Text;
-        Assert.Equal("[(global namespace)](../global-namespace.md)", FirstParagraph("global-namespace/GlobalNamespaceClass"));
+        Assert.Equal("[API Reference](../api.md) › [(global namespace)](../global-namespace.md)", FirstParagraph("global-namespace/GlobalNamespaceClass"));
         Assert.Equal(
-            "[(global namespace)](../../global-namespace.md) › [GlobalNamespaceClass](../GlobalNamespaceClass.md)",
+            "[API Reference](../../api.md) › [(global namespace)](../../global-namespace.md) › [GlobalNamespaceClass](../GlobalNamespaceClass.md)",
             FirstParagraph("global-namespace/GlobalNamespaceClass/Echo"));
         Assert.Equal(
-            "[(global namespace)](../../global-namespace.md) › [GlobalNamespaceClass](../GlobalNamespaceClass.md)",
+            "[API Reference](../../api.md) › [(global namespace)](../../global-namespace.md) › [GlobalNamespaceClass](../GlobalNamespaceClass.md)",
             FirstParagraph("global-namespace/GlobalNamespaceClass/NestedGlobalClass"));
     }
 

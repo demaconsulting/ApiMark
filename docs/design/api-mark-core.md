@@ -27,6 +27,7 @@ flowchart TD
     FileMarkdownWriter --> |implements| IMarkdownWriter
     IMarkdownWriterFactory --> |creates| IMarkdownWriter
     FileMarkdownWriterFactory --> |uses| PathHelpers
+    FileMarkdownWriterFactory --> |validates with| FileNameSanitizer
     IApiEmitter --> |Emit uses| IMarkdownWriterFactory
     IApiEmitter --> |Emit uses| EmitConfig
     IApiEmitter --> |Emit uses| IContext
@@ -179,6 +180,11 @@ language-agnostic result types for a documentation-coverage scan.
 **PathHelpers (public)**: Public static utility providing path-safety and
 cross-platform path-normalization helpers used both internally by ApiMarkCore
 implementations and directly by other systems.
+
+**FileNameSanitizer (public)**: Public static utility that converts declaration names
+into file and folder name segments that are legal on Windows and Linux. Used by
+`FileMarkdownWriterFactory` for validation and by the language emitters for naming. See
+`docs/design/api-mark-core/file-name-sanitizer.md`.
 
 - *Type*: In-process .NET public API.
 - *Role*: Shared utility — `FileMarkdownWriterFactory` uses `SafePathCombine`

@@ -243,6 +243,13 @@ nested-type and nested-member page is the relative breadcrumb with the expected 
 tests exempt only that first breadcrumb paragraph from the no-link check, so links in the
 body are still checked.
 
+**API Reference crumb on every page**: Arrange the fixtures assembly and the global-namespace fixtures
+assembly. Act by emitting gradual disclosure and walking every page except `api.md`. Expected: the paragraph
+after the H1 starts with `[API Reference](` and a relative link that resolves to `api.md`, and every link in the
+breadcrumb resolves to an emitted page. Tested by
+`DotNetEmitterGradualDisclosure_Emit_AllPages_HaveApiReferenceBreadcrumb` and
+`DotNetEmitterGradualDisclosure_Emit_GlobalNamespacePages_HaveApiReferenceBreadcrumb`.
+
 **Global-namespace types**: Arrange the `ApiMark.DotNet.Fixtures.Global` assembly, whose public
 types are declared without a namespace. Act by emitting gradual disclosure. Expected: no
 exception; a `global-namespace` page with H1 `(global namespace)` and type pages under
@@ -318,7 +325,11 @@ disclosure. Expected: the summary cell is `Overloaded; see the member page.` for
 `Clears the history.` for identical ones; the Returns cell lists every distinct type in overload order
 (`[Color](Color.md), [Point](Point.md), [Size](Size.md), [Rect](Rect.md)` and `void, T`). Tested by
 `DotNetEmitterGradualDisclosure_Emit_OverloadIndex_DifferingSummaries_UsesNeutralText`,
-`DotNetEmitterGradualDisclosure_Emit_OverloadIndex_IdenticalSummaries_UsesSharedSummary`, and
+`DotNetEmitterGradualDisclosure_Emit_OverloadIndex_IdenticalSummaries_UsesSharedSummary`,
+`DotNetEmitterGradualDisclosure_Emit_OverloadIndex_AllSummariesMissing_UsesNeutralText` and
+`DotNetEmitterGradualDisclosure_Emit_OverloadIndex_SomeSummariesMissing_UsesNeutralText` (a stripped copy of the
+XML docs makes the `Clear` overloads lack a summary entirely or partly; the cell must stay neutral, never the
+no-description placeholder), and
 `DotNetEmitterGradualDisclosure_Emit_OverloadIndex_ReturnColumn_ListsDistinctTypesIncludingVoid`.
 
 **Overload page sections**: Arrange `UndoHistory.Transact`. Act by emitting gradual disclosure. Expected: the
@@ -354,6 +365,12 @@ Type Parameters table lists each `<typeparam>` (placeholder when undocumented), 
 emitting gradual disclosure. Expected: exact breadcrumbs on namespace pages, a Start here paragraph
 and a Key Types column (documented types first, then alphabetical, at most three). Tested by
 `DotNetEmitterGradualDisclosure_Emit_NamespacePages_ShowBreadcrumb` and `DotNetEmitterGradualDisclosure_Emit_ApiPage_HasStartHereAndKeyTypes`.
+
+**Legal file names**: Emits the `LegalNameShapes` fixtures (explicit generic interface
+implementations, nested generics, operators, types named `CON` or `Aux`, case-differing names) at
+every visibility level. Expected: every path segment is legal on Windows and Linux, no two paths
+collide case-insensitively, and every relative link resolves case-sensitively. Tested by
+`DotNetEmitterFileNameLegalityTests`.
 
 **Generics and inheritance docs test classes**: `DotNetEmitterGradualDisclosureGenericsTests` covers the generic type,
 method, overload, and navigation scenarios above; `DotNetEmitterInheritanceDocsTests` covers inherited-member

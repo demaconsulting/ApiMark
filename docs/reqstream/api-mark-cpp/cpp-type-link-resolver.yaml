@@ -22,6 +22,7 @@ sections:
               - ApiMarkCpp-CppTypeLinkResolver-LinkifyPrimitiveType
               - ApiMarkCpp-CppTypeLinkResolver-LinkifyStdType
               - ApiMarkCpp-CppTypeLinkResolver-LinkifyExternalTypeTracking
+              - ApiMarkCpp-CppTypeLinkResolver-LinkifyLegalPaths
             tests: [CppTypeLinkResolver_Linkify_ExactQualifiedMatch_EmitsLink]
           - id: ApiMarkCpp-CppTypeLinkResolver-LinkifyExactQualifiedMatch
             title: >-
@@ -69,3 +70,12 @@ sections:
               External type tracking lets page writers emit a concise External Types
               section without cluttering each individual table cell.
             tests: [CppTypeLinkResolver_Linkify_ExternalType_AddsToExternalTypesSet]
+          - id: ApiMarkCpp-CppTypeLinkResolver-LinkifyLegalPaths
+            title: >-
+              CppTypeLinkResolver.Linkify shall sanitize every segment of the target page
+              key and of the current folder so emitted links match the legal file names
+              written by the emitter.
+            justification: |
+              Page keys keep raw declaration names (for example Foo<int>) while files are
+              written with sanitized names; links must use the sanitized form.
+            tests: [CppTypeLinkResolver_Linkify_IllegalPageKey_EmitsSanitizedRelativeLink]

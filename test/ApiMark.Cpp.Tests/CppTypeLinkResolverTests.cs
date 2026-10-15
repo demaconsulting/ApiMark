@@ -29,6 +29,33 @@ public class CppTypeLinkResolverTests
     }
 
     /// <summary>
+    ///     Validates that page keys containing template or reserved names are linked using sanitized paths,
+    ///     even when the current folder is not already sanitized.
+    /// </summary>
+    [Fact]
+    public void CppTypeLinkResolver_Linkify_IllegalPageKey_EmitsSanitizedRelativeLink()
+    {
+        // Arrange
+        var knownTypes = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            { "ns::Foo", "ns/Foo<int>" },
+            { "ns::Aux", "ns/Aux" },
+        };
+        var resolver = new CppTypeLinkResolver(knownTypes);
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+
+        // Act
+        var fromRawFolder = resolver.Linkify("ns::Foo", "ns/Aux", externalTypes);
+        var fromSanitizedFolder = resolver.Linkify("ns::Foo", "ns/Aux-", externalTypes);
+        var reserved = resolver.Linkify("ns::Aux", "ns", externalTypes);
+
+        // Assert
+        Assert.Equal("ns::[Foo](../Foo{int}.md)", fromRawFolder);
+        Assert.Equal("ns::[Foo](../Foo{int}.md)", fromSanitizedFolder);
+        Assert.Equal("ns::[Aux](Aux-.md)", reserved);
+    }
+
+    /// <summary>
     ///     Validates that an unqualified short-name reference that matches exactly one known type
     ///     produces a Markdown link via the short-name fallback.
     /// </summary>

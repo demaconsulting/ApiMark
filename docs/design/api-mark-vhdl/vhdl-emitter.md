@@ -70,10 +70,15 @@ type string for display in the parameters table.
   as-is.
 
 **VhdlEmitter.SanitizeFileName** (internal static): Replaces characters that are
-invalid in file-system names with underscores.
+illegal on Windows or Linux by delegating to `ApiMark.Core.FileNameSanitizer.SanitizeSegment`;
+  reserved device names (for example `aux`) receive a `-` suffix so the page is legal on every platform.
 
 - *Parameters*: `string name` — the raw declaration name.
 - *Returns*: `string` — safe for use as a file-system file name segment.
+- *Known limitation*: `VhdlEmitter.cs` does not lowercase or otherwise case-normalize names
+  (verified by reading the source). VHDL identifiers are case-insensitive, so entities whose
+  names differ only in case produce page names differing only in case and are not
+  disambiguated; behavior is unchanged and documented in the user guide.
 
 ### Error Handling
 

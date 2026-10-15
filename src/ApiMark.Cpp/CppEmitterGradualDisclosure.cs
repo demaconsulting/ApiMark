@@ -12,7 +12,11 @@ internal sealed class CppEmitterGradualDisclosure
     /// <summary>Column headers for the file-naming and path-convention table on the index page.</summary>
     private static readonly string[] PathConventionHeaders = ["Symbol kind", "Path pattern"];
 
-    /// <summary>Row data for the file-naming and path-convention table on the index page.</summary>
+    /// <summary>
+    ///     Row data for the file-naming and path-convention table on the index page. Every
+    ///     <c>{...}</c> segment is passed through <see cref="FileNameSanitizer"/> so it is legal on
+    ///     Windows and Linux (for example <c>Foo&lt;int&gt;</c> becomes <c>Foo{int}</c>).
+    /// </summary>
     private static readonly string[][] PathConventionRows =
     [
         ["Namespace", "`{Namespace}.md`"],
@@ -165,7 +169,7 @@ internal sealed class CppEmitterGradualDisclosure
             var nsDecls = kv.Value;
             var declarationCount = nsDecls.Classes.Count + nsDecls.Enums.Count + nsDecls.FreeFunctions.Count + nsDecls.TypeAliases.Count;
             var description = CppEmitter.GetNamespaceDescription(nsDecls);
-            return new[] { $"[{nsDecls.DisplayName}]({kv.Key}.md)", declarationCount.ToString(), description };
+            return new[] { $"[{nsDecls.DisplayName}]({CppEmitter.SanitizeFileName(kv.Key)}.md)", declarationCount.ToString(), description };
         });
         writer.WriteTable(headers, rows);
 
@@ -194,7 +198,7 @@ internal sealed class CppEmitterGradualDisclosure
             ? displayName
             : $"{ctx.NsDisplayName}::{displayName}";
 
-        using var writer = ctx.Factory.CreateMarkdown(ctx.NsKey, ctx.Class.Name);
+        using var writer = ctx.Factory.CreateMarkdown(CppEmitter.SanitizePath(ctx.NsKey), CppEmitter.SanitizeFileName(ctx.Class.Name));
         writer.WriteHeading(1, displayName);
         WriteClassSignatureBlock(writer, ctx.Class, qualifiedClassName);
 
@@ -382,7 +386,7 @@ internal sealed class CppEmitterGradualDisclosure
             }
         }
 
-        ctorRows.Add(new[] { $"[{ctx.Class.Name}({paramTypes})]({ctx.Class.Name}/{pageFileName}.md)", ctorSummary });
+        ctorRows.Add(new[] { $"[{ctx.Class.Name}({paramTypes})]({CppEmitter.SanitizeFileName(ctx.Class.Name)}/{pageFileName}.md)", ctorSummary });
     }
 
     /// <summary>
@@ -421,7 +425,7 @@ internal sealed class CppEmitterGradualDisclosure
         // Show simplified parameter types in the link text so readers can
         // distinguish overloaded methods at a glance
         var methodParamTypes = string.Join(", ", method.Parameters.Select(p => CppEmitter.SimplifyTypeName(p.TypeName)));
-        methodRows.Add(new[] { $"[{method.Name}({methodParamTypes})]({ctx.Class.Name}/{pageFileName}.md)", returnType, methodSummary });
+        methodRows.Add(new[] { $"[{method.Name}({methodParamTypes})]({CppEmitter.SanitizeFileName(ctx.Class.Name)}/{pageFileName}.md)", returnType, methodSummary });
     }
 
     /// <summary>
@@ -457,7 +461,7 @@ internal sealed class CppEmitterGradualDisclosure
             }
         }
 
-        fieldRows.Add(new[] { $"[{field.Name}]({ctx.Class.Name}/{pageFileName}.md)", typeName, fieldSummary });
+        fieldRows.Add(new[] { $"[{field.Name}]({CppEmitter.SanitizeFileName(ctx.Class.Name)}/{pageFileName}.md)", typeName, fieldSummary });
     }
 
     /// <summary>
@@ -500,7 +504,7 @@ internal sealed class CppEmitterGradualDisclosure
             writer.WriteHeading(2, OperatorsLabel);
             writer.WriteTable(
                 new[] { OperatorsLabel, CppEmitter.DescriptionColumnHeader },
-                new[] { new[] { $"[operators]({ctx.Class.Name}/operators.md)", "Operator overloads" } });
+                new[] { new[] { $"[operators]({CppEmitter.SanitizeFileName(ctx.Class.Name)}/operators.md)", "Operator overloads" } });
         }
 
         // Emit Nested Classes table so readers can discover inner types without browsing the header
@@ -513,7 +517,7 @@ internal sealed class CppEmitterGradualDisclosure
                 .Select(nested =>
                 {
                     var summary = CppEmitter.GetSummary(nested.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
-                    return new[] { $"[{nested.Name}]({ctx.Class.Name}/{nested.Name}.md)", summary };
+                    return new[] { $"[{nested.Name}]({CppEmitter.SanitizeFileName(ctx.Class.Name)}/{CppEmitter.SanitizeFileName(nested.Name)}.md)", summary };
                 });
             writer.WriteTable(nestedHeaders, nestedRows);
         }
@@ -529,7 +533,7 @@ internal sealed class CppEmitterGradualDisclosure
                 {
                     var summary = CppEmitter.GetSummary(alias.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
                     var underlying = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(alias.UnderlyingTypeName), ctx.NsKey, externalTypes)!;
-                    return new[] { $"[{alias.Name}]({ctx.Class.Name}/{alias.Name}.md)", underlying, summary };
+                    return new[] { $"[{alias.Name}]({CppEmitter.SanitizeFileName(ctx.Class.Name)}/{CppEmitter.SanitizeFileName(alias.Name)}.md)", underlying, summary };
                 });
             writer.WriteTable(aliasHeaders, aliasRows);
         }
@@ -576,7 +580,7 @@ internal sealed class CppEmitterGradualDisclosure
         IReadOnlyList<CppFunction> operators,
         CppTypeLinkResolver cppResolver)
     {
-        var opsCurrentFolder = $"{nsKey}/{cls.Name}";
+        var opsCurrentFolder = CppEmitter.SanitizePath($"{nsKey}/{cls.Name}");
         using var writer = factory.CreateMarkdown(opsCurrentFolder, "operators");
         writer.WriteHeading(1, OperatorsLabel);
         // Emit the qualified class name comment and #include directive from the first operator
@@ -616,8 +620,8 @@ internal sealed class CppEmitterGradualDisclosure
         IReadOnlyList<CppFunction> operators,
         CppTypeLinkResolver cppResolver)
     {
-        var opsCurrentFolder = nsKey;
-        using var writer = factory.CreateMarkdown(nsKey, "operators");
+        var opsCurrentFolder = CppEmitter.SanitizePath(nsKey);
+        using var writer = factory.CreateMarkdown(opsCurrentFolder, "operators");
         writer.WriteHeading(1, OperatorsLabel);
         // Emit the qualified name comment and #include directive from the first operator that
         // has source location information so readers know which header to include
@@ -657,8 +661,8 @@ internal sealed class CppEmitterGradualDisclosure
         CppFunction fn,
         CppTypeLinkResolver cppResolver)
     {
-        var fnCurrentFolder = nsKey;
-        using var writer = factory.CreateMarkdown(nsKey, CppEmitter.SanitizeFileName(fn.Name));
+        var fnCurrentFolder = CppEmitter.SanitizePath(nsKey);
+        using var writer = factory.CreateMarkdown(fnCurrentFolder, CppEmitter.SanitizeFileName(fn.Name));
         writer.WriteHeading(1, fn.Name);
         var externalTypes = new SortedSet<CppExternalTypeInfo>();
         WriteFreeFunctionContent(writer, nsDisplayName, fn, cppResolver, fnCurrentFolder, externalTypes);
@@ -756,8 +760,8 @@ internal sealed class CppEmitterGradualDisclosure
         string fileName,
         CppTypeLinkResolver cppResolver)
     {
-        var memberCurrentFolder = $"{nsKey}/{cls.Name}";
-        using var memberWriter = factory.CreateMarkdown(memberCurrentFolder, fileName);
+        var memberCurrentFolder = CppEmitter.SanitizePath($"{nsKey}/{cls.Name}");
+        using var memberWriter = factory.CreateMarkdown(memberCurrentFolder, CppEmitter.SanitizeFileName(fileName));
 
         var externalTypes = new SortedSet<CppExternalTypeInfo>();
 
@@ -932,7 +936,7 @@ internal sealed class CppEmitterGradualDisclosure
         string nsDisplayName,
         CppEnum cppEnum)
     {
-        using var writer = factory.CreateMarkdown(nsKey, cppEnum.Name);
+        using var writer = factory.CreateMarkdown(CppEmitter.SanitizePath(nsKey), CppEmitter.SanitizeFileName(cppEnum.Name));
         writer.WriteHeading(1, cppEnum.Name);
 
         // Emit the fully-qualified name comment and optional #include directive so readers
@@ -1000,7 +1004,7 @@ internal sealed class CppEmitterGradualDisclosure
         CppTypeAlias alias,
         CppTypeLinkResolver cppResolver)
     {
-        using var writer = factory.CreateMarkdown(nsKey, alias.Name);
+        using var writer = factory.CreateMarkdown(CppEmitter.SanitizePath(nsKey), CppEmitter.SanitizeFileName(alias.Name));
         writer.WriteHeading(1, alias.Name);
 
         // Accumulate external type references found in the underlying type on this page
@@ -1063,7 +1067,8 @@ internal sealed class CppEmitterGradualDisclosure
         CppEmitter.NamespaceDeclarations nsDecls,
         CppTypeLinkResolver cppResolver)
     {
-        using var writer = factory.CreateMarkdown("", nsKey);
+        var safeNs = CppEmitter.SanitizeFileName(nsKey);
+        using var writer = factory.CreateMarkdown("", safeNs);
         writer.WriteHeading(1, $"{nsDecls.DisplayName} Namespace");
 
         // Accumulate external type references found in type-column cells on this page
@@ -1079,7 +1084,7 @@ internal sealed class CppEmitterGradualDisclosure
                 .Select(cls =>
                 {
                     var summary = CppEmitter.GetSummary(cls.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
-                    return new[] { $"[{cls.Name}]({nsKey}/{cls.Name}.md)", summary };
+                    return new[] { $"[{cls.Name}]({safeNs}/{CppEmitter.SanitizeFileName(cls.Name)}.md)", summary };
                 });
             writer.WriteTable(typeHeaders, typeRows);
         }
@@ -1094,7 +1099,7 @@ internal sealed class CppEmitterGradualDisclosure
                 .Select(en =>
                 {
                     var summary = CppEmitter.GetSummary(en.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
-                    return new[] { $"[{en.Name}]({nsKey}/{en.Name}.md)", summary };
+                    return new[] { $"[{en.Name}]({safeNs}/{CppEmitter.SanitizeFileName(en.Name)}.md)", summary };
                 });
             writer.WriteTable(enumHeaders, enumRows);
         }
@@ -1109,8 +1114,8 @@ internal sealed class CppEmitterGradualDisclosure
                 .Select(alias =>
                 {
                     var summary = CppEmitter.GetSummary(alias.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
-                    var underlying = cppResolver.Linkify(CppEmitter.SimplifyTypeName(alias.UnderlyingTypeName), nsKey, externalTypes)!;
-                    return new[] { $"[{alias.Name}]({nsKey}/{alias.Name}.md)", underlying, summary };
+                    var underlying = cppResolver.Linkify(CppEmitter.SimplifyTypeName(alias.UnderlyingTypeName), string.Empty, externalTypes)!;
+                    return new[] { $"[{alias.Name}]({safeNs}/{CppEmitter.SanitizeFileName(alias.Name)}.md)", underlying, summary };
                 });
             writer.WriteTable(aliasHeaders, aliasRows);
         }
@@ -1140,7 +1145,7 @@ internal sealed class CppEmitterGradualDisclosure
                     var returnType = cppResolver.Linkify(
                         CppEmitter.SimplifyTypeName(fn.ReturnTypeName), string.Empty, externalTypes)!;
                     var safeName = CppEmitter.SanitizeFileName(fn.Name);
-                    return new[] { $"[{fn.Name}]({nsKey}/{safeName}.md)", returnType, summary };
+                    return new[] { $"[{fn.Name}]({safeNs}/{safeName}.md)", returnType, summary };
                 });
             writer.WriteTable(fnHeaders, fnRows);
         }
@@ -1152,7 +1157,7 @@ internal sealed class CppEmitterGradualDisclosure
             writer.WriteHeading(2, OperatorsLabel);
             writer.WriteTable(
                 new[] { OperatorsLabel, CppEmitter.DescriptionColumnHeader },
-                new[] { new[] { $"[operators]({nsKey}/operators.md)", "Operator overloads" } });
+                new[] { new[] { $"[operators]({safeNs}/operators.md)", "Operator overloads" } });
         }
 
         CppEmitter.WriteExternalTypesSection(writer, externalTypes);

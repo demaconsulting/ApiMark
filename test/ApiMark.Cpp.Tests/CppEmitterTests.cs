@@ -184,15 +184,59 @@ public class CppEmitterTests
         Assert.Contains(headings, h => h.Level == 2 && h.Text.StartsWith("name", StringComparison.Ordinal));
     }
 
-    /// <summary>Validates that invalid file-name characters are replaced with underscores.</summary>
+    /// <summary>Validates that illegal file-name characters are replaced deterministically on every platform.</summary>
     [Fact]
-    public void CppEmitter_SanitizeFileName_InvalidCharacters_AreReplacedWithUnderscore()
+    public void CppEmitter_SanitizeFileName_InvalidCharacters_AreReplacedWithLegalCharacters()
     {
         // Arrange / Act
         var result = CppEmitter.SanitizeFileName("operator/");
 
         // Assert
-        Assert.Equal("operator_", result);
+        Assert.StartsWith("operator-", result, StringComparison.Ordinal);
+        Assert.True(FileNameSanitizer.IsLegalSegment(result));
+        Assert.Equal(result, CppEmitter.SanitizeFileName("operator/"));
+    }
+
+    /// <summary>Validates that template, qualified, and reserved C++ names become legal segments.</summary>
+    /// <param name="name">The raw declaration name.</param>
+    [Theory]
+    [InlineData("Foo<int>")]
+    [InlineData("a::b")]
+    [InlineData("CON")]
+    public void CppEmitter_SanitizeFileName_TemplateQualifiedAndReservedNames_AreLegal(string name)
+    {
+        // Arrange / Act
+        var result = CppEmitter.SanitizeFileName(name);
+
+        // Assert
+        Assert.True(FileNameSanitizer.IsLegalSegment(result));
+    }
+
+    /// <summary>Validates that SanitizePath sanitizes each segment, drops empty segments, and handles empty input.</summary>
+    [Fact]
+    public void CppEmitter_SanitizePath_NestedAndReservedSegments_AreSanitizedPerSegment()
+    {
+        // Arrange / Act / Assert
+        Assert.Equal(string.Empty, CppEmitter.SanitizePath(string.Empty));
+        Assert.Equal("ns/Foo{int}", CppEmitter.SanitizePath("ns/Foo<int>"));
+        Assert.Equal("ns", CppEmitter.SanitizePath("/ns/"));
+        Assert.Equal("aux-/Aux-", CppEmitter.SanitizePath("aux/Aux"));
+        Assert.All(CppEmitter.SanitizePath("a:b/CON").Split('/'), s => Assert.True(FileNameSanitizer.IsLegalSegment(s)));
+    }
+
+    /// <summary>Validates that sanitizing an already sanitized name does not change it.</summary>
+    /// <param name="name">The raw declaration name.</param>
+    [Theory]
+    [InlineData("Foo<int>")]
+    [InlineData("a:b")]
+    [InlineData("CON")]
+    public void CppEmitter_SanitizeFileName_IsIdempotent(string name)
+    {
+        // Arrange / Act
+        var once = CppEmitter.SanitizeFileName(name);
+
+        // Assert
+        Assert.Equal(once, CppEmitter.SanitizeFileName(once));
     }
 
     /// <summary>Validates that base-class names are appended to the class declaration line.</summary>

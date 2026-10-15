@@ -16,7 +16,7 @@ Tests run with the standard xUnit.net test runner.
 - `CppEmitter.Emit` rejects a null factory.
 - Gradual-disclosure dispatch produces multiple files.
 - Single-file dispatch produces exactly one `api` file.
-- `SanitizeFileName` preserves valid names and replaces invalid characters with underscores.
+- `SanitizeFileName` preserves valid names and replaces illegal characters, template brackets, and reserved device names with legal forms; `SanitizePath` sanitizes each segment.
 - `BuildClassDeclaration` renders non-final, final, and inherited class declarations correctly.
 - `WriteCombinedMemberPage` emits one shared page for case-insensitive member collisions.
 - `WriteCombinedMemberPage` rejects a `members` list containing fewer than two elements with `ArgumentException`.
@@ -26,9 +26,12 @@ Tests run with the standard xUnit.net test runner.
 
 ### Test Scenarios
 
-**Sanitize invalid characters**: Verifies that invalid file-name characters are replaced with
-underscores instead of causing output-path failures. Tested by
-`CppEmitter_SanitizeFileName_InvalidCharacters_AreReplacedWithUnderscore`.
+**Sanitize invalid characters**: Verifies that illegal file-name characters are replaced with
+legal characters deterministically instead of causing output-path failures. Tested by
+`CppEmitter_SanitizeFileName_InvalidCharacters_AreReplacedWithLegalCharacters`,
+`CppEmitter_SanitizeFileName_TemplateQualifiedAndReservedNames_AreLegal`,
+`CppEmitter_SanitizeFileName_IsIdempotent`, and
+`CppEmitter_SanitizePath_NestedAndReservedSegments_AreSanitizedPerSegment`.
 
 **Null factory rejection**: Verifies that passing null to `CppEmitter.Emit` throws
 `ArgumentNullException` before any I/O occurs. Tested by

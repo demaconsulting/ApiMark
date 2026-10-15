@@ -1,0 +1,44 @@
+---
+# FileNameSanitizer unit requirements
+sections:
+  - title: ApiMarkCore Requirements
+    sections:
+      - title: FileNameSanitizer Requirements
+        requirements:
+          - id: ApiMarkCore-FileNameSanitizer-ProduceLegalSegments
+            title: FileNameSanitizer shall convert any raw name into a non-empty path
+              segment that is legal on both Windows and Linux, containing none of the
+              characters angle brackets, pipe, question mark, asterisk, colon, double quote, slash, backslash, or control characters, with no trailing space
+              or dot, and not a reserved device name (CON, PRN, AUX, NUL, COM0-9, LPT0-9),
+              including when the device name is followed by an extension.
+            justification: |
+              Generated documentation is checked out and built on both Windows and Linux.
+              A name such as an explicit interface implementation (IFoo<System.Int32>.Method)
+              or a type named CON is valid source code but cannot be created on Windows.
+            tests:
+              - FileNameSanitizer_SanitizeSegment_AngleBrackets_BecomeBraces
+              - FileNameSanitizer_SanitizeSegment_LegalName_IsUnchanged
+              - FileNameSanitizer_SanitizeSegment_IllegalCharacter_IsReplacedWithHashSuffix
+              - FileNameSanitizer_SanitizeSegment_TrailingDot_IsLegal
+              - FileNameSanitizer_SanitizeSegment_ReservedDeviceName_IsMovedAside
+              - FileNameSanitizer_SanitizeSegment_EmptyName_ReturnsUnderscore
+              - FileNameSanitizer_SanitizeSegment_NullName_ThrowsArgumentNullException
+          - id: ApiMarkCore-FileNameSanitizer-Deterministic
+            title: FileNameSanitizer shall map a raw name to the same segment on every
+              platform and keep distinct raw names distinct by appending a hash of the
+              original name whenever characters were replaced.
+            justification: |
+              Output must be reproducible across operating systems and distinct source
+              names must never collapse onto one file.
+            tests:
+              - FileNameSanitizer_SanitizeSegment_DistinctLossyInputs_StayDistinctAndIdempotent
+              - FileNameSanitizer_SanitizeSegment_IllegalCharacter_IsReplacedWithHashSuffix
+          - id: ApiMarkCore-FileNameSanitizer-ValidateSegments
+            title: FileNameSanitizer shall report whether a segment is legal on Windows
+              and Linux.
+            justification: |
+              Writers and tests need one authoritative legality predicate so that any
+              emitter naming defect is detected instead of failing only on Windows.
+            tests:
+              - FileNameSanitizer_IsLegalSegment_IllegalName_ReturnsFalse
+              - FileNameSanitizer_IsLegalSegment_LegalName_ReturnsTrue

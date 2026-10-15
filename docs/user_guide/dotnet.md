@@ -138,18 +138,32 @@ table taken from `<typeparam>`, and `where` constraints in signatures. Their fil
 appear in a C# identifier, so `Foo-1.md` (for `Foo<T>`) never collides with `Foo1.md` (for a type named
 `Foo1`), and `Foo.md`, `Foo-1.md` and `Foo-2.md` stay distinct. Earlier releases wrote `Name1.md`; links
 that point at the old names must be updated. Overload rows
-list every distinct return type (including `void`); when the overloads' summaries differ, the row shows
-`Overloaded; see the member page.` instead of one overload's summary. Cross-reference links to an overload
+list every distinct return type (including `void`); the row shows the summary only when every overload has the same summary; when they differ, or any overload has
+none, it shows `Overloaded; see the member page.` instead of one overload's summary. Cross-reference links to an overload
 include the signature in the link text (`UndoHistory.Transact(string, Action)`) and end with an anchor to
 that overload's heading on the shared page. `<paramref>`, `<typeparamref>`, and `<see langword>` render as
 code spans. In cref link text a single type parameter is shown as `T` and several as `T1`..`Tn`, because the
 real names are not in the cref. A text-only `<example>` is shown as prose. Namespace pages start with
 a breadcrumb back to `api.md`, and `api.md` has a Start here link and a Key Types column.
 
+### Legal File Names
+
+Every generated file and folder name is legal on Windows and Linux. `<` and `>` (explicit interface
+implementations such as `IGenericSource<int>.GetItem`) are written as `{` and `}`. Other illegal
+characters (`: " | ? * \ /`, control characters, spaces, brackets) become `-` and a short hash of the
+original name is appended so distinct names stay distinct. Names that Windows reserves (`CON`, `NUL`,
+`PRN`, `AUX`, `COM1`, `LPT1`, and so on) get a `-` suffix (`CON-.md`), as does a member named
+`operators` (`operators-.md`), which would otherwise collide with the operators page. Types that differ
+only by case, such as `Inner` and `inner`, keep the first name in ordinal order and the others get a
+hash suffix, so no two files collide on a case-insensitive file system. Earlier releases wrote the
+explicit-implementation names verbatim; links to those old names must be updated. Limitation: namespaces
+that differ only by case, and case-twin types from external assemblies, are not disambiguated.
+
 ### Breadcrumbs
 
-In gradual-disclosure output, type and member pages begin with a breadcrumb line directly under the
-heading, such as `[Namespace](../Namespace.md) › [Type](../Type.md)`, to navigate back up the tree.
+In gradual-disclosure output, every page except `api.md` begins with a breadcrumb line directly under the
+heading, such as `[API Reference](../../api.md) › [Namespace](../../Namespace.md) › [Type](../Type.md)`, to
+navigate back up the tree.
 Single-file output has no breadcrumbs.
 
 ### Nested Types

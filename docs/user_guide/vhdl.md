@@ -149,6 +149,16 @@ An AI agent can read the root index first, drill into the relevant entity or pac
 page, and then read the subprogram detail — consuming only as much context as the task
 requires.
 
+### File Naming
+
+File and folder names are legal on both Windows and Linux. Names are not lowercased and
+the emitter does not rename by case: VHDL identifiers are case-insensitive, so two entities
+or packages whose names differ only in case (for example `Counter` and `counter`) produce
+page names that differ only in case and are not disambiguated; this is a known limitation
+on case-insensitive file systems. Reserved Windows device names (for example an entity
+named `aux`) get a trailing `-` (`aux-.md`) and any other illegal character becomes `-`
+followed by a short hash of the original name.
+
 ### Single File (`--format single-file`)
 
 All content is written to a single `api.md` file using a flat heading hierarchy:
@@ -157,6 +167,7 @@ All content is written to a single `api.md` file using a flat heading hierarchy:
 | --- | --- |
 | H1 | Library name |
 | H2 | Entity or package name |
+
 | H3 | Member (subprogram, type, constant, component) with signature and description |
 | H4 | Individual parameter (name, type, description) |
 

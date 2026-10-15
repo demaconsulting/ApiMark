@@ -390,4 +390,138 @@ public class CppEmitterGradualDisclosureTests
         // Assert: namespace operators are written to {namespace}/operators.md
         Assert.True(factory.HasWriter("testlib", "operators"));
     }
+
+    /// <summary>Builds synthetic data whose names are illegal or reserved on Windows (no clang required).</summary>
+    private static (CppEmitter emitter, SortedDictionary<string, CppEmitter.NamespaceDeclarations> nsDecls, CppTypeLinkResolver resolver) BuildIllegalNameData()
+    {
+        var options = new CppGeneratorOptions
+        {
+            LibraryName = "TestLib",
+            PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
+        };
+
+        var fooInt = new CppClass(
+            "Foo<int>",
+            [],
+            [],
+            [
+                new CppFunction("Get", "Aux", [], CppAccessibility.Public, false, false, false, false, false, false, null, new CppDocComment("Gets.", null, [], null)),
+                new CppFunction("Name", "int", [], CppAccessibility.Public, false, false, false, false, false, false, null, new CppDocComment("Gets the name.", null, [], null)),
+                new CppFunction("operator+", "int", [new CppParameter("o", "int")], CppAccessibility.Public, false, false, false, false, false, false, null, new CppDocComment("Adds.", null, [], null)),
+            ],
+            [
+                new CppField("name", "int", CppAccessibility.Public, false, false, null, new CppDocComment("Stored.", null, [], null)),
+            ],
+            [
+                new CppClass("Aux", [], [], [], [], [], [], false, false, null, new CppDocComment("Nested aux.", null, [], null)),
+            ],
+            [
+                new CppTypeAlias("a:b", "int", false, null, new CppDocComment("Odd alias.", null, [], null)),
+            ],
+            false,
+            false,
+            null,
+            new CppDocComment("A template instance.", null, [], null));
+
+        var nsDecls = new SortedDictionary<string, CppEmitter.NamespaceDeclarations>(StringComparer.Ordinal);
+        var ns = new CppEmitter.NamespaceDeclarations("testlib", new CppDocComment("A test library.", null, [], null));
+        ns.Classes.Add(fooInt);
+        ns.Classes.Add(new CppClass("Aux", [], [], [], [], [], [], false, false, null, new CppDocComment("Reserved name.", null, [], null)));
+        ns.Enums.Add(new CppEnum("CON", [new CppEnumValue("Red", new CppDocComment("Red.", null, [], null))], false, null, new CppDocComment("Reserved enum.", null, [], null)));
+        ns.TypeAliases.Add(new CppTypeAlias("a:b", "Aux", false, null, new CppDocComment("Odd alias.", null, [], null)));
+        ns.FreeFunctions.Add(new CppFunction("operator<<", "int", [new CppParameter("w", "Aux")], CppAccessibility.Public, false, false, false, false, false, false, null, new CppDocComment("Streams.", null, [], null)));
+        nsDecls["testlib"] = ns;
+
+        // A second namespace whose key is a reserved device name
+        var auxNs = new CppEmitter.NamespaceDeclarations("aux", new CppDocComment("Reserved namespace.", null, [], null));
+        auxNs.Classes.Add(new CppClass("Plain", [], [], [], [], [], [], false, false, null, new CppDocComment("Plain.", null, [], null)));
+        nsDecls["aux"] = auxNs;
+
+        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            { "Aux", "testlib/Aux" },
+            { "testlib::Aux", "testlib/Aux" },
+            { "testlib::Foo<int>", "testlib/Foo<int>" },
+            { "testlib::Foo<int>::Aux", "testlib/Foo<int>/Aux" },
+        });
+
+        return (new CppEmitter(options, nsDecls, resolver), nsDecls, resolver);
+    }
+
+    /// <summary>Emits the illegal-name data set; the in-memory factory does not validate, so tests assert legality.</summary>
+    private static InMemoryMarkdownWriterFactory EmitIllegalNames()
+    {
+        var factory = new InMemoryMarkdownWriterFactory();
+        var (emitter, nsDecls, resolver) = BuildIllegalNameData();
+        new CppEmitterGradualDisclosure(emitter, nsDecls, resolver).Emit(factory, new EmitConfig(), new InMemoryContext());
+        return factory;
+    }
+
+    /// <summary>Validates that every folder and file segment written for illegal C++ names is legal on Windows and Linux.</summary>
+    [Fact]
+    public void CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_AllWrittenSegmentsAreLegal()
+    {
+        // Arrange / Act
+        var factory = EmitIllegalNames();
+
+        // Assert: the in-memory factory does not validate, so check each recorded key explicitly
+        Assert.NotEmpty(factory.Writers);
+        foreach (var key in factory.Writers.Keys)
+        {
+            foreach (var segment in key.Split('/'))
+            {
+                Assert.True(FileNameSanitizer.IsLegalSegment(segment), $"Illegal segment '{segment}' in '{key}'");
+            }
+        }
+    }
+
+    /// <summary>Validates that template, reserved, and namespace pages are created at their sanitized paths.</summary>
+    [Fact]
+    public void CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_PagesUseSanitizedPaths()
+    {
+        // Arrange / Act
+        var factory = EmitIllegalNames();
+
+        // Assert
+        Assert.True(factory.HasWriter("testlib", "Foo{int}"));
+        Assert.True(factory.HasWriter("testlib", "Aux-"));
+        Assert.True(factory.HasWriter("testlib", "CON-"));
+        Assert.True(factory.HasWriter("testlib/Foo{int}", "Get"));
+        Assert.True(factory.HasWriter("testlib/Foo{int}", "name"));
+        Assert.True(factory.HasWriter("testlib/Foo{int}", "operators"));
+        Assert.True(factory.HasWriter("testlib/Foo{int}", "Aux-"));
+        Assert.True(factory.HasWriter("", "aux-"));
+        Assert.True(factory.HasWriter("aux-", "Plain"));
+        Assert.True(factory.HasWriter("testlib", CppEmitter.SanitizeFileName("a:b")));
+        Assert.True(factory.HasWriter("testlib/Foo{int}", CppEmitter.SanitizeFileName("a:b")));
+    }
+
+    /// <summary>Validates that every relative link emitted for illegal names resolves to a page that was written.</summary>
+    [Fact]
+    public void CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_AllLinksResolveToWrittenPages()
+    {
+        // Arrange / Act
+        var factory = EmitIllegalNames();
+
+        // Assert: parse every Markdown link in every table cell and resolve it against the page folder
+        var linkPattern = new System.Text.RegularExpressions.Regex(@"\]\(([^)]+\.md)\)");
+        var checkedLinks = 0;
+        foreach (var (key, writer) in factory.Writers)
+        {
+            var slash = key.LastIndexOf('/');
+            var folder = slash < 0 ? string.Empty : key[..slash];
+            foreach (var cell in writer.Operations.OfType<TableOperation>().SelectMany(t => t.Rows).SelectMany(r => r))
+            {
+                foreach (System.Text.RegularExpressions.Match match in linkPattern.Matches(cell))
+                {
+                    var target = Path.GetRelativePath(".", Path.Combine(folder, match.Groups[1].Value)).Replace('\\', '/');
+                    target = target[..^".md".Length];
+                    Assert.True(factory.Writers.ContainsKey(target), $"Link '{match.Groups[1].Value}' on '{key}' resolves to missing page '{target}'");
+                    checkedLinks++;
+                }
+            }
+        }
+
+        Assert.True(checkedLinks > 0);
+    }
 }

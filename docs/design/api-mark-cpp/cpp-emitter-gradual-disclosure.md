@@ -29,6 +29,12 @@ and dedicated pages for enums, type aliases, and grouped operator overloads.
 | Operators (class) | `{Namespace}/{TypeName}/operators.md` |
 | Operators (namespace) | `{Namespace}/operators.md` |
 
+Every `{...}` segment is passed through `CppEmitter.SanitizeFileName` (namespace keys,
+type, member, enum, alias, and function names; folders via `CppEmitter.SanitizePath`), so
+`Foo<int>` is written as `Foo{int}.md` and a type named `Aux` as `Aux-.md`. Relative links
+in tables use the same sanitized names while link text keeps the raw name. The global
+namespace key (`global`) and `api` are already legal and unchanged.
+
 **CppEmitterGradualDisclosure instance fields** (private): state supplied at construction.
 
 - `_emitter`: `CppEmitter` — parent emitter providing options, visibility helpers,

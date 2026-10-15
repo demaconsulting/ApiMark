@@ -141,7 +141,7 @@ and generic arguments. This is the overload the emitters call.
 scope is an `AssemblyNameReference` present in `_externalLinks`. Returns `null` when
 links are disabled or the assembly is not mapped. See External Assembly Links.
 
-**TypeLinkResolver.BuildTypePageKey** (private static): Computes a type's page key
+**TypeLinkResolver.BuildTypePageKey** (private static; type file names come from `DotNetEmitter.GetTypeFileName`, which applies `FileNameSanitizer` and the collision rules): Computes a type's page key
 for a given set of root namespaces. `GetTypePageKey` calls it with this assembly's
 root namespaces; `TryLinkExternalType` calls it with the mapped assembly's.
 

@@ -22,8 +22,18 @@ Tests run with the standard xUnit.net test runner.
 - The api index page heading contains the configured library name.
 - A field signature line appends `= <value>` when `CppField.Value` is populated, and omits
   it otherwise.
+- **Test Scenarios additions (see below)**: legal-name emission is verified without clang.
 
 ### Test Scenarios
+
+**Legal file names**: Verifies, with synthetic models and no clang, that a class named
+`Foo<int>`, a class `Aux`, an enum `CON`, aliases named `a:b`, and a namespace key `aux`
+produce only legal path segments (the in-memory factory does not validate, so each recorded
+key is asserted explicitly), that pages exist at the sanitized paths (`Foo{int}`, `Aux-`,
+`CON-`, `aux-`), and that every emitted relative link resolves to a written page. Tested by
+`CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_AllWrittenSegmentsAreLegal`,
+`CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_PagesUseSanitizedPaths`, and
+`CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_AllLinksResolveToWrittenPages`.
 
 **Class operators page**: Verifies that a class containing operator overloads produces a shared
 `operators.md` page at `{namespace}/{TypeName}/operators` so all operator overloads are navigable

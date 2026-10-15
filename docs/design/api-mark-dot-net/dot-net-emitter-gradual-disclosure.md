@@ -340,11 +340,12 @@ XML and PowerShell); prose blocks carry an empty language and are written as par
 never fenced.
 
 **WriteBreadcrumb** (private static): Writes one navigation paragraph of the form
-`[Namespace](rel) › [Outer](rel) › [Type](rel)` as the first paragraph after the page's
+`[API Reference](rel/api.md) › [Namespace](rel) › [Outer](rel) › [Type](rel)` as the first paragraph after the page's
 H1, on type, member, overload, operators and combined pages. It is written only in
 gradual-disclosure output; single-file output has no breadcrumbs.
 
-- *Algorithm*: Builds the chain of declaring types from the outermost to the page's type.
+- *Algorithm*: Always starts with an `API Reference` crumb linking to `api.md` relative to the
+  current page folder (also for global-namespace pages). Builds the chain of declaring types from the outermost to the page's type.
   Recovers the namespace folder by dropping one folder segment per nested level from the
   type's folder path (so nested and dotted namespace folders resolve correctly). Emits the
   namespace crumb whenever a namespace folder exists; a global-namespace type gets a
@@ -389,6 +390,10 @@ member, and operators page patterns.
 - Namespace summary: `factory.CreateMarkdown(subFolder, shortName)` where `subFolder`
   and `shortName` are produced by splitting `namespaceFolderPath` at the last separator
   (e.g. for `ApiMark.DotNet.Fixtures`, `subFolder=""` and `shortName="ApiMark.DotNet.Fixtures"`)
+- All names below are produced by `DotNetEmitter.GetTypeFileName` and `GetSanitizedMemberFileName`
+  (`FileNameSanitizer` plus reserved-name, `operators`, and case-twin disambiguation); `FlattenArity`
+  is only the first step. Known limits: namespace segments that differ only by case, and
+  external-assembly type twins, are not disambiguated.
 - Type page: `factory.CreateMarkdown(namespaceFolderPath, FlattenArity(type.Name))`
   where `FlattenArity` replaces backtick-arity notation (e.g. `` SampleGenericClass`1 ``)
   with a hyphenated arity form (`SampleGenericClass-1`) for file-system safety. This is distinct
@@ -431,7 +436,8 @@ N/A — this is an internal class with no external interfaces exposed beyond its
 - `DotNetEmitter.EscapeMarkdownHeading` escapes `<`/`>` in every heading, breadcrumb and link label
   built from raw text; `Linkify` output is already escaped and is never escaped again.
 - Overload group rows list the distinct linkified return types in overload order (`void` included).
-- Overload group rows use the shared summary when every overload has the same summary; otherwise the
+- Overload group rows use the shared summary only when every overload has the same non-empty summary;
+  otherwise (including when any overload has no summary) the
   neutral text `Overloaded; see the member page.` replaces the first overload's summary.
 - `BuildMemberPageIndex` appends `#anchor` to the page key of every member on a shared overload page
   (and on the operators page); the anchor is `BuildHeadingAnchor` of the escaped overload heading

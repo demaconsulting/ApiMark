@@ -128,17 +128,19 @@ internal sealed class DotNetEmitter : IApiEmitter
 
         if (root == null)
         {
-            return namespaceName; // fallback: no known root, use full name
+            return FileNameSanitizer.SanitizeSegment(namespaceName); // fallback: no known root, use full name
         }
 
         if (string.Equals(namespaceName, root, StringComparison.Ordinal))
         {
-            return root; // root namespace: full dotted name is the single path segment
+            return FileNameSanitizer.SanitizeSegment(root); // root namespace: full dotted name is the single path segment
         }
 
-        // Child namespace: keep root intact, replace subsequent dots with slashes
+        // Child namespace: keep root intact, replace subsequent dots with slashes; every segment is
+        // sanitized so reserved device names and illegal characters never reach the file system.
         var suffix = namespaceName.Substring(root.Length); // e.g. ".Inner" or ".Inner.Sub"
-        return root + suffix.Replace('.', '/');
+        return FileNameSanitizer.SanitizeSegment(root) + "/" +
+            string.Join('/', suffix.Substring(1).Split('.').Select(FileNameSanitizer.SanitizeSegment));
     }
 
     /// <summary>
@@ -718,7 +720,7 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns>A string suitable for use as a file name (without extension).</returns>
     internal static string GetSanitizedMemberFileName(IMemberDefinition member, TypeDefinition declaringType)
     {
-        return member switch
+        var raw = member switch
         {
             MethodDefinition m => BuildMethodFileName(m, declaringType),
             PropertyDefinition p => p.Name,
@@ -726,7 +728,123 @@ internal sealed class DotNetEmitter : IApiEmitter
             EventDefinition e => e.Name,
             _ => member.Name,
         };
+
+        // Explicit interface implementations are named like Ns.IFoo<System.Int32>.Method, so the raw
+        // name is always run through the shared sanitizer.
+        return ToMemberFileName(raw);
     }
+
+    /// <summary>
+    ///     Converts a raw member name to a legal member page name; a name equal to the reserved operators
+    ///     page is moved aside so a member can never overwrite the type's operators page.
+    /// </summary>
+    /// <param name="raw">The raw member name.</param>
+    /// <returns>The legal file name without extension.</returns>
+    private static string ToMemberFileName(string raw)
+    {
+        var sanitized = FileNameSanitizer.SanitizeSegment(raw);
+        return string.Equals(sanitized, OperatorsPageName, StringComparison.OrdinalIgnoreCase) ? sanitized + "-" : sanitized;
+    }
+
+    /// <summary>The file name (without extension) of a type's shared operators page.</summary>
+    internal const string OperatorsPageName = "operators";
+
+    /// <summary>Caches the computed page file name of each type definition.</summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TypeDefinition, string> TypeFileNameCache = new();
+
+    /// <summary>
+    ///     Returns the file name (without extension) of the page, and of the folder, of a type.
+    /// </summary>
+    /// <remarks>
+    ///     The name is the sanitized, arity-flattened type name. For a type of the documented assembly the
+    ///     name is made unique among its siblings when compared case-insensitively: member page names and
+    ///     the reserved operators page of the declaring type take priority, and of several sibling types
+    ///     whose names differ only in case the first in ordinal full-name order keeps its name while the
+    ///     others receive a <c>-</c> and an eight-character hash of their full name. The result does not
+    ///     depend on the visibility filter, so it is identical wherever the type is named or linked.
+    /// </remarks>
+    /// <param name="type">The type (or type reference) to name.</param>
+    /// <returns>A legal, deterministic file name without extension.</returns>
+    internal static string GetTypeFileName(TypeReference type)
+    {
+        var baseName = FileNameSanitizer.SanitizeSegment(FlattenArity(type.Name));
+        if (type is not TypeDefinition definition)
+        {
+            if (type.Scope is not ModuleDefinition || type.GetElementType() is not TypeReference element ||
+                !TryResolveLocal(element, out var local))
+            {
+                return baseName;
+            }
+
+            definition = local!;
+        }
+
+        return TypeFileNameCache.GetValue(definition, ComputeTypeFileName);
+    }
+
+    /// <summary>Resolves an intra-assembly type reference to its definition without throwing.</summary>
+    /// <param name="reference">The reference to resolve.</param>
+    /// <param name="definition">The resolved definition when successful.</param>
+    /// <returns><see langword="true"/> when resolved.</returns>
+    private static bool TryResolveLocal(TypeReference reference, out TypeDefinition? definition)
+    {
+        try
+        {
+            definition = reference.Resolve();
+        }
+        catch (AssemblyResolutionException)
+        {
+            definition = null;
+        }
+
+        return definition != null;
+    }
+
+    /// <summary>Computes the collision-free file name of a type definition among its siblings.</summary>
+    /// <param name="type">The type definition.</param>
+    /// <returns>The file name without extension.</returns>
+    private static string ComputeTypeFileName(TypeDefinition type)
+    {
+        static string KeyOf(TypeDefinition t) => FileNameSanitizer.SanitizeSegment(FlattenArity(t.Name));
+
+        var baseName = KeyOf(type);
+
+        // Names owned by the declaring type's member pages and operators page always win.
+        if (type.DeclaringType != null)
+        {
+            var reserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { OperatorsPageName };
+            foreach (var member in GetPageMembers(type.DeclaringType))
+            {
+                reserved.Add(GetSanitizedMemberFileName(member, type.DeclaringType));
+            }
+
+            if (reserved.Contains(baseName))
+            {
+                return $"{baseName}-{FileNameSanitizer.Hash(type.FullName)}";
+            }
+        }
+
+        // Among case-insensitive twins the first in ordinal full-name order keeps its plain name.
+        var siblings = type.DeclaringType != null
+            ? type.DeclaringType.NestedTypes
+            : type.Module.Types.Where(t => string.Equals(t.Namespace, type.Namespace, StringComparison.Ordinal));
+        var first = siblings
+            .Where(t => string.Equals(KeyOf(t), baseName, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(t => t.FullName, StringComparer.Ordinal)
+            .First();
+        return ReferenceEquals(first, type) || string.Equals(first.FullName, type.FullName, StringComparison.Ordinal)
+            ? baseName
+            : $"{baseName}-{FileNameSanitizer.Hash(type.FullName)}";
+    }
+
+    /// <summary>Enumerates every member of a type that can own a member page.</summary>
+    /// <param name="type">The declaring type.</param>
+    /// <returns>The fields, properties, events, and non-accessor methods of the type.</returns>
+    private static IEnumerable<IMemberDefinition> GetPageMembers(TypeDefinition type) =>
+        type.Fields.Cast<IMemberDefinition>()
+            .Concat(type.Properties)
+            .Concat(type.Events)
+            .Concat(type.Methods.Where(m => !m.IsGetter && !m.IsSetter && !m.IsAddOn && !m.IsRemoveOn));
 
     // =========================================================================
     // XML doc identifiers
@@ -2254,9 +2372,9 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns>A filesystem-safe name string suitable for use as a Markdown file name.</returns>
     internal static string BuildMethodFileName(MethodDefinition method, TypeDefinition declaringType)
     {
-        return method.Name == ConstructorMethodName
+        return ToMemberFileName(method.Name == ConstructorMethodName
             ? StripArity(declaringType.Name)
-            : method.Name;
+            : method.Name);
     }
 
     /// <summary>

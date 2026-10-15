@@ -9,6 +9,27 @@ namespace ApiMark.Vhdl.Tests;
 /// <summary>Unit tests for <see cref="VhdlEmitterGradualDisclosure"/>.</summary>
 public class VhdlEmitterGradualDisclosureTests
 {
+    /// <summary>Validates that entities and packages named like Windows reserved device names get legal, linked pages.</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_ReservedDeviceNames_ProducesLegalLinkedPages()
+    {
+        // Arrange
+        var options = new VhdlGeneratorOptions { LibraryName = "TestLib" };
+        var entity = new VhdlEntityDecl("aux", [], [], new VhdlDocComment("A reserved-name entity.", null, []));
+        var fileModels = new List<VhdlFileModel> { new("test.vhd", [entity], [], []) };
+        var emitter = new VhdlEmitter(options, fileModels);
+        var factory = new InMemoryMarkdownWriterFactory();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert
+        Assert.All(factory.Writers.Keys, k => Assert.All(k.Split('/'), s => Assert.True(FileNameSanitizer.IsLegalSegment(s), k)));
+        Assert.True(factory.HasWriter("", "aux-"), "Expected the aux entity page to be named aux-");
+        var rows = factory.GetWriter("", "api").Operations.OfType<TableOperation>().SelectMany(t => t.Rows);
+        Assert.Contains(rows, r => r[0].Contains("(aux-.md)", StringComparison.Ordinal));
+    }
+
     /// <summary>Builds minimal data for testing without parsing real VHDL files.</summary>
     private static (VhdlEmitter emitter, IReadOnlyList<VhdlFileModel> fileModels) BuildMinimalData()
     {

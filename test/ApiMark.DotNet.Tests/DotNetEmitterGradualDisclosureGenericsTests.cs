@@ -158,7 +158,7 @@ public class DotNetEmitterGradualDisclosureGenericsTests
 
         // Assert: file name keeps the Name{arity} form, H1 is escaped
         Assert.Equal(new[] { "# PropertyEditorRegistry\\<TEditor\\>", "## Type Parameters", "## Constructors", "## Methods" }, Headings(factory, key));
-        Assert.Equal("[ApiMark.DotNet.Fixtures](../ApiMark.DotNet.Fixtures.md)", Paragraphs(factory, key)[0]);
+        Assert.Equal("[API Reference](../api.md) › [ApiMark.DotNet.Fixtures](../ApiMark.DotNet.Fixtures.md)", Paragraphs(factory, key)[0]);
         var sig = Page(factory, key).Operations.OfType<SignatureOperation>().Single();
         Assert.Equal("public class PropertyEditorRegistry<TEditor> where TEditor : class", sig.Code);
         var table = Page(factory, key).Operations.OfType<TableOperation>().First();
@@ -203,7 +203,7 @@ public class DotNetEmitterGradualDisclosureGenericsTests
         Assert.Equal(new[] { "Type Parameter", "Description" }, table.Headers);
         Assert.Equal(new[] { "TResult", "The value type to produce." }, Assert.Single(table.Rows));
         Assert.Equal(
-            "[ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [PropertyEditorRegistry\\<TEditor\\>](../PropertyEditorRegistry-1.md)",
+            "[API Reference](../../api.md) › [ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [PropertyEditorRegistry\\<TEditor\\>](../PropertyEditorRegistry-1.md)",
             Paragraphs(factory, key)[0]);
     }
 

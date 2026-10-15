@@ -1412,7 +1412,7 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
             memberPageIndex[memberId] = pageKey;
         }
 
-        var nestedFolderPath = $"{namespaceFolderPath}/{DotNetEmitter.FlattenArity(type.Name)}";
+        var nestedFolderPath = $"{namespaceFolderPath}/{DotNetEmitter.GetTypeFileName(type)}";
         foreach (var nested in emitter.GetVisibleNestedTypes(type))
         {
             CollectTypeCrefLinkIndex(emitter, nested, nestedFolderPath, memberPageIndex, emittedTypeIds);

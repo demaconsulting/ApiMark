@@ -49,6 +49,10 @@ private `_knownTypes` field.
   `IndexOf(shortName, startIdx)` to locate the exact token, then reconstructs the
   result as `original[..idx] + linked + original[(idx + shortName.Length)..]`.
   A null `currentFolder` is treated as an empty string (root-level file).
+  Both the target page key and `currentFolder` are sanitized per `/` segment with
+  `CppEmitter.SanitizePath` before the relative path is computed, so links match the legal
+  file names written by the emitter (sanitizing is idempotent for already legal names).
+  `knownTypes` values stay raw page keys.
 - **FindPageKey** — performs exact qualified lookup first, then a short-name scan
   that returns null when the short name is ambiguous.
 - **StripQualifiers** — repeatedly removes leading and trailing `const`,

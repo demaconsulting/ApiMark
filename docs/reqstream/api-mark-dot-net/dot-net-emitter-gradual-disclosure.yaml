@@ -266,12 +266,14 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_LangExample_TagsEachCodeBlockWithItsLanguage
               - DotNetEmitterGradualDisclosure_Emit_LangExampleInPara_TagsCodeBlocksAndKeepsProseAsParagraphs
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-WriteBreadcrumbs
-            title: DotNetEmitterGradualDisclosure shall write a relative breadcrumb line as the first paragraph under the heading of type, member, overload, operators and combined pages, including nested types.
+            title: DotNetEmitterGradualDisclosure shall write a relative breadcrumb line, starting with an API Reference link to api.md, as the first paragraph under the heading of every type, member, overload, operators and combined page, including nested types and global-namespace types.
             justification: |
-              Breadcrumbs let readers and agents navigate up to the containing type and namespace
-              without a new layout mode. Namespace folders are recovered so that nested namespace
+              Breadcrumbs let readers and agents navigate up to the API root, the containing namespace
+              and type without a new layout mode. Namespace folders are recovered so that nested namespace
               and nested type pages link to the correct ancestors.
             tests:
+              - DotNetEmitterGradualDisclosure_Emit_AllPages_HaveApiReferenceBreadcrumb
+              - DotNetEmitterGradualDisclosure_Emit_GlobalNamespacePages_HaveApiReferenceBreadcrumb
               - DotNetEmitterGradualDisclosure_Emit_Pages_HaveRelativeBreadcrumbs
               - DotNetEmitterGradualDisclosure_Emit_OverloadPage_HasBreadcrumb
               - DotNetEmitterGradualDisclosure_Emit_CombinedPage_HasBreadcrumb
@@ -341,13 +343,16 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_ApiPage_HasStartHereAndKeyTypes
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-OverloadIndexAggregation
             title: DotNetEmitterGradualDisclosure shall describe an overload group in its index row with
-              the shared summary when all overloads have the same summary and a neutral text otherwise,
+              the shared summary only when every overload has the same non-empty summary and a neutral text otherwise
+              (including when any overload has no summary),
               and with every distinct return type, including void, in overload order.
             justification: |
               Taking the first overload's summary or return type misdescribes the other overloads.
             tests:
               - DotNetEmitterGradualDisclosure_Emit_OverloadIndex_DifferingSummaries_UsesNeutralText
               - DotNetEmitterGradualDisclosure_Emit_OverloadIndex_IdenticalSummaries_UsesSharedSummary
+              - DotNetEmitterGradualDisclosure_Emit_OverloadIndex_AllSummariesMissing_UsesNeutralText
+              - DotNetEmitterGradualDisclosure_Emit_OverloadIndex_SomeSummariesMissing_UsesNeutralText
               - DotNetEmitterGradualDisclosure_Emit_OverloadIndex_ReturnColumn_ListsDistinctTypesIncludingVoid
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-OverloadPageSections
             title: DotNetEmitterGradualDisclosure shall write one heading per overload, attach the
@@ -375,3 +380,15 @@ sections:
               Names such as null or a parameter name read ambiguously as plain prose.
             tests:
               - DotNetEmitterGradualDisclosure_Emit_InlineReferences_RenderAsCodeSpansEverywhere
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-LegalFileNames
+            title: DotNetEmitterGradualDisclosure and DotNetEmitterSingleFile shall produce only
+              file and folder names that are legal on Windows and Linux, case-insensitively unique,
+              and consistent with every relative link.
+            justification: |
+              Explicit interface implementations, reserved device names such as CON, and types that
+              differ only by case otherwise yield output that cannot be written or checked out on
+              some platforms, or whose links resolve to the wrong file.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_AllVisibilities_FileNamesAreLegalAndLinksResolve
+              - DotNetEmitterSingleFile_Emit_AllVisibilities_ProducesSingleLegalFile
+              - DotNetEmitterGradualDisclosure_EmitToDisk_AllVisibility_WritesEveryPageToFileSystem

@@ -113,6 +113,64 @@ public class DotNetEmitterOverloadIndexTests
         Assert.Equal("Clears the history.", Row(factory, HistoryKey, "[Clear (2 overloads)]")[2]);
     }
 
+    /// <summary>Emits the fixture assembly using an XML doc file with the summaries of selected members removed.</summary>
+    /// <param name="memberPrefix">The XML doc member id prefix whose summaries are stripped.</param>
+    /// <param name="onlyFirst">When true, only the first matching member loses its summary.</param>
+    /// <returns>The populated factory.</returns>
+    private static InMemoryMarkdownWriterFactory EmitWithoutSummaries(string memberPrefix, bool onlyFirst)
+    {
+        var doc = System.Xml.Linq.XDocument.Load(FixturePaths.GetFixtureXmlDoc());
+        var members = doc.Descendants("member")
+            .Where(m => ((string?)m.Attribute("name"))?.StartsWith(memberPrefix, StringComparison.Ordinal) == true)
+            .ToList();
+        Assert.Equal(2, members.Count);
+        foreach (var member in onlyFirst ? members.Take(1) : members)
+        {
+            member.Element("summary")!.Remove();
+        }
+
+        var path = Path.Combine(Path.GetTempPath(), $"apimark-{Guid.NewGuid():N}.xml");
+        try
+        {
+            doc.Save(path);
+            var factory = new InMemoryMarkdownWriterFactory();
+            var emitter = (DotNetEmitter)new DotNetGenerator(new DotNetGeneratorOptions
+            {
+                AssemblyPath = FixturePaths.GetFixtureDll(),
+                XmlDocPath = path,
+                Visibility = ApiVisibility.Public,
+            }).Parse(new InMemoryContext());
+            new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+            return factory;
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates an overload group where no overload has a summary shows neutral text, not the no-description placeholder.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_OverloadIndex_AllSummariesMissing_UsesNeutralText()
+    {
+        // Arrange / Act
+        var factory = EmitWithoutSummaries("M:ApiMark.DotNet.Fixtures.UndoHistory.Clear", onlyFirst: false);
+
+        // Assert
+        Assert.Equal(OverloadedSummary, Row(factory, HistoryKey, "[Clear (2 overloads)]")[2]);
+    }
+
+    /// <summary>Validates an overload group where only some overloads lack a summary shows neutral text.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_OverloadIndex_SomeSummariesMissing_UsesNeutralText()
+    {
+        // Arrange / Act
+        var factory = EmitWithoutSummaries("M:ApiMark.DotNet.Fixtures.UndoHistory.Clear", onlyFirst: true);
+
+        // Assert
+        Assert.Equal(OverloadedSummary, Row(factory, HistoryKey, "[Clear (2 overloads)]")[2]);
+    }
+
     /// <summary>Validates the return column lists every distinct return type, including <c>void</c>, in overload order.</summary>
     [Fact]
     public void DotNetEmitterGradualDisclosure_Emit_OverloadIndex_ReturnColumn_ListsDistinctTypesIncludingVoid()

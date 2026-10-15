@@ -39,9 +39,15 @@ the standard xUnit.net test runner. No clang installation is needed.
 - Leading `const`/`volatile` and trailing pointer/reference qualifiers are stripped from
   the type name before any lookup is performed.
 - Constructor throws `ArgumentNullException` when `knownTypes` is null.
+- A page key containing a template name or reserved device name is linked using the
+  sanitized path (e.g. `ns/Foo<int>` linked from `ns/Aux` yields `../Foo{int}.md`).
 - `Linkify` throws `ArgumentNullException` when `externalTypes` is null.
 
 ### Test Scenarios
+
+**Illegal page keys are linked with sanitized paths**: Verifies that `Linkify` sanitizes each
+segment of the target page key and of the current folder, so links match the legal files
+written. Tested by `CppTypeLinkResolver_Linkify_IllegalPageKey_EmitsSanitizedRelativeLink`.
 
 **Exact qualified match emits a link**: Verifies that when a fully-qualified type name
 (e.g. `"ns::Foo"`) exactly matches a key in `knownTypes`, `Linkify` returns a string

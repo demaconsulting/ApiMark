@@ -494,7 +494,7 @@ internal sealed class TypeLinkResolver
 
         // The segments after the namespace form the nested-type chain; flatten each name as the other run did
         var namespaceSegmentCount = bestNamespace.Split('.').Length;
-        var path = string.Join('/', segments.Skip(namespaceSegmentCount).Select(TypeNameSimplifier.FlattenArity));
+        var path = string.Join('/', segments.Skip(namespaceSegmentCount).Select(s => ApiMark.Core.FileNameSanitizer.SanitizeSegment(TypeNameSimplifier.FlattenArity(s))));
         var folder = DotNetEmitter.GetNamespaceFolderPath(bestNamespace, best.RootNamespaces);
         return BuildExternalLink(best, folder.Length > 0 ? $"{folder}/{path}" : path, currentFolder, displayText);
     }
@@ -710,7 +710,7 @@ internal sealed class TypeLinkResolver
         var folder = DotNetEmitter.GetNamespaceFolderPath(outermost.Namespace, rootNamespaces);
 
         // Append each declaring-type name outermost-to-innermost, flattened for file-system safety.
-        var path = string.Join('/', chain.Select(t => TypeNameSimplifier.FlattenArity(t.Name)));
+        var path = string.Join('/', chain.Select(DotNetEmitter.GetTypeFileName));
         return folder.Length > 0 ? $"{folder}/{path}" : path;
     }
 

@@ -164,8 +164,10 @@ internal sealed class CppTypeLinkResolver
     /// <returns>The type string with the base type token replaced by a Markdown link.</returns>
     private static string BuildIntraLibraryLink(string cppTypeString, string currentFolder, string stripped, string pageKey)
     {
-        var from = currentFolder.Length > 0 ? currentFolder : ".";
-        var relativePath = Path.GetRelativePath(from, pageKey + ".md").Replace('\\', '/');
+        // Sanitize both paths per segment so links always match the legal file names the emitter writes
+        var safeFolder = CppEmitter.SanitizePath(currentFolder);
+        var from = safeFolder.Length > 0 ? safeFolder : ".";
+        var relativePath = Path.GetRelativePath(from, CppEmitter.SanitizePath(pageKey) + ".md").Replace('\\', '/');
         var shortName = stripped.Contains("::", StringComparison.Ordinal)
             ? stripped[(stripped.LastIndexOf("::", StringComparison.Ordinal) + 2)..]
             : stripped;

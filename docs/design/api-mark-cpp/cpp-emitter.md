@@ -109,8 +109,14 @@ by `WriteFunctionContent`.
 
 #### File and page helpers
 
-- **SanitizeFileName** — replaces any invalid filesystem character reported by
-  `Path.GetInvalidFileNameChars()` with `_`.
+- **SanitizeFileName** — delegates to `ApiMark.Core.FileNameSanitizer.SanitizeSegment` so
+  names are legal on Windows and Linux (reserved device names get a `-` suffix; template
+  brackets become `{`/`}`; other illegal characters become `-` plus a hash).
+  Tests are clang-free (synthetic models).
+- **SanitizePath** — splits a `/`-separated folder or page-key path, sanitizes each
+  non-empty segment with `SanitizeFileName`, and rejoins them; returns an empty string
+  for an empty path. `WriteCombinedMemberPage` uses it for its folder and sanitizes its
+  file name (grouping stays on the raw lowercase key; only the written name is sanitized).
 - **GetIncludePath** — derives the canonical `#include` path relative to the
   longest matching public include root.
 - **GetMemberBaseName** — returns the class name for constructors and the member
