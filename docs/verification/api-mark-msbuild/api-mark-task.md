@@ -396,6 +396,29 @@ each followed by its entry; the second yields none. Tested by
 `ApiMarkTask_DotNet_ExternalLinks_EmitsOneFlagPerEntry`. Because `;` is the list separator, a value
 containing `;` cannot be expressed (documented limitation; not tested).
 
+**Evaluated `$(PackageVersion)` passes through**: Arrange a task whose `ApiMarkExternalLinks` holds an
+already-evaluated URL containing `1.2.3-beta.4+build.5`. Act: call `BuildArguments("dotnet")`. Expected: the
+`--external-link` value equals the input exactly. Tested by
+`ApiMarkTask_DotNet_ExternalLinks_EvaluatedPackageVersionPassesThroughUnchanged`.
+
+**`{version}` token precedence**: Arrange tasks whose `ApiMarkExternalLinks` contains `{version}` with
+combinations of `ApiMarkLinkVersion`, `ApiMarkPackageVersion`, and `ApiMarkProjectVersion` (explicit wins, then
+package, then project, blank values skipped). Act: call `BuildArguments("dotnet")`. Expected: the token is
+replaced by the first non-empty value, and left unchanged when none is set. Tested by
+`ApiMarkTask_DotNet_ExternalLinks_VersionToken_UsesPackageVersionThenVersion` and
+`ApiMarkTask_DotNet_ExternalLinks_VersionToken_NeitherSet_LeavesTokenUnchanged`.
+
+**Version mismatch warning**: Arrange a task with external links and differing `PackageVersion` and `Version`,
+and variants where they match, one is unset, or no links are configured. Act: call
+`LogVersionMismatchWarning()`. Expected: exactly one warning naming both versions in the mismatch case and
+no warning otherwise. Tested by `ApiMarkTask_LogVersionMismatchWarning_BothSetAndDifferent_LogsWarning` and
+`ApiMarkTask_LogVersionMismatchWarning_NoMismatch_LogsNothing`. A full pack-and-build package test of the
+warning is not added; the log decision is covered by the unit tests above.
+
+**Targets file passes the version properties**: Arrange the source targets file. Act: read it. Expected: the
+task invocation binds `ApiMarkLinkVersion`, `PackageVersion`, and `Version`. Tested by
+`ApiMarkTargets_PassesVersionPropertiesToTask`.
+
 **Targets file binds ApiMarkExternalLinks to the task**: Arrange the source targets file located
 relative to the test source file. Act: read it. Expected: the file exists (the test fails if it does
 not) and contains `ApiMarkExternalLinks="$(ApiMarkExternalLinks)"` in the task invocation. Tested by

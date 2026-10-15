@@ -132,6 +132,15 @@ in any Markdown renderer.
 nested types within a type section by calling `WriteSingleFileTypeSections` for
 each visible nested type at the appropriate heading level.
 
+#### Bullets and visibility
+
+Bullets use `GetMemberRowName`; `SingleFileMemberContext` carries the configured `ApiVisibility` so
+signatures hide invisible accessors; parameter type cells include `params`.
+
+Overload sections place the `<example>` block and the Type Parameters table only under the overload
+that documents them, and `paramref`, `typeparamref`, and `langword` references render as code spans
+(through `XmlDocReader`). Single-file mode generates no links, so it has no anchors.
+
 ### Error Handling
 
 Exceptions from `IMarkdownWriterFactory.CreateMarkdown` or from writer methods
@@ -159,3 +168,6 @@ this class.
 ### External Interfaces
 
 N/A - DotNetEmitterSingleFile is an internal class with no external interfaces.
+
+Generic types and methods add a heading-less type parameter table; headings use
+`EscapeMarkdownHeading`.

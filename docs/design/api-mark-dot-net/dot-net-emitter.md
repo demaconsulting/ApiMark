@@ -254,17 +254,17 @@ These helpers are grouped by concern:
   substring before it; otherwise returns the input unchanged. Does not delegate to
   `TypeNameSimplifier`; the implementation is self-contained in `DotNetEmitter`.
 - *Contrast with `FlattenArity`*: `StripArity` removes the arity digit entirely (for
-  display names), while `FlattenArity` removes only the backtick but preserves the digit
-  (for filesystem-safe path segments).
+  display names), while `FlattenArity` replaces the backtick with a hyphen and keeps the digit
+  (for filesystem-safe path segments, e.g. `Foo-1`).
 
 **DotNetEmitter.FlattenArity** (internal static): Converts a generic type's IL
-name to a filesystem-safe display form by removing the backtick while retaining
+name to a filesystem-safe form by replacing the backtick with a hyphen while retaining
 the arity digit.
 
 - *Parameters*: `string name` — the raw IL type name that may contain a backtick
   arity suffix (e.g. `Dictionary\`2`).
-- *Returns*: `string` — the name with the backtick removed but the arity digit
-  preserved (e.g. `Dictionary\`2` → `Dictionary2`). Returns the input unchanged
+- *Returns*: `string` — the name with the backtick replaced by a hyphen and the arity digit
+  preserved (e.g. `Dictionary\`2` → `Dictionary-2`). Returns the input unchanged
   when no backtick is present.
 - *Note*: This method delegates to `TypeNameSimplifier.FlattenArity`.
 - *Used by*: Both sub-emitters when constructing folder and file paths for generic
@@ -385,6 +385,43 @@ type reference to an XML documentation ID string suitable for member-key lookup 
 - *Used by*: `BuildMethodId`, `BuildPropertyId`, and `DotNetGenerator.BuildMethodIdFromReference`
   when constructing XML-doc member IDs for method/property lookups in `XmlDocReader`.
 
+#### Parameter, modifier, and accessor rendering
+
+- `FormatParameter` is the single formatter for parameters (ref kind, `params`, nullability, name,
+  default, extension `this`); signatures, delegate signatures, row names, and heading names all
+  use it so they cannot drift apart. Headings use the type-only form; rows and signatures use
+  names and defaults.
+- `GetInheritanceModifiers` derives `virtual`, `override`, `sealed override`, and `abstract` from
+  the IL flags; interface members, static members, constructors, and final newslot virtuals
+  (interface implementations) get none.
+- `HidesBaseMember` mirrors compiler warning CS0108: a non-override method (same name and parameter
+  types), property, or event with the same name as an accessible member in the resolved base-class chain
+  is rendered with `new`. Unresolvable base types are skipped. Static events render `static` from
+  their add/remove accessor. Fields are deliberately out of scope: `BuildFieldSignature` does not call
+  `HidesBaseMember`, so `new` is not rendered for hiding fields, because field hiding is rare and
+  metadata gives no reliable marker.
+- `GetAccessibilityPrefix` yields a marker such as `protected` for non-public members in
+  overview rows. It deliberately omits `virtual`/`override`; those appear in the signature.
+- `BuildMemberSignature` and `BuildPropertyAccessors` take an `ApiVisibility` (default `All`) and
+  omit accessors not visible at that tier (private/internal setters at the public tier).
+
+#### Inherited members, record constructors and inheritdoc placeholders
+
+`CollectInheritedMembers` walks a type's base chain (or base interfaces for an interface) with
+`TryResolve` and returns one group per declaring type. It skips constructors, operators, `Finalize`,
+record-synthesized members, members invisible at the active tier, obsolete members when not requested, and
+members overridden or hidden by a more-derived type (matched by name and parameter types). Implicit roots
+(`Object`, `ValueType`, `Enum`, `MulticastDelegate`) are not listed. A base that cannot be resolved produces
+an unresolved group, rendered as a note that names `--reference-paths`. The rows are written by both
+emitters as an "Inherited Members" section; they never enter `MemberPageIndex`, `CrefLinkIndices`, or
+documentation coverage, and the declaring type's link never adds to the External Types table.
+
+`IsRecordPrimaryConstructor` identifies a record's parameterized, non-copy constructor whose parameters all
+match properties; `GetMemberSummary` replaces its summary, when identical to the type summary, with
+"Initializes a new instance of the `{Type}` record." (`record struct` for structs). Other constructor
+summaries are kept. `GetEffectiveSummary`/`GetEffectiveSummaryMarkdown` of `XmlDocReader` supply the text
+"Inherits documentation from base member." for a member with an unresolved bare `<inheritdoc/>`.
+
 ### Error Handling
 
 `DotNetEmitter.Emit` throws `ArgumentNullException` when any of `factory`, `config`, or
@@ -453,3 +490,30 @@ DotNetEmitter implements `IApiEmitter` (from `ApiMark.Core`), which exposes a si
 `Emit(IMarkdownWriterFactory, EmitConfig, IContext)` method. This contract is the integration
 point between the language-agnostic Core pipeline and the .NET-specific emission logic.
 See the ApiMarkCore system design for the full `IApiEmitter` contract.
+
+### Inherited Members, `new`, and Constraints
+
+Inherited members are listed per base type, nearest first, at the configured tier: `Public` lists
+public members, `PublicAndProtected` adds protected and protected internal members, and `All` lists every
+non-private member (private members are never inherited). Overridden or hidden members are listed only at the
+most-derived declaring type. A base page is linked only when `IsTypeDocumented` is true (a visible top-level type,
+or a visible nested type of a documented type); otherwise the heading is a code span.
+
+The `new` modifier is recovered from the compiler's hiding rule (CS0108) for fields, constants,
+properties, events, and methods: a method hides base methods with identical parameter types and any base
+non-method of the same name; other members hide any accessible base member of the same name.
+Generic constraints are rebuilt from metadata flags and attributes (`notnull`, `unmanaged`, `struct`, `class`,
+`class?`, type constraints with their nullable annotation, `new()`).
+
+**Irreducible limits** (metadata does not record the source construct; the emitter prefers a missing
+modifier over a wrong one):
+
+- `new` on a member that hides nothing observable is not recorded, so it cannot be reproduced; and a hiding
+  member whose base type cannot be resolved (missing reference assembly) is rendered without `new`.
+- `internal` and `private protected` base members of another assembly are treated as inaccessible.
+- A method that differs from a base method only by generic arity or modifiers (`ref` vs `out`) is matched by
+  parameter-type full names only.
+- `notnull` is inferred from a nullable annotation of 1 on an otherwise unconstrained parameter, so code
+  compiled in a nullable-oblivious context loses it; `allows ref struct`, `default` constraints on overrides,
+  and explicit-interface-implementation constraints are not rendered.
+- Default interface method nuances (sealed or re-abstracted members) are not distinguished.

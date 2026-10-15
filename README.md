@@ -26,7 +26,7 @@ type page — consuming only as much context as the task requires.
 - 🔍 **Gradual Disclosure** - Index → namespace → type → member detail
 - 🗂️ **Multiple Output Formats** - Gradual-disclosure (file-per-type) or single `api.md` via `--format`
 - 💡 **Example Code Blocks** - `<example><code>` (C#) and `@code`/`@endcode` (Doxygen) blocks rendered in output
-- 🔷 **C#/.NET Support** - Mono.Cecil + XML documentation comments
+- 🔷 **C#/.NET Support** - Mono.Cecil + XML documentation comments, inherited-member listings, cross-assembly `<inheritdoc/>` and `<see cref>` links
 - 📝 **Documentation Coverage Enforcement** - opt-in `--enforce-docs` warns or fails the build on undocumented API surface (.NET, C++, VHDL)
 - ➕ **C++ Support** - `clang -ast-dump=json` + Doxygen-style comments
 - 🔶 **VHDL Support** - Entities, packages, and subprograms from ANTLR4 vhdl2008 grammar + `--!` doc comments

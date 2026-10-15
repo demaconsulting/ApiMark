@@ -66,7 +66,11 @@ internal sealed class TypeLinkResolver
     ///     The other assembly's root namespaces, used to derive its namespace folders exactly as that
     ///     assembly's own documentation run did.
     /// </param>
-    internal sealed record ExternalLinkTarget(string ApiPath, IReadOnlyList<string> RootNamespaces);
+    /// <param name="Namespaces">
+    ///     Every namespace that declares a public type in the other assembly, or <see langword="null"/> when
+    ///     unknown. Used to separate a cref's namespace from its (possibly nested) type chain.
+    /// </param>
+    internal sealed record ExternalLinkTarget(string ApiPath, IReadOnlyList<string> RootNamespaces, IReadOnlyList<string>? Namespaces = null);
 
     /// <summary>
     ///     Full CLR names of C# primitive types that are always rendered as their keyword
@@ -161,7 +165,17 @@ internal sealed class TypeLinkResolver
             return null;
         }
 
-        var key = BuildTypePageKey(typeRef, target.RootNamespaces);
+        return BuildExternalLink(target, BuildTypePageKey(typeRef, target.RootNamespaces), currentFolder, displayName);
+    }
+
+    /// <summary>Builds the Markdown link to page <paramref name="key"/> of another assembly's documentation.</summary>
+    /// <param name="target">The mapped documentation location.</param>
+    /// <param name="key">The page key (relative path without extension) within that documentation.</param>
+    /// <param name="currentFolder">Folder of the page that will contain the link.</param>
+    /// <param name="displayName">The link text.</param>
+    /// <returns>A Markdown link whose target is absolute or relative according to the mapping.</returns>
+    private static string BuildExternalLink(ExternalLinkTarget target, string key, string currentFolder, string displayName)
+    {
         var apiPath = target.ApiPath.Replace('\\', '/').TrimEnd('/');
 
         // Absolute bases (http(s) URL, file: URI) are used as-is, never made relative
@@ -262,8 +276,9 @@ internal sealed class TypeLinkResolver
             return Linkify(byRefType.ElementType, currentFolder, contextNamespace, externalTypes, nullability);
         }
 
-        // Every other type position consumes exactly one nullable flag, in pre-order
-        var flag = nullability?.Next() ?? 0;
+        // Every other type position (except non-generic value types and Nullable<T>, which the
+        // compiler does not encode) consumes exactly one nullable flag, in pre-order
+        var flag = TypeNameSimplifier.ConsumesNullableFlag(typeRef) ? (nullability?.Next() ?? (byte)0) : (byte)0;
         var annotated = TypeNameSimplifier.IsAnnotated(typeRef, flag);
 
         // Generic type parameters (e.g. T, TKey) are not real types — render as plain text,
@@ -273,7 +288,16 @@ internal sealed class TypeLinkResolver
             return LinkifyGenericParameter(genericParam, annotated);
         }
 
-        // Handle Nullable<T> → T?: the inner value type consumes its own (ignored) flag
+        // C# tuples render as (A a, B b), with each element linkified in turn
+        if (typeRef is GenericInstanceType tupleType && TypeNameSimplifier.IsTupleType(tupleType))
+        {
+            return TypeNameSimplifier.BuildTuple(
+                tupleType,
+                nullability,
+                e => Linkify(e, currentFolder, contextNamespace, externalTypes, nullability));
+        }
+
+        // Handle Nullable<T> → T?: Nullable itself is not encoded; the inner type consumes its own flag (if any)
         if (typeRef is GenericInstanceType gitNullable &&
             typeRef.FullName.StartsWith("System.Nullable`1<", StringComparison.Ordinal))
         {
@@ -396,10 +420,117 @@ internal sealed class TypeLinkResolver
             return displayText;
         }
 
-        var relativePath = ComputeRelativePath(currentFolder, pageKey);
+        // The index value may carry a "#anchor" fragment pointing at the member's section on a shared overload page
+        var fragmentIndex = pageKey.IndexOf('#', StringComparison.Ordinal);
+        var fragment = fragmentIndex >= 0 ? pageKey[fragmentIndex..] : string.Empty;
+        var pagePath = fragmentIndex >= 0 ? pageKey[..fragmentIndex] : pageKey;
+        var relativePath = ComputeRelativePath(currentFolder, pagePath) + fragment;
         return $"[{displayText}]({relativePath})";
     }
 
+    /// <summary>
+    ///     Links a <c>cref</c> that names a type (or a member of a type) documented by another
+    ///     assembly's ApiMark run, using the <see cref="ExternalLinkTarget"/> whose root namespaces
+    ///     contain the cref's namespace (longest root namespace wins).
+    /// </summary>
+    /// <remarks>
+    ///     A member cref links to its containing type's page, because the other documentation's
+    ///     per-member page layout cannot be known from the cref alone. The namespace is the longest
+    ///     dotted prefix that is a real namespace of the external assembly (read from its metadata),
+    ///     and the remaining segments form the nested-type chain, so <c>Ns.Outer.Inner</c> links to
+    ///     <c>Ns/Outer/Inner.md</c> and generic arities (<c>Outer`1</c>) are flattened like the other
+    ///     run's page names. When the namespace list is unknown, the last segment before any member
+    ///     is taken as a namespace-level type. Returns <see langword="null"/> (so the caller keeps its plain code
+    ///     span) when links are disabled, nothing is mapped, or no mapped namespace matches.
+    /// </remarks>
+    /// <param name="cref">The raw <c>cref</c> attribute value including its kind prefix.</param>
+    /// <param name="displayText">The already-formatted display text used as the link label.</param>
+    /// <param name="currentFolder">Folder path of the containing Markdown file.</param>
+    /// <returns>A Markdown link, or <see langword="null"/> when the cref is not covered by a mapping.</returns>
+    internal string? TryLinkifyExternalCref(string cref, string displayText, string currentFolder)
+    {
+        if (!_generateLinks || _externalLinks.Count == 0 || cref.Length < 3 || cref[1] != ':' || cref[0] is not ('T' or 'M' or 'P' or 'F' or 'E'))
+        {
+            return null;
+        }
+
+        var name = cref.Substring(2);
+        var parenthesis = name.IndexOf('(');
+        if (parenthesis >= 0)
+        {
+            name = name.Substring(0, parenthesis);
+        }
+
+        var segments = name.Split('.').ToList();
+        if (cref[0] != 'T')
+        {
+            // Drop the member name so only the declaring type remains
+            segments.RemoveAt(segments.Count - 1);
+        }
+
+        if (segments.Count < 2)
+        {
+            return null;
+        }
+
+        ExternalLinkTarget? best = null;
+        var bestNamespace = string.Empty;
+        var bestLength = -1;
+        foreach (var target in _externalLinks.Values)
+        {
+            var namespaceName = FindExternalNamespace(segments, target);
+            if (namespaceName != null && namespaceName.Length > bestLength)
+            {
+                best = target;
+                bestNamespace = namespaceName;
+                bestLength = namespaceName.Length;
+            }
+        }
+
+        if (best == null)
+        {
+            return null;
+        }
+
+        // The segments after the namespace form the nested-type chain; flatten each name as the other run did
+        var namespaceSegmentCount = bestNamespace.Split('.').Length;
+        var path = string.Join('/', segments.Skip(namespaceSegmentCount).Select(TypeNameSimplifier.FlattenArity));
+        var folder = DotNetEmitter.GetNamespaceFolderPath(bestNamespace, best.RootNamespaces);
+        return BuildExternalLink(best, folder.Length > 0 ? $"{folder}/{path}" : path, currentFolder, displayText);
+    }
+
+    /// <summary>
+    ///     Finds the namespace part of a dotted cref name for an external target, leaving at least one
+    ///     segment for the type chain.
+    /// </summary>
+    /// <remarks>
+    ///     When the target's full namespace list is known, the longest prefix that is a real namespace
+    ///     wins, so nested types (<c>Ns.Outer.Inner</c>) are not mistaken for namespaces. Without the
+    ///     list, every segment but the last is taken as the namespace, which is correct only for
+    ///     namespace-level types, and it must still lie under a root namespace.
+    /// </remarks>
+    /// <param name="segments">The dotted cref name split into segments, with any member removed.</param>
+    /// <param name="target">The external target to match.</param>
+    /// <returns>The namespace, or <see langword="null"/> when the target does not own the name.</returns>
+    private static string? FindExternalNamespace(IReadOnlyList<string> segments, ExternalLinkTarget target)
+    {
+        if (target.Namespaces == null)
+        {
+            var guess = string.Join('.', segments.Take(segments.Count - 1));
+            return target.RootNamespaces.Any(r => guess == r || guess.StartsWith(r + ".", StringComparison.Ordinal)) ? guess : null;
+        }
+
+        for (var count = segments.Count - 1; count >= 1; count--)
+        {
+            var candidate = string.Join('.', segments.Take(count));
+            if (target.Namespaces.Contains(candidate, StringComparer.Ordinal))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
     /// <summary>Renders a generic type parameter (e.g. <c>T</c>, <c>TKey</c>) as plain text.</summary>
     /// <param name="genericParam">The generic parameter reference.</param>
     /// <param name="isNullableAnnotated">Whether the parameter itself is annotated nullable.</param>
@@ -624,18 +755,10 @@ internal sealed class TypeLinkResolver
             return;
         }
 
-        // Build a display name including escaped generic arguments for readability in the table
-        string simpleName;
-        if (typeRef is GenericInstanceType git)
-        {
-            var baseName = TypeNameSimplifier.StripArity(git.Name);
-            var args = string.Join(", ", git.GenericArguments.Select(a => TypeNameSimplifier.StripArity(a.Name)));
-            simpleName = $"{baseName}\\<{args}\\>";
-        }
-        else
-        {
-            simpleName = TypeNameSimplifier.StripArity(typeRef.Name);
-        }
+        // Build the display name with the same simplifier the signatures use, so generic arguments
+        // keep their aliases (string, int), nested generics, arrays and nullable markers; then escape
+        // the angle brackets so the cell shows them literally instead of parsing them as HTML tags
+        var simpleName = DotNetEmitter.EscapeMarkdownHeading(TypeNameSimplifier.Simplify(typeRef, string.Empty));
 
         externalTypes.Add(new ExternalTypeInfo(simpleName, typeRef.Namespace));
     }

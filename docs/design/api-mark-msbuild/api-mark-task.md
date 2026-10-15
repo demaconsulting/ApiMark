@@ -93,6 +93,15 @@ referenced assembly's DLL must also be available through `ApiMarkReferencePaths`
 itself contains `;` cannot be expressed through this property. The `.targets` file
 forwards `$(ApiMarkExternalLinks)` to the task; it is not forwarded for `cpp`.
 
+**Version token**: before forwarding, `ApiMarkTask` replaces the literal `{version}` in
+`ApiMarkExternalLinks` with the first non-blank of `ApiMarkLinkVersion` (explicit override),
+`ApiMarkPackageVersion` (the `.targets` file passes `$(PackageVersion)`), and
+`ApiMarkProjectVersion` (`$(Version)`), matching NuGet's pack precedence; the token is
+left unchanged when none is set. Expansion happens inside the task because properties set in
+the `.targets` file are not yet defined while the user's project body is evaluated.
+When external links are configured and both `PackageVersion` and `Version` are set but differ,
+`LogVersionMismatchWarning` emits a build warning naming both values.
+
 **ApiMarkTask.ApiMarkEnforceDocs**: `string?` — MSBuild property
 `$(ApiMarkEnforceDocs)`; for the `dotnet` and `cpp` languages, the enforcement
 visibility tier for documentation-coverage checking. Accepted values:

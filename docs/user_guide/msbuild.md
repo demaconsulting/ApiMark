@@ -53,6 +53,26 @@ default to `Public`. `ApiMarkEnforceDocs` is independent of this setting.
 `http(s)` URL to that assembly's separately generated ApiMark documentation); it applies to C# projects. As
 `;` is the list separator, a path or URL containing `;` cannot be expressed.
 
+A path that contains the library's version, such as a URL under a versioned documentation site, should use
+the `{version}` token. The task replaces it with the first non-empty of
+`ApiMarkLinkVersion`, `PackageVersion`, and `Version`:
+
+```xml
+<PropertyGroup>
+  <ApiMarkExternalLinks>Other.Lib=https://docs.example.com/other-lib/{version}/api</ApiMarkExternalLinks>
+</PropertyGroup>
+```
+
+NuGet packs with `PackageVersion` when it is set and falls back to `Version`, so this order matches the
+version the package gets. Use `$(PackageVersion)` or `$(Version)` directly in the mapping only when you want
+that specific property: `dotnet pack -p:PackageVersion=1.2.3` sets `PackageVersion` but not `Version`, so a
+mapping that uses `$(Version)` evaluates to the project's default (`1.0.0`) and the links are dead. To force
+a different value, set `ApiMarkLinkVersion` in your project. If neither `ApiMarkLinkVersion`,
+`PackageVersion`, nor `Version` is set, the `{version}` token is left unchanged.
+
+When `PackageVersion` and `Version` are both set, differ, and `ApiMarkExternalLinks` is configured, the task
+logs a warning naming both values and the one that `{version}` uses, because the two normally agree.
+
 ## Including Docs in the NuGet Package
 
 When `ApiMarkPackDocs` is set to `true`, the generated `api/` folder is included in the

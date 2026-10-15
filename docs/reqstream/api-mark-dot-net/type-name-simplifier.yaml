@@ -109,3 +109,46 @@ sections:
               - TypeNameSimplifier_Simplify_NullableContextOnType_IsInherited
               - TypeNameSimplifier_Simplify_NullableContextOnMethod_OverridesTypeContext
               - TypeNameSimplifier_Simplify_ExplicitNullableAttribute_OverridesContext
+          - id: ApiMarkDotNet-TypeNameSimplifier-NeverAnnotateVoid
+            title: TypeNameSimplifier shall render the void return type as void and never as void?.
+            justification: |
+              The compiler can record an annotated flag for a void return inherited from a nullable
+              context; void is not a reference type, so a question mark would be invalid C#.
+            tests:
+              - TypeNameSimplifier_Simplify_VoidWithAnnotatedFlag_RendersVoidWithoutQuestionMark
+          - id: ApiMarkDotNet-TypeNameSimplifier-RenderTuples
+            title: TypeNameSimplifier shall render ValueTuple types in C# tuple syntax, with element
+              names when present, flattening eight-or-more element tuples and honoring the nullable
+              flags of each element.
+            justification: |
+              ValueTuple generic names are not how developers write tuples, and the compiler does not
+              encode flags for non-generic value types, so element annotations must be read in the
+              compiler's order.
+            tests:
+              - TypeNameSimplifier_Simplify_UnnamedTuple_RendersTupleSyntax
+              - TypeNameSimplifier_Simplify_NullableTuple_RendersTupleWithQuestionMark
+              - TypeNameSimplifier_Simplify_EightElementTuple_FlattensRest
+              - DotNetEmitter_BuildMemberSignature_NullableMatrixAndParams_RendersExactSignature
+          - id: ApiMarkDotNet-TypeNameSimplifier-ExternalTypesShortNames
+            title: TypeNameSimplifier shall render types of referenced assemblies by short name, never
+              partially qualified against the context namespace, in base lists, constraints,
+              parameters, returns, fields, properties, and events.
+            justification: |
+              A partial namespace such as "External.Type" cannot be written in C# source and
+              misleads readers.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_TypeSignature_UsesShortExternalNames
+              - DotNetEmitterGradualDisclosure_Emit_MemberSignatures_UseShortExternalNames
+              - DotNetEmitterGradualDisclosure_Emit_NoSignatureContainsExternalNamespace
+          - id: ApiMarkDotNet-TypeNameSimplifier-GenericArityFileNames
+            title: TypeNameSimplifier shall flatten a generic arity suffix to "-N" (Foo-1) so that
+              same-named generic and non-generic-with-digit types never share a file name.
+            justification: |
+              Foo of T and Foo1 both mapped to Foo1.md before, silently overwriting a page.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_SameNamedGenericTypes_ProduceDistinctFiles
+              - DotNetEmitterGradualDisclosure_Emit_NamespaceIndex_LinksHyphenatedArityFiles
+              - DotNetEmitterGradualDisclosure_Emit_NestedGenericType_UsesHyphenatedFolderAndFile
+              - DotNetEmitterGradualDisclosure_Emit_AllPages_NoDigitSuffixFileNamesForGenericTypes
+              - DotNetEmitterGradualDisclosure_Emit_AllRelativeLinks_ResolveToEmittedPages
+              - DotNetEmitterGradualDisclosure_Emit_CrefAndBaseTypeLinks_UseHyphenatedArityNames

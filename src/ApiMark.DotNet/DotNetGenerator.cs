@@ -331,7 +331,7 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
                     .Distinct(StringComparer.Ordinal)
                     .OrderBy(n => n, StringComparer.Ordinal)
                     .ToList();
-                result[assemblyName] = new TypeLinkResolver.ExternalLinkTarget(apiPath, ComputeRootNamespaces(namespaces));
+                result[assemblyName] = new TypeLinkResolver.ExternalLinkTarget(apiPath, ComputeRootNamespaces(namespaces), namespaces);
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {

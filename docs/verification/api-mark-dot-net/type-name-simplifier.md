@@ -138,3 +138,31 @@ and the remaining position returns the context default. Tested by
 **Null context namespace**: *Arrange*: a primitive, a custom generic type and `List<string>`.
 *Act*: simplify with a `null` context namespace. *Expected*: exactly `string`, `Foo` and
 `List<string>`. Tested by `TypeNameSimplifier_Simplify_NullContextNamespace_ReturnsExactNames`.
+
+**Void is never nullable**: *Arrange*: `System.Void` with an annotated flag of 2. *Act*: simplify.
+*Expected*: `void`. Tested by `TypeNameSimplifier_Simplify_VoidWithAnnotatedFlag_RendersVoidWithoutQuestionMark`.
+
+**Tuples**: *Arrange*: unnamed, nullable, and eight-element `ValueTuple` types. *Act*: simplify.
+*Expected*: `(int, string)`, `(int, string)?`, and a flattened eight-element tuple. Tested by
+`TypeNameSimplifier_Simplify_UnnamedTuple_RendersTupleSyntax`,
+`TypeNameSimplifier_Simplify_NullableTuple_RendersTupleWithQuestionMark`, and
+`TypeNameSimplifier_Simplify_EightElementTuple_FlattensRest`. Named tuples and the compiler's
+flag order (no flags for non-generic value types or `Nullable<T>`) are verified against compiled
+fixtures by `DotNetEmitter_BuildMemberSignature_NullableMatrixAndParams_RendersExactSignature`.
+
+**External types use short names**: Arrange `ExternalSignatureShapes<T>` (external base class, interface,
+constraints, event, property, field, and method types) with the external DLL as a reference. Expected: every
+signature shows `ExternalBaseClass`, `ExternalGenericFormat<string>`, and so on, never `External.X`. Tested by
+`DotNetEmitterGradualDisclosure_Emit_TypeSignature_UsesShortExternalNames`,
+`DotNetEmitterGradualDisclosure_Emit_MemberSignatures_UseShortExternalNames`, and
+`DotNetEmitterGradualDisclosure_Emit_NoSignatureContainsExternalNamespace`.
+
+**Generic arity file names**: Arrange `Foo`, `Foo1`, `Foo<T>`, `Foo<T1, T2>`, and `Outer<T>.Inner<U>`.
+Expected: `Foo-1.md` and `Foo1.md` coexist, namespace indexes link to the hyphenated names, nested generic
+types use hyphenated folders and files, and all relative links resolve. Tested by
+`DotNetEmitterGradualDisclosure_Emit_SameNamedGenericTypes_ProduceDistinctFiles`,
+`DotNetEmitterGradualDisclosure_Emit_NamespaceIndex_LinksHyphenatedArityFiles`,
+`DotNetEmitterGradualDisclosure_Emit_NestedGenericType_UsesHyphenatedFolderAndFile`,
+`DotNetEmitterGradualDisclosure_Emit_AllPages_NoDigitSuffixFileNamesForGenericTypes`,
+`DotNetEmitterGradualDisclosure_Emit_AllRelativeLinks_ResolveToEmittedPages`, and
+`DotNetEmitterGradualDisclosure_Emit_CrefAndBaseTypeLinks_UseHyphenatedArityNames`.

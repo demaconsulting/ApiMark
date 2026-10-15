@@ -129,6 +129,9 @@ caller-supplied parameter that may differ from it.
 concrete kinds above, so the fallback is a defensive default that keeps the
 result well-formed rather than throwing.
 
+`HasDocumentation` also returns true when `XmlDocReader.HasInheritDoc` reports a bare `<inheritdoc/>`, so
+a member whose inherited summary cannot be resolved is not reported as undocumented.
+
 ### Error Handling
 
 `Check` does not throw for missing documentation — every undocumented item is

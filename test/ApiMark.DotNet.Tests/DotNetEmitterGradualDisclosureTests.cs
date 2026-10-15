@@ -35,10 +35,11 @@ public class DotNetEmitterGradualDisclosureTests
         // Act
         new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-        // Assert: every computed member page path is an actual page the emitter wrote
+        // Assert: every computed member page path (ignoring any "#anchor" fragment) is an actual page the emitter wrote
         Assert.NotEmpty(emitter.Model.MemberPageIndex);
-        foreach (var (memberId, pagePath) in emitter.Model.MemberPageIndex)
+        foreach (var (memberId, entry) in emitter.Model.MemberPageIndex)
         {
+            var pagePath = entry.Split('#')[0];
             Assert.True(
                 factory.Writers.ContainsKey(pagePath),
                 $"MemberPageIndex entry for '{memberId}' points at '{pagePath}', but no such page was written.");
@@ -588,7 +589,7 @@ public class DotNetEmitterGradualDisclosureTests
         // back to plain code-span text with no Markdown link
         var memberWriter = factory.Writers["ApiMark.DotNet.Fixtures/CrefLinkingClass/ReferencesFilteredMember"];
         var paragraphs = memberWriter.Operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
-        Assert.Contains(paragraphs, p => p.Contains("`ProtectedMembersClass.PrivateMethod()`", StringComparison.Ordinal));
+        Assert.Contains(paragraphs, p => p.Contains("`ProtectedMembersClass.PrivateMethod(int)`", StringComparison.Ordinal));
         // The first paragraph is the breadcrumb navigation (which legitimately contains links); only the body must be link-free
         Assert.DoesNotContain(paragraphs.Skip(1), p => p.Contains("](", StringComparison.Ordinal));
     }
@@ -860,7 +861,7 @@ public class DotNetEmitterGradualDisclosureTests
     [InlineData("RecordStructSample", "public record struct RecordStructSample")]
     [InlineData("ReadOnlyRecordStructSample", "public readonly record struct ReadOnlyRecordStructSample")]
     [InlineData("ReadOnlyStructSample", "public readonly struct ReadOnlyStructSample")]
-    [InlineData("GenericRecordSample1", "public record GenericRecordSample<T>")]
+    [InlineData("GenericRecordSample-1", "public record GenericRecordSample<T>")]
     public void DotNetEmitterGradualDisclosure_Emit_RecordAndStructKinds_ShowKindKeywords(string typeName, string expectedPrefix)
     {
         // Arrange / Act
@@ -1017,5 +1018,213 @@ public class DotNetEmitterGradualDisclosureTests
         Assert.DoesNotContain(factory.Writers.Keys, k => k.Contains("global-namespace", StringComparison.Ordinal));
         var api = factory.GetWriter("", "api").Operations.OfType<TableOperation>().First();
         Assert.DoesNotContain(api.Rows, r => r[0].Contains("(global namespace)", StringComparison.Ordinal));
+    }
+
+    /// <summary>Emits the fixture assembly in gradual-disclosure format at the requested visibility.</summary>
+    /// <param name="visibility">The visibility tier.</param>
+    /// <returns>The populated factory.</returns>
+    private static InMemoryMarkdownWriterFactory EmitFixture(ApiVisibility visibility)
+    {
+        var options = BuildOptions();
+        options.Visibility = visibility;
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(options).Parse(new InMemoryContext());
+        new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
+        return factory;
+    }
+
+    /// <summary>Returns the overview row of a type page whose Member cell starts with the given link text prefix.</summary>
+    /// <param name="factory">The factory holding the emitted pages.</param>
+    /// <param name="typeName">The fixture type name (its page key is under the fixtures namespace).</param>
+    /// <param name="linkTextPrefix">The text that the row's link label must start with.</param>
+    /// <returns>The matching row cells.</returns>
+    private static string[] FindOverviewRow(InMemoryMarkdownWriterFactory factory, string typeName, string linkTextPrefix) =>
+        factory.Writers[$"ApiMark.DotNet.Fixtures/{typeName}"].Operations
+            .OfType<TableOperation>()
+            .SelectMany(t => t.Rows)
+            .Single(r => r[0].StartsWith($"[{linkTextPrefix}", StringComparison.Ordinal));
+
+    /// <summary>
+    ///     Validates the exact overview row (link label with parameter names, nullability, defaults, tuples and
+    ///     <c>params</c>) and return-type cell of methods in the nullable-signature and params fixtures.
+    /// </summary>
+    /// <param name="typeName">The fixture type name.</param>
+    /// <param name="methodName">The method name.</param>
+    /// <param name="expectedMember">The exact expected Member cell.</param>
+    /// <param name="expectedType">The exact expected Type cell.</param>
+    [Theory]
+    [InlineData("NullableSignatureMatrix", "Reconnect", "[Reconnect(MatrixPort? newSource, MatrixPort? newTarget)](NullableSignatureMatrix/Reconnect.md)", "void")]
+    [InlineData("NullableSignatureMatrix", "AddAnnotation", "[AddAnnotation(string text, MatrixRect bounds, string? id = null)](NullableSignatureMatrix/AddAnnotation.md)", "void")]
+    [InlineData("NullableSignatureMatrix", "TryRename", "[TryRename(MatrixNode node, string name, out string? error)](NullableSignatureMatrix/TryRename.md)", "bool")]
+    [InlineData("NullableSignatureMatrix", "Collect", "[Collect(MatrixWire? wire, object? state, Dictionary\\<string, object?\\>? bag)](NullableSignatureMatrix/Collect.md)", "Func\\<[MatrixWire](MatrixWire.md), [MatrixStyle](MatrixStyle.md)?\\>[]")]
+    [InlineData("NullableSignatureMatrix", "GetPair", "[GetPair(MatrixPort? port)](NullableSignatureMatrix/GetPair.md)", "(int Id, string? Name)")]
+    [InlineData("NullableSignatureMatrix", "FindPair", "[FindPair(string? key)](NullableSignatureMatrix/FindPair.md)", "(int Id, string Name)?")]
+    [InlineData("NullableSignatureMatrix", "Take", "[Take((int X, int Y) point, (string? A, string? B)? optional)](NullableSignatureMatrix/Take.md)", "void")]
+    [InlineData("ParamsClass", "Sum", "[Sum(params int[] values)](ParamsClass/Sum.md)", "int")]
+    [InlineData("ParamsClass", "Join", "[Join(string separator, params string?[] parts)](ParamsClass/Join.md)", "string")]
+    [InlineData("ParamsClass", "Log", "[Log(string format, params object?[] args)](ParamsClass/Log.md)", "void")]
+    public void DotNetEmitterGradualDisclosure_Emit_NullableMatrixAndParams_OverviewRowsMatchSignature(
+        string typeName,
+        string methodName,
+        string expectedMember,
+        string expectedType)
+    {
+        // Arrange / Act
+        var factory = EmitFixture();
+
+        // Assert
+        var row = FindOverviewRow(factory, typeName, $"{methodName}(");
+        Assert.Equal(expectedMember, row[0]);
+        Assert.Equal(expectedType, row[1]);
+    }
+
+    /// <summary>Validates the exact constructor row of the params fixture.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_ParamsConstructor_OverviewRowShowsParams()
+    {
+        // Arrange / Act
+        var factory = EmitFixture();
+
+        // Assert
+        var row = FindOverviewRow(factory, "ParamsClass", "ParamsClass(");
+        Assert.Equal("[ParamsClass(string name, params int[] values)](ParamsClass/ParamsClass.md)", row[0]);
+    }
+
+    /// <summary>
+    ///     Validates the exact page heading (type-only form, with nullability, <c>params</c>, tuples) of
+    ///     single-method member pages.
+    /// </summary>
+    /// <param name="typeName">The fixture type name.</param>
+    /// <param name="methodName">The method name (and page name).</param>
+    /// <param name="expectedHeading">The exact expected H1 text.</param>
+    [Theory]
+    [InlineData("NullableSignatureMatrix", "Reconnect", "Reconnect(MatrixPort?, MatrixPort?)")]
+    [InlineData("NullableSignatureMatrix", "AddAnnotation", "AddAnnotation(string, MatrixRect, string?)")]
+    [InlineData("NullableSignatureMatrix", "TryRename", "TryRename(MatrixNode, string, out string?)")]
+    [InlineData("NullableSignatureMatrix", "Collect", "Collect(MatrixWire?, object?, Dictionary\\<string, object?\\>?)")]
+    [InlineData("NullableSignatureMatrix", "Take", "Take((int X, int Y), (string? A, string? B)?)")]
+    [InlineData("ParamsClass", "Sum", "Sum(params int[])")]
+    [InlineData("ParamsClass", "Join", "Join(string, params string?[])")]
+    public void DotNetEmitterGradualDisclosure_Emit_MethodPageHeading_ShowsNullabilityAndParams(
+        string typeName,
+        string methodName,
+        string expectedHeading)
+    {
+        // Arrange / Act
+        var factory = EmitFixture();
+
+        // Assert
+        var heading = factory.Writers[$"ApiMark.DotNet.Fixtures/{typeName}/{methodName}"].Operations.OfType<HeadingOperation>().First();
+        Assert.Equal(1, heading.Level);
+        Assert.Equal(expectedHeading, heading.Text);
+    }
+
+    /// <summary>
+    ///     Consistency check: for every method of the nullable-signature and params fixtures, the parameter text in
+    ///     the overview row equals the parameter text in the signature block.
+    /// </summary>
+    [Theory]
+    [InlineData("NullableSignatureMatrix")]
+    [InlineData("ParamsClass")]
+    public void DotNetEmitterGradualDisclosure_Emit_MatrixTypes_RowParametersEqualSignatureParameters(string typeName)
+    {
+        // Arrange / Act
+        var factory = EmitFixture();
+
+        // Assert
+        var rows = factory.Writers[$"ApiMark.DotNet.Fixtures/{typeName}"].Operations
+            .OfType<TableOperation>()
+            .Where(t => t.Headers[0] == "Member")
+            .SelectMany(t => t.Rows)
+            .ToList();
+        Assert.NotEmpty(rows);
+        foreach (var row in rows)
+        {
+            var label = row[0].Substring(1, row[0].IndexOf("](", StringComparison.Ordinal) - 1)
+                .Replace("\\<", "<", StringComparison.Ordinal).Replace("\\>", ">", StringComparison.Ordinal);
+            var pageName = row[0].Substring(row[0].LastIndexOf('/') + 1).Replace(".md)", string.Empty, StringComparison.Ordinal);
+            var name = label.Substring(0, label.IndexOf('('));
+            var signature = factory.Writers[$"ApiMark.DotNet.Fixtures/{typeName}/{pageName}"].Operations.OfType<SignatureOperation>().First().Code;
+            var signatureStart = signature.IndexOf($" {name}(", StringComparison.Ordinal) + name.Length + 2;
+            var signatureParameters = signature.Substring(signatureStart, signature.LastIndexOf(')') - signatureStart);
+            var rowParameters = label.Substring(name.Length + 1, label.Length - name.Length - 2);
+            Assert.Equal(signatureParameters, rowParameters);
+        }
+    }
+
+    /// <summary>Validates that no emitted text anywhere in the fixture output contains <c>void?</c>.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_AllFixtures_NeverRenderNullableVoid()
+    {
+        // Arrange / Act
+        var factory = EmitFixture(ApiVisibility.All);
+
+        // Assert
+        var texts = factory.Writers.Values.SelectMany(w => w.Operations).SelectMany(op => op switch
+        {
+            SignatureOperation s => new[] { s.Code },
+            HeadingOperation h => new[] { h.Text },
+            ParagraphOperation p => new[] { p.Text },
+            TableOperation t => t.Rows.SelectMany(r => r),
+            _ => Array.Empty<string>(),
+        });
+        Assert.DoesNotContain(texts, text => text.Contains("void?", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates the exact signatures of members that have inheritance modifiers, at protected visibility.</summary>
+    /// <param name="typeName">The fixture type name.</param>
+    /// <param name="memberName">The member (and page) name.</param>
+    /// <param name="expected">The exact expected signature.</param>
+    [Theory]
+    [InlineData("ShapeBase", "Resize", "public virtual void Resize(int width, int height)")]
+    [InlineData("ShapeBase", "OnResized", "protected virtual void OnResized()")]
+    [InlineData("ShapeDerived", "Resize", "public sealed override void Resize(int width, int height)")]
+    [InlineData("ShapeDerived", "OnResized", "protected override void OnResized()")]
+    [InlineData("ShapeBase", "Name", "public abstract string Name { get; }")]
+    public void DotNetEmitterGradualDisclosure_Emit_InheritanceShapes_PagesShowModifiers(string typeName, string memberName, string expected)
+    {
+        // Arrange / Act
+        var factory = EmitFixture(ApiVisibility.PublicAndProtected);
+
+        // Assert
+        var signature = factory.Writers[$"ApiMark.DotNet.Fixtures/{typeName}/{memberName}"].Operations.OfType<SignatureOperation>().First().Code;
+        Assert.Equal(expected, signature);
+    }
+
+    /// <summary>Validates that non-public members carry an accessibility marker in overview rows while public members do not.</summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_ProtectedMember_OverviewRowHasProtectedMarker()
+    {
+        // Arrange / Act
+        var factory = EmitFixture(ApiVisibility.PublicAndProtected);
+
+        // Assert
+        var protectedRow = FindOverviewRow(factory, "ShapeDerived", "protected OnResized(");
+        Assert.Equal("[protected OnResized()](ShapeDerived/OnResized.md)", protectedRow[0]);
+        var publicRow = FindOverviewRow(factory, "ShapeDerived", "Resize(");
+        Assert.Equal("[Resize(int width, int height)](ShapeDerived/Resize.md)", publicRow[0]);
+    }
+
+    /// <summary>Validates that the accessor shapes page hides non-visible setters at each visibility tier.</summary>
+    /// <param name="visibility">The visibility tier.</param>
+    /// <param name="memberName">The property (and page) name.</param>
+    /// <param name="expected">The exact expected signature.</param>
+    [Theory]
+    [InlineData(ApiVisibility.Public, "PrivateSet", "public int PrivateSet { get; }")]
+    [InlineData(ApiVisibility.Public, "InternalSet", "public int InternalSet { get; }")]
+    [InlineData(ApiVisibility.Public, "ProtectedSet", "public int ProtectedSet { get; }")]
+    [InlineData(ApiVisibility.PublicAndProtected, "ProtectedSet", "public int ProtectedSet { get; protected set; }")]
+    [InlineData(ApiVisibility.All, "PrivateSet", "public int PrivateSet { get; private set; }")]
+    public void DotNetEmitterGradualDisclosure_Emit_AccessorShapes_PageSignatureHonorsVisibility(
+        ApiVisibility visibility,
+        string memberName,
+        string expected)
+    {
+        // Arrange / Act
+        var factory = EmitFixture(visibility);
+
+        // Assert
+        var signature = factory.Writers[$"ApiMark.DotNet.Fixtures/AccessorShapes/{memberName}"].Operations.OfType<SignatureOperation>().First().Code;
+        Assert.Equal(expected, signature);
     }
 }

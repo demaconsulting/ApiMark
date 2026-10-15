@@ -254,7 +254,10 @@ internal static class DocumentationCoverageChecker
     /// <returns><see langword="true"/> when the element is considered documented.</returns>
     private static bool HasDocumentation(ICustomAttributeProvider provider, string id, XmlDocReader xmlDocs)
     {
-        if (!string.IsNullOrWhiteSpace(xmlDocs.GetSummary(id)))
+        // An <inheritdoc /> counts as documentation even when its target cannot be resolved
+        // (e.g. a framework/package base member whose XML doc was not supplied): the author
+        // explicitly delegated the documentation, matching compiler and IDE behavior.
+        if (!string.IsNullOrWhiteSpace(xmlDocs.GetSummary(id)) || xmlDocs.HasInheritDoc(id))
         {
             return true;
         }

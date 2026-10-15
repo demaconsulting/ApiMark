@@ -187,6 +187,9 @@ member-to-page index.
   decisions made per-type while generating that type's own pages (see
   `DotNetEmitterGradualDisclosure.BuildMemberPageIndex`). `memberPageIndex` is
   therefore required to resolve the member's actual page path.
+- *Anchors*: A page key may end in `#anchor` (shared overload and operators
+  pages). The fragment is split off before the relative path is computed and
+  re-appended to the link target, so the link opens the exact overload heading.
 
 **TypeLinkResolver.GetTypePageKey** (private): Computes the documentation page
 key (relative path without extension) for an intra-assembly `TypeReference`,
@@ -219,6 +222,21 @@ correctly handling nested types of arbitrary nesting depth.
   pages to disk (`{NamespaceFolderPath}/{ParentTypeName}/{NestedTypeName}`,
   recursively for arbitrary nesting depth), so every link produced by
   `GetTypePageKey` resolves to a page that the emitter actually creates.
+
+#### Tuples
+
+`Linkify` renders tuple types through `TypeNameSimplifier.BuildTuple`, linking each element, and uses
+`ConsumesNullableFlag` so flag positions stay aligned with the signature block.
+
+#### External cref links
+
+`TryLinkifyExternalCref(cref, displayText, currentFolder)` handles a `cref` that
+`CrefTargetResolver` cannot resolve inside the documented assembly. It parses the namespace and type from
+the cref (a member cref uses its declaring type), picks the `ExternalLinkTarget` whose `RootNamespaces`
+entry is the longest namespace prefix, and builds the same link as a type reference to that target. A member
+cref links to its type page. It returns `null` when links are disabled, nothing is mapped, or no namespace
+matches, and `XmlDocReader` then keeps the plain code span. Nested types are linked as if declared at
+namespace level.
 
 ### Error Handling
 
@@ -295,3 +313,12 @@ Algorithm for `TryLinkExternalType`:
 
 For generic instances the container is linked and the type arguments are linkified
 individually. Links are never verified to exist.
+
+External types are tracked using `TypeNameSimplifier.Simplify` (aliases, nested generics, arrays)
+and escaped with `EscapeMarkdownHeading`.
+
+**External nested and generic crefs**: `ExternalLinkTarget` carries the mapped assembly's full namespace
+list. `TryLinkifyExternalCref` takes the longest real-namespace prefix of the cref's type name and treats the
+remainder as the chain of enclosing types, flattening each segment with `FlattenArity`, so
+`NestedGenericHost`1.Inner`1` links to `NestedGenericHost-1/Inner-1.md`. Without a namespace list it
+falls back to the previous first-segment rule.

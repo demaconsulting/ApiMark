@@ -370,6 +370,12 @@ built with `DotNetEmitter.WithDefault` so optional parameters show their C#-sour
 properties render `init`, generic methods list type parameters and constraints, and type
 signatures show record, record struct and readonly struct kinds.
 
+#### Row names and visibility
+
+Overview rows use `GetMemberRowName` (accessibility marker plus the full parameter list); overload
+group rows use the representative's marker and the group display name. `TypePageWriteContext` and
+`MethodDocContext` carry the configured `ApiVisibility` so signatures hide invisible accessors.
+
 ### Path Conventions
 
 The assembly index page (`api.md`) also writes a `## File Naming and Path Convention`
@@ -385,7 +391,7 @@ member, and operators page patterns.
   (e.g. for `ApiMark.DotNet.Fixtures`, `subFolder=""` and `shortName="ApiMark.DotNet.Fixtures"`)
 - Type page: `factory.CreateMarkdown(namespaceFolderPath, FlattenArity(type.Name))`
   where `FlattenArity` replaces backtick-arity notation (e.g. `` SampleGenericClass`1 ``)
-  with a plain numeric suffix form (`SampleGenericClass1`) for file-system safety. This is distinct
+  with a hyphenated arity form (`SampleGenericClass-1`) for file-system safety. This is distinct
   from `StripArity`, which removes the arity suffix entirely and is used for display names.
 - Member detail: `factory.CreateMarkdown("{namespaceFolderPath}/{FlattenArity(type.Name)}", memberName)`
 - Operators page: `factory.CreateMarkdown("{namespaceFolderPath}/{FlattenArity(type.Name)}", "operators")`
@@ -419,3 +425,32 @@ this class.
 ### External Interfaces
 
 N/A — this is an internal class with no external interfaces exposed beyond its assembly.
+
+### Generic Names, Escaping and Navigation
+
+- `DotNetEmitter.EscapeMarkdownHeading` escapes `<`/`>` in every heading, breadcrumb and link label
+  built from raw text; `Linkify` output is already escaped and is never escaped again.
+- Overload group rows list the distinct linkified return types in overload order (`void` included).
+- Overload group rows use the shared summary when every overload has the same summary; otherwise the
+  neutral text `Overloaded; see the member page.` replaces the first overload's summary.
+- `BuildMemberPageIndex` appends `#anchor` to the page key of every member on a shared overload page
+  (and on the operators page); the anchor is `BuildHeadingAnchor` of the escaped overload heading
+  (GitHub slug: lowercase, keep letters, digits, `-` and `_`, spaces become `-`, drop the rest).
+  `TypeLinkResolver.LinkifyResolvedMember` splits the fragment off, relativizes the page part, and
+  re-appends it. Overload crefs therefore link to the exact overload heading.
+- Example blocks and the Type Parameters table belong to the overload that documents them, so they
+  appear only under that overload's heading.
+- Generic type pages carry a `## Type Parameters` table (from `<typeparam>`, placeholder when
+  missing) after the examples; only the type's own parameters (the last *arity* parameters) are listed,
+  so a nested type does not repeat its host's. Signatures append `where` clauses.
+- Type and member files use the hyphenated `Name-{arity}` form (for example `PropertyEditorRegistry-1.md`).
+  A hyphen cannot occur in a C# identifier, so `Foo-1` never collides with a type named `Foo1`, and
+  `Foo`, `Foo<T>` and `Foo<T1, T2>` map to `Foo.md`, `Foo-1.md` and `Foo-2.md`. The scheme lives in the
+  single helper `TypeNameSimplifier.FlattenArity`, which the emitters and the link resolver share, so
+  page keys and links cannot diverge. This is a breaking change to earlier `Name1.md` output.
+  Readable names appear in headings and link text.
+- Namespace pages begin with `[API Reference](api.md) › ancestors › This`; only ancestors that have
+  pages are linked and the current namespace is plain text.
+- `api.md` starts with a `**Start here:**` link to the namespace with the most types (first
+  alphabetically on ties) and a Key Types column of up to three types, documented first.
+- A text-only `<example>` is rendered as prose; only `<code>` produces a fenced block.

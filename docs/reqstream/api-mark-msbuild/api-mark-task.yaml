@@ -381,6 +381,7 @@ sections:
               it into the tool's repeatable option.
             tests:
               - ApiMarkTask_DotNet_ExternalLinks_EmitsOneFlagPerEntry
+              - ApiMarkTask_DotNet_ExternalLinks_EvaluatedPackageVersionPassesThroughUnchanged
               - ApiMarkTargets_PassesExternalLinksToTask
           - id: ApiMarkMsbuild-ApiMarkTask-OmitUnsetVisibility
             title: ApiMarkTask shall omit the --visibility argument when ApiMarkVisibility is unset
@@ -391,3 +392,17 @@ sections:
             tests:
               - ApiMarkTask_VisibilityUnset_OmitsVisibilityArgument
               - ApiMarkTargets_NoForcedVisibilityDefault
+          - id: ApiMarkMsbuild-ApiMarkTask-VersionTokenPrecedence
+            title: ApiMarkTask shall expand the {version} token in ApiMarkExternalLinks using
+              ApiMarkLinkVersion, then PackageVersion, then Version, leave the token unchanged when none
+              is set, and warn when PackageVersion and Version differ while external links are
+              configured.
+            justification: |
+              NuGet packs with PackageVersion when it is set, so a link built from the wrong property
+              would point at documentation of a different version.
+            tests:
+              - ApiMarkTask_DotNet_ExternalLinks_VersionToken_UsesPackageVersionThenVersion
+              - ApiMarkTask_DotNet_ExternalLinks_VersionToken_NeitherSet_LeavesTokenUnchanged
+              - ApiMarkTask_LogVersionMismatchWarning_BothSetAndDifferent_LogsWarning
+              - ApiMarkTask_LogVersionMismatchWarning_NoMismatch_LogsNothing
+              - ApiMarkTargets_PassesVersionPropertiesToTask

@@ -284,3 +284,77 @@ constraints. Tested by
 code block is fenced with its own language, and prose parts are paragraphs, not fences. Tested by
 `DotNetEmitterGradualDisclosure_Emit_LangExample_TagsEachCodeBlockWithItsLanguage` and
 `DotNetEmitterGradualDisclosure_Emit_LangExampleInPara_TagsCodeBlocksAndKeepsProseAsParagraphs`.
+
+**Exact overview rows and headings**: Arrange the nullable, params, inheritance, and accessor
+fixtures. Act by emitting gradual disclosure. Expected: exact Member and Type cells (names,
+defaults, `params`, tuples, `?`), exact H1 headings, a `protected` marker on protected rows, rows
+whose parameter text equals the signature block's, and no `void?` anywhere. Tested by
+`DotNetEmitterGradualDisclosure_Emit_NullableMatrixAndParams_OverviewRowsMatchSignature`,
+`DotNetEmitterGradualDisclosure_Emit_ParamsConstructor_OverviewRowShowsParams`,
+`DotNetEmitterGradualDisclosure_Emit_MethodPageHeading_ShowsNullabilityAndParams`,
+`DotNetEmitterGradualDisclosure_Emit_MatrixTypes_RowParametersEqualSignatureParameters`,
+`DotNetEmitterGradualDisclosure_Emit_AllFixtures_NeverRenderNullableVoid`,
+`DotNetEmitterGradualDisclosure_Emit_InheritanceShapes_PagesShowModifiers`,
+`DotNetEmitterGradualDisclosure_Emit_ProtectedMember_OverviewRowHasProtectedMarker`, and
+`DotNetEmitterGradualDisclosure_Emit_AccessorShapes_PageSignatureHonorsVisibility`.
+
+**Overload index and escaped headings**: Arrange the `OverloadMatrix` fixtures (non-generic and
+generic containing types; `ToAvalonia` with four return types; `Scale` with a repeated return type;
+non-generic and generic `Transact`; text-only example on `Pick<T>`). Act by emitting gradual
+disclosure. Expected: the Returns cell lists distinct return types in overload order
+(`decimal, float, long, char[]`; `double`; `int, T`), headings are escaped (`Transact\<T\>(Func\<T\>)`),
+the `<example><code>` block appears only after the generic overload heading, a text-only example is a
+paragraph, and no heading or link label contains an unescaped angle bracket. Tested by
+`DotNetEmitterGradualDisclosure_Emit_OverloadGroupRow_ListsDistinctReturnTypesInOrder`,
+`DotNetEmitterGradualDisclosure_Emit_OverloadPage_EscapesGenericHeadings`,
+`DotNetEmitterGradualDisclosure_Emit_OverloadPage_ExampleAttachedToDocumentingOverload`,
+`DotNetEmitterGradualDisclosure_Emit_TextOnlyExample_RendersAsProse`, and
+`DotNetEmitterGradualDisclosure_Emit_AllFixtures_NoUnescapedAngleBracketsInHeadingsOrLinkLabels`.
+
+**Overload index aggregation**: Arrange the `ConversionExtensions` fixture (four `ToAvalonia` overloads
+with distinct summaries returning `Color`, `Point`, `Size`, and `Rect`) and `UndoHistory` (a void and a generic
+`Transact` with different summaries; two `Clear` overloads with the same summary). Act by emitting gradual
+disclosure. Expected: the summary cell is `Overloaded; see the member page.` for differing summaries and
+`Clears the history.` for identical ones; the Returns cell lists every distinct type in overload order
+(`[Color](Color.md), [Point](Point.md), [Size](Size.md), [Rect](Rect.md)` and `void, T`). Tested by
+`DotNetEmitterGradualDisclosure_Emit_OverloadIndex_DifferingSummaries_UsesNeutralText`,
+`DotNetEmitterGradualDisclosure_Emit_OverloadIndex_IdenticalSummaries_UsesSharedSummary`, and
+`DotNetEmitterGradualDisclosure_Emit_OverloadIndex_ReturnColumn_ListsDistinctTypesIncludingVoid`.
+
+**Overload page sections**: Arrange `UndoHistory.Transact`. Act by emitting gradual disclosure. Expected: the
+page headings are exactly `Transact`, `Transact(string, Action)`, and `Transact\<T\>(string, Func\<T\>)`; the
+example code block follows only the generic heading, and a Type Parameter table with `T` and its description
+follows the generic heading only. Tested by `DotNetEmitterGradualDisclosure_Emit_OverloadPage_HasExactHeadings`,
+`DotNetEmitterGradualDisclosure_Emit_OverloadPage_ExampleOnlyUnderGenericHeading`, and
+`DotNetEmitterGradualDisclosure_Emit_OverloadPage_GenericOverloadHasTypeParameterTable`.
+
+**Overload cref links and anchors**: Arrange summaries with crefs to `Transact(string, Action)`,
+`Transact{T}(string, Func{T})` and `ConversionExtensions.ToAvalonia(int)`. Act by emitting gradual
+disclosure. Expected: link text keeps the declaring type and C# parameter types, for example
+``[`UndoHistory.Transact(string, Action)`](Transact.md#transactstring-action)``, and every anchor in every
+generated link equals the GitHub slug of a heading on the linked page. Tested by
+`DotNetEmitterGradualDisclosure_Emit_OverloadCref_LinksToOverloadHeadingAnchor` and
+`DotNetEmitterGradualDisclosure_Emit_AllLinkAnchors_MatchRealHeadings`.
+
+**Inline code for references**: Arrange `InlineCodeDocs.Format<T>` whose summary, typeparam, param, returns,
+exception, remarks, and example text use `paramref`, `typeparamref`, and `langword`. Act by emitting gradual
+disclosure. Expected: each reference appears as a code span, such as ``Formats `value` of type `T`, or `null`.``.
+Tested by `DotNetEmitterGradualDisclosure_Emit_InlineReferences_RenderAsCodeSpansEverywhere`.
+
+**Generic type pages**: Arrange the `GenericTypeDocs` fixtures. Act by emitting gradual disclosure.
+Expected: file names use the hyphenated `Name-{arity}` form, the H1 is `PropertyEditorRegistry\<TEditor\>`, a
+Type Parameters table lists each `<typeparam>` (placeholder when undocumented), signatures carry
+`where` constraints, and a non-generic nested type has no Type Parameters section. Tested by
+`DotNetEmitterGradualDisclosure_Emit_GenericTypePage_ShowsEscapedHeadingAndTypeParameters`,
+`DotNetEmitterGradualDisclosure_Emit_MultiParameterGenericType_ShowsPlaceholderAndConstraints`,
+`DotNetEmitterGradualDisclosure_Emit_GenericMethodPage_ShowsConstraintAndTypeParameters`, and
+`DotNetEmitterGradualDisclosure_Emit_NestedTypeOfGenericHost_HasNoOwnTypeParameters`.
+
+**Namespace navigation**: Arrange the root, `Inner.RemarksOnly` and `Navigation` namespaces. Act by
+emitting gradual disclosure. Expected: exact breadcrumbs on namespace pages, a Start here paragraph
+and a Key Types column (documented types first, then alphabetical, at most three). Tested by
+`DotNetEmitterGradualDisclosure_Emit_NamespacePages_ShowBreadcrumb` and `DotNetEmitterGradualDisclosure_Emit_ApiPage_HasStartHereAndKeyTypes`.
+
+**Generics and inheritance docs test classes**: `DotNetEmitterGradualDisclosureGenericsTests` covers the generic type,
+method, overload, and navigation scenarios above; `DotNetEmitterInheritanceDocsTests` covers inherited-member
+listing, unresolved `<inheritdoc/>` placeholders, record primary-constructor summaries, and external cref linking.

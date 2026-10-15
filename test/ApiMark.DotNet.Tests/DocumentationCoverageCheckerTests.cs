@@ -60,6 +60,38 @@ public class DocumentationCoverageCheckerTests
             .Where(fullName => !keepFullNames.Contains(fullName))
             .ToList();
 
+    /// <summary>Validates that an unresolved bare inheritdoc counts as documented (issue 9).</summary>
+    [Fact]
+    public void Check_UnresolvedInheritDoc_CountsAsDocumented()
+    {
+        // Arrange — the type is documented and its only method carries a bare inheritdoc that no
+        // reference XML can resolve; a missing summary here must not be reported as a violation
+        using var assembly = LoadFixtureAssembly();
+        var docPath = WriteXmlDoc("""
+            <member name="T:ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass">
+              <summary>A class.</summary>
+            </member>
+            <member name="M:ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass.Compute(System.Int32)">
+              <inheritdoc/>
+            </member>
+            """);
+        try
+        {
+            var xmlDocs = new XmlDocReader(docPath);
+            var excludePatterns = ExcludeAllExcept(assembly, "ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass");
+
+            // Act
+            var result = DocumentationCoverageChecker.Check(assembly, xmlDocs, ApiVisibility.Public, includeObsolete: false, excludePatterns);
+
+            // Assert
+            Assert.DoesNotContain(result.UndocumentedItems, i => i.DisplayName.Contains("Compute", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(docPath);
+        }
+    }
+
     /// <summary>Validates that a fully-documented, narrowly-scoped subset of the assembly reports zero violations.</summary>
     [Fact]
     public void Check_FullyDocumentedScope_ReportsZeroViolations()

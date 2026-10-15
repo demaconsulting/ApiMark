@@ -280,3 +280,34 @@ Expected: `string?` — the wrapper consumes no flag. These scenarios are tested
 reference with an empty namespace. Act: call `Linkify`. Expected:
 `[GlobalNamespaceClass](global-namespace/GlobalNamespaceClass.md)`. Tested by
 `TypeLinkResolver_Linkify_GlobalNamespaceType_LinksToGlobalNamespacePage`.
+
+**Tuples and flag positions in row cells**: Arrange the `NullableSignatureMatrix` fixture. Act by
+emitting gradual disclosure. Expected: tuple return types such as `(int Id, string? Name)` and
+nullable delegate type arguments render with the same annotations as the signature block. Tested by
+`DotNetEmitterGradualDisclosure_Emit_NullableMatrixAndParams_OverviewRowsMatchSignature`.
+
+**External generic types**: Arrange `ExternalGenericConsumer` (properties typed
+`ExternalGenericFormat<Dictionary<string, List<int>>>`, `<int[]>` and a nested format). Act by
+emitting gradual disclosure. Expected: External Types rows use aliases, nested and array arguments,
+with escaped angle brackets. Tested by `DotNetEmitterGradualDisclosure_Emit_ExternalGenericTypes_AreSimplifiedAndEscaped`.
+
+**External crefs**: Arrange `ExternalCrefClass` (summary crefs to `ExternalBaseClass`, its `DescribeBase`
+member, and `System.String`) with the external fixture mapped to a relative path, mapped to an `https` URL,
+and unmapped. Expected: the external type and member crefs become code-span links to the mapped type page
+(relative or absolute), `System.String` stays a plain code span, and an unmapped assembly leaves plain code
+spans. Tested by `DotNetEmitterGradualDisclosure_Emit_ExternalCref_MappedAssemblyLinksType`,
+`DotNetEmitterGradualDisclosure_Emit_ExternalCref_AbsoluteMappingLinksType`, and
+`DotNetEmitterGradualDisclosure_Emit_ExternalCref_UnmappedStaysPlainCodeSpan`.
+
+**Overload anchors in member links**: Arrange the `UndoHistory` fixture whose overloads share one page. Act by
+emitting gradual disclosure and resolving member crefs. Expected: the member link ends with the overload's
+heading anchor (`#transactstring-action`, `#transacttstring-funct`), and each anchor matches a real heading
+on the target page. Tested by `DotNetEmitterGradualDisclosure_Emit_OverloadCref_LinksToOverloadHeadingAnchor`
+and `DotNetEmitterGradualDisclosure_Emit_AllLinkAnchors_MatchRealHeadings`.
+
+**Nested and generic-nested external crefs**: Arrange `NestedExternalConsumer` with `ExternalLinks` mapping the
+external fixture assembly. Expected: crefs and property types naming `NestedHost.Inner`, `NestedHost.Deep.Leaf`,
+and `NestedGenericHost<T>.Inner<U>` link to `.../NestedHost/Inner.md`, `.../NestedHost/Deep/Leaf.md`, and
+`.../NestedGenericHost-1/Inner-1.md`. Tested by
+`DotNetEmitterGradualDisclosure_Emit_ExternalNestedTypeCrefs_LinkToNestedPages` and
+`DotNetEmitterGradualDisclosure_Emit_ExternalNestedPropertyTypes_LinkToNestedPages`.

@@ -123,3 +123,12 @@ sections:
             tests:
               - Check_GeneratedRegexMethodWithOnlyRemarks_IsNotReported
               - Check_HandWrittenMethodWithOnlyRemarks_IsStillReported
+          - id: ApiMarkDotNet-DocumentationCoverageChecker-InheritDocCountsAsDocumented
+            title: DocumentationCoverageChecker shall treat a member whose XML entry contains an
+              inheritdoc element as documented even when the inherited summary cannot be resolved.
+            justification: |
+              An unresolved inheritdoc (for example a missing reference XML file) means the
+              documentation lives in a base member; reporting it as undocumented would fail
+              --enforce-docs for a correctly documented API.
+            tests:
+              - Check_UnresolvedInheritDoc_CountsAsDocumented

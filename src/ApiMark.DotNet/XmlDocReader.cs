@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using System.Xml.XPath;
 
@@ -190,6 +191,46 @@ public sealed class XmlDocReader
         return GetSingleLineDocumentationText(member.Element("summary"), linkContext);
     }
 
+    /// <summary>The summary text rendered for a member whose <c>&lt;inheritdoc /&gt;</c> could not be resolved.</summary>
+    internal const string InheritedDocumentationPlaceholder = "Inherits documentation from base member.";
+
+    /// <summary>
+    ///     Returns <see langword="true"/> when the member's own XML doc entry carries an
+    ///     <c>&lt;inheritdoc /&gt;</c> element, whether or not that element can be resolved.
+    /// </summary>
+    /// <param name="memberId">The XML doc member identifier.</param>
+    /// <returns><see langword="true"/> when the member declares <c>&lt;inheritdoc /&gt;</c>.</returns>
+    internal bool HasInheritDoc(string memberId) =>
+        _members.TryGetValue(memberId, out var member) && member.Element("inheritdoc") != null;
+
+    /// <summary>
+    ///     Like <see cref="GetSummary(string, CrefLinkContext?)"/>, but returns
+    ///     <see cref="InheritedDocumentationPlaceholder"/> when no summary is available because the
+    ///     member's <c>&lt;inheritdoc /&gt;</c> could not be resolved (e.g. the base member lives in
+    ///     an assembly whose XML documentation was not supplied).
+    /// </summary>
+    /// <param name="memberId">The XML doc member identifier.</param>
+    /// <param name="linkContext">Optional cref link context.</param>
+    /// <returns>Single-line summary, the inheritdoc placeholder, or <see langword="null"/>.</returns>
+    internal string? GetEffectiveSummary(string memberId, CrefLinkContext? linkContext = null)
+    {
+        var summary = GetSummary(memberId, linkContext);
+        return string.IsNullOrEmpty(summary) && HasInheritDoc(memberId) ? InheritedDocumentationPlaceholder : summary;
+    }
+
+    /// <summary>
+    ///     Like <see cref="GetSummaryMarkdown(string, CrefLinkContext?)"/>, with the same
+    ///     unresolved-<c>&lt;inheritdoc /&gt;</c> placeholder behavior as <see cref="GetEffectiveSummary"/>.
+    /// </summary>
+    /// <param name="memberId">The XML doc member identifier.</param>
+    /// <param name="linkContext">Optional cref link context.</param>
+    /// <returns>Multi-line summary, the inheritdoc placeholder, or <see langword="null"/>.</returns>
+    internal string? GetEffectiveSummaryMarkdown(string memberId, CrefLinkContext? linkContext = null)
+    {
+        var summary = GetSummaryMarkdown(memberId, linkContext);
+        return string.IsNullOrEmpty(summary) && HasInheritDoc(memberId) ? InheritedDocumentationPlaceholder : summary;
+    }
+
     /// <summary>
     ///     Returns the full multi-line Markdown rendering of the summary for
     ///     <paramref name="memberId"/>, or <c>null</c> if absent.
@@ -344,6 +385,33 @@ public sealed class XmlDocReader
             .ToList();
     }
 
+    /// <summary>
+    ///     Returns generic type-parameter names and descriptions (from <c>&lt;typeparam&gt;</c>
+    ///     elements) for <paramref name="memberId"/>.
+    /// </summary>
+    /// <remarks>
+    ///     Mirrors <see cref="GetParams(string, CrefLinkContext?)"/>: the description uses the
+    ///     single-line rendering because callers write it into a pipe-delimited table row.
+    /// </remarks>
+    /// <param name="memberId">The XML doc member identifier of a generic type or method.</param>
+    /// <param name="linkContext">See <see cref="GetSummary(string, CrefLinkContext?)"/>.</param>
+    /// <returns>A read-only list of (Name, Description) tuples in documentation order.</returns>
+    internal IReadOnlyList<(string Name, string? Description)> GetTypeParameters(string memberId, CrefLinkContext? linkContext = null)
+    {
+        var member = ResolveMemberElement(memberId, new HashSet<string>(StringComparer.Ordinal));
+        if (member == null)
+        {
+            return Array.Empty<(string, string?)>();
+        }
+
+        return member.Elements("typeparam")
+            .Select<XElement, (string Name, string? Description)>(p => (
+                p.Attribute("name")?.Value ?? string.Empty,
+                GetSingleLineDocumentationText(p, linkContext)))
+            .Where(p => p.Name.Length > 0)
+            .ToList();
+    }
+
     /// <summary>Returns the trimmed returns text for <paramref name="memberId"/>, or <c>null</c> if absent.</summary>
     /// <remarks>
     ///     When the member carries an <c>&lt;inheritdoc /&gt;</c> element, the returns text is
@@ -412,9 +480,8 @@ public sealed class XmlDocReader
     ///     indicates a prose paragraph.
     /// </summary>
     /// <remarks>
-    ///     When the <c>&lt;example&gt;</c> element contains no <c>&lt;code&gt;</c> children, the
-    ///     entire text is returned as a single code part. When <c>&lt;code&gt;</c> children are
-    ///     present, consecutive non-<c>&lt;code&gt;</c> nodes (text and inline elements such as
+    ///     When the <c>&lt;example&gt;</c> element contains no <c>&lt;code&gt;</c> children, its text is
+    ///     returned as prose only (no code part). Consecutive non-<c>&lt;code&gt;</c> nodes (text and inline elements such as
     ///     <c>&lt;see cref="..." /&gt;</c>, <c>&lt;c&gt;</c>, <c>&lt;paramref&gt;</c>) are
     ///     accumulated and rendered together into a single prose part via the same
     ///     <c>AppendNodeText</c> / <c>AppendElementText</c> pipeline used by other documentation
@@ -457,9 +524,7 @@ public sealed class XmlDocReader
     ///     child of <c>&lt;example&gt;</c> or is nested in a <c>&lt;para&gt;</c> within it. It is
     ///     not honored for <c>&lt;code&gt;</c> blocks inside <c>&lt;summary&gt;</c>,
     ///     <c>&lt;remarks&gt;</c> and other sections (those fenced blocks carry no language), and
-    ///     an <c>&lt;example&gt;</c> without any <c>&lt;code&gt;</c> child (direct or nested in a
-    ///     <c>&lt;para&gt;</c>) is returned as a single
-    ///     <c>csharp</c> block.
+    ///     an <c>&lt;example&gt;</c> without any <c>&lt;code&gt;</c> child is returned as prose only.
     ///     </para>
     /// </remarks>
     /// <param name="memberId">The XML doc member identifier.</param>
@@ -474,36 +539,10 @@ public sealed class XmlDocReader
             return Array.Empty<(bool, string, string)>();
         }
 
-        // When no <code> child exists directly or nested under <para> (at any depth), treat the
-        // entire value as a single code block
-        return HasProcessableCode(el)
-            ? BuildMixedExampleParts(el, linkContext)
-            : BuildSingleCodeExamplePart(el);
-    }
-
-    /// <summary>
-    ///     Determines whether a <c>&lt;code&gt;</c> element is a direct child of
-    ///     <paramref name="container"/> or is nested in <c>&lt;para&gt;</c> elements at any depth,
-    ///     matching the traversal used by <see cref="BuildMixedExampleParts"/>.
-    /// </summary>
-    /// <param name="container">The <c>&lt;example&gt;</c> or <c>&lt;para&gt;</c> element.</param>
-    /// <returns><see langword="true"/> when a reachable <c>&lt;code&gt;</c> element exists.</returns>
-    private static bool HasProcessableCode(XElement container) =>
-        container.Elements("code").Any() || container.Elements("para").Any(HasProcessableCode);
-
-    /// <summary>
-    ///     Builds a single-part example result by treating the entire <paramref name="el"/> value
-    ///     as one code block. Used when the <c>&lt;example&gt;</c> element has no <c>&lt;code&gt;</c> child,
-    ///     either directly or nested in a <c>&lt;para&gt;</c>.
-    /// </summary>
-    /// <param name="el">The <c>&lt;example&gt;</c> element.</param>
-    /// <returns>A single-element code part list, or an empty list when the dedented text is empty.</returns>
-    private static (bool IsCode, string Content, string Language)[] BuildSingleCodeExamplePart(XElement el)
-    {
-        var text = DedentCode(el.Value);
-        return string.IsNullOrEmpty(text)
-            ? Array.Empty<(bool, string, string)>()
-            : [(true, text, DefaultCodeLanguage)];
+        // An <example> without any <code> child is prose (for example a sentence describing usage),
+        // so it flows through the same mixed pipeline and is rendered as a paragraph rather than
+        // being mislabeled as a csharp code fence
+        return BuildMixedExampleParts(el, linkContext);
     }
 
     /// <summary>Reads and sanitizes the <c>lang</c> attribute of a <c>&lt;code&gt;</c> element.</summary>
@@ -925,7 +964,13 @@ public sealed class XmlDocReader
                 break;
             case "paramref":
             case "typeparamref":
-                builder.Append(element.Attribute("name")?.Value ?? string.Empty);
+                // Render parameter and type-parameter references as inline code, like <c>
+                var referencedName = element.Attribute("name")?.Value;
+                if (!string.IsNullOrWhiteSpace(referencedName))
+                {
+                    AppendMarkdownCodeSpan(builder, referencedName);
+                }
+
                 break;
             case "para":
                 AppendNodeText(builder, element.Nodes(), singleLine, codeBlocks, linkContext);
@@ -1472,8 +1517,8 @@ public sealed class XmlDocReader
     ///     <see cref="FormatCref"/>/<see cref="FormatMemberReference"/>), it is wrapped in an
     ///     inline Markdown code span via <see cref="FormatAsInlineCodeSpan"/> so it reads visually
     ///     distinct from surrounding prose, matching how <c>&lt;c&gt;</c> content is rendered. A
-    ///     <c>langword</c> value, explicit inner text, and a constructor cref are all left
-    ///     unwrapped.
+    ///     <c>langword</c> value is also wrapped; explicit inner text and a constructor cref are
+    ///     left unwrapped.
     ///     <para>
     ///     When <paramref name="linkContext"/> is supplied and the <c>cref</c> resolves — via
     ///     <see cref="CrefTargetResolver.TryResolveType"/>/<see cref="CrefTargetResolver.TryResolveMember"/>
@@ -1503,7 +1548,8 @@ public sealed class XmlDocReader
         var langword = element.Attribute("langword")?.Value;
         if (!string.IsNullOrWhiteSpace(langword))
         {
-            return langword;
+            // A language keyword (null, true, ...) reads as code, like <c>
+            return FormatAsInlineCodeSpan(langword);
         }
 
         // If the element provides explicit display text, prefer it over formatting the cref,
@@ -1582,7 +1628,9 @@ public sealed class XmlDocReader
             return linkContext.Resolver.LinkifyResolvedMember(member, codeSpanText, linkContext.CurrentFolder, linkContext.MemberPageIndex);
         }
 
-        return codeSpanText;
+        // Not documented by this assembly: link to another assembly's documentation when its
+        // root namespaces are mapped via ExternalLinks; otherwise keep the plain code span
+        return linkContext.Resolver.TryLinkifyExternalCref(cref, codeSpanText, linkContext.CurrentFolder) ?? codeSpanText;
     }
 
     /// <summary>
@@ -1681,12 +1729,189 @@ public sealed class XmlDocReader
         // member name (e.g. "Go" instead of "Bar.Go") is ambiguous to a reader who does not
         // already know which type declares the referenced member.
         var formattedTypeName = FormatTypeName(typeName, forCodeSpan);
+        var methodArity = GetMethodArity(memberName);
         var formattedMemberName = StripArity(memberName);
+        if (methodArity > 0)
+        {
+            formattedMemberName += FormatGenericArguments(Enumerable.Range(0, methodArity).Select(i => GetTypeParameterPlaceholder(i, methodArity)), forCodeSpan);
+        }
+
         var memberDisplay = $"{formattedTypeName}.{formattedMemberName}";
 
-        return kind == 'M' && parameters.Length > 0
-            ? ($"{memberDisplay}()", true)
-            : (memberDisplay, true);
+        // Keep the parameter types so a reader (and the link target) can tell overloads apart
+        if (kind == 'M' && parameters.Length > 0)
+        {
+            var typeArity = GetTypeArity(typeName);
+            return ($"{memberDisplay}({FormatCrefParameters(parameters, typeArity, methodArity, forCodeSpan)})", true);
+        }
+
+        return (memberDisplay, true);
+    }
+
+    /// <summary>Returns the generic arity encoded in a method name such as <c>Go``2</c>, or zero.</summary>
+    /// <param name="memberName">The raw member name from a cref.</param>
+    /// <returns>The method's generic arity.</returns>
+    private static int GetMethodArity(string memberName)
+    {
+        var index = memberName.IndexOf("``", StringComparison.Ordinal);
+        return index >= 0 && int.TryParse(memberName[(index + 2)..], out var arity) ? arity : 0;
+    }
+
+    /// <summary>Returns the generic arity encoded in the last segment of a type name such as <c>List`1</c>, or zero.</summary>
+    /// <param name="typeName">The raw (possibly qualified) type name from a cref.</param>
+    /// <returns>The type's generic arity.</returns>
+    private static int GetTypeArity(string typeName)
+    {
+        var tick = typeName.LastIndexOf('`');
+        return tick >= 0 && int.TryParse(typeName[(tick + 1)..], out var arity) ? arity : 0;
+    }
+
+    /// <summary>Returns the placeholder name used for a generic parameter whose declared name is not available in a cref.</summary>
+    /// <param name="index">The zero-based parameter index.</param>
+    /// <param name="arity">The total number of parameters (a single parameter is <c>T</c>, several are <c>T1</c>, <c>T2</c>, ...).</param>
+    /// <returns>The placeholder name.</returns>
+    private static string GetTypeParameterPlaceholder(int index, int arity) =>
+        arity == 1 || (arity == 0 && index == 0) ? "T" : $"T{index + 1}";
+
+    /// <summary>Formats generic arguments as <c>&lt;A, B&gt;</c>, escaping the brackets for prose when not in a code span.</summary>
+    /// <param name="arguments">The already-formatted argument names.</param>
+    /// <param name="forCodeSpan">Whether the result is placed in a code span (raw brackets) or prose (escaped).</param>
+    /// <returns>The bracketed argument list.</returns>
+    private static string FormatGenericArguments(IEnumerable<string> arguments, bool forCodeSpan) =>
+        forCodeSpan
+            ? $"<{string.Join(", ", arguments)}>"
+            : $"\\<{string.Join(", ", arguments)}\\>";
+
+    /// <summary>
+    ///     Formats the parameter list of a method cref (for example <c>(System.String,System.Func{``0})</c>)
+    ///     as C# short type names (<c>string, Func&lt;T&gt;</c>).
+    /// </summary>
+    /// <param name="parameters">The raw parameter list including its parentheses.</param>
+    /// <param name="typeArity">The generic arity of the declaring type (names <c>`N</c> references).</param>
+    /// <param name="methodArity">The generic arity of the method (names <c>``N</c> references).</param>
+    /// <param name="forCodeSpan">See <see cref="FormatCref"/>.</param>
+    /// <returns>The comma-separated short parameter types.</returns>
+    private static string FormatCrefParameters(string parameters, int typeArity, int methodArity, bool forCodeSpan)
+    {
+        var inner = parameters.Trim();
+        if (inner.StartsWith('(') && inner.EndsWith(')'))
+        {
+            inner = inner[1..^1];
+        }
+
+        return string.Join(", ", SplitTopLevel(inner).Select(p => FormatCrefParameterType(p.Trim(), typeArity, methodArity, forCodeSpan)));
+    }
+
+    /// <summary>Splits <paramref name="text"/> on commas that are not nested inside <c>{}</c> or <c>[]</c>.</summary>
+    /// <param name="text">The text to split.</param>
+    /// <returns>The top-level segments; empty when <paramref name="text"/> is empty.</returns>
+    private static List<string> SplitTopLevel(string text)
+    {
+        var parts = new List<string>();
+        if (text.Length == 0)
+        {
+            return parts;
+        }
+
+        var depth = 0;
+        var start = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            switch (text[i])
+            {
+                case '{':
+                case '[':
+                    depth++;
+                    break;
+                case '}':
+                case ']':
+                    depth--;
+                    break;
+                case ',' when depth == 0:
+                    parts.Add(text[start..i]);
+                    start = i + 1;
+                    break;
+            }
+        }
+
+        parts.Add(text[start..]);
+        return parts;
+    }
+
+    /// <summary>Returns the index of the first <c>[</c> that is not nested inside <c>{}</c>, or -1.</summary>
+    /// <param name="type">The raw type text.</param>
+    /// <returns>The index of the array suffix start, or -1 when the type is not an array.</returns>
+    private static int IndexOfTopLevelBracket(string type)
+    {
+        var depth = 0;
+        for (var i = 0; i < type.Length; i++)
+        {
+            switch (type[i])
+            {
+                case '{':
+                    depth++;
+                    break;
+                case '}':
+                    depth--;
+                    break;
+                case '[' when depth == 0:
+                    return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>Formats one parameter type of a method cref as a C# short type name.</summary>
+    /// <param name="type">The raw type text (for example <c>System.Func{``0}</c> or <c>System.Int32[]</c>).</param>
+    /// <param name="typeArity">The generic arity of the declaring type.</param>
+    /// <param name="methodArity">The generic arity of the method.</param>
+    /// <param name="forCodeSpan">See <see cref="FormatCref"/>.</param>
+    /// <returns>The short type name.</returns>
+    private static string FormatCrefParameterType(string type, int typeArity, int methodArity, bool forCodeSpan)
+    {
+        // By-reference parameters carry a trailing '@'; the modifier keyword is not recoverable, so drop it
+        type = type.TrimEnd('@');
+
+        // Array ranks: "[]" and "[0:,0:]" become "[]" and "[,]"
+        var bracket = IndexOfTopLevelBracket(type);
+        var suffix = string.Empty;
+        if (bracket >= 0)
+        {
+            suffix = Regex.Replace(type[bracket..], @"\d+:", string.Empty);
+            type = type[..bracket];
+        }
+
+        var pointerDepth = 0;
+        while (type.EndsWith('*'))
+        {
+            pointerDepth++;
+            type = type[..^1];
+        }
+
+        var pointer = new string('*', pointerDepth);
+
+        string name;
+        var open = type.IndexOf('{');
+        if (open >= 0 && type.EndsWith('}'))
+        {
+            var arguments = SplitTopLevel(type[(open + 1)..^1]).Select(a => FormatCrefParameterType(a.Trim(), typeArity, methodArity, forCodeSpan));
+            name = FormatTypeName(type[..open], forCodeSpan) + FormatGenericArguments(arguments, forCodeSpan);
+        }
+        else if (type.StartsWith("``", StringComparison.Ordinal) && int.TryParse(type[2..], out var methodIndex))
+        {
+            name = GetTypeParameterPlaceholder(methodIndex, methodArity);
+        }
+        else if (type.StartsWith('`') && int.TryParse(type[1..], out var typeIndex))
+        {
+            name = GetTypeParameterPlaceholder(typeIndex, typeArity);
+        }
+        else
+        {
+            name = FormatTypeName(type, forCodeSpan);
+        }
+
+        return name + pointer + suffix;
     }
 
     /// <summary>

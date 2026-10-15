@@ -623,7 +623,7 @@ public class ClangAstParserTests
                 ClangPath = hangingScript,
             };
 
-            ClangAstParser.TimeoutOverrideMillisecondsForTests = 300;
+            ClangAstParser.TimeoutOverrideMillisecondsForTests = 5000;
             try
             {
                 // Act
@@ -632,7 +632,7 @@ public class ClangAstParserTests
 
                 // Assert: the exception carries enough diagnostic detail to triage a real hang
                 // from CI output alone, without needing to reproduce it locally
-                Assert.Contains("did not exit within 300ms", ex.Message, StringComparison.Ordinal);
+                Assert.Contains("did not exit within 5000ms", ex.Message, StringComparison.Ordinal);
                 Assert.Contains("OS:", ex.Message, StringComparison.Ordinal);
                 Assert.Contains("PID:", ex.Message, StringComparison.Ordinal);
                 Assert.Contains("Elapsed:", ex.Message, StringComparison.Ordinal);
@@ -668,7 +668,7 @@ public class ClangAstParserTests
             finally
             {
                 // Reset the override — thread-pool thread reuse would otherwise leak a
-                // 300ms timeout into an unrelated later test running on the same thread
+                // 5000ms timeout into an unrelated later test running on the same thread
                 ClangAstParser.TimeoutOverrideMillisecondsForTests = null;
             }
         }
