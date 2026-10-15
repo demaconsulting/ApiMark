@@ -281,7 +281,7 @@ public class DotNetEmitterGradualDisclosureTests
             "Expected a member detail page for SampleClass.Reset");
     }
 
-    /// <summary>Validates that the gradual-disclosure emitter creates a combined page for case-colliding members.</summary>
+    /// <summary>Validates that the gradual-disclosure emitter creates separate registry-approved pages for case-twin members.</summary>
     [Fact]
     public void DotNetEmitterGradualDisclosure_Emit_CaseCollision_CreatesSeparatePages()
     {
@@ -292,13 +292,11 @@ public class DotNetEmitterGradualDisclosureTests
         // Act
         new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-        // Assert: CaseCollisionClass has 'name' (field) and 'Name' (property) that collide on
-        // case-insensitive filesystems; the combined page is keyed using the lower-invariant "name"
-        Assert.True(
-            factory.Writers.Keys.Any(k =>
-                k.Contains("CaseCollisionClass", StringComparison.Ordinal) &&
-                k.EndsWith("/name", StringComparison.OrdinalIgnoreCase)),
-            "Expected a combined collision page for CaseCollisionClass members 'name' and 'Name'");
+        // Assert: CaseCollisionClass has 'name' and 'Name' that collide on case-insensitive
+        // filesystems; the first keeps its plain name and the second gets a numbered page
+        var keys = factory.Writers.Keys.ToList();
+        Assert.Contains(keys, k => k.EndsWith("CaseCollisionClass/Name", StringComparison.Ordinal));
+        Assert.Contains(keys, k => k.EndsWith("CaseCollisionClass/name-2", StringComparison.Ordinal));
     }
 
     /// <summary>Validates that the api index page heading contains the assembly name.</summary>

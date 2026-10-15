@@ -123,8 +123,9 @@ pure method overload group (all methods sharing the same exact case-sensitive sa
   emits them via `WriteExternalTypesSection`.
 
 **WriteCombinedMemberPage** (private static): Writes a single combined Markdown
-page for a group of members whose sanitized file names collide on
-case-insensitive file systems.
+page for a residual group of non-overload members that still share one
+registry-approved name. Case twins do not reach this path: the registry gives them distinct
+names (for example `Name.md` and `name-2.md`) and each gets a dedicated page.
 
 - *Algorithm*: Creates `{namespaceFolderPath}/{GetTypeFileName(type)}/{lowerKey}.md` via the
   factory; writes an H1 heading using `lowerKey`; for each member writes an H2
@@ -135,7 +136,7 @@ case-insensitive file systems.
 **IsPureMethodOverloadGroup** (private static): Returns true when all members
 in a collision group are `MethodDefinition` instances sharing the same exact
 case-sensitive sanitized file name, indicating a classical method overload group
-rather than a case-insensitive collision.
+rather than a residual shared-name group.
 
 **GetMemberKindLabel** (private static): Maps an `IMemberDefinition` to a short
 human-readable kind string (`"Field"`, `"Property"`, `"Event"`, `"Constructor"`,
@@ -208,7 +209,7 @@ to the appropriate per-kind accumulator.
   using `GetMethodGroupDisplayName` for the display text.
 
 **ProcessCollisionMember** (private static): Handles one member from a
-case-insensitive filename collision group; writes the combined page on first
+residual shared-approved-name group; writes the combined page on first
 encounter and adds the member's row to the appropriate per-kind accumulator.
 
 - *Parameters*: `TypePageWriteContext ctx`, `IMemberDefinition member`,
@@ -402,8 +403,9 @@ member, and operators page patterns.
 - Member detail: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", GetSanitizedMemberFileName(member, type))`
 - Operators page: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", "operators")`
   (a member literally named `operators` is displaced to `operators-2` so the pages cannot collide)
-- Combined page: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", lowerKey)`
-  where `lowerKey` is `GetSanitizedMemberFileName(member, type)` lower-cased
+- Residual combined page: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", lowerKey)`
+  where `lowerKey` is `GetSanitizedMemberFileName(member, type)` lower-cased; used only for a
+  non-overload group that still shares one approved name
 
 ### Error Handling
 

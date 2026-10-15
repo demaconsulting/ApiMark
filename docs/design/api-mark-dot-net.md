@@ -42,7 +42,7 @@ defined by the Core interfaces. The system contains eleven units:
   covering both plain `const` fields and enum member values.
 - **DotNetEmitterGradualDisclosure** — writes the multi-file gradual-disclosure tree
   (one file per namespace and type, and one file per member except where the model
-  combines case-insensitive filename collisions onto a shared page). Types declaring
+  gives case-twin members distinct registry-approved pages). Types declaring
   operator overloads receive a dedicated `operators.md` page grouping all operators
   with C# method-signature headings and summaries. Nested types appear in a
   "Nested Types" table on the containing type page and receive dedicated pages under
@@ -211,9 +211,9 @@ N/A - not a safety-classified software item.
 6. For each visible type, DotNetEmitterGradualDisclosure writes member pages using three
    distinct page-generation strategies: (1) individual detail pages per member via
    `factory.CreateMarkdown(namespaceFolderPath, typeName)` — the default for all non-colliding
-   members; (2) collision-combined pages for case-insensitive filename collisions on a single
-   type, where two or more members whose sanitized names differ only in case are merged onto one
-   shared page named after the lower-invariant key; and (3) an operators group page
+   members, where case-twin members receive distinct registry-approved pages (for example
+   `Name.md` and `name-2.md`); (2) a residual combined page for any non-overload group that still
+   shares one approved name (for example same-named non-method members); and (3) an operators group page
    (`operators.md`) for types that declare operator overloads, grouping all operators with C#
    method-signature headings and summaries. All members are linked from the type page. Nested
    types appear in a "Nested Types" table on the containing type page and receive dedicated
