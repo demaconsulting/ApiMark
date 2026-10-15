@@ -225,7 +225,7 @@ public class DotNetEmitterInheritedMembersTests
 
         // Assert
         Assert.Equal(
-            new[] { "### Inherited from [InheritedGenericBase](InheritedGenericBase-1.md)\\<string\\>", "Take | Method" },
+            new[] { "### Inherited from [InheritedGenericBase](InheritedGenericBase{1}.md)\\<string\\>", "Take | Method" },
             InheritedLines(factory, "InheritedFromGeneric"));
         Assert.Equal(
             new[] { "### Inherited from [NestedBase](InheritedNestedHost/NestedBase.md)", "NestedOp | Method" },

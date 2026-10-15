@@ -82,7 +82,7 @@ public class DotNetEmitterGradualDisclosureGenericsTests
     [InlineData("ApiMark.DotNet.Fixtures/OverloadMatrix", "[ToAvalonia (4 overloads)]", "decimal, float, long, char[]")]
     [InlineData("ApiMark.DotNet.Fixtures/OverloadMatrix", "[Scale (2 overloads)]", "double")]
     [InlineData("ApiMark.DotNet.Fixtures/OverloadMatrix", "[Transact (2 overloads)]", "int, T")]
-    [InlineData("ApiMark.DotNet.Fixtures/OverloadMatrix-1", "[Transact (2 overloads)]", "TItem, T")]
+    [InlineData("ApiMark.DotNet.Fixtures/OverloadMatrix{1}", "[Transact (2 overloads)]", "TItem, T")]
     public void DotNetEmitterGradualDisclosure_Emit_OverloadGroupRow_ListsDistinctReturnTypesInOrder(
         string typeKey,
         string memberLabel,
@@ -108,7 +108,7 @@ public class DotNetEmitterGradualDisclosureGenericsTests
             Headings(factory, "ApiMark.DotNet.Fixtures/OverloadMatrix/Transact"));
         Assert.Equal(
             new[] { "# Transact", "## Transact(Func\\<TItem\\>)", "## Transact\\<T\\>(Func\\<T\\>)" },
-            Headings(factory, "ApiMark.DotNet.Fixtures/OverloadMatrix-1/Transact"));
+            Headings(factory, "ApiMark.DotNet.Fixtures/OverloadMatrix{1}/Transact"));
     }
 
     /// <summary>
@@ -119,7 +119,7 @@ public class DotNetEmitterGradualDisclosureGenericsTests
     /// <param name="code">The expected example code.</param>
     [Theory]
     [InlineData("ApiMark.DotNet.Fixtures/OverloadMatrix/Transact", "var text = matrix.Transact(() => \"generic\");")]
-    [InlineData("ApiMark.DotNet.Fixtures/OverloadMatrix-1/Transact", "var count = matrix.Transact(() => 3);")]
+    [InlineData("ApiMark.DotNet.Fixtures/OverloadMatrix{1}/Transact", "var count = matrix.Transact(() => 3);")]
     public void DotNetEmitterGradualDisclosure_Emit_OverloadPage_ExampleAttachedToDocumentingOverload(string typeKey, string code)
     {
         // Arrange / Act
@@ -154,7 +154,7 @@ public class DotNetEmitterGradualDisclosureGenericsTests
     {
         // Arrange / Act
         var factory = EmitGradual();
-        const string key = "ApiMark.DotNet.Fixtures/PropertyEditorRegistry-1";
+        const string key = "ApiMark.DotNet.Fixtures/PropertyEditorRegistry{1}";
 
         // Assert: file name keeps the Name{arity} form, H1 is escaped
         Assert.Equal(new[] { "# PropertyEditorRegistry\\<TEditor\\>", "## Type Parameters", "## Constructors", "## Methods" }, Headings(factory, key));
@@ -167,7 +167,7 @@ public class DotNetEmitterGradualDisclosureGenericsTests
 
         // Assert: the namespace page link text is escaped and points at the arity file
         var nsRow = Row(factory, "ApiMark.DotNet.Fixtures", "[PropertyEditorRegistry");
-        Assert.Equal("[PropertyEditorRegistry\\<TEditor\\>](ApiMark.DotNet.Fixtures/PropertyEditorRegistry-1.md)", nsRow[0]);
+        Assert.Equal("[PropertyEditorRegistry\\<TEditor\\>](ApiMark.DotNet.Fixtures/PropertyEditorRegistry{1}.md)", nsRow[0]);
     }
 
     /// <summary>Validates an undocumented type parameter gets the placeholder and every constraint is rendered.</summary>
@@ -176,7 +176,7 @@ public class DotNetEmitterGradualDisclosureGenericsTests
     {
         // Arrange / Act
         var factory = EmitGradual();
-        const string key = "ApiMark.DotNet.Fixtures/KeyedPair-2";
+        const string key = "ApiMark.DotNet.Fixtures/KeyedPair{2}";
 
         // Assert
         Assert.Equal("# KeyedPair\\<TKey, TValue\\>", Headings(factory, key)[0]);
@@ -194,7 +194,7 @@ public class DotNetEmitterGradualDisclosureGenericsTests
     {
         // Arrange / Act
         var factory = EmitGradual();
-        const string key = "ApiMark.DotNet.Fixtures/PropertyEditorRegistry-1/Convert";
+        const string key = "ApiMark.DotNet.Fixtures/PropertyEditorRegistry{1}/Convert";
 
         // Assert
         Assert.Equal("# Convert\\<TResult\\>(TEditor)", Headings(factory, key)[0]);
@@ -203,7 +203,7 @@ public class DotNetEmitterGradualDisclosureGenericsTests
         Assert.Equal(new[] { "Type Parameter", "Description" }, table.Headers);
         Assert.Equal(new[] { "TResult", "The value type to produce." }, Assert.Single(table.Rows));
         Assert.Equal(
-            "[API Reference](../../api.md) › [ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [PropertyEditorRegistry\\<TEditor\\>](../PropertyEditorRegistry-1.md)",
+            "[API Reference](../../api.md) › [ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [PropertyEditorRegistry\\<TEditor\\>](../PropertyEditorRegistry{1}.md)",
             Paragraphs(factory, key)[0]);
     }
 
@@ -215,9 +215,9 @@ public class DotNetEmitterGradualDisclosureGenericsTests
         var factory = EmitGradual();
 
         // Assert
-        Assert.DoesNotContain("## Type Parameters", Headings(factory, "ApiMark.DotNet.Fixtures/GenericHost-1/Nested"));
-        Assert.Equal("public class Nested", Page(factory, "ApiMark.DotNet.Fixtures/GenericHost-1/Nested").Operations.OfType<SignatureOperation>().Single().Code);
-        Assert.Contains("## Type Parameters", Headings(factory, "ApiMark.DotNet.Fixtures/GenericHost-1"));
+        Assert.DoesNotContain("## Type Parameters", Headings(factory, "ApiMark.DotNet.Fixtures/GenericHost{1}/Nested"));
+        Assert.Equal("public class Nested", Page(factory, "ApiMark.DotNet.Fixtures/GenericHost{1}/Nested").Operations.OfType<SignatureOperation>().Single().Code);
+        Assert.Contains("## Type Parameters", Headings(factory, "ApiMark.DotNet.Fixtures/GenericHost{1}"));
     }
 
     /// <summary>Validates no emitted heading or table link label anywhere contains an unescaped angle bracket.</summary>

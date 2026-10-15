@@ -427,7 +427,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         IReadOnlyList<string> rootNamespaces)
     {
         string Relative(string key) =>
-            Path.GetRelativePath(currentFolder.Length > 0 ? currentFolder : ".", key + ".md").Replace('\\', '/');
+            LinkPath.Relative(currentFolder, key + ".md");
 
         var crumbs = new List<string> { $"[API Reference]({Relative("api")})" };
         crumbs.AddRange(allNamespaces
@@ -469,7 +469,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         var nsFolder = string.Join('/', segments.Take(Math.Max(0, segments.Count - (chain.Count - 1))));
 
         string Relative(string key) =>
-            Path.GetRelativePath(currentFolder.Length > 0 ? currentFolder : ".", key + ".md").Replace('\\', '/');
+            LinkPath.Relative(currentFolder, key + ".md");
 
         var crumbs = new List<string> { $"[API Reference]({Relative("api")})" };
         if (nsFolder.Length > 0)
@@ -656,7 +656,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         // named after the lowercase key; all their table rows link to that shared page.
         foreach (var member in members)
         {
-            var lowerKey = GetSanitizedMemberFileName(member, ctx.Type).ToLowerInvariant();
+            var lowerKey = GetSanitizedMemberFileName(member, ctx.Type);
             var group = caseInsensitiveGroups[lowerKey];
 
             if (group.Count == 1)
@@ -1185,7 +1185,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         var groups = new Dictionary<string, List<IMemberDefinition>>(StringComparer.Ordinal);
         foreach (var member in members)
         {
-            var lowerKey = GetSanitizedMemberFileName(member, type).ToLowerInvariant();
+            var lowerKey = GetSanitizedMemberFileName(member, type);
             if (!groups.TryGetValue(lowerKey, out var list))
             {
                 list = [];

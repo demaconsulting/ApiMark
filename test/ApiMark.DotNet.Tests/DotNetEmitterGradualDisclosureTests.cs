@@ -812,15 +812,15 @@ public class DotNetEmitterGradualDisclosureTests
             FirstParagraph(factory, key));
     }
 
-    /// <summary>Validates breadcrumbs on a combined (case-collision) page.</summary>
+    /// <summary>Validates breadcrumbs on a case-twin member page that received the collision suffix.</summary>
     [Fact]
-    public void DotNetEmitterGradualDisclosure_Emit_CombinedPage_HasBreadcrumb()
+    public void DotNetEmitterGradualDisclosure_Emit_CaseTwinMemberPage_HasBreadcrumb()
     {
         // Arrange / Act
         var factory = EmitFixture();
 
         // Assert
-        var key = "ApiMark.DotNet.Fixtures/CaseCollisionClass/name";
+        var key = "ApiMark.DotNet.Fixtures/CaseCollisionClass/name-2";
         Assert.Equal(
             "[API Reference](../../api.md) › [ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [CaseCollisionClass](../CaseCollisionClass.md)",
             FirstParagraph(factory, key));
@@ -861,7 +861,7 @@ public class DotNetEmitterGradualDisclosureTests
     [InlineData("RecordStructSample", "public record struct RecordStructSample")]
     [InlineData("ReadOnlyRecordStructSample", "public readonly record struct ReadOnlyRecordStructSample")]
     [InlineData("ReadOnlyStructSample", "public readonly struct ReadOnlyStructSample")]
-    [InlineData("GenericRecordSample-1", "public record GenericRecordSample<T>")]
+    [InlineData("GenericRecordSample{1}", "public record GenericRecordSample<T>")]
     public void DotNetEmitterGradualDisclosure_Emit_RecordAndStructKinds_ShowKindKeywords(string typeName, string expectedPrefix)
     {
         // Arrange / Act

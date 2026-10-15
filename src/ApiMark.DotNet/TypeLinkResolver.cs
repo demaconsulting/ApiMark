@@ -494,7 +494,7 @@ internal sealed class TypeLinkResolver
 
         // The segments after the namespace form the nested-type chain; flatten each name as the other run did
         var namespaceSegmentCount = bestNamespace.Split('.').Length;
-        var path = string.Join('/', segments.Skip(namespaceSegmentCount).Select(s => ApiMark.Core.FileNameSanitizer.SanitizeSegment(TypeNameSimplifier.FlattenArity(s))));
+        var path = string.Join('/', segments.Skip(namespaceSegmentCount).Select(s => DotNetNames.PredictableTypeName(s)));
         var folder = DotNetEmitter.GetNamespaceFolderPath(bestNamespace, best.RootNamespaces);
         return BuildExternalLink(best, folder.Length > 0 ? $"{folder}/{path}" : path, currentFolder, displayText);
     }
@@ -731,8 +731,7 @@ internal sealed class TypeLinkResolver
     /// </returns>
     private static string ComputeRelativePath(string currentFolder, string targetKey)
     {
-        var from = currentFolder.Length > 0 ? currentFolder : ".";
-        return Path.GetRelativePath(from, targetKey + ".md").Replace('\\', '/');
+        return ApiMark.Core.LinkPath.Relative(currentFolder, targetKey + ".md");
     }
 
     /// <summary>

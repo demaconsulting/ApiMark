@@ -1283,11 +1283,11 @@ public class DotNetGeneratorTests
     }
 
     /// <summary>
-    ///     Validates that two members whose names differ only in case are combined onto a
-    ///     single page named after the lowercase key.
+    ///     Validates that two members whose names differ only in case get separate pages: the
+    ///     ordinally first keeps its plain name and the other receives the <c>-2</c> collision suffix.
     /// </summary>
     [Fact]
-    public void DotNetGenerator_Generate_CaseCollisionClass_CreatesCombinedPage()
+    public void DotNetGenerator_Generate_CaseCollisionClass_CreatesSeparatePages()
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
@@ -1296,18 +1296,16 @@ public class DotNetGeneratorTests
         // Act
         generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-        // Assert: the combined page is written at the lowercase key path
-        Assert.True(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/CaseCollisionClass/name"),
-            "Expected a combined page at the lowercase key 'name' for the colliding members");
+        // Assert: each member has its own page; the case twin takes the last-resort suffix
+        Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/CaseCollisionClass/Name"));
+        Assert.True(factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/CaseCollisionClass/name-2"));
     }
 
     /// <summary>
-    ///     Validates that the generator does not create a separate page for the upper-case
-    ///     member when a case-insensitive collision exists.
+    ///     Validates that no page is written whose name differs from an existing page only in case.
     /// </summary>
     [Fact]
-    public void DotNetGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPage()
+    public void DotNetGenerator_Generate_CaseCollisionClass_NoPagesDifferOnlyInCase()
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
@@ -1316,19 +1314,16 @@ public class DotNetGeneratorTests
         // Act
         generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-        // Assert: no page should be created using the exact-case name "Name" when a collision
-        // exists — the combined lowercase page replaces all individual pages for the group
-        Assert.False(
-            factory.Writers.ContainsKey("ApiMark.DotNet.Fixtures/CaseCollisionClass/Name"),
-            "Expected no separate page for 'Name' when a case-insensitive collision exists");
+        // Assert: page names are unique when compared case-insensitively
+        var names = factory.Writers.Keys.Where(k => k.StartsWith("ApiMark.DotNet.Fixtures/CaseCollisionClass/", StringComparison.Ordinal)).ToList();
+        Assert.Equal(names.Count, names.Select(n => n.ToLowerInvariant()).Distinct().Count());
     }
 
     /// <summary>
-    ///     Validates that the combined collision page contains H2 headings for both the
-    ///     field <c>name</c> and the property <c>Name</c>.
+    ///     Validates that the field <c>name</c> and the property <c>Name</c> each have their own page.
     /// </summary>
     [Fact]
-    public void DotNetGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers()
+    public void DotNetGenerator_Generate_CaseCollisionClass_EachMemberHasOwnPage()
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
@@ -1337,17 +1332,11 @@ public class DotNetGeneratorTests
         // Act
         generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-        // Assert: combined page exists
-        Assert.True(factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/CaseCollisionClass/name", out var writer));
-
-        // Assert: both members appear as distinct H2 headings on the combined page
-        var level2Headings = writer.Operations
-            .OfType<HeadingOperation>()
-            .Where(h => h.Level == 2)
-            .Select(h => h.Text)
-            .ToList();
-        Assert.Contains(level2Headings, h => h.StartsWith("name", StringComparison.Ordinal));
-        Assert.Contains(level2Headings, h => h.StartsWith("Name", StringComparison.Ordinal));
+        // Assert: both members have a page, with H1 headings naming the member
+        Assert.True(factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/CaseCollisionClass/Name", out var upper));
+        Assert.True(factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/CaseCollisionClass/name-2", out var lower));
+        Assert.Contains(upper.Operations.OfType<HeadingOperation>(), h => h.Level == 1 && h.Text.Contains("Name", StringComparison.Ordinal));
+        Assert.Contains(lower.Operations.OfType<HeadingOperation>(), h => h.Level == 1 && h.Text.Contains("name", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -1544,7 +1533,7 @@ public class DotNetGeneratorTests
         var rows = writer.Operations.OfType<TableOperation>().SelectMany(t => t.Rows).ToList();
         Assert.Contains(
             rows,
-            row => row.Any(cell => cell.Contains("[ILogger](../../../OtherLib/api/Microsoft.Extensions.Logging/ILogger-1.md)", StringComparison.Ordinal)));
+            row => row.Any(cell => cell.Contains("[ILogger](../../../OtherLib/api/Microsoft.Extensions.Logging/ILogger{1}.md)", StringComparison.Ordinal)));
         Assert.DoesNotContain(
             writer.Operations.OfType<HeadingOperation>(),
             h => h.Text == "External Types");
@@ -1612,7 +1601,7 @@ public class DotNetGeneratorTests
         var rows = writer.Operations.OfType<TableOperation>().SelectMany(t => t.Rows).ToList();
         Assert.Contains(
             rows,
-            row => row.Any(cell => cell.Contains("[ILogger](https://docs.example.com/other/api/Microsoft.Extensions.Logging/ILogger-1.md)", StringComparison.Ordinal)));
+            row => row.Any(cell => cell.Contains("[ILogger](https://docs.example.com/other/api/Microsoft.Extensions.Logging/ILogger{1}.md)", StringComparison.Ordinal)));
     }
 
     /// <summary>Validates that the mapping key is matched case-insensitively.</summary>
@@ -1825,9 +1814,9 @@ public class DotNetGeneratorTests
         // Act
         generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-        // Assert: type page must exist (arity flattened: SampleTransform`2 → SampleTransform-2)
+        // Assert: type page must exist (arity flattened: SampleTransform`2 → SampleTransform{2})
         Assert.True(
-            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/SampleTransform-2", out var writer),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/SampleTransform{2}", out var writer),
             "Expected type page for SampleTransform generic delegate");
         var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
         Assert.NotNull(signature);

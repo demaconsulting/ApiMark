@@ -49,7 +49,7 @@ public class DotNetEmitterExternalNestedLinkTests
             .Single(t => t.Contains("Refers to nested", StringComparison.Ordinal)).Replace('\n', ' ');
         Assert.Contains($"]({Root}/NestedHost/Inner.md)", summary, StringComparison.Ordinal);
         Assert.Contains($"]({Root}/NestedHost/Deep/Leaf.md)", summary, StringComparison.Ordinal);
-        Assert.Contains($"]({Root}/NestedGenericHost-1/Inner-1.md)", summary, StringComparison.Ordinal);
+        Assert.Contains($"]({Root}/NestedGenericHost{{1}}/Inner{{1}}.md)", summary, StringComparison.Ordinal);
         Assert.DoesNotContain("`1", summary, StringComparison.Ordinal);
     }
 
@@ -63,6 +63,6 @@ public class DotNetEmitterExternalNestedLinkTests
         // Assert
         var cells = factory.Writers[ConsumerKey].Operations.OfType<TableOperation>().SelectMany(t => t.Rows.SelectMany(r => r)).ToList();
         Assert.Contains(cells, c => c.Contains($"]({Root}/NestedHost/Inner.md)", StringComparison.Ordinal));
-        Assert.Contains(cells, c => c.Contains($"]({Root}/NestedGenericHost-1/Inner-1.md)", StringComparison.Ordinal));
+        Assert.Contains(cells, c => c.Contains($"]({Root}/NestedGenericHost{{1}}/Inner{{1}}.md)", StringComparison.Ordinal));
     }
 }

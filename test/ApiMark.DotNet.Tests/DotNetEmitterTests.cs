@@ -1292,9 +1292,9 @@ public class DotNetEmitterTests
     [Fact]
     public void DotNetEmitter_GetNamespaceFolderPath_NamespaceNamedApi_IsMovedAsideFromApiIndexPage()
     {
-        Assert.Equal("api-", DotNetEmitter.GetNamespaceFolderPath("api", ["api"]));
-        Assert.Equal("Api-", DotNetEmitter.GetNamespaceFolderPath("Api", ["Api"]));
-        Assert.Equal("api-/Inner", DotNetEmitter.GetNamespaceFolderPath("api.Inner", ["api"]));
+        Assert.Equal("api-2", DotNetEmitter.GetNamespaceFolderPath("api", ["api"]));
+        Assert.Equal("Api-2", DotNetEmitter.GetNamespaceFolderPath("Api", ["Api"]));
+        Assert.Equal("api-2/Inner", DotNetEmitter.GetNamespaceFolderPath("api.Inner", ["api"]));
         Assert.Equal("api.Inner", DotNetEmitter.GetNamespaceFolderPath("api.Inner", ["api.Inner"]));
     }
 

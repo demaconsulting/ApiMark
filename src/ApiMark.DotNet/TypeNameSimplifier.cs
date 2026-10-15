@@ -296,22 +296,16 @@ public static class TypeNameSimplifier
     }
 
     /// <summary>
-    ///     Converts the IL backtick arity suffix to a hyphenated numeric suffix, producing a
-    ///     file-system-safe name that still distinguishes generic types by parameter count.
+    ///     Converts the IL backtick arity suffix to the brace notation used in generated file names.
     /// </summary>
     /// <remarks>
-    ///     For example, <c>Foo`2</c> becomes <c>Foo-2</c> and <c>Foo</c> is unchanged.
-    ///     A hyphen cannot appear in a C# identifier, so <c>Foo-1</c> never collides with a real
-    ///     type named <c>Foo1</c>, and the arity keeps <c>Foo</c>, <c>Foo&lt;T&gt;</c> and
-    ///     <c>Foo&lt;T1, T2&gt;</c> distinct. The name needs no URL escaping.
+    ///     For example, <c>Foo`2</c> becomes <c>Foo{2}</c> and <c>Foo</c> is unchanged. Braces cannot
+    ///     appear in a C# identifier, so <c>Foo{1}</c> never collides with a real type named <c>Foo1</c>,
+    ///     and the arity keeps <c>Foo</c>, <c>Foo&lt;T&gt;</c> and <c>Foo&lt;T1, T2&gt;</c> distinct.
     /// </remarks>
     /// <param name="name">The raw IL type name that may contain a backtick arity suffix.</param>
-    /// <returns>The name with the backtick replaced by a hyphen and the arity count preserved.</returns>
-    internal static string FlattenArity(string name)
-    {
-        var tick = name.IndexOf('`');
-        return tick >= 0 ? string.Concat(name.AsSpan(0, tick), "-", name.AsSpan(tick + 1)) : name;
-    }
+    /// <returns>The name with the arity in braces.</returns>
+    internal static string FlattenArity(string name) => DotNetNames.ArityBraces(name);
 
     /// <summary>
     ///     Returns the shortest unambiguous name for <paramref name="typeRef"/> relative to

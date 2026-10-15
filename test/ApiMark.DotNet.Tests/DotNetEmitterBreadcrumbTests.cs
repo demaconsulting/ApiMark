@@ -43,6 +43,7 @@ public class DotNetEmitterBreadcrumbTests
     {
         var folder = key.Contains('/') ? key[..key.LastIndexOf('/')] : string.Empty;
         var path = new Uri(new Uri("http://x/" + (folder.Length > 0 ? folder + "/" : string.Empty)), link).AbsolutePath.TrimStart('/');
+        path = Uri.UnescapeDataString(path);
         return path[..^3];
     }
 
