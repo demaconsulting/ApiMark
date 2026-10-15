@@ -101,6 +101,20 @@ public class CrefTargetResolverTests : IDisposable
         Assert.True(_resolver.DeclaresCrefType(crefId));
     }
 
+    /// <summary>Validates that an indexed explicit-interface member, whose name contains dots, counts as declared by the assembly.</summary>
+    [Fact]
+    public void CrefTargetResolver_DeclaresCrefType_ExplicitInterfaceMember_ReturnsTrue()
+    {
+        // Arrange
+        var implType = _assembly.MainModule.Types.First(t => t.Name == "ExplicitIndexerClass");
+        var member = implType.Properties.First(p => p.Name.Contains('.', StringComparison.Ordinal));
+        var crefId = DotNetEmitter.BuildMemberId(member);
+
+        // Act / Assert
+        Assert.Contains("ExplicitIndexerClass.", crefId, StringComparison.Ordinal);
+        Assert.True(_resolver.DeclaresCrefType(crefId));
+    }
+
     /// <summary>Validates that foreign, unknown and malformed crefs are not declared by the assembly.</summary>
     /// <param name="crefId">The cref identifier.</param>
     [Theory]

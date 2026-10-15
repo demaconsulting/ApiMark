@@ -134,6 +134,13 @@ internal sealed class CrefTargetResolver
             return _types.ContainsKey(crefId);
         }
 
+        // An indexed member (even one filtered out of the output) is ours; this also covers
+        // explicit-interface members, whose dotted names defeat the last-dot split below
+        if (_members.ContainsKey(crefId))
+        {
+            return true;
+        }
+
         var lastDot = name.LastIndexOf('.');
         return lastDot > 0 && _types.ContainsKey("T:" + name.Substring(0, lastDot));
     }
