@@ -89,29 +89,73 @@ internal sealed class CppEmitter : IApiEmitter
     ///     names. Operator names (e.g. <c>operator*</c>, <c>operator&lt;&lt;</c>) are
     ///     <em>never</em> passed to this method — they are partitioned upstream and written to a
     ///     shared <c>operators.md</c> page, so file-name collisions between operators never arise.
-    ///     Note: <see cref="Path.GetInvalidFileNameChars"/> is OS-dependent; on Linux it returns
-    ///     only <c>\0</c> and <c>/</c>, so this method has no effect on most characters on that
-    ///     platform.
+    ///     Note: the mapping is delegated to <see cref="FileNameSanitizer.SanitizeSegment"/> so it is
+    ///     deterministic and identical on every platform, rather than depending on the OS-specific
+    ///     <see cref="Path.GetInvalidFileNameChars"/>.
     /// </remarks>
     /// <param name="name">The C++ declaration name to sanitize. Must not be null.</param>
     /// <returns>
-    ///     A copy of <paramref name="name"/> with every character from
-    ///     <see cref="Path.GetInvalidFileNameChars"/> replaced by <c>_</c>.
+    ///     A file name segment that is legal on Windows and Linux (see <see cref="FileNameSanitizer"/>).
     /// </returns>
     internal static string SanitizeFileName(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
-        var invalidChars = Path.GetInvalidFileNameChars();
-        var chars = name.ToCharArray();
-        for (var i = 0; i < chars.Length; i++)
+        var sanitized = FileNameSanitizer.SanitizeSegment(name);
+
+        // A declaration or member named like the reserved shared operators page is moved aside
+        // (mirroring the DotNet emitter) so it can never overwrite the operators.md of its folder.
+        return string.Equals(sanitized, OperatorsPageName, StringComparison.OrdinalIgnoreCase) ? sanitized + "-" : sanitized;
+    }
+
+    /// <summary>The file name (without extension) of the shared operator-overload page of a folder.</summary>
+    internal const string OperatorsPageName = "operators";
+
+    /// <summary>
+    ///     Determines whether a C++ function name denotes an operator overload (<c>operator+</c>,
+    ///     <c>operator()</c>, <c>operator bool</c>, ...) rather than an ordinary identifier that merely
+    ///     starts with the letters <c>operator</c> (such as <c>operators</c> or <c>operator_count</c>).
+    /// </summary>
+    /// <param name="name">The function name.</param>
+    /// <returns><see langword="true"/> when the name is an operator overload name.</returns>
+    internal static bool IsOperatorName(string name)
+    {
+        const string prefix = "operator";
+        if (!name.StartsWith(prefix, StringComparison.Ordinal))
         {
-            if (Array.IndexOf(invalidChars, chars[i]) >= 0)
-            {
-                chars[i] = '_';
-            }
+            return false;
         }
 
-        return new string(chars);
+        // The keyword is followed by a symbol or a space; an identifier character means a plain name.
+        return name.Length == prefix.Length || !(char.IsLetterOrDigit(name[prefix.Length]) || name[prefix.Length] == '_');
+    }
+
+    /// <summary>The file name (without extension) of the root index page.</summary>
+    internal const string ApiPageName = "api";
+
+    /// <summary>
+    ///     Converts a namespace key into the file name (without extension) of its root-level namespace
+    ///     page; a name equal to the reserved <c>api</c> index page is moved aside.
+    /// </summary>
+    /// <param name="nsKey">The raw namespace key.</param>
+    /// <returns>A legal root-level page file name that never equals the api index page.</returns>
+    internal static string GetNamespacePageName(string nsKey)
+    {
+        var sanitized = SanitizeFileName(nsKey);
+        return string.Equals(sanitized, ApiPageName, StringComparison.OrdinalIgnoreCase) ? sanitized + "-" : sanitized;
+    }
+
+    /// <summary>
+    ///     Sanitizes every <c>/</c>-separated segment of a folder or page-key path so that it is legal
+    ///     on Windows and Linux. Empty segments are dropped.
+    /// </summary>
+    /// <param name="path">The raw path (for example <c>ns/Foo&lt;int&gt;</c>); may be empty.</param>
+    /// <returns>The sanitized path, or an empty string when <paramref name="path"/> has no segments.</returns>
+    internal static string SanitizePath(string path)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        return string.Join(
+            "/",
+            path.Split('/', StringSplitOptions.RemoveEmptyEntries).Select(SanitizeFileName));
     }
 
     /// <summary>
@@ -553,8 +597,8 @@ internal sealed class CppEmitter : IApiEmitter
             throw new ArgumentException("WriteCombinedMemberPage requires at least two members.", nameof(members));
         }
 
-        var combinedCurrentFolder = $"{nsKey}/{cls.Name}";
-        using var writer = factory.CreateMarkdown(combinedCurrentFolder, lowerKey);
+        var combinedCurrentFolder = SanitizePath($"{nsKey}/{cls.Name}");
+        using var writer = factory.CreateMarkdown(combinedCurrentFolder, SanitizeFileName(lowerKey));
 
         // The shared lowercase key serves as the page heading so every member in the group
         // can be found at the same predictable path regardless of filesystem case-sensitivity

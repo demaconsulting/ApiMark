@@ -266,14 +266,129 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_LangExample_TagsEachCodeBlockWithItsLanguage
               - DotNetEmitterGradualDisclosure_Emit_LangExampleInPara_TagsCodeBlocksAndKeepsProseAsParagraphs
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-WriteBreadcrumbs
-            title: DotNetEmitterGradualDisclosure shall write a relative breadcrumb line as the first paragraph under the heading of type, member, overload, operators and combined pages, including nested types.
+            title: DotNetEmitterGradualDisclosure shall write a relative breadcrumb line, starting with an API Reference link to api.md, as the first paragraph under the heading of every type, member, overload, operators and combined page, including nested types and global-namespace types.
             justification: |
-              Breadcrumbs let readers and agents navigate up to the containing type and namespace
-              without a new layout mode. Namespace folders are recovered so that nested namespace
+              Breadcrumbs let readers and agents navigate up to the API root, the containing namespace
+              and type without a new layout mode. Namespace folders are recovered so that nested namespace
               and nested type pages link to the correct ancestors.
             tests:
+              - DotNetEmitterGradualDisclosure_Emit_AllPages_HaveApiReferenceBreadcrumb
+              - DotNetEmitterGradualDisclosure_Emit_GlobalNamespacePages_HaveApiReferenceBreadcrumb
               - DotNetEmitterGradualDisclosure_Emit_Pages_HaveRelativeBreadcrumbs
               - DotNetEmitterGradualDisclosure_Emit_OverloadPage_HasBreadcrumb
               - DotNetEmitterGradualDisclosure_Emit_CombinedPage_HasBreadcrumb
               - DotNetEmitterGradualDisclosure_Emit_NestedType_BreadcrumbsIncludeOuterType
               - DotNetEmitterGradualDisclosure_Emit_MemberPage_FirstParagraphIsBreadcrumb
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-OverviewRowsShowFullParameters
+            title: DotNetEmitterGradualDisclosure shall render overview rows with parameter names,
+              defaults, nullability, tuples, and params, and mark non-public members with their
+              accessibility.
+            justification: |
+              Overloads must be distinguishable from the overview, and protected members must be
+              identifiable without opening the page.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_NullableMatrixAndParams_OverviewRowsMatchSignature
+              - DotNetEmitterGradualDisclosure_Emit_ParamsConstructor_OverviewRowShowsParams
+              - DotNetEmitterGradualDisclosure_Emit_ProtectedMember_OverviewRowHasProtectedMarker
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-PageHeadingsShowNullabilityAndParams
+            title: DotNetEmitterGradualDisclosure shall render member page headings with nullability,
+              tuples, and params.
+            justification: |
+              Headings of overloads must stay distinct and match the signature.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_MethodPageHeading_ShowsNullabilityAndParams
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-PageSignaturesHonorVisibility
+            title: DotNetEmitterGradualDisclosure shall render modifiers and visibility-filtered accessors
+              in member page signatures.
+            justification: |
+              Pages must show the same surface the selected visibility tier documents.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_InheritanceShapes_PagesShowModifiers
+              - DotNetEmitterGradualDisclosure_Emit_AccessorShapes_PageSignatureHonorsVisibility
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-OverloadReturnTypes
+            title: DotNetEmitterGradualDisclosure shall list the distinct return types of an overload group,
+              in overload order, in the overview row.
+            justification: |
+              Overloads with differing return types must not be summarized by one arbitrary type.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_OverloadGroupRow_ListsDistinctReturnTypesInOrder
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EscapedGenericHeadings
+            title: DotNetEmitterGradualDisclosure shall escape angle brackets in headings, breadcrumbs, and
+              link text, and attach each example only to the overload that documents it.
+            justification: |
+              Raw angle brackets are parsed as HTML and hide generic arguments, making sections look
+              misattributed; text-only examples are prose, not code.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_OverloadPage_EscapesGenericHeadings
+              - DotNetEmitterGradualDisclosure_Emit_OverloadPage_ExampleAttachedToDocumentingOverload
+              - DotNetEmitterGradualDisclosure_Emit_TextOnlyExample_RendersAsProse
+              - DotNetEmitterGradualDisclosure_Emit_AllFixtures_NoUnescapedAngleBracketsInHeadingsOrLinkLabels
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-GenericTypePages
+            title: DotNetEmitterGradualDisclosure shall render generic type pages with an escaped heading,
+              a Type Parameters table, and where constraints in signatures.
+            justification: |
+              Readers need the type parameter meanings and constraints on the page that introduces them.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_GenericTypePage_ShowsEscapedHeadingAndTypeParameters
+              - DotNetEmitterGradualDisclosure_Emit_MultiParameterGenericType_ShowsPlaceholderAndConstraints
+              - DotNetEmitterGradualDisclosure_Emit_GenericMethodPage_ShowsConstraintAndTypeParameters
+              - DotNetEmitterGradualDisclosure_Emit_NestedTypeOfGenericHost_HasNoOwnTypeParameters
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-NamespaceNavigation
+            title: DotNetEmitterGradualDisclosure shall render a breadcrumb on namespace pages, and a Start
+              here link and Key Types column on api.md.
+            justification: |
+              Readers need a way back to the index and a pointer to the important types.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_NamespacePages_ShowBreadcrumb
+              - DotNetEmitterGradualDisclosure_Emit_ApiPage_HasStartHereAndKeyTypes
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-OverloadIndexAggregation
+            title: DotNetEmitterGradualDisclosure shall describe an overload group in its index row with
+              the shared summary only when every overload has the same non-empty summary and a neutral text otherwise
+              (including when any overload has no summary),
+              and with every distinct return type, including void, in overload order.
+            justification: |
+              Taking the first overload's summary or return type misdescribes the other overloads.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_OverloadIndex_DifferingSummaries_UsesNeutralText
+              - DotNetEmitterGradualDisclosure_Emit_OverloadIndex_IdenticalSummaries_UsesSharedSummary
+              - DotNetEmitterGradualDisclosure_Emit_OverloadIndex_AllSummariesMissing_UsesNeutralText
+              - DotNetEmitterGradualDisclosure_Emit_OverloadIndex_SomeSummariesMissing_UsesNeutralText
+              - DotNetEmitterGradualDisclosure_Emit_OverloadIndex_ReturnColumn_ListsDistinctTypesIncludingVoid
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-OverloadPageSections
+            title: DotNetEmitterGradualDisclosure shall write one heading per overload, attach the
+              example only to the overload that documents it, and document each generic overload's type
+              parameters in a table under its own heading.
+            justification: |
+              Overload pages are read section by section; each section must be self-contained and correctly attributed.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_OverloadPage_HasExactHeadings
+              - DotNetEmitterGradualDisclosure_Emit_OverloadPage_ExampleOnlyUnderGenericHeading
+              - DotNetEmitterGradualDisclosure_Emit_OverloadPage_GenericOverloadHasTypeParameterTable
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-OverloadCrefAnchors
+            title: DotNetEmitterGradualDisclosure shall link a cref to a specific overload to that
+              overload's heading anchor, using the GitHub heading slug rule, and keep the parameter
+              types in the link text.
+            justification: |
+              A link to the group page alone cannot distinguish overloads; the anchor must match a real heading.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_OverloadCref_LinksToOverloadHeadingAnchor
+              - DotNetEmitterGradualDisclosure_Emit_AllLinkAnchors_MatchRealHeadings
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-InlineCodeReferences
+            title: DotNetEmitterGradualDisclosure shall render parameter, type-parameter, and language
+              keyword references as inline code in every prose location of a member page.
+            justification: |
+              Names such as null or a parameter name read ambiguously as plain prose.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_InlineReferences_RenderAsCodeSpansEverywhere
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-LegalFileNames
+            title: DotNetEmitterGradualDisclosure and DotNetEmitterSingleFile shall produce only
+              file and folder names that are legal on Windows and Linux, case-insensitively unique,
+              and consistent with every relative link.
+            justification: |
+              Explicit interface implementations, reserved device names such as CON, and types that
+              differ only by case otherwise yield output that cannot be written or checked out on
+              some platforms, or whose links resolve to the wrong file.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_AllVisibilities_FileNamesAreLegalAndLinksResolve
+              - DotNetEmitterSingleFile_Emit_AllVisibilities_ProducesSingleLegalFile
+              - DotNetEmitterGradualDisclosure_EmitToDisk_AllVisibility_WritesEveryPageToFileSystem

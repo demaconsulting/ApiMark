@@ -1288,6 +1288,16 @@ public class DotNetEmitterTests
         Assert.Equal(expected, signature);
     }
 
+    /// <summary>Validates that a root namespace named like the reserved api index page is moved aside.</summary>
+    [Fact]
+    public void DotNetEmitter_GetNamespaceFolderPath_NamespaceNamedApi_IsMovedAsideFromApiIndexPage()
+    {
+        Assert.Equal("api-", DotNetEmitter.GetNamespaceFolderPath("api", ["api"]));
+        Assert.Equal("Api-", DotNetEmitter.GetNamespaceFolderPath("Api", ["Api"]));
+        Assert.Equal("api-/Inner", DotNetEmitter.GetNamespaceFolderPath("api.Inner", ["api"]));
+        Assert.Equal("api.Inner", DotNetEmitter.GetNamespaceFolderPath("api.Inner", ["api.Inner"]));
+    }
+
     /// <summary>Validates that the empty (global) namespace maps to the synthetic global-namespace folder for any root set.</summary>
     [Fact]
     public void DotNetEmitter_GetNamespaceFolderPath_GlobalNamespace_ReturnsGlobalNamespaceFolder()
@@ -1319,5 +1329,201 @@ public class DotNetEmitterTests
     {
         var roots = DotNetGenerator.ComputeRootNamespaces(["", "A", "A.B"]);
         Assert.Equal(["", "A"], roots);
+    }
+
+    /// <summary>Finds a member of a fixture type by name across all member kinds.</summary>
+    /// <param name="assembly">The loaded fixture assembly.</param>
+    /// <param name="typeName">The CLR type name.</param>
+    /// <param name="memberName">The member name (the first match wins).</param>
+    /// <returns>The member definition.</returns>
+    private static IMemberDefinition FindFixtureMember(AssemblyDefinition assembly, string typeName, string memberName)
+    {
+        var type = assembly.MainModule.Types.Single(t => t.Name == typeName);
+        return type.Properties.Cast<IMemberDefinition>()
+            .Concat(type.Events)
+            .Concat(type.Fields)
+            .Concat(type.Methods)
+            .First(m => m.Name == memberName);
+    }
+
+    /// <summary>
+    ///     Validates the exact signature text of void returns, optional/out parameters, tuples, generic
+    ///     arguments, and <c>params</c> arrays in nullable-context fixtures (regression for <c>void?</c>,
+    ///     missing <c>params</c>, and tuple rendering).
+    /// </summary>
+    /// <param name="typeName">The fixture type name.</param>
+    /// <param name="memberName">The member name.</param>
+    /// <param name="expected">The exact expected signature.</param>
+    [Theory]
+    [InlineData("NullableSignatureMatrix", "Reconnect", "public void Reconnect(MatrixPort? newSource, MatrixPort? newTarget)")]
+    [InlineData("NullableSignatureMatrix", "Disconnect", "public void Disconnect(MatrixPort? source)")]
+    [InlineData("NullableSignatureMatrix", "NotifyAsync", "public Task NotifyAsync(MatrixPort? port)")]
+    [InlineData("NullableSignatureMatrix", "AddAnnotation", "public void AddAnnotation(string text, MatrixRect bounds, string? id = null)")]
+    [InlineData("NullableSignatureMatrix", "TryRename", "public bool TryRename(MatrixNode node, string name, out string? error)")]
+    [InlineData("NullableSignatureMatrix", "Collect", "public Func<MatrixWire, MatrixStyle?>[] Collect(MatrixWire? wire, object? state, Dictionary<string, object?>? bag)")]
+    [InlineData("NullableSignatureMatrix", "GetPair", "public (int Id, string? Name) GetPair(MatrixPort? port)")]
+    [InlineData("NullableSignatureMatrix", "GetUnnamed", "public (int, string) GetUnnamed()")]
+    [InlineData("NullableSignatureMatrix", "FindPair", "public (int Id, string Name)? FindPair(string? key)")]
+    [InlineData("NullableSignatureMatrix", "Take", "public void Take((int X, int Y) point, (string? A, string? B)? optional)")]
+    [InlineData("NullableSignatureMatrix", "GetBig", "public (int A, int B, int C, int D, int E, int F, int G, string? H) GetBig()")]
+    [InlineData("ParamsClass", ".ctor", "public ParamsClass(string name, params int[] values)")]
+    [InlineData("ParamsClass", "Sum", "public int Sum(params int[] values)")]
+    [InlineData("ParamsClass", "Join", "public string Join(string separator, params string?[] parts)")]
+    [InlineData("ParamsClass", "Log", "public void Log(string format, params object?[] args)")]
+    public void DotNetEmitter_BuildMemberSignature_NullableMatrixAndParams_RendersExactSignature(
+        string typeName,
+        string memberName,
+        string expected)
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var member = FindFixtureMember(assembly, typeName, memberName);
+
+        // Act
+        var signature = DotNetEmitter.BuildMemberSignature(member, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Equal(expected, signature);
+    }
+
+    /// <summary>Validates that a delegate keeps the <c>params</c> keyword on its parameter array.</summary>
+    [Fact]
+    public void DotNetEmitter_BuildDelegateSignature_ParamsDelegate_RendersParamsKeyword()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.Single(t => t.Name == "ParamsHandler");
+
+        // Act
+        var signature = DotNetEmitter.BuildTypeSignature(type, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Equal("public delegate void ParamsHandler(params string[] items)", signature);
+    }
+
+    /// <summary>
+    ///     Validates the exact virtual/override/abstract/sealed modifiers on methods, properties, and events,
+    ///     and that interface members carry none.
+    /// </summary>
+    /// <param name="typeName">The fixture type name.</param>
+    /// <param name="memberName">The member name.</param>
+    /// <param name="expected">The exact expected signature.</param>
+    [Theory]
+    [InlineData("ShapeBase", "Draw", "public abstract void Draw()")]
+    [InlineData("ShapeBase", "Resize", "public virtual void Resize(int width, int height)")]
+    [InlineData("ShapeBase", "OnResized", "protected virtual void OnResized()")]
+    [InlineData("ShapeBase", "Name", "public abstract string Name { get; }")]
+    [InlineData("ShapeBase", "Label", "public virtual string Label { get; set; }")]
+    [InlineData("ShapeBase", "Changed", "public virtual event EventHandler? Changed")]
+    [InlineData("ShapeBase", "Plain", "public void Plain()")]
+    [InlineData("ShapeDerived", "Draw", "public override void Draw()")]
+    [InlineData("ShapeDerived", "Resize", "public sealed override void Resize(int width, int height)")]
+    [InlineData("ShapeDerived", "OnResized", "protected override void OnResized()")]
+    [InlineData("ShapeDerived", "Name", "public override string Name { get; }")]
+    [InlineData("ShapeDerived", "Label", "public override string Label { get; set; }")]
+    [InlineData("ShapeDerived", "Changed", "public override event EventHandler? Changed")]
+    [InlineData("ShapeSealed", "Draw", "public override void Draw()")]
+    [InlineData("ShapeSealed", "ToString", "public override string ToString()")]
+    [InlineData("IShapeContract", "Draw", "public void Draw()")]
+    [InlineData("IShapeContract", "Name", "public string Name { get; }")]
+    [InlineData("ShapeContractImplementation", "Draw", "public void Draw()")]
+    [InlineData("ShapeContractImplementation", "Name", "public string Name { get; }")]
+    public void DotNetEmitter_BuildMemberSignature_InheritanceShapes_RendersModifiers(
+        string typeName,
+        string memberName,
+        string expected)
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var member = FindFixtureMember(assembly, typeName, memberName);
+
+        // Act
+        var signature = DotNetEmitter.BuildMemberSignature(member, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Equal(expected, signature);
+    }
+
+    /// <summary>
+    ///     Validates the <c>new</c> modifier on members hiding base members (not on overloads or
+    ///     overrides) and the <c>static</c> modifier on events.
+    /// </summary>
+    /// <param name="typeName">The fixture type name.</param>
+    /// <param name="memberName">The member name.</param>
+    /// <param name="expected">The exact expected signature.</param>
+    [Theory]
+    [InlineData("ShapeHiding", "Plain", "public new void Plain()")]
+    [InlineData("ShapeHiding", "Label", "public new string Label { get; set; }")]
+    [InlineData("ShapeHiding", "Draw", "public override void Draw()")]
+    [InlineData("StaticEventHolder", "Happened", "public static event EventHandler? Happened")]
+    public void DotNetEmitter_BuildMemberSignature_HidingAndStaticEvent_RendersNewAndStatic(
+        string typeName,
+        string memberName,
+        string expected)
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var member = FindFixtureMember(assembly, typeName, memberName);
+
+        // Act
+        var signature = DotNetEmitter.BuildMemberSignature(member, "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Equal(expected, signature);
+    }
+
+    /// <summary>Validates that a hiding virtual method gets <c>new virtual</c> and an overload gets no <c>new</c>.</summary>
+    [Fact]
+    public void DotNetEmitter_BuildMethodSignature_HidingVirtualAndOverload_RendersNewOnlyOnHider()
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var type = assembly.MainModule.Types.Single(t => t.Name == "ShapeHiding");
+
+        // Act
+        var hider = DotNetEmitter.BuildMethodSignature(type.Methods.Single(m => m.Name == "Resize" && m.Parameters.Count == 2), "ApiMark.DotNet.Fixtures");
+        var overload = DotNetEmitter.BuildMethodSignature(type.Methods.Single(m => m.Name == "Resize" && m.Parameters.Count == 1), "ApiMark.DotNet.Fixtures");
+
+        // Assert
+        Assert.Equal("public new virtual void Resize(int width, int height)", hider);
+        Assert.Equal("public void Resize(int width)", overload);
+    }
+
+    /// <summary>
+    ///     Validates that property accessors that are not visible at the configured tier (private or
+    ///     internal setters, private getters) are hidden, while visible ones keep their modifiers.
+    /// </summary>
+    /// <param name="memberName">The property name.</param>
+    /// <param name="visibility">The visibility tier.</param>
+    /// <param name="expected">The exact expected signature.</param>
+    [Theory]
+    [InlineData("PrivateSet", ApiVisibility.Public, "public int PrivateSet { get; }")]
+    [InlineData("PrivateSet", ApiVisibility.PublicAndProtected, "public int PrivateSet { get; }")]
+    [InlineData("PrivateSet", ApiVisibility.All, "public int PrivateSet { get; private set; }")]
+    [InlineData("InternalSet", ApiVisibility.Public, "public int InternalSet { get; }")]
+    [InlineData("InternalSet", ApiVisibility.PublicAndProtected, "public int InternalSet { get; }")]
+    [InlineData("InternalSet", ApiVisibility.All, "public int InternalSet { get; internal set; }")]
+    [InlineData("ProtectedSet", ApiVisibility.Public, "public int ProtectedSet { get; }")]
+    [InlineData("ProtectedSet", ApiVisibility.PublicAndProtected, "public int ProtectedSet { get; protected set; }")]
+    [InlineData("ProtectedInternalSet", ApiVisibility.Public, "public int ProtectedInternalSet { get; }")]
+    [InlineData("ProtectedInternalSet", ApiVisibility.PublicAndProtected, "public int ProtectedInternalSet { get; protected internal set; }")]
+    [InlineData("InitOnly", ApiVisibility.Public, "public int InitOnly { get; init; }")]
+    [InlineData("PrivateGet", ApiVisibility.Public, "public int PrivateGet { set; }")]
+    [InlineData("PrivateGet", ApiVisibility.All, "public int PrivateGet { private get; set; }")]
+    [InlineData("Plain", ApiVisibility.Public, "public int Plain { get; set; }")]
+    public void DotNetEmitter_BuildMemberSignature_AccessorShapes_HidesNonVisibleAccessors(
+        string memberName,
+        ApiVisibility visibility,
+        string expected)
+    {
+        // Arrange
+        using var assembly = AssemblyDefinition.ReadAssembly(FixturePaths.GetFixtureDll());
+        var member = FindFixtureMember(assembly, "AccessorShapes", memberName);
+
+        // Act
+        var signature = DotNetEmitter.BuildMemberSignature(member, "ApiMark.DotNet.Fixtures", visibility);
+
+        // Assert
+        Assert.Equal(expected, signature);
     }
 }

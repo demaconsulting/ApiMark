@@ -22,6 +22,7 @@ package ApiMarkCore {
         part iMarkdownWriter : IMarkdownWriter;
         part fileMarkdownWriter : FileMarkdownWriter;
         part pathHelpers : PathHelpers;
+        part fileNameSanitizer : FileNameSanitizer;
         part globFileCollector : GlobFileCollector;
         part fileSystemGlobbing : FileSystemGlobbing;
         part iDocumentationCoverageCapable : IDocumentationCoverageCapable;

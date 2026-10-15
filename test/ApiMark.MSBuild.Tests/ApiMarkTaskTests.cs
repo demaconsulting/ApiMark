@@ -245,6 +245,32 @@ public class ApiMarkTaskTests
     }
 
     /// <summary>
+    ///     Validates that an already-evaluated <c>$(PackageVersion)</c> value (a version with a
+    ///     pre-release suffix) inside an external-link value passes through unchanged, so the task
+    ///     never rewrites or truncates the version segment of the mapped path.
+    /// </summary>
+    [Fact]
+    public void ApiMarkTask_DotNet_ExternalLinks_EvaluatedPackageVersionPassesThroughUnchanged()
+    {
+        // Arrange: MSBuild expands $(PackageVersion) before the task runs, so the task receives the final text
+        const string packageVersion = "1.2.3-beta.4+build.5";
+        var task = new ApiMarkTask
+        {
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/path/api.dll",
+            ApiMarkXmlDocPath = "/some/path/api.xml",
+            ApiMarkExternalLinks = $"Lib.One=https://example.com/lib/{packageVersion}/api",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet").ToList();
+
+        // Assert
+        var index = args.IndexOf("--external-link");
+        Assert.Equal($"Lib.One=https://example.com/lib/{packageVersion}/api", args[index + 1]);
+    }
+
+    /// <summary>
     ///     Validates that the MSBuild targets pass <c>ApiMarkExternalLinks</c> through to the task.
     /// </summary>
     [Fact]
@@ -1584,6 +1610,158 @@ public class ApiMarkTaskTests
     {
         /// <inheritdoc/>
         protected override string? ResolveDotNetExe() => null;
+    }
+
+    /// <summary>
+    ///     Validates the <c>{version}</c> token in external links resolves with the precedence
+    ///     explicit <c>ApiMarkLinkVersion</c>, then <c>PackageVersion</c>, then <c>Version</c>.
+    /// </summary>
+    /// <param name="linkVersion">The explicit link version.</param>
+    /// <param name="packageVersion">The evaluated PackageVersion.</param>
+    /// <param name="version">The evaluated Version.</param>
+    /// <param name="expected">The version expected in the generated argument.</param>
+    [Theory]
+    [InlineData(null, "1.2.3", null, "1.2.3")]
+    [InlineData(null, null, "4.5.6", "4.5.6")]
+    [InlineData(null, "1.2.3", "1.2.3", "1.2.3")]
+    [InlineData(null, "1.2.3", "1.0.0", "1.2.3")]
+    [InlineData("9.9.9", "1.2.3", "1.0.0", "9.9.9")]
+    [InlineData(null, "", "4.5.6", "4.5.6")]
+    public void ApiMarkTask_DotNet_ExternalLinks_VersionToken_UsesPackageVersionThenVersion(
+        string? linkVersion,
+        string? packageVersion,
+        string? version,
+        string expected)
+    {
+        // Arrange
+        var task = new ApiMarkTask
+        {
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/path/api.dll",
+            ApiMarkXmlDocPath = "/some/path/api.xml",
+            ApiMarkExternalLinks = "Lib.One=https://example.com/lib/{version}/api",
+            ApiMarkLinkVersion = linkVersion,
+            ApiMarkPackageVersion = packageVersion,
+            ApiMarkProjectVersion = version,
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet").ToList();
+
+        // Assert
+        Assert.Equal($"Lib.One=https://example.com/lib/{expected}/api", args[args.IndexOf("--external-link") + 1]);
+    }
+
+    /// <summary>Validates the <c>{version}</c> token is left unchanged when neither version property is set.</summary>
+    [Fact]
+    public void ApiMarkTask_DotNet_ExternalLinks_VersionToken_NeitherSet_LeavesTokenUnchanged()
+    {
+        // Arrange
+        var task = new ApiMarkTask
+        {
+            ToolDllPath = "dummy.dll",
+            ApiMarkAssemblyPath = "/some/path/api.dll",
+            ApiMarkXmlDocPath = "/some/path/api.xml",
+            ApiMarkExternalLinks = "Lib.One=https://example.com/lib/{version}/api",
+        };
+
+        // Act
+        var args = task.BuildArguments("dotnet").ToList();
+
+        // Assert
+        Assert.Equal("Lib.One=https://example.com/lib/{version}/api", args[args.IndexOf("--external-link") + 1]);
+    }
+
+    /// <summary>Validates a warning is logged when PackageVersion and Version both exist and differ.</summary>
+    [Fact]
+    public void ApiMarkTask_LogVersionMismatchWarning_BothSetAndDifferent_LogsWarning()
+    {
+        // Arrange
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new ApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ApiMarkExternalLinks = "Lib.One=https://example.com/lib/{version}/api",
+            ApiMarkPackageVersion = "1.2.3",
+            ApiMarkProjectVersion = "1.0.0",
+        };
+
+        // Act
+        task.LogVersionMismatchWarning();
+
+        // Assert
+        buildEngine.Received(1).LogWarningEvent(Arg.Is<BuildWarningEventArgs>(
+            a => a.Message!.Contains("PackageVersion", StringComparison.Ordinal)
+                 && a.Message.Contains("1.2.3", StringComparison.Ordinal)
+                 && a.Message.Contains("1.0.0", StringComparison.Ordinal)));
+    }
+
+    /// <summary>Validates no mismatch warning is logged when an explicit ApiMarkLinkVersion override is set.</summary>
+    [Fact]
+    public void ApiMarkTask_LogVersionMismatchWarning_LinkVersionOverride_LogsNothing()
+    {
+        // Arrange
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new ApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ApiMarkExternalLinks = "Lib.One=https://example.com/lib/{version}/api",
+            ApiMarkPackageVersion = "1.2.3",
+            ApiMarkProjectVersion = "1.0.0",
+            ApiMarkLinkVersion = "9.9.9",
+        };
+
+        // Act
+        task.LogVersionMismatchWarning();
+
+        // Assert
+        buildEngine.DidNotReceive().LogWarningEvent(Arg.Any<BuildWarningEventArgs>());
+    }
+
+    /// <summary>Validates no warning is logged when the versions agree, only one is set, or no external links are configured.</summary>
+    /// <param name="packageVersion">The evaluated PackageVersion.</param>
+    /// <param name="version">The evaluated Version.</param>
+    /// <param name="links">The external links.</param>
+    [Theory]
+    [InlineData("1.2.3", "1.2.3", "Lib=https://x/{version}")]
+    [InlineData("1.2.3", null, "Lib=https://x/{version}")]
+    [InlineData(null, "1.2.3", "Lib=https://x/{version}")]
+    [InlineData(null, null, "Lib=https://x/{version}")]
+    [InlineData("1.2.3", "1.0.0", null)]
+    public void ApiMarkTask_LogVersionMismatchWarning_NoMismatch_LogsNothing(string? packageVersion, string? version, string? links)
+    {
+        // Arrange
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new ApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ApiMarkExternalLinks = links,
+            ApiMarkPackageVersion = packageVersion,
+            ApiMarkProjectVersion = version,
+        };
+
+        // Act
+        task.LogVersionMismatchWarning();
+
+        // Assert
+        buildEngine.DidNotReceive().LogWarningEvent(Arg.Any<BuildWarningEventArgs>());
+    }
+
+    /// <summary>Validates the targets file forwards PackageVersion, Version and ApiMarkLinkVersion to the task.</summary>
+    [Fact]
+    public void ApiMarkTargets_PassesVersionPropertiesToTask()
+    {
+        // Arrange
+        var targetsPath = FixturePaths.GetTargetsFilePath();
+        Assert.True(File.Exists(targetsPath), $"Targets file not found at {targetsPath}");
+
+        // Act
+        var text = File.ReadAllText(targetsPath);
+
+        // Assert
+        Assert.Contains("ApiMarkPackageVersion=\"$(PackageVersion)\"", text, StringComparison.Ordinal);
+        Assert.Contains("ApiMarkProjectVersion=\"$(Version)\"", text, StringComparison.Ordinal);
+        Assert.Contains("ApiMarkLinkVersion=\"$(ApiMarkLinkVersion)\"", text, StringComparison.Ordinal);
     }
 
     /// <summary>

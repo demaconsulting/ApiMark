@@ -85,23 +85,23 @@ internal sealed class VhdlEmitter : IApiEmitter
     }
 
     /// <summary>
-    ///     Returns a copy of <paramref name="name"/> with every character that is invalid
-    ///     in a file name replaced by <c>_</c>.
+    ///     Converts <paramref name="name"/> into a file name segment that is legal on Windows and
+    ///     Linux by delegating to <see cref="FileNameSanitizer.SanitizeSegment"/> (which also moves
+    ///     reserved device names such as <c>aux</c> or <c>con</c> aside).
     /// </summary>
     /// <param name="name">The raw declaration name to sanitize.</param>
     /// <returns>A filesystem-safe file name string.</returns>
-    internal static string SanitizeFileName(string name)
-    {
-        var invalidChars = Path.GetInvalidFileNameChars();
-        var chars = name.ToCharArray();
-        for (var i = 0; i < chars.Length; i++)
-        {
-            if (Array.IndexOf(invalidChars, chars[i]) >= 0)
-            {
-                chars[i] = '_';
-            }
-        }
+    internal static string SanitizeFileName(string name) => FileNameSanitizer.SanitizeSegment(name);
 
-        return new string(chars);
+    /// <summary>
+    ///     Converts the name of a root-level entity or package into its page file name; a name equal to
+    ///     the reserved <c>api</c> index page is moved aside so it can never overwrite <c>api.md</c>.
+    /// </summary>
+    /// <param name="name">The raw entity or package name.</param>
+    /// <returns>A legal root-level page file name without extension.</returns>
+    internal static string SanitizePageName(string name)
+    {
+        var sanitized = SanitizeFileName(name);
+        return string.Equals(sanitized, "api", StringComparison.OrdinalIgnoreCase) ? sanitized + "-" : sanitized;
     }
 }

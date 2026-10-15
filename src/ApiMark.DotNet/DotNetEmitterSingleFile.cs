@@ -24,6 +24,7 @@ namespace ApiMark.DotNet;
 ///     single-file emitter never reads it back; reused across all parameters and members to
 ///     avoid allocating a new set per <c>Linkify</c> call.
 /// </param>
+/// <param name="Visibility">Visibility tier used to hide non-visible property accessors in signatures.</param>
 internal sealed record SingleFileMemberContext(
     IMarkdownWriter Writer,
     int Depth,
@@ -31,7 +32,8 @@ internal sealed record SingleFileMemberContext(
     TypeLinkResolver Resolver,
     string NamespaceName,
     string NamespaceFolderPath,
-    SortedSet<ExternalTypeInfo> SharedExternalTypes);
+    SortedSet<ExternalTypeInfo> SharedExternalTypes,
+    ApiVisibility Visibility = ApiVisibility.All);
 
 /// <summary>
 ///     Writes all .NET API documentation into a single <c>api.md</c> file using heading
@@ -219,12 +221,12 @@ internal sealed class DotNetEmitterSingleFile
         TypeLinkResolver resolver,
         SortedSet<ExternalTypeInfo> sharedExternalTypes)
     {
-        writer.WriteHeading(depth + 2, StripArity(type.Name));
+        writer.WriteHeading(depth + 2, EscapeMarkdownHeading(BuildTypeDisplayName(type)));
 
         // Note the parent class for nested types so readers have context
         if (type.IsNested)
         {
-            var parentTypeName = StripArity(type.DeclaringType.Name);
+            var parentTypeName = BuildTypeDisplayName(type.DeclaringType);
             writer.WriteParagraph($"Nested type of `{parentTypeName}`.");
         }
 
@@ -237,7 +239,7 @@ internal sealed class DotNetEmitterSingleFile
         // Fetch remarks first so the placeholder decision below can account for it —
         // only show the placeholder when BOTH summary and remarks are absent, since a
         // remarks-only type already has visible description content immediately below.
-        var typeSummary = _model.XmlDocs.GetSummaryMarkdown(typeMemberId);
+        var typeSummary = _model.XmlDocs.GetEffectiveSummaryMarkdown(typeMemberId);
         var typeRemarks = _model.XmlDocs.GetRemarks(typeMemberId);
         if (!string.IsNullOrEmpty(typeSummary))
         {
@@ -256,6 +258,15 @@ internal sealed class DotNetEmitterSingleFile
         // Emit structured example blocks for this type
         WriteExampleParts(writer, _model.XmlDocs.GetExampleBlocks(typeMemberId));
 
+        // Document each generic type parameter the type declares (name and <typeparam> text)
+        var ownTypeParameters = GetOwnGenericParameters(type);
+        if (ownTypeParameters.Count > 0)
+        {
+            writer.WriteTable(
+                TypeParameterTableHeaders,
+                BuildTypeParameterRows(ownTypeParameters, _model.XmlDocs.GetTypeParameters(typeMemberId)));
+        }
+
         // Delegates carry all their information in the declaration; no member listing is needed
         if (IsDelegate(type))
         {
@@ -273,9 +284,8 @@ internal sealed class DotNetEmitterSingleFile
             // Compact bullet list (no anchor links — names can collide across types in single file)
             var bulletLines = allMembers.Select(member =>
             {
-                var memberId = BuildMemberId(member);
-                var memberSummary = _model.XmlDocs.GetSummary(memberId) ?? DotNetEmitter.NoDescriptionPlaceholder;
-                var memberDisplayName = GetMemberDisplayName(member);
+                var memberSummary = GetMemberSummary(member, _model.XmlDocs, null, multiLine: false) ?? DotNetEmitter.NoDescriptionPlaceholder;
+                var memberDisplayName = EscapeMarkdownHeading(GetMemberRowName(member));
                 return $"- **{memberDisplayName}**: {memberSummary}";
             });
             writer.WriteParagraph(string.Join("\n", bulletLines));
@@ -288,7 +298,8 @@ internal sealed class DotNetEmitterSingleFile
                 resolver,
                 namespaceName,
                 namespaceFolderPath,
-                sharedExternalTypes);
+                sharedExternalTypes,
+                _model.Options.Visibility);
             foreach (var member in allMembers)
             {
                 var memberId = BuildMemberId(member);
@@ -296,8 +307,57 @@ internal sealed class DotNetEmitterSingleFile
             }
         }
 
+        // List inherited members (display-only; no member sections are written for them)
+        WriteSingleFileInheritedMembers(writer, depth, namespaceName, namespaceFolderPath, type, resolver, sharedExternalTypes);
+
         // Recursively emit visible nested types
         WriteSingleFileNestedTypes(writer, depth, namespaceName, namespaceFolderPath, type, resolver, sharedExternalTypes);
+    }
+
+    /// <summary>
+    ///     Emits an "Inherited Members" section for <paramref name="type"/>, with one table per
+    ///     base type, mirroring the gradual-disclosure output. Nothing is emitted when the type
+    ///     inherits no listable members.
+    /// </summary>
+    /// <param name="writer">The shared single-file Markdown writer.</param>
+    /// <param name="depth">Top-level heading depth from <see cref="EmitConfig.HeadingDepth"/>.</param>
+    /// <param name="namespaceName">Fully qualified namespace name for name simplification.</param>
+    /// <param name="namespaceFolderPath">File-system folder path for the namespace.</param>
+    /// <param name="type">The derived type.</param>
+    /// <param name="resolver">No-link type resolver used to render base type names.</param>
+    /// <param name="sharedExternalTypes">Throw-away external-type accumulator.</param>
+    private void WriteSingleFileInheritedMembers(
+        IMarkdownWriter writer,
+        int depth,
+        string namespaceName,
+        string namespaceFolderPath,
+        TypeDefinition type,
+        TypeLinkResolver resolver,
+        SortedSet<ExternalTypeInfo> sharedExternalTypes)
+    {
+        var groups = _emitter.CollectInheritedMembers(type);
+        if (groups.Count == 0)
+        {
+            return;
+        }
+
+        writer.WriteHeading(depth + 3, "Inherited Members");
+        foreach (var group in groups)
+        {
+            var baseName = resolver.Linkify(group.DeclaringType, namespaceFolderPath, namespaceName, sharedExternalTypes);
+            if (group.IsUnresolved)
+            {
+                writer.WriteParagraph(
+                    $"Members inherited from {baseName} are not listed because its assembly could not be resolved. " +
+                    "Supply the assembly with `--reference-paths` to include them.");
+                continue;
+            }
+
+            writer.WriteParagraph($"**Inherited from {baseName}**");
+            writer.WriteTable(
+                new[] { "Member", "Kind" },
+                group.Members.Select(m => new[] { EscapeMarkdownHeading(m.Name), m.Kind }));
+        }
     }
 
     /// <summary>
@@ -313,10 +373,10 @@ internal sealed class DotNetEmitterSingleFile
         string memberId)
     {
         var displayName = GetMemberDisplayName(member);
-        context.Writer.WriteHeading(context.Depth + 3, displayName);
+        context.Writer.WriteHeading(context.Depth + 3, EscapeMarkdownHeading(displayName));
 
         // Emit the C# declaration signature as a fenced code block
-        var signature = BuildMemberSignature(member, context.NamespaceName);
+        var signature = BuildMemberSignature(member, context.NamespaceName, context.Visibility);
         context.Writer.WriteSignature(CSharpLanguageId, signature);
 
         // Fetch remarks first so the placeholder decision below can account for it —
@@ -324,7 +384,7 @@ internal sealed class DotNetEmitterSingleFile
         // remarks-only member already has visible description content immediately below.
         // Uses the multi-line rendering because this is a member-detail-page body, not a
         // table cell — list content renders as a real Markdown list rather than inline markers.
-        var summary = context.XmlDocs.GetSummaryMarkdown(memberId);
+        var summary = GetMemberSummary(member, context.XmlDocs, null, multiLine: true);
         var remarks = context.XmlDocs.GetRemarks(memberId);
         if (!string.IsNullOrEmpty(summary))
         {
@@ -340,6 +400,14 @@ internal sealed class DotNetEmitterSingleFile
             context.Writer.WriteParagraph(remarks);
         }
 
+        // Document the type parameters of a generic method
+        if (member is MethodDefinition { HasGenericParameters: true } genericMethod)
+        {
+            context.Writer.WriteTable(
+                TypeParameterTableHeaders,
+                BuildTypeParameterRows(genericMethod.GenericParameters, context.XmlDocs.GetTypeParameters(memberId)));
+        }
+
         // Emit parameter table for methods with parameters
         if (member is MethodDefinition method && method.HasParameters)
         {
@@ -348,7 +416,7 @@ internal sealed class DotNetEmitterSingleFile
             var paramRows = method.Parameters.Select(p =>
             {
                 var desc = paramDocs.FirstOrDefault(pd => pd.Name == p.Name).Description ?? NoDescriptionPlaceholder;
-                var typeName = GetRefKindKeyword(p) + context.Resolver.Linkify(p.ParameterType, context.NamespaceFolderPath, context.NamespaceName,
+                var typeName = GetRefKindKeyword(p) + GetParamsKeyword(p) + context.Resolver.Linkify(p.ParameterType, context.NamespaceFolderPath, context.NamespaceName,
                     // Shared throw-away accumulator — generateLinks is false so it is never populated or read
                     context.SharedExternalTypes, CreateNullability(p.CustomAttributes, method));
                 return new[] { WithDefault(p.Name, p), typeName, desc };

@@ -42,14 +42,19 @@ sections:
             tests: [CppEmitter_Emit_NullFactory_ThrowsArgumentNullException]
           - id: ApiMarkCpp-CppEmitter-SanitizeFileName
             title: >-
-              CppEmitter shall replace any invalid filesystem character in an output
-              file name with an underscore.
+              CppEmitter shall convert every output file and folder name, and every
+              page-key path, into segments that are legal on both Windows and Linux
+              using FileNameSanitizer.
             justification: |
-              File-name sanitization prevents invalid characters in operator names and
-              other declarations from causing I/O errors during emission.
+              Template names such as Foo<int>, reserved device names such as Aux or CON,
+              and operator names are valid C++ but illegal or unsafe as Windows file names.
+              Delegating to the shared sanitizer keeps names deterministic on every platform.
             tests:
               - CppEmitter_SanitizeFileName_RegularName_IsUnchanged
-              - CppEmitter_SanitizeFileName_InvalidCharacters_AreReplacedWithUnderscore
+              - CppEmitter_SanitizeFileName_InvalidCharacters_AreReplacedWithLegalCharacters
+              - CppEmitter_SanitizeFileName_TemplateQualifiedAndReservedNames_AreLegal
+              - CppEmitter_SanitizeFileName_IsDeterministic
+              - CppEmitter_SanitizePath_NestedAndReservedSegments_AreSanitizedPerSegment
           - id: ApiMarkCpp-CppEmitter-BuildClassDeclaration
             title: >-
               CppEmitter shall render class declaration lines with final and direct

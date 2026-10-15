@@ -201,3 +201,27 @@ sections:
               Examples may mix languages; each block must be highlighted correctly.
             tests:
               - DotNetEmitterSingleFile_Emit_LangExample_TagsCodeBlocksWithLanguage
+          - id: ApiMarkDotNet-DotNetEmitterSingleFile-RenderFullSignatureText
+            title: DotNetEmitterSingleFile shall render bullets, headings, and signatures with parameter
+              names, nullability, params, modifiers, and visibility-filtered accessors.
+            justification: |
+              The single-file output must carry the same signature information as gradual disclosure.
+            tests:
+              - DotNetEmitterSingleFile_Emit_NullableParamsAndAccessorShapes_RendersExactText
+          - id: ApiMarkDotNet-DotNetEmitterSingleFile-GenericTypeText
+            title: DotNetEmitterSingleFile shall escape angle brackets in headings and render type
+              parameter tables and constraints for generic types and methods.
+            justification: |
+              Single-file output must match gradual disclosure for generic declarations.
+            tests:
+              - DotNetEmitterSingleFile_Emit_GenericType_EscapesHeadingsAndListsTypeParameters
+          - id: ApiMarkDotNet-DotNetEmitterSingleFile-OverloadSections
+            title: DotNetEmitterSingleFile shall attach an example only to the overload that documents it,
+              document each generic overload's type parameters in a table, and render parameter,
+              type-parameter, and language keyword references as inline code.
+            justification: |
+              Single-file output must match gradual disclosure for overloads and inline references.
+            tests:
+              - DotNetEmitterSingleFile_Emit_Overloads_ExampleOnlyUnderGenericSection
+              - DotNetEmitterSingleFile_Emit_GenericOverload_HasTypeParameterTable
+              - DotNetEmitterSingleFile_Emit_InlineReferences_RenderAsCodeSpansEverywhere

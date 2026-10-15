@@ -13,6 +13,7 @@ sections:
               Separate files per declaration enable gradual disclosure navigation.
             children:
               - ApiMarkVhdl-VhdlEmitterGradualDisclosure-EmitSubprogramDetailPage
+              - ApiMarkVhdl-VhdlEmitterGradualDisclosure-ReservedApiPageName
             tests:
               - VhdlEmitterGradualDisclosure_Emit_MinimalData_CreatesApiIndexPage
               - VhdlEmitterGradualDisclosure_Emit_MinimalData_CreatesEntityPage
@@ -31,3 +32,11 @@ sections:
               - VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_SubprogramDetailFileHasSignatureHeading
               - VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_EmitsSubprogramsSection
               - VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_PackagePageLinkUsesSubfolderPath
+          - id: ApiMarkVhdl-VhdlEmitterGradualDisclosure-ReservedApiPageName
+            title: VhdlEmitterGradualDisclosure shall move an entity or package page whose name equals
+              the reserved api index page aside so it never overwrites api.md, and link to the moved page.
+            justification: |
+              Api is a legal VHDL identifier; without an escape the entity or package page and the index
+              page would be written to the same file and one would silently replace the other.
+            tests:
+              - VhdlEmitterGradualDisclosure_Emit_EntityAndPackageNamedApi_DoNotOverwriteApiIndexPage

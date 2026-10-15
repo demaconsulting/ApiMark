@@ -26,6 +26,8 @@ sections:
               - ApiMarkCpp-CppEmitterGradualDisclosure-EmitClassScopedTypeAliasPage
               - ApiMarkCpp-CppEmitterGradualDisclosure-EmitClassOperatorsPage
               - ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceOperatorsPage
+              - ApiMarkCpp-CppEmitterGradualDisclosure-LegalFileNames
+              - ApiMarkCpp-CppEmitterGradualDisclosure-ReservedPageNames
             tests: [CppEmitterGradualDisclosure_Emit_MinimalData_CreatesApiIndexPage]
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitApiIndexPage
             title: >-
@@ -128,3 +130,32 @@ sections:
               operators.
             tests:
               - CppEmitterGradualDisclosure_Emit_NamespaceOperators_CreatesOperatorsPage
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-LegalFileNames
+            title: >-
+              CppEmitterGradualDisclosure shall write every page, folder, and relative
+              link using names that are legal on both Windows and Linux, and every
+              emitted link shall resolve to a page that was written.
+            justification: |
+              C++ names such as Foo<int>, Aux, CON, a:b, or a namespace named aux are
+              valid in source but cannot be created on Windows. Sanitizing every path
+              segment and the matching links keeps output portable and navigable.
+            tests:
+              - CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_AllWrittenSegmentsAreLegal
+              - CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_PagesUseSanitizedPaths
+              - CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_AllLinksResolveToWrittenPages
+              - CppEmitterGradualDisclosure_Emit_GenericAndOddNames_MemberPageLinksUseSingleSanitization
+              - CppEmitterGradualDisclosure_Emit_ReservedAndGenericNames_AllLinksResolveToWrittenPages
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-ReservedPageNames
+            title: >-
+              CppEmitterGradualDisclosure shall move a declaration, member, or namespace page whose
+              name equals a reserved generated page (operators in a class or namespace folder, api at
+              the root) aside, apply the same name to every link, and treat only real operator
+              overloads as operators.
+            justification: |
+              A member named operators, or a namespace named api, is legal C++; without an escape its
+              page would overwrite the shared operators page or the api index. A plain identifier such
+              as operators must also not be mistaken for an operator overload.
+            tests:
+              - CppEmitterGradualDisclosure_Emit_MemberNamedOperators_DoesNotOverwriteOperatorsPage
+              - CppEmitterGradualDisclosure_Emit_DeclarationsNamedLikeReservedPages_AreMovedAside
+              - CppEmitter_IsOperatorName_DistinguishesOperatorsFromIdentifiers

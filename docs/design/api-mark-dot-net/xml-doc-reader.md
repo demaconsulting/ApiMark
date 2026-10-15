@@ -371,10 +371,10 @@ according to the following element-to-text mappings:
   (`List<T>`) rather than the backslash-escaped prose form (`List\<T\>`), since a
   code span's content is literal and the escaping backslash would otherwise show up
   as a stray visible character — see "Generic cref escaping inside a code span" below.
-- `<see langword="..."/>` → the `langword` attribute value directly (e.g., `null`,
-  `true`, `false`).
+- `<see langword="..."/>` → the `langword` attribute value as an inline code span
+  (e.g., `` `null` ``, `` `true` ``, `` `false` ``).
 - `<paramref name="..."/>` and `<typeparamref name="..."/>` → the `name` attribute
-  value directly.
+  value as an inline code span (e.g., `` `value` ``, `` `T` ``).
 - Consecutive non-`<code>` child nodes in `<example>` → accumulated into a single
   prose text part; `<code>` child nodes → separate code parts (dedented via
   `DedentCode`).
@@ -453,6 +453,16 @@ tuple.
   blame` and the absence of any test asserting the omitted-type-name behavior
   by name), so it was corrected to match the already-correct `M:` behavior for
   all four member kinds.
+- *Overload signature in the label*: A method cref that carries a parameter list
+  keeps the C# parameter types in the label, so overloads are distinguishable
+  (`Bar.Go(string, Action)`, `Bar.Go<T>(string, Func<T>)`, `Bar.Go(int[])`).
+  Helpers `GetMethodArity`, `GetTypeArity`, `FormatGenericArguments`,
+  `FormatCrefParameters`, `SplitTopLevel`, and `FormatCrefParameterType` convert
+  the documentation-ID parameter list (aliases, arrays, pointers, generic
+  arguments, and method type-parameter indices such as ``` ``0 ```). The real
+  type-parameter names are not in the cref, so a single type parameter is shown
+  as `T` and several as `T1`..`Tn`. This is a documented limitation. A cref
+  without a parameter list renders without parentheses.
 - *Scope note*: This fix intentionally stops at rendering the declaring type
   name as plain text. It does NOT attempt to turn the reference into a link to
   the member's own page — `XmlDocReader` has no access to `TypeLinkResolver` or
@@ -473,8 +483,6 @@ real-world consumer reports where `Type.Member` text, and then a bare type
 name, rendered indistinguishably from plain prose.
 The following are deliberately left unwrapped:
 
-- A `langword` attribute value (e.g. `null`, `true`, `false`) — not a
-  reference to a declared symbol at all.
 - Explicit inner element text (the element supplies its own display text,
   which this method always prefers verbatim over any `cref`-formatted text).
   The explicit label is still passed to `TryLinkifyCref` alongside the
@@ -628,6 +636,12 @@ link's label; otherwise returns the code-span text unchanged.
     inside rather than the reverse: Markdown code-span content is rendered
     literally, so a link placed inside a code span would show as inert
     `[...](...)` text rather than a clickable link.
+
+`HasInheritDoc(memberId)` reports whether the member's own entry has an `<inheritdoc>` child.
+`GetEffectiveSummary` and `GetEffectiveSummaryMarkdown` return "Inherits documentation from base member."
+when the summary is empty and `HasInheritDoc` is true; `GetSummary` itself is unchanged. An external-assembly
+`cref` that is not resolved locally falls back to `TypeLinkResolver.TryLinkifyExternalCref` before the
+plain code span.
 
 ### Error Handling
 

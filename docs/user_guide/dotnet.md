@@ -84,6 +84,21 @@ Operator overloads are grouped together on a dedicated `operators.md` page withi
 type folder. `const` fields and enum members render their compile-time value in the
 signature (e.g. `public const string DefaultName = "default"`, `Active = 0`).
 
+A type that derives from other types also gets an **Inherited Members** section (gradual disclosure and
+single file). It lists, per declaring type, the properties, methods, fields, and events the type inherits
+and that are visible at the active visibility tier, excluding constructors, operators, `Object` members,
+and members the type overrides or hides. Inherited members get no pages of their own and are not counted
+by `--enforce-docs`. The visibility tier applies to inherited members too: `Public` lists public members,
+`PublicAndProtected` also lists protected and protected internal members (for example a protected field of an
+external base class), and `All` lists every non-private member. A base type that has a page is linked in the
+"Inherited from" heading, including nested base types; an unmapped external base appears as plain text. If a
+base type's assembly cannot be resolved, a note says so; supply the assembly with
+`--reference-paths` to list its members.
+
+The primary constructor of a positional `record` or `record struct` is described as "Initializes a new
+instance of the `Type` record." instead of repeating the type summary the compiler copies onto it;
+explicitly documented constructors keep their own text.
+
 ### Signature Details
 
 Signatures follow C# source syntax: parameter default values (`int count = 5`), per-type
@@ -92,10 +107,64 @@ nullability (`Func<Wire, WireStyle?>?`, `Point?`), `record`, `record struct`, `r
 parameters with `where` constraints (`Map<T>(...) where T : class, new()`). Display names used for
 file names and overload grouping include type parameters but never default values.
 
+Additional details rendered in signatures:
+
+- `params` arrays and collections (`Sum(params int[] values)`); `void` is never marked nullable.
+- Tuples use tuple syntax with element names and per-element nullability
+  (`(int Id, string? Name)?`).
+- `virtual`, `override`, `sealed override` and `abstract` modifiers on methods, properties and
+  events; interface members and interface implementations carry no modifier.
+- Property accessors that are not visible at the selected `--visibility` tier are omitted
+  (a `private set` or `internal set` does not appear at the default tiers).
+- Types from referenced assemblies always appear by their short name (`ExternalBaseClass`, never
+  `External.ExternalBaseClass`).
+- The `new` modifier is recovered for fields, constants, properties, events, and methods that hide an
+  accessible base member, and `where` clauses show `notnull`, `unmanaged`, `struct`, `class`, `class?`,
+  `new()`, and nullable type constraints. Compiled metadata does not record some source constructs, so
+  these limits remain: `new` on a member that hides nothing cannot be reproduced; `new` is omitted when the
+  base type's assembly is not resolved (use `--reference-paths`) and when the hidden member is `internal` in
+  another assembly; `notnull` is not recoverable from code compiled without nullable annotations; and
+  `allows ref struct` constraints are not shown. When in doubt the tool omits a modifier rather than
+  inventing one.
+- Overview rows list parameter names, defaults, nullability and `params`, and prefix non-public
+  members with their accessibility (for example `protected OnResized()`) so overloads are
+  distinguishable; page headings use the type-only form.
+
+### Generic types and navigation
+
+Generic types use escaped headings (`PropertyEditorRegistry\<TEditor\>`), a Type Parameters
+table taken from `<typeparam>`, and `where` constraints in signatures. Their file names use a hyphenated arity suffix, `Name-{arity}` (for example `PropertyEditorRegistry-1.md` for
+`PropertyEditorRegistry<TEditor>` and `KeyedPair-2.md` for `KeyedPair<TKey, TValue>`). A hyphen cannot
+appear in a C# identifier, so `Foo-1.md` (for `Foo<T>`) never collides with `Foo1.md` (for a type named
+`Foo1`), and `Foo.md`, `Foo-1.md` and `Foo-2.md` stay distinct. Earlier releases wrote `Name1.md`; links
+that point at the old names must be updated. Overload rows
+list every distinct return type (including `void`); the row shows the summary only when every overload has the same summary; when they differ, or any overload has
+none, it shows `Overloaded; see the member page.` instead of one overload's summary. Cross-reference links to an overload
+include the signature in the link text (`UndoHistory.Transact(string, Action)`) and end with an anchor to
+that overload's heading on the shared page. `<paramref>`, `<typeparamref>`, and `<see langword>` render as
+code spans. In cref link text a single type parameter is shown as `T` and several as `T1`..`Tn`, because the
+real names are not in the cref. A text-only `<example>` is shown as prose. Namespace pages start with
+a breadcrumb back to `api.md`, and `api.md` has a Start here link and a Key Types column.
+
+### Legal File Names
+
+Every generated file and folder name is legal on Windows and Linux. `<` and `>` (explicit interface
+implementations such as `IGenericSource<int>.GetItem`) are written as `{` and `}`. A literal `{` or `}`
+in a name is treated like the other illegal characters so it cannot collide with them. Other illegal
+characters (`: " | ? * \ /`, control characters, spaces, brackets) become `-` and a short hash of the
+original name is appended so distinct names stay distinct. Names that Windows reserves (`CON`, `NUL`,
+`PRN`, `AUX`, `COM1`, `LPT1`, and so on) get a `-` suffix (`CON-.md`), as does a member named
+`operators` (`operators-.md`), which would otherwise collide with the operators page. Types that differ
+only by case, such as `Inner` and `inner`, keep the first name in ordinal order and the others get a
+hash suffix, so no two files collide on a case-insensitive file system. Earlier releases wrote the
+explicit-implementation names verbatim; links to those old names must be updated. Limitation: namespaces
+that differ only by case, and case-twin types from external assemblies, are not disambiguated.
+
 ### Breadcrumbs
 
-In gradual-disclosure output, type and member pages begin with a breadcrumb line directly under the
-heading, such as `[Namespace](../Namespace.md) › [Type](../Type.md)`, to navigate back up the tree.
+In gradual-disclosure output, every page except `api.md` begins with a breadcrumb line directly under the
+heading, such as `[API Reference](../../api.md) › [Namespace](../../Namespace.md) › [Type](../Type.md)`, to
+navigate back up the tree.
 Single-file output has no breadcrumbs.
 
 ### Nested Types
@@ -139,7 +208,9 @@ documentation for the referenced assembly, or the referenced assembly itself
 cannot be resolved for type-hierarchy purposes (for example, because it is
 missing from all configured reference paths), the affected `<inheritdoc/>`
 elements are left unresolved (no inherited content), exactly as before this
-capability existed.
+capability existed. When the inherited documentation cannot be found, the member is still counted as
+documented by `--enforce-docs` and its description renders as "Inherits documentation from base member.". Pass
+`--reference-paths` with the base assembly (and keep its XML documentation file beside it) to render the real text.
 
 **Known limitation**: a bare `<inheritdoc/>` that follows a *second* bare
 `<inheritdoc/>` hop after resolving into an externally referenced assembly is
@@ -196,6 +267,12 @@ URL) and are removed from the *External Types* table. The mapped assembly's DLL 
 `--reference-paths` so its namespace layout is known; otherwise the mapping is ignored. Links are
 not verified to exist, and single-file output never emits them. In MSBuild, use
 `ApiMarkExternalLinks` with semicolon-separated `Assembly=path` pairs.
+
+A `<see cref="..."/>` to a type (or a member of a type) in a mapped assembly also becomes a link, to that
+type's page in the mapped documentation, when the cref's namespace belongs to the mapped assembly. A cref
+to an unmapped assembly (including the framework) stays a plain code span. Member crefs link to the type
+page, and nested types (including generic nested types) link to their nested page, such as
+`Outer/Inner.md` or `Outer-1/Inner-1.md`.
 
 ### Cross-Reference Linking
 

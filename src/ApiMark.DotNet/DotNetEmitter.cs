@@ -128,17 +128,31 @@ internal sealed class DotNetEmitter : IApiEmitter
 
         if (root == null)
         {
-            return namespaceName; // fallback: no known root, use full name
+            return SanitizeRootSegment(namespaceName); // fallback: no known root, use full name
         }
 
         if (string.Equals(namespaceName, root, StringComparison.Ordinal))
         {
-            return root; // root namespace: full dotted name is the single path segment
+            return SanitizeRootSegment(root); // root namespace: full dotted name is the single path segment
         }
 
-        // Child namespace: keep root intact, replace subsequent dots with slashes
+        // Child namespace: keep root intact, replace subsequent dots with slashes; every segment is
+        // sanitized so reserved device names and illegal characters never reach the file system.
         var suffix = namespaceName.Substring(root.Length); // e.g. ".Inner" or ".Inner.Sub"
-        return root + suffix.Replace('.', '/');
+        return SanitizeRootSegment(root) + "/" +
+            string.Join('/', suffix.Substring(1).Split('.').Select(FileNameSanitizer.SanitizeSegment));
+    }
+
+    /// <summary>
+    ///     Sanitizes a root-namespace path segment; a name equal to the reserved <c>api</c> index page is
+    ///     moved aside so a root namespace page can never overwrite <c>api.md</c>.
+    /// </summary>
+    /// <param name="name">The raw root namespace name.</param>
+    /// <returns>The legal segment.</returns>
+    private static string SanitizeRootSegment(string name)
+    {
+        var sanitized = FileNameSanitizer.SanitizeSegment(name);
+        return string.Equals(sanitized, "api", StringComparison.OrdinalIgnoreCase) ? sanitized + "-" : sanitized;
     }
 
     /// <summary>
@@ -243,6 +257,22 @@ internal sealed class DotNetEmitter : IApiEmitter
             ApiVisibility.All => true,
             _ => type.IsPublic,
         };
+    }
+
+    /// <summary>
+    ///     Returns <c>true</c> when <paramref name="type"/> has its own documentation page: a visible
+    ///     top-level type, or a nested type that is visible and whose whole declaring chain is documented.
+    /// </summary>
+    /// <param name="type">The type to test.</param>
+    /// <returns><c>true</c> when the type is emitted as a page.</returns>
+    internal bool IsTypeDocumented(TypeDefinition type)
+    {
+        if (!type.IsNested)
+        {
+            return IsTypeVisible(type);
+        }
+
+        return GetVisibleNestedTypes(type.DeclaringType).Contains(type) && IsTypeDocumented(type.DeclaringType);
     }
 
     /// <summary>
@@ -417,6 +447,211 @@ internal sealed class DotNetEmitter : IApiEmitter
     internal bool ShouldIncludeMember(IMemberDefinition member) =>
         IsMemberVisible(member) && (Model.Options.IncludeObsolete || !IsObsolete(member));
 
+    /// <summary>A member name and kind listed in an "Inherited Members" table.</summary>
+    /// <param name="Name">The member name (overloads collapse to one entry).</param>
+    /// <param name="Kind">The member kind label (<c>Property</c>, <c>Method</c>, <c>Field</c> or <c>Event</c>).</param>
+    internal sealed record InheritedMember(string Name, string Kind);
+
+    /// <summary>The members one base type or base interface contributes to a derived type.</summary>
+    /// <param name="DeclaringType">The base type reference exactly as the derived type names it.</param>
+    /// <param name="Members">The inherited members, ordered by kind then name; empty when unresolved.</param>
+    /// <param name="IsUnresolved">
+    ///     <see langword="true"/> when the base type's assembly could not be resolved, so its members are unknown.
+    /// </param>
+    internal sealed record InheritedMemberGroup(TypeReference DeclaringType, IReadOnlyList<InheritedMember> Members, bool IsUnresolved);
+
+    /// <summary>
+    ///     Collects the members <paramref name="type"/> inherits from its base classes (or, for an
+    ///     interface, its base interfaces), grouped by declaring type nearest-first.
+    /// </summary>
+    /// <remarks>
+    ///     Inherited members are display-only: they get no page of their own and are deliberately
+    ///     never added to the member-page index, the cref link indices or documentation coverage.
+    ///     Excluded are constructors, operators, members hidden or overridden by a more-derived type
+    ///     (matched by name plus parameter types, or by name alone for properties, fields and events),
+    ///     compiler-generated members, members not visible at the configured tier and obsolete members
+    ///     when obsolete members are not included. <c>System.Object</c> and the implicit
+    ///     <c>ValueType</c>/<c>Enum</c>/<c>MulticastDelegate</c> roots are never listed. A base type
+    ///     whose assembly cannot be resolved ends the walk and is reported as unresolved.
+    /// </remarks>
+    /// <param name="type">The derived type.</param>
+    /// <returns>The non-empty inherited-member groups, plus any unresolved base.</returns>
+    internal IReadOnlyList<InheritedMemberGroup> CollectInheritedMembers(TypeDefinition type)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        AddMemberSignatures(type, seen);
+        var groups = new List<InheritedMemberGroup>();
+
+        if (type.IsInterface)
+        {
+            var visited = new HashSet<string>(StringComparer.Ordinal);
+            CollectInterfaceMembers(type, seen, visited, groups);
+            return groups;
+        }
+
+        var baseRef = type.BaseType;
+        while (baseRef != null && !IsImplicitRootType(baseRef))
+        {
+            var baseDef = TryResolve(baseRef);
+            if (baseDef == null)
+            {
+                groups.Add(new InheritedMemberGroup(baseRef, Array.Empty<InheritedMember>(), IsUnresolved: true));
+                break;
+            }
+
+            AddInheritedGroup(baseRef, baseDef, seen, groups);
+            baseRef = baseDef.BaseType;
+        }
+
+        return groups;
+    }
+
+    /// <summary>Recursively collects the members of every interface <paramref name="type"/> extends.</summary>
+    /// <param name="type">The interface (or derived interface) whose base interfaces to walk.</param>
+    /// <param name="seen">Signatures already declared by more-derived types.</param>
+    /// <param name="visited">Full names of interfaces already processed.</param>
+    /// <param name="groups">The accumulator receiving one group per base interface.</param>
+    private void CollectInterfaceMembers(TypeDefinition type, HashSet<string> seen, HashSet<string> visited, List<InheritedMemberGroup> groups)
+    {
+        foreach (var implemented in type.Interfaces.Select(i => i.InterfaceType))
+        {
+            if (!visited.Add(implemented.FullName))
+            {
+                continue;
+            }
+
+            var baseDef = TryResolve(implemented);
+            if (baseDef == null)
+            {
+                groups.Add(new InheritedMemberGroup(implemented, Array.Empty<InheritedMember>(), IsUnresolved: true));
+                continue;
+            }
+
+            AddInheritedGroup(implemented, baseDef, seen, groups);
+            CollectInterfaceMembers(baseDef, seen, visited, groups);
+        }
+    }
+
+    /// <summary>Adds the visible, not-hidden members of <paramref name="baseDef"/> as one group, then records all its signatures.</summary>
+    /// <param name="baseRef">The base type reference as named by the derived type.</param>
+    /// <param name="baseDef">The resolved base type definition.</param>
+    /// <param name="seen">Signatures already declared by more-derived types; updated in place.</param>
+    /// <param name="groups">The accumulator receiving the group when it has members.</param>
+    private void AddInheritedGroup(TypeReference baseRef, TypeDefinition baseDef, HashSet<string> seen, List<InheritedMemberGroup> groups)
+    {
+        var members = GetCandidateMembers(baseDef)
+            .Where(m => !(m is MethodDefinition method && (method.IsConstructor || IsOperator(method) || method.Name == "Finalize")))
+            .Where(m => !IsRecordSynthesizedMember(baseDef, m))
+            .Where(IsInheritableAtTier)
+            .Where(m => Model.Options.IncludeObsolete || !IsObsolete(m))
+            .Where(m => !seen.Contains(GetMemberSignatureKey(m)))
+            .Select(m => new InheritedMember(m.Name, GetMemberKindName(m)))
+            .Distinct()
+            .OrderBy(m => KindRank(m.Kind))
+            .ThenBy(m => m.Name, StringComparer.Ordinal)
+            .ToList();
+
+        AddMemberSignatures(baseDef, seen);
+        if (members.Count > 0)
+        {
+            groups.Add(new InheritedMemberGroup(baseRef, members, IsUnresolved: false));
+        }
+    }
+
+    /// <summary>
+    ///     Returns <see langword="true"/> when a base member is inherited and visible at the configured tier.
+    ///     At <see cref="ApiVisibility.All"/> every non-private member qualifies (private members are never inherited).
+    /// </summary>
+    /// <param name="member">The base-type member.</param>
+    /// <returns><see langword="true"/> when the member should be listed.</returns>
+    private bool IsInheritableAtTier(IMemberDefinition member) => Model.Options.Visibility switch
+    {
+        ApiVisibility.Public => IsMemberPublic(member),
+        ApiVisibility.PublicAndProtected => IsMemberPublicOrProtected(member),
+        _ => !IsMemberPrivate(member),
+    };
+
+    /// <summary>Returns <see langword="true"/> when every accessor of <paramref name="member"/> is private.</summary>
+    /// <param name="member">The member to test.</param>
+    /// <returns><see langword="true"/> for private members.</returns>
+    private static bool IsMemberPrivate(IMemberDefinition member) => member switch
+    {
+        MethodDefinition m => m.IsPrivate,
+        PropertyDefinition p => (p.GetMethod?.IsPrivate ?? true) && (p.SetMethod?.IsPrivate ?? true),
+        FieldDefinition f => f.IsPrivate,
+        EventDefinition e => e.AddMethod?.IsPrivate ?? true,
+        _ => true,
+    };
+
+    /// <summary>Returns <see langword="true"/> for the implicit roots that are never listed as a base.</summary>
+    /// <param name="type">The base type reference.</param>
+    /// <returns><see langword="true"/> for Object, ValueType, Enum and MulticastDelegate.</returns>
+    private static bool IsImplicitRootType(TypeReference type) =>
+        type.FullName is "System.Object" or "System.ValueType" or "System.Enum" or "System.MulticastDelegate";
+
+    /// <summary>Returns <see langword="true"/> for members the C# compiler synthesizes on a record.</summary>
+    /// <param name="declaringType">The type that declares the member.</param>
+    /// <param name="member">The member to test.</param>
+    /// <returns><see langword="true"/> for record-synthesized equality, printing and deconstruction members.</returns>
+    private static bool IsRecordSynthesizedMember(TypeDefinition declaringType, IMemberDefinition member) =>
+        IsRecordType(declaringType) &&
+        member.Name is "PrintMembers" or "EqualityContract" or "Equals" or "GetHashCode" or "ToString" or "Deconstruct" or "<Clone>$";
+
+    /// <summary>Records the signature key of every member declared on <paramref name="type"/>, whatever its visibility.</summary>
+    /// <param name="type">The type whose members to record.</param>
+    /// <param name="seen">The set to add to.</param>
+    private static void AddMemberSignatures(TypeDefinition type, HashSet<string> seen)
+    {
+        foreach (var method in type.Methods)
+        {
+            seen.Add(GetMemberSignatureKey(method));
+        }
+
+        foreach (var property in type.Properties)
+        {
+            seen.Add(GetMemberSignatureKey(property));
+        }
+
+        foreach (var field in type.Fields)
+        {
+            seen.Add(GetMemberSignatureKey(field));
+        }
+
+        foreach (var evt in type.Events)
+        {
+            seen.Add(GetMemberSignatureKey(evt));
+        }
+    }
+
+    /// <summary>Builds the key used to decide whether a member is overridden or hidden by a more-derived type.</summary>
+    /// <param name="member">The member.</param>
+    /// <returns>Name plus parameter types for methods; the bare name for properties, fields and events.</returns>
+    private static string GetMemberSignatureKey(IMemberDefinition member) => member is MethodDefinition method
+        ? $"M:{method.Name}({string.Join(",", method.Parameters.Select(p => p.ParameterType.FullName))})"
+        : $"N:{member.Name}";
+
+    /// <summary>Returns the kind label of <paramref name="member"/> for an inherited-members table.</summary>
+    /// <param name="member">The member.</param>
+    /// <returns><c>Property</c>, <c>Field</c>, <c>Event</c> or <c>Method</c>.</returns>
+    private static string GetMemberKindName(IMemberDefinition member) => member switch
+    {
+        PropertyDefinition => "Property",
+        FieldDefinition => "Field",
+        EventDefinition => "Event",
+        _ => "Method",
+    };
+
+    /// <summary>Orders member kinds the way the type page orders its own tables (properties, methods, fields, events).</summary>
+    /// <param name="kind">The kind label.</param>
+    /// <returns>The sort rank.</returns>
+    private static int KindRank(string kind) => kind switch
+    {
+        "Property" => 0,
+        "Method" => 1,
+        "Field" => 2,
+        _ => 3,
+    };
+
     // =========================================================================
     // Member kind / name helpers
     // =========================================================================
@@ -497,15 +732,136 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns>A string suitable for use as a file name (without extension).</returns>
     internal static string GetSanitizedMemberFileName(IMemberDefinition member, TypeDefinition declaringType)
     {
-        return member switch
+        // Methods are already sanitized by BuildMethodFileName; sanitizing twice would hash the result.
+        if (member is MethodDefinition method)
         {
-            MethodDefinition m => BuildMethodFileName(m, declaringType),
+            return BuildMethodFileName(method, declaringType);
+        }
+
+        var raw = member switch
+        {
             PropertyDefinition p => p.Name,
             FieldDefinition f => f.Name,
             EventDefinition e => e.Name,
             _ => member.Name,
         };
+
+        // Explicit interface implementations are named like Ns.IFoo<System.Int32>.Method, so the raw
+        // name is always run through the shared sanitizer.
+        return ToMemberFileName(raw);
     }
+
+    /// <summary>
+    ///     Converts a raw member name to a legal member page name; a name equal to the reserved operators
+    ///     page is moved aside so a member can never overwrite the type's operators page.
+    /// </summary>
+    /// <param name="raw">The raw member name.</param>
+    /// <returns>The legal file name without extension.</returns>
+    private static string ToMemberFileName(string raw)
+    {
+        var sanitized = FileNameSanitizer.SanitizeSegment(raw);
+        return string.Equals(sanitized, OperatorsPageName, StringComparison.OrdinalIgnoreCase) ? sanitized + "-" : sanitized;
+    }
+
+    /// <summary>The file name (without extension) of a type's shared operators page.</summary>
+    internal const string OperatorsPageName = "operators";
+
+    /// <summary>Caches the computed page file name of each type definition.</summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TypeDefinition, string> TypeFileNameCache = new();
+
+    /// <summary>
+    ///     Returns the file name (without extension) of the page, and of the folder, of a type.
+    /// </summary>
+    /// <remarks>
+    ///     The name is the sanitized, arity-flattened type name. For a type of the documented assembly the
+    ///     name is made unique among its siblings when compared case-insensitively: member page names and
+    ///     the reserved operators page of the declaring type take priority, and of several sibling types
+    ///     whose names differ only in case the first in ordinal full-name order keeps its name while the
+    ///     others receive a <c>-</c> and an eight-character hash of their full name. The result does not
+    ///     depend on the visibility filter, so it is identical wherever the type is named or linked.
+    /// </remarks>
+    /// <param name="type">The type (or type reference) to name.</param>
+    /// <returns>A legal, deterministic file name without extension.</returns>
+    internal static string GetTypeFileName(TypeReference type)
+    {
+        var baseName = FileNameSanitizer.SanitizeSegment(FlattenArity(type.Name));
+        if (type is not TypeDefinition definition)
+        {
+            if (type.Scope is not ModuleDefinition || type.GetElementType() is not TypeReference element ||
+                !TryResolveLocal(element, out var local))
+            {
+                return baseName;
+            }
+
+            definition = local!;
+        }
+
+        return TypeFileNameCache.GetValue(definition, ComputeTypeFileName);
+    }
+
+    /// <summary>Resolves an intra-assembly type reference to its definition without throwing.</summary>
+    /// <param name="reference">The reference to resolve.</param>
+    /// <param name="definition">The resolved definition when successful.</param>
+    /// <returns><see langword="true"/> when resolved.</returns>
+    private static bool TryResolveLocal(TypeReference reference, out TypeDefinition? definition)
+    {
+        try
+        {
+            definition = reference.Resolve();
+        }
+        catch (AssemblyResolutionException)
+        {
+            definition = null;
+        }
+
+        return definition != null;
+    }
+
+    /// <summary>Computes the collision-free file name of a type definition among its siblings.</summary>
+    /// <param name="type">The type definition.</param>
+    /// <returns>The file name without extension.</returns>
+    private static string ComputeTypeFileName(TypeDefinition type)
+    {
+        static string KeyOf(TypeDefinition t) => FileNameSanitizer.SanitizeSegment(FlattenArity(t.Name));
+
+        var baseName = KeyOf(type);
+
+        // Names owned by the declaring type's member pages and operators page always win.
+        if (type.DeclaringType != null)
+        {
+            var reserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { OperatorsPageName };
+            foreach (var member in GetPageMembers(type.DeclaringType))
+            {
+                reserved.Add(GetSanitizedMemberFileName(member, type.DeclaringType));
+            }
+
+            if (reserved.Contains(baseName))
+            {
+                return $"{baseName}-{FileNameSanitizer.Hash(type.FullName)}";
+            }
+        }
+
+        // Among case-insensitive twins the first in ordinal full-name order keeps its plain name.
+        var siblings = type.DeclaringType != null
+            ? type.DeclaringType.NestedTypes
+            : type.Module.Types.Where(t => string.Equals(t.Namespace, type.Namespace, StringComparison.Ordinal));
+        var first = siblings
+            .Where(t => string.Equals(KeyOf(t), baseName, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(t => t.FullName, StringComparer.Ordinal)
+            .First();
+        return ReferenceEquals(first, type) || string.Equals(first.FullName, type.FullName, StringComparison.Ordinal)
+            ? baseName
+            : $"{baseName}-{FileNameSanitizer.Hash(type.FullName)}";
+    }
+
+    /// <summary>Enumerates every member of a type that can own a member page.</summary>
+    /// <param name="type">The declaring type.</param>
+    /// <returns>The fields, properties, events, and non-accessor methods of the type.</returns>
+    private static IEnumerable<IMemberDefinition> GetPageMembers(TypeDefinition type) =>
+        type.Fields.Cast<IMemberDefinition>()
+            .Concat(type.Properties)
+            .Concat(type.Events)
+            .Concat(type.Methods.Where(m => !m.IsGetter && !m.IsSetter && !m.IsAddOn && !m.IsRemoveOn));
 
     // =========================================================================
     // XML doc identifiers
@@ -757,17 +1113,13 @@ internal sealed class DotNetEmitter : IApiEmitter
             invoke.ReturnType,
             contextNamespace,
             CreateNullability(invoke.MethodReturnType.CustomAttributes, invoke));
-        var name = StripArity(type.Name);
-        if (type.HasGenericParameters)
-        {
-            var args = string.Join(", ", type.GenericParameters.Select(p => p.Name));
-            name = $"{name}<{args}>";
-        }
+        var name = BuildTypeDisplayName(type);
 
         var parameters = string.Join(", ", invoke.Parameters.Select(p =>
-            $"{GetRefKindKeyword(p)}{TypeNameSimplifier.Simplify(p.ParameterType, contextNamespace, CreateNullability(p.CustomAttributes, invoke))} {p.Name}"));
+            FormatParameter(p, invoke, contextNamespace, includeName: true, includeDefault: false)));
 
-        return $"public delegate {GetReturnRefKeyword(invoke.ReturnType)}{returnType} {name}({parameters})";
+        var constraints = BuildGenericConstraints(GetOwnGenericParameters(type), contextNamespace);
+        return $"public delegate {GetReturnRefKeyword(invoke.ReturnType)}{returnType} {name}({parameters}){constraints}";
     }
 
     /// <summary>Determines whether a type was declared with the C# <c>record</c> or <c>record struct</c> keyword.</summary>
@@ -790,6 +1142,63 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns><see langword="true"/> when the attribute is present.</returns>
     private static bool HasAttributeNamed(TypeDefinition type, string attributeName) =>
         type.CustomAttributes.Any(a => a.AttributeType.Name == attributeName);
+
+    /// <summary>
+    ///     Returns <see langword="true"/> when <paramref name="method"/> is the positional (primary)
+    ///     constructor of a record: a parameterized instance constructor whose parameters all map
+    ///     to same-named properties, excluding the synthesized copy constructor.
+    /// </summary>
+    /// <param name="method">The method to test.</param>
+    /// <returns><see langword="true"/> for a record primary constructor.</returns>
+    internal static bool IsRecordPrimaryConstructor(MethodDefinition method)
+    {
+        var type = method.DeclaringType;
+        if (method.Name != ConstructorMethodName || method.IsStatic || !method.HasParameters || !IsRecordType(type))
+        {
+            return false;
+        }
+
+        // The compiler-synthesized copy constructor takes the record itself
+        if (method.Parameters.Count == 1 && method.Parameters[0].ParameterType.GetElementType().FullName == type.FullName)
+        {
+            return false;
+        }
+
+        return method.Parameters.All(p => type.Properties.Any(prop =>
+            string.Equals(prop.Name, p.Name, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    /// <summary>
+    ///     Returns the summary to show for <paramref name="member"/>, replacing the type summary
+    ///     that the C# compiler copies onto a record's primary constructor with a constructor-specific
+    ///     sentence, and otherwise delegating to <see cref="XmlDocReader"/> (including the
+    ///     unresolved-<c>&lt;inheritdoc /&gt;</c> placeholder).
+    /// </summary>
+    /// <param name="member">The member whose summary to produce.</param>
+    /// <param name="xmlDocs">The XML documentation index.</param>
+    /// <param name="linkContext">Optional cref link context.</param>
+    /// <param name="multiLine"><see langword="true"/> for page-body rendering; <see langword="false"/> for table cells.</param>
+    /// <returns>The summary text, or <see langword="null"/> when none is available.</returns>
+    internal static string? GetMemberSummary(IMemberDefinition member, XmlDocReader xmlDocs, CrefLinkContext? linkContext, bool multiLine)
+    {
+        var memberId = BuildMemberId(member);
+        if (member is MethodDefinition method && IsRecordPrimaryConstructor(method))
+        {
+            // The compiler copies the type summary text verbatim onto the primary constructor;
+            // an explicit constructor summary that differs is preserved.
+            var typeId = BuildTypeId(method.DeclaringType);
+            var ctorSummary = xmlDocs.GetSummary(memberId, linkContext);
+            if (!string.IsNullOrEmpty(ctorSummary) && ctorSummary == xmlDocs.GetSummary(typeId, linkContext))
+            {
+                var keyword = method.DeclaringType.IsValueType ? "record struct" : "record";
+                return $"Initializes a new instance of the `{BuildTypeDisplayName(method.DeclaringType)}` {keyword}.";
+            }
+        }
+
+        return multiLine
+            ? xmlDocs.GetEffectiveSummaryMarkdown(memberId, linkContext)
+            : xmlDocs.GetEffectiveSummary(memberId, linkContext);
+    }
 
     /// <summary>Determines whether an interface reference is <c>IEquatable&lt;T&gt;</c> over the declaring type itself.</summary>
     /// <param name="interfaceType">The interface reference.</param>
@@ -843,12 +1252,7 @@ internal sealed class DotNetEmitter : IApiEmitter
 
         var classModifier = GetTypeModifier(type, keyword);
 
-        var name = StripArity(type.Name);
-        if (type.HasGenericParameters)
-        {
-            var args = string.Join(", ", type.GenericParameters.Select(p => p.Name));
-            name = $"{name}<{args}>";
-        }
+        var name = BuildTypeDisplayName(type);
 
         var bases = CollectTypeBases(type, isRecord, contextNamespace);
         if (bases.Count > 0)
@@ -856,8 +1260,86 @@ internal sealed class DotNetEmitter : IApiEmitter
             name = $"{name} : {string.Join(", ", bases)}";
         }
 
-        return $"public {classModifier}{keyword} {name}";
+        var constraints = BuildGenericConstraints(GetOwnGenericParameters(type), contextNamespace);
+        return $"public {classModifier}{keyword} {name}{constraints}";
     }
+
+    /// <summary>
+    ///     Returns the generic parameters a type declares itself, excluding parameters it merely
+    ///     inherits from its declaring type.
+    /// </summary>
+    /// <remarks>
+    ///     The C# compiler gives a nested type the generic parameters of every enclosing generic type
+    ///     in metadata, but only the final <c>N</c> parameters of a <c>Name`N</c> type are declared by
+    ///     that type. The arity suffix of the metadata name is the authority for <c>N</c>.
+    /// </remarks>
+    /// <param name="type">The type whose own generic parameters to return.</param>
+    /// <returns>The generic parameters declared by <paramref name="type"/>, in declaration order.</returns>
+    internal static IReadOnlyList<GenericParameter> GetOwnGenericParameters(TypeDefinition type)
+    {
+        if (!type.HasGenericParameters)
+        {
+            return Array.Empty<GenericParameter>();
+        }
+
+        var tick = type.Name.IndexOf('`');
+        if (tick < 0 || !int.TryParse(type.Name.AsSpan(tick + 1), out var arity))
+        {
+            return Array.Empty<GenericParameter>();
+        }
+
+        return type.GenericParameters.Skip(Math.Max(0, type.GenericParameters.Count - arity)).ToList();
+    }
+
+    /// <summary>
+    ///     Builds the human-readable name of a type including its own generic parameter list
+    ///     (for example <c>PropertyEditorRegistry&lt;TEditor&gt;</c>); non-generic types return their plain name.
+    /// </summary>
+    /// <remarks>
+    ///     The result contains raw angle brackets. Callers writing it into a Markdown heading, link
+    ///     text, or table cell must pass it through <see cref="EscapeMarkdownHeading"/>.
+    /// </remarks>
+    /// <param name="type">The type to name.</param>
+    /// <returns>The display name without Markdown escaping.</returns>
+    internal static string BuildTypeDisplayName(TypeDefinition type)
+    {
+        var name = StripArity(type.Name);
+        var own = GetOwnGenericParameters(type);
+        return own.Count > 0 ? $"{name}<{string.Join(", ", own.Select(p => p.Name))}>" : name;
+    }
+
+    /// <summary>Column headers of the table that documents generic type parameters.</summary>
+    internal static readonly string[] TypeParameterTableHeaders = ["Type Parameter", DescriptionColumnHeader];
+
+    /// <summary>
+    ///     Builds the rows of a type-parameter table: one row per generic parameter in declaration
+    ///     order, with the <c>&lt;typeparam&gt;</c> description or the no-description placeholder.
+    /// </summary>
+    /// <param name="parameters">The generic parameters to document.</param>
+    /// <param name="docs">The documented type parameters (name, description) from the XML docs.</param>
+    /// <returns>The table rows.</returns>
+    internal static List<string[]> BuildTypeParameterRows(
+        IEnumerable<GenericParameter> parameters,
+        IReadOnlyList<(string Name, string? Description)> docs) =>
+        parameters
+            .Select(p => new[]
+            {
+                p.Name,
+                docs.FirstOrDefault(d => d.Name == p.Name).Description is { Length: > 0 } description
+                    ? description
+                    : NoDescriptionPlaceholder,
+            })
+            .ToList();
+
+    /// <summary>
+    ///     Escapes the angle brackets of <paramref name="text"/> with backslashes so generic type and
+    ///     method names (<c>List&lt;T&gt;</c>) are shown literally in headings, breadcrumbs, and link text
+    ///     instead of being parsed as inline HTML tags and silently disappearing in rendered Markdown.
+    /// </summary>
+    /// <param name="text">The raw heading, crumb, link-text, or cell text.</param>
+    /// <returns>The text with every <c>&lt;</c> and <c>&gt;</c> backslash-escaped.</returns>
+    internal static string EscapeMarkdownHeading(string text) =>
+        text.Replace("<", "\\<", StringComparison.Ordinal).Replace(">", "\\>", StringComparison.Ordinal);
 
     /// <summary>Determines the source-level modifier prefix (<c>static</c>, <c>abstract</c>, <c>sealed</c>, <c>readonly</c>, <c>ref</c>) for a type.</summary>
     /// <param name="type">The type definition to inspect.</param>
@@ -925,17 +1407,123 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <summary>Dispatches to the appropriate signature builder based on the runtime member type.</summary>
     /// <param name="member">The member to represent.</param>
     /// <param name="contextNamespace">Used to simplify type names in the signature.</param>
+    /// <param name="visibility">Visibility tier used to hide accessors that are not visible (for example a private setter).</param>
     /// <returns>A human-readable C# declaration signature string.</returns>
-    internal static string BuildMemberSignature(IMemberDefinition member, string contextNamespace)
+    internal static string BuildMemberSignature(IMemberDefinition member, string contextNamespace, ApiVisibility visibility = ApiVisibility.All)
     {
         return member switch
         {
             MethodDefinition m => BuildMethodSignature(m, contextNamespace),
-            PropertyDefinition p => BuildPropertySignature(p, contextNamespace),
+            PropertyDefinition p => BuildPropertySignature(p, contextNamespace, visibility),
             FieldDefinition f => BuildFieldSignature(f, contextNamespace),
             EventDefinition e => BuildEventSignature(e, contextNamespace),
             _ => member.Name,
         };
+    }
+
+    /// <summary>Returns the <c>params</c> keyword (with trailing space) for a parameter array parameter.</summary>
+    /// <remarks>
+    ///     Detects <c>System.ParamArrayAttribute</c> (<c>params T[]</c>) and the C# 13
+    ///     <c>System.Runtime.CompilerServices.ParamCollectionAttribute</c> (<c>params</c> collections).
+    /// </remarks>
+    /// <param name="parameter">The parameter to inspect.</param>
+    /// <returns><c>"params "</c> when the parameter is a parameter array; otherwise an empty string.</returns>
+    internal static string GetParamsKeyword(ParameterDefinition parameter) =>
+        parameter.CustomAttributes.Any(a =>
+            a.AttributeType.FullName == "System.ParamArrayAttribute" ||
+            a.AttributeType.FullName == "System.Runtime.CompilerServices.ParamCollectionAttribute")
+            ? "params "
+            : string.Empty;
+
+    /// <summary>
+    ///     Formats one parameter exactly as it appears in a signature, heading, or overview row:
+    ///     optional receiver (<c>this</c>), ref kind, <c>params</c>, nullable-aware type, optional name,
+    ///     and optional default value.
+    /// </summary>
+    /// <remarks>
+    ///     Single shared formatter used by every parameter-list builder so that signature blocks,
+    ///     overload headings, and overview rows cannot drift apart.
+    /// </remarks>
+    /// <param name="parameter">The parameter to format.</param>
+    /// <param name="owner">The method that owns the parameter (supplies the inherited nullable context).</param>
+    /// <param name="contextNamespace">Used to simplify the type name.</param>
+    /// <param name="includeName">Whether to append the parameter name.</param>
+    /// <param name="includeDefault">Whether to append <c> = value</c> for a default (requires <paramref name="includeName"/>).</param>
+    /// <param name="receiverPrefix">Prefix such as <c>"this "</c> for an extension method receiver.</param>
+    /// <returns>The formatted parameter text.</returns>
+    internal static string FormatParameter(
+        ParameterDefinition parameter,
+        MethodDefinition owner,
+        string contextNamespace,
+        bool includeName,
+        bool includeDefault,
+        string receiverPrefix = "")
+    {
+        var type = TypeNameSimplifier.Simplify(
+            parameter.ParameterType,
+            contextNamespace,
+            CreateNullability(parameter.CustomAttributes, owner));
+        var text = $"{receiverPrefix}{GetRefKindKeyword(parameter)}{GetParamsKeyword(parameter)}{type}";
+        if (!includeName)
+        {
+            return text;
+        }
+
+        text = $"{text} {parameter.Name}";
+        return includeDefault ? WithDefault(text, parameter) : text;
+    }
+
+    /// <summary>
+    ///     Returns the C# inheritance modifier text (<c>virtual</c>, <c>override</c>, <c>abstract</c>,
+    ///     <c>sealed override</c>, <c>abstract override</c>) for a method, with a leading space, or an
+    ///     empty string when none applies.
+    /// </summary>
+    /// <remarks>
+    ///     Interface members, constructors, and static methods never carry a modifier. <c>new</c> is
+    ///     rendered separately by the signature builders via <see cref="HidesBaseMember(TypeDefinition, MethodDefinition?, string, IReadOnlyList{string}?)"/>. <c>sealed</c> is omitted when the
+    ///     declaring type is itself sealed because it would be redundant.
+    /// </remarks>
+    /// <param name="method">The method to inspect, or <see langword="null"/>.</param>
+    /// <returns>The modifier text with a leading space, or <see cref="string.Empty"/>.</returns>
+    internal static string GetInheritanceModifiers(MethodDefinition? method)
+    {
+        if (method == null || method.IsStatic || method.IsConstructor || method.DeclaringType.IsInterface || !method.IsVirtual)
+        {
+            return string.Empty;
+        }
+
+        if (method.IsAbstract)
+        {
+            return method.IsNewSlot ? " abstract" : " abstract override";
+        }
+
+        if (method.IsNewSlot)
+        {
+            // A final newslot virtual is an implicit interface implementation, not a source-level modifier
+            return method.IsFinal ? string.Empty : " virtual";
+        }
+
+        return method.IsFinal && !method.DeclaringType.IsSealed ? " sealed override" : " override";
+    }
+
+    /// <summary>
+    ///     Returns the accessibility word followed by a space for a member whose accessibility is not
+    ///     <c>public</c> (for example <c>"protected "</c>), or an empty string for public members.
+    /// </summary>
+    /// <remarks>Used to mark non-public members in overview rows, where no signature block is present.</remarks>
+    /// <param name="member">The member to inspect.</param>
+    /// <returns>The accessibility prefix, or <see cref="string.Empty"/> for public members.</returns>
+    internal static string GetAccessibilityPrefix(IMemberDefinition member)
+    {
+        var keyword = member switch
+        {
+            MethodDefinition m => GetAccessibilityKeyword(m),
+            PropertyDefinition p => GetAccessibilityKeyword(MostPermissiveAccessor(p.GetMethod, p.SetMethod)),
+            FieldDefinition f => GetAccessibilityKeyword(f),
+            EventDefinition e => GetAccessibilityKeyword(e),
+            _ => "public",
+        };
+        return keyword == "public" ? string.Empty : keyword + " ";
     }
 
     /// <summary>Builds a human-readable C# method declaration signature.</summary>
@@ -961,14 +1549,7 @@ internal sealed class DotNetEmitter : IApiEmitter
             : method.Name;
 
         var parameters = string.Join(", ", method.Parameters.Select((p, index) =>
-        {
-            var receiverPrefix = isExtensionMethod && index == 0 ? "this " : string.Empty;
-            var paramType = TypeNameSimplifier.Simplify(
-                p.ParameterType,
-                contextNamespace,
-                CreateNullability(p.CustomAttributes, method));
-            return WithDefault($"{receiverPrefix}{GetRefKindKeyword(p)}{paramType} {p.Name}", p);
-        }));
+            FormatParameter(p, method, contextNamespace, includeName: true, includeDefault: true, isExtensionMethod && index == 0 ? "this " : string.Empty)));
 
         var accessibility = GetAccessibilityKeyword(method);
         var staticModifier = method.IsStatic && method.Name != ConstructorMethodName ? " static" : string.Empty;
@@ -981,7 +1562,8 @@ internal sealed class DotNetEmitter : IApiEmitter
             ? $"<{string.Join(", ", method.GenericParameters.Select(p => p.Name))}>"
             : string.Empty;
         var constraints = BuildGenericConstraints(method.GenericParameters, contextNamespace);
-        return $"{accessibility}{staticModifier} {GetReturnRefKeyword(method.ReturnType)}{returnType} {name}{typeParameters}({parameters}){constraints}";
+        var newModifier = !method.IsSpecialName && HidesBaseMember(method.DeclaringType, method, method.Name, method.Parameters.Select(p => p.ParameterType.FullName).ToList()) ? " new" : string.Empty;
+        return $"{accessibility}{newModifier}{staticModifier}{GetInheritanceModifiers(method)} {GetReturnRefKeyword(method.ReturnType)}{returnType} {name}{typeParameters}({parameters}){constraints}";
     }
 
     /// <summary>Builds the C# <c>where</c> clauses for a list of generic parameters.</summary>
@@ -1006,11 +1588,14 @@ internal sealed class DotNetEmitter : IApiEmitter
                 parts.Add(primaryConstraint);
             }
 
+            var nullableContext = parameter.Owner is IMemberDefinition constraintOwner ? ResolveNullableContext(constraintOwner) : (byte)0;
             parts.AddRange(parameter.Constraints
-                .Select(c => c.ConstraintType)
-                .Where(constraint => !(GetConstraintTypeName(constraint) == "System.ValueType"
+                .Where(c => !(GetConstraintTypeName(c.ConstraintType) == "System.ValueType"
                     && (parameter.HasNotNullableValueTypeConstraint || isUnmanaged)))
-                .Select(constraint => TypeNameSimplifier.Simplify(constraint, contextNamespace)));
+                .Select(c => TypeNameSimplifier.Simplify(
+                    c.ConstraintType,
+                    contextNamespace,
+                    NullabilityCursor.ForAttributes(c.CustomAttributes, nullableContext))));
 
             if (parameter.HasDefaultConstructorConstraint && !parameter.HasNotNullableValueTypeConstraint && !isUnmanaged)
             {
@@ -1053,10 +1638,25 @@ internal sealed class DotNetEmitter : IApiEmitter
 
         if (parameter.HasReferenceTypeConstraint)
         {
-            return "class";
+            return IsNullableClassConstraint(parameter) ? "class?" : "class";
         }
 
         return IsNotNullConstrained(parameter) ? "notnull" : null;
+    }
+
+    /// <summary>Returns <see langword="true"/> when a <c>class</c>-constrained parameter is annotated nullable (<c>class?</c>).</summary>
+    /// <param name="parameter">The generic parameter to inspect.</param>
+    /// <returns><see langword="true"/> for <c>class?</c>.</returns>
+    private static bool IsNullableClassConstraint(GenericParameter parameter)
+    {
+        var attribute = parameter.CustomAttributes.FirstOrDefault(
+            a => a.AttributeType.FullName == "System.Runtime.CompilerServices.NullableAttribute");
+        if (attribute is { ConstructorArguments.Count: > 0 } && attribute.ConstructorArguments[0].Value is byte annotated)
+        {
+            return annotated == 2;
+        }
+
+        return parameter.Owner is IMemberDefinition owner && ResolveNullableContext(owner) == 2;
     }
 
     /// <summary>Returns the full name of a constraint type, looking through a required-modifier wrapper.</summary>
@@ -1325,20 +1925,23 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <summary>Builds a human-readable C# property declaration signature.</summary>
     /// <param name="prop">The property definition.</param>
     /// <param name="contextNamespace">Used to simplify the property type name.</param>
+    /// <param name="visibility">Visibility tier used to hide accessors that are not visible.</param>
     /// <returns>The property signature string.</returns>
-    internal static string BuildPropertySignature(PropertyDefinition prop, string contextNamespace)
+    internal static string BuildPropertySignature(PropertyDefinition prop, string contextNamespace, ApiVisibility visibility = ApiVisibility.All)
     {
         var typeName = TypeNameSimplifier.Simplify(
             prop.PropertyType,
             contextNamespace,
             CreateNullability(prop.CustomAttributes, prop));
-        var accessibility = GetAccessibilityKeyword(MostPermissiveAccessor(prop.GetMethod, prop.SetMethod));
+        var governing = MostPermissiveAccessor(prop.GetMethod, prop.SetMethod);
+        var accessibility = GetAccessibilityKeyword(governing);
 
         // PropertyDefinition has no IsStatic of its own — whether it is static is determined by
         // its accessor methods, which always agree for a given property.
         var staticModifier = (prop.GetMethod?.IsStatic ?? prop.SetMethod?.IsStatic ?? false) ? " static" : string.Empty;
-        var accessors = BuildPropertyAccessors(prop);
-        return $"{accessibility}{staticModifier} {typeName} {prop.Name} {{ {accessors} }}";
+        var accessors = BuildPropertyAccessors(prop, visibility);
+        var newModifier = HidesBaseMember(prop.DeclaringType, governing, prop.Name, null) ? " new" : string.Empty;
+        return $"{accessibility}{newModifier}{staticModifier}{GetInheritanceModifiers(governing)} {typeName} {prop.Name} {{ {accessors} }}";
     }
 
     /// <summary>Builds the accessor portion of a property signature (e.g. <c>get; internal set;</c> or <c>get; init;</c> for init-only setters).</summary>
@@ -1348,11 +1951,14 @@ internal sealed class DotNetEmitter : IApiEmitter
     ///     with its own accessibility keyword only when it is strictly less permissive than the
     ///     property-level keyword (e.g., <c>protected { get; private set; }</c>). A property where
     ///     both accessors share the same accessibility as the property itself renders without per-accessor
-    ///     prefixes (e.g., <c>protected { get; set; }</c>).
+    ///     prefixes (e.g., <c>protected { get; set; }</c>). An accessor that is not visible at the configured
+    ///     <paramref name="visibility"/> tier (for example a <c>private set</c> when documenting the public
+    ///     API) is omitted entirely, since it is not part of the documented surface.
     /// </remarks>
     /// <param name="prop">The property definition.</param>
+    /// <param name="visibility">The visibility tier controlling which accessors are rendered.</param>
     /// <returns>The accessor string to embed in the property signature.</returns>
-    internal static string BuildPropertyAccessors(PropertyDefinition prop)
+    internal static string BuildPropertyAccessors(PropertyDefinition prop, ApiVisibility visibility = ApiVisibility.All)
     {
         var parts = new List<string>();
 
@@ -1360,14 +1966,14 @@ internal sealed class DotNetEmitter : IApiEmitter
         // a "public … { protected get; set; }" property renders as "public" — not "protected"
         var propertyAccessibility = GetAccessibilityKeyword(MostPermissiveAccessor(prop.GetMethod, prop.SetMethod));
 
-        if (prop.GetMethod != null)
+        if (prop.GetMethod != null && IsAccessorVisible(prop.GetMethod, visibility))
         {
             var accessorKeyword = GetAccessibilityKeyword(prop.GetMethod);
             var prefix = accessorKeyword != propertyAccessibility ? $"{accessorKeyword} " : string.Empty;
             parts.Add($"{prefix}get;");
         }
 
-        if (prop.SetMethod != null)
+        if (prop.SetMethod != null && IsAccessorVisible(prop.SetMethod, visibility))
         {
             var accessorKeyword = GetAccessibilityKeyword(prop.SetMethod);
             var prefix = accessorKeyword != propertyAccessibility ? $"{accessorKeyword} " : string.Empty;
@@ -1377,6 +1983,17 @@ internal sealed class DotNetEmitter : IApiEmitter
 
         return string.Join(" ", parts);
     }
+
+    /// <summary>Returns <see langword="true"/> when a property or event accessor is visible at <paramref name="visibility"/>.</summary>
+    /// <param name="accessor">The accessor method.</param>
+    /// <param name="visibility">The visibility tier.</param>
+    /// <returns><see langword="true"/> when the accessor should be rendered.</returns>
+    private static bool IsAccessorVisible(MethodDefinition accessor, ApiVisibility visibility) => visibility switch
+    {
+        ApiVisibility.All => true,
+        ApiVisibility.PublicAndProtected => IsMethodPublicOrProtected(accessor),
+        _ => accessor.IsPublic,
+    };
 
     /// <summary>Returns <see langword="true"/> when the property setter is an init-only accessor (C# 9+).</summary>
     /// <param name="setMethod">The property set method to inspect.</param>
@@ -1410,7 +2027,8 @@ internal sealed class DotNetEmitter : IApiEmitter
         };
 
         var gap = modifiers.Length > 0 ? " " : string.Empty;
-        var signature = $"{GetAccessibilityKeyword(field)} {modifiers}{gap}{typeName} {field.Name}";
+        var newModifier = HidesBaseMember(field) ? " new" : string.Empty;
+        var signature = $"{GetAccessibilityKeyword(field)}{newModifier} {modifiers}{gap}{typeName} {field.Name}";
 
         // Append the compiler-folded constant value (if any) so readers can see literal
         // constants and enum member values without opening the implementation - Mono.Cecil
@@ -1515,8 +2133,103 @@ internal sealed class DotNetEmitter : IApiEmitter
             evt.EventType,
             contextNamespace,
             CreateNullability(evt.CustomAttributes, evt));
-        return $"{GetAccessibilityKeyword(evt)} event {typeName} {evt.Name}";
+        var staticModifier = (evt.AddMethod?.IsStatic ?? evt.RemoveMethod?.IsStatic ?? false) ? " static" : string.Empty;
+        var newModifier = HidesBaseMember(evt.DeclaringType, evt.AddMethod ?? evt.RemoveMethod, evt.Name, null) ? " new" : string.Empty;
+        return $"{GetAccessibilityKeyword(evt)}{newModifier}{staticModifier}{GetInheritanceModifiers(evt.AddMethod)} event {typeName} {evt.Name}";
     }
+
+    /// <summary>
+    ///     Determines whether a member would need the C# <c>new</c> modifier because it hides an
+    ///     accessible base-class member of the same name (and, for methods, the same parameter types).
+    /// </summary>
+    /// <remarks>
+    ///     Metadata does not record <c>new</c>, so this mirrors the compiler's CS0108 rule. Overrides
+    ///     never hide. Base types that cannot be resolved are skipped.
+    /// </remarks>
+    /// <param name="declaringType">The type declaring the member.</param>
+    /// <param name="accessor">The member's method (or accessor), used to detect overrides; may be null.</param>
+    /// <param name="name">The member name.</param>
+    /// <param name="parameterTypes">Parameter type full names for methods; null for properties/events (match by name).</param>
+    /// <returns><see langword="true"/> if the member hides a base member.</returns>
+    internal static bool HidesBaseMember(TypeDefinition declaringType, MethodDefinition? accessor, string name, IReadOnlyList<string>? parameterTypes)
+    {
+        if (declaringType.IsInterface || declaringType.IsEnum || (accessor != null && accessor.IsVirtual && !accessor.IsNewSlot))
+        {
+            return false;
+        }
+
+        TypeDefinition? baseType;
+        try
+        {
+            baseType = declaringType.BaseType?.Resolve();
+        }
+        catch (AssemblyResolutionException)
+        {
+            return false;
+        }
+
+        while (baseType != null)
+        {
+            if (DeclaresHiddenMember(baseType, declaringType, name, parameterTypes))
+            {
+                return true;
+            }
+
+            try
+            {
+                baseType = baseType.BaseType?.Resolve();
+            }
+            catch (AssemblyResolutionException)
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Determines whether a field would need <c>new</c> because it hides an accessible base member of the same name.</summary>
+    /// <param name="field">The field to test.</param>
+    /// <returns><see langword="true"/> if the field hides a base member.</returns>
+    internal static bool HidesBaseMember(FieldDefinition field) =>
+        !field.IsSpecialName && !field.IsRuntimeSpecialName && !field.Name.StartsWith('<')
+        && HidesBaseMember(field.DeclaringType, null, field.Name, null);
+
+    /// <summary>
+    ///     Returns <see langword="true"/> when <paramref name="baseType"/> declares a member that a member named
+    ///     <paramref name="name"/> in <paramref name="derived"/> would hide (CS0108).
+    /// </summary>
+    /// <remarks>
+    ///     A method hides base methods with identical parameter types and any non-method member with the same
+    ///     name; every other member kind hides any accessible base member with the same name (method, field,
+    ///     property or event). Private members are never hidden; members that are only
+    ///     <c>internal</c>/<c>private protected</c> count only when both types share a module.
+    /// </remarks>
+    /// <param name="baseType">The candidate base type.</param>
+    /// <param name="derived">The type declaring the hiding member.</param>
+    /// <param name="name">The member name.</param>
+    /// <param name="parameterTypes">Parameter type full names for methods; <see langword="null"/> for non-methods.</param>
+    /// <returns><see langword="true"/> if a hidden member exists.</returns>
+    private static bool DeclaresHiddenMember(TypeDefinition baseType, TypeDefinition derived, string name, IReadOnlyList<string>? parameterTypes)
+    {
+        var sameModule = baseType.Module == derived.Module;
+
+        bool Accessible(bool isPrivate, bool isAssembly, bool isFamilyAndAssembly) =>
+            !isPrivate && (sameModule || !(isAssembly || isFamilyAndAssembly));
+
+        var methodMatch = baseType.Methods.Any(m => m.Name == name && !m.IsSpecialName && !m.IsConstructor
+            && Accessible(m.IsPrivate, m.IsAssembly, m.IsFamilyAndAssembly)
+            && (parameterTypes == null || m.Parameters.Select(p => p.ParameterType.FullName).SequenceEqual(parameterTypes)));
+
+        return methodMatch
+            || baseType.Fields.Any(f => f.Name == name && !f.IsSpecialName && !f.IsRuntimeSpecialName
+                && Accessible(f.IsPrivate, f.IsAssembly, f.IsFamilyAndAssembly))
+            || baseType.Properties.Any(p => p.Name == name && !IsPrivateProperty(p))
+            || baseType.Events.Any(e => e.Name == name && !(e.AddMethod?.IsPrivate ?? true));
+    }
+
+    private static bool IsPrivateProperty(PropertyDefinition property) =>
+        (property.GetMethod ?? property.SetMethod)?.IsPrivate ?? true;
 
     /// <summary>Returns the C# accessibility keyword for a method (e.g. <c>"public"</c> or <c>"protected"</c>).</summary>
     /// <param name="method">The method whose accessibility to report.</param>
@@ -1627,9 +2340,45 @@ internal sealed class DotNetEmitter : IApiEmitter
         }
 
         var parameters = string.Join(", ", method.Parameters.Select(p =>
-            $"{GetRefKindKeyword(p)}{TypeNameSimplifier.Simplify(p.ParameterType, method.DeclaringType.Namespace)}"));
+            FormatParameter(p, method, method.DeclaringType.Namespace, includeName: false, includeDefault: false)));
         return $"{baseName}({parameters})";
     }
+
+    /// <summary>
+    ///     Builds the overview-row label for a method: the accessibility marker for non-public members
+    ///     followed by the method name and its full parameter list including names, <c>params</c>,
+    ///     nullability, and default values (e.g. <c>Add(string text, string? id = null)</c>).
+    /// </summary>
+    /// <remarks>
+    ///     Uses the same <see cref="FormatParameter"/> as the signature block, so the row and the
+    ///     signature can never disagree on a parameter's spelling.
+    /// </remarks>
+    /// <param name="method">The method definition.</param>
+    /// <returns>The row label text (without any Markdown link syntax).</returns>
+    internal static string BuildMethodRowName(MethodDefinition method)
+    {
+        var baseName = GetMethodGroupName(method);
+        if (method.HasGenericParameters)
+        {
+            baseName = $"{baseName}<{string.Join(", ", method.GenericParameters.Select(p => p.Name))}>";
+        }
+
+        var isExtensionMethod = IsExtensionMethod(method);
+        var parameters = string.Join(", ", method.Parameters.Select((p, index) =>
+            FormatParameter(p, method, method.DeclaringType.Namespace, includeName: true, includeDefault: true, isExtensionMethod && index == 0 ? "this " : string.Empty)));
+        return $"{GetAccessibilityPrefix(method)}{baseName}({parameters})";
+    }
+
+    /// <summary>
+    ///     Returns the label used for a member in an overview table or bullet list: methods use
+    ///     <see cref="BuildMethodRowName"/>; other members use their name, prefixed with the accessibility
+    ///     word when they are not public.
+    /// </summary>
+    /// <param name="member">The member to label.</param>
+    /// <returns>The row label text.</returns>
+    internal static string GetMemberRowName(IMemberDefinition member) => member is MethodDefinition method
+        ? BuildMethodRowName(method)
+        : GetAccessibilityPrefix(member) + GetMemberDisplayName(member);
 
     /// <summary>
     ///     Returns the sanitized file name (without extension) for a method's dedicated detail page.
@@ -1640,9 +2389,9 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns>A filesystem-safe name string suitable for use as a Markdown file name.</returns>
     internal static string BuildMethodFileName(MethodDefinition method, TypeDefinition declaringType)
     {
-        return method.Name == ConstructorMethodName
+        return ToMemberFileName(method.Name == ConstructorMethodName
             ? StripArity(declaringType.Name)
-            : method.Name;
+            : method.Name);
     }
 
     /// <summary>
@@ -1760,13 +2509,7 @@ internal sealed class DotNetEmitter : IApiEmitter
             contextNamespace,
             CreateNullability(method.MethodReturnType.CustomAttributes, method));
         var parameters = string.Join(", ", method.Parameters.Select(p =>
-        {
-            var paramType = TypeNameSimplifier.Simplify(
-                p.ParameterType,
-                contextNamespace,
-                CreateNullability(p.CustomAttributes, method));
-            return WithDefault($"{GetRefKindKeyword(p)}{paramType} {p.Name}", p);
-        }));
+            FormatParameter(p, method, contextNamespace, includeName: true, includeDefault: true)));
 
         return method.Name switch
         {
@@ -2094,10 +2837,10 @@ internal sealed class DotNetEmitter : IApiEmitter
     }
 
     /// <summary>
-    ///     Converts the IL backtick arity suffix to a plain numeric suffix for file-system-safe names.
-    ///     For example, <c>Foo`2</c> becomes <c>Foo2</c>; <c>Foo</c> is unchanged.
+    ///     Converts the IL backtick arity suffix to a hyphenated numeric suffix for file-system-safe names.
+    ///     For example, <c>Foo`2</c> becomes <c>Foo-2</c>; <c>Foo</c> is unchanged.
     /// </summary>
     /// <param name="name">The raw IL type name that may contain a backtick arity suffix.</param>
-    /// <returns>The name with the backtick removed but the arity count preserved.</returns>
+    /// <returns>The name with the backtick replaced by a hyphen and the arity count preserved.</returns>
     internal static string FlattenArity(string name) => TypeNameSimplifier.FlattenArity(name);
 }

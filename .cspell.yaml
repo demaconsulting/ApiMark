@@ -11,13 +11,28 @@
 version: '0.2'
 language: en
 words:
+  - arities
+  - hideable
+  - Konst
+  - notnull
+  - funct
+  - misdescribes
+  - toavaloniaint
+  - transactstring
+  - transacttstring
+  - undoable
   - apimark
   - ApiMark
+  - Avalonia
+  - typeparam
   - APFS
   - bodyless
+  - newslot
+  - virtuals
   - buildmark
   - byref
   - casefold
+  - casetwin
   - Cecil
   - cref
   - crefs

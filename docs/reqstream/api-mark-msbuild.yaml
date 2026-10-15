@@ -47,6 +47,7 @@ sections:
           - ApiMarkMsbuild-ApiMarkTask-ForwardStderrErrors
           - ApiMarkMsbuild-ApiMarkTask-ForwardExternalLinks
           - ApiMarkMsbuild-ApiMarkTask-OmitUnsetVisibility
+          - ApiMarkMsbuild-ApiMarkTask-VersionTokenPrecedence
         tests:
           - ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoDocumentsOnBuild
           - windows@ApiMarkMsbuild_NuGetPackage_CppVcxprojProject_AutoDocumentsOnBuild

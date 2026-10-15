@@ -561,7 +561,7 @@ public class DotNetGeneratorTests
         Assert.Contains(
             memberWriters,
             writer => writer.Operations.OfType<ParagraphOperation>()
-                .Any(p => p.Text == "Returns true when status is [`SampleStatus.Active`](../SampleStatus/Active.md) or [`SampleStatus.Pending`](../SampleStatus/Pending.md)."));
+                .Any(p => p.Text == "Returns `true` when `status` is [`SampleStatus.Active`](../SampleStatus/Active.md) or [`SampleStatus.Pending`](../SampleStatus/Pending.md)."));
     }
 
     /// <summary>Validates that static types render a <c>static class</c> signature.</summary>
@@ -705,8 +705,9 @@ public class DotNetGeneratorTests
         Assert.Contains(nsTable.Rows, row => row[0].Contains("ApiMark.DotNet.Fixtures"));
         Assert.Contains(nsTable.Rows, row => row[0].Contains("ApiMark.DotNet.Fixtures.Inner"));
 
-        // Assert: each row has three columns — Namespace, Types, Description
-        Assert.All(nsTable.Rows, row => Assert.Equal(3, row.Length));
+        // Assert: each row has four columns — Namespace, Types, Key Types, Description
+        Assert.Equal(new[] { "Namespace", "Types", "Key Types", "Description" }, nsTable.Headers);
+        Assert.All(nsTable.Rows, row => Assert.Equal(4, row.Length));
     }
 
     /// <summary>Validates that the root namespace page lists its immediate child namespace.</summary>
@@ -1543,7 +1544,7 @@ public class DotNetGeneratorTests
         var rows = writer.Operations.OfType<TableOperation>().SelectMany(t => t.Rows).ToList();
         Assert.Contains(
             rows,
-            row => row.Any(cell => cell.Contains("[ILogger](../../../OtherLib/api/Microsoft.Extensions.Logging/ILogger1.md)", StringComparison.Ordinal)));
+            row => row.Any(cell => cell.Contains("[ILogger](../../../OtherLib/api/Microsoft.Extensions.Logging/ILogger-1.md)", StringComparison.Ordinal)));
         Assert.DoesNotContain(
             writer.Operations.OfType<HeadingOperation>(),
             h => h.Text == "External Types");
@@ -1611,7 +1612,7 @@ public class DotNetGeneratorTests
         var rows = writer.Operations.OfType<TableOperation>().SelectMany(t => t.Rows).ToList();
         Assert.Contains(
             rows,
-            row => row.Any(cell => cell.Contains("[ILogger](https://docs.example.com/other/api/Microsoft.Extensions.Logging/ILogger1.md)", StringComparison.Ordinal)));
+            row => row.Any(cell => cell.Contains("[ILogger](https://docs.example.com/other/api/Microsoft.Extensions.Logging/ILogger-1.md)", StringComparison.Ordinal)));
     }
 
     /// <summary>Validates that the mapping key is matched case-insensitively.</summary>
@@ -1824,9 +1825,9 @@ public class DotNetGeneratorTests
         // Act
         generator.Parse(new InMemoryContext()).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-        // Assert: type page must exist (arity flattened: SampleTransform`2 → SampleTransform2)
+        // Assert: type page must exist (arity flattened: SampleTransform`2 → SampleTransform-2)
         Assert.True(
-            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/SampleTransform2", out var writer),
+            factory.Writers.TryGetValue("ApiMark.DotNet.Fixtures/SampleTransform-2", out var writer),
             "Expected type page for SampleTransform generic delegate");
         var signature = writer.Operations.OfType<SignatureOperation>().FirstOrDefault();
         Assert.NotNull(signature);

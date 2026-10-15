@@ -44,17 +44,20 @@ Creates a new `FileMarkdownWriter` targeting `{outputDirectory}/{subFolder}/{nam
 - *Preconditions*: `name` is not null, empty, or whitespace.
 - *Algorithm*:
   1. Reject `name` if null or whitespace; throw `ArgumentException`.
-  2. Compute the target directory: when `subFolder` is null or whitespace, use
+  2. Reject `name`, and every `/`-separated segment of `subFolder`, that fails
+     `FileNameSanitizer.IsLegalSegment`; throw `ArgumentException`.
+  3. Compute the target directory: when `subFolder` is null or whitespace, use
      `_outputDirectory` directly; otherwise call `PathHelpers.SafePathCombine`
      to combine `_outputDirectory` with `subFolder`.
-  3. Call `Directory.CreateDirectory(targetDirectory)` to ensure the directory
+  4. Call `Directory.CreateDirectory(targetDirectory)` to ensure the directory
      tree exists before writing.
-  4. Compose the full file path by calling `PathHelpers.SafePathCombine` with
+  5. Compose the full file path by calling `PathHelpers.SafePathCombine` with
      `targetDirectory` and `name + ".md"`.
-  5. Construct a `StreamWriter` over the file path using `UTF8Encoding` with
+  6. Construct a `StreamWriter` over the file path using `UTF8Encoding` with
      `encoderShouldEmitUTF8Identifier: false` (UTF-8 without BOM) and `append: false`.
-  6. Wrap the stream writer in a new `FileMarkdownWriter` and return it.
-- *Throws*: `ArgumentException` when `name` is null, empty, or whitespace.
+  7. Wrap the stream writer in a new `FileMarkdownWriter` and return it.
+- *Throws*: `ArgumentException` when `name` is null, empty, or whitespace, or when `name`
+  or a `subFolder` segment is not a legal Windows and Linux name.
 
 ### Error Handling
 
@@ -75,6 +78,7 @@ Creates a new `FileMarkdownWriter` targeting `{outputDirectory}/{subFolder}/{nam
 
 - **PathHelpers** — `SafePathCombine` is used to combine the output root with the
   caller-supplied subFolder and the file name, preventing directory-traversal attacks.
+- **FileNameSanitizer** — `IsLegalSegment` validates each folder segment and the file name.
 
 ### Callers
 

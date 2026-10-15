@@ -202,3 +202,46 @@ sections:
               must target that folder or they would be broken.
             tests:
               - TypeLinkResolver_Linkify_GlobalNamespaceType_LinksToGlobalNamespacePage
+          - id: ApiMarkDotNet-TypeLinkResolver-LinkifyTuplesAndNullableFlags
+            title: TypeLinkResolver shall render tuple types in tuple syntax with linked elements, and
+              consume nullable flags only for positions the compiler encodes.
+            justification: |
+              Row type cells must agree with the signature block; a flag consumed for a non-generic
+              value type would shift every later annotation by one position.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_NullableMatrixAndParams_OverviewRowsMatchSignature
+          - id: ApiMarkDotNet-TypeLinkResolver-ExternalGenericTypes
+            title: TypeLinkResolver shall track external generic types with simplified, escaped arguments.
+            justification: |
+              External Types tables must show readable names whose angle brackets are not parsed as HTML.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_ExternalGenericTypes_AreSimplifiedAndEscaped
+          - id: ApiMarkDotNet-TypeLinkResolver-ExternalCrefLinks
+            title: TypeLinkResolver shall link a cref to a type or member of an external assembly to the
+              mapped documentation when its namespace belongs to an external link mapping, and leave
+              it a plain code span otherwise.
+            justification: |
+              Cross-references to types documented in another assembly's ApiMark output should be
+              clickable, but must never produce links to unmapped locations.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_ExternalCref_MappedAssemblyLinksType
+              - DotNetEmitterGradualDisclosure_Emit_ExternalCref_AbsoluteMappingLinksType
+              - DotNetEmitterGradualDisclosure_Emit_ExternalCref_UnmappedStaysPlainCodeSpan
+          - id: ApiMarkDotNet-TypeLinkResolver-OverloadAnchorLinks
+            title: TypeLinkResolver shall append the heading anchor stored in the member page index to a
+              member link, so a link to an overload targets that overload's section.
+            justification: |
+              Overloads share one page; the anchor selects the intended section.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_OverloadCref_LinksToOverloadHeadingAnchor
+              - DotNetEmitterGradualDisclosure_Emit_AllLinkAnchors_MatchRealHeadings
+          - id: ApiMarkDotNet-TypeLinkResolver-ExternalNestedCrefs
+            title: TypeLinkResolver shall link crefs to nested and generic-nested types of mapped
+              external assemblies using the real namespace, the nested-type chain, and hyphenated
+              arity names.
+            justification: |
+              A nested external type's namespace and its enclosing types cannot be told apart from
+              the name alone, and unflattened generic names point to pages that do not exist.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_ExternalNestedTypeCrefs_LinkToNestedPages
+              - DotNetEmitterGradualDisclosure_Emit_ExternalNestedPropertyTypes_LinkToNestedPages

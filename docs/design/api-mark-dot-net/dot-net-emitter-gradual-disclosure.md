@@ -116,7 +116,7 @@ pure method overload group (all methods sharing the same exact case-sensitive sa
   `XmlDocReader xmlDocs`, `TypeLinkResolver resolver`.
 - *Returns*: `void`
 - *Algorithm*: Computes `sanitizedName = BuildMethodFileName(overloads[0], type)`;
-  creates `{namespaceFolderPath}/{FlattenArity(type.Name)}/{sanitizedName}.md` via the
+  creates `{namespaceFolderPath}/{GetTypeFileName(type)}/{sanitizedName}.md` via the
   factory; writes an H1 heading using `GetMethodGroupName(overloads[0])`; for each overload
   writes an H2 heading using `BuildMethodDisplayName(overload)` and delegates to
   `WriteMethodDocumentation`; accumulates external type references across all overloads and
@@ -126,7 +126,7 @@ pure method overload group (all methods sharing the same exact case-sensitive sa
 page for a group of members whose sanitized file names collide on
 case-insensitive file systems.
 
-- *Algorithm*: Creates `{namespaceFolderPath}/{FlattenArity(type.Name)}/{lowerKey}.md` via the
+- *Algorithm*: Creates `{namespaceFolderPath}/{GetTypeFileName(type)}/{lowerKey}.md` via the
   factory; writes an H1 heading using `lowerKey`; for each member writes an H2
   heading of the form `{displayName} ({kindLabel})`; delegates to
   `WriteMethodDocumentation` for `MethodDefinition` members and to
@@ -153,7 +153,7 @@ a type that defines operator overloads.
   `IReadOnlyList<MethodDefinition> operatorMethods` — the operator methods to
   document, `XmlDocReader xmlDocs`, `TypeLinkResolver resolver`.
 - *Returns*: `void`
-- *Algorithm*: Creates `{namespaceFolderPath}/{FlattenArity(type.Name)}/operators.md`
+- *Algorithm*: Creates `{namespaceFolderPath}/{GetTypeFileName(type)}/operators.md`
   via the factory; writes an H1 heading; for each operator method writes an H2
   heading using `BuildMethodDisplayName`, which produces a C# method-signature form
   including the operator keyword and full parameter list, and delegates to
@@ -162,9 +162,9 @@ a type that defines operator overloads.
 
 **WriteNestedTypePage** (via recursive `WriteTypePage`): Writes a dedicated Markdown page for each visible nested type under its containing type's folder.
 
-- *Parameters*: `TypePageWriteContext ctx` — context for the nested type, where `NamespaceFolderPath` is set to `{parentNamespaceFolderPath}/{FlattenArity(containingTypeName)}` and `Type` is the nested type definition.
+- *Parameters*: `TypePageWriteContext ctx` — context for the nested type, where `NamespaceFolderPath` is set to `{parentNamespaceFolderPath}/{GetTypeFileName(containingType)}` and `Type` is the nested type definition.
 - *Returns*: `void`
-- *Path pattern*: `factory.CreateMarkdown("{namespaceFolderPath}/{FlattenArity(containingTypeName)}", nestedTypeName)` — the nested type's page is placed under its containing type's folder segment.
+- *Path pattern*: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(containingType)}", GetTypeFileName(nestedType))` — the nested type's page is placed under its containing type's folder segment.
 - *Algorithm*: Called from `WriteTypePage` for each element of `GetVisibleNestedTypes(ctx.Type)`. Each nested type's page is written by recursively calling `WriteTypePage` with the updated context; the nested type's own members are iterated and documented on that page following the same process as any other type page.
 
 **WriteMemberPage** (private static): Creates the dedicated detail page for a single
@@ -176,7 +176,7 @@ non-overloaded, non-collision member.
   XML-doc member ID for documentation lookups.
 - *Returns*: `void`
 - *Algorithm*: Computes `sanitizedName` via `GetSanitizedMemberFileName`; creates the page
-  writer at `{namespaceFolderPath}/{FlattenArity(type.Name)}/{sanitizedName}.md`; writes an H1
+  writer at `{namespaceFolderPath}/{GetTypeFileName(type)}/{sanitizedName}.md`; writes an H1
   heading using `GetMemberDisplayName`; if `member` is a `MethodDefinition`, creates a
   `SortedSet<ExternalTypeInfo>`, calls `WriteMethodDocumentation`, and emits the external types
   section via `WriteExternalTypesSection`; otherwise delegates to
@@ -340,11 +340,12 @@ XML and PowerShell); prose blocks carry an empty language and are written as par
 never fenced.
 
 **WriteBreadcrumb** (private static): Writes one navigation paragraph of the form
-`[Namespace](rel) › [Outer](rel) › [Type](rel)` as the first paragraph after the page's
+`[API Reference](rel/api.md) › [Namespace](rel) › [Outer](rel) › [Type](rel)` as the first paragraph after the page's
 H1, on type, member, overload, operators and combined pages. It is written only in
 gradual-disclosure output; single-file output has no breadcrumbs.
 
-- *Algorithm*: Builds the chain of declaring types from the outermost to the page's type.
+- *Algorithm*: Always starts with an `API Reference` crumb linking to `api.md` relative to the
+  current page folder (also for global-namespace pages). Builds the chain of declaring types from the outermost to the page's type.
   Recovers the namespace folder by dropping one folder segment per nested level from the
   type's folder path (so nested and dotted namespace folders resolve correctly). Emits the
   namespace crumb whenever a namespace folder exists; a global-namespace type gets a
@@ -370,6 +371,12 @@ built with `DotNetEmitter.WithDefault` so optional parameters show their C#-sour
 properties render `init`, generic methods list type parameters and constraints, and type
 signatures show record, record struct and readonly struct kinds.
 
+#### Row names and visibility
+
+Overview rows use `GetMemberRowName` (accessibility marker plus the full parameter list); overload
+group rows use the representative's marker and the group display name. `TypePageWriteContext` and
+`MethodDocContext` carry the configured `ApiVisibility` so signatures hide invisible accessors.
+
 ### Path Conventions
 
 The assembly index page (`api.md`) also writes a `## File Naming and Path Convention`
@@ -383,13 +390,20 @@ member, and operators page patterns.
 - Namespace summary: `factory.CreateMarkdown(subFolder, shortName)` where `subFolder`
   and `shortName` are produced by splitting `namespaceFolderPath` at the last separator
   (e.g. for `ApiMark.DotNet.Fixtures`, `subFolder=""` and `shortName="ApiMark.DotNet.Fixtures"`)
-- Type page: `factory.CreateMarkdown(namespaceFolderPath, FlattenArity(type.Name))`
-  where `FlattenArity` replaces backtick-arity notation (e.g. `` SampleGenericClass`1 ``)
-  with a plain numeric suffix form (`SampleGenericClass1`) for file-system safety. This is distinct
+- All names below are produced by `DotNetEmitter.GetTypeFileName` and `GetSanitizedMemberFileName`
+  (`FileNameSanitizer` plus reserved-name, `operators`, and case-twin disambiguation); `FlattenArity`
+  is only the first step. Known limits: namespace segments that differ only by case, and
+  external-assembly type twins, are not disambiguated.
+- Type page: `factory.CreateMarkdown(namespaceFolderPath, GetTypeFileName(type))`
+  where `GetTypeFileName` starts from `FlattenArity`, which replaces backtick-arity notation
+  (e.g. `` SampleGenericClass`1 ``) with a hyphenated arity form (`SampleGenericClass-1`), and
+  then applies the sanitizer, reserved-name, and case-twin rules. This is distinct
   from `StripArity`, which removes the arity suffix entirely and is used for display names.
-- Member detail: `factory.CreateMarkdown("{namespaceFolderPath}/{FlattenArity(type.Name)}", memberName)`
-- Operators page: `factory.CreateMarkdown("{namespaceFolderPath}/{FlattenArity(type.Name)}", "operators")`
-- Combined page: `factory.CreateMarkdown("{namespaceFolderPath}/{FlattenArity(type.Name)}", lowerKey)`
+- Member detail: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", GetSanitizedMemberFileName(member, type))`
+- Operators page: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", "operators")`
+  (a member literally named `operators` is escaped to `operators-` so the pages cannot collide)
+- Combined page: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", lowerKey)`
+  where `lowerKey` is `GetSanitizedMemberFileName(member, type)` lower-cased
 
 ### Error Handling
 
@@ -419,3 +433,33 @@ this class.
 ### External Interfaces
 
 N/A — this is an internal class with no external interfaces exposed beyond its assembly.
+
+### Generic Names, Escaping and Navigation
+
+- `DotNetEmitter.EscapeMarkdownHeading` escapes `<`/`>` in every heading, breadcrumb and link label
+  built from raw text; `Linkify` output is already escaped and is never escaped again.
+- Overload group rows list the distinct linkified return types in overload order (`void` included).
+- Overload group rows use the shared summary only when every overload has the same non-empty summary;
+  otherwise (including when any overload has no summary) the
+  neutral text `Overloaded; see the member page.` replaces the first overload's summary.
+- `BuildMemberPageIndex` appends `#anchor` to the page key of every member on a shared overload page
+  (and on the operators page); the anchor is `BuildHeadingAnchor` of the escaped overload heading
+  (GitHub slug: lowercase, keep letters, digits, `-` and `_`, spaces become `-`, drop the rest).
+  `TypeLinkResolver.LinkifyResolvedMember` splits the fragment off, relativizes the page part, and
+  re-appends it. Overload crefs therefore link to the exact overload heading.
+- Example blocks and the Type Parameters table belong to the overload that documents them, so they
+  appear only under that overload's heading.
+- Generic type pages carry a `## Type Parameters` table (from `<typeparam>`, placeholder when
+  missing) after the examples; only the type's own parameters (the last *arity* parameters) are listed,
+  so a nested type does not repeat its host's. Signatures append `where` clauses.
+- Type and member files use the hyphenated `Name-{arity}` form (for example `PropertyEditorRegistry-1.md`).
+  A hyphen cannot occur in a C# identifier, so `Foo-1` never collides with a type named `Foo1`, and
+  `Foo`, `Foo<T>` and `Foo<T1, T2>` map to `Foo.md`, `Foo-1.md` and `Foo-2.md`. The scheme lives in the
+  single helper `TypeNameSimplifier.FlattenArity`, which the emitters and the link resolver share, so
+  page keys and links cannot diverge. This is a breaking change to earlier `Name1.md` output.
+  Readable names appear in headings and link text.
+- Namespace pages begin with `[API Reference](api.md) › ancestors › This`; only ancestors that have
+  pages are linked and the current namespace is plain text.
+- `api.md` starts with a `**Start here:**` link to the namespace with the most types (first
+  alphabetically on ties) and a Key Types column of up to three types, documented first.
+- A text-only `<example>` is rendered as prose; only `<code>` produces a fenced block.

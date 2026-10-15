@@ -75,3 +75,15 @@ sections:
             tests:
               - FileMarkdownWriterFactory_CreateMarkdown_NonExistentDirectory_CreatesDirectory
               - FileMarkdownWriterFactory_CreateMarkdown_WithSubFolder_CreatesDirectoryAndFile
+          - id: ApiMarkCore-FileMarkdownWriterFactory-RejectIllegalNames
+            title: FileMarkdownWriterFactory shall throw ArgumentException when the file
+              name or any sub-folder segment is not a legal Windows and Linux name, and
+              shall accept legal names including braces and hyphens.
+            justification: |
+              Validating every segment in the single choke point makes any emitter naming
+              defect fail loudly and identically on every platform instead of only on
+              Windows.
+            tests:
+              - FileMarkdownWriterFactory_CreateMarkdown_IllegalFileName_ThrowsArgumentException
+              - FileMarkdownWriterFactory_CreateMarkdown_IllegalFolderSegment_ThrowsArgumentException
+              - FileMarkdownWriterFactory_CreateMarkdown_LegalNames_CreatesFile

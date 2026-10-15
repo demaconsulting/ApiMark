@@ -224,3 +224,22 @@ in type signatures. Tested by `DotNetEmitterSingleFile_Emit_RecordAndStructKinds
 **Example languages**: Arrange `LangExampleClass`. Expected: each code block is fenced with its
 own language and prose parts are not fenced. Tested by
 `DotNetEmitterSingleFile_Emit_LangExample_TagsCodeBlocksWithLanguage`.
+
+**Exact bullets, headings, and signatures**: Arrange the nullable, params, inheritance, and accessor
+fixtures. Expected: bullets with parameter names, headings with nullability and `params`, signatures
+with modifiers, hidden private setters, and no `void?`. Tested by
+`DotNetEmitterSingleFile_Emit_NullableParamsAndAccessorShapes_RendersExactText`.
+
+**Generic declarations**: Arrange the `GenericTypeDocs` and `OverloadMatrix` fixtures. Act by
+emitting single-file output. Expected: escaped headings, type parameter tables, and `where`
+clauses. Tested by `DotNetEmitterSingleFile_Emit_GenericType_EscapesHeadingsAndListsTypeParameters`.
+
+**Overload sections and inline references**: Arrange `UndoHistory.Transact` and `InlineCodeDocs.Format<T>`.
+Act by emitting single-file output. Expected: the example code block follows only the generic overload
+section, the generic overload has a Type Parameter table, and `paramref`, `typeparamref`, and `langword`
+references render as code spans. Tested by `DotNetEmitterSingleFile_Emit_Overloads_ExampleOnlyUnderGenericSection`,
+`DotNetEmitterSingleFile_Emit_GenericOverload_HasTypeParameterTable`, and
+`DotNetEmitterSingleFile_Emit_InlineReferences_RenderAsCodeSpansEverywhere`.
+
+**Inheritance docs test class**: `DotNetEmitterInheritanceDocsTests` verifies the single-file output for inherited-member
+listings per declaring type and record primary-constructor summaries.

@@ -343,3 +343,94 @@ oblivious type. Act by calling `ResolveNullableContext`. Expected: `2` and `0`. 
 **Member type nullability cursor**: Arrange a nullable property, a non-null property, and a
 nullable field. Act by calling `CreateMemberTypeNullability`. Expected: the first position reads
 `2`, `1`, and `2`. Tested by `DotNetEmitter_CreateMemberTypeNullability_ReadsPrimaryTypeAnnotation`.
+
+**Exact signatures for nullable, tuple, and params members**: Arrange the `NullableSignatureMatrix`
+and `ParamsClass` fixtures (netstandard2.0 and later, nullable context 2). Act by building each
+member signature. Expected: exact strings, for example `public void Reconnect(MatrixPort? newSource,
+MatrixPort? newTarget)` and `public int Sum(params int[] values)`, with no `void?`. Tested by
+`DotNetEmitter_BuildMemberSignature_NullableMatrixAndParams_RendersExactSignature` and
+`DotNetEmitter_BuildDelegateSignature_ParamsDelegate_RendersParamsKeyword`.
+
+**Inheritance modifiers**: Arrange `InheritanceShapes`. Expected: `virtual`, `override`,
+`sealed override`, and `abstract` where applicable, and none on interface members and interface
+implementations. Tested by `DotNetEmitter_BuildMemberSignature_InheritanceShapes_RendersModifiers`.
+
+**Hiding and static events**: Arrange `ShapeHiding` and `StaticEventHolder`. Expected: `new` on members
+that hide an accessible base member (`public new void Plain()`, `public new virtual void Resize(...)`),
+no `new` on overloads or overrides, and `static` on static events. Tested by
+`DotNetEmitter_BuildMemberSignature_HidingAndStaticEvent_RendersNewAndStatic` and
+`DotNetEmitter_BuildMethodSignature_HidingVirtualAndOverload_RendersNewOnlyOnHider`.
+
+**Hidden accessors**: Arrange `AccessorShapes`. Expected: private and internal setters are absent at
+the public tier, protected setters appear at the protected tier, and everything appears at the all
+tier. Tested by `DotNetEmitter_BuildMemberSignature_AccessorShapes_HidesNonVisibleAccessors`.
+
+**Inherited members**: Arrange `InheritedLeaf : InheritedMiddle : InheritedGrandBase`. Act by emitting
+gradual disclosure and single file. Expected: an `Inherited Members` section with one group per
+declaring type, listing `MiddleMethod` and `Shared` under `InheritedMiddle` and `GrandValue` and
+`GrandMethod` under `InheritedGrandBase`; no `Object` members, no overridden duplicates, and no member
+pages for inherited members. Tested by
+`DotNetEmitterGradualDisclosure_Emit_InheritedMembers_ListedPerDeclaringTypeWithoutOverridesOrObjectMembers`,
+`DotNetEmitterGradualDisclosure_Emit_InheritedMembers_DoNotCreateMemberPages`, and
+`DotNetEmitterSingleFile_Emit_InheritedMembers_ListedPerDeclaringType`. A base in a missing assembly
+yields a note naming `--reference-paths` (`DotNetEmitterGradualDisclosure_Emit_UnresolvableBase_RendersNoteAndDoesNotThrow`),
+and a resolvable external base lists its public members
+(`DotNetEmitterGradualDisclosure_Emit_ExternalBaseWithReferences_ListsExternalMembers`). Inherited
+members never enter the member page index (`DocumentationCoverageChecker_Check_InheritedMembers_AreNotChecked`).
+
+**Unresolved inheritdoc placeholder**: Arrange `ExternalInheritDocClass` with and without the
+external reference. Expected: "Inherits documentation from base member." when unresolved and the real
+summary when resolved. Tested by
+`DotNetEmitterGradualDisclosure_Emit_InheritDoc_UnresolvedRendersPlaceholderResolvedRendersText` and
+`XmlDocReader_GetEffectiveSummary_UnresolvedInheritDoc_ReturnsPlaceholder`.
+
+**Record primary constructor summary**: Arrange `PositionalRecord`, `PositionalRecordStruct`,
+`RecordWithExtraConstructor`, and `RecordWithExplicitConstructor`. Expected: the primary constructor reads
+"Initializes a new instance of the `Type` record." (`record struct` for structs) while explicitly documented
+constructors keep their text. Tested by
+`DotNetEmitterGradualDisclosure_Emit_RecordPrimaryConstructor_UsesStandardSummary`,
+`DotNetEmitterGradualDisclosure_Emit_RecordExplicitConstructor_PreservesSummary`, and
+`DotNetEmitterSingleFile_Emit_RecordPrimaryConstructor_UsesStandardSummary`.
+
+**Inherited members at each tier**: Arrange `InheritedTierDerived` (base with public, protected,
+protected internal, private protected, internal, and private members), the abstract chain
+`InheritedAbstractBase`/`Mid`/`Leaf`, generic and nested bases, and `ExternalBaseClass` descendants. Act: emit at
+`Public`, `PublicAndProtected`, and `All`. Expected: the tier selects exactly the listed members (at `All` every
+non-private member, including internal and private protected), overridden members are listed once at the type
+that still owns them, an external base lists its protected field only at the protected tier, an unmapped external
+base is a plain-text heading, a mapped one links into the external docs, and every internal "Inherited from"
+link resolves to an emitted page (a public nested base links to its nested page). Tested by
+`DotNetEmitterGradualDisclosure_Emit_InheritedMembers_HonorsVisibilityTier`,
+`DotNetEmitterGradualDisclosure_Emit_AbstractBase_ListsEachMemberOnceAndSkipsOverridden`,
+`DotNetEmitterGradualDisclosure_Emit_ExternalBase_ProtectedTier_ListsProtectedField`,
+`DotNetEmitterGradualDisclosure_Emit_ExternalBase_AllMembersOverridden_NoSection`,
+`DotNetEmitterGradualDisclosure_Emit_ExternalBase_Unmapped_RendersPlainTextHeading`,
+`DotNetEmitterGradualDisclosure_Emit_ExternalBase_Mapped_LinksIntoExternalDocs`,
+`DotNetEmitterGradualDisclosure_Emit_GenericAndNestedBases_RenderExpectedHeadings`,
+`DotNetEmitterGradualDisclosure_Emit_InheritedFromLinks_ResolveToEmittedPages`, and
+`DotNetEmitterSingleFile_Emit_InheritedMembers_ProtectedTierListsProtectedMembers`.
+A base type that is internal cannot be the base of a public type in C#, so that shape cannot be a fixture.
+
+**External inheritdoc end to end**: Arrange `ExternalInheritDocClass` and `ExternalTwoHopInheritDocClass` with
+the external fixture DLL and its real XML file as a reference. Expected: one- and two-hop bare `inheritdoc`
+resolve in both formats, and without the reference the placeholder remains. Tested by
+`DotNetEmitterSingleFile_Emit_ExternalInheritDoc_ResolvesOneAndTwoHopsFromReferenceXml`,
+`DotNetGenerator_Parse_ExternalBaseWithReferencePaths_ResolvesInheritedDocumentation`, and
+`DotNetGenerator_Parse_ExternalBaseTwoHops_ResolvesInheritedDocumentationAcrossBothHops`.
+
+**Namespace named api**: Verifies that a root namespace named `api` (or `Api`) maps to the folder
+and page `api-` (`Api-`), and its child namespaces to `api-/Inner`, so it never overwrites the
+`api.md` index. Tested by
+`DotNetEmitter_GetNamespaceFolderPath_NamespaceNamedApi_IsMovedAsideFromApiIndexPage`.
+
+**`new` modifier for every member kind**: Arrange `NewBase`/`NewDerived` at the `All` tier. Expected: constants,
+fields, properties, events, and methods that hide an accessible base member of any kind show `new` (in
+`public new static int Prot` order); a member named like a private base field, and a member without a base
+counterpart, do not. Tested by
+`DotNetEmitterGradualDisclosure_Emit_NewModifier_RenderedForEveryHidingMemberKind` and
+`DotNetEmitterGradualDisclosure_Emit_NewModifier_BaseTypeMembersHaveNone`.
+
+**Recoverable generic constraints**: Arrange `ConstraintShapes`. Expected exact clauses for `notnull`,
+`unmanaged`, `struct`, `class`, `class?`, `class, new()`, `notnull, new()`, two independent parameters, `class`
+with an interface, a nullable interface constraint, and none for an unconstrained parameter. Tested by
+`DotNetEmitterGradualDisclosure_Emit_GenericConstraints_RenderedForEveryRecoverableShape`.

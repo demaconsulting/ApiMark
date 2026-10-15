@@ -170,6 +170,17 @@ reviews:
       - docs/verification/api-mark-core/path-helpers.md
       - src/ApiMark.Core/PathHelpers.cs
       - test/ApiMark.Core.Tests/PathHelpersTests.cs
+  - id: ApiMark-Core-FileNameSanitizer
+    title: Review that ApiMark Core FileNameSanitizer Implementation is Correct
+    context:
+      - docs/design/api-mark-core.md
+      - docs/reqstream/api-mark-core.yaml
+    paths:
+      - docs/reqstream/api-mark-core/file-name-sanitizer.yaml
+      - docs/design/api-mark-core/file-name-sanitizer.md
+      - docs/verification/api-mark-core/file-name-sanitizer.md
+      - src/ApiMark.Core/FileNameSanitizer.cs
+      - test/ApiMark.Core.Tests/FileNameSanitizerTests.cs
   - id: ApiMark-Core-GlobFileCollector
     title: Review that ApiMark Core GlobFileCollector Implementation is Correct
     context:
@@ -267,6 +278,11 @@ reviews:
       - docs/verification/api-mark-dot-net/dot-net-emitter.md
       - src/ApiMark.DotNet/DotNetEmitter.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterTests.cs
+      - test/ApiMark.DotNet.Fixtures/**/*.cs
+      - test/ApiMark.DotNet.Fixtures.External/**/*.cs
+      - test/ApiMark.DotNet.Tests/DotNetEmitterInheritedMembersTests.cs
+      - test/ApiMark.DotNet.Tests/DotNetEmitterModifierAndConstraintTests.cs
+      - test/ApiMark.DotNet.Tests/DotNetEmitterInheritanceDocsTests.cs
   - id: ApiMark-DotNet-DotNetEmitterGradualDisclosure
     title: Review that ApiMark DotNet DotNetEmitterGradualDisclosure Implementation
       is Correct
@@ -281,6 +297,12 @@ reviews:
       - test/ApiMark.DotNet.Fixtures/**/*.cs
       - test/ApiMark.DotNet.Fixtures.Global/*.csproj
       - test/ApiMark.DotNet.Tests/DotNetEmitterGradualDisclosureTests.cs
+      - test/ApiMark.DotNet.Tests/DotNetEmitterGradualDisclosureGenericsTests.cs
+      - test/ApiMark.DotNet.Tests/DotNetEmitterBreadcrumbTests.cs
+      - test/ApiMark.DotNet.Tests/DotNetEmitterFileNameLegalityTests.cs
+      - test/ApiMark.DotNet.Fixtures/LegalNames/LegalNameShapes.cs
+      - test/ApiMark.DotNet.Tests/DotNetEmitterOverloadIndexTests.cs
+      - test/ApiMark.DotNet.Tests/DotNetEmitterInheritanceDocsTests.cs
       - '!test/**/obj/**'
       - '!test/**/bin/**'
   - id: ApiMark-DotNet-DotNetEmitterSingleFile
@@ -295,6 +317,8 @@ reviews:
       - src/ApiMark.DotNet/DotNetEmitterSingleFile.cs
       - test/ApiMark.DotNet.Fixtures/**/*.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterSingleFileTests.cs
+      - test/ApiMark.DotNet.Tests/DotNetEmitterOverloadIndexTests.cs
+      - test/ApiMark.DotNet.Tests/DotNetEmitterInheritanceDocsTests.cs
       - '!test/**/obj/**'
       - '!test/**/bin/**'
   - id: ApiMark-DotNet-XmlDocReader
@@ -343,6 +367,9 @@ reviews:
       - docs/verification/api-mark-dot-net/type-link-resolver.md
       - src/ApiMark.DotNet/TypeLinkResolver.cs
       - test/ApiMark.DotNet.Tests/TypeLinkResolverTests.cs
+      - test/ApiMark.DotNet.Tests/DotNetEmitterExternalNestedLinkTests.cs
+      - test/ApiMark.DotNet.Fixtures/NestedExternalConsumer.cs
+      - test/ApiMark.DotNet.Fixtures.External/NestedExternalTypes.cs
   - id: ApiMark-DotNet-CrefTargetResolver
     title: Review that ApiMark DotNet CrefTargetResolver Implementation is Correct
     context:
@@ -365,6 +392,10 @@ reviews:
       - docs/verification/api-mark-dot-net/type-name-simplifier.md
       - src/ApiMark.DotNet/TypeNameSimplifier.cs
       - test/ApiMark.DotNet.Tests/TypeNameSimplifierTests.cs
+      - test/ApiMark.DotNet.Tests/DotNetEmitterGenericNamingTests.cs
+      - test/ApiMark.DotNet.Tests/DotNetEmitterExternalSignatureTests.cs
+      - test/ApiMark.DotNet.Fixtures/GenericNamingFixtures.cs
+      - test/ApiMark.DotNet.Fixtures/ExternalSignatureShapes.cs
 
   # ApiMarkCpp - Specials
   - id: ApiMark-Cpp-Architecture

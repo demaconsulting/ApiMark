@@ -205,3 +205,7 @@ violation has kind `Type`. Tested by
 `<summary>` for each type and none for their synthesized members. Act by calling `Check` at `All`.
 Expected: `CheckedCount` is 2 and no violation is reported. Tested by
 `Check_DocumentedDelegates_ReportsZeroViolations`.
+
+**Unresolved inheritdoc counts as documented**: Arrange hand-written XML where
+`InnerNamespaceClass.Compute(int)` carries only a bare `<inheritdoc/>`. Act by calling `Check`.
+Expected: the method is not reported. Tested by `Check_UnresolvedInheritDoc_CountsAsDocumented`.

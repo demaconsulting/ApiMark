@@ -93,7 +93,102 @@ public static class TypeNameSimplifier
     internal static bool IsAnnotated(TypeReference typeRef, byte flag) =>
         flag == 2 &&
         !typeRef.IsValueType &&
+        typeRef.FullName != "System.Void" &&
         !(typeRef is GenericParameter { HasNotNullableValueTypeConstraint: true });
+
+    /// <summary>
+    ///     Returns <see langword="true"/> when <paramref name="typeRef"/> is a constructed
+    ///     <c>System.ValueTuple</c> type with one to eight type arguments, i.e. a C# tuple type
+    ///     (a one-argument instance only occurs as the <c>TRest</c> tail of a larger tuple).
+    /// </summary>
+    /// <param name="typeRef">The type reference to test.</param>
+    /// <returns><see langword="true"/> for a C# tuple type.</returns>
+    internal static bool IsTupleType(TypeReference typeRef) =>
+        typeRef is GenericInstanceType { GenericArguments.Count: >= 1 and <= 8 } git &&
+        git.ElementType.Namespace == "System" &&
+        git.ElementType.Name.StartsWith("ValueTuple`", StringComparison.Ordinal);
+
+    /// <summary>
+    ///     Returns <see langword="true"/> when the compiler encodes a nullable flag for the type position.
+    /// </summary>
+    /// <remarks>
+    ///     Roslyn omits flags for non-generic value types (<c>int</c>, enums, plain structs) and for
+    ///     <c>Nullable&lt;T&gt;</c> itself; reference types, type parameters and generic value types
+    ///     (such as <c>ValueTuple&lt;,&gt;</c>) each take one flag.
+    /// </remarks>
+    /// <param name="typeRef">The type at this position.</param>
+    /// <returns><see langword="true"/> when the position consumes a flag.</returns>
+    internal static bool ConsumesNullableFlag(TypeReference typeRef) =>
+        typeRef switch
+        {
+            GenericParameter => true,
+            GenericInstanceType git => !git.ElementType.FullName.StartsWith("System.Nullable`1", StringComparison.Ordinal),
+            _ => !typeRef.IsValueType,
+        };
+
+    /// <summary>
+    ///     Renders a C# tuple type as <c>(A, B)</c> or <c>(A a, B b)</c> when element names are
+    ///     available, flattening the nested <c>TRest</c> encoding used for tuples of eight or more elements.
+    /// </summary>
+    /// <remarks>
+    ///     The tuple type itself must already have consumed its own nullable flag. Element names are
+    ///     read from the cursor up front (they precede nested tuple names in the compiler encoding);
+    ///     element types are then rendered in order through <paramref name="renderElement"/>, which
+    ///     consumes the nullable flags of each element, and of the <c>TRest</c> position, in pre-order.
+    /// </remarks>
+    /// <param name="tuple">The tuple type (see <see cref="IsTupleType"/>).</param>
+    /// <param name="nullability">The cursor providing nullable flags and tuple element names, or <see langword="null"/>.</param>
+    /// <param name="renderElement">Renders one element type (consuming its flags from the same cursor).</param>
+    /// <returns>The tuple text, for example <c>(int Id, string? Name)</c>.</returns>
+    internal static string BuildTuple(GenericInstanceType tuple, NullabilityCursor? nullability, Func<TypeReference, string> renderElement)
+    {
+        var names = nullability?.TakeTupleNames(CountTupleElements(tuple)) ?? Array.Empty<string?>();
+        var elements = new List<string>();
+        var index = 0;
+        AppendTupleElements(tuple, nullability, renderElement, names, ref index, elements);
+        return "(" + string.Join(", ", elements) + ")";
+    }
+
+    /// <summary>Counts the flattened element count of a tuple, following the <c>TRest</c> nesting.</summary>
+    /// <param name="tuple">The tuple type.</param>
+    /// <returns>The total number of tuple elements.</returns>
+    private static int CountTupleElements(GenericInstanceType tuple) =>
+        tuple.GenericArguments.Count == 8 && IsTupleType(tuple.GenericArguments[7])
+            ? 7 + CountTupleElements((GenericInstanceType)tuple.GenericArguments[7])
+            : tuple.GenericArguments.Count;
+
+    /// <summary>Appends the rendered elements of one tuple (and its <c>TRest</c> tail) to <paramref name="elements"/>.</summary>
+    /// <param name="tuple">The tuple type.</param>
+    /// <param name="nullability">The cursor for nullable flags.</param>
+    /// <param name="renderElement">Element renderer.</param>
+    /// <param name="names">Flattened element names.</param>
+    /// <param name="index">Running index into <paramref name="names"/>.</param>
+    /// <param name="elements">Destination list.</param>
+    private static void AppendTupleElements(
+        GenericInstanceType tuple,
+        NullabilityCursor? nullability,
+        Func<TypeReference, string> renderElement,
+        string?[] names,
+        ref int index,
+        List<string> elements)
+    {
+        var arguments = tuple.GenericArguments;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (i == 7 && arguments.Count == 8 && IsTupleType(arguments[7]))
+            {
+                // The TRest position consumes its own flag, then contributes its elements inline
+                nullability?.Next();
+                AppendTupleElements((GenericInstanceType)arguments[7], nullability, renderElement, names, ref index, elements);
+                continue;
+            }
+
+            var text = renderElement(arguments[i]);
+            var name = index < names.Length ? names[index] : null;
+            index++;
+            elements.Add(string.IsNullOrEmpty(name) ? text : $"{text} {name}");
+        }
+    }
 
     /// <summary>Applies Rules 0–7 to produce a simplified type name.</summary>
     /// <remarks>
@@ -121,8 +216,9 @@ public static class TypeNameSimplifier
             return SimplifyCore(byRef.ElementType, contextNamespace, nullability);
         }
 
-        // Every other type position consumes exactly one nullable flag, in pre-order.
-        var flag = nullability?.Next() ?? 0;
+        // Every other type position consumes exactly one nullable flag, in pre-order, except
+        // non-generic value types and Nullable<T>, which the compiler does not encode.
+        var flag = ConsumesNullableFlag(typeRef) ? (nullability?.Next() ?? (byte)0) : (byte)0;
         var suffix = IsAnnotated(typeRef, flag) ? "?" : string.Empty;
 
         return typeRef switch
@@ -130,6 +226,10 @@ public static class TypeNameSimplifier
             // Rule 2: array types recurse on the element type; rank-aware suffix (e.g., [] for 1-D, [,] for 2-D)
             ArrayType arr
                 => SimplifyCore(arr.ElementType, contextNamespace, nullability) + "[" + new string(',', arr.Rank - 1) + "]" + suffix,
+
+            // Rule 3a: C# tuples render as (A a, B b) rather than ValueTuple<A, B>
+            GenericInstanceType tuple when IsTupleType(tuple)
+                => BuildTuple(tuple, nullability, e => SimplifyCore(e, contextNamespace, nullability)) + suffix,
 
             // Rule 3: Nullable<T> is represented as T?
             GenericInstanceType { GenericArguments.Count: 1 } git
@@ -148,7 +248,7 @@ public static class TypeNameSimplifier
             { Namespace: var ns } when ns == contextNamespace
                 => StripArity(typeRef.Name) + suffix,
 
-            { Namespace: var ns } when !string.IsNullOrEmpty(ns) && !string.IsNullOrEmpty(contextNamespace) && ns.StartsWith(contextNamespace + ".", StringComparison.Ordinal)
+            { Namespace: var ns } when !string.IsNullOrEmpty(ns) && !string.IsNullOrEmpty(contextNamespace) && typeRef.Scope is not AssemblyNameReference && ns.StartsWith(contextNamespace + ".", StringComparison.Ordinal)
                 => $"{ns.Substring(contextNamespace.Length + 1)}.{StripArity(typeRef.Name)}{suffix}",
 
             // Rule 7 (remaining positions): plain type name plus the per-position nullable suffix
@@ -184,7 +284,7 @@ public static class TypeNameSimplifier
     ///     Used wherever the arity count carries no meaning for human readers — for example, in
     ///     display names, external-type table entries, and type-page headings. The backtick and
     ///     following digit(s) are dropped entirely. Contrast with <see cref="FlattenArity"/>,
-    ///     which removes only the backtick but preserves the digit so that file-system path
+    ///     which replaces the backtick with a hyphen and keeps the digit so that file-system path
     ///     segments remain unique even when both <c>Foo</c> and <c>Foo&lt;T&gt;</c> exist.
     /// </remarks>
     /// <param name="name">The raw type name that may contain a backtick arity suffix.</param>
@@ -196,20 +296,21 @@ public static class TypeNameSimplifier
     }
 
     /// <summary>
-    ///     Converts the IL backtick arity suffix to a plain numeric suffix, producing a
+    ///     Converts the IL backtick arity suffix to a hyphenated numeric suffix, producing a
     ///     file-system-safe name that still distinguishes generic types by parameter count.
     /// </summary>
     /// <remarks>
-    ///     For example, <c>Foo`2</c> becomes <c>Foo2</c> and <c>Foo</c> is unchanged.
-    ///     This avoids the collision that <see cref="StripArity"/> would cause when both
-    ///     <c>Foo</c> and <c>Foo&lt;T&gt;</c> exist in the same namespace.
+    ///     For example, <c>Foo`2</c> becomes <c>Foo-2</c> and <c>Foo</c> is unchanged.
+    ///     A hyphen cannot appear in a C# identifier, so <c>Foo-1</c> never collides with a real
+    ///     type named <c>Foo1</c>, and the arity keeps <c>Foo</c>, <c>Foo&lt;T&gt;</c> and
+    ///     <c>Foo&lt;T1, T2&gt;</c> distinct. The name needs no URL escaping.
     /// </remarks>
     /// <param name="name">The raw IL type name that may contain a backtick arity suffix.</param>
-    /// <returns>The name with the backtick removed but the arity count preserved.</returns>
+    /// <returns>The name with the backtick replaced by a hyphen and the arity count preserved.</returns>
     internal static string FlattenArity(string name)
     {
         var tick = name.IndexOf('`');
-        return tick >= 0 ? string.Concat(name.AsSpan(0, tick), name.AsSpan(tick + 1)) : name;
+        return tick >= 0 ? string.Concat(name.AsSpan(0, tick), "-", name.AsSpan(tick + 1)) : name;
     }
 
     /// <summary>
@@ -231,6 +332,14 @@ public static class TypeNameSimplifier
         var ns = typeRef.Namespace;
 
         if (string.IsNullOrEmpty(ns) || ns == contextNamespace)
+        {
+            return typeRef.Name;
+        }
+
+        // Types from another assembly are always shown by their short name: partially-qualifying
+        // them against the context namespace ("External.Type") is misleading, because the reader
+        // cannot tell that "External" is a namespace of a different assembly
+        if (typeRef.Scope is AssemblyNameReference)
         {
             return typeRef.Name;
         }
@@ -262,22 +371,33 @@ internal sealed class NullabilityCursor
     /// <summary>The fully-qualified name of the compiler-emitted nullable attribute.</summary>
     internal const string NullableAttributeName = "System.Runtime.CompilerServices.NullableAttribute";
 
+    /// <summary>The fully-qualified name of the compiler-emitted tuple element names attribute.</summary>
+    internal const string TupleElementNamesAttributeName = "System.Runtime.CompilerServices.TupleElementNamesAttribute";
+
     /// <summary>Per-position flags, or <see langword="null"/> when every position uses <see cref="_default"/>.</summary>
     private readonly byte[]? _flags;
 
     /// <summary>The flag returned when no per-position flag is available.</summary>
     private readonly byte _default;
 
+    /// <summary>Flattened tuple element names in compiler order, or <see langword="null"/> when none.</summary>
+    private readonly string?[]? _tupleNames;
+
     /// <summary>Index of the next per-position flag.</summary>
     private int _index;
+
+    /// <summary>Index of the next tuple element name.</summary>
+    private int _nameIndex;
 
     /// <summary>Initializes a new instance of <see cref="NullabilityCursor"/>.</summary>
     /// <param name="flags">Per-position flags, or <see langword="null"/>.</param>
     /// <param name="defaultFlag">The flag used when <paramref name="flags"/> is null or exhausted.</param>
-    private NullabilityCursor(byte[]? flags, byte defaultFlag)
+    /// <param name="tupleNames">Flattened tuple element names, or <see langword="null"/>.</param>
+    private NullabilityCursor(byte[]? flags, byte defaultFlag, string?[]? tupleNames = null)
     {
         _flags = flags;
         _default = defaultFlag;
+        _tupleNames = tupleNames;
     }
 
     /// <summary>Creates a cursor that annotates only the outermost position, matching the legacy boolean behavior.</summary>
@@ -292,25 +412,62 @@ internal sealed class NullabilityCursor
     /// <returns>A new cursor.</returns>
     internal static NullabilityCursor ForAttributes(IEnumerable<CustomAttribute> attributes, byte context)
     {
-        var attribute = attributes.FirstOrDefault(a => a.AttributeType.FullName == NullableAttributeName);
+        var attributeList = attributes as IList<CustomAttribute> ?? attributes.ToList();
+        var tupleNames = ReadTupleNames(attributeList);
+        var attribute = attributeList.FirstOrDefault(a => a.AttributeType.FullName == NullableAttributeName);
         if (attribute == null || attribute.ConstructorArguments.Count == 0)
         {
-            return new NullabilityCursor(null, context);
+            return new NullabilityCursor(null, context, tupleNames);
         }
 
         var argument = attribute.ConstructorArguments[0].Value;
         if (argument is byte single)
         {
-            return new NullabilityCursor(null, single);
+            return new NullabilityCursor(null, single, tupleNames);
         }
 
         if (argument is CustomAttributeArgument[] array)
         {
             var flags = array.Select(a => a.Value is byte b ? b : (byte)0).ToArray();
-            return new NullabilityCursor(flags, context);
+            return new NullabilityCursor(flags, context, tupleNames);
         }
 
-        return new NullabilityCursor(null, context);
+        return new NullabilityCursor(null, context, tupleNames);
+    }
+
+    /// <summary>Reads the flattened tuple element names from a <c>TupleElementNamesAttribute</c>, if present.</summary>
+    /// <param name="attributes">The attributes to search.</param>
+    /// <returns>The names (null entries for unnamed elements), or <see langword="null"/> when absent.</returns>
+    private static string?[]? ReadTupleNames(IEnumerable<CustomAttribute> attributes)
+    {
+        var attribute = attributes.FirstOrDefault(a => a.AttributeType.FullName == TupleElementNamesAttributeName);
+        if (attribute != null &&
+            attribute.ConstructorArguments.Count > 0 &&
+            attribute.ConstructorArguments[0].Value is CustomAttributeArgument[] array)
+        {
+            return array.Select(a => a.Value as string).ToArray();
+        }
+
+        return null;
+    }
+
+    /// <summary>Takes the next <paramref name="count"/> tuple element names, advancing the cursor.</summary>
+    /// <param name="count">The number of element names needed.</param>
+    /// <returns>The names; entries are <see langword="null"/> when unnamed or unavailable.</returns>
+    internal string?[] TakeTupleNames(int count)
+    {
+        var result = new string?[count];
+        for (var i = 0; i < count; i++)
+        {
+            if (_tupleNames != null && _nameIndex < _tupleNames.Length)
+            {
+                result[i] = _tupleNames[_nameIndex];
+            }
+
+            _nameIndex++;
+        }
+
+        return result;
     }
 
     /// <summary>Returns the flag for the next type position and advances the cursor.</summary>

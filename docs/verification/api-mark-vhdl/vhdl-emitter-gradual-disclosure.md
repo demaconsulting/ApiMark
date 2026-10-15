@@ -70,3 +70,8 @@ section listing each subprogram, confirming that the package detail page provide
 index of its declared subprograms.
 This scenario is tested by
 `VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_EmitsSubprogramsSection`.
+
+**Entity or package named api**: Verifies that an entity named `Api` and a package named `API` are
+written to `Api-` and `API-` at the root, that the `api` index page keeps its own content, and that
+the index links to the moved pages. Tested by
+`VhdlEmitterGradualDisclosure_Emit_EntityAndPackageNamedApi_DoNotOverwriteApiIndexPage`.

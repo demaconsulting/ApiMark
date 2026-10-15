@@ -150,18 +150,28 @@ suffix from a type name.
 > method.
 
 **TypeNameSimplifier.FlattenArity** (internal static): Converts the IL backtick
-arity suffix to a plain numeric suffix, producing a file-system-safe name that
-still distinguishes generic types by parameter count.
+arity suffix to a hyphenated numeric suffix, producing a file-system-safe name that
+still distinguishes generic types by parameter count. A hyphen cannot occur in a C#
+identifier, so `Foo-1` never collides with a real type named `Foo1`.
 
 - *Parameters*: `string name` — raw IL type name that may contain a backtick arity
   suffix (e.g. `Foo\`2`).
-- *Returns*: `string` — the name with the backtick removed but the arity count
-  preserved (e.g. `Foo2`). Unchanged when no backtick is present.
+- *Returns*: `string` — the name with the backtick replaced by a hyphen and the arity count
+  preserved (e.g. `Foo-2`). Unchanged when no backtick is present.
 - *Callers*: TypeLinkResolver (when computing type page keys via `GetTypePageKey`),
   and DotNetEmitter (via the `DotNetEmitter.FlattenArity` delegate wrapper) when
   building namespace page links, type page names, member page subfolder paths, and
   operator page paths. This list is non-exhaustive — any code in the DotNet system
   that constructs file-system paths for types may call this method.
+
+#### Tuples, void, and flag positions
+
+`void` never takes a `?` suffix. `System.ValueTuple` instances render as `(A a, B b)`: element names
+come from `TupleElementNamesAttribute` (outer names first), and the `TRest` tail of tuples with
+eight or more elements is flattened inline. Nullable flags are consumed in the compiler's
+pre-order, but the compiler emits no flag for non-generic value types or for `Nullable<T>`
+itself, so `ConsumesNullableFlag` skips those positions; generic value types such as tuples
+take one flag.
 
 ### Error Handling
 
@@ -194,3 +204,9 @@ receiving a non-null string for any non-null reference.
 ### External Interfaces
 
 N/A — this is an internal class with no external interfaces exposed beyond its assembly.
+
+### External Type Names
+
+A type whose reference scope is another assembly is always rendered by its short name, never partially
+qualified against the context namespace; the partial-qualification rule applies to types of the documented
+assembly only.

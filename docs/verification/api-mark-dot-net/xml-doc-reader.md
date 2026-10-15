@@ -194,7 +194,7 @@ This scenario is tested by `XmlDocReader_GetExample_MemberAbsent_ReturnsNull`.
 **GetExampleParts returns whole text as a code part when no code element exists**:
 Verifies that when the `<example>` element has no `<code>` children, the entire
 text is returned as a single code part. This scenario is tested by
-`XmlDocReader_GetExampleParts_NoCodeElement_ReturnsWholeTextAsCodePart`.
+`XmlDocReader_GetExampleParts_NoCodeElement_ReturnsWholeTextAsProsePart`.
 
 **GetExampleParts separates prose from code elements**: Verifies that when both
 text nodes and `<code>` children are present, prose and code are returned as
@@ -720,8 +720,8 @@ the `A-Za-z0-9_+#-` allow-list or empty fall back to `csharp`. Tested by
 `<para>`-nested `<code>`).
 Act with `GetExampleBlocks`. Expected: one `csharp` code block holding the
 (dedented) text. Tested by
-`XmlDocReader_GetExampleBlocks_NoCodeChild_SingleCSharpBlock` and
-`XmlDocReader_GetExampleParts_NoCodeElement_ReturnsWholeTextAsCodePart`.
+`XmlDocReader_GetExampleBlocks_NoCodeChild_SingleProseBlock` and
+`XmlDocReader_GetExampleParts_NoCodeElement_ReturnsWholeTextAsProsePart`.
 
 **Code inside `<para>` honors `lang`; prose has empty language**: Arrange a
 direct `<code>`, then a `<para>` with text and `<code lang="xml">`, then a
@@ -747,3 +747,16 @@ Tested by `XmlDocReader_GetExampleParts_WithLang_ProjectsWithoutLanguage`.
 
 **End-to-end language fence**: `lang` reaches the generated Markdown fence,
 tested by `DotNetGenerator_Generate_ExampleWithLangAttribute_EmitsMatchingCodeFenceLanguage`.
+
+**Inline references render as code**: Arrange one member whose `summary`, `typeparam`, `param`, `returns`,
+`exception`, `remarks`, and `example` contain `paramref`, `typeparamref`, and `<see langword>`. Act with the
+matching readers. Expected: each reference is a code span (for example ``Runs `name` as `T` or `null`.``), and a
+summary spanning two source lines stays one line. Tested by
+`XmlDocReader_ProseReaders_ParamrefTypeparamrefAndLangword_RenderAsInlineCode`,
+`XmlDocReader_GetSummary_LangwordWithPipeSummary_StaysSingleLineCodeSpan`, and
+`XmlDocReader_GetSummary_WithInlineReferences_PreservesReferencedNames`.
+
+**Overload cref link text**: Arrange crefs to `Go(System.String,System.Action)`,
+``Go``1(System.String,System.Func{``0})``, `Go(System.Int32[])`, and a parameterless `Go`. Act with `GetSummary`.
+Expected: ``Bar.Go(string, Action)``, ``Bar.Go<T>(string, Func<T>)``, ``Bar.Go(int[])``, and ``Bar.Stop`` as code spans.
+Tested by `XmlDocReader_GetSummary_SeeCrefToOverload_KeepsSignatureInCodeSpan`.

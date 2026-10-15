@@ -608,4 +608,75 @@ public class TypeNameSimplifierTests
         Assert.Equal("Foo", TypeNameSimplifier.Simplify(namespaced, ""));
         Assert.Equal("List<string>", TypeNameSimplifier.Simplify(MakeListOfString(), ""));
     }
+
+    /// <summary>
+    ///     Validates that <c>System.Void</c> never renders a nullable suffix, even when the inherited
+    ///     nullable context flag is 2 (annotated).
+    /// </summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_VoidWithAnnotatedFlag_RendersVoidWithoutQuestionMark()
+    {
+        // Arrange
+        var voidType = SynthModule.TypeSystem.Void;
+
+        // Act
+        var result = TypeNameSimplifier.Simplify(voidType, "", NullabilityCursor.ForOutermostFlag(true));
+
+        // Assert
+        Assert.Equal("void", result);
+        Assert.False(TypeNameSimplifier.IsAnnotated(voidType, 2));
+    }
+
+    /// <summary>Builds a closed <c>System.ValueTuple</c> type over the given element types.</summary>
+    /// <param name="elements">The element types (two to eight).</param>
+    /// <returns>The constructed tuple type.</returns>
+    private static GenericInstanceType MakeTuple(params TypeReference[] elements)
+    {
+        var open = new TypeReference("System", $"ValueTuple`{elements.Length}", SynthModule, SynthModule.TypeSystem.CoreLibrary, true);
+        var tuple = new GenericInstanceType(open);
+        foreach (var element in elements)
+        {
+            tuple.GenericArguments.Add(element);
+        }
+
+        return tuple;
+    }
+
+    /// <summary>Validates that an unnamed tuple renders as <c>(int, string)</c> rather than <c>ValueTuple&lt;int, string&gt;</c>.</summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_UnnamedTuple_RendersTupleSyntax()
+    {
+        // Arrange
+        var tuple = MakeTuple(SynthModule.TypeSystem.Int32, SynthModule.TypeSystem.String);
+
+        // Act / Assert
+        Assert.Equal("(int, string)", TypeNameSimplifier.Simplify(tuple, "ApiMark.DotNet.Fixtures"));
+    }
+
+    /// <summary>Validates that a nullable tuple renders as <c>(int, string)?</c>.</summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_NullableTuple_RendersTupleWithQuestionMark()
+    {
+        // Arrange
+        var tuple = MakeTuple(SynthModule.TypeSystem.Int32, SynthModule.TypeSystem.String);
+        var nullableOpen = new TypeReference("System", "Nullable`1", SynthModule, SynthModule.TypeSystem.CoreLibrary, true);
+        var nullable = new GenericInstanceType(nullableOpen);
+        nullable.GenericArguments.Add(tuple);
+
+        // Act / Assert
+        Assert.Equal("(int, string)?", TypeNameSimplifier.Simplify(nullable, "ApiMark.DotNet.Fixtures"));
+    }
+
+    /// <summary>Validates that a tuple of eight elements flattens the nested <c>TRest</c> encoding.</summary>
+    [Fact]
+    public void TypeNameSimplifier_Simplify_EightElementTuple_FlattensRest()
+    {
+        // Arrange
+        var rest = MakeTuple(SynthModule.TypeSystem.String, SynthModule.TypeSystem.Boolean);
+        var int32 = SynthModule.TypeSystem.Int32;
+        var big = MakeTuple(int32, int32, int32, int32, int32, int32, int32, rest);
+
+        // Act / Assert
+        Assert.Equal("(int, int, int, int, int, int, int, string, bool)", TypeNameSimplifier.Simplify(big, ""));
+    }
 }

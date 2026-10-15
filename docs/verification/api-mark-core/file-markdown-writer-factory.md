@@ -27,6 +27,8 @@ so they are safe to run in parallel.
 - `CreateMarkdown` with a non-empty subFolder creates the required subdirectory and file.
 - `CreateMarkdown` creates the output root directory if it does not yet exist at the time
   of the call.
+- `CreateMarkdown` throws `ArgumentException` for a file name or sub-folder segment that
+  is not legal on Windows and Linux, and accepts legal names.
 
 ### Test Scenarios
 
@@ -77,3 +79,17 @@ inside it. Tested by
 factory creates the output root directory when it does not yet exist at the time of the
 first `CreateMarkdown` call, without requiring callers to pre-create directories. Tested
 by `FileMarkdownWriterFactory_CreateMarkdown_NonExistentDirectory_CreatesDirectory`.
+
+**CreateMarkdown with an illegal file name throws ArgumentException**: Verifies that names
+containing `<` or `:`, a reserved device name such as `CON`, or a trailing dot are rejected
+before any file is created. Tested by
+`FileMarkdownWriterFactory_CreateMarkdown_IllegalFileName_ThrowsArgumentException`.
+
+**CreateMarkdown with an illegal folder segment throws ArgumentException**: Verifies that
+a sub-folder path with an illegal segment (`a<b`, `Aux`, trailing dot) is rejected and no
+directory is created. Tested by
+`FileMarkdownWriterFactory_CreateMarkdown_IllegalFolderSegment_ThrowsArgumentException`.
+
+**CreateMarkdown with legal braces and hyphens creates the file**: Verifies that a
+sub-folder and name using `{`, `}`, `.`, and `-` are accepted and written. Tested by
+`FileMarkdownWriterFactory_CreateMarkdown_LegalNames_CreatesFile`.

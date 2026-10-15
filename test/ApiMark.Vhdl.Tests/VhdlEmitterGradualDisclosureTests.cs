@@ -9,6 +9,86 @@ namespace ApiMark.Vhdl.Tests;
 /// <summary>Unit tests for <see cref="VhdlEmitterGradualDisclosure"/>.</summary>
 public class VhdlEmitterGradualDisclosureTests
 {
+    /// <summary>Validates that entities and packages named like Windows reserved device names get legal, linked pages.</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_ReservedDeviceNames_ProducesLegalLinkedPages()
+    {
+        // Arrange
+        var options = new VhdlGeneratorOptions { LibraryName = "TestLib" };
+        var entity = new VhdlEntityDecl("aux", [], [], new VhdlDocComment("A reserved-name entity.", null, []));
+        var fileModels = new List<VhdlFileModel> { new("test.vhd", [entity], [], []) };
+        var emitter = new VhdlEmitter(options, fileModels);
+        var factory = new InMemoryMarkdownWriterFactory();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert
+        Assert.All(factory.Writers.Keys, k => Assert.All(k.Split('/'), s => Assert.True(FileNameSanitizer.IsLegalSegment(s), k)));
+        Assert.True(factory.HasWriter("", "aux-"), "Expected the aux entity page to be named aux-");
+        var rows = factory.GetWriter("", "api").Operations.OfType<TableOperation>().SelectMany(t => t.Rows);
+        Assert.Contains(rows, r => r[0].Contains("(aux-.md)", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that an entity or package named like the reserved api index page never overwrites it.</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_EntityAndPackageNamedApi_DoNotOverwriteApiIndexPage()
+    {
+        // Arrange
+        var options = new VhdlGeneratorOptions { LibraryName = "TestLib" };
+        var entity = new VhdlEntityDecl("Api", [], [], new VhdlDocComment("An entity named like the index.", null, []));
+        var package = new VhdlPackageDecl("API", new VhdlDocComment("A package named like the index.", null, []), [], [], [], []);
+        var fileModels = new List<VhdlFileModel> { new("test.vhd", [entity], [], [package]) };
+        var emitter = new VhdlEmitter(options, fileModels);
+        var factory = new InMemoryMarkdownWriterFactory();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the index keeps its page, the declarations are moved aside, and the index links to them
+        var apiHeadings = factory.GetWriter("", "api").Operations.OfType<HeadingOperation>();
+        Assert.Contains(apiHeadings, h => h.Level == 1 && h.Text.Contains("API Reference", StringComparison.Ordinal));
+        Assert.True(factory.HasWriter("", "Api-"));
+        Assert.True(factory.HasWriter("", "API-"));
+        var rows = factory.GetWriter("", "api").Operations.OfType<TableOperation>().SelectMany(t => t.Rows).ToList();
+        Assert.Contains(rows, r => r[0].Contains("(Api-.md)", StringComparison.Ordinal));
+        Assert.Contains(rows, r => r[0].Contains("(API-.md)", StringComparison.Ordinal));
+    }
+
+    /// <summary>Validates that packages with reserved names keep page, folder, and every link consistent.</summary>
+    [Theory]
+    [InlineData("Api", "Api-")]
+    [InlineData("Aux", "Aux-")]
+    public void VhdlEmitterGradualDisclosure_Emit_PackageWithReservedName_AllLinksResolve(string pkgName, string page)
+    {
+        // Arrange
+        var options = new VhdlGeneratorOptions { LibraryName = "TestLib" };
+        var sub = new VhdlSubprogramDecl("Do_It", VhdlSubprogramKind.Function, "function Do_It return integer", [], "integer", null);
+        var package = new VhdlPackageDecl(pkgName, null, [], [], [], [sub]);
+        var fileModels = new List<VhdlFileModel> { new("test.vhd", [], [], [package]) };
+        var emitter = new VhdlEmitter(options, fileModels);
+        var factory = new InMemoryMarkdownWriterFactory();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: package page, subprogram page in the matching folder, and every link resolves
+        Assert.True(factory.HasWriter("", page));
+        Assert.True(factory.HasWriter(page, "Do_It"));
+        var link = new System.Text.RegularExpressions.Regex(@"\]\(([^)]+)\)");
+        foreach (var (key, writer) in factory.Writers)
+        {
+            var dir = key.Contains('/') ? key[..key.LastIndexOf('/')] : "";
+            var texts = writer.Operations.OfType<ParagraphOperation>().Select(p => p.Text)
+                .Concat(writer.Operations.OfType<TableOperation>().SelectMany(t => t.Rows).SelectMany(r => r));
+            foreach (var m in texts.SelectMany(t => link.Matches(t).Select(x => x.Groups[1].Value)))
+            {
+                var target = (dir.Length == 0 ? m : dir + "/" + m);
+                Assert.True(factory.Writers.ContainsKey(target[..^3]), $"{key} links to missing {target}");
+            }
+        }
+    }
+
     /// <summary>Builds minimal data for testing without parsing real VHDL files.</summary>
     private static (VhdlEmitter emitter, IReadOnlyList<VhdlFileModel> fileModels) BuildMinimalData()
     {

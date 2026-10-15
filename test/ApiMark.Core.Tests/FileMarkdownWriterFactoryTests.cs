@@ -57,6 +57,54 @@ public sealed class FileMarkdownWriterFactoryTests : IDisposable
         Assert.Throws<ArgumentException>(() => new FileMarkdownWriterFactory(null!));
     }
 
+    /// <summary>Verifies that illegal file names are rejected before touching the file system.</summary>
+    /// <param name="name">The illegal file name.</param>
+    [Theory]
+    [InlineData("a<b")]
+    [InlineData("a:b")]
+    [InlineData("CON")]
+    [InlineData("trailing.")]
+    public void FileMarkdownWriterFactory_CreateMarkdown_IllegalFileName_ThrowsArgumentException(string name)
+    {
+        // Arrange
+        var factory = new FileMarkdownWriterFactory(_tempDirectory);
+
+        // Act / Assert
+        Assert.Throws<ArgumentException>(() => factory.CreateMarkdown("sub", name));
+    }
+
+    /// <summary>Verifies that illegal folder segments are rejected before touching the file system.</summary>
+    /// <param name="subFolder">The illegal sub-folder path.</param>
+    [Theory]
+    [InlineData("ok/a<b")]
+    [InlineData("Aux/ok")]
+    [InlineData("ok/trailing.")]
+    public void FileMarkdownWriterFactory_CreateMarkdown_IllegalFolderSegment_ThrowsArgumentException(string subFolder)
+    {
+        // Arrange
+        var factory = new FileMarkdownWriterFactory(_tempDirectory);
+
+        // Act / Assert
+        Assert.Throws<ArgumentException>(() => factory.CreateMarkdown(subFolder, "page"));
+        Assert.Empty(Directory.GetDirectories(_tempDirectory));
+    }
+
+    /// <summary>Verifies that legal names, including braces and hyphens, are accepted and written.</summary>
+    [Fact]
+    public void FileMarkdownWriterFactory_CreateMarkdown_LegalNames_CreatesFile()
+    {
+        // Arrange
+        var factory = new FileMarkdownWriterFactory(_tempDirectory);
+
+        // Act
+        using (factory.CreateMarkdown("Ns.Sub/Type{T}", "IFoo{System.Int32}.Method-1a2b3c4d"))
+        {
+        }
+
+        // Assert
+        Assert.True(File.Exists(Path.Join(_tempDirectory, "Ns.Sub", "Type{T}", "IFoo{System.Int32}.Method-1a2b3c4d.md")));
+    }
+
     /// <summary>
     ///     Verifies that constructing <see cref="FileMarkdownWriterFactory"/> with a
     ///     whitespace-only output directory throws <see cref="ArgumentException"/>.

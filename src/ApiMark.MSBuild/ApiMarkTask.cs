@@ -155,6 +155,29 @@ public class ApiMarkTask : Task
     public string? ApiMarkExternalLinks { get; set; }
 
     /// <summary>
+    ///     Gets or sets an explicit version substituted for the <c>{version}</c> token in
+    ///     <see cref="ApiMarkExternalLinks"/> values. Maps to <c>$(ApiMarkLinkVersion)</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Optional. When empty, <see cref="ApiMarkPackageVersion"/> is used first and
+    ///     <see cref="ApiMarkProjectVersion"/> second.
+    /// </remarks>
+    public string? ApiMarkLinkVersion { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the evaluated <c>$(PackageVersion)</c> of the project. Takes precedence over
+    ///     <see cref="ApiMarkProjectVersion"/> when resolving the <c>{version}</c> link token.
+    /// </summary>
+    public string? ApiMarkPackageVersion { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the evaluated <c>$(Version)</c> of the project. Used for the <c>{version}</c>
+    ///     link token only when neither <see cref="ApiMarkLinkVersion"/> nor
+    ///     <see cref="ApiMarkPackageVersion"/> is set.
+    /// </summary>
+    public string? ApiMarkProjectVersion { get; set; }
+
+    /// <summary>
     ///     Gets or sets the visibility tier at which XML doc <c>&lt;summary&gt;</c> coverage is
     ///     enforced.
     /// </summary>
@@ -376,7 +399,7 @@ public class ApiMarkTask : Task
         // a separate repeatable --reference-paths argument used to resolve cross-assembly
         // <inheritdoc/> targets
         AppendDelimitedRepeatableArgs(args, "--reference-paths", ApiMarkReferencePaths);
-        AppendDelimitedRepeatableArgs(args, "--external-link", ApiMarkExternalLinks);
+        AppendDelimitedRepeatableArgs(args, "--external-link", ExpandVersionToken(ApiMarkExternalLinks));
 
         // Optional library description — shared with cpp (see AppendCppArguments); an explicit
         // value overrides the assembly's compiled AssemblyDescriptionAttribute
@@ -432,6 +455,62 @@ public class ApiMarkTask : Task
         // as dotnet, mirroring AppendDotNetArguments's block.
         AppendOptionalArg(args, "--enforce-docs", ApiMarkEnforceDocs);
         AppendOptionalArg(args, "--enforce-docs-severity", ApiMarkEnforceDocsSeverity);
+    }
+
+    /// <summary>
+    ///     Resolves the version substituted for the <c>{version}</c> link token: an explicit
+    ///     <see cref="ApiMarkLinkVersion"/> first, then <see cref="ApiMarkPackageVersion"/>, then
+    ///     <see cref="ApiMarkProjectVersion"/>.
+    /// </summary>
+    /// <returns>The version text, or <see langword="null"/> when none of the three is set.</returns>
+    internal string? ResolveLinkVersion()
+    {
+        var candidate = new[] { ApiMarkLinkVersion, ApiMarkPackageVersion, ApiMarkProjectVersion }
+            .FirstOrDefault(c => !string.IsNullOrWhiteSpace(c));
+        return candidate?.Trim();
+    }
+
+    /// <summary>
+    ///     Replaces every <c>{version}</c> token in <paramref name="delimitedValue"/> with
+    ///     <see cref="ResolveLinkVersion"/>; the value is returned unchanged when no version is set.
+    /// </summary>
+    /// <param name="delimitedValue">The raw semicolon-delimited external-link value.</param>
+    /// <returns>The value with the token expanded.</returns>
+    private string? ExpandVersionToken(string? delimitedValue)
+    {
+        var version = ResolveLinkVersion();
+        if (string.IsNullOrEmpty(delimitedValue) || version is null)
+        {
+            return delimitedValue;
+        }
+
+        return delimitedValue!.Replace("{version}", version);
+    }
+
+    /// <summary>
+    ///     Logs a build warning when external links are configured and the project sets both
+    ///     <c>PackageVersion</c> and <c>Version</c> to different values.
+    /// </summary>
+    /// <remarks>
+    ///     <c>dotnet pack -p:PackageVersion=1.2.3</c> leaves <c>Version</c> at its default
+    ///     (<c>1.0.0</c>), so a mapping that references the wrong property yields dead links. The
+    ///     <c>{version}</c> token prefers <c>PackageVersion</c> unless <c>ApiMarkLinkVersion</c> is
+    ///     set, in which case the user has already chosen and no warning is logged.
+    /// </remarks>
+    internal void LogVersionMismatchWarning()
+    {
+        if (string.IsNullOrWhiteSpace(ApiMarkExternalLinks) ||
+            !string.IsNullOrWhiteSpace(ApiMarkLinkVersion) ||
+            string.IsNullOrWhiteSpace(ApiMarkPackageVersion) ||
+            string.IsNullOrWhiteSpace(ApiMarkProjectVersion) ||
+            string.Equals(ApiMarkPackageVersion!.Trim(), ApiMarkProjectVersion!.Trim(), StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        Log.LogWarning(
+            $"ApiMark: PackageVersion '{ApiMarkPackageVersion}' differs from Version '{ApiMarkProjectVersion}'. " +
+            "The {version} token in ApiMarkExternalLinks uses PackageVersion; set ApiMarkLinkVersion to override.");
     }
 
     /// <summary>
@@ -615,6 +694,13 @@ public class ApiMarkTask : Task
                 "Supported values are 'dotnet' and 'cpp'. " +
                 "Use the ApiMark.Tool CLI directly for other languages.");
             return false;
+        }
+
+        // Warn when the project's PackageVersion and Version disagree: links that embed the version
+        // would otherwise silently use whichever one the project happened to reference
+        if (language == DotNetLanguage)
+        {
+            LogVersionMismatchWarning();
         }
 
         // Verify the bundled tool DLL exists before attempting to spawn it

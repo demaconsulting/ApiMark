@@ -33,7 +33,7 @@ sections:
               - XmlDocReader_GetReturns_MemberWithReturns_ReturnsTrimmedText
               - XmlDocReader_GetExample_MemberWithExample_ReturnsTrimmedText
               - XmlDocReader_GetExample_WhitespaceOnly_ReturnsNull
-              - XmlDocReader_GetExampleParts_NoCodeElement_ReturnsWholeTextAsCodePart
+              - XmlDocReader_GetExampleParts_NoCodeElement_ReturnsWholeTextAsProsePart
               - XmlDocReader_GetExampleParts_WithCodeElement_SeparatesProseFromCode
               - XmlDocReader_GetExampleParts_MemberAbsent_ReturnsEmpty
               - XmlDocReader_GetExceptionDetails_MemberWithExceptions_ReturnsFormattedTypesAndDescriptions
@@ -311,13 +311,13 @@ sections:
             tests:
               - XmlDocReader_GetExampleBlocks_LangAttribute_SelectsLanguageWithFallback
           - id: ApiMarkDotNet-XmlDocReader-NoCodeChildExampleAsCSharp
-            title: XmlDocReader shall return an example with no code element, direct or nested in a para, as a single csharp code part.
+            title: XmlDocReader shall return an example with no code element, direct or nested in a para, as a single prose part.
             justification: |
-              An example without any code element is treated as one C# block for backward
-              compatibility.
+              An example without any code element contains only descriptive text, so it is
+              rendered as prose rather than wrapped in a code fence.
             tests:
-              - XmlDocReader_GetExampleBlocks_NoCodeChild_SingleCSharpBlock
-              - XmlDocReader_GetExampleParts_NoCodeElement_ReturnsWholeTextAsCodePart
+              - XmlDocReader_GetExampleBlocks_NoCodeChild_SingleProseBlock
+              - XmlDocReader_GetExampleParts_NoCodeElement_ReturnsWholeTextAsProsePart
           - id: ApiMarkDotNet-XmlDocReader-SanitizeCodeLanguage
             title: XmlDocReader shall accept a lang value only when it consists solely of the characters A-Z, a-z, 0-9, underscore, plus, hash and hyphen, and otherwise fall back to csharp.
             justification: |
@@ -336,3 +336,19 @@ sections:
               - XmlDocReader_GetExampleBlocks_OnlyCodeInsidePara_HonorsLangAndKeepsProseOrdinary
               - XmlDocReader_GetExampleBlocks_CodeInsideNestedPara_HonorsLang
               - XmlDocReader_GetExampleParts_WithMixedInlineElementsContainingMultiLineCodeInsidePara_SplitsIntoCodePart
+          - id: ApiMarkDotNet-XmlDocReader-InlineReferenceCodeSpans
+            title: XmlDocReader shall render paramref, typeparamref, and langword references as inline code
+              in the summary, returns, remarks, param, typeparam, exception, and example text.
+            justification: |
+              Parameter names and keywords such as null read ambiguously as plain prose.
+            tests:
+              - XmlDocReader_ProseReaders_ParamrefTypeparamrefAndLangword_RenderAsInlineCode
+              - XmlDocReader_GetSummary_LangwordWithPipeSummary_StaysSingleLineCodeSpan
+              - XmlDocReader_GetSummary_WithInlineReferences_PreservesReferencedNames
+          - id: ApiMarkDotNet-XmlDocReader-OverloadCrefSignature
+            title: XmlDocReader shall keep the C# short parameter types, and generic method arguments, in
+              the link text of a cref to a method with a parameter list.
+            justification: |
+              Without the parameter types a reader cannot tell which overload a reference means.
+            tests:
+              - XmlDocReader_GetSummary_SeeCrefToOverload_KeepsSignatureInCodeSpan

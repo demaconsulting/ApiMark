@@ -79,7 +79,7 @@ public class XmlDocReaderTests
 
             // Assert
             Assert.Equal(
-                "Returns true when status is `SampleStatus.Active` or `SampleStatus.Pending`.",
+                "Returns `true` when `status` is `SampleStatus.Active` or `SampleStatus.Pending`.",
                 reader.GetSummary("M:Foo.Bar.IsPassed(Foo.SampleStatus)"));
         }
         finally
@@ -336,7 +336,7 @@ public class XmlDocReaderTests
     ///     code part when the example has no <c>&lt;code&gt;</c> child element.
     /// </summary>
     [Fact]
-    public void XmlDocReader_GetExampleParts_NoCodeElement_ReturnsWholeTextAsCodePart()
+    public void XmlDocReader_GetExampleParts_NoCodeElement_ReturnsWholeTextAsProsePart()
     {
         // Arrange
         var path = WriteXmlDoc("""
@@ -350,9 +350,9 @@ public class XmlDocReaderTests
             var reader = new XmlDocReader(path);
             var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
 
-            // Assert: single part, treated as code
+            // Assert: single part, treated as prose (text-only examples are never fenced)
             Assert.Single(parts);
-            Assert.True(parts[0].IsCode);
+            Assert.False(parts[0].IsCode);
             Assert.Equal("var x = new Bar();", parts[0].Content);
         }
         finally
@@ -412,9 +412,9 @@ public class XmlDocReaderTests
         }
     }
 
-    /// <summary>Validates that an example without a <c>&lt;code&gt;</c> child is one csharp code block.</summary>
+    /// <summary>Validates that an example without a <c>&lt;code&gt;</c> child is one prose block, never a csharp fence.</summary>
     [Fact]
-    public void XmlDocReader_GetExampleBlocks_NoCodeChild_SingleCSharpBlock()
+    public void XmlDocReader_GetExampleBlocks_NoCodeChild_SingleProseBlock()
     {
         // Arrange
         var path = WriteXmlDoc("""
@@ -429,9 +429,8 @@ public class XmlDocReaderTests
 
             // Assert
             var block = Assert.Single(blocks);
-            Assert.True(block.IsCode);
+            Assert.False(block.IsCode);
             Assert.Equal("var x = 1;", block.Content);
-            Assert.Equal("csharp", block.Language);
         }
         finally
         {
@@ -1255,7 +1254,7 @@ public class XmlDocReaderTests
 
             // Assert: example parts must be inherited from the cref target
             Assert.Single(parts);
-            Assert.True(parts[0].IsCode);
+            Assert.False(parts[0].IsCode);
             Assert.Equal("Example text", parts[0].Content);
         }
         finally
@@ -1287,7 +1286,7 @@ public class XmlDocReaderTests
             // Assert: prose part must contain the formatted cref text, not be empty or dropped
             Assert.Equal(2, parts.Count);
             Assert.False(parts[0].IsCode);
-            Assert.Contains("`Bar.Run()`", parts[0].Content);
+            Assert.Contains("`Bar.Run(int)`", parts[0].Content);
             Assert.True(parts[1].IsCode);
         }
         finally
@@ -1325,7 +1324,7 @@ public class XmlDocReaderTests
             // The prose part must include the text before the reference, the formatted
             // cref name, and the text after — all in one coherent string
             Assert.Contains("prefer", parts[0].Content);
-            Assert.Contains("`Bar.RegisterService()`", parts[0].Content);
+            Assert.Contains("`Bar.RegisterService(Type)`", parts[0].Content);
             Assert.Contains("which registers automatically.", parts[0].Content);
 
             Assert.True(parts[1].IsCode);
@@ -1834,7 +1833,7 @@ public class XmlDocReaderTests
     ///     <c>&lt;example&gt;</c> element value is treated as a single code block.
     /// </summary>
     [Fact]
-    public void XmlDocReader_GetExampleParts_NoCodeElement_IndentedContent_StripsCommonIndent()
+    public void XmlDocReader_GetExampleParts_NoCodeElement_IndentedContent_StripsCommonIndentAsProse()
     {
         // Arrange: <example> carries no <code> child — the whole text is treated as code;
         // the content lines carry 8 spaces of leading indentation from XML formatting
@@ -1852,10 +1851,10 @@ public class XmlDocReaderTests
             var reader = new XmlDocReader(path);
             var parts = reader.GetExampleParts("M:Foo.Bar.Sample");
 
-            // Assert: common indent is stripped from the whole-value fallback path too
+            // Assert: prose whitespace is normalized (no fence, no stray indentation)
             Assert.Single(parts);
-            Assert.True(parts[0].IsCode);
-            Assert.Equal("var x = new Bar();\nx.Run();", parts[0].Content);
+            Assert.False(parts[0].IsCode);
+            Assert.Equal("var x = new Bar(); x.Run();", parts[0].Content);
         }
         finally
         {
@@ -2739,7 +2738,7 @@ public class XmlDocReaderTests
             var summary = reader.GetSummary("T:Foo.Bar");
 
             // Assert: raw "<T>", not "\<T\>", inside the backtick span
-            Assert.Equal("See `List<T>.Add()` for details.", summary);
+            Assert.Equal("See `List<T>.Add(T)` for details.", summary);
         }
         finally
         {
@@ -3688,7 +3687,7 @@ public class XmlDocReaderTests
                 var summary = reader.GetSummary("T:Foo.Bar", baseContext);
 
                 // Assert: unlinked, same as the null-context baseline
-                Assert.Equal("See `ProtectedMembersClass.PrivateMethod()`.", summary);
+                Assert.Equal("See `ProtectedMembersClass.PrivateMethod(int)`.", summary);
             }
             finally
             {
@@ -3961,6 +3960,101 @@ public class XmlDocReaderTests
             {
                 File.Delete(path);
             }
+        }
+    }
+
+    #endregion
+
+    #region Inline parameter, type-parameter, and keyword references
+
+    /// <summary>
+    ///     Validates that <c>paramref</c>, <c>typeparamref</c>, and <c>langword</c> references are rendered
+    ///     as inline code spans by every prose reader (summary, returns, remarks, param, typeparam,
+    ///     exception, and example).
+    /// </summary>
+    [Fact]
+    public void XmlDocReader_ProseReaders_ParamrefTypeparamrefAndLangword_RenderAsInlineCode()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="M:Foo.Bar.Run``1(System.String,``0)">
+              <summary>Runs <paramref name="name"/> as <typeparamref name="T"/> or <see langword="null"/>.</summary>
+              <typeparam name="T">Type of <paramref name="value"/>, never <see langword="null"/>.</typeparam>
+              <param name="name">The <typeparamref name="T"/> name; <see langword="null"/> is invalid.</param>
+              <returns>The <paramref name="name"/> or <see langword="null"/>.</returns>
+              <exception cref="T:System.ArgumentNullException">When <paramref name="name"/> is <see langword="null"/>.</exception>
+              <remarks>See <paramref name="name"/> as <typeparamref name="T"/>; <see langword="true"/>.</remarks>
+              <example>Use <paramref name="name"/> with <see langword="null"/>.</example>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+            const string id = "M:Foo.Bar.Run``1(System.String,``0)";
+
+            // Assert
+            Assert.Equal("Runs `name` as `T` or `null`.", reader.GetSummary(id));
+            Assert.Equal("The `name` or `null`.", reader.GetReturns(id));
+            Assert.Equal("See `name` as `T`; `true`.", reader.GetRemarks(id));
+            Assert.Equal("The `T` name; `null` is invalid.", reader.GetParams(id).Single().Description);
+            Assert.Equal("Type of `value`, never `null`.", reader.GetTypeParameters(id, null).Single().Description);
+            Assert.Equal("When `name` is `null`.", reader.GetExceptionDetails(id).Single().Description);
+            var example = reader.GetExampleParts(id).Single();
+            Assert.Equal("Use `name` with `null`.", example.Content);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that a <c>langword</c> reference inside a single-line table-cell summary stays a pipe-safe code span.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_LangwordWithPipeSummary_StaysSingleLineCodeSpan()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>Use <see langword="true"/> or <see langword="false"/>
+              to choose.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var summary = new XmlDocReader(path).GetSummary("T:Foo.Bar");
+
+            // Assert
+            Assert.Equal("Use `true` or `false` to choose.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that a method cref with a parameter list keeps the C# short parameter types in its link text.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_SeeCrefToOverload_KeepsSignatureInCodeSpan()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>See <see cref="M:Foo.Bar.Go(System.String,System.Action)"/>, <see cref="M:Foo.Bar.Go``1(System.String,System.Func{``0})"/>, <see cref="M:Foo.Bar.Go(System.Int32[])"/> and <see cref="M:Foo.Bar.Stop"/>.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var summary = new XmlDocReader(path).GetSummary("T:Foo.Bar");
+
+            // Assert
+            Assert.Equal("See `Bar.Go(string, Action)`, `Bar.Go<T>(string, Func<T>)`, `Bar.Go(int[])` and `Bar.Stop`.", summary);
+        }
+        finally
+        {
+            File.Delete(path);
         }
     }
 

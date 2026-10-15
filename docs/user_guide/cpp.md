@@ -220,6 +220,16 @@ An AI agent can read the root index first, drill into the relevant namespace or 
 page, and then read the member detail — consuming only as much context as the task
 requires.
 
+### File Naming
+
+File and folder names are made legal on both Windows and Linux so the output can be checked
+out anywhere. Template names such as `Foo<int>` are written as `Foo{int}.md`; reserved Windows
+device names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, `LPT1`-`LPT9`) get a trailing `-`
+(for example a type `Aux` becomes `Aux-.md`, a namespace `aux` becomes `aux-.md`); any other
+illegal character (such as `:`) becomes `-` followed by a short hash of the original name.
+Links inside the pages use the same names, while link text keeps the original C++ name.
+Types whose names differ only in case are not disambiguated across the whole tree.
+
 ### Single File (`--format single-file`)
 
 All content is written to a single `api.md` file using a flat heading hierarchy:

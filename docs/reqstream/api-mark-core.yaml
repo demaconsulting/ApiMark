@@ -57,6 +57,7 @@ sections:
           - ApiMarkCore-FileMarkdownWriterFactory-RejectWhitespaceName
           - ApiMarkCore-FileMarkdownWriterFactory-SupportRootLevelFiles
           - ApiMarkCore-FileMarkdownWriterFactory-CreateOutputDirectoryOnUse
+          - ApiMarkCore-FileMarkdownWriterFactory-RejectIllegalNames
         tests: [ApiMarkCore_WriterFactory_CanCreate_RootAndSubfolderWriters]
       - id: ApiMarkCore-IMarkdownWriter-ProvideMarkdownOutputInterface
         title: ApiMarkCore shall provide a markdown output interface for writing individual
@@ -146,6 +147,22 @@ sections:
           - PathHelpers_NormalizeCase_NonExistentPath_PreservesSuppliedCasing
           - PathHelpers_NormalizeCase_CaseSensitiveFileSystemWithBothCasings_PrefersExactMatch
           - PathHelpers_NormalizeCaseDirectory_DriveLetterRoot_DoesNotResolveToCurrentDirectory
+      - id: ApiMarkCore-FileNameSanitizer-ProvideLegalFileNameHelper
+        title: ApiMarkCore shall provide a public helper that converts declaration names
+          into file and folder name segments that are legal on Windows and Linux,
+          deterministic, and distinct.
+        tags: [system]
+        justification: |
+          Every language emitter writes files named after source declarations. One
+          auditable helper guarantees the output can be created and checked out on any
+          supported operating system and that links agree with the files they target.
+        children:
+          - ApiMarkCore-FileNameSanitizer-ProduceLegalSegments
+          - ApiMarkCore-FileNameSanitizer-Deterministic
+          - ApiMarkCore-FileNameSanitizer-ValidateSegments
+        tests:
+          - FileNameSanitizer_SanitizeSegment_ReservedDeviceName_IsMovedAside
+          - FileNameSanitizer_IsLegalSegment_IllegalName_ReturnsFalse
       - id: ApiMarkCore-ProvideEmitterContract
         title: ApiMark Core shall provide a well-defined emitter contract.
         tags: [system]

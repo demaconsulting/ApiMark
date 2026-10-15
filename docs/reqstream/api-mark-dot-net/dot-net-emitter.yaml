@@ -207,3 +207,127 @@ sections:
               - DotNetEmitter_GetImmediateChildNamespaces_GlobalNamespace_IsSiblingRoot
               - DotNetEmitter_GetNamespaceDisplayName_GlobalNamespace_ReturnsPlaceholder
               - DotNetGenerator_ComputeRootNamespaces_GlobalNamespace_IsRootAndDoesNotHideOthers
+          - id: ApiMarkDotNet-DotNetEmitter-ReservedApiNamespace
+            title: DotNetEmitter shall move a root namespace whose name equals the reserved api index
+              page aside so its namespace page never overwrites api.md.
+            justification: |
+              A root namespace named api is legal; its namespace page and the assembly index page
+              would otherwise be written to the same file.
+            tests:
+              - DotNetEmitter_GetNamespaceFolderPath_NamespaceNamedApi_IsMovedAsideFromApiIndexPage
+          - id: ApiMarkDotNet-DotNetEmitter-RenderParamsKeyword
+            title: DotNetEmitter shall render the params (or params collection) modifier on parameters
+              in method, constructor, and delegate signatures.
+            justification: |
+              Dropping params changes the documented calling convention of the member.
+            tests:
+              - DotNetEmitter_BuildMemberSignature_NullableMatrixAndParams_RendersExactSignature
+              - DotNetEmitter_BuildDelegateSignature_ParamsDelegate_RendersParamsKeyword
+          - id: ApiMarkDotNet-DotNetEmitter-RenderInheritanceModifiers
+            title: DotNetEmitter shall render new, virtual, override, sealed override, abstract, and static modifiers
+              on method, property, and event signatures, and none on interface members, static members,
+              or interface implementations.
+            justification: |
+              Readers must know whether a member can be or has been overridden.
+            tests:
+              - DotNetEmitter_BuildMemberSignature_InheritanceShapes_RendersModifiers
+              - DotNetEmitter_BuildMemberSignature_HidingAndStaticEvent_RendersNewAndStatic
+              - DotNetEmitter_BuildMethodSignature_HidingVirtualAndOverload_RendersNewOnlyOnHider
+          - id: ApiMarkDotNet-DotNetEmitter-HideInvisibleAccessors
+            title: DotNetEmitter shall omit property accessors that are not visible at the selected
+              visibility tier.
+            justification: |
+              A private or internal setter is not part of the documented surface at the public tier;
+              showing it leaks implementation detail and is incorrect.
+            tests:
+              - DotNetEmitter_BuildMemberSignature_AccessorShapes_HidesNonVisibleAccessors
+          - id: ApiMarkDotNet-DotNetEmitter-ConsistentNullableTypeText
+            title: DotNetEmitter shall render nullability, defaults, tuples, and params identically in
+              overview rows, page headings, and signature blocks.
+            justification: |
+              Rows and headings that differ from the signature block mislead readers and make
+              overloads indistinguishable.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_MatrixTypes_RowParametersEqualSignatureParameters
+              - DotNetEmitterGradualDisclosure_Emit_AllFixtures_NeverRenderNullableVoid
+          - id: ApiMarkDotNet-DotNetEmitter-InheritedMembers
+            title: DotNetEmitter shall list the members a type inherits from its base types in an
+              Inherited Members section grouped by declaring type, excluding overridden, hidden,
+              constructor, operator, and Object members, without creating member pages.
+            justification: |
+              Readers of a derived type need to discover what it inherits; the listing must not
+              duplicate overridden members, must not enter coverage or cross-reference indexes, and
+              must degrade to a note when a base assembly cannot be resolved.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_InheritedMembers_ListedPerDeclaringTypeWithoutOverridesOrObjectMembers
+              - DotNetEmitterGradualDisclosure_Emit_InheritedMembers_DoNotCreateMemberPages
+              - DotNetEmitterSingleFile_Emit_InheritedMembers_ListedPerDeclaringType
+              - DotNetEmitterGradualDisclosure_Emit_UnresolvableBase_RendersNoteAndDoesNotThrow
+              - DotNetEmitterGradualDisclosure_Emit_ExternalBaseWithReferences_ListsExternalMembers
+              - DocumentationCoverageChecker_Check_InheritedMembers_AreNotChecked
+          - id: ApiMarkDotNet-DotNetEmitter-InheritDocPlaceholder
+            title: DotNetEmitter shall render the text "Inherits documentation from base member." for a
+              member whose bare inheritdoc cannot be resolved, and the resolved text when it can.
+            justification: |
+              An unresolved inheritdoc is documented upstream; showing "No description provided."
+              wrongly implies missing documentation.
+            tests:
+              - XmlDocReader_GetEffectiveSummary_UnresolvedInheritDoc_ReturnsPlaceholder
+              - DotNetEmitterGradualDisclosure_Emit_InheritDoc_UnresolvedRendersPlaceholderResolvedRendersText
+          - id: ApiMarkDotNet-DotNetEmitter-RecordPrimaryConstructorSummary
+            title: DotNetEmitter shall replace the compiler-copied type summary on a record's primary
+              constructor with "Initializes a new instance of the `Type` record." and preserve
+              explicitly documented constructors.
+            justification: |
+              The compiler copies the record's summary onto the primary constructor, so the
+              constructor would otherwise repeat the type description verbatim.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_RecordPrimaryConstructor_UsesStandardSummary
+              - DotNetEmitterGradualDisclosure_Emit_RecordExplicitConstructor_PreservesSummary
+              - DotNetEmitterSingleFile_Emit_RecordPrimaryConstructor_UsesStandardSummary
+          - id: ApiMarkDotNet-DotNetEmitter-InheritedMembersHonorTier
+            title: DotNetEmitter shall list inherited members per declaring base type at the configured
+              visibility tier (public; public and protected; every non-private member), skipping
+              overridden or hidden members, resolve external bases through reference assemblies, and
+              link each "Inherited from" heading only to a page that exists, including nested bases.
+            justification: |
+              Inherited members must match what a consumer can actually use at the selected tier, and
+              a heading must never link to a page that was not emitted.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_InheritedMembers_HonorsVisibilityTier
+              - DotNetEmitterGradualDisclosure_Emit_AbstractBase_ListsEachMemberOnceAndSkipsOverridden
+              - DotNetEmitterGradualDisclosure_Emit_ExternalBase_ProtectedTier_ListsProtectedField
+              - DotNetEmitterGradualDisclosure_Emit_ExternalBase_AllMembersOverridden_NoSection
+              - DotNetEmitterGradualDisclosure_Emit_ExternalBase_Unmapped_RendersPlainTextHeading
+              - DotNetEmitterGradualDisclosure_Emit_ExternalBase_Mapped_LinksIntoExternalDocs
+              - DotNetEmitterGradualDisclosure_Emit_GenericAndNestedBases_RenderExpectedHeadings
+              - DotNetEmitterGradualDisclosure_Emit_InheritedFromLinks_ResolveToEmittedPages
+              - DotNetEmitterSingleFile_Emit_InheritedMembers_ProtectedTierListsProtectedMembers
+          - id: ApiMarkDotNet-DotNetEmitter-ExternalInheritDocEndToEnd
+            title: DotNetEmitter shall resolve bare inheritdoc against the real XML documentation of
+              referenced assemblies across one and two hops in both output formats.
+            justification: |
+              Documentation inherited from an external base must appear end to end, not only in
+              unit-level resolver tests.
+            tests:
+              - DotNetEmitterSingleFile_Emit_ExternalInheritDoc_ResolvesOneAndTwoHopsFromReferenceXml
+              - DotNetGenerator_Parse_ExternalBaseWithReferencePaths_ResolvesInheritedDocumentation
+              - DotNetGenerator_Parse_ExternalBaseTwoHops_ResolvesInheritedDocumentationAcrossBothHops
+          - id: ApiMarkDotNet-DotNetEmitter-NewModifierAllMemberKinds
+            title: DotNetEmitter shall render the new modifier on fields, constants, properties, events,
+              and methods that hide an accessible base member of any kind with the same name, and
+              shall not render it for private base members or members without a base counterpart.
+            justification: |
+              Metadata does not record the new modifier; recovering it from the compiler's hiding rule
+              keeps signatures compilable. Misses are preferred over false positives.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_NewModifier_RenderedForEveryHidingMemberKind
+              - DotNetEmitterGradualDisclosure_Emit_NewModifier_BaseTypeMembersHaveNone
+          - id: ApiMarkDotNet-DotNetEmitter-RecoverableConstraints
+            title: DotNetEmitter shall render the notnull, unmanaged, struct, class, class?, new(), and
+              nullable type constraints that metadata allows recovering, and no clause for
+              unconstrained parameters.
+            justification: |
+              Generic signatures are incomplete without their constraints.
+            tests:
+              - DotNetEmitterGradualDisclosure_Emit_GenericConstraints_RenderedForEveryRecoverableShape

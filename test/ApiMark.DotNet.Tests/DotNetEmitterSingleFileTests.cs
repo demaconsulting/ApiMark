@@ -825,4 +825,33 @@ public class DotNetEmitterSingleFileTests
         Assert.Contains("(global namespace)", headings);
         Assert.Contains(headings, h => h.Contains("GlobalNamespaceClass", StringComparison.Ordinal));
     }
+
+    /// <summary>Validates the exact bullet labels, headings, and signatures the single-file emitter writes for nullable, params, and accessor shapes.</summary>
+    [Fact]
+    public void DotNetEmitterSingleFile_Emit_NullableParamsAndAccessorShapes_RendersExactText()
+    {
+        // Arrange
+        var factory = new InMemoryMarkdownWriterFactory();
+        var emitter = (DotNetEmitter)new DotNetGenerator(BuildOptions()).Parse(new InMemoryContext());
+
+        // Act
+        new DotNetEmitterSingleFile(emitter, emitter.Model).Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, new InMemoryContext());
+
+        // Assert
+        var operations = Assert.Single(factory.Writers).Value.Operations;
+        var paragraphs = operations.OfType<ParagraphOperation>().Select(p => p.Text).ToList();
+        Assert.Contains(paragraphs, p => p.Contains("- **Reconnect(MatrixPort? newSource, MatrixPort? newTarget)**: Reconnects the ports.", StringComparison.Ordinal));
+        Assert.Contains(paragraphs, p => p.Contains("- **Join(string separator, params string?[] parts)**: Joins the parts.", StringComparison.Ordinal));
+        var headings = operations.OfType<HeadingOperation>().Select(h => h.Text).ToList();
+        Assert.Contains("Reconnect(MatrixPort?, MatrixPort?)", headings);
+        Assert.Contains("Join(string, params string?[])", headings);
+        var signatures = operations.OfType<SignatureOperation>().Select(s => s.Code).ToList();
+        Assert.Contains("public void Reconnect(MatrixPort? newSource, MatrixPort? newTarget)", signatures);
+        Assert.Contains("public string Join(string separator, params string?[] parts)", signatures);
+        Assert.Contains("public virtual void Resize(int width, int height)", signatures);
+        Assert.Contains("public sealed override void Resize(int width, int height)", signatures);
+        Assert.Contains("public int PrivateSet { get; }", signatures);
+        Assert.DoesNotContain(signatures, s => s.Contains("private set", StringComparison.Ordinal));
+        Assert.DoesNotContain(signatures, s => s.Contains("void?", StringComparison.Ordinal));
+    }
 }
