@@ -411,7 +411,9 @@ replaced by the first non-empty value, and left unchanged when none is set. Test
 **Version mismatch warning**: Arrange a task with external links and differing `PackageVersion` and `Version`,
 and variants where they match, one is unset, or no links are configured. Act: call
 `LogVersionMismatchWarning()`. Expected: exactly one warning naming both versions in the mismatch case and
-no warning otherwise. Tested by `ApiMarkTask_LogVersionMismatchWarning_BothSetAndDifferent_LogsWarning` and
+no warning otherwise, including when an explicit `ApiMarkLinkVersion` override is set. Tested by
+`ApiMarkTask_LogVersionMismatchWarning_BothSetAndDifferent_LogsWarning`,
+`ApiMarkTask_LogVersionMismatchWarning_LinkVersionOverride_LogsNothing` and
 `ApiMarkTask_LogVersionMismatchWarning_NoMismatch_LogsNothing`. A full pack-and-build package test of the
 warning is not added; the log decision is covered by the unit tests above.
 

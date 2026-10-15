@@ -494,11 +494,13 @@ public class ApiMarkTask : Task
     /// <remarks>
     ///     <c>dotnet pack -p:PackageVersion=1.2.3</c> leaves <c>Version</c> at its default
     ///     (<c>1.0.0</c>), so a mapping that references the wrong property yields dead links. The
-    ///     <c>{version}</c> token always prefers <c>PackageVersion</c>.
+    ///     <c>{version}</c> token prefers <c>PackageVersion</c> unless <c>ApiMarkLinkVersion</c> is
+    ///     set, in which case the user has already chosen and no warning is logged.
     /// </remarks>
     internal void LogVersionMismatchWarning()
     {
         if (string.IsNullOrWhiteSpace(ApiMarkExternalLinks) ||
+            !string.IsNullOrWhiteSpace(ApiMarkLinkVersion) ||
             string.IsNullOrWhiteSpace(ApiMarkPackageVersion) ||
             string.IsNullOrWhiteSpace(ApiMarkProjectVersion) ||
             string.Equals(ApiMarkPackageVersion!.Trim(), ApiMarkProjectVersion!.Trim(), StringComparison.Ordinal))

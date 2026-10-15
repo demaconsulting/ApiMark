@@ -1696,6 +1696,28 @@ public class ApiMarkTaskTests
                  && a.Message.Contains("1.0.0", StringComparison.Ordinal)));
     }
 
+    /// <summary>Validates no mismatch warning is logged when an explicit ApiMarkLinkVersion override is set.</summary>
+    [Fact]
+    public void ApiMarkTask_LogVersionMismatchWarning_LinkVersionOverride_LogsNothing()
+    {
+        // Arrange
+        var buildEngine = Substitute.For<IBuildEngine>();
+        var task = new ApiMarkTask
+        {
+            BuildEngine = buildEngine,
+            ApiMarkExternalLinks = "Lib.One=https://example.com/lib/{version}/api",
+            ApiMarkPackageVersion = "1.2.3",
+            ApiMarkProjectVersion = "1.0.0",
+            ApiMarkLinkVersion = "9.9.9",
+        };
+
+        // Act
+        task.LogVersionMismatchWarning();
+
+        // Assert
+        buildEngine.DidNotReceive().LogWarningEvent(Arg.Any<BuildWarningEventArgs>());
+    }
+
     /// <summary>Validates no warning is logged when the versions agree, only one is set, or no external links are configured.</summary>
     /// <param name="packageVersion">The evaluated PackageVersion.</param>
     /// <param name="version">The evaluated Version.</param>

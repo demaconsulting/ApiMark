@@ -100,7 +100,8 @@ forwards `$(ApiMarkExternalLinks)` to the task; it is not forwarded for `cpp`.
 left unchanged when none is set. Expansion happens inside the task because properties set in
 the `.targets` file are not yet defined while the user's project body is evaluated.
 When external links are configured and both `PackageVersion` and `Version` are set but differ,
-`LogVersionMismatchWarning` emits a build warning naming both values.
+`LogVersionMismatchWarning` emits a build warning naming both values, unless an explicit
+`ApiMarkLinkVersion` override is set (the user has already chosen the link version).
 
 **ApiMarkTask.ApiMarkEnforceDocs**: `string?` — MSBuild property
 `$(ApiMarkEnforceDocs)`; for the `dotnet` and `cpp` languages, the enforcement

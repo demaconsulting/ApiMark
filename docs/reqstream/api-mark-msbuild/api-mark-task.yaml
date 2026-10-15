@@ -404,5 +404,6 @@ sections:
               - ApiMarkTask_DotNet_ExternalLinks_VersionToken_UsesPackageVersionThenVersion
               - ApiMarkTask_DotNet_ExternalLinks_VersionToken_NeitherSet_LeavesTokenUnchanged
               - ApiMarkTask_LogVersionMismatchWarning_BothSetAndDifferent_LogsWarning
+              - ApiMarkTask_LogVersionMismatchWarning_LinkVersionOverride_LogsNothing
               - ApiMarkTask_LogVersionMismatchWarning_NoMismatch_LogsNothing
               - ApiMarkTargets_PassesVersionPropertiesToTask
