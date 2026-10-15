@@ -33,16 +33,29 @@ public static class LinkPath
     }
 
     /// <summary>
-    ///     Percent-encodes the characters that would terminate or corrupt a Markdown inline link destination.
-    ///     An existing <c>%</c> is left alone so an already encoded base URL is not encoded twice.
+    ///     Percent-encodes the characters that would terminate, corrupt, or re-interpret a Markdown inline
+    ///     link destination built from page paths.
     /// </summary>
-    /// <param name="destination">The raw destination.</param>
-    /// <returns>The destination with spaces, parentheses, and angle brackets encoded.</returns>
+    /// <remarks>
+    ///     The input must be a raw (not yet encoded) relative path made of registry-approved names, such as
+    ///     the result of <see cref="Relative"/>. A raw <c>%</c> is encoded as <c>%25</c> so the destination
+    ///     resolves to the file whose name contains it; text that is already percent-encoded is therefore
+    ///     encoded again, so an externally supplied base URL (which may already be encoded) must not be
+    ///     passed through this method: encode only the registry-produced path and append it to the base.
+    ///     <c>/</c>, <c>.</c>, and braces are kept.
+    /// </remarks>
+    /// <param name="destination">The raw destination path.</param>
+    /// <returns>The destination with <c>%</c>, <c>#</c>, <c>?</c>, space, parentheses, and angle brackets encoded.</returns>
     public static string Escape(string destination)
     {
         ArgumentNullException.ThrowIfNull(destination);
+
+        // The percent sign must be encoded first so the escapes added below are not encoded again.
         return destination
+            .Replace("%", "%25", StringComparison.Ordinal)
             .Replace(" ", "%20", StringComparison.Ordinal)
+            .Replace("#", "%23", StringComparison.Ordinal)
+            .Replace("?", "%3F", StringComparison.Ordinal)
             .Replace("(", "%28", StringComparison.Ordinal)
             .Replace(")", "%29", StringComparison.Ordinal)
             .Replace("<", "%3C", StringComparison.Ordinal)

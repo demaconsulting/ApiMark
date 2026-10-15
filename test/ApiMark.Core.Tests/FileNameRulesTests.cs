@@ -160,10 +160,48 @@ public class FileNameRulesTests
     [InlineData("trailing.")]
     [InlineData("trailing ")]
     [InlineData("a\tb")]
+    [InlineData("a b")]
+    [InlineData("a[b")]
+    [InlineData("a]b")]
+    [InlineData("a(b")]
+    [InlineData("a)b")]
+    [InlineData("a#b")]
+    [InlineData("a%b")]
+    [InlineData("a^b")]
+    [InlineData("a`b")]
+    [InlineData("a>b")]
+    [InlineData("a|b")]
+    [InlineData("a?b")]
+    [InlineData("a*b")]
+    [InlineData("a\"b")]
+    [InlineData("a/b")]
+    [InlineData("a\\b")]
+    [InlineData("a\u007Fb")]
     public void FileNameRules_IsLegalSegment_IllegalName_ReturnsFalse(string? name)
     {
         // Arrange / Act / Assert
         Assert.False(FileNameRules.IsLegalSegment(name));
+    }
+
+    /// <summary>
+    ///     Validates that <see cref="FileNameRules.IsLegalSegment"/> and <see cref="FileNameRules.Escape"/>
+    ///     share one character set: every character Escape replaces is illegal, and Escape output is legal.
+    /// </summary>
+    [Fact]
+    public void FileNameRules_IsLegalSegment_EveryEscapedCharacter_IsIllegalAndEscapeOutputIsLegal()
+    {
+        for (var code = 0; code < 0x80; code++)
+        {
+            var c = (char)code;
+            var name = "a" + c + "b";
+            var escaped = FileNameRules.Escape(name, out _);
+
+            Assert.True(FileNameRules.IsLegalSegment(escaped), $"Escape output for U+{code:X4} is not legal");
+            if (c is not '{' and not '}' && escaped != name)
+            {
+                Assert.False(FileNameRules.IsLegalSegment(name), $"U+{code:X4} is replaced by Escape but legal");
+            }
+        }
     }
 
     /// <summary>Validates that legal names are reported as legal.</summary>

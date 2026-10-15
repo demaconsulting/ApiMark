@@ -126,9 +126,12 @@ page (`Add.md`, `Add-2.md`).
 
 #### NR-19 Links
 
-Every link is a relative path with forward slashes built from the registry's approved names. Link-hostile
-characters in the destination (`%`, space, parentheses, `#`) are percent-encoded; braces are literal. Names
-are escaped once, at registration, and never again.
+Every link is a relative path with forward slashes built from the registry's approved names. `LinkPath.Escape`
+takes the raw (unencoded) path and percent-encodes `%` (as `%25`, first), `#`, `?`, space, parentheses, and
+angle brackets, so a destination always resolves to the file whose name contains them; braces are literal.
+Escaping is not idempotent: already encoded text is encoded again, so an externally supplied base URL, which
+may already be encoded, is never passed through `Escape`; only the registry-produced path is encoded and then
+appended to the base. Names are escaped once, at registration, and never again.
 
 #### NR-20 External assemblies
 

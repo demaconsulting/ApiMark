@@ -40,11 +40,16 @@ rule NR-15.
 uniqueness property over a generated symbol set.
 
 **SymbolNameRegistry_Resolve_CalledTwice_Throws**, **..._GetName_BeforeResolve_Throws**,
-**..._Register_AfterResolve_Throws**, **..._Register_InvalidInput_Throws**, **..._GetName_UnknownKey_Throws**:
-Verify call-order and input validation.
+**..._Register_AfterResolve_Throws**, **..._Register_InvalidInput_Throws**, **..._Register_EmptyKey_ThrowsArgumentException**,
+**..._GetName_UnknownKey_Throws**: Verify call-order and input validation.
 
-**LinkPath_Relative_Pages_ReturnsForwardSlashRelativePath**, **LinkPath_Escape_LinkHostileCharacters_AreEncoded**:
-Verify rule NR-19.
+**LinkPath_Relative_Pages_ReturnsForwardSlashRelativePath**, **LinkPath_Escape_LinkHostileCharacters_AreEncoded**,
+**LinkPath_Escape_RawAndAlreadyEncodedInput_IsEncodedExactlyOncePerCall**: Verify rule NR-19, including
+that a raw `%` and `#` are encoded and that already encoded input is encoded again (raw-input contract).
+
+**FileNameRules_IsLegalSegment_EveryEscapedCharacter_IsIllegalAndEscapeOutputIsLegal** and the
+`IsLegalSegment_IllegalName` cases for every NR-06 character verify that `Escape` and `IsLegalSegment`
+share one character set.
 
 **Language tests**: `DotNetFileNamingTests` (namespace vs type, case twins, `api`, brace arity, `operators`,
 explicit interface members, fixtures for all visibilities, every link resolves),

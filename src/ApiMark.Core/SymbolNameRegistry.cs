@@ -71,10 +71,17 @@ public sealed class SymbolNameRegistry
     ///     character is escaped by <see cref="FileNameRules.Escape"/>.
     /// </param>
     /// <param name="kind">The symbol kind, which decides precedence on a name collision.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> or <paramref name="rawName"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="key"/> is empty.</exception>
     /// <exception cref="InvalidOperationException">Thrown after <see cref="Resolve"/>, for a duplicate key, or for an unregistered parent.</exception>
     public void Register(string key, string? parentKey, string rawName, SymbolKind kind)
     {
         ArgumentNullException.ThrowIfNull(key);
+        if (key.Length == 0)
+        {
+            throw new ArgumentException("The symbol key must not be empty.", nameof(key));
+        }
+
         ArgumentNullException.ThrowIfNull(rawName);
 
         if (_resolved)

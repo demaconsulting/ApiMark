@@ -31,11 +31,22 @@ public static class FileNameRules
     /// <summary>The character that replaces every illegal or link-hostile character.</summary>
     public const char ReplacementCharacter = '_';
 
-    /// <summary>Characters that are illegal in a Windows file name, plus link-hostile characters replaced for portability.</summary>
+    /// <summary>
+    ///     The characters replaced by <see cref="Escape"/> and rejected by <see cref="IsLegalSegment"/>:
+    ///     those illegal in a Windows file name, plus link-hostile characters replaced for portability (NR-06).
+    /// </summary>
     private static readonly HashSet<char> ReplacedCharacters =
     [
         '<', '>', ':', '"', '|', '?', '*', '\\', '/', '[', ']', '(', ')', '#', '%', '^', '`', ' ',
     ];
+
+    /// <summary>
+    ///     Determines whether a character is replaced by <see cref="Escape"/>, that is, whether it may not
+    ///     appear in a segment. Braces are structural and are not included.
+    /// </summary>
+    /// <param name="c">The character to test.</param>
+    /// <returns><see langword="true"/> for an illegal, link-hostile, or control character.</returns>
+    private static bool IsReplacedCharacter(char c) => ReplacedCharacters.Contains(c) || c < 0x20 || c == 0x7F;
 
     /// <summary>Windows reserved device names that may not be used as a file name or its base name.</summary>
     private static readonly HashSet<string> ReservedNames = new(StringComparer.OrdinalIgnoreCase)
@@ -74,7 +85,7 @@ public static class FileNameRules
                 builder.Append(c);
                 transformed = true;
             }
-            else if (ReplacedCharacters.Contains(c) || c < 0x20 || c == 0x7F)
+            else if (IsReplacedCharacter(c))
             {
                 builder.Append(ReplacementCharacter);
                 transformed = true;
@@ -124,9 +135,10 @@ public static class FileNameRules
     /// </summary>
     /// <param name="name">The segment to test (a file name without extension, or a folder name).</param>
     /// <returns>
-    ///     <see langword="true"/> when the segment is non-empty, contains none of
-    ///     <c>&lt; &gt; | ? * : " / \</c> or control characters, does not end in a dot or space, and is not a
-    ///     reserved device name; otherwise <see langword="false"/>.
+    ///     <see langword="true"/> when the segment is non-empty, contains none of the characters
+    ///     <see cref="Escape"/> replaces (<c>&lt; &gt; : " | ? * \ /</c>, space, <c>[ ] ( ) # % ^</c>, the
+    ///     backtick, and control characters), does not end in a dot or space, and is not a reserved device
+    ///     name; otherwise <see langword="false"/>.
     /// </returns>
     public static bool IsLegalSegment(string? name)
     {
@@ -135,7 +147,7 @@ public static class FileNameRules
             return false;
         }
 
-        if (name.Any(c => c is '<' or '>' or '|' or '?' or '*' or ':' or '"' or '/' or '\\' || c < 0x20 || c == 0x7F))
+        if (name.Any(IsReplacedCharacter))
         {
             return false;
         }

@@ -243,6 +243,18 @@ public class SymbolNameRegistryTests
         Assert.Throws<ArgumentNullException>(() => registry.Register("c", null, null!, SymbolKind.Type));
     }
 
+    /// <summary>Validates that an empty key is rejected with <see cref="ArgumentException"/>.</summary>
+    [Fact]
+    public void SymbolNameRegistry_Register_EmptyKey_ThrowsArgumentException()
+    {
+        // Arrange
+        var registry = new SymbolNameRegistry();
+
+        // Act / Assert
+        Assert.Throws<ArgumentException>(() => registry.Register(string.Empty, null, "A", SymbolKind.Type));
+        Assert.Equal(0, registry.Count);
+    }
+
     /// <summary>Validates that an unknown key is rejected after resolution.</summary>
     [Fact]
     public void SymbolNameRegistry_GetName_UnknownKey_Throws()

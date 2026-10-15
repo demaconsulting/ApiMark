@@ -24,8 +24,8 @@ state.
 ### Key Methods
 
 **SymbolNameRegistry.Register** (`public`): Adds a symbol (`key`, `parentKey`, `rawName`, `kind`). Throws
-`ArgumentException` for an empty or duplicate key or a missing parent, and `InvalidOperationException` after
-`Resolve`.
+`ArgumentNullException` for a null key or raw name, `ArgumentException` for an empty key, and
+`InvalidOperationException` for a duplicate key, a missing parent, or a call after `Resolve`.
 
 **SymbolNameRegistry.Resolve** (`public`): Escapes every raw name once, then for each directory grants
 names in tier order (rules NR-14 to NR-16) and gives displaced entries a `-N` suffix. Parents are resolved
