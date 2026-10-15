@@ -49,7 +49,7 @@ private `_knownTypes` field.
   `IndexOf(shortName, startIdx)` to locate the exact token, then reconstructs the
   result as `original[..idx] + linked + original[(idx + shortName.Length)..]`.
   A null `currentFolder` is treated as an empty string (root-level file).
-  The target page key is sanitized per `/` segment with `CppEmitter.SanitizePath`, exactly once.
+  The target page key is mapped to the registry-approved names (`CppNames`); nothing is escaped again.
   `currentFolder` is the output folder exactly as the emitter writes it (already sanitized by the
   emitter) and is used as is, never sanitized again, so links match the legal file names written
   by the emitter without detours.

@@ -170,17 +170,22 @@ reviews:
       - docs/verification/api-mark-core/path-helpers.md
       - src/ApiMark.Core/PathHelpers.cs
       - test/ApiMark.Core.Tests/PathHelpersTests.cs
-  - id: ApiMark-Core-FileNameSanitizer
-    title: Review that ApiMark Core FileNameSanitizer Implementation is Correct
+  - id: ApiMark-Core-SymbolNameRegistry
+    title: Review that ApiMark Core SymbolNameRegistry Implementation is Correct
     context:
       - docs/design/api-mark-core.md
       - docs/reqstream/api-mark-core.yaml
     paths:
-      - docs/reqstream/api-mark-core/file-name-sanitizer.yaml
-      - docs/design/api-mark-core/file-name-sanitizer.md
-      - docs/verification/api-mark-core/file-name-sanitizer.md
-      - src/ApiMark.Core/FileNameSanitizer.cs
-      - test/ApiMark.Core.Tests/FileNameSanitizerTests.cs
+      - docs/reqstream/api-mark-core/symbol-name-registry.yaml
+      - docs/design/api-mark-core/symbol-name-registry.md
+      - docs/design/api-mark-core/file-naming-rules.md
+      - docs/verification/api-mark-core/symbol-name-registry.md
+      - src/ApiMark.Core/SymbolNameRegistry.cs
+      - src/ApiMark.Core/FileNameRules.cs
+      - src/ApiMark.Core/LinkPath.cs
+      - test/ApiMark.Core.Tests/SymbolNameRegistryTests.cs
+      - test/ApiMark.Core.Tests/FileNameRulesTests.cs
+      - test/ApiMark.Core.Tests/LinkPathTests.cs
   - id: ApiMark-Core-GlobFileCollector
     title: Review that ApiMark Core GlobFileCollector Implementation is Correct
     context:

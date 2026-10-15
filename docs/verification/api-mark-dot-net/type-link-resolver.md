@@ -308,6 +308,6 @@ and `DotNetEmitterGradualDisclosure_Emit_AllLinkAnchors_MatchRealHeadings`.
 **Nested and generic-nested external crefs**: Arrange `NestedExternalConsumer` with `ExternalLinks` mapping the
 external fixture assembly. Expected: crefs and property types naming `NestedHost.Inner`, `NestedHost.Deep.Leaf`,
 and `NestedGenericHost<T>.Inner<U>` link to `.../NestedHost/Inner.md`, `.../NestedHost/Deep/Leaf.md`, and
-`.../NestedGenericHost-1/Inner-1.md`. Tested by
+`.../NestedGenericHost{1}/Inner{1}.md`. Tested by
 `DotNetEmitterGradualDisclosure_Emit_ExternalNestedTypeCrefs_LinkToNestedPages` and
 `DotNetEmitterGradualDisclosure_Emit_ExternalNestedPropertyTypes_LinkToNestedPages`.

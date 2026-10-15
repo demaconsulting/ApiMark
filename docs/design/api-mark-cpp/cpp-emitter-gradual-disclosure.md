@@ -29,15 +29,12 @@ and dedicated pages for enums, type aliases, and grouped operator overloads.
 | Operators (class) | `{Namespace}/{TypeName}/operators.md` |
 | Operators (namespace) | `{Namespace}/operators.md` |
 
-Every `{...}` segment is passed through `CppEmitter.SanitizeFileName` (namespace keys,
-type, member, enum, alias, and function names; folders via `CppEmitter.SanitizePath`), so
-`Foo<int>` is written as `Foo{int}.md` and a type named `Aux` as `Aux-.md`. Relative links
-in tables use the same sanitized names while link text keeps the raw name. Each name is sanitized
-exactly once: page writers receive the raw name and the emitter passes the already-sanitized
-output folder (`CppEmitter.SanitizePath`) to `Linkify`. A declaration or member named `operators`
-is written as `operators-` so it cannot overwrite the shared operators page, and a namespace
-named `api` gets the root page `api-` (`CppEmitter.GetNamespacePageName`) so it cannot overwrite
-the index. Only real operator overload names (`CppEmitter.IsOperatorName`) go to the operators page.
+Every `{...}` segment is the name approved by the shared `SymbolNameRegistry` (see `CppNames`;
+namespace keys, type, member, enum, alias, and function names), so `Foo<int>` is written as `Foo{int}.md`
+and a type named `Aux` as `Aux_.md`. Relative links in tables use the same approved names while link text
+keeps the raw name. Names are escaped exactly once, when registered; collisions (case twins, a class and
+a function with one name, a declaration named `operators` or a namespace named `api`) are resolved up
+front by the registry using `-N` suffixes as a last resort. See `docs/design/api-mark-core/file-naming-rules.md`.
 The global namespace key (`global`) is already legal and unchanged.
 
 **CppEmitterGradualDisclosure instance fields** (private): state supplied at construction.

@@ -61,7 +61,7 @@ sections:
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitMemberDetailPage
             title: >-
               CppEmitterGradualDisclosure shall produce a member detail page for each
-              visible non-operator member, combining only case-insensitive collisions.
+              visible non-operator member; overloads share a page and case twins get distinct pages.
             justification: |
               Dedicated member pages make navigation deterministic while still handling
               case-collision edge cases safely.
@@ -69,7 +69,7 @@ sections:
               - ApiMarkCpp-CppEmitterGradualDisclosure-RenderFieldConstantValue
             tests:
               - CppEmitterGradualDisclosure_Emit_MethodMember_CreatesMemberDetailPage
-              - CppEmitterGradualDisclosure_Emit_CaseInsensitiveCollision_CreatesCombinedPage
+              - CppEmitterGradualDisclosure_Emit_CaseTwinMembers_GetDistinctPages
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-RenderFieldConstantValue
             title: >-
               CppEmitterGradualDisclosure shall append "= value" to a field's signature
@@ -141,9 +141,9 @@ sections:
               segment and the matching links keeps output portable and navigable.
             tests:
               - CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_AllWrittenSegmentsAreLegal
-              - CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_PagesUseSanitizedPaths
+              - CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_PagesUseApprovedPaths
               - CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_AllLinksResolveToWrittenPages
-              - CppEmitterGradualDisclosure_Emit_GenericAndOddNames_MemberPageLinksUseSingleSanitization
+              - CppEmitterGradualDisclosure_Emit_GenericAndOddNames_MemberPageLinksUseApprovedPaths
               - CppEmitterGradualDisclosure_Emit_ReservedAndGenericNames_AllLinksResolveToWrittenPages
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-ReservedPageNames
             title: >-

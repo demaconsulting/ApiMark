@@ -133,11 +133,11 @@ Additional details rendered in signatures:
 ### Generic types and navigation
 
 Generic types use escaped headings (`PropertyEditorRegistry\<TEditor\>`), a Type Parameters
-table taken from `<typeparam>`, and `where` constraints in signatures. Their file names use a hyphenated arity suffix, `Name-{arity}` (for example `PropertyEditorRegistry-1.md` for
-`PropertyEditorRegistry<TEditor>` and `KeyedPair-2.md` for `KeyedPair<TKey, TValue>`). A hyphen cannot
-appear in a C# identifier, so `Foo-1.md` (for `Foo<T>`) never collides with `Foo1.md` (for a type named
-`Foo1`), and `Foo.md`, `Foo-1.md` and `Foo-2.md` stay distinct. Earlier releases wrote `Name1.md`; links
-that point at the old names must be updated. Overload rows
+table taken from `<typeparam>`, and `where` constraints in signatures. Their file names use brace arity, `Name{arity}` (for example `PropertyEditorRegistry{1}.md` for
+`PropertyEditorRegistry<TEditor>` and `KeyedPair{2}.md` for `KeyedPair<TKey, TValue>`). Braces cannot
+appear in a C# identifier, so `Foo{1}.md` (for `Foo<T>`) never collides with `Foo1.md` (for a type named
+`Foo1`), and `Foo.md`, `Foo{1}.md` and `Foo{2}.md` stay distinct. Earlier releases wrote `Foo-1.md` (and
+before that `Name1.md`); links that point at the old names must be updated. Overload rows
 list every distinct return type (including `void`); the row shows the summary only when every overload has the same summary; when they differ, or any overload has
 none, it shows `Overloaded; see the member page.` instead of one overload's summary. Cross-reference links to an overload
 include the signature in the link text (`UndoHistory.Transact(string, Action)`) and end with an anchor to
@@ -148,17 +148,30 @@ a breadcrumb back to `api.md`, and `api.md` has a Start here link and a Key Type
 
 ### Legal File Names
 
-Every generated file and folder name is legal on Windows and Linux. `<` and `>` (explicit interface
-implementations such as `IGenericSource<int>.GetItem`) are written as `{` and `}`. A literal `{` or `}`
-in a name is treated like the other illegal characters so it cannot collide with them. Other illegal
-characters (`: " | ? * \ /`, control characters, spaces, brackets) become `-` and a short hash of the
-original name is appended so distinct names stay distinct. Names that Windows reserves (`CON`, `NUL`,
-`PRN`, `AUX`, `COM1`, `LPT1`, and so on) get a `-` suffix (`CON-.md`), as does a member named
-`operators` (`operators-.md`), which would otherwise collide with the operators page. Types that differ
-only by case, such as `Inner` and `inner`, keep the first name in ordinal order and the others get a
-hash suffix, so no two files collide on a case-insensitive file system. Earlier releases wrote the
-explicit-implementation names verbatim; links to those old names must be updated. Limitation: namespaces
-that differ only by case, and case-twin types from external assemblies, are not disambiguated.
+Every generated file and folder name is legal on Windows and Linux, and unique when compared without
+regard to case. All names are decided up front by one registry, before any file or link is written; the
+complete numbered rules are in `docs/design/api-mark-core/file-naming-rules.md`. In short:
+
+- A name that is already legal is used as written (`Widget.md`).
+- Generic types use brace arity: `Foo<T>` is `Foo{1}.md` and `Foo<T1,T2>` is `Foo{2}.md`. Generic methods
+  get no arity.
+- Explicit interface members keep their type arguments: `IFoo<int>.Get` is `IFoo{int}.Get.md`, and several
+  arguments are joined with `-` (`IPair{int-string}.Get.md`).
+- Illegal or link-hostile characters (`: " | ? * \ /`, control characters, spaces, brackets) become `_`.
+  Reserved Windows names (`CON`, `NUL`, `PRN`, `AUX`, `COM1`, `LPT1`, and so on) get a `_` suffix
+  (`CON_.md`).
+- When two symbols in one folder would get the same name (compared case-insensitively), the symbol whose
+  own name is unchanged keeps it, and a namespace beats a type, which beats a member. The other symbol is
+  displaced to a transformed name and only as a last resort gets a numeric suffix: `Name.md` and
+  `name-2.md`. This covers namespaces that clash with types, case twins, members that clash with the
+  reserved `operators` page, and a root namespace named `api`.
+- Symbols that are not visible are named as if they were visible, so names do not change when you change
+  the visibility filter.
+
+Limitation: a link to a type in an external (mapped) assembly uses that type's predictable name, and is
+wrong if the other package had to displace it with a numeric suffix. This is a breaking change from
+earlier releases (`Foo-1.md` is now `Foo{1}.md`, hash-suffixed names are now `_` and `-N` names); update
+any links that point at the old file names.
 
 ### Breadcrumbs
 
@@ -272,7 +285,7 @@ A `<see cref="..."/>` to a type (or a member of a type) in a mapped assembly als
 type's page in the mapped documentation, when the cref's namespace belongs to the mapped assembly. A cref
 to an unmapped assembly (including the framework) stays a plain code span. Member crefs link to the type
 page, and nested types (including generic nested types) link to their nested page, such as
-`Outer/Inner.md` or `Outer-1/Inner-1.md`.
+`Outer/Inner.md` or `Outer{1}/Inner{1}.md`.
 
 ### Cross-Reference Linking
 

@@ -158,8 +158,9 @@ signature shows `ExternalBaseClass`, `ExternalGenericFormat<string>`, and so on,
 `DotNetEmitterGradualDisclosure_Emit_NoSignatureContainsExternalNamespace`.
 
 **Generic arity file names**: Arrange `Foo`, `Foo1`, `Foo<T>`, `Foo<T1, T2>`, and `Outer<T>.Inner<U>`.
-Expected: `Foo-1.md` and `Foo1.md` coexist, namespace indexes link to the hyphenated names, nested generic
-types use hyphenated folders and files, and all relative links resolve. Tested by
+Expected: `Foo{1}.md` and `Foo1.md` coexist, namespace indexes link to the brace-arity names, nested generic
+types use brace-arity folders and files, and all relative links resolve. The registry rules are verified by
+`DotNetFileNamingTests` and the `SymbolNameRegistry` tests. Tested by
 `DotNetEmitterGradualDisclosure_Emit_SameNamedGenericTypes_ProduceDistinctFiles`,
 `DotNetEmitterGradualDisclosure_Emit_NamespaceIndex_LinksHyphenatedArityFiles`,
 `DotNetEmitterGradualDisclosure_Emit_NestedGenericType_UsesHyphenatedFolderAndFile`,

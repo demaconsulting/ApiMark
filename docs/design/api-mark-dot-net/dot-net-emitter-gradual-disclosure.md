@@ -391,17 +391,17 @@ member, and operators page patterns.
   and `shortName` are produced by splitting `namespaceFolderPath` at the last separator
   (e.g. for `ApiMark.DotNet.Fixtures`, `subFolder=""` and `shortName="ApiMark.DotNet.Fixtures"`)
 - All names below are produced by `DotNetEmitter.GetTypeFileName` and `GetSanitizedMemberFileName`
-  (`FileNameSanitizer` plus reserved-name, `operators`, and case-twin disambiguation); `FlattenArity`
-  is only the first step. Known limits: namespace segments that differ only by case, and
-  external-assembly type twins, are not disambiguated.
+  which read the names approved by the symbol-name registry (`DotNetNames`; rules in
+  `docs/design/api-mark-core/file-naming-rules.md`). Known limit: external-assembly type links use the
+  predictable name, because the other package's collisions are not known.
 - Type page: `factory.CreateMarkdown(namespaceFolderPath, GetTypeFileName(type))`
   where `GetTypeFileName` starts from `FlattenArity`, which replaces backtick-arity notation
-  (e.g. `` SampleGenericClass`1 ``) with a hyphenated arity form (`SampleGenericClass-1`), and
-  then applies the sanitizer, reserved-name, and case-twin rules. This is distinct
+  (e.g. `` SampleGenericClass`1 ``) with brace arity (`SampleGenericClass{1}`); the registry then
+  applies the escape, reserved-name, and collision rules. This is distinct
   from `StripArity`, which removes the arity suffix entirely and is used for display names.
 - Member detail: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", GetSanitizedMemberFileName(member, type))`
 - Operators page: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", "operators")`
-  (a member literally named `operators` is escaped to `operators-` so the pages cannot collide)
+  (a member literally named `operators` is displaced to `operators-2` so the pages cannot collide)
 - Combined page: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", lowerKey)`
   where `lowerKey` is `GetSanitizedMemberFileName(member, type)` lower-cased
 
@@ -452,12 +452,11 @@ N/A — this is an internal class with no external interfaces exposed beyond its
 - Generic type pages carry a `## Type Parameters` table (from `<typeparam>`, placeholder when
   missing) after the examples; only the type's own parameters (the last *arity* parameters) are listed,
   so a nested type does not repeat its host's. Signatures append `where` clauses.
-- Type and member files use the hyphenated `Name-{arity}` form (for example `PropertyEditorRegistry-1.md`).
-  A hyphen cannot occur in a C# identifier, so `Foo-1` never collides with a type named `Foo1`, and
-  `Foo`, `Foo<T>` and `Foo<T1, T2>` map to `Foo.md`, `Foo-1.md` and `Foo-2.md`. The scheme lives in the
-  single helper `TypeNameSimplifier.FlattenArity`, which the emitters and the link resolver share, so
-  page keys and links cannot diverge. This is a breaking change to earlier `Name1.md` output.
-  Readable names appear in headings and link text.
+- Type and member files use the brace-arity form `Name{arity}` (for example `PropertyEditorRegistry{1}.md`).
+  `Foo`, `Foo<T>` and `Foo<T1, T2>` map to `Foo.md`, `Foo{1}.md` and `Foo{2}.md`, and a type named `Foo1`
+  keeps `Foo1.md`. All names are approved once by the symbol-name registry (`DotNetNames`); the emitters
+  and the link resolver only read them, so page keys and links cannot diverge. This is a breaking change
+  to earlier `Foo-1.md` output. Readable names appear in headings and link text.
 - Namespace pages begin with `[API Reference](api.md) › ancestors › This`; only ancestors that have
   pages are linked and the current namespace is plain text.
 - `api.md` starts with a `**Start here:**` link to the namespace with the most types (first

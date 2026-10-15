@@ -141,7 +141,7 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_MemberSignatures_UseShortExternalNames
               - DotNetEmitterGradualDisclosure_Emit_NoSignatureContainsExternalNamespace
           - id: ApiMarkDotNet-TypeNameSimplifier-GenericArityFileNames
-            title: TypeNameSimplifier shall flatten a generic arity suffix to "-N" (Foo-1) so that
+            title: TypeNameSimplifier shall flatten a generic arity suffix to brace notation "{N}" (Foo{1}) so that
               same-named generic and non-generic-with-digit types never share a file name.
             justification: |
               Foo of T and Foo1 both mapped to Foo1.md before, silently overwriting a page.
@@ -152,3 +152,15 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_AllPages_NoDigitSuffixFileNamesForGenericTypes
               - DotNetEmitterGradualDisclosure_Emit_AllRelativeLinks_ResolveToEmittedPages
               - DotNetEmitterGradualDisclosure_Emit_CrefAndBaseTypeLinks_UseHyphenatedArityNames
+              - DotNetNames_NamespaceAndTypeShareAPath_NamespaceWinsAndTypeIsSuffixed
+              - DotNetNames_CaseTwinNamespaces_SecondGetsSuffix
+              - DotNetNames_RootNamespaceNamedApi_IsDisplacedFromReservedPage
+              - DotNetNames_GenericTypes_UseBraceArity
+              - DotNetNames_MembersNamedOperators_AreDisplaced
+              - DotNetNames_CaseTwinMembers_GetSeparatePages
+              - DotNetNames_NestedTypeAndMemberSameName_TypeWins
+              - DotNetNames_HostileNames_ProduceUniqueLegalPaths
+              - DotNetGenerator_Emit_ExplicitGenericInterfaceMembers_KeepTypeArguments
+              - DotNetGenerator_Emit_GenericType_UsesBraceArity
+              - DotNetGenerator_Emit_Fixtures_PathsAreUniqueLegalAndLinksResolve
+              - DotNetGenerator_Emit_Fixtures_NamesAreIndependentOfVisibility

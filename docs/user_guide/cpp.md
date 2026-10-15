@@ -224,11 +224,14 @@ requires.
 
 File and folder names are made legal on both Windows and Linux so the output can be checked
 out anywhere. Template names such as `Foo<int>` are written as `Foo{int}.md`; reserved Windows
-device names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, `LPT1`-`LPT9`) get a trailing `-`
-(for example a type `Aux` becomes `Aux-.md`, a namespace `aux` becomes `aux-.md`); any other
-illegal character (such as `:`) becomes `-` followed by a short hash of the original name.
+device names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, `LPT1`-`LPT9`) get a trailing `_`
+(for example a type `Aux` becomes `Aux_.md`); any other illegal character (such as `:`) becomes `_`.
 Links inside the pages use the same names, while link text keeps the original C++ name.
-Types whose names differ only in case are not disambiguated across the whole tree.
+All names are decided up front by one registry. When two declarations in one folder would share a name
+(compared without regard to case, for example a class and a function with the same name, or `Foo` and
+`foo`), the first in a fixed order keeps the plain name and the others get `-2`, `-3`, and so on. A name
+equal to the reserved `operators` or `api` pages is displaced the same way. Overloads of one function
+share one page. See `docs/design/api-mark-core/file-naming-rules.md`.
 
 ### Single File (`--format single-file`)
 

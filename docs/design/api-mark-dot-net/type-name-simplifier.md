@@ -150,14 +150,14 @@ suffix from a type name.
 > method.
 
 **TypeNameSimplifier.FlattenArity** (internal static): Converts the IL backtick
-arity suffix to a hyphenated numeric suffix, producing a file-system-safe name that
-still distinguishes generic types by parameter count. A hyphen cannot occur in a C#
-identifier, so `Foo-1` never collides with a real type named `Foo1`.
+arity suffix to brace arity, producing a file-system-safe name that
+still distinguishes generic types by parameter count. Braces cannot occur in a C#
+identifier, so `Foo{1}` never collides with a real type named `Foo1`.
 
 - *Parameters*: `string name` — raw IL type name that may contain a backtick arity
   suffix (e.g. `Foo\`2`).
-- *Returns*: `string` — the name with the backtick replaced by a hyphen and the arity count
-  preserved (e.g. `Foo-2`). Unchanged when no backtick is present.
+- *Returns*: `string` — the name with the backtick arity replaced by brace arity
+  (e.g. `Foo{2}`). Unchanged when no backtick is present.
 - *Callers*: TypeLinkResolver (when computing type page keys via `GetTypePageKey`),
   and DotNetEmitter (via the `DotNetEmitter.FlattenArity` delegate wrapper) when
   building namespace page links, type page names, member page subfolder paths, and
