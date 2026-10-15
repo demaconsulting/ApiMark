@@ -13,6 +13,7 @@ sections:
               Separate files per declaration enable gradual disclosure navigation.
             children:
               - ApiMarkVhdl-VhdlEmitterGradualDisclosure-EmitSubprogramDetailPage
+              - ApiMarkVhdl-VhdlEmitterGradualDisclosure-ReservedApiPageName
             tests:
               - VhdlEmitterGradualDisclosure_Emit_MinimalData_CreatesApiIndexPage
               - VhdlEmitterGradualDisclosure_Emit_MinimalData_CreatesEntityPage

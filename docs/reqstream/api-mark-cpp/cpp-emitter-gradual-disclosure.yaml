@@ -27,6 +27,7 @@ sections:
               - ApiMarkCpp-CppEmitterGradualDisclosure-EmitClassOperatorsPage
               - ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceOperatorsPage
               - ApiMarkCpp-CppEmitterGradualDisclosure-LegalFileNames
+              - ApiMarkCpp-CppEmitterGradualDisclosure-ReservedPageNames
             tests: [CppEmitterGradualDisclosure_Emit_MinimalData_CreatesApiIndexPage]
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitApiIndexPage
             title: >-
