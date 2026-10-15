@@ -35,6 +35,22 @@ key is asserted explicitly), that pages exist at the sanitized paths (`Foo{int}`
 `CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_PagesUseSanitizedPaths`, and
 `CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_AllLinksResolveToWrittenPages`.
 
+**Links from generic and odd-named types**: Verifies, with hand-built models for `Foo<int>`,
+namespace `a::b`, `Aux`, and `CON`, that links from member pages to the owning type, nested types,
+siblings, and reserved-name pages are the direct relative paths to pages that were written (folders
+are sanitized once), and that every link in every table cell and paragraph resolves to a written
+page. Tested by `CppEmitterGradualDisclosure_Emit_GenericAndOddNames_MemberPageLinksUseSingleSanitization`
+and `CppEmitterGradualDisclosure_Emit_ReservedAndGenericNames_AllLinksResolveToWrittenPages`.
+
+**Names equal to reserved pages**: Verifies that a method or case-colliding member group named
+`operators` is written to `operators-` beside the shared `operators` page, that a class, nested
+class, or free function named `operators` and a namespace named `api` are moved aside the same way
+with matching links, and that only real operator overloads (not identifiers such as `operators`)
+are routed to the operators page. Tested by
+`CppEmitterGradualDisclosure_Emit_MemberNamedOperators_DoesNotOverwriteOperatorsPage`,
+`CppEmitterGradualDisclosure_Emit_DeclarationsNamedLikeReservedPages_AreMovedAside`, and
+`CppEmitter_IsOperatorName_DistinguishesOperatorsFromIdentifiers`.
+
 **Class operators page**: Verifies that a class containing operator overloads produces a shared
 `operators.md` page at `{namespace}/{TypeName}/operators` so all operator overloads are navigable
 from a single deterministic location. Tested by

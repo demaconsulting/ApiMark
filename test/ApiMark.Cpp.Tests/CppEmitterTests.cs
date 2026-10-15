@@ -141,6 +141,21 @@ public class CppEmitterTests
         Assert.Equal("class FinalWidget final : public Base", result);
     }
 
+    /// <summary>Validates that plain identifiers starting with "operator" are not mistaken for operator overloads.</summary>
+    [Theory]
+    [InlineData("operator+", true)]
+    [InlineData("operator()", true)]
+    [InlineData("operator bool", true)]
+    [InlineData("operator\"\" _km", true)]
+    [InlineData("operators", false)]
+    [InlineData("operator_count", false)]
+    [InlineData("operator2", false)]
+    [InlineData("Get", false)]
+    public void CppEmitter_IsOperatorName_DistinguishesOperatorsFromIdentifiers(string name, bool expected)
+    {
+        Assert.Equal(expected, CppEmitter.IsOperatorName(name));
+    }
+
     /// <summary>Validates that colliding member names are merged onto a single combined page keyed by the lowercase name.</summary>
     [Fact]
     public void CppEmitter_WriteCombinedMemberPage_CaseInsensitiveCollision_ProducesSingleCombinedPage()

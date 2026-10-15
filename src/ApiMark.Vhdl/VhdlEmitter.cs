@@ -92,4 +92,16 @@ internal sealed class VhdlEmitter : IApiEmitter
     /// <param name="name">The raw declaration name to sanitize.</param>
     /// <returns>A filesystem-safe file name string.</returns>
     internal static string SanitizeFileName(string name) => FileNameSanitizer.SanitizeSegment(name);
+
+    /// <summary>
+    ///     Converts the name of a root-level entity or package into its page file name; a name equal to
+    ///     the reserved <c>api</c> index page is moved aside so it can never overwrite <c>api.md</c>.
+    /// </summary>
+    /// <param name="name">The raw entity or package name.</param>
+    /// <returns>A legal root-level page file name without extension.</returns>
+    internal static string SanitizePageName(string name)
+    {
+        var sanitized = SanitizeFileName(name);
+        return string.Equals(sanitized, "api", StringComparison.OrdinalIgnoreCase) ? sanitized + "-" : sanitized;
+    }
 }

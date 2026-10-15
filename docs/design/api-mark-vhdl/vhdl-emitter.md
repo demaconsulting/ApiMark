@@ -75,6 +75,9 @@ illegal on Windows or Linux by delegating to `ApiMark.Core.FileNameSanitizer.San
 
 - *Parameters*: `string name` — the raw declaration name.
 - *Returns*: `string` — safe for use as a file-system file name segment.
+- *See also*: `SanitizePageName` (internal static) applies the same mapping to root-level entity and
+  package pages and additionally appends `-` to a name equal to the reserved index page `api`
+  (case-insensitive), so such a declaration never overwrites `api.md`; the index links use it too.
 - *Known limitation*: `VhdlEmitter.cs` does not lowercase or otherwise case-normalize names
   (verified by reading the source). VHDL identifiers are case-insensitive, so entities whose
   names differ only in case produce page names differing only in case and are not

@@ -73,9 +73,13 @@ sections:
           - id: ApiMarkCpp-CppTypeLinkResolver-LinkifyLegalPaths
             title: >-
               CppTypeLinkResolver.Linkify shall sanitize every segment of the target page
-              key and of the current folder so emitted links match the legal file names
-              written by the emitter.
+              key exactly once and use the current folder as already-sanitized, so emitted
+              links match the legal file names written by the emitter.
             justification: |
               Page keys keep raw declaration names (for example Foo<int>) while files are
-              written with sanitized names; links must use the sanitized form.
-            tests: [CppTypeLinkResolver_Linkify_IllegalPageKey_EmitsSanitizedRelativeLink]
+              written with sanitized names; links must use the sanitized form. The emitter
+              already passes sanitized output folders, and sanitizing them again would
+              produce detoured links.
+            tests:
+              - CppTypeLinkResolver_Linkify_IllegalPageKey_EmitsSanitizedRelativeLink
+              - CppTypeLinkResolver_Linkify_AlreadySanitizedFolder_IsNotSanitizedAgain

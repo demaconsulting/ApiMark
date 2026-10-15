@@ -142,3 +142,19 @@ sections:
               - CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_AllWrittenSegmentsAreLegal
               - CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_PagesUseSanitizedPaths
               - CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_AllLinksResolveToWrittenPages
+              - CppEmitterGradualDisclosure_Emit_GenericAndOddNames_MemberPageLinksUseSingleSanitization
+              - CppEmitterGradualDisclosure_Emit_ReservedAndGenericNames_AllLinksResolveToWrittenPages
+          - id: ApiMarkCpp-CppEmitterGradualDisclosure-ReservedPageNames
+            title: >-
+              CppEmitterGradualDisclosure shall move a declaration, member, or namespace page whose
+              name equals a reserved generated page (operators in a class or namespace folder, api at
+              the root) aside, apply the same name to every link, and treat only real operator
+              overloads as operators.
+            justification: |
+              A member named operators, or a namespace named api, is legal C++; without an escape its
+              page would overwrite the shared operators page or the api index. A plain identifier such
+              as operators must also not be mistaken for an operator overload.
+            tests:
+              - CppEmitterGradualDisclosure_Emit_MemberNamedOperators_DoesNotOverwriteOperatorsPage
+              - CppEmitterGradualDisclosure_Emit_DeclarationsNamedLikeReservedPages_AreMovedAside
+              - CppEmitter_IsOperatorName_DistinguishesOperatorsFromIdentifiers

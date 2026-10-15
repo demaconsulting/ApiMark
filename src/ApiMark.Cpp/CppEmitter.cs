@@ -100,7 +100,48 @@ internal sealed class CppEmitter : IApiEmitter
     internal static string SanitizeFileName(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
-        return FileNameSanitizer.SanitizeSegment(name);
+        var sanitized = FileNameSanitizer.SanitizeSegment(name);
+
+        // A declaration or member named like the reserved shared operators page is moved aside
+        // (mirroring the DotNet emitter) so it can never overwrite the operators.md of its folder.
+        return string.Equals(sanitized, OperatorsPageName, StringComparison.OrdinalIgnoreCase) ? sanitized + "-" : sanitized;
+    }
+
+    /// <summary>The file name (without extension) of the shared operator-overload page of a folder.</summary>
+    internal const string OperatorsPageName = "operators";
+
+    /// <summary>
+    ///     Determines whether a C++ function name denotes an operator overload (<c>operator+</c>,
+    ///     <c>operator()</c>, <c>operator bool</c>, ...) rather than an ordinary identifier that merely
+    ///     starts with the letters <c>operator</c> (such as <c>operators</c> or <c>operator_count</c>).
+    /// </summary>
+    /// <param name="name">The function name.</param>
+    /// <returns><see langword="true"/> when the name is an operator overload name.</returns>
+    internal static bool IsOperatorName(string name)
+    {
+        const string prefix = "operator";
+        if (!name.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        // The keyword is followed by a symbol or a space; an identifier character means a plain name.
+        return name.Length == prefix.Length || !(char.IsLetterOrDigit(name[prefix.Length]) || name[prefix.Length] == '_');
+    }
+
+    /// <summary>The file name (without extension) of the root index page.</summary>
+    internal const string ApiPageName = "api";
+
+    /// <summary>
+    ///     Converts a namespace key into the file name (without extension) of its root-level namespace
+    ///     page; a name equal to the reserved <c>api</c> index page is moved aside.
+    /// </summary>
+    /// <param name="nsKey">The raw namespace key.</param>
+    /// <returns>A legal root-level page file name that never equals the api index page.</returns>
+    internal static string GetNamespacePageName(string nsKey)
+    {
+        var sanitized = SanitizeFileName(nsKey);
+        return string.Equals(sanitized, ApiPageName, StringComparison.OrdinalIgnoreCase) ? sanitized + "-" : sanitized;
     }
 
     /// <summary>
@@ -114,7 +155,7 @@ internal sealed class CppEmitter : IApiEmitter
         ArgumentNullException.ThrowIfNull(path);
         return string.Join(
             "/",
-            path.Split('/', StringSplitOptions.RemoveEmptyEntries).Select(FileNameSanitizer.SanitizeSegment));
+            path.Split('/', StringSplitOptions.RemoveEmptyEntries).Select(SanitizeFileName));
     }
 
     /// <summary>

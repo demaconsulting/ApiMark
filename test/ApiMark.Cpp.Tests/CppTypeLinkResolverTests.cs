@@ -29,8 +29,34 @@ public class CppTypeLinkResolverTests
     }
 
     /// <summary>
-    ///     Validates that page keys containing template or reserved names are linked using sanitized paths,
-    ///     even when the current folder is not already sanitized.
+    ///     Validates that the current folder is treated as an already-sanitized output folder and is not
+    ///     sanitized a second time, so links into and out of a generic type's folder stay direct.
+    /// </summary>
+    [Fact]
+    public void CppTypeLinkResolver_Linkify_AlreadySanitizedFolder_IsNotSanitizedAgain()
+    {
+        // Arrange
+        var knownTypes = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            { "ns::Foo", "ns/Foo<int>" },
+            { "ns::Foo::Inner", "ns/Foo<int>/Inner" },
+        };
+        var resolver = new CppTypeLinkResolver(knownTypes);
+        var externalTypes = new SortedSet<CppExternalTypeInfo>();
+        var folder = CppEmitter.SanitizePath("ns/Foo<int>");
+
+        // Act
+        var sibling = resolver.Linkify("ns::Foo::Inner", folder, externalTypes);
+        var owner = resolver.Linkify("ns::Foo", folder, externalTypes);
+
+        // Assert
+        Assert.Equal("ns/Foo{int}", folder);
+        Assert.Equal("ns::Foo::[Inner](Inner.md)", sibling);
+        Assert.Equal("ns::[Foo](../Foo{int}.md)", owner);
+    }
+
+    /// <summary>
+    ///     Validates that page keys containing template or reserved names are linked using sanitized paths.
     /// </summary>
     [Fact]
     public void CppTypeLinkResolver_Linkify_IllegalPageKey_EmitsSanitizedRelativeLink()

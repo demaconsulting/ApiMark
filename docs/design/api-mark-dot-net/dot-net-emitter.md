@@ -79,7 +79,9 @@ file-system folder path for a namespace, treating the root namespace as atomic.
   name is the path segment (e.g. `ApiMark.DotNet.Fixtures`). For a child
   namespace the root prefix is kept and subsequent segments use forward slashes
   (e.g. `ApiMark.DotNet.Fixtures/Inner`). The empty (global) namespace always maps
-  to the synthetic folder `global-namespace`, independent of the root list.
+  to the synthetic folder `global-namespace`, independent of the root list. A root segment equal to
+  the reserved assembly index name `api` (case-insensitive) is moved aside as `api-`, so a root
+  namespace page never overwrites `api.md`.
 
 **DotNetEmitter.GetNamespaceDisplayName** (internal static): Returns the display name
 for a namespace — `(global namespace)` for the empty namespace, otherwise the name itself.
@@ -397,9 +399,10 @@ type reference to an XML documentation ID string suitable for member-key lookup 
 - `HidesBaseMember` mirrors compiler warning CS0108: a non-override method (same name and parameter
   types), property, or event with the same name as an accessible member in the resolved base-class chain
   is rendered with `new`. Unresolvable base types are skipped. Static events render `static` from
-  their add/remove accessor. Fields are deliberately out of scope: `BuildFieldSignature` does not call
-  `HidesBaseMember`, so `new` is not rendered for hiding fields, because field hiding is rare and
-  metadata gives no reliable marker.
+  their add/remove accessor. `BuildFieldSignature` also calls the `FieldDefinition` overload of
+  `HidesBaseMember`, so fields and constants that hide an accessible base member render `new` (for example
+  `public new static int Prot`); compiler-generated backing fields, enum value fields, and special-name
+  fields never do. The remaining limits are the irreducible ones listed under "Irreducible limits" below.
 - `GetAccessibilityPrefix` yields a marker such as `protected` for non-public members in
   overview rows. It deliberately omits `virtual`/`override`; those appear in the signature.
 - `BuildMemberSignature` and `BuildPropertyAccessors` take an `ApiVisibility` (default `All`) and

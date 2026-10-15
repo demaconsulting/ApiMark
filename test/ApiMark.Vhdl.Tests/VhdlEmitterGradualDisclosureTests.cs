@@ -30,6 +30,31 @@ public class VhdlEmitterGradualDisclosureTests
         Assert.Contains(rows, r => r[0].Contains("(aux-.md)", StringComparison.Ordinal));
     }
 
+    /// <summary>Validates that an entity or package named like the reserved api index page never overwrites it.</summary>
+    [Fact]
+    public void VhdlEmitterGradualDisclosure_Emit_EntityAndPackageNamedApi_DoNotOverwriteApiIndexPage()
+    {
+        // Arrange
+        var options = new VhdlGeneratorOptions { LibraryName = "TestLib" };
+        var entity = new VhdlEntityDecl("Api", [], [], new VhdlDocComment("An entity named like the index.", null, []));
+        var package = new VhdlPackageDecl("API", new VhdlDocComment("A package named like the index.", null, []), [], [], [], []);
+        var fileModels = new List<VhdlFileModel> { new("test.vhd", [entity], [], [package]) };
+        var emitter = new VhdlEmitter(options, fileModels);
+        var factory = new InMemoryMarkdownWriterFactory();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: the index keeps its page, the declarations are moved aside, and the index links to them
+        var apiHeadings = factory.GetWriter("", "api").Operations.OfType<HeadingOperation>();
+        Assert.Contains(apiHeadings, h => h.Level == 1 && h.Text.Contains("API Reference", StringComparison.Ordinal));
+        Assert.True(factory.HasWriter("", "Api-"));
+        Assert.True(factory.HasWriter("", "API-"));
+        var rows = factory.GetWriter("", "api").Operations.OfType<TableOperation>().SelectMany(t => t.Rows).ToList();
+        Assert.Contains(rows, r => r[0].Contains("(Api-.md)", StringComparison.Ordinal));
+        Assert.Contains(rows, r => r[0].Contains("(API-.md)", StringComparison.Ordinal));
+    }
+
     /// <summary>Builds minimal data for testing without parsing real VHDL files.</summary>
     private static (VhdlEmitter emitter, IReadOnlyList<VhdlFileModel> fileModels) BuildMinimalData()
     {

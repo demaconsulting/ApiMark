@@ -46,8 +46,10 @@ the standard xUnit.net test runner. No clang installation is needed.
 ### Test Scenarios
 
 **Illegal page keys are linked with sanitized paths**: Verifies that `Linkify` sanitizes each
-segment of the target page key and of the current folder, so links match the legal files
-written. Tested by `CppTypeLinkResolver_Linkify_IllegalPageKey_EmitsSanitizedRelativeLink`.
+segment of the target page key and uses the current folder as already sanitized (never sanitizing
+it a second time), so links match the legal files written. Tested by
+`CppTypeLinkResolver_Linkify_IllegalPageKey_EmitsSanitizedRelativeLink` and
+`CppTypeLinkResolver_Linkify_AlreadySanitizedFolder_IsNotSanitizedAgain`.
 
 **Exact qualified match emits a link**: Verifies that when a fully-qualified type name
 (e.g. `"ns::Foo"`) exactly matches a key in `knownTypes`, `Linkify` returns a string

@@ -207,6 +207,14 @@ sections:
               - DotNetEmitter_GetImmediateChildNamespaces_GlobalNamespace_IsSiblingRoot
               - DotNetEmitter_GetNamespaceDisplayName_GlobalNamespace_ReturnsPlaceholder
               - DotNetGenerator_ComputeRootNamespaces_GlobalNamespace_IsRootAndDoesNotHideOthers
+          - id: ApiMarkDotNet-DotNetEmitter-ReservedApiNamespace
+            title: DotNetEmitter shall move a root namespace whose name equals the reserved api index
+              page aside so its namespace page never overwrites api.md.
+            justification: |
+              A root namespace named api is legal; its namespace page and the assembly index page
+              would otherwise be written to the same file.
+            tests:
+              - DotNetEmitter_GetNamespaceFolderPath_NamespaceNamedApi_IsMovedAsideFromApiIndexPage
           - id: ApiMarkDotNet-DotNetEmitter-RenderParamsKeyword
             title: DotNetEmitter shall render the params (or params collection) modifier on parameters
               in method, constructor, and delegate signatures.

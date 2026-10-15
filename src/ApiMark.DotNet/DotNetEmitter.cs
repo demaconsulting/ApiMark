@@ -128,19 +128,31 @@ internal sealed class DotNetEmitter : IApiEmitter
 
         if (root == null)
         {
-            return FileNameSanitizer.SanitizeSegment(namespaceName); // fallback: no known root, use full name
+            return SanitizeRootSegment(namespaceName); // fallback: no known root, use full name
         }
 
         if (string.Equals(namespaceName, root, StringComparison.Ordinal))
         {
-            return FileNameSanitizer.SanitizeSegment(root); // root namespace: full dotted name is the single path segment
+            return SanitizeRootSegment(root); // root namespace: full dotted name is the single path segment
         }
 
         // Child namespace: keep root intact, replace subsequent dots with slashes; every segment is
         // sanitized so reserved device names and illegal characters never reach the file system.
         var suffix = namespaceName.Substring(root.Length); // e.g. ".Inner" or ".Inner.Sub"
-        return FileNameSanitizer.SanitizeSegment(root) + "/" +
+        return SanitizeRootSegment(root) + "/" +
             string.Join('/', suffix.Substring(1).Split('.').Select(FileNameSanitizer.SanitizeSegment));
+    }
+
+    /// <summary>
+    ///     Sanitizes a root-namespace path segment; a name equal to the reserved <c>api</c> index page is
+    ///     moved aside so a root namespace page can never overwrite <c>api.md</c>.
+    /// </summary>
+    /// <param name="name">The raw root namespace name.</param>
+    /// <returns>The legal segment.</returns>
+    private static string SanitizeRootSegment(string name)
+    {
+        var sanitized = FileNameSanitizer.SanitizeSegment(name);
+        return string.Equals(sanitized, "api", StringComparison.OrdinalIgnoreCase) ? sanitized + "-" : sanitized;
     }
 
     /// <summary>

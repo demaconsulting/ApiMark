@@ -80,7 +80,7 @@ internal sealed class VhdlEmitterGradualDisclosure
             writer.WriteHeading(2, "Entities");
             var headers = new[] { "Name", VhdlEmitter.DescriptionColumnHeader };
             var rows = allEntities.Select(e =>
-                new[] { $"[{e.Name}]({VhdlEmitter.SanitizeFileName(e.Name)}.md)", VhdlEmitter.GetSummary(e.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder });
+                new[] { $"[{e.Name}]({VhdlEmitter.SanitizePageName(e.Name)}.md)", VhdlEmitter.GetSummary(e.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder });
             writer.WriteTable(headers, rows);
         }
 
@@ -89,7 +89,7 @@ internal sealed class VhdlEmitterGradualDisclosure
             writer.WriteHeading(2, "Packages");
             var headers = new[] { "Name", VhdlEmitter.DescriptionColumnHeader };
             var rows = allPackages.Select(p =>
-                new[] { $"[{p.Name}]({VhdlEmitter.SanitizeFileName(p.Name)}.md)", VhdlEmitter.GetSummary(p.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder });
+                new[] { $"[{p.Name}]({VhdlEmitter.SanitizePageName(p.Name)}.md)", VhdlEmitter.GetSummary(p.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder });
             writer.WriteTable(headers, rows);
         }
     }
@@ -111,7 +111,7 @@ internal sealed class VhdlEmitterGradualDisclosure
         string fileName,
         List<(VhdlArchitectureDecl Arch, string FileName)> allArchitectures)
     {
-        using var writer = factory.CreateMarkdown("", VhdlEmitter.SanitizeFileName(entity.Name));
+        using var writer = factory.CreateMarkdown("", VhdlEmitter.SanitizePageName(entity.Name));
         writer.WriteHeading(1, entity.Name);
 
         // Attribution: kind and source file
@@ -192,7 +192,7 @@ internal sealed class VhdlEmitterGradualDisclosure
     /// <param name="fileName">Base filename of the source file containing this package declaration.</param>
     private static void EmitPackagePage(IMarkdownWriterFactory factory, VhdlPackageDecl pkg, string fileName)
     {
-        using var writer = factory.CreateMarkdown("", VhdlEmitter.SanitizeFileName(pkg.Name));
+        using var writer = factory.CreateMarkdown("", VhdlEmitter.SanitizePageName(pkg.Name));
         writer.WriteHeading(1, pkg.Name);
 
         EmitPackageSummary(writer, pkg, fileName);

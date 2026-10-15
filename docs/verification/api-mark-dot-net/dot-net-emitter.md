@@ -418,6 +418,11 @@ resolve in both formats, and without the reference the placeholder remains. Test
 `DotNetGenerator_Parse_ExternalBaseWithReferencePaths_ResolvesInheritedDocumentation`, and
 `DotNetGenerator_Parse_ExternalBaseTwoHops_ResolvesInheritedDocumentationAcrossBothHops`.
 
+**Namespace named api**: Verifies that a root namespace named `api` (or `Api`) maps to the folder
+and page `api-` (`Api-`), and its child namespaces to `api-/Inner`, so it never overwrites the
+`api.md` index. Tested by
+`DotNetEmitter_GetNamespaceFolderPath_NamespaceNamedApi_IsMovedAsideFromApiIndexPage`.
+
 **`new` modifier for every member kind**: Arrange `NewBase`/`NewDerived` at the `All` tier. Expected: constants,
 fields, properties, events, and methods that hide an accessible base member of any kind show `new` (in
 `public new static int Prot` order); a member named like a private base field, and a member without a base

@@ -86,7 +86,9 @@ internal sealed class CppTypeLinkResolver
     /// </param>
     /// <param name="currentFolder">
     ///     The folder path of the Markdown file that will contain the link, relative to the
-    ///     documentation output root (e.g. <c>"fixtures/SampleClass"</c>).
+    ///     documentation output root (e.g. <c>"fixtures/SampleClass"</c>), exactly as the emitter
+    ///     writes it: it must already be sanitized (see <see cref="CppEmitter.SanitizePath"/>) and is
+    ///     used as is, never sanitized again. The page key of the linked type is sanitized here, once.
     ///     Used to compute relative path hrefs. Pass an empty string or <see langword="null"/>
     ///     for root-level files; a <see langword="null"/> value is treated as an empty string.
     /// </param>
@@ -164,9 +166,9 @@ internal sealed class CppTypeLinkResolver
     /// <returns>The type string with the base type token replaced by a Markdown link.</returns>
     private static string BuildIntraLibraryLink(string cppTypeString, string currentFolder, string stripped, string pageKey)
     {
-        // Sanitize both paths per segment so links always match the legal file names the emitter writes
-        var safeFolder = CppEmitter.SanitizePath(currentFolder);
-        var from = safeFolder.Length > 0 ? safeFolder : ".";
+        // Sanitize the page key per segment exactly once; the current folder is already an output folder
+        // (sanitized by the emitter) and is used as is, so it is never mapped a second time
+        var from = currentFolder.Length > 0 ? currentFolder : ".";
         var relativePath = Path.GetRelativePath(from, CppEmitter.SanitizePath(pageKey) + ".md").Replace('\\', '/');
         var shortName = stripped.Contains("::", StringComparison.Ordinal)
             ? stripped[(stripped.LastIndexOf("::", StringComparison.Ordinal) + 2)..]

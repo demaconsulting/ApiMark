@@ -112,11 +112,17 @@ by `WriteFunctionContent`.
 - **SanitizeFileName** — delegates to `ApiMark.Core.FileNameSanitizer.SanitizeSegment` so
   names are legal on Windows and Linux (reserved device names get a `-` suffix; template
   brackets become `{`/`}`; other illegal characters become `-` plus a hash).
-  Tests are clang-free (synthetic models).
+  Tests are clang-free (synthetic models). A result equal to `operators` (case-insensitive) is
+  moved aside to `operators-`, mirroring the DotNet emitter, so a member or declaration page can
+  never overwrite the shared operators page of its folder.
+- **GetNamespacePageName** — `SanitizeFileName` plus a `-` suffix when the result equals the reserved
+  root index name `api` (case-insensitive), so a namespace page never overwrites `api.md`.
+- **IsOperatorName** — true only for real operator overload names (`operator` followed by a symbol,
+  space, or end), so identifiers such as `operators` or `operator_count` are ordinary members.
 - **SanitizePath** — splits a `/`-separated folder or page-key path, sanitizes each
   non-empty segment with `SanitizeFileName`, and rejoins them; returns an empty string
   for an empty path. `WriteCombinedMemberPage` uses it for its folder and sanitizes its
-  file name (grouping stays on the raw lowercase key; only the written name is sanitized).
+  file name exactly once (callers pass the raw lowercase key, which also stays the heading).
 - **GetIncludePath** — derives the canonical `#include` path relative to the
   longest matching public include root.
 - **GetMemberBaseName** — returns the class name for constructors and the member

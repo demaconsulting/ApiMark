@@ -1288,6 +1288,16 @@ public class DotNetEmitterTests
         Assert.Equal(expected, signature);
     }
 
+    /// <summary>Validates that a root namespace named like the reserved api index page is moved aside.</summary>
+    [Fact]
+    public void DotNetEmitter_GetNamespaceFolderPath_NamespaceNamedApi_IsMovedAsideFromApiIndexPage()
+    {
+        Assert.Equal("api-", DotNetEmitter.GetNamespaceFolderPath("api", ["api"]));
+        Assert.Equal("Api-", DotNetEmitter.GetNamespaceFolderPath("Api", ["Api"]));
+        Assert.Equal("api-/Inner", DotNetEmitter.GetNamespaceFolderPath("api.Inner", ["api"]));
+        Assert.Equal("api.Inner", DotNetEmitter.GetNamespaceFolderPath("api.Inner", ["api.Inner"]));
+    }
+
     /// <summary>Validates that the empty (global) namespace maps to the synthetic global-namespace folder for any root set.</summary>
     [Fact]
     public void DotNetEmitter_GetNamespaceFolderPath_GlobalNamespace_ReturnsGlobalNamespaceFolder()

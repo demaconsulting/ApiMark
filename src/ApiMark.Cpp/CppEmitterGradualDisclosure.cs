@@ -31,8 +31,10 @@ internal sealed class CppEmitterGradualDisclosure
         ["Operators (namespace)", "`{Namespace}/operators.md`"],
     ];
 
-    /// <summary>Prefix identifying a C++ operator overload function name.</summary>
-    private const string OperatorNamePrefix = "operator";
+    /// <summary>Determines whether a name is a C++ operator overload name (see <see cref="CppEmitter.IsOperatorName"/>).</summary>
+    /// <param name="name">The function name.</param>
+    /// <returns><see langword="true"/> for operator overloads.</returns>
+    private static bool IsOperatorName(string name) => CppEmitter.IsOperatorName(name);
 
     /// <summary>Column/heading label for a member's return-value documentation.</summary>
     private const string ReturnsLabel = "Returns";
@@ -105,10 +107,10 @@ internal sealed class CppEmitterGradualDisclosure
             // to the same file name so all operators share a single operators.md page
             // instead of producing individual colliding files
             var nsOperatorFunctions = nsDecls.FreeFunctions
-                .Where(fn => fn.Name.StartsWith(OperatorNamePrefix, StringComparison.Ordinal))
+                .Where(fn => IsOperatorName(fn.Name))
                 .ToList();
             foreach (var fn in nsDecls.FreeFunctions
-                .Where(fn => !fn.Name.StartsWith(OperatorNamePrefix, StringComparison.Ordinal)))
+                .Where(fn => !IsOperatorName(fn.Name)))
             {
                 WriteFreeFunctionPage(factory, nsKey, nsDecls.DisplayName, fn, _cppResolver);
             }
@@ -169,7 +171,7 @@ internal sealed class CppEmitterGradualDisclosure
             var nsDecls = kv.Value;
             var declarationCount = nsDecls.Classes.Count + nsDecls.Enums.Count + nsDecls.FreeFunctions.Count + nsDecls.TypeAliases.Count;
             var description = CppEmitter.GetNamespaceDescription(nsDecls);
-            return new[] { $"[{nsDecls.DisplayName}]({CppEmitter.SanitizeFileName(kv.Key)}.md)", declarationCount.ToString(), description };
+            return new[] { $"[{nsDecls.DisplayName}]({CppEmitter.GetNamespacePageName(kv.Key)}.md)", declarationCount.ToString(), description };
         });
         writer.WriteTable(headers, rows);
 
@@ -248,10 +250,10 @@ internal sealed class CppEmitterGradualDisclosure
         // Partition methods into operator overloads and regular methods; operator overloads are
         // grouped onto a single operators.md page to prevent file-name collisions
         var operatorMethods = visibleMethods
-            .Where(m => m.Name.StartsWith(OperatorNamePrefix, StringComparison.Ordinal))
+            .Where(m => IsOperatorName(m.Name))
             .ToList();
         var regularMethods = visibleMethods
-            .Where(m => !m.Name.StartsWith(OperatorNamePrefix, StringComparison.Ordinal))
+            .Where(m => !IsOperatorName(m.Name))
             .ToList();
 
         // Build a flat list of all visible members for case-insensitive collision detection
@@ -367,7 +369,8 @@ internal sealed class CppEmitterGradualDisclosure
         var baseName = CppEmitter.GetMemberBaseName(ctor, ctx.Class.Name);
         var lowerKey = baseName.ToLowerInvariant();
         var group = caseInsensitiveGroups[lowerKey];
-        var pageFileName = CppEmitter.SanitizeFileName(group.Count == 1 ? baseName : lowerKey);
+        var pageKey = group.Count == 1 ? baseName : lowerKey;
+        var pageFileName = CppEmitter.SanitizeFileName(pageKey);
         var ctorSummary = CppEmitter.GetSummary(ctor.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
 
         // Show simplified parameter types in the link text so readers can
@@ -376,13 +379,14 @@ internal sealed class CppEmitterGradualDisclosure
 
         if (writtenKeys.Add(lowerKey))
         {
+            // The page writers receive the raw key and sanitize it exactly once
             if (group.Count == 1)
             {
-                WriteMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, ctor, pageFileName, ctx.CppResolver);
+                WriteMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, ctor, pageKey, ctx.CppResolver);
             }
             else
             {
-                CppEmitter.WriteCombinedMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, pageFileName, group, ctx.CppResolver);
+                CppEmitter.WriteCombinedMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, pageKey, group, ctx.CppResolver);
             }
         }
 
@@ -404,21 +408,22 @@ internal sealed class CppEmitterGradualDisclosure
         var baseName = CppEmitter.GetMemberBaseName(method, ctx.Class.Name);
         var lowerKey = baseName.ToLowerInvariant();
         var group = caseInsensitiveGroups[lowerKey];
-        var pageFileName = CppEmitter.SanitizeFileName(group.Count == 1 ? baseName : lowerKey);
+        var pageKey = group.Count == 1 ? baseName : lowerKey;
+        var pageFileName = CppEmitter.SanitizeFileName(pageKey);
         var methodSummary = CppEmitter.GetSummary(method.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
 
-        // Linkify the return type cell using the type link resolver
-        var returnType = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(method.ReturnTypeName), ctx.NsKey, externalTypes)!;
+        // Linkify the return type cell using the type link resolver (folder of the type page, already sanitized)
+        var returnType = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(method.ReturnTypeName), CppEmitter.SanitizePath(ctx.NsKey), externalTypes)!;
 
         if (writtenKeys.Add(lowerKey))
         {
             if (group.Count == 1)
             {
-                WriteMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, method, pageFileName, ctx.CppResolver);
+                WriteMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, method, pageKey, ctx.CppResolver);
             }
             else
             {
-                CppEmitter.WriteCombinedMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, pageFileName, group, ctx.CppResolver);
+                CppEmitter.WriteCombinedMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, pageKey, group, ctx.CppResolver);
             }
         }
 
@@ -443,21 +448,22 @@ internal sealed class CppEmitterGradualDisclosure
         var baseName = CppEmitter.GetMemberBaseName(field, ctx.Class.Name);
         var lowerKey = baseName.ToLowerInvariant();
         var group = caseInsensitiveGroups[lowerKey];
-        var pageFileName = CppEmitter.SanitizeFileName(group.Count == 1 ? baseName : lowerKey);
+        var pageKey = group.Count == 1 ? baseName : lowerKey;
+        var pageFileName = CppEmitter.SanitizeFileName(pageKey);
         var fieldSummary = CppEmitter.GetSummary(field.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
 
-        // Linkify the field type cell using the type link resolver
-        var typeName = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(field.TypeName), ctx.NsKey, externalTypes)!;
+        // Linkify the field type cell using the type link resolver (folder of the type page, already sanitized)
+        var typeName = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(field.TypeName), CppEmitter.SanitizePath(ctx.NsKey), externalTypes)!;
 
         if (writtenKeys.Add(lowerKey))
         {
             if (group.Count == 1)
             {
-                WriteMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, field, pageFileName, ctx.CppResolver);
+                WriteMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, field, pageKey, ctx.CppResolver);
             }
             else
             {
-                CppEmitter.WriteCombinedMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, pageFileName, group, ctx.CppResolver);
+                CppEmitter.WriteCombinedMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, pageKey, group, ctx.CppResolver);
             }
         }
 
@@ -532,7 +538,7 @@ internal sealed class CppEmitterGradualDisclosure
                 .Select(alias =>
                 {
                     var summary = CppEmitter.GetSummary(alias.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
-                    var underlying = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(alias.UnderlyingTypeName), ctx.NsKey, externalTypes)!;
+                    var underlying = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(alias.UnderlyingTypeName), CppEmitter.SanitizePath(ctx.NsKey), externalTypes)!;
                     return new[] { $"[{alias.Name}]({CppEmitter.SanitizeFileName(ctx.Class.Name)}/{CppEmitter.SanitizeFileName(alias.Name)}.md)", underlying, summary };
                 });
             writer.WriteTable(aliasHeaders, aliasRows);
@@ -1053,7 +1059,7 @@ internal sealed class CppEmitterGradualDisclosure
         }
 
         // Resolve the underlying type to track any non-std external type references
-        cppResolver.Linkify(simplifiedUnderlying, nsKey, externalTypes);
+        cppResolver.Linkify(simplifiedUnderlying, CppEmitter.SanitizePath(nsKey), externalTypes);
         CppEmitter.WriteExternalTypesSection(writer, externalTypes);
     }
 
@@ -1067,8 +1073,10 @@ internal sealed class CppEmitterGradualDisclosure
         CppEmitter.NamespaceDeclarations nsDecls,
         CppTypeLinkResolver cppResolver)
     {
-        var safeNs = CppEmitter.SanitizeFileName(nsKey);
-        using var writer = factory.CreateMarkdown("", safeNs);
+        // The page itself sits at the root under its (api-safe) page name, while the types, enums,
+        // aliases, and functions it links to live in the namespace's sanitized folder
+        var safeNs = CppEmitter.SanitizePath(nsKey);
+        using var writer = factory.CreateMarkdown("", CppEmitter.GetNamespacePageName(nsKey));
         writer.WriteHeading(1, $"{nsDecls.DisplayName} Namespace");
 
         // Accumulate external type references found in type-column cells on this page
@@ -1124,10 +1132,10 @@ internal sealed class CppEmitterGradualDisclosure
         // such as operator+, operator-, and operator<< all sanitize to the same file name and
         // must be grouped onto a single operators.md page to avoid file-name collisions
         var regularFreeFunctions = nsDecls.FreeFunctions
-            .Where(fn => !fn.Name.StartsWith(OperatorNamePrefix, StringComparison.Ordinal))
+            .Where(fn => !IsOperatorName(fn.Name))
             .ToList();
         var operatorFreeFunctions = nsDecls.FreeFunctions
-            .Where(fn => fn.Name.StartsWith(OperatorNamePrefix, StringComparison.Ordinal))
+            .Where(fn => IsOperatorName(fn.Name))
             .ToList();
 
         // Regular free-function table — one row per owned free function, sorted alphabetically
