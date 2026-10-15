@@ -133,36 +133,17 @@ public sealed class CppGenerator : IApiGenerator, IDocumentationCoverageCapable
         }
 
         // Build the intra-library type map for link resolution.
-        // nsKey uses "." separators for file paths; display names use "::" for C++ qualified names.
-        // FlattenClass recursively registers a class, its scoped type aliases, and any nested
-        // classes so that fully-qualified names like "fixtures::Outer::Inner" resolve correctly.
-        static IEnumerable<(string Key, string Value)> FlattenClass(string nsDisplay, string nsPath, CppClass cls)
-        {
-            var clsDisplay = $"{nsDisplay}::{cls.Name}";
-            var clsPath = $"{nsPath}/{cls.Name}";
-            return new[] { (Key: clsDisplay, Value: clsPath) }
-                .Concat(cls.TypeAliases.Select(alias =>
-                    (Key: $"{clsDisplay}::{alias.Name}", Value: $"{clsPath}/{alias.Name}")))
-                .Concat(cls.NestedClasses.SelectMany(nested =>
-                    FlattenClass(clsDisplay, clsPath, nested)));
-        }
 
-        var knownTypes = namespaceDecls.SelectMany(kv =>
-        {
-            var nsDisplay = kv.Key.Replace(".", "::", StringComparison.Ordinal);
-            var nsPath = kv.Key; // preserve dot-separated key to match CreateMarkdown page keys
-            return kv.Value.Classes.SelectMany(cls => FlattenClass(nsDisplay, nsPath, cls))
-                .Concat(kv.Value.Enums.Select(enm => (Key: $"{nsDisplay}::{enm.Name}", Value: $"{nsPath}/{enm.Name}")))
-                .Concat(kv.Value.TypeAliases.Select(a => (Key: $"{nsDisplay}::{a.Name}", Value: $"{nsPath}/{a.Name}")));
-        }).ToDictionary(x => x.Key, x => x.Value, StringComparer.Ordinal);
-
-        var cppResolver = new CppTypeLinkResolver(knownTypes);
+        // Register and resolve every page name once; the emitters and the link resolver read only
+        // the approved names
+        var names = CppNames.Build(namespaceDecls);
+        var cppResolver = new CppTypeLinkResolver(names.BuildKnownTypes(namespaceDecls));
 
         // Cache the parsed namespace declarations so CheckDocumentationCoverage can be
         // called after Parse returns.
         _namespaceDecls = namespaceDecls;
 
-        return new CppEmitter(normalizedOptions, namespaceDecls, cppResolver);
+        return new CppEmitter(normalizedOptions, namespaceDecls, cppResolver, names);
     }
 
     /// <summary>

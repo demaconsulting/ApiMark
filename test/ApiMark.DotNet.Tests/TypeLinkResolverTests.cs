@@ -678,7 +678,7 @@ public class TypeLinkResolverTests : IDisposable
         var result = resolver.Linkify(generic, "", "ApiMark.DotNet.Fixtures", externalTypes);
 
         // Assert
-        Assert.Equal("[Box](../Other/api/Acme.Widgets/Box-1.md)\\<int\\>", result);
+        Assert.Equal("[Box](../Other/api/Acme.Widgets/Box{1}.md)\\<int\\>", result);
         Assert.Empty(externalTypes);
     }
 

@@ -256,17 +256,16 @@ These helpers are grouped by concern:
   substring before it; otherwise returns the input unchanged. Does not delegate to
   `TypeNameSimplifier`; the implementation is self-contained in `DotNetEmitter`.
 - *Contrast with `FlattenArity`*: `StripArity` removes the arity digit entirely (for
-  display names), while `FlattenArity` replaces the backtick with a hyphen and keeps the digit
-  (for filesystem-safe path segments, e.g. `Foo-1`).
+  display names), while `FlattenArity` replaces the backtick with brace arity
+  (for filesystem-safe path segments, e.g. `Foo{1}`).
 
 **DotNetEmitter.FlattenArity** (internal static): Converts a generic type's IL
-name to a filesystem-safe form by replacing the backtick with a hyphen while retaining
-the arity digit.
+name to a filesystem-safe form by replacing the backtick arity with brace arity.
 
 - *Parameters*: `string name` — the raw IL type name that may contain a backtick
   arity suffix (e.g. `Dictionary\`2`).
-- *Returns*: `string` — the name with the backtick replaced by a hyphen and the arity digit
-  preserved (e.g. `Dictionary\`2` → `Dictionary-2`). Returns the input unchanged
+- *Returns*: `string` — the name with the backtick arity replaced by brace arity
+  (e.g. `Dictionary\`2` → `Dictionary{2}`). Returns the input unchanged
   when no backtick is present.
 - *Note*: This method delegates to `TypeNameSimplifier.FlattenArity`.
 - *Used by*: Both sub-emitters when constructing folder and file paths for generic

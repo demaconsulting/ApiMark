@@ -201,17 +201,11 @@ member ID uses `.` as the separator (matching the XML doc format) rather than th
 used by Cecil's `FullName`. This scenario is tested by
 `DotNetGenerator_Generate_ConversionOperatorReturningNestedType_OperatorsPageContainsSummary`.
 
-**Case-collision class creates a combined page**: Verifies that members whose names differ only by
-case are merged into a single combined detail page on case-insensitive targets. This scenario is
-tested by `DotNetGenerator_Generate_CaseCollisionClass_CreatesCombinedPage`.
-
-**Case-collision class does not create a separate cased page**: Verifies that the generator does
-not emit a second detail page for the same member name with different casing. This scenario is
-tested by `DotNetGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPage`.
-
-**Case-collision class combined page contains both members**: Verifies that the combined detail
-page includes documentation for both case-colliding members. This scenario is tested by
-`DotNetGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers`.
+**Case-collision class creates separate pages**: Verifies that members whose names differ only by
+case get separate pages (`Name`, `name-2`) so that no two pages differ only in case. Tested by
+`DotNetGenerator_Generate_CaseCollisionClass_CreatesSeparatePages`,
+`DotNetGenerator_Generate_CaseCollisionClass_NoPagesDifferOnlyInCase`, and
+`DotNetGenerator_Generate_CaseCollisionClass_EachMemberHasOwnPage`.
 
 **Missing assembly path throws FileNotFoundException**: Verifies that calling `Parse` when the
 configured assembly path does not exist throws `FileNotFoundException` with the missing path,

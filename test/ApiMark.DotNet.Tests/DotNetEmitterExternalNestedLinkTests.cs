@@ -49,7 +49,7 @@ public class DotNetEmitterExternalNestedLinkTests
             .Single(t => t.Contains("Refers to nested", StringComparison.Ordinal)).Replace('\n', ' ');
         Assert.Contains($"]({Root}/NestedHost/Inner.md)", summary, StringComparison.Ordinal);
         Assert.Contains($"]({Root}/NestedHost/Deep/Leaf.md)", summary, StringComparison.Ordinal);
-        Assert.Contains($"]({Root}/NestedGenericHost-1/Inner-1.md)", summary, StringComparison.Ordinal);
+        Assert.Contains($"]({Root}/NestedGenericHost{{1}}/Inner{{1}}.md)", summary, StringComparison.Ordinal);
         Assert.DoesNotContain("`1", summary, StringComparison.Ordinal);
     }
 
@@ -63,6 +63,41 @@ public class DotNetEmitterExternalNestedLinkTests
         // Assert
         var cells = factory.Writers[ConsumerKey].Operations.OfType<TableOperation>().SelectMany(t => t.Rows.SelectMany(r => r)).ToList();
         Assert.Contains(cells, c => c.Contains($"]({Root}/NestedHost/Inner.md)", StringComparison.Ordinal));
-        Assert.Contains(cells, c => c.Contains($"]({Root}/NestedGenericHost-1/Inner-1.md)", StringComparison.Ordinal));
+        Assert.Contains(cells, c => c.Contains($"]({Root}/NestedGenericHost{{1}}/Inner{{1}}.md)", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Validates every link into the mapped assembly names a page that the mapped assembly's own run
+    ///     writes, so the predictable name equals the name its registry approves.
+    /// </summary>
+    [Fact]
+    public void DotNetEmitterGradualDisclosure_Emit_ExternalLinks_MatchTargetAssemblyRegistryNames()
+    {
+        // Arrange
+        var consumer = Emit();
+        var target = new InMemoryMarkdownWriterFactory();
+        new DotNetGenerator(new DotNetGeneratorOptions
+        {
+            AssemblyPath = FixturePaths.GetExternalFixtureDll(),
+            XmlDocPath = FixturePaths.GetExternalFixtureXmlDoc(),
+            Visibility = ApiVisibility.Public,
+        }).Parse(new InMemoryContext()).Emit(target, new EmitConfig(), new InMemoryContext());
+        const string marker = "OtherLib/api/";
+        var pattern = new System.Text.RegularExpressions.Regex(@"\]\(((?:\.\./)+OtherLib/api/[^)\s#]+)\.md", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        // Act
+        var linked = consumer.Writers.Values
+            .SelectMany(w => w.Operations.OfType<ParagraphOperation>().Select(p => p.Text)
+                .Concat(w.Operations.OfType<TableOperation>().SelectMany(t => t.Rows.SelectMany(r => r))))
+            .SelectMany(t => pattern.Matches(t).Select(m => m.Groups[1].Value))
+            .Select(v => v[(v.IndexOf(marker, StringComparison.Ordinal) + marker.Length)..])
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        // Assert
+        Assert.Contains("ApiMark.DotNet.Fixtures.External/Nested/NestedGenericHost{1}/Inner{1}", linked);
+        Assert.True(linked.Count >= 4, string.Join(", ", linked));
+        var missing = linked.Where(l => !target.Writers.ContainsKey(l)).ToList();
+        Assert.True(missing.Count == 0, "Links to pages the target run does not write: " + string.Join(", ", missing));
     }
 }

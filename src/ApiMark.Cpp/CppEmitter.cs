@@ -36,14 +36,20 @@ internal sealed class CppEmitter : IApiEmitter
     /// <param name="options">Generator configuration options.</param>
     /// <param name="namespaceDecls">Namespace declarations collected during parse.</param>
     /// <param name="cppResolver">Type link resolver built from the parsed namespace declarations.</param>
+    /// <param name="names">
+    ///     The approved file names shared with <paramref name="cppResolver"/>; built from
+    ///     <paramref name="namespaceDecls"/> when omitted.
+    /// </param>
     internal CppEmitter(
         CppGeneratorOptions options,
         SortedDictionary<string, NamespaceDeclarations> namespaceDecls,
-        CppTypeLinkResolver cppResolver)
+        CppTypeLinkResolver cppResolver,
+        CppNames? names = null)
     {
         _options = options;
         _namespaceDecls = namespaceDecls;
         _cppResolver = cppResolver;
+        Names = names ?? CppNames.Build(namespaceDecls);
         _normalizedPublicIncludeRoots = options.PublicIncludeRoots
             .Select(root => PathHelpers.NormalizeCaseDirectory(root, _includeRootDirectoryEntryCache))
             .ToList();
@@ -51,6 +57,9 @@ internal sealed class CppEmitter : IApiEmitter
 
     /// <summary>Gets the generator configuration options.</summary>
     internal CppGeneratorOptions Options => _options;
+
+    /// <summary>Gets the approved file names of every page of the documentation tree.</summary>
+    internal CppNames Names { get; }
 
     /// <summary>
     ///     Emits the complete Markdown documentation tree in the format specified by
@@ -79,38 +88,6 @@ internal sealed class CppEmitter : IApiEmitter
     // =========================================================================
 
     /// <summary>
-    ///     Sanitizes a C++ declaration name for use as a file-system file name by replacing any
-    ///     characters that are invalid in file names on Windows or Unix with an underscore.
-    /// </summary>
-    /// <remarks>
-    ///     Non-operator C++ declaration names — class names, type aliases, free function names,
-    ///     and field names — may contain characters such as <c>&lt;</c>, <c>&gt;</c>, and <c>:</c>
-    ///     (from template specializations or qualified names) that are forbidden in Windows file
-    ///     names. Operator names (e.g. <c>operator*</c>, <c>operator&lt;&lt;</c>) are
-    ///     <em>never</em> passed to this method — they are partitioned upstream and written to a
-    ///     shared <c>operators.md</c> page, so file-name collisions between operators never arise.
-    ///     Note: the mapping is delegated to <see cref="FileNameSanitizer.SanitizeSegment"/> so it is
-    ///     deterministic and identical on every platform, rather than depending on the OS-specific
-    ///     <see cref="Path.GetInvalidFileNameChars"/>.
-    /// </remarks>
-    /// <param name="name">The C++ declaration name to sanitize. Must not be null.</param>
-    /// <returns>
-    ///     A file name segment that is legal on Windows and Linux (see <see cref="FileNameSanitizer"/>).
-    /// </returns>
-    internal static string SanitizeFileName(string name)
-    {
-        ArgumentNullException.ThrowIfNull(name);
-        var sanitized = FileNameSanitizer.SanitizeSegment(name);
-
-        // A declaration or member named like the reserved shared operators page is moved aside
-        // (mirroring the DotNet emitter) so it can never overwrite the operators.md of its folder.
-        return string.Equals(sanitized, OperatorsPageName, StringComparison.OrdinalIgnoreCase) ? sanitized + "-" : sanitized;
-    }
-
-    /// <summary>The file name (without extension) of the shared operator-overload page of a folder.</summary>
-    internal const string OperatorsPageName = "operators";
-
-    /// <summary>
     ///     Determines whether a C++ function name denotes an operator overload (<c>operator+</c>,
     ///     <c>operator()</c>, <c>operator bool</c>, ...) rather than an ordinary identifier that merely
     ///     starts with the letters <c>operator</c> (such as <c>operators</c> or <c>operator_count</c>).
@@ -127,35 +104,6 @@ internal sealed class CppEmitter : IApiEmitter
 
         // The keyword is followed by a symbol or a space; an identifier character means a plain name.
         return name.Length == prefix.Length || !(char.IsLetterOrDigit(name[prefix.Length]) || name[prefix.Length] == '_');
-    }
-
-    /// <summary>The file name (without extension) of the root index page.</summary>
-    internal const string ApiPageName = "api";
-
-    /// <summary>
-    ///     Converts a namespace key into the file name (without extension) of its root-level namespace
-    ///     page; a name equal to the reserved <c>api</c> index page is moved aside.
-    /// </summary>
-    /// <param name="nsKey">The raw namespace key.</param>
-    /// <returns>A legal root-level page file name that never equals the api index page.</returns>
-    internal static string GetNamespacePageName(string nsKey)
-    {
-        var sanitized = SanitizeFileName(nsKey);
-        return string.Equals(sanitized, ApiPageName, StringComparison.OrdinalIgnoreCase) ? sanitized + "-" : sanitized;
-    }
-
-    /// <summary>
-    ///     Sanitizes every <c>/</c>-separated segment of a folder or page-key path so that it is legal
-    ///     on Windows and Linux. Empty segments are dropped.
-    /// </summary>
-    /// <param name="path">The raw path (for example <c>ns/Foo&lt;int&gt;</c>); may be empty.</param>
-    /// <returns>The sanitized path, or an empty string when <paramref name="path"/> has no segments.</returns>
-    internal static string SanitizePath(string path)
-    {
-        ArgumentNullException.ThrowIfNull(path);
-        return string.Join(
-            "/",
-            path.Split('/', StringSplitOptions.RemoveEmptyEntries).Select(SanitizeFileName));
     }
 
     /// <summary>
@@ -548,35 +496,29 @@ internal sealed class CppEmitter : IApiEmitter
     }
 
     // =========================================================================
-    // File name disambiguation
+    // Shared member pages
     // =========================================================================
 
     /// <summary>
-    ///     Writes a combined Markdown page for a group of C++ members whose names collide on
-    ///     case-insensitive file systems, placing all members on a single page named after
-    ///     the shared lowercase key.
+    ///     Writes a combined Markdown page for a group of C++ members that share one name
+    ///     (overloaded methods or constructors), placing all of them on a single page.
     /// </summary>
     /// <remarks>
-    ///     This handles the case where a method <c>Name()</c> and a field <c>name</c> would
-    ///     map to the same file name on case-insensitive file systems.
-    ///     All colliding members are documented together under H2 sub-headings that show
-    ///     both the exact display name and the member kind (e.g., <c>Name (Method)</c>).
+    ///     The page path is the approved path of the member page in <paramref name="names"/>.
+    ///     All members are documented together under H2 sub-headings that show the exact
+    ///     display name, its parameter types and the member kind (e.g., <c>Name(int) (Method)</c>).
     /// </remarks>
     /// <param name="factory">Factory for creating the output writer.</param>
-    /// <param name="nsKey">The namespace key used as the parent folder for this type's directory.</param>
+    /// <param name="names">The approved file names of the documentation tree.</param>
+    /// <param name="classKey">The registry key of the declaring class.</param>
     /// <param name="nsDisplayName">
     ///     The C++ qualified namespace name forwarded to <see cref="CppEmitterGradualDisclosure.WriteFunctionContent"/>
     ///     so it can emit fully-qualified signature comments.
     /// </param>
     /// <param name="cls">The declaring class.</param>
-    /// <param name="lowerKey">
-    ///     The shared lowercase file name key. Used as both the page file name and the H1
-    ///     page heading so the combined page has a stable, predictable address.
-    /// </param>
     /// <param name="members">
-    ///     The ordered list of members whose base names collide on case-insensitive file
-    ///     systems. Elements must be <see cref="CppFunction"/> or <see cref="CppField"/>.
-    ///     Must contain at least two elements.
+    ///     The ordered list of members that share one name. Elements must be <see cref="CppFunction"/>
+    ///     or <see cref="CppField"/>. Must contain at least two elements.
     /// </param>
     /// <param name="cppResolver">Type link resolver used to linkify parameter type cells.</param>
     /// <exception cref="ArgumentException">
@@ -585,10 +527,10 @@ internal sealed class CppEmitter : IApiEmitter
     /// </exception>
     internal static void WriteCombinedMemberPage(
         IMarkdownWriterFactory factory,
-        string nsKey,
+        CppNames names,
+        string classKey,
         string nsDisplayName,
         CppClass cls,
-        string lowerKey,
         IReadOnlyList<object> members,
         CppTypeLinkResolver cppResolver)
     {
@@ -597,12 +539,12 @@ internal sealed class CppEmitter : IApiEmitter
             throw new ArgumentException("WriteCombinedMemberPage requires at least two members.", nameof(members));
         }
 
-        var combinedCurrentFolder = SanitizePath($"{nsKey}/{cls.Name}");
-        using var writer = factory.CreateMarkdown(combinedCurrentFolder, SanitizeFileName(lowerKey));
+        var pageName = GetMemberBaseName(members[0], cls.Name);
+        var memberKey = CppNames.MemberKey(classKey, pageName);
+        var combinedCurrentFolder = names.Directory(memberKey);
+        using var writer = factory.CreateMarkdown(combinedCurrentFolder, names.Name(memberKey));
 
-        // The shared lowercase key serves as the page heading so every member in the group
-        // can be found at the same predictable path regardless of filesystem case-sensitivity
-        writer.WriteHeading(1, lowerKey);
+        writer.WriteHeading(1, pageName);
 
         // Accumulate external types across all members on this shared page
         var externalTypes = new SortedSet<CppExternalTypeInfo>();
@@ -735,10 +677,21 @@ internal sealed class CppEmitter : IApiEmitter
 /// </summary>
 internal sealed record CppTypePageWriteContext(
     IMarkdownWriterFactory Factory,
-    string NsKey,
+    string ParentKey,
     string NsDisplayName,
     CppClass Class,
-    CppTypeLinkResolver CppResolver);
+    CppTypeLinkResolver CppResolver,
+    CppNames Names)
+{
+    /// <summary>Gets the registry key of the class.</summary>
+    public string ClassKey => CppNames.ClassKey(ParentKey, Class.Name);
+
+    /// <summary>Gets the approved folder holding the class page.</summary>
+    public string PageDirectory => Names.Directory(ClassKey);
+
+    /// <summary>Gets the relative link from the class page to the page of <paramref name="targetKey"/>.</summary>
+    public string Link(string targetKey) => Names.Link(PageDirectory, targetKey);
+}
 
 /// <summary>
 ///     Bundles the per-function documentation writing context passed to

@@ -17,7 +17,7 @@ Tests run with the standard xUnit.net test runner.
 - The emitter creates detail pages for visible members and free functions.
 - The emitter creates enum pages, type-alias pages (namespace-level and class-scoped),
   nested-type pages, class-level operator pages, and namespace-level operator pages.
-- Case-insensitive collisions are combined onto one page.
+- Members whose names differ only in case get distinct pages (`-2` suffix).
 - Empty namespace collections still produce an `api.md` fallback page.
 - The api index page heading contains the configured library name.
 - A field signature line appends `= <value>` when `CppField.Value` is populated, and omits
@@ -29,22 +29,22 @@ Tests run with the standard xUnit.net test runner.
 **Legal file names**: Verifies, with synthetic models and no clang, that a class named
 `Foo<int>`, a class `Aux`, an enum `CON`, aliases named `a:b`, and a namespace key `aux`
 produce only legal path segments (the in-memory factory does not validate, so each recorded
-key is asserted explicitly), that pages exist at the sanitized paths (`Foo{int}`, `Aux-`,
-`CON-`, `aux-`), and that every emitted relative link resolves to a written page. Tested by
+key is asserted explicitly), that pages exist at the sanitized paths (`Foo{int}`, `Aux_`,
+`CON_`, and the namespace folder `aux_`), and that every emitted relative link resolves to a written page. Tested by
 `CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_AllWrittenSegmentsAreLegal`,
-`CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_PagesUseSanitizedPaths`, and
+`CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_PagesUseApprovedPaths`, and
 `CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_AllLinksResolveToWrittenPages`.
 
 **Links from generic and odd-named types**: Verifies, with hand-built models for `Foo<int>`,
 namespace `a::b`, `Aux`, and `CON`, that links from member pages to the owning type, nested types,
 siblings, and reserved-name pages are the direct relative paths to pages that were written (folders
 are sanitized once), and that every link in every table cell and paragraph resolves to a written
-page. Tested by `CppEmitterGradualDisclosure_Emit_GenericAndOddNames_MemberPageLinksUseSingleSanitization`
+page. Tested by `CppEmitterGradualDisclosure_Emit_GenericAndOddNames_MemberPageLinksUseApprovedPaths`
 and `CppEmitterGradualDisclosure_Emit_ReservedAndGenericNames_AllLinksResolveToWrittenPages`.
 
 **Names equal to reserved pages**: Verifies that a method or case-colliding member group named
-`operators` is written to `operators-` beside the shared `operators` page, that a class, nested
-class, or free function named `operators` and a namespace named `api` are moved aside the same way
+`operators` is written to `operators-2` beside the shared `operators` page, that a class, nested
+class, or free function named `operators` and a namespace named `api` (moved to `api-2`) are moved aside the same way
 with matching links, and that only real operator overloads (not identifiers such as `operators`)
 are routed to the operators page. Tested by
 `CppEmitterGradualDisclosure_Emit_MemberNamedOperators_DoesNotOverwriteOperatorsPage`,
@@ -70,10 +70,9 @@ page at `{namespace}/{OuterType}/{NestedType}` so readers can navigate to it dir
 outer class page. Tested by
 `CppEmitterGradualDisclosure_Emit_NestedClass_CreatesNestedClassPage`.
 
-**Case-insensitive collision**: Verifies that two members whose names differ only in case are
-combined onto a single lowercase-keyed page rather than producing two separately-named pages that
-would collide on case-insensitive file systems. Tested by
-`CppEmitterGradualDisclosure_Emit_CaseInsensitiveCollision_CreatesCombinedPage`.
+**Case-twin members**: Verifies that two members whose names differ only in case get distinct pages
+(the second gets a -2 suffix) so they never collide on case-insensitive file systems. Tested by
+`CppEmitterGradualDisclosure_Emit_CaseTwinMembers_GetDistinctPages`.
 
 **Empty namespace fallback**: Verifies that when the namespace collection is empty the emitter
 still produces an `api.md` page containing a fallback paragraph so the output is never completely

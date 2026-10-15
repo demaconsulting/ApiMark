@@ -27,7 +27,7 @@ flowchart TD
     FileMarkdownWriter --> |implements| IMarkdownWriter
     IMarkdownWriterFactory --> |creates| IMarkdownWriter
     FileMarkdownWriterFactory --> |uses| PathHelpers
-    FileMarkdownWriterFactory --> |validates with| FileNameSanitizer
+    FileMarkdownWriterFactory --> |validates with| FileNameRules
     IApiEmitter --> |Emit uses| IMarkdownWriterFactory
     IApiEmitter --> |Emit uses| EmitConfig
     IApiEmitter --> |Emit uses| IContext
@@ -181,10 +181,12 @@ language-agnostic result types for a documentation-coverage scan.
 cross-platform path-normalization helpers used both internally by ApiMarkCore
 implementations and directly by other systems.
 
-**FileNameSanitizer (public)**: Public static utility that converts declaration names
-into file and folder name segments that are legal on Windows and Linux. Used by
-`FileMarkdownWriterFactory` for validation and by the language emitters for naming. See
-`docs/design/api-mark-core/file-name-sanitizer.md`.
+**SymbolNameRegistry (public)**: Registry that assigns every generated page a unique, legal
+file name before any file or link is written; **FileNameRules** is its character-level
+escaping and legality check, and **LinkPath** builds relative link paths. Used by the
+language emitters for naming and by `FileMarkdownWriterFactory` for validation. See
+`docs/design/api-mark-core/symbol-name-registry.md` and
+`docs/design/api-mark-core/file-naming-rules.md`.
 
 - *Type*: In-process .NET public API.
 - *Role*: Shared utility — `FileMarkdownWriterFactory` uses `SafePathCombine`

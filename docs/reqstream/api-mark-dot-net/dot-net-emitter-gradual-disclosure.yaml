@@ -96,19 +96,18 @@ sections:
             tests:
               - DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesMemberDetailPage
               - DotNetGenerator_AllMembers_GetSeparateFiles
-          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitCombinedPageForCaseCollisions
-            title: DotNetEmitterGradualDisclosure shall emit a single combined page
-              for members whose sanitized file names collide on a case-insensitive
-              filesystem.
+          - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitSeparatePagesForCaseTwins
+            title: DotNetEmitterGradualDisclosure shall emit a separate page for each
+              of two members whose names differ only in case (for example Name and name-2).
             justification: |
               On case-insensitive filesystems (Windows, macOS), two members whose sanitized
-              names differ only in case would produce colliding filenames. Combining them
-              onto one page prevents data loss and maintains predictable link targets.
+              names differ only in case would produce colliding filenames. The registry gives each
+              its own page, chosen by tier and then a numeric suffix, so nothing is lost.
             tests:
-              - DotNetEmitterGradualDisclosure_Emit_CaseCollision_CreatesCombinedPage
-              - DotNetGenerator_Generate_CaseCollisionClass_CreatesCombinedPage
-              - DotNetGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPage
-              - DotNetGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers
+              - DotNetEmitterGradualDisclosure_Emit_CaseCollision_CreatesSeparatePages
+              - DotNetGenerator_Generate_CaseCollisionClass_CreatesSeparatePages
+              - DotNetGenerator_Generate_CaseCollisionClass_NoPagesDifferOnlyInCase
+              - DotNetGenerator_Generate_CaseCollisionClass_EachMemberHasOwnPage
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitMethodOverloadPage
             title: DotNetEmitterGradualDisclosure shall emit a single consolidated
               overload page when a type declares multiple overloads of the same method
@@ -276,7 +275,6 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_GlobalNamespacePages_HaveApiReferenceBreadcrumb
               - DotNetEmitterGradualDisclosure_Emit_Pages_HaveRelativeBreadcrumbs
               - DotNetEmitterGradualDisclosure_Emit_OverloadPage_HasBreadcrumb
-              - DotNetEmitterGradualDisclosure_Emit_CombinedPage_HasBreadcrumb
               - DotNetEmitterGradualDisclosure_Emit_NestedType_BreadcrumbsIncludeOuterType
               - DotNetEmitterGradualDisclosure_Emit_MemberPage_FirstParagraphIsBreadcrumb
           - id: ApiMarkDotNet-DotNetEmitterGradualDisclosure-OverviewRowsShowFullParameters

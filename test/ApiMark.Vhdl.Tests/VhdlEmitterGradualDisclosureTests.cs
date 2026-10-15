@@ -24,10 +24,10 @@ public class VhdlEmitterGradualDisclosureTests
         new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert
-        Assert.All(factory.Writers.Keys, k => Assert.All(k.Split('/'), s => Assert.True(FileNameSanitizer.IsLegalSegment(s), k)));
-        Assert.True(factory.HasWriter("", "aux-"), "Expected the aux entity page to be named aux-");
+        Assert.All(factory.Writers.Keys, k => Assert.All(k.Split('/'), s => Assert.True(FileNameRules.IsLegalSegment(s), k)));
+        Assert.True(factory.HasWriter("", "aux_"), "Expected the aux entity page to be named aux_");
         var rows = factory.GetWriter("", "api").Operations.OfType<TableOperation>().SelectMany(t => t.Rows);
-        Assert.Contains(rows, r => r[0].Contains("(aux-.md)", StringComparison.Ordinal));
+        Assert.Contains(rows, r => r[0].Contains("(aux_.md)", StringComparison.Ordinal));
     }
 
     /// <summary>Validates that an entity or package named like the reserved api index page never overwrites it.</summary>
@@ -48,17 +48,17 @@ public class VhdlEmitterGradualDisclosureTests
         // Assert: the index keeps its page, the declarations are moved aside, and the index links to them
         var apiHeadings = factory.GetWriter("", "api").Operations.OfType<HeadingOperation>();
         Assert.Contains(apiHeadings, h => h.Level == 1 && h.Text.Contains("API Reference", StringComparison.Ordinal));
-        Assert.True(factory.HasWriter("", "Api-"));
-        Assert.True(factory.HasWriter("", "API-"));
+        Assert.True(factory.HasWriter("", "Api-2"));
+        Assert.True(factory.HasWriter("", "API-3"));
         var rows = factory.GetWriter("", "api").Operations.OfType<TableOperation>().SelectMany(t => t.Rows).ToList();
-        Assert.Contains(rows, r => r[0].Contains("(Api-.md)", StringComparison.Ordinal));
-        Assert.Contains(rows, r => r[0].Contains("(API-.md)", StringComparison.Ordinal));
+        Assert.Contains(rows, r => r[0].Contains("(Api-2.md)", StringComparison.Ordinal));
+        Assert.Contains(rows, r => r[0].Contains("(API-3.md)", StringComparison.Ordinal));
     }
 
     /// <summary>Validates that packages with reserved names keep page, folder, and every link consistent.</summary>
     [Theory]
-    [InlineData("Api", "Api-")]
-    [InlineData("Aux", "Aux-")]
+    [InlineData("Api", "Api-2")]
+    [InlineData("Aux", "Aux_")]
     public void VhdlEmitterGradualDisclosure_Emit_PackageWithReservedName_AllLinksResolve(string pkgName, string page)
     {
         // Arrange

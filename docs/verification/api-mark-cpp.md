@@ -268,12 +268,12 @@ emitter emits type alias sections alongside class, enum, and function sections. 
 declared with the `final` specifier has the `final` keyword included in its generated class
 signature block. Tested by `CppGenerator_Generate_FinalClass_EmitsFinalKeywordInSignature`.
 
-**Case-insensitive member collision combines onto one page**: Verifies that when two class members
-have names that differ only in letter case (a case-insensitive collision), the generator combines
-them onto a single shared member page rather than creating conflicting file names. Tested by
-`CppGenerator_Generate_CaseCollisionClass_CreatesCombinedPage`,
-`CppGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers`, and
-`CppGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPage`.
+**Case-insensitive member collisions get separate numbered pages**: Verifies that when two class
+members have names that differ only in letter case, each keeps its own page (`Name` and
+`name-2`) rather than sharing a page or overwriting each other. Tested by
+`CppGenerator_Generate_CaseCollisionClass_FirstCaseTwinKeepsPlainName`,
+`CppGenerator_Generate_CaseCollisionClass_SecondCaseTwinGetsNumberedPage`, and
+`CppGenerator_Generate_CaseCollisionClass_EachPageDocumentsOneMember`.
 
 **CWD-relative ApiHeaderPatterns restrict documented headers**: Verifies that
 `ApiHeaderPatterns` entries that are relative paths are resolved against `WorkingDirectory`,

@@ -69,19 +69,12 @@ type string for display in the parameters table.
   prepended to the type name (e.g. `OUT STD_LOGIC`); bare type names are returned
   as-is.
 
-**VhdlEmitter.SanitizeFileName** (internal static): Replaces characters that are
-illegal on Windows or Linux by delegating to `ApiMark.Core.FileNameSanitizer.SanitizeSegment`;
-  reserved device names (for example `aux`) receive a `-` suffix so the page is legal on every platform.
-
-- *Parameters*: `string name` — the raw declaration name.
-- *Returns*: `string` — safe for use as a file-system file name segment.
-- *See also*: `SanitizePageName` (internal static) applies the same mapping to root-level entity and
-  package pages and additionally appends `-` to a name equal to the reserved index page `api`
-  (case-insensitive), so such a declaration never overwrites `api.md`; the index links use it too.
-- *Known limitation*: `VhdlEmitter.cs` does not lowercase or otherwise case-normalize names
-  (verified by reading the source). VHDL identifiers are case-insensitive, so entities whose
-  names differ only in case produce page names differing only in case and are not
-  disambiguated; behavior is unchanged and documented in the user guide.
+**VhdlNames** (internal): Builds the `SymbolNameRegistry` for the parsed model. Every entity, package and
+subprogram page name comes from it and is escaped exactly once; reserved device names (for example `aux`) get a
+`_` suffix. `api` is reserved for the index page. An entity and a package with the same name, and names that differ
+only in case (VHDL identifiers are case-insensitive), are resolved up front: the entity keeps the plain name and
+the other receives `-N` as a last resort. Each subprogram overload gets its own page (`Add`, `Add-2`).
+See `docs/design/api-mark-core/file-naming-rules.md`.
 
 ### Error Handling
 

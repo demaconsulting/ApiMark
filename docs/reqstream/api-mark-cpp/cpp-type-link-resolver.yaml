@@ -81,5 +81,5 @@ sections:
               already passes sanitized output folders, and sanitizing them again would
               produce detoured links.
             tests:
-              - CppTypeLinkResolver_Linkify_IllegalPageKey_EmitsSanitizedRelativeLink
-              - CppTypeLinkResolver_Linkify_AlreadySanitizedFolder_IsNotSanitizedAgain
+              - CppTypeLinkResolver_Linkify_DisplacedPageKey_EmitsApprovedRelativeLink
+              - CppTypeLinkResolver_Linkify_ApprovedFolder_IsUsedAsIs

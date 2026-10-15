@@ -29,56 +29,53 @@ public class CppTypeLinkResolverTests
     }
 
     /// <summary>
-    ///     Validates that the current folder is treated as an already-sanitized output folder and is not
-    ///     sanitized a second time, so links into and out of a generic type's folder stay direct.
+    ///     Validates that the current folder and page keys are used as approved paths and are not
+    ///     mapped again, so links into and out of a generic type's folder stay direct.
     /// </summary>
     [Fact]
-    public void CppTypeLinkResolver_Linkify_AlreadySanitizedFolder_IsNotSanitizedAgain()
+    public void CppTypeLinkResolver_Linkify_ApprovedFolder_IsUsedAsIs()
     {
         // Arrange
         var knownTypes = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            { "ns::Foo", "ns/Foo<int>" },
-            { "ns::Foo::Inner", "ns/Foo<int>/Inner" },
+            { "ns::Foo", "ns/Foo{int}" },
+            { "ns::Foo::Inner", "ns/Foo{int}/Inner" },
         };
         var resolver = new CppTypeLinkResolver(knownTypes);
         var externalTypes = new SortedSet<CppExternalTypeInfo>();
-        var folder = CppEmitter.SanitizePath("ns/Foo<int>");
+        const string folder = "ns/Foo{int}";
 
         // Act
         var sibling = resolver.Linkify("ns::Foo::Inner", folder, externalTypes);
         var owner = resolver.Linkify("ns::Foo", folder, externalTypes);
 
         // Assert
-        Assert.Equal("ns/Foo{int}", folder);
         Assert.Equal("ns::Foo::[Inner](Inner.md)", sibling);
         Assert.Equal("ns::[Foo](../Foo{int}.md)", owner);
     }
 
     /// <summary>
-    ///     Validates that page keys containing template or reserved names are linked using sanitized paths.
+    ///     Validates that approved page keys with displaced names are linked as given.
     /// </summary>
     [Fact]
-    public void CppTypeLinkResolver_Linkify_IllegalPageKey_EmitsSanitizedRelativeLink()
+    public void CppTypeLinkResolver_Linkify_DisplacedPageKey_EmitsApprovedRelativeLink()
     {
         // Arrange
         var knownTypes = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            { "ns::Foo", "ns/Foo<int>" },
-            { "ns::Aux", "ns/Aux" },
+            { "ns::Foo", "ns/Foo{int}" },
+            { "ns::Aux", "ns/Aux-2" },
         };
         var resolver = new CppTypeLinkResolver(knownTypes);
         var externalTypes = new SortedSet<CppExternalTypeInfo>();
 
         // Act
-        var fromRawFolder = resolver.Linkify("ns::Foo", "ns/Aux", externalTypes);
-        var fromSanitizedFolder = resolver.Linkify("ns::Foo", "ns/Aux-", externalTypes);
-        var reserved = resolver.Linkify("ns::Aux", "ns", externalTypes);
+        var fromSibling = resolver.Linkify("ns::Foo", "ns/Aux-2", externalTypes);
+        var displaced = resolver.Linkify("ns::Aux", "ns", externalTypes);
 
         // Assert
-        Assert.Equal("ns::[Foo](../Foo{int}.md)", fromRawFolder);
-        Assert.Equal("ns::[Foo](../Foo{int}.md)", fromSanitizedFolder);
-        Assert.Equal("ns::[Aux](Aux-.md)", reserved);
+        Assert.Equal("ns::[Foo](../Foo{int}.md)", fromSibling);
+        Assert.Equal("ns::[Aux](Aux-2.md)", displaced);
     }
 
     /// <summary>

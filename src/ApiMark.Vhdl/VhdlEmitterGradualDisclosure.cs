@@ -80,7 +80,7 @@ internal sealed class VhdlEmitterGradualDisclosure
             writer.WriteHeading(2, "Entities");
             var headers = new[] { "Name", VhdlEmitter.DescriptionColumnHeader };
             var rows = allEntities.Select(e =>
-                new[] { $"[{e.Name}]({VhdlEmitter.SanitizePageName(e.Name)}.md)", VhdlEmitter.GetSummary(e.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder });
+                new[] { $"[{e.Name}]({_emitter.Names.Link(string.Empty, e)})", VhdlEmitter.GetSummary(e.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder });
             writer.WriteTable(headers, rows);
         }
 
@@ -89,7 +89,7 @@ internal sealed class VhdlEmitterGradualDisclosure
             writer.WriteHeading(2, "Packages");
             var headers = new[] { "Name", VhdlEmitter.DescriptionColumnHeader };
             var rows = allPackages.Select(p =>
-                new[] { $"[{p.Name}]({VhdlEmitter.SanitizePageName(p.Name)}.md)", VhdlEmitter.GetSummary(p.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder });
+                new[] { $"[{p.Name}]({_emitter.Names.Link(string.Empty, p)})", VhdlEmitter.GetSummary(p.Doc) ?? VhdlEmitter.NoDescriptionPlaceholder });
             writer.WriteTable(headers, rows);
         }
     }
@@ -105,13 +105,13 @@ internal sealed class VhdlEmitterGradualDisclosure
     ///     All architecture declarations across all parsed files; filtered to those
     ///     whose entity name matches <paramref name="entity"/>.
     /// </param>
-    private static void EmitEntityPage(
+    private void EmitEntityPage(
         IMarkdownWriterFactory factory,
         VhdlEntityDecl entity,
         string fileName,
         List<(VhdlArchitectureDecl Arch, string FileName)> allArchitectures)
     {
-        using var writer = factory.CreateMarkdown("", VhdlEmitter.SanitizePageName(entity.Name));
+        using var writer = factory.CreateMarkdown(_emitter.Names.Directory(entity), _emitter.Names.Name(entity));
         writer.WriteHeading(1, entity.Name);
 
         // Attribution: kind and source file
@@ -190,23 +190,22 @@ internal sealed class VhdlEmitterGradualDisclosure
     /// <param name="factory">Factory for creating Markdown writers for the package page and subprogram pages.</param>
     /// <param name="pkg">The package declaration to emit.</param>
     /// <param name="fileName">Base filename of the source file containing this package declaration.</param>
-    private static void EmitPackagePage(IMarkdownWriterFactory factory, VhdlPackageDecl pkg, string fileName)
+    private void EmitPackagePage(IMarkdownWriterFactory factory, VhdlPackageDecl pkg, string fileName)
     {
-        var pkgPage = VhdlEmitter.SanitizePageName(pkg.Name);
-        using var writer = factory.CreateMarkdown("", pkgPage);
+        var names = _emitter.Names;
+        using var writer = factory.CreateMarkdown(names.Directory(pkg), names.Name(pkg));
         writer.WriteHeading(1, pkg.Name);
 
         EmitPackageSummary(writer, pkg, fileName);
         EmitPackageTypes(writer, pkg);
         EmitPackageConstants(writer, pkg);
         EmitPackageComponents(writer, pkg);
-        EmitPackageSubprogramList(writer, pkg, pkgPage);
+        EmitPackageSubprogramList(writer, pkg);
 
-        // Emit one detail file per subprogram with full documentation — placed in a per-package subfolder
-        // named after the package page so page, folder, and links always agree
+        // Emit one detail file per subprogram with full documentation, in the folder of the package page
         foreach (var s in pkg.Subprograms)
         {
-            EmitSubprogramDetailPage(factory, pkg, pkgPage, s);
+            EmitSubprogramDetailPage(factory, pkg, s);
         }
     }
 
@@ -321,19 +320,19 @@ internal sealed class VhdlEmitterGradualDisclosure
     /// <summary>Emits the subprograms section as linked paragraphs pointing to per-subprogram detail files.</summary>
     /// <param name="writer">Markdown writer to emit into.</param>
     /// <param name="pkg">The package declaration whose subprograms are emitted.</param>
-    /// <param name="pkgFolder">The sanitized package page name, also used as the subprogram folder.</param>
-    private static void EmitPackageSubprogramList(IMarkdownWriter writer, VhdlPackageDecl pkg, string pkgFolder)
+    private void EmitPackageSubprogramList(IMarkdownWriter writer, VhdlPackageDecl pkg)
     {
         if (pkg.Subprograms.Count == 0)
         {
             return;
         }
 
+        var pageDirectory = _emitter.Names.Directory(pkg);
         writer.WriteHeading(2, "Subprograms");
         foreach (var s in pkg.Subprograms)
         {
             // Paragraph: linked name and kind label — subfolder path so the reader can navigate
-            var detailFile = $"{pkgFolder}/{VhdlEmitter.SanitizeFileName(s.Name)}.md";
+            var detailFile = _emitter.Names.Link(pageDirectory, s);
             var kindText = s.Kind == VhdlSubprogramKind.Function ? "Function" : "Procedure";
             writer.WriteParagraph($"**[{s.Name}]({detailFile})** — *{kindText}*");
 
@@ -348,17 +347,14 @@ internal sealed class VhdlEmitterGradualDisclosure
     ///     including attribution, summary, parameters, return type, and signature.
     /// </summary>
     /// <param name="factory">Factory for creating the per-subprogram Markdown writer.</param>
-    /// <param name="pkg">The owning package declaration, used for attribution and folder naming.</param>
-    /// <param name="pkgFolder">The sanitized package page name used as the subfolder.</param>
+    /// <param name="pkg">The owning package declaration, used for attribution.</param>
     /// <param name="s">The subprogram declaration to emit.</param>
-    private static void EmitSubprogramDetailPage(
+    private void EmitSubprogramDetailPage(
         IMarkdownWriterFactory factory,
         VhdlPackageDecl pkg,
-        string pkgFolder,
         VhdlSubprogramDecl s)
     {
-        var subFileName = VhdlEmitter.SanitizeFileName(s.Name);
-        using var subWriter = factory.CreateMarkdown(pkgFolder, subFileName);
+        using var subWriter = factory.CreateMarkdown(_emitter.Names.Directory(s), _emitter.Names.Name(s));
         subWriter.WriteHeading(1, s.Name);
 
         // Attribution: kind and owning package name

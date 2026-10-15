@@ -10,7 +10,7 @@ using Xunit;
 namespace ApiMark.DotNet.Tests;
 
 /// <summary>
-///     Exact-output tests for the generic type file-name scheme (<c>Foo-1.md</c> style): distinct files for
+///     Exact-output tests for the generic type file-name scheme (<c>Foo{1}.md</c> style): distinct files for
 ///     <c>Foo</c>, <c>Foo1</c>, <c>Foo&lt;T&gt;</c> and <c>Foo&lt;T1, T2&gt;</c>, and links that resolve to them.
 /// </summary>
 public class DotNetEmitterGenericNamingTests
@@ -58,15 +58,15 @@ public class DotNetEmitterGenericNamingTests
             new[]
             {
                 Ns + "/Foo",
-                Ns + "/Foo-1",
-                Ns + "/Foo-2",
                 Ns + "/Foo1",
-                Ns + "/Outer-1",
+                Ns + "/Foo{1}",
+                Ns + "/Foo{2}",
+                Ns + "/Outer{1}",
             },
             keys);
-        Assert.Equal("public class Foo<T>", factory.Writers[Ns + "/Foo-1"].Operations.OfType<SignatureOperation>().Single().Code);
+        Assert.Equal("public class Foo<T>", factory.Writers[Ns + "/Foo{1}"].Operations.OfType<SignatureOperation>().Single().Code);
         Assert.Equal("public class Foo1", factory.Writers[Ns + "/Foo1"].Operations.OfType<SignatureOperation>().Single().Code);
-        Assert.Equal("public class Foo<T1, T2> : Foo<T1>", factory.Writers[Ns + "/Foo-2"].Operations.OfType<SignatureOperation>().Single().Code);
+        Assert.Equal("public class Foo<T1, T2> : Foo<T1>", factory.Writers[Ns + "/Foo{2}"].Operations.OfType<SignatureOperation>().Single().Code);
     }
 
     /// <summary>Validates the namespace index links use the hyphenated-arity file names.</summary>
@@ -80,9 +80,9 @@ public class DotNetEmitterGenericNamingTests
         var links = factory.Writers[Ns].Operations.OfType<TableOperation>().SelectMany(t => t.Rows).Select(r => r[0]).ToList();
         Assert.Contains($"[Foo](Naming/Foo.md)", links);
         Assert.Contains($"[Foo1](Naming/Foo1.md)", links);
-        Assert.Contains($"[Foo\\<T\\>](Naming/Foo-1.md)", links);
-        Assert.Contains($"[Foo\\<T1, T2\\>](Naming/Foo-2.md)", links);
-        Assert.Contains($"[Outer\\<T\\>](Naming/Outer-1.md)", links);
+        Assert.Contains("[Foo\\<T\\>](Naming/Foo{1}.md)", links);
+        Assert.Contains("[Foo\\<T1, T2\\>](Naming/Foo{2}.md)", links);
+        Assert.Contains("[Outer\\<T\\>](Naming/Outer{1}.md)", links);
     }
 
     /// <summary>Validates nested generic type pages live in the hyphenated outer folder.</summary>
@@ -93,8 +93,8 @@ public class DotNetEmitterGenericNamingTests
         var factory = EmitGradual();
 
         // Assert
-        Assert.Contains(Texts(factory.Writers[Ns + "/Outer-1"]), t => t.Contains("(Outer-1/Inner-1.md)", StringComparison.Ordinal));
-        Assert.Contains(factory.Writers[Ns + "/Outer-1/Inner-1"].Operations.OfType<SignatureOperation>(), s => s.Code.Contains("Inner<U>", StringComparison.Ordinal));
+        Assert.Contains(Texts(factory.Writers[Ns + "/Outer{1}"]), t => t.Contains("(Outer{1}/Inner{1}.md)", StringComparison.Ordinal));
+        Assert.Contains(factory.Writers[Ns + "/Outer{1}/Inner{1}"].Operations.OfType<SignatureOperation>(), s => s.Code.Contains("Inner<U>", StringComparison.Ordinal));
     }
 
     /// <summary>Validates no emitted page key or link uses the old digit-suffix form for generic types.</summary>
@@ -105,9 +105,9 @@ public class DotNetEmitterGenericNamingTests
         var factory = EmitGradual();
 
         // Assert: PropertyEditorRegistry<TEditor> etc. use the hyphen form
-        Assert.Contains("ApiMark.DotNet.Fixtures/PropertyEditorRegistry-1", factory.Writers.Keys);
+        Assert.Contains("ApiMark.DotNet.Fixtures/PropertyEditorRegistry{1}", factory.Writers.Keys);
         Assert.DoesNotContain("ApiMark.DotNet.Fixtures/PropertyEditorRegistry1", factory.Writers.Keys);
-        Assert.Contains("ApiMark.DotNet.Fixtures/KeyedPair-2", factory.Writers.Keys);
+        Assert.Contains("ApiMark.DotNet.Fixtures/KeyedPair{2}", factory.Writers.Keys);
         Assert.DoesNotContain("ApiMark.DotNet.Fixtures/KeyedPair2", factory.Writers.Keys);
     }
 
@@ -147,9 +147,9 @@ public class DotNetEmitterGenericNamingTests
         var factory = EmitGradual();
 
         // Assert
-        var foo1Texts = Texts(factory.Writers[Ns + "/Foo-1/Link"]).ToList();
+        var foo1Texts = Texts(factory.Writers[Ns + "/Foo{1}/Link"]).ToList();
         Assert.Contains(foo1Texts, t => t.Contains("(../Foo1.md)", StringComparison.Ordinal));
-        Assert.Contains(foo1Texts, t => t.Contains("(../Foo-2.md)", StringComparison.Ordinal));
+        Assert.Contains(foo1Texts, t => t.Contains("(../Foo{2}.md)", StringComparison.Ordinal));
     }
 
     /// <summary>Resolves a relative link from a folder against the page-key namespace.</summary>

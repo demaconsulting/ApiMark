@@ -141,7 +141,7 @@ and generic arguments. This is the overload the emitters call.
 scope is an `AssemblyNameReference` present in `_externalLinks`. Returns `null` when
 links are disabled or the assembly is not mapped. See External Assembly Links.
 
-**TypeLinkResolver.BuildTypePageKey** (private static; type file names come from `DotNetEmitter.GetTypeFileName`, which applies `FileNameSanitizer` and the collision rules): Computes a type's page key
+**TypeLinkResolver.BuildTypePageKey** (private static; type file names come from `DotNetEmitter.GetTypeFileName`, which reads the approved names from the symbol-name registry): Computes a type's page key
 for a given set of root namespaces. `GetTypePageKey` calls it with this assembly's
 root namespaces; `TryLinkExternalType` calls it with the mapped assembly's.
 
@@ -320,5 +320,5 @@ and escaped with `EscapeMarkdownHeading`.
 **External nested and generic crefs**: `ExternalLinkTarget` carries the mapped assembly's full namespace
 list. `TryLinkifyExternalCref` takes the longest real-namespace prefix of the cref's type name and treats the
 remainder as the chain of enclosing types, flattening each segment with `FlattenArity`, so
-`NestedGenericHost`1.Inner`1` links to `NestedGenericHost-1/Inner-1.md`. Without a namespace list it
+`NestedGenericHost`1.Inner`1` links to `NestedGenericHost{1}/Inner{1}.md`. Without a namespace list it
 falls back to the previous first-segment rule.

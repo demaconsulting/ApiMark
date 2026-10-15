@@ -1,0 +1,87 @@
+---
+# SymbolNameRegistry, FileNameRules and LinkPath unit requirements
+sections:
+  - title: ApiMarkCore Requirements
+    sections:
+      - title: SymbolNameRegistry Requirements
+        requirements:
+          - id: ApiMarkCore-SymbolNameRegistry-EscapeOnce
+            title: FileNameRules shall escape a raw name into a non-empty segment that is
+              legal on Windows and Linux (no illegal or link-hostile characters, no trailing
+              dot, no reserved device name, bounded length, Unicode form C), keeping the
+              structural braces, and the registry shall escape each name exactly once.
+            justification: |
+              Generated documentation is checked out on both Windows and Linux. Escaping a
+              name twice changes it again, which caused links to miss their files.
+            tests:
+              - FileNameRules_Escape_LegalName_IsUnchangedAndNotTransformed
+              - FileNameRules_Escape_StructuralBraces_AreKeptAndTransformed
+              - FileNameRules_Escape_IllegalCharacter_BecomesUnderscore
+              - FileNameRules_Escape_TrailingDot_IsReplaced
+              - FileNameRules_Escape_ReservedDeviceName_GetsUnderscoreSuffix
+              - FileNameRules_Escape_EmptyName_ReturnsUnderscore
+              - FileNameRules_Escape_DecomposedName_IsNormalizedToFormC
+              - FileNameRules_Escape_OverLongName_IsTruncated
+              - FileNameRules_Escape_NullName_ThrowsArgumentNullException
+          - id: ApiMarkCore-SymbolNameRegistry-ResolveBeforeUse
+            title: SymbolNameRegistry shall accept registrations only before Resolve and
+              provide names only after Resolve.
+            justification: |
+              Registering every symbol first, resolving once, and only then writing makes the
+              registry the single source of truth for both writers and link resolvers.
+            tests:
+              - SymbolNameRegistry_Resolve_CalledTwice_Throws
+              - SymbolNameRegistry_GetName_BeforeResolve_Throws
+              - SymbolNameRegistry_Register_AfterResolve_Throws
+              - SymbolNameRegistry_Register_InvalidInput_Throws
+              - SymbolNameRegistry_GetName_UnknownKey_Throws
+          - id: ApiMarkCore-SymbolNameRegistry-PrimaryNameWins
+            title: SymbolNameRegistry shall give the plain name to reserved pages first,
+              then to symbols whose own name is unchanged, then to symbols whose name needed
+              transformation, preferring namespaces over types over members, and shall
+              compare names case-insensitively within a directory.
+            justification: |
+              Predictable names matter more than short names; the symbol a reader expects
+              keeps the plain name and the colliding symbol is displaced.
+            tests:
+              - SymbolNameRegistry_Resolve_UniqueNames_AreUnchanged
+              - SymbolNameRegistry_Resolve_IdentityName_BeatsTransformedName
+              - SymbolNameRegistry_Resolve_NamespaceAndType_NamespaceWins
+              - SymbolNameRegistry_Resolve_ReservedName_KeepsNameAndDisplacesSymbol
+              - SymbolNameRegistry_Resolve_DisplacedParent_ChildrenFollow
+              - SymbolNameRegistry_Resolve_BracesBracketsAndEscapeLookalikes_AreDistinctAndExact
+          - id: ApiMarkCore-SymbolNameRegistry-NumericSuffixLastResort
+            title: SymbolNameRegistry shall append "-N" (N from 2) only to a symbol whose
+              every predictable name is taken, and shall skip suffixes already in use.
+            justification: |
+              The numeric suffix is the least predictable form and is only a last resort.
+            tests:
+              - SymbolNameRegistry_Resolve_CaseTwins_LowestKeyWinsAndOtherGetsSuffix
+              - SymbolNameRegistry_Resolve_SuffixCandidateTaken_UsesNextNumber
+              - SymbolNameRegistry_Resolve_CanonicallyEquivalentNames_AreDistinguished
+          - id: ApiMarkCore-SymbolNameRegistry-Deterministic
+            title: SymbolNameRegistry shall produce the same names regardless of
+              registration order, and every generated path shall be legal and unique
+              case-insensitively.
+            justification: |
+              Output must be reproducible across runs and operating systems.
+            tests:
+              - SymbolNameRegistry_Resolve_RegistrationOrder_DoesNotMatter
+              - SymbolNameRegistry_Resolve_GeneratedSymbolSet_PathsAreLegalAndCaseInsensitivelyUnique
+          - id: ApiMarkCore-SymbolNameRegistry-ValidateSegments
+            title: FileNameRules shall report whether a segment is legal on Windows and
+              Linux.
+            justification: |
+              Writers and tests need one authoritative legality predicate so that any
+              emitter naming defect is detected instead of failing only on Windows.
+            tests:
+              - FileNameRules_IsLegalSegment_IllegalName_ReturnsFalse
+              - FileNameRules_IsLegalSegment_LegalName_ReturnsTrue
+          - id: ApiMarkCore-SymbolNameRegistry-RelativeLinks
+            title: LinkPath shall build forward-slash relative links between pages and
+              encode link-hostile characters in the destination.
+            justification: |
+              Links must resolve identically on every platform.
+            tests:
+              - LinkPath_Relative_Pages_ReturnsForwardSlashRelativePath
+              - LinkPath_Escape_LinkHostileCharacters_AreEncoded

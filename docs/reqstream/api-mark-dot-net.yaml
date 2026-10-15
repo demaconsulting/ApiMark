@@ -78,7 +78,7 @@ sections:
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitNamespaceDocRemarksAndExamples
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitTypePages
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitMemberDetailPages
-          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitCombinedPageForCaseCollisions
+          - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitSeparatePagesForCaseTwins
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitMethodOverloadPage
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitOperatorsPage
           - ApiMarkDotNet-DotNetEmitterGradualDisclosure-EmitNestedTypePages

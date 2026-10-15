@@ -21,7 +21,7 @@ service, network dependency, or machine-specific configuration is required.
 - All ApiMark.DotNet tests pass with zero failures.
 - The generator discovers namespaces, types, and members from representative fixture assemblies.
 - Type names and member signatures are simplified into the expected C#-friendly display form.
-- Every visible member receives a dedicated detail page or is combined onto a shared collision page, and is linked from the type page.
+- Every visible member receives a dedicated detail page (pure method overloads share one overload page), and is linked from the type page.
 - Visibility filtering excludes members outside the selected audience.
 - Obsolete member filtering correctly excludes or includes deprecated APIs based on the IncludeObsolete option.
 - Documentation coverage enforcement correctly identifies undocumented types and members at the
@@ -40,7 +40,8 @@ file is wired correctly. This scenario is tested by
 **All members receive deterministic detail pages**: Verifies that every visible member —
 regardless of parameters or documentation content — is emitted with a deterministic file path and
 linked from its parent type page. Simple members get their own dedicated file; pure overload groups
-and case-insensitive filename collisions are intentionally combined onto a shared page.
+are intentionally combined onto a shared overload page. Case-twin members receive distinct
+registry-approved pages (for example `Name.md` and `name-2.md`).
 
 **Visibility filters constrain the published API surface**: Verifies that the system honors the
 selected visibility mode so generated output matches the intended audience and excludes hidden

@@ -151,13 +151,14 @@ requires.
 
 ### File Naming
 
-File and folder names are legal on both Windows and Linux. Names are not lowercased and
-the emitter does not rename by case: VHDL identifiers are case-insensitive, so two entities
-or packages whose names differ only in case (for example `Counter` and `counter`) produce
-page names that differ only in case and are not disambiguated; this is a known limitation
-on case-insensitive file systems. Reserved Windows device names (for example an entity
-named `aux`) get a trailing `-` (`aux-.md`) and any other illegal character becomes `-`
-followed by a short hash of the original name.
+File and folder names are legal on both Windows and Linux and unique without regard to case. All
+names are decided up front by one registry. VHDL identifiers are case-insensitive, so an entity
+and a package with the same name (or names differing only in case, such as `Api` and `API`) would
+share a file name: the entity keeps the plain name and the other gets `-2` (`counter.md`, `counter-2.md`).
+Each overload of a subprogram gets its own page (`Add.md`, `Add-2.md`). Reserved Windows device names
+(for example an entity named `aux`) get a trailing `_` (`aux_.md`), any other illegal character becomes
+`_`, and an entity named `api` is displaced from the reserved index page. See
+`docs/design/api-mark-core/file-naming-rules.md`.
 
 ### Single File (`--format single-file`)
 

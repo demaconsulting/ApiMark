@@ -32,10 +32,14 @@ internal sealed class VhdlEmitter : IApiEmitter
     {
         _options = options;
         _fileModels = fileModels;
+        Names = VhdlNames.Build(fileModels);
     }
 
     /// <summary>Gets the generator options.</summary>
     internal VhdlGeneratorOptions Options => _options;
+
+    /// <summary>Gets the approved file names of every declaration.</summary>
+    internal VhdlNames Names { get; }
 
     /// <inheritdoc/>
     public void Emit(IMarkdownWriterFactory factory, EmitConfig config, IContext context)
@@ -84,24 +88,4 @@ internal sealed class VhdlEmitter : IApiEmitter
         return string.IsNullOrEmpty(direction) ? param.TypeName : $"{direction} {param.TypeName}";
     }
 
-    /// <summary>
-    ///     Converts <paramref name="name"/> into a file name segment that is legal on Windows and
-    ///     Linux by delegating to <see cref="FileNameSanitizer.SanitizeSegment"/> (which also moves
-    ///     reserved device names such as <c>aux</c> or <c>con</c> aside).
-    /// </summary>
-    /// <param name="name">The raw declaration name to sanitize.</param>
-    /// <returns>A filesystem-safe file name string.</returns>
-    internal static string SanitizeFileName(string name) => FileNameSanitizer.SanitizeSegment(name);
-
-    /// <summary>
-    ///     Converts the name of a root-level entity or package into its page file name; a name equal to
-    ///     the reserved <c>api</c> index page is moved aside so it can never overwrite <c>api.md</c>.
-    /// </summary>
-    /// <param name="name">The raw entity or package name.</param>
-    /// <returns>A legal root-level page file name without extension.</returns>
-    internal static string SanitizePageName(string name)
-    {
-        var sanitized = SanitizeFileName(name);
-        return string.Equals(sanitized, "api", StringComparison.OrdinalIgnoreCase) ? sanitized + "-" : sanitized;
-    }
 }

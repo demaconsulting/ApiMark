@@ -57,7 +57,7 @@ public sealed class FileMarkdownWriterFactory : IMarkdownWriterFactory
     ///     Thrown when <paramref name="name"/> is null, empty, or whitespace.
     ///     Also thrown when <paramref name="name"/> or any <c>/</c>-separated segment of
     ///     <paramref name="subFolder"/> is not a legal file or folder name on Windows and Linux
-    ///     (see <see cref="FileNameSanitizer.IsLegalSegment"/>).
+    ///     (see <see cref="FileNameRules.IsLegalSegment"/>).
     /// </exception>
     public IMarkdownWriter CreateMarkdown(string subFolder, string name)
     {
@@ -69,7 +69,7 @@ public sealed class FileMarkdownWriterFactory : IMarkdownWriterFactory
 
         // Defense in depth: every segment must be legal on Windows and Linux so a naming bug in an
         // emitter fails loudly and identically on every platform instead of only on Windows.
-        if (!FileNameSanitizer.IsLegalSegment(name))
+        if (!FileNameRules.IsLegalSegment(name))
         {
             throw new ArgumentException($"File name '{name}' is not a legal file name on Windows and Linux.", nameof(name));
         }
@@ -77,7 +77,7 @@ public sealed class FileMarkdownWriterFactory : IMarkdownWriterFactory
         if (!string.IsNullOrWhiteSpace(subFolder))
         {
             var illegal = subFolder.Split('/', StringSplitOptions.RemoveEmptyEntries)
-                .FirstOrDefault(segment => !FileNameSanitizer.IsLegalSegment(segment));
+                .FirstOrDefault(segment => !FileNameRules.IsLegalSegment(segment));
             if (illegal != null)
             {
                 throw new ArgumentException($"Folder name '{illegal}' is not a legal folder name on Windows and Linux.", nameof(subFolder));

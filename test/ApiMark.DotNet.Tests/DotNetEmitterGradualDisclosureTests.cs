@@ -281,9 +281,9 @@ public class DotNetEmitterGradualDisclosureTests
             "Expected a member detail page for SampleClass.Reset");
     }
 
-    /// <summary>Validates that the gradual-disclosure emitter creates a combined page for case-colliding members.</summary>
+    /// <summary>Validates that the gradual-disclosure emitter creates separate registry-approved pages for case-twin members.</summary>
     [Fact]
-    public void DotNetEmitterGradualDisclosure_Emit_CaseCollision_CreatesCombinedPage()
+    public void DotNetEmitterGradualDisclosure_Emit_CaseCollision_CreatesSeparatePages()
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
@@ -292,13 +292,11 @@ public class DotNetEmitterGradualDisclosureTests
         // Act
         new DotNetEmitterGradualDisclosure(emitter, emitter.Model).Emit(factory, new EmitConfig(), new InMemoryContext());
 
-        // Assert: CaseCollisionClass has 'name' (field) and 'Name' (property) that collide on
-        // case-insensitive filesystems; the combined page is keyed using the lower-invariant "name"
-        Assert.True(
-            factory.Writers.Keys.Any(k =>
-                k.Contains("CaseCollisionClass", StringComparison.Ordinal) &&
-                k.EndsWith("/name", StringComparison.OrdinalIgnoreCase)),
-            "Expected a combined collision page for CaseCollisionClass members 'name' and 'Name'");
+        // Assert: CaseCollisionClass has 'name' and 'Name' that collide on case-insensitive
+        // filesystems; the first keeps its plain name and the second gets a numbered page
+        var keys = factory.Writers.Keys.ToList();
+        Assert.Contains(keys, k => k.EndsWith("CaseCollisionClass/Name", StringComparison.Ordinal));
+        Assert.Contains(keys, k => k.EndsWith("CaseCollisionClass/name-2", StringComparison.Ordinal));
     }
 
     /// <summary>Validates that the api index page heading contains the assembly name.</summary>
@@ -812,15 +810,15 @@ public class DotNetEmitterGradualDisclosureTests
             FirstParagraph(factory, key));
     }
 
-    /// <summary>Validates breadcrumbs on a combined (case-collision) page.</summary>
+    /// <summary>Validates breadcrumbs on a case-twin member page that received the collision suffix.</summary>
     [Fact]
-    public void DotNetEmitterGradualDisclosure_Emit_CombinedPage_HasBreadcrumb()
+    public void DotNetEmitterGradualDisclosure_Emit_CaseTwinMemberPage_HasBreadcrumb()
     {
         // Arrange / Act
         var factory = EmitFixture();
 
         // Assert
-        var key = "ApiMark.DotNet.Fixtures/CaseCollisionClass/name";
+        var key = "ApiMark.DotNet.Fixtures/CaseCollisionClass/name-2";
         Assert.Equal(
             "[API Reference](../../api.md) › [ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [CaseCollisionClass](../CaseCollisionClass.md)",
             FirstParagraph(factory, key));
@@ -861,7 +859,7 @@ public class DotNetEmitterGradualDisclosureTests
     [InlineData("RecordStructSample", "public record struct RecordStructSample")]
     [InlineData("ReadOnlyRecordStructSample", "public readonly record struct ReadOnlyRecordStructSample")]
     [InlineData("ReadOnlyStructSample", "public readonly struct ReadOnlyStructSample")]
-    [InlineData("GenericRecordSample-1", "public record GenericRecordSample<T>")]
+    [InlineData("GenericRecordSample{1}", "public record GenericRecordSample<T>")]
     public void DotNetEmitterGradualDisclosure_Emit_RecordAndStructKinds_ShowKindKeywords(string typeName, string expectedPrefix)
     {
         // Arrange / Act

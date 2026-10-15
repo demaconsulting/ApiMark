@@ -231,6 +231,10 @@ public sealed class DotNetGenerator : IApiGenerator, IDocumentationCoverageCapab
                 // Root namespaces: those not prefixed by any other namespace present in the assembly
                 var rootNamespaces = ComputeRootNamespaces(allNamespaces);
 
+                // Register every symbol and resolve all file names up front (independent of visibility).
+                // The emitters and link resolvers only read the approved names.
+                DotNetNames.Attach(rootNamespaces, DotNetNames.For(assembly.MainModule));
+
                 var resolver = new TypeLinkResolver(
                     rootNamespaces,
                     generateLinks: true,

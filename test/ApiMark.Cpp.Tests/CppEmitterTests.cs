@@ -76,15 +76,15 @@ public class CppEmitterTests
         Assert.Single(factory.Writers);
     }
 
-    /// <summary>Validates that <see cref="CppEmitter.SanitizeFileName"/> leaves regular names unchanged.</summary>
+    /// <summary>Validates that CppNames leaves regular names unchanged.</summary>
     [Fact]
-    public void CppEmitter_SanitizeFileName_RegularName_IsUnchanged()
+    public void CppNames_RegularClassName_IsUnchanged()
     {
         // Arrange / Act
-        var result = CppEmitter.SanitizeFileName("MyClass");
+        var (names, classKey) = BuildNames("ns", new CppClass("MyClass", [], [], [], [], [], [], false, false, null, null));
 
         // Assert
-        Assert.Equal("MyClass", result);
+        Assert.Equal("MyClass", names.Name(classKey));
     }
 
 
@@ -156,9 +156,9 @@ public class CppEmitterTests
         Assert.Equal(expected, CppEmitter.IsOperatorName(name));
     }
 
-    /// <summary>Validates that colliding member names are merged onto a single combined page keyed by the lowercase name.</summary>
+    /// <summary>Validates that overloads sharing a name are merged onto one combined page named after the member.</summary>
     [Fact]
-    public void CppEmitter_WriteCombinedMemberPage_CaseInsensitiveCollision_ProducesSingleCombinedPage()
+    public void CppEmitter_WriteCombinedMemberPage_Overloads_ProducesSingleCombinedPage()
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
@@ -169,90 +169,38 @@ public class CppEmitterTests
             [],
             [
                 new CppFunction("Name", "int", [], CppAccessibility.Public, false, false, false, false, false, false, null, null),
+                new CppFunction("Name", "int", [new CppParameter("value", "int")], CppAccessibility.Public, false, false, false, false, false, false, null, null),
             ],
-            [
-                new CppField("name", "int", CppAccessibility.Public, false, false, null, null),
-            ],
+            [],
             [],
             [],
             false,
             false,
             null,
             null);
+        var (names, classKey) = BuildNames("fixtures", cls);
 
         // Act
-        CppEmitter.WriteCombinedMemberPage(
-            factory,
-            "fixtures",
-            "fixtures",
-            cls,
-            "name",
-            [cls.Members[0], cls.Fields[0]],
-            resolver);
+        CppEmitter.WriteCombinedMemberPage(factory, names, classKey, "fixtures", cls, [cls.Members[0], cls.Members[1]], resolver);
 
         // Assert
-        Assert.True(factory.HasWriter("fixtures/CaseCollisionClass", "name"));
-        Assert.False(factory.HasWriter("fixtures/CaseCollisionClass", "Name"));
-        var writer = factory.GetWriter("fixtures/CaseCollisionClass", "name");
+        Assert.True(factory.HasWriter("fixtures/CaseCollisionClass", "Name"));
+        var writer = factory.GetWriter("fixtures/CaseCollisionClass", "Name");
         var headings = writer.Operations.OfType<HeadingOperation>().ToList();
-        Assert.Contains(headings, h => h.Level == 2 && h.Text.StartsWith("Name", StringComparison.Ordinal));
-        Assert.Contains(headings, h => h.Level == 2 && h.Text.StartsWith("name", StringComparison.Ordinal));
+        Assert.Contains(headings, h => h.Level == 2 && h.Text.StartsWith("Name()", StringComparison.Ordinal));
+        Assert.Contains(headings, h => h.Level == 2 && h.Text.StartsWith("Name(int)", StringComparison.Ordinal));
     }
 
-    /// <summary>Validates that illegal file-name characters are replaced deterministically on every platform.</summary>
-    [Fact]
-    public void CppEmitter_SanitizeFileName_InvalidCharacters_AreReplacedWithLegalCharacters()
+    /// <summary>Builds resolved names for a single class in the namespace <paramref name="nsKey"/>.</summary>
+    /// <param name="nsKey">The namespace key.</param>
+    /// <param name="cls">The class.</param>
+    /// <returns>The names and the registry key of the class.</returns>
+    private static (CppNames Names, string ClassKey) BuildNames(string nsKey, CppClass cls)
     {
-        // Arrange / Act
-        var result = CppEmitter.SanitizeFileName("operator/");
-
-        // Assert
-        Assert.StartsWith("operator-", result, StringComparison.Ordinal);
-        Assert.True(FileNameSanitizer.IsLegalSegment(result));
-        Assert.Equal(result, CppEmitter.SanitizeFileName("operator/"));
-    }
-
-    /// <summary>Validates that template, qualified, and reserved C++ names become legal segments.</summary>
-    /// <param name="name">The raw declaration name.</param>
-    [Theory]
-    [InlineData("Foo<int>")]
-    [InlineData("a::b")]
-    [InlineData("CON")]
-    public void CppEmitter_SanitizeFileName_TemplateQualifiedAndReservedNames_AreLegal(string name)
-    {
-        // Arrange / Act
-        var result = CppEmitter.SanitizeFileName(name);
-
-        // Assert
-        Assert.True(FileNameSanitizer.IsLegalSegment(result));
-    }
-
-    /// <summary>Validates that SanitizePath sanitizes each segment, drops empty segments, and handles empty input.</summary>
-    [Fact]
-    public void CppEmitter_SanitizePath_NestedAndReservedSegments_AreSanitizedPerSegment()
-    {
-        // Arrange / Act / Assert
-        Assert.Equal(string.Empty, CppEmitter.SanitizePath(string.Empty));
-        Assert.Equal("ns/Foo{int}", CppEmitter.SanitizePath("ns/Foo<int>"));
-        Assert.Equal("ns", CppEmitter.SanitizePath("/ns/"));
-        Assert.Equal("aux-/Aux-", CppEmitter.SanitizePath("aux/Aux"));
-        Assert.All(CppEmitter.SanitizePath("a:b/CON").Split('/'), s => Assert.True(FileNameSanitizer.IsLegalSegment(s)));
-    }
-
-    /// <summary>Validates that sanitizing the same name twice yields the same, legal result.</summary>
-    /// <param name="name">The raw declaration name.</param>
-    [Theory]
-    [InlineData("Foo<int>")]
-    [InlineData("a:b")]
-    [InlineData("CON")]
-    public void CppEmitter_SanitizeFileName_IsDeterministic(string name)
-    {
-        // Arrange / Act
-        var once = CppEmitter.SanitizeFileName(name);
-
-        // Assert
-        Assert.Equal(once, CppEmitter.SanitizeFileName(name));
-        Assert.True(FileNameSanitizer.IsLegalSegment(once));
+        var decls = new CppEmitter.NamespaceDeclarations(nsKey);
+        decls.Classes.Add(cls);
+        var names = CppNames.Build(new Dictionary<string, CppEmitter.NamespaceDeclarations> { [nsKey] = decls });
+        return (names, CppNames.ClassKey(CppNames.NamespaceKey(nsKey), cls.Name));
     }
 
     /// <summary>Validates that base-class names are appended to the class declaration line.</summary>
@@ -347,10 +295,12 @@ public class CppEmitterTests
             "GetCount", "int", [], CppAccessibility.Public,
             false, false, false, false, false, false, null, null);
 
+        var (names, classKey) = BuildNames("ns", cls);
+
         // Act / Assert: one-element list must be rejected — combined page requires ≥ 2
         Assert.Throws<ArgumentException>(() =>
             CppEmitter.WriteCombinedMemberPage(
-                factory, "ns", "ns", cls, "getcount",
+                factory, names, classKey, "ns", cls,
                 [singleMember], resolver));
     }
 

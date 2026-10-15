@@ -25,8 +25,7 @@ service or network dependency is needed.
 - A namespace summary page is created for each namespace in the fixture assembly.
 - A type page is created for each visible type in each namespace.
 - At least one member detail page is created for a visible member of a visible type.
-- A single combined page is created for members whose sanitized file names collide on a
-  case-insensitive filesystem.
+- Members whose names differ only in case receive separate pages (`Name`, `name-2`) chosen by the registry.
 - A type with pure method overloads produces a consolidated method overload page.
 - A type with operator overloads produces an `operators.md` page.
 - A type with a nested type produces a dedicated page under the containing type's folder.
@@ -99,11 +98,10 @@ whose key contains both `SampleClass` and `Reset` is created, confirming that
 per-member detail pages are emitted for all visible members. This scenario is
 tested by `DotNetEmitterGradualDisclosure_Emit_ValidModel_CreatesMemberDetailPage`.
 
-**Combined collision page is created for CaseCollisionClass**: Verifies that when
-`CaseCollisionClass` has members whose sanitized names differ only in case (`name`
-and `Name`), the emitter creates a single combined page keyed by the lower-invariant
-name rather than two separate colliding pages. This scenario is tested by
-`DotNetEmitterGradualDisclosure_Emit_CaseCollision_CreatesCombinedPage`.
+**Case-twin members get separate pages for CaseCollisionClass**: Verifies that when
+`CaseCollisionClass` has members whose names differ only in case (`name`
+and `Name`), the emitter creates two pages, `Name` and `name-2`, chosen by the registry. This scenario is tested by
+`DotNetEmitterGradualDisclosure_Emit_CaseCollision_CreatesSeparatePages`.
 
 **Method overload page is created for overloaded methods**: Verifies that a type
 with multiple overloads of the same method name produces a consolidated overload
@@ -237,7 +235,6 @@ nested-type and nested-member page is the relative breadcrumb with the expected 
 `›` separator (type pages omit the type itself; other pages include it). Tested by
 `DotNetEmitterGradualDisclosure_Emit_Pages_HaveRelativeBreadcrumbs`,
 `DotNetEmitterGradualDisclosure_Emit_OverloadPage_HasBreadcrumb`,
-`DotNetEmitterGradualDisclosure_Emit_CombinedPage_HasBreadcrumb`,
 `DotNetEmitterGradualDisclosure_Emit_NestedType_BreadcrumbsIncludeOuterType` and
 `DotNetEmitterGradualDisclosure_Emit_MemberPage_FirstParagraphIsBreadcrumb`. Cross-reference
 tests exempt only that first breadcrumb paragraph from the no-link check, so links in the
@@ -353,7 +350,7 @@ disclosure. Expected: each reference appears as a code span, such as ``Formats `
 Tested by `DotNetEmitterGradualDisclosure_Emit_InlineReferences_RenderAsCodeSpansEverywhere`.
 
 **Generic type pages**: Arrange the `GenericTypeDocs` fixtures. Act by emitting gradual disclosure.
-Expected: file names use the hyphenated `Name-{arity}` form, the H1 is `PropertyEditorRegistry\<TEditor\>`, a
+Expected: file names use the brace-arity `Name{arity}` form, the H1 is `PropertyEditorRegistry\<TEditor\>`, a
 Type Parameters table lists each `<typeparam>` (placeholder when undocumented), signatures carry
 `where` constraints, and a non-generic nested type has no Type Parameters section. Tested by
 `DotNetEmitterGradualDisclosure_Emit_GenericTypePage_ShowsEscapedHeadingAndTypeParameters`,

@@ -17,7 +17,7 @@ sections:
           - ApiMarkCpp-CppGenerator-FilterDeclarationsByOwnership
           - ApiMarkCpp-CppGenerator-EmitDetailPageForEveryMember
           - ApiMarkCpp-CppGenerator-ProduceConsistentOutputFileStructure
-          - ApiMarkCpp-CppGenerator-EmitCombinedMemberPageForCaseInsensitiveCollisions
+          - ApiMarkCpp-CppGenerator-EmitSeparatePagesForCaseInsensitiveCollisions
           - ApiMarkCpp-CppGenerator-FilterByVisibility
           - ApiMarkCpp-CppGenerator-IncludeDeprecatedApisWhenRequested
           - ApiMarkCpp-CppGenerator-RenderDoxygenDocComments

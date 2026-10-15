@@ -64,6 +64,13 @@ public sealed class FileMarkdownWriterFactoryTests : IDisposable
     [InlineData("a:b")]
     [InlineData("CON")]
     [InlineData("trailing.")]
+    [InlineData("a b")]
+    [InlineData("a#b")]
+    [InlineData("a%b")]
+    [InlineData("a(b)")]
+    [InlineData("a[b]")]
+    [InlineData("a^b")]
+    [InlineData("a`b")]
     public void FileMarkdownWriterFactory_CreateMarkdown_IllegalFileName_ThrowsArgumentException(string name)
     {
         // Arrange
@@ -79,6 +86,9 @@ public sealed class FileMarkdownWriterFactoryTests : IDisposable
     [InlineData("ok/a<b")]
     [InlineData("Aux/ok")]
     [InlineData("ok/trailing.")]
+    [InlineData("ok/a b")]
+    [InlineData("ok/a#b")]
+    [InlineData("a%b/ok")]
     public void FileMarkdownWriterFactory_CreateMarkdown_IllegalFolderSegment_ThrowsArgumentException(string subFolder)
     {
         // Arrange

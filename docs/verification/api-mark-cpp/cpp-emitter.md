@@ -16,9 +16,9 @@ Tests run with the standard xUnit.net test runner.
 - `CppEmitter.Emit` rejects a null factory.
 - Gradual-disclosure dispatch produces multiple files.
 - Single-file dispatch produces exactly one `api` file.
-- `SanitizeFileName` preserves valid names and replaces illegal characters, template brackets, and reserved device names with legal forms; `SanitizePath` sanitizes each segment.
+- File names come from the shared registry: illegal characters, template brackets, and reserved device names become legal forms once, and collisions are resolved up front.
 - `BuildClassDeclaration` renders non-final, final, and inherited class declarations correctly.
-- `WriteCombinedMemberPage` emits one shared page for case-insensitive member collisions.
+- `WriteCombinedMemberPage` emits one shared page for all overloads of a member name.
 - `WriteCombinedMemberPage` rejects a `members` list containing fewer than two elements with `ArgumentException`.
 - `GetIncludePath` returns a root-relative path when the source file is under a configured public root; returns the full normalized path when no root matches.
 - `GetIncludePath` rejects a null `sourceFile` with `ArgumentNullException`.
@@ -26,12 +26,15 @@ Tests run with the standard xUnit.net test runner.
 
 ### Test Scenarios
 
-**Sanitize invalid characters**: Verifies that illegal file-name characters are replaced with
-legal characters deterministically instead of causing output-path failures. Tested by
-`CppEmitter_SanitizeFileName_InvalidCharacters_AreReplacedWithLegalCharacters`,
-`CppEmitter_SanitizeFileName_TemplateQualifiedAndReservedNames_AreLegal`,
-`CppEmitter_SanitizeFileName_IsDeterministic`, and
-`CppEmitter_SanitizePath_NestedAndReservedSegments_AreSanitizedPerSegment`.
+**Registry-based file names**: Verifies that file names come from the shared registry: illegal characters are
+replaced once, collisions are separated, and every link resolves. Tested by
+`CppNames_ClassEnumAliasFunctionSameName_AreSeparatedInKindOrder`, `CppNames_CaseTwinClasses_SecondGetsSuffix`,
+`CppNames_ReservedNames_AreNeverTaken`, `CppNames_TemplateAndDeviceNames_AreEscapedOnce`,
+`CppNames_QualifiedNamespaceKey_IsOneEscapedSegment`, `CppNames_AngleTemplateAndLiteralBraceNames_AreDistinctPages`,
+`CppEmitter_NestedTemplateInEscapedNamespace_LinkTargetEqualsWrittenPath`,
+`CppEmitter_OverloadedFreeFunctions_ShareOnePageWithEveryOverload`,
+`CppEmitter_ClassAndFunctionSameName_BothPagesWrittenAndLinked`, `CppEmitter_CollisionModel_AllPagesUniqueLegalAndLinksResolve`,
+and `CppEmitter_CollisionModel_IsDeterministic`.
 
 **Null factory rejection**: Verifies that passing null to `CppEmitter.Emit` throws
 `ArgumentNullException` before any I/O occurs. Tested by
@@ -45,9 +48,7 @@ legal characters deterministically instead of causing output-path failures. Test
 `OutputFormat.SingleFile` creates exactly one writer keyed as `api`. Tested by
 `CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile`.
 
-**SanitizeFileName preserves valid names**: Verifies that names containing only valid
-file-name characters are returned unchanged. Tested by
-`CppEmitter_SanitizeFileName_RegularName_IsUnchanged`.
+**Registry names are legal and unique**: Verified by `CppNames_*` and `CppEmitter_CollisionModel_*` tests.
 
 **BuildClassDeclaration with final class**: Verifies that the `final` keyword is appended to the
 class declaration when `CppClass.IsFinal` is true. Tested by
@@ -61,9 +62,9 @@ the class declaration line in the form `class X : public Base`. Tested by
 produces a declaration string containing only the class keyword and name. Tested by
 `CppEmitter_BuildClassDeclaration_NonFinalNoBase_ReturnsJustClassName`.
 
-**WriteCombinedMemberPage for case-insensitive collisions**: Verifies that members whose
-names differ only in case are merged onto a single lowercase-keyed page. Tested by
-`CppEmitter_WriteCombinedMemberPage_CaseInsensitiveCollision_ProducesSingleCombinedPage`.
+**WriteCombinedMemberPage for overloads**: Verifies that overloads of one member name are written
+onto a single shared page. Tested by
+`CppEmitter_WriteCombinedMemberPage_Overloads_ProducesSingleCombinedPage`.
 
 **GetIncludePath returns relative path for matching root**: Verifies that a source file
 residing under a configured public include root produces a root-relative, forward-slash

@@ -123,8 +123,9 @@ pure method overload group (all methods sharing the same exact case-sensitive sa
   emits them via `WriteExternalTypesSection`.
 
 **WriteCombinedMemberPage** (private static): Writes a single combined Markdown
-page for a group of members whose sanitized file names collide on
-case-insensitive file systems.
+page for a residual group of non-overload members that still share one
+registry-approved name. Case twins do not reach this path: the registry gives them distinct
+names (for example `Name.md` and `name-2.md`) and each gets a dedicated page.
 
 - *Algorithm*: Creates `{namespaceFolderPath}/{GetTypeFileName(type)}/{lowerKey}.md` via the
   factory; writes an H1 heading using `lowerKey`; for each member writes an H2
@@ -135,7 +136,7 @@ case-insensitive file systems.
 **IsPureMethodOverloadGroup** (private static): Returns true when all members
 in a collision group are `MethodDefinition` instances sharing the same exact
 case-sensitive sanitized file name, indicating a classical method overload group
-rather than a case-insensitive collision.
+rather than a residual shared-name group.
 
 **GetMemberKindLabel** (private static): Maps an `IMemberDefinition` to a short
 human-readable kind string (`"Field"`, `"Property"`, `"Event"`, `"Constructor"`,
@@ -208,7 +209,7 @@ to the appropriate per-kind accumulator.
   using `GetMethodGroupDisplayName` for the display text.
 
 **ProcessCollisionMember** (private static): Handles one member from a
-case-insensitive filename collision group; writes the combined page on first
+residual shared-approved-name group; writes the combined page on first
 encounter and adds the member's row to the appropriate per-kind accumulator.
 
 - *Parameters*: `TypePageWriteContext ctx`, `IMemberDefinition member`,
@@ -391,19 +392,20 @@ member, and operators page patterns.
   and `shortName` are produced by splitting `namespaceFolderPath` at the last separator
   (e.g. for `ApiMark.DotNet.Fixtures`, `subFolder=""` and `shortName="ApiMark.DotNet.Fixtures"`)
 - All names below are produced by `DotNetEmitter.GetTypeFileName` and `GetSanitizedMemberFileName`
-  (`FileNameSanitizer` plus reserved-name, `operators`, and case-twin disambiguation); `FlattenArity`
-  is only the first step. Known limits: namespace segments that differ only by case, and
-  external-assembly type twins, are not disambiguated.
+  which read the names approved by the symbol-name registry (`DotNetNames`; rules in
+  `docs/design/api-mark-core/file-naming-rules.md`). Known limit: external-assembly type links use the
+  predictable name, because the other package's collisions are not known.
 - Type page: `factory.CreateMarkdown(namespaceFolderPath, GetTypeFileName(type))`
   where `GetTypeFileName` starts from `FlattenArity`, which replaces backtick-arity notation
-  (e.g. `` SampleGenericClass`1 ``) with a hyphenated arity form (`SampleGenericClass-1`), and
-  then applies the sanitizer, reserved-name, and case-twin rules. This is distinct
+  (e.g. `` SampleGenericClass`1 ``) with brace arity (`SampleGenericClass{1}`); the registry then
+  applies the escape, reserved-name, and collision rules. This is distinct
   from `StripArity`, which removes the arity suffix entirely and is used for display names.
 - Member detail: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", GetSanitizedMemberFileName(member, type))`
 - Operators page: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", "operators")`
-  (a member literally named `operators` is escaped to `operators-` so the pages cannot collide)
-- Combined page: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", lowerKey)`
-  where `lowerKey` is `GetSanitizedMemberFileName(member, type)` lower-cased
+  (a member literally named `operators` is displaced to `operators-2` so the pages cannot collide)
+- Residual combined page: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", lowerKey)`
+  where `lowerKey` is `GetSanitizedMemberFileName(member, type)` lower-cased; used only for a
+  non-overload group that still shares one approved name
 
 ### Error Handling
 
@@ -452,11 +454,10 @@ N/A — this is an internal class with no external interfaces exposed beyond its
 - Generic type pages carry a `## Type Parameters` table (from `<typeparam>`, placeholder when
   missing) after the examples; only the type's own parameters (the last *arity* parameters) are listed,
   so a nested type does not repeat its host's. Signatures append `where` clauses.
-- Type and member files use the hyphenated `Name-{arity}` form (for example `PropertyEditorRegistry-1.md`).
-  A hyphen cannot occur in a C# identifier, so `Foo-1` never collides with a type named `Foo1`, and
-  `Foo`, `Foo<T>` and `Foo<T1, T2>` map to `Foo.md`, `Foo-1.md` and `Foo-2.md`. The scheme lives in the
-  single helper `TypeNameSimplifier.FlattenArity`, which the emitters and the link resolver share, so
-  page keys and links cannot diverge. This is a breaking change to earlier `Name1.md` output.
+- Type and member files use the brace-arity form `Name{arity}` (for example `PropertyEditorRegistry{1}.md`).
+  `Foo`, `Foo<T>` and `Foo<T1, T2>` map to `Foo.md`, `Foo{1}.md` and `Foo{2}.md`, and a type named `Foo1`
+  keeps `Foo1.md`. All names are approved once by the symbol-name registry (`DotNetNames`); the emitters
+  and the link resolver only read them, so page keys and links cannot diverge.
   Readable names appear in headings and link text.
 - Namespace pages begin with `[API Reference](api.md) › ancestors › This`; only ancestors that have
   pages are linked and the current namespace is plain text.

@@ -1,6 +1,8 @@
 // Copyright (c) DemaConsulting LLC. All rights reserved.
 // Licensed under the MIT License.
 
+using ApiMark.Core;
+
 namespace ApiMark.Cpp;
 
 /// <summary>
@@ -87,8 +89,8 @@ internal sealed class CppTypeLinkResolver
     /// <param name="currentFolder">
     ///     The folder path of the Markdown file that will contain the link, relative to the
     ///     documentation output root (e.g. <c>"fixtures/SampleClass"</c>), exactly as the emitter
-    ///     writes it: it must already be sanitized (see <see cref="CppEmitter.SanitizePath"/>) and is
-    ///     used as is, never sanitized again. The page key of the linked type is sanitized here, once.
+    ///     writes it: it must already be an approved registry path and is used as is.
+    ///     The linked type's page key is likewise an approved path, so nothing is mapped here.
     ///     Used to compute relative path hrefs. Pass an empty string or <see langword="null"/>
     ///     for root-level files; a <see langword="null"/> value is treated as an empty string.
     /// </param>
@@ -166,10 +168,8 @@ internal sealed class CppTypeLinkResolver
     /// <returns>The type string with the base type token replaced by a Markdown link.</returns>
     private static string BuildIntraLibraryLink(string cppTypeString, string currentFolder, string stripped, string pageKey)
     {
-        // Sanitize the page key per segment exactly once; the current folder is already an output folder
-        // (sanitized by the emitter) and is used as is, so it is never mapped a second time
-        var from = currentFolder.Length > 0 ? currentFolder : ".";
-        var relativePath = Path.GetRelativePath(from, CppEmitter.SanitizePath(pageKey) + ".md").Replace('\\', '/');
+        // Both the current folder and the page key are approved registry paths; no mapping happens here
+        var relativePath = LinkPath.Relative(currentFolder, pageKey + ".md");
         var shortName = stripped.Contains("::", StringComparison.Ordinal)
             ? stripped[(stripped.LastIndexOf("::", StringComparison.Ordinal) + 2)..]
             : stripped;

@@ -147,22 +147,26 @@ sections:
           - PathHelpers_NormalizeCase_NonExistentPath_PreservesSuppliedCasing
           - PathHelpers_NormalizeCase_CaseSensitiveFileSystemWithBothCasings_PrefersExactMatch
           - PathHelpers_NormalizeCaseDirectory_DriveLetterRoot_DoesNotResolveToCurrentDirectory
-      - id: ApiMarkCore-FileNameSanitizer-ProvideLegalFileNameHelper
-        title: ApiMarkCore shall provide a public helper that converts declaration names
-          into file and folder name segments that are legal on Windows and Linux,
-          deterministic, and distinct.
+      - id: ApiMarkCore-SymbolNameRegistry-ProvideUniqueFileNames
+        title: ApiMarkCore shall provide a symbol-name registry that assigns every generated
+          page a legal, deterministic, case-insensitively unique file name before any
+          file or link is written.
         tags: [system]
         justification: |
           Every language emitter writes files named after source declarations. One
           auditable helper guarantees the output can be created and checked out on any
           supported operating system and that links agree with the files they target.
         children:
-          - ApiMarkCore-FileNameSanitizer-ProduceLegalSegments
-          - ApiMarkCore-FileNameSanitizer-Deterministic
-          - ApiMarkCore-FileNameSanitizer-ValidateSegments
+          - ApiMarkCore-SymbolNameRegistry-EscapeOnce
+          - ApiMarkCore-SymbolNameRegistry-ResolveBeforeUse
+          - ApiMarkCore-SymbolNameRegistry-PrimaryNameWins
+          - ApiMarkCore-SymbolNameRegistry-NumericSuffixLastResort
+          - ApiMarkCore-SymbolNameRegistry-Deterministic
+          - ApiMarkCore-SymbolNameRegistry-ValidateSegments
+          - ApiMarkCore-SymbolNameRegistry-RelativeLinks
         tests:
-          - FileNameSanitizer_SanitizeSegment_ReservedDeviceName_IsMovedAside
-          - FileNameSanitizer_IsLegalSegment_IllegalName_ReturnsFalse
+          - SymbolNameRegistry_Resolve_CaseTwins_LowestKeyWinsAndOtherGetsSuffix
+          - FileNameRules_IsLegalSegment_IllegalName_ReturnsFalse
       - id: ApiMarkCore-ProvideEmitterContract
         title: ApiMark Core shall provide a well-defined emitter contract.
         tags: [system]

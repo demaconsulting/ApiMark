@@ -45,7 +45,7 @@ Creates a new `FileMarkdownWriter` targeting `{outputDirectory}/{subFolder}/{nam
 - *Algorithm*:
   1. Reject `name` if null or whitespace; throw `ArgumentException`.
   2. Reject `name`, and every `/`-separated segment of `subFolder`, that fails
-     `FileNameSanitizer.IsLegalSegment`; throw `ArgumentException`.
+     `FileNameRules.IsLegalSegment`; throw `ArgumentException`.
   3. Compute the target directory: when `subFolder` is null or whitespace, use
      `_outputDirectory` directly; otherwise call `PathHelpers.SafePathCombine`
      to combine `_outputDirectory` with `subFolder`.
@@ -78,7 +78,7 @@ Creates a new `FileMarkdownWriter` targeting `{outputDirectory}/{subFolder}/{nam
 
 - **PathHelpers** — `SafePathCombine` is used to combine the output root with the
   caller-supplied subFolder and the file name, preventing directory-traversal attacks.
-- **FileNameSanitizer** — `IsLegalSegment` validates each folder segment and the file name.
+- **FileNameRules** — `IsLegalSegment` validates each folder segment and the file name.
 
 ### Callers
 

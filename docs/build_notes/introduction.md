@@ -41,6 +41,16 @@ Then build and test the solution:
 pwsh ./build.ps1
 ```
 
+## Breaking Changes
+
+Generated file names changed (for example `Foo-1.md` is now `Foo{1}.md`). All names now come from one
+symbol-name registry that resolves every collision before anything is written. Output is regenerated on
+each build, so no migration is needed. The rules are in
+`docs/design/api-mark-core/file-naming-rules.md`.
+
+The public `ApiMark.Core.FileNameSanitizer` type was removed. Use `SymbolNameRegistry`,
+`FileNameRules` and `LinkPath` instead.
+
 ## References
 
 [ApiMark releases](https://github.com/DemaConsulting/ApiMark/releases)

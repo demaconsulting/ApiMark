@@ -15,7 +15,7 @@ namespace ApiMark.DotNet.Tests;
 public class DotNetEmitterExternalSignatureTests
 {
     /// <summary>The fixture page folder of the type under test.</summary>
-    private const string TypeFolder = "ApiMark.DotNet.Fixtures/ExternalSignatureShapes-1";
+    private const string TypeFolder = "ApiMark.DotNet.Fixtures/ExternalSignatureShapes{1}";
 
     /// <summary>Emits the fixture assembly with the external assembly as a reference.</summary>
     /// <returns>The populated factory.</returns>

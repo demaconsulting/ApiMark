@@ -116,7 +116,15 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// </returns>
     internal static string GetNamespaceFolderPath(string namespaceName, IReadOnlyList<string> rootNamespaces)
     {
-        // Types declared without a namespace live on the synthetic global-namespace page.
+        // The approved name map of the documented assembly is the single source of truth.
+        var approved = DotNetNames.Find(rootNamespaces)?.TryGetNamespacePath(namespaceName);
+        if (approved != null)
+        {
+            return approved;
+        }
+
+        // Predictable fallback for namespaces without an approved name (for example namespaces of an
+        // external assembly): the same rules, but without collision resolution.
         if (namespaceName.Length == 0)
         {
             return GlobalNamespaceFolder;
@@ -124,35 +132,21 @@ internal sealed class DotNetEmitter : IApiEmitter
 
         var root = rootNamespaces.FirstOrDefault(r =>
             string.Equals(r, namespaceName, StringComparison.Ordinal) ||
-            namespaceName.StartsWith(r + ".", StringComparison.Ordinal));
+            namespaceName.StartsWith(r + ".", StringComparison.Ordinal)) ?? namespaceName;
 
-        if (root == null)
+        var rootSegment = FileNameRules.Escape(root, out _);
+        if (string.Equals(rootSegment, "api", StringComparison.OrdinalIgnoreCase))
         {
-            return SanitizeRootSegment(namespaceName); // fallback: no known root, use full name
+            rootSegment += "-2"; // same displacement the name registry applies to the reserved api page
         }
 
-        if (string.Equals(namespaceName, root, StringComparison.Ordinal))
+        var segments = new List<string> { rootSegment };
+        if (namespaceName.Length > root.Length)
         {
-            return SanitizeRootSegment(root); // root namespace: full dotted name is the single path segment
+            segments.AddRange(namespaceName[(root.Length + 1)..].Split('.').Select(s => FileNameRules.Escape(s, out _)));
         }
 
-        // Child namespace: keep root intact, replace subsequent dots with slashes; every segment is
-        // sanitized so reserved device names and illegal characters never reach the file system.
-        var suffix = namespaceName.Substring(root.Length); // e.g. ".Inner" or ".Inner.Sub"
-        return SanitizeRootSegment(root) + "/" +
-            string.Join('/', suffix.Substring(1).Split('.').Select(FileNameSanitizer.SanitizeSegment));
-    }
-
-    /// <summary>
-    ///     Sanitizes a root-namespace path segment; a name equal to the reserved <c>api</c> index page is
-    ///     moved aside so a root namespace page can never overwrite <c>api.md</c>.
-    /// </summary>
-    /// <param name="name">The raw root namespace name.</param>
-    /// <returns>The legal segment.</returns>
-    private static string SanitizeRootSegment(string name)
-    {
-        var sanitized = FileNameSanitizer.SanitizeSegment(name);
-        return string.Equals(sanitized, "api", StringComparison.OrdinalIgnoreCase) ? sanitized + "-" : sanitized;
+        return string.Join('/', segments);
     }
 
     /// <summary>
@@ -732,71 +726,40 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns>A string suitable for use as a file name (without extension).</returns>
     internal static string GetSanitizedMemberFileName(IMemberDefinition member, TypeDefinition declaringType)
     {
-        // Methods are already sanitized by BuildMethodFileName; sanitizing twice would hash the result.
-        if (member is MethodDefinition method)
-        {
-            return BuildMethodFileName(method, declaringType);
-        }
-
-        var raw = member switch
-        {
-            PropertyDefinition p => p.Name,
-            FieldDefinition f => f.Name,
-            EventDefinition e => e.Name,
-            _ => member.Name,
-        };
-
-        // Explicit interface implementations are named like Ns.IFoo<System.Int32>.Method, so the raw
-        // name is always run through the shared sanitizer.
-        return ToMemberFileName(raw);
-    }
-
-    /// <summary>
-    ///     Converts a raw member name to a legal member page name; a name equal to the reserved operators
-    ///     page is moved aside so a member can never overwrite the type's operators page.
-    /// </summary>
-    /// <param name="raw">The raw member name.</param>
-    /// <returns>The legal file name without extension.</returns>
-    private static string ToMemberFileName(string raw)
-    {
-        var sanitized = FileNameSanitizer.SanitizeSegment(raw);
-        return string.Equals(sanitized, OperatorsPageName, StringComparison.OrdinalIgnoreCase) ? sanitized + "-" : sanitized;
+        // The approved name comes from the module's name map and is escaped exactly once there.
+        // An unregistered member falls back to the predictable escaped name.
+        return DotNetNames.For(declaringType.Module).TryGetMemberName(member, declaringType)
+            ?? FileNameRules.Escape(DotNetNames.RawMemberName(member, declaringType), out _);
     }
 
     /// <summary>The file name (without extension) of a type's shared operators page.</summary>
     internal const string OperatorsPageName = "operators";
 
-    /// <summary>Caches the computed page file name of each type definition.</summary>
-    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TypeDefinition, string> TypeFileNameCache = new();
-
     /// <summary>
     ///     Returns the file name (without extension) of the page, and of the folder, of a type.
     /// </summary>
     /// <remarks>
-    ///     The name is the sanitized, arity-flattened type name. For a type of the documented assembly the
-    ///     name is made unique among its siblings when compared case-insensitively: member page names and
-    ///     the reserved operators page of the declaring type take priority, and of several sibling types
-    ///     whose names differ only in case the first in ordinal full-name order keeps its name while the
-    ///     others receive a <c>-</c> and an eight-character hash of their full name. The result does not
-    ///     depend on the visibility filter, so it is identical wherever the type is named or linked.
+    ///     The name is read from the module's approved name map (see <see cref="DotNetNames"/>), so it
+    ///     is collision-free and independent of the visibility filter. A type of another assembly gets
+    ///     its predictable name: the escaped name with the generic arity in braces (<c>Foo{2}</c>).
     /// </remarks>
     /// <param name="type">The type (or type reference) to name.</param>
     /// <returns>A legal, deterministic file name without extension.</returns>
     internal static string GetTypeFileName(TypeReference type)
     {
-        var baseName = FileNameSanitizer.SanitizeSegment(FlattenArity(type.Name));
         if (type is not TypeDefinition definition)
         {
             if (type.Scope is not ModuleDefinition || type.GetElementType() is not TypeReference element ||
                 !TryResolveLocal(element, out var local))
             {
-                return baseName;
+                return DotNetNames.PredictableTypeName(type.Name);
             }
 
             definition = local!;
         }
 
-        return TypeFileNameCache.GetValue(definition, ComputeTypeFileName);
+        return DotNetNames.For(definition.Module).TryGetTypeName(definition)
+            ?? DotNetNames.PredictableTypeName(definition.Name);
     }
 
     /// <summary>Resolves an intra-assembly type reference to its definition without throwing.</summary>
@@ -816,52 +779,6 @@ internal sealed class DotNetEmitter : IApiEmitter
 
         return definition != null;
     }
-
-    /// <summary>Computes the collision-free file name of a type definition among its siblings.</summary>
-    /// <param name="type">The type definition.</param>
-    /// <returns>The file name without extension.</returns>
-    private static string ComputeTypeFileName(TypeDefinition type)
-    {
-        static string KeyOf(TypeDefinition t) => FileNameSanitizer.SanitizeSegment(FlattenArity(t.Name));
-
-        var baseName = KeyOf(type);
-
-        // Names owned by the declaring type's member pages and operators page always win.
-        if (type.DeclaringType != null)
-        {
-            var reserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { OperatorsPageName };
-            foreach (var member in GetPageMembers(type.DeclaringType))
-            {
-                reserved.Add(GetSanitizedMemberFileName(member, type.DeclaringType));
-            }
-
-            if (reserved.Contains(baseName))
-            {
-                return $"{baseName}-{FileNameSanitizer.Hash(type.FullName)}";
-            }
-        }
-
-        // Among case-insensitive twins the first in ordinal full-name order keeps its plain name.
-        var siblings = type.DeclaringType != null
-            ? type.DeclaringType.NestedTypes
-            : type.Module.Types.Where(t => string.Equals(t.Namespace, type.Namespace, StringComparison.Ordinal));
-        var first = siblings
-            .Where(t => string.Equals(KeyOf(t), baseName, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(t => t.FullName, StringComparer.Ordinal)
-            .First();
-        return ReferenceEquals(first, type) || string.Equals(first.FullName, type.FullName, StringComparison.Ordinal)
-            ? baseName
-            : $"{baseName}-{FileNameSanitizer.Hash(type.FullName)}";
-    }
-
-    /// <summary>Enumerates every member of a type that can own a member page.</summary>
-    /// <param name="type">The declaring type.</param>
-    /// <returns>The fields, properties, events, and non-accessor methods of the type.</returns>
-    private static IEnumerable<IMemberDefinition> GetPageMembers(TypeDefinition type) =>
-        type.Fields.Cast<IMemberDefinition>()
-            .Concat(type.Properties)
-            .Concat(type.Events)
-            .Concat(type.Methods.Where(m => !m.IsGetter && !m.IsSetter && !m.IsAddOn && !m.IsRemoveOn));
 
     // =========================================================================
     // XML doc identifiers
@@ -2389,9 +2306,7 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns>A filesystem-safe name string suitable for use as a Markdown file name.</returns>
     internal static string BuildMethodFileName(MethodDefinition method, TypeDefinition declaringType)
     {
-        return ToMemberFileName(method.Name == ConstructorMethodName
-            ? StripArity(declaringType.Name)
-            : method.Name);
+        return GetSanitizedMemberFileName(method, declaringType);
     }
 
     /// <summary>
@@ -2837,10 +2752,10 @@ internal sealed class DotNetEmitter : IApiEmitter
     }
 
     /// <summary>
-    ///     Converts the IL backtick arity suffix to a hyphenated numeric suffix for file-system-safe names.
-    ///     For example, <c>Foo`2</c> becomes <c>Foo-2</c>; <c>Foo</c> is unchanged.
+    ///     Converts the IL backtick arity suffix to the brace notation used in generated file names.
+    ///     For example, <c>Foo`2</c> becomes <c>Foo{2}</c>; <c>Foo</c> is unchanged.
     /// </summary>
     /// <param name="name">The raw IL type name that may contain a backtick arity suffix.</param>
-    /// <returns>The name with the backtick replaced by a hyphen and the arity count preserved.</returns>
-    internal static string FlattenArity(string name) => TypeNameSimplifier.FlattenArity(name);
+    /// <returns>The name with the arity in braces.</returns>
+    internal static string FlattenArity(string name) => DotNetNames.ArityBraces(name);
 }

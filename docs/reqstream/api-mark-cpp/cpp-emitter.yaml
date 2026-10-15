@@ -16,45 +16,54 @@ sections:
               while keeping shared utilities (visibility filters, signature builders,
               include-path resolution) in one place.
             children:
-              - ApiMarkCpp-CppEmitter-WriteCombinedMemberPageForCaseCollisions
+              - ApiMarkCpp-CppEmitter-WriteSharedPageForOverloads
               - ApiMarkCpp-CppEmitter-RejectNullFactory
-              - ApiMarkCpp-CppEmitter-SanitizeFileName
+              - ApiMarkCpp-CppEmitter-FileNames
               - ApiMarkCpp-CppEmitter-BuildClassDeclaration
               - ApiMarkCpp-CppEmitter-RepresentExternalTypeInfo
             tests:
               - CppEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
               - CppEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
-          - id: ApiMarkCpp-CppEmitter-WriteCombinedMemberPageForCaseCollisions
+          - id: ApiMarkCpp-CppEmitter-WriteSharedPageForOverloads
             title: >-
-              CppEmitter shall emit a combined member page for case-insensitive
-              filename collisions within a single type.
+              CppEmitter shall emit one shared member page for all overloads of a
+              member name within a single type.
             justification: |
-              On case-insensitive filesystems members whose names differ only in case
-              collide at the file-system level. CppEmitter must detect these collisions
-              and merge the affected members onto one shared page.
+              Overloads of one member name are documented together so a reader finds every
+              signature on one page. Members whose names differ only in case are not
+              overloads and keep separate pages (see
+              ApiMarkCpp-CppGenerator-EmitSeparatePagesForCaseInsensitiveCollisions).
             tests:
-              - CppEmitter_WriteCombinedMemberPage_CaseInsensitiveCollision_ProducesSingleCombinedPage
+              - CppEmitter_WriteCombinedMemberPage_Overloads_ProducesSingleCombinedPage
           - id: ApiMarkCpp-CppEmitter-RejectNullFactory
             title: CppEmitter shall reject a null markdown-writer factory.
             justification: |
               Emission cannot proceed without a writer factory, so null input must fail
               immediately with a clear argument error.
             tests: [CppEmitter_Emit_NullFactory_ThrowsArgumentNullException]
-          - id: ApiMarkCpp-CppEmitter-SanitizeFileName
+          - id: ApiMarkCpp-CppEmitter-FileNames
             title: >-
               CppEmitter shall convert every output file and folder name, and every
               page-key path, into segments that are legal on both Windows and Linux
-              using FileNameSanitizer.
+              taken from the shared SymbolNameRegistry, which escapes each name once and
+              resolves every collision before any page or link is written.
             justification: |
               Template names such as Foo<int>, reserved device names such as Aux or CON,
               and operator names are valid C++ but illegal or unsafe as Windows file names.
-              Delegating to the shared sanitizer keeps names deterministic on every platform.
+              Using the shared registry keeps names deterministic, unique, and identical
+              between the pages and the links that target them.
             tests:
-              - CppEmitter_SanitizeFileName_RegularName_IsUnchanged
-              - CppEmitter_SanitizeFileName_InvalidCharacters_AreReplacedWithLegalCharacters
-              - CppEmitter_SanitizeFileName_TemplateQualifiedAndReservedNames_AreLegal
-              - CppEmitter_SanitizeFileName_IsDeterministic
-              - CppEmitter_SanitizePath_NestedAndReservedSegments_AreSanitizedPerSegment
+              - CppNames_ClassEnumAliasFunctionSameName_AreSeparatedInKindOrder
+              - CppNames_CaseTwinClasses_SecondGetsSuffix
+              - CppNames_ReservedNames_AreNeverTaken
+              - CppNames_TemplateAndDeviceNames_AreEscapedOnce
+              - CppNames_QualifiedNamespaceKey_IsOneEscapedSegment
+              - CppNames_AngleTemplateAndLiteralBraceNames_AreDistinctPages
+              - CppEmitter_NestedTemplateInEscapedNamespace_LinkTargetEqualsWrittenPath
+              - CppEmitter_OverloadedFreeFunctions_ShareOnePageWithEveryOverload
+              - CppEmitter_ClassAndFunctionSameName_BothPagesWrittenAndLinked
+              - CppEmitter_CollisionModel_AllPagesUniqueLegalAndLinksResolve
+              - CppEmitter_CollisionModel_IsDeterministic
           - id: ApiMarkCpp-CppEmitter-BuildClassDeclaration
             title: >-
               CppEmitter shall render class declaration lines with final and direct

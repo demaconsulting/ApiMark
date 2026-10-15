@@ -40,3 +40,14 @@ sections:
               page would be written to the same file and one would silently replace the other.
             tests:
               - VhdlEmitterGradualDisclosure_Emit_EntityAndPackageNamedApi_DoNotOverwriteApiIndexPage
+              - VhdlNames_PlainNames_AreUnchanged
+              - VhdlNames_EntityAndPackageSameName_EntityWins
+              - VhdlNames_EntityAndPackageCaseTwins_AreSeparated
+              - VhdlNames_CaseTwinEntities_SecondGetsSuffix
+              - VhdlNames_DuplicateEntityAcrossFiles_GetsDistinctPages
+              - VhdlNames_ReservedApiName_KeepsIndexPage
+              - VhdlNames_EntityApiPackageApiAndAux_ShareOneResolvedNamePerSymbol
+              - VhdlNames_OverloadedAndCaseTwinSubprograms_GetDistinctPages
+              - VhdlNames_IllegalAndDeviceNames_AreEscaped
+              - VhdlNames_SameModel_IsDeterministic
+              - VhdlFileNaming_Fixtures_AllPagesUniqueLegalAndLinked

@@ -56,31 +56,31 @@ sections:
               CppGenerator shall emit a dedicated detail page for every visible non-operator
               class member and every regular free-function category entry, except
               where
-              case-insensitive collisions require a shared member page.
+              case-insensitive collisions require a numbered page name.
             justification: |
               Dedicated detail pages keep navigation deterministic for visible non-operator
               members and for regular free functions. Members whose base names collide on a
-              case-insensitive filesystem are
-              combined onto a single shared page (see
-              ApiMarkCpp-CppGenerator-EmitCombinedMemberPageForCaseInsensitiveCollisions).
+              case-insensitive filesystem each keep their own page, with the later ones
+              receiving a numeric suffix (see
+              ApiMarkCpp-CppGenerator-EmitSeparatePagesForCaseInsensitiveCollisions).
               Operator overloads are grouped onto a single operators.md page (see
               ApiMarkCpp-CppGenerator-GroupOperatorOverloadsOnSinglePage).
             tests:
               - CppGenerator_AllMembers_GetSeparateFiles
               - CppGenerator_Generate_MethodWithParameters_CreatesMemberPage
-          - id: ApiMarkCpp-CppGenerator-EmitCombinedMemberPageForCaseInsensitiveCollisions
-            title: CppGenerator shall emit a combined member page for case-insensitive
-              filename collisions.
+          - id: ApiMarkCpp-CppGenerator-EmitSeparatePagesForCaseInsensitiveCollisions
+            title: CppGenerator shall emit a separate member page for each member whose
+              name differs from another member's only in case.
             justification: |
               On case-insensitive filesystems (Windows, macOS), two members whose names
-              differ only in case would produce colliding filenames. Such members are
-              combined onto a single page named after the lower-invariant of the shared key,
-              with each member distinguished by an H2 heading showing its exact name and
-              kind label. This replaces the previous _2/_3 suffix mechanism.
+              differ only in case would produce colliding filenames. Each such member keeps
+              its own page: the first in ordinal order keeps the plain name (for example
+              Name) and the others receive a numeric suffix (for example name-2), as
+              resolved by the symbol-name registry.
             tests:
-              - CppGenerator_Generate_CaseCollisionClass_CreatesCombinedPage
-              - CppGenerator_Generate_CaseCollisionClass_DoesNotCreateSeparateCasedPage
-              - CppGenerator_Generate_CaseCollisionClass_CombinedPageContainsBothMembers
+              - CppGenerator_Generate_CaseCollisionClass_FirstCaseTwinKeepsPlainName
+              - CppGenerator_Generate_CaseCollisionClass_SecondCaseTwinGetsNumberedPage
+              - CppGenerator_Generate_CaseCollisionClass_EachPageDocumentsOneMember
           - id: ApiMarkCpp-CppGenerator-FilterByVisibility
             title: >-
               CppGenerator shall filter class members by the configured visibility
