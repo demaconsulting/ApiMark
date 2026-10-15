@@ -167,7 +167,6 @@ All content is written to a single `api.md` file using a flat heading hierarchy:
 | --- | --- |
 | H1 | Library name |
 | H2 | Entity or package name |
-
 | H3 | Member (subprogram, type, constant, component) with signature and description |
 | H4 | Individual parameter (name, type, description) |
 

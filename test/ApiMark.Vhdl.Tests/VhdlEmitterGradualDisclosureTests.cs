@@ -55,6 +55,40 @@ public class VhdlEmitterGradualDisclosureTests
         Assert.Contains(rows, r => r[0].Contains("(API-.md)", StringComparison.Ordinal));
     }
 
+    /// <summary>Validates that packages with reserved names keep page, folder, and every link consistent.</summary>
+    [Theory]
+    [InlineData("Api", "Api-")]
+    [InlineData("Aux", "Aux-")]
+    public void VhdlEmitterGradualDisclosure_Emit_PackageWithReservedName_AllLinksResolve(string pkgName, string page)
+    {
+        // Arrange
+        var options = new VhdlGeneratorOptions { LibraryName = "TestLib" };
+        var sub = new VhdlSubprogramDecl("Do_It", VhdlSubprogramKind.Function, "function Do_It return integer", [], "integer", null);
+        var package = new VhdlPackageDecl(pkgName, null, [], [], [], [sub]);
+        var fileModels = new List<VhdlFileModel> { new("test.vhd", [], [], [package]) };
+        var emitter = new VhdlEmitter(options, fileModels);
+        var factory = new InMemoryMarkdownWriterFactory();
+
+        // Act
+        new VhdlEmitterGradualDisclosure(emitter, fileModels).Emit(factory, new EmitConfig(), new InMemoryContext());
+
+        // Assert: package page, subprogram page in the matching folder, and every link resolves
+        Assert.True(factory.HasWriter("", page));
+        Assert.True(factory.HasWriter(page, "Do_It"));
+        var link = new System.Text.RegularExpressions.Regex(@"\]\(([^)]+)\)");
+        foreach (var (key, writer) in factory.Writers)
+        {
+            var dir = key.Contains('/') ? key[..key.LastIndexOf('/')] : "";
+            var texts = writer.Operations.OfType<ParagraphOperation>().Select(p => p.Text)
+                .Concat(writer.Operations.OfType<TableOperation>().SelectMany(t => t.Rows).SelectMany(r => r));
+            foreach (var m in texts.SelectMany(t => link.Matches(t).Select(x => x.Groups[1].Value)))
+            {
+                var target = (dir.Length == 0 ? m : dir + "/" + m);
+                Assert.True(factory.Writers.ContainsKey(target[..^3]), $"{key} links to missing {target}");
+            }
+        }
+    }
+
     /// <summary>Builds minimal data for testing without parsing real VHDL files.</summary>
     private static (VhdlEmitter emitter, IReadOnlyList<VhdlFileModel> fileModels) BuildMinimalData()
     {
