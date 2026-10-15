@@ -14,8 +14,9 @@ internal sealed class CppEmitterGradualDisclosure
 
     /// <summary>
     ///     Row data for the file-naming and path-convention table on the index page. Every
-    ///     <c>{...}</c> segment is passed through <see cref="FileNameSanitizer"/> so it is legal on
-    ///     Windows and Linux (for example <c>Foo&lt;int&gt;</c> becomes <c>Foo{int}</c>).
+    ///     <c>{...}</c> segment is the name approved by the shared symbol-name registry, so it is legal on
+    ///     Windows and Linux and unique inside its folder (for example <c>Foo&lt;int&gt;</c> becomes
+    ///     <c>Foo{int}</c>).
     /// </summary>
     private static readonly string[][] PathConventionRows =
     [
@@ -45,6 +46,9 @@ internal sealed class CppEmitterGradualDisclosure
     /// <summary>Parent emitter providing options and shared helper methods.</summary>
     private readonly CppEmitter _emitter;
 
+    /// <summary>The approved file names of every page; the only source of file and link paths.</summary>
+    private readonly CppNames _names;
+
     /// <summary>Namespace declarations collected during parse, sorted by namespace key.</summary>
     private readonly SortedDictionary<string, CppEmitter.NamespaceDeclarations> _namespaceDecls;
 
@@ -61,6 +65,7 @@ internal sealed class CppEmitterGradualDisclosure
         CppTypeLinkResolver cppResolver)
     {
         _emitter = emitter;
+        _names = emitter.Names;
         _namespaceDecls = namespaceDecls;
         _cppResolver = cppResolver;
     }
@@ -95,41 +100,43 @@ internal sealed class CppEmitterGradualDisclosure
         // one detail page per owned free function, and one detail page per owned enum
         foreach (var (nsKey, nsDecls) in _namespaceDecls)
         {
+            var nsRegistryKey = CppNames.NamespaceKey(nsKey);
             WriteNamespacePage(factory, nsKey, nsDecls, _cppResolver);
             foreach (var cls in nsDecls.Classes)
             {
-                WriteTypePage(new CppTypePageWriteContext(factory, nsKey, nsDecls.DisplayName, cls, _cppResolver));
-                WriteNestedTypePages(factory, nsKey, nsDecls.DisplayName, cls, _cppResolver);
+                WriteTypePage(new CppTypePageWriteContext(factory, nsRegistryKey, nsDecls.DisplayName, cls, _cppResolver, _names));
+                WriteNestedTypePages(factory, nsRegistryKey, nsDecls.DisplayName, cls, _cppResolver);
             }
 
-            // Partition free functions into regular functions and operator overloads;
-            // operator names such as operator+, operator-, and operator<< all sanitize
-            // to the same file name so all operators share a single operators.md page
-            // instead of producing individual colliding files
+            // Partition free functions into regular functions and operator overloads; all operator
+            // overloads share a single operators.md page instead of producing individual files
             var nsOperatorFunctions = nsDecls.FreeFunctions
                 .Where(fn => IsOperatorName(fn.Name))
                 .ToList();
-            foreach (var fn in nsDecls.FreeFunctions
-                .Where(fn => !IsOperatorName(fn.Name)))
+
+            // Overloads of one function share one page named after the function
+            foreach (var overloads in nsDecls.FreeFunctions
+                .Where(fn => !IsOperatorName(fn.Name))
+                .GroupBy(fn => fn.Name, StringComparer.Ordinal))
             {
-                WriteFreeFunctionPage(factory, nsKey, nsDecls.DisplayName, fn, _cppResolver);
+                WriteFreeFunctionPage(factory, nsRegistryKey, nsDecls.DisplayName, overloads.ToList(), _cppResolver);
             }
 
             if (nsOperatorFunctions.Count > 0)
             {
-                WriteNamespaceOperatorsPage(factory, nsKey, nsDecls.DisplayName, nsOperatorFunctions, _cppResolver);
+                WriteNamespaceOperatorsPage(factory, nsRegistryKey, nsDecls.DisplayName, nsOperatorFunctions, _cppResolver);
             }
 
             // Write one enum detail page per owned enum declared in this namespace
             foreach (var en in nsDecls.Enums)
             {
-                WriteEnumPage(factory, nsKey, nsDecls.DisplayName, en);
+                WriteEnumPage(factory, nsRegistryKey, nsDecls.DisplayName, en);
             }
 
             // Write one type alias page per owned using-alias declared in this namespace
             foreach (var alias in nsDecls.TypeAliases)
             {
-                WriteTypeAliasPage(factory, nsKey, nsDecls.DisplayName, alias, _cppResolver);
+                WriteTypeAliasPage(factory, nsRegistryKey, nsDecls.DisplayName, alias, _cppResolver);
             }
         }
     }
@@ -171,13 +178,13 @@ internal sealed class CppEmitterGradualDisclosure
             var nsDecls = kv.Value;
             var declarationCount = nsDecls.Classes.Count + nsDecls.Enums.Count + nsDecls.FreeFunctions.Count + nsDecls.TypeAliases.Count;
             var description = CppEmitter.GetNamespaceDescription(nsDecls);
-            return new[] { $"[{nsDecls.DisplayName}]({CppEmitter.GetNamespacePageName(kv.Key)}.md)", declarationCount.ToString(), description };
+            return new[] { $"[{nsDecls.DisplayName}]({_names.Link(string.Empty, CppNames.NamespaceKey(kv.Key))})", declarationCount.ToString(), description };
         });
         writer.WriteTable(headers, rows);
 
         // Path convention appendix — helps AI agents navigate without a separate resolver
         writer.WriteHeading(2, "File Naming and Path Convention");
-        writer.WriteParagraph("Documentation paths are derived deterministically from fully-qualified symbol names. Namespace separators (`::`) are replaced with `.` in file and folder names.");
+        writer.WriteParagraph("Documentation paths are derived deterministically from fully-qualified symbol names. Namespace separators (`::`) are replaced with `.` in file and folder names. When two symbols in one folder would share a name (ignoring case), the first keeps the plain name and the other receives a numeric suffix such as `-2`.");
         writer.WriteTable(PathConventionHeaders, PathConventionRows);
     }
 
@@ -200,7 +207,7 @@ internal sealed class CppEmitterGradualDisclosure
             ? displayName
             : $"{ctx.NsDisplayName}::{displayName}";
 
-        using var writer = ctx.Factory.CreateMarkdown(CppEmitter.SanitizePath(ctx.NsKey), CppEmitter.SanitizeFileName(ctx.Class.Name));
+        using var writer = ctx.Factory.CreateMarkdown(ctx.PageDirectory, _names.Name(ctx.ClassKey));
         writer.WriteHeading(1, displayName);
         WriteClassSignatureBlock(writer, ctx.Class, qualifiedClassName);
 
@@ -256,22 +263,21 @@ internal sealed class CppEmitterGradualDisclosure
             .Where(m => !IsOperatorName(m.Name))
             .ToList();
 
-        // Build a flat list of all visible members for case-insensitive collision detection
+        // Group the visible members by exact name: overloads share one page, while names that differ
+        // only in case get separate pages whose file names the registry has already made unique
         var allMembers = new List<object>(
             visibleCtors.Cast<object>()
                 .Concat(regularMethods.Cast<object>())
                 .Concat(visibleFields.Cast<object>()));
 
-        // Case-insensitive map: lowercase member name → list of members sharing that lowercase name
-        var caseInsensitiveGroups = new Dictionary<string, List<object>>(StringComparer.Ordinal);
+        var memberGroups = new Dictionary<string, List<object>>(StringComparer.Ordinal);
         foreach (var member in allMembers)
         {
             var baseName = CppEmitter.GetMemberBaseName(member, ctx.Class.Name);
-            var lowerKey = baseName.ToLowerInvariant();
-            if (!caseInsensitiveGroups.TryGetValue(lowerKey, out var list))
+            if (!memberGroups.TryGetValue(baseName, out var list))
             {
                 list = [];
-                caseInsensitiveGroups[lowerKey] = list;
+                memberGroups[baseName] = list;
             }
 
             list.Add(member);
@@ -284,17 +290,17 @@ internal sealed class CppEmitterGradualDisclosure
 
         foreach (var ctor in visibleCtors)
         {
-            ProcessClassConstructorMember(ctx, ctor, caseInsensitiveGroups, writtenKeys, ctorRows);
+            ProcessClassConstructorMember(ctx, ctor, memberGroups, writtenKeys, ctorRows);
         }
 
         foreach (var method in regularMethods)
         {
-            ProcessClassMethodMember(ctx, method, caseInsensitiveGroups, writtenKeys, methodRows, externalTypes);
+            ProcessClassMethodMember(ctx, method, memberGroups, writtenKeys, methodRows, externalTypes);
         }
 
         foreach (var field in visibleFields)
         {
-            ProcessClassFieldMember(ctx, field, caseInsensitiveGroups, writtenKeys, fieldRows, externalTypes);
+            ProcessClassFieldMember(ctx, field, memberGroups, writtenKeys, fieldRows, externalTypes);
         }
 
         WriteClassMemberTables(writer, ctx, operatorMethods, ctorRows, methodRows, fieldRows, externalTypes);
@@ -362,35 +368,45 @@ internal sealed class CppEmitterGradualDisclosure
     private static void ProcessClassConstructorMember(
         CppTypePageWriteContext ctx,
         CppFunction ctor,
-        Dictionary<string, List<object>> caseInsensitiveGroups,
+        Dictionary<string, List<object>> memberGroups,
         HashSet<string> writtenKeys,
         List<string[]> ctorRows)
     {
         var baseName = CppEmitter.GetMemberBaseName(ctor, ctx.Class.Name);
-        var lowerKey = baseName.ToLowerInvariant();
-        var group = caseInsensitiveGroups[lowerKey];
-        var pageKey = group.Count == 1 ? baseName : lowerKey;
-        var pageFileName = CppEmitter.SanitizeFileName(pageKey);
+        var memberKey = WriteMemberGroupPage(ctx, baseName, memberGroups[baseName], writtenKeys);
         var ctorSummary = CppEmitter.GetSummary(ctor.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
 
         // Show simplified parameter types in the link text so readers can
         // distinguish overloaded constructors at a glance
         var paramTypes = string.Join(", ", ctor.Parameters.Select(p => CppEmitter.SimplifyTypeName(p.TypeName)));
 
-        if (writtenKeys.Add(lowerKey))
+        ctorRows.Add(new[] { $"[{ctx.Class.Name}({paramTypes})]({ctx.Link(memberKey)})", ctorSummary });
+    }
+
+    /// <summary>
+    ///     Writes the page of a member name once, as a single-member page or, when overloads share
+    ///     the name, as a combined page, and returns the registry key of that page.
+    /// </summary>
+    private static string WriteMemberGroupPage(
+        CppTypePageWriteContext ctx,
+        string baseName,
+        List<object> group,
+        HashSet<string> writtenKeys)
+    {
+        var memberKey = CppNames.MemberKey(ctx.ClassKey, baseName);
+        if (writtenKeys.Add(baseName))
         {
-            // The page writers receive the raw key and sanitize it exactly once
             if (group.Count == 1)
             {
-                WriteMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, ctor, pageKey, ctx.CppResolver);
+                WriteMemberPage(ctx.Factory, ctx.Names, memberKey, ctx.NsDisplayName, ctx.Class, group[0], ctx.CppResolver);
             }
             else
             {
-                CppEmitter.WriteCombinedMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, pageKey, group, ctx.CppResolver);
+                CppEmitter.WriteCombinedMemberPage(ctx.Factory, ctx.Names, ctx.ClassKey, ctx.NsDisplayName, ctx.Class, group, ctx.CppResolver);
             }
         }
 
-        ctorRows.Add(new[] { $"[{ctx.Class.Name}({paramTypes})]({CppEmitter.SanitizeFileName(ctx.Class.Name)}/{pageFileName}.md)", ctorSummary });
+        return memberKey;
     }
 
     /// <summary>
@@ -400,37 +416,22 @@ internal sealed class CppEmitterGradualDisclosure
     private static void ProcessClassMethodMember(
         CppTypePageWriteContext ctx,
         CppFunction method,
-        Dictionary<string, List<object>> caseInsensitiveGroups,
+        Dictionary<string, List<object>> memberGroups,
         HashSet<string> writtenKeys,
         List<string[]> methodRows,
         SortedSet<CppExternalTypeInfo> externalTypes)
     {
         var baseName = CppEmitter.GetMemberBaseName(method, ctx.Class.Name);
-        var lowerKey = baseName.ToLowerInvariant();
-        var group = caseInsensitiveGroups[lowerKey];
-        var pageKey = group.Count == 1 ? baseName : lowerKey;
-        var pageFileName = CppEmitter.SanitizeFileName(pageKey);
+        var memberKey = WriteMemberGroupPage(ctx, baseName, memberGroups[baseName], writtenKeys);
         var methodSummary = CppEmitter.GetSummary(method.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
 
-        // Linkify the return type cell using the type link resolver (folder of the type page, already sanitized)
-        var returnType = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(method.ReturnTypeName), CppEmitter.SanitizePath(ctx.NsKey), externalTypes)!;
-
-        if (writtenKeys.Add(lowerKey))
-        {
-            if (group.Count == 1)
-            {
-                WriteMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, method, pageKey, ctx.CppResolver);
-            }
-            else
-            {
-                CppEmitter.WriteCombinedMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, pageKey, group, ctx.CppResolver);
-            }
-        }
+        // Linkify the return type cell using the type link resolver (folder of the type page)
+        var returnType = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(method.ReturnTypeName), ctx.PageDirectory, externalTypes)!;
 
         // Show simplified parameter types in the link text so readers can
         // distinguish overloaded methods at a glance
         var methodParamTypes = string.Join(", ", method.Parameters.Select(p => CppEmitter.SimplifyTypeName(p.TypeName)));
-        methodRows.Add(new[] { $"[{method.Name}({methodParamTypes})]({CppEmitter.SanitizeFileName(ctx.Class.Name)}/{pageFileName}.md)", returnType, methodSummary });
+        methodRows.Add(new[] { $"[{method.Name}({methodParamTypes})]({ctx.Link(memberKey)})", returnType, methodSummary });
     }
 
     /// <summary>
@@ -440,34 +441,19 @@ internal sealed class CppEmitterGradualDisclosure
     private static void ProcessClassFieldMember(
         CppTypePageWriteContext ctx,
         CppField field,
-        Dictionary<string, List<object>> caseInsensitiveGroups,
+        Dictionary<string, List<object>> memberGroups,
         HashSet<string> writtenKeys,
         List<string[]> fieldRows,
         SortedSet<CppExternalTypeInfo> externalTypes)
     {
         var baseName = CppEmitter.GetMemberBaseName(field, ctx.Class.Name);
-        var lowerKey = baseName.ToLowerInvariant();
-        var group = caseInsensitiveGroups[lowerKey];
-        var pageKey = group.Count == 1 ? baseName : lowerKey;
-        var pageFileName = CppEmitter.SanitizeFileName(pageKey);
+        var memberKey = WriteMemberGroupPage(ctx, baseName, memberGroups[baseName], writtenKeys);
         var fieldSummary = CppEmitter.GetSummary(field.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
 
-        // Linkify the field type cell using the type link resolver (folder of the type page, already sanitized)
-        var typeName = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(field.TypeName), CppEmitter.SanitizePath(ctx.NsKey), externalTypes)!;
+        // Linkify the field type cell using the type link resolver (folder of the type page)
+        var typeName = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(field.TypeName), ctx.PageDirectory, externalTypes)!;
 
-        if (writtenKeys.Add(lowerKey))
-        {
-            if (group.Count == 1)
-            {
-                WriteMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, field, pageKey, ctx.CppResolver);
-            }
-            else
-            {
-                CppEmitter.WriteCombinedMemberPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, pageKey, group, ctx.CppResolver);
-            }
-        }
-
-        fieldRows.Add(new[] { $"[{field.Name}]({CppEmitter.SanitizeFileName(ctx.Class.Name)}/{pageFileName}.md)", typeName, fieldSummary });
+        fieldRows.Add(new[] { $"[{field.Name}]({ctx.Link(memberKey)})", typeName, fieldSummary });
     }
 
     /// <summary>
@@ -506,11 +492,11 @@ internal sealed class CppEmitterGradualDisclosure
         // a single page to prevent file-name collisions between operator+, operator-, etc.
         if (operatorMethods.Count > 0)
         {
-            WriteClassOperatorsPage(ctx.Factory, ctx.NsKey, ctx.NsDisplayName, ctx.Class, operatorMethods, ctx.CppResolver);
+            WriteClassOperatorsPage(ctx, operatorMethods);
             writer.WriteHeading(2, OperatorsLabel);
             writer.WriteTable(
                 new[] { OperatorsLabel, CppEmitter.DescriptionColumnHeader },
-                new[] { new[] { $"[operators]({CppEmitter.SanitizeFileName(ctx.Class.Name)}/operators.md)", "Operator overloads" } });
+                new[] { new[] { $"[operators]({ctx.Link(CppNames.OperatorsKey(ctx.ClassKey))})", "Operator overloads" } });
         }
 
         // Emit Nested Classes table so readers can discover inner types without browsing the header
@@ -523,7 +509,7 @@ internal sealed class CppEmitterGradualDisclosure
                 .Select(nested =>
                 {
                     var summary = CppEmitter.GetSummary(nested.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
-                    return new[] { $"[{nested.Name}]({CppEmitter.SanitizeFileName(ctx.Class.Name)}/{CppEmitter.SanitizeFileName(nested.Name)}.md)", summary };
+                    return new[] { $"[{nested.Name}]({ctx.Link(CppNames.ClassKey(ctx.ClassKey, nested.Name))})", summary };
                 });
             writer.WriteTable(nestedHeaders, nestedRows);
         }
@@ -538,8 +524,8 @@ internal sealed class CppEmitterGradualDisclosure
                 .Select(alias =>
                 {
                     var summary = CppEmitter.GetSummary(alias.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
-                    var underlying = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(alias.UnderlyingTypeName), CppEmitter.SanitizePath(ctx.NsKey), externalTypes)!;
-                    return new[] { $"[{alias.Name}]({CppEmitter.SanitizeFileName(ctx.Class.Name)}/{CppEmitter.SanitizeFileName(alias.Name)}.md)", underlying, summary };
+                    var underlying = ctx.CppResolver.Linkify(CppEmitter.SimplifyTypeName(alias.UnderlyingTypeName), ctx.PageDirectory, externalTypes)!;
+                    return new[] { $"[{alias.Name}]({ctx.Link(CppNames.AliasKey(ctx.ClassKey, alias.Name))})", underlying, summary };
                 });
             writer.WriteTable(aliasHeaders, aliasRows);
         }
@@ -557,8 +543,8 @@ internal sealed class CppEmitterGradualDisclosure
         CppClass cls,
         CppTypeLinkResolver cppResolver)
     {
-        // The class folder and display name form the base for all children of this class
-        var clsKey = $"{parentKey}/{cls.Name}";
+        // The class key and display name form the base for all children of this class
+        var clsKey = CppNames.ClassKey(parentKey, cls.Name);
         var clsDisplayName = $"{parentDisplayName}::{cls.Name}";
 
         // Write one type alias page per public class-scoped using-alias
@@ -570,7 +556,7 @@ internal sealed class CppEmitterGradualDisclosure
         // Write one type page per public nested class and recurse into its own children
         foreach (var nested in cls.NestedClasses)
         {
-            WriteTypePage(new CppTypePageWriteContext(factory, clsKey, clsDisplayName, nested, cppResolver));
+            WriteTypePage(new CppTypePageWriteContext(factory, clsKey, clsDisplayName, nested, cppResolver, _names));
             WriteNestedTypePages(factory, clsKey, clsDisplayName, nested, cppResolver);
         }
     }
@@ -579,15 +565,14 @@ internal sealed class CppEmitterGradualDisclosure
     ///     Writes the combined operator overloads page for a class.
     /// </summary>
     private void WriteClassOperatorsPage(
-        IMarkdownWriterFactory factory,
-        string nsKey,
-        string nsDisplayName,
-        CppClass cls,
-        IReadOnlyList<CppFunction> operators,
-        CppTypeLinkResolver cppResolver)
+        CppTypePageWriteContext ctx,
+        IReadOnlyList<CppFunction> operators)
     {
-        var opsCurrentFolder = CppEmitter.SanitizePath($"{nsKey}/{cls.Name}");
-        using var writer = factory.CreateMarkdown(opsCurrentFolder, "operators");
+        var cls = ctx.Class;
+        var nsDisplayName = ctx.NsDisplayName;
+        var opsKey = CppNames.OperatorsKey(ctx.ClassKey);
+        var opsCurrentFolder = _names.Directory(opsKey);
+        using var writer = ctx.Factory.CreateMarkdown(opsCurrentFolder, _names.Name(opsKey));
         writer.WriteHeading(1, OperatorsLabel);
         // Emit the qualified class name comment and #include directive from the first operator
         // that has source location information — gives readers context without browsing headers
@@ -610,7 +595,7 @@ internal sealed class CppEmitterGradualDisclosure
         {
             var paramTypes = string.Join(", ", op.Parameters.Select(p => CppEmitter.SimplifyTypeName(p.TypeName)));
             writer.WriteHeading(2, $"{op.Name}({paramTypes})");
-            WriteFunctionContent(writer, op, new CppFunctionWriteContext(nsDisplayName, cls.Name, cppResolver, opsCurrentFolder, externalTypes, 3));
+            WriteFunctionContent(writer, op, new CppFunctionWriteContext(nsDisplayName, cls.Name, ctx.CppResolver, opsCurrentFolder, externalTypes, 3));
         }
 
         CppEmitter.WriteExternalTypesSection(writer, externalTypes);
@@ -621,13 +606,14 @@ internal sealed class CppEmitterGradualDisclosure
     /// </summary>
     private void WriteNamespaceOperatorsPage(
         IMarkdownWriterFactory factory,
-        string nsKey,
+        string nsRegistryKey,
         string nsDisplayName,
         IReadOnlyList<CppFunction> operators,
         CppTypeLinkResolver cppResolver)
     {
-        var opsCurrentFolder = CppEmitter.SanitizePath(nsKey);
-        using var writer = factory.CreateMarkdown(opsCurrentFolder, "operators");
+        var opsKey = CppNames.OperatorsKey(nsRegistryKey);
+        var opsCurrentFolder = _names.Directory(opsKey);
+        using var writer = factory.CreateMarkdown(opsCurrentFolder, _names.Name(opsKey));
         writer.WriteHeading(1, OperatorsLabel);
         // Emit the qualified name comment and #include directive from the first operator that
         // has source location information so readers know which header to include
@@ -662,16 +648,31 @@ internal sealed class CppEmitterGradualDisclosure
     /// </summary>
     private void WriteFreeFunctionPage(
         IMarkdownWriterFactory factory,
-        string nsKey,
+        string nsRegistryKey,
         string nsDisplayName,
-        CppFunction fn,
+        IReadOnlyList<CppFunction> overloads,
         CppTypeLinkResolver cppResolver)
     {
-        var fnCurrentFolder = CppEmitter.SanitizePath(nsKey);
-        using var writer = factory.CreateMarkdown(fnCurrentFolder, CppEmitter.SanitizeFileName(fn.Name));
-        writer.WriteHeading(1, fn.Name);
+        var fnKey = CppNames.FunctionKey(nsRegistryKey, overloads[0].Name);
+        var fnCurrentFolder = _names.Directory(fnKey);
+        using var writer = factory.CreateMarkdown(fnCurrentFolder, _names.Name(fnKey));
+        writer.WriteHeading(1, overloads[0].Name);
         var externalTypes = new SortedSet<CppExternalTypeInfo>();
-        WriteFreeFunctionContent(writer, nsDisplayName, fn, cppResolver, fnCurrentFolder, externalTypes);
+        if (overloads.Count == 1)
+        {
+            WriteFreeFunctionContent(writer, nsDisplayName, overloads[0], cppResolver, fnCurrentFolder, externalTypes);
+        }
+        else
+        {
+            // Overloads share one page; each gets its own section
+            foreach (var fn in overloads)
+            {
+                var paramTypes = string.Join(", ", fn.Parameters.Select(p => CppEmitter.SimplifyTypeName(p.TypeName)));
+                writer.WriteHeading(2, $"{fn.Name}({paramTypes})");
+                WriteFreeFunctionContent(writer, nsDisplayName, fn, cppResolver, fnCurrentFolder, externalTypes, parametersHeadingLevel: 3);
+            }
+        }
+
         CppEmitter.WriteExternalTypesSection(writer, externalTypes);
     }
 
@@ -759,15 +760,15 @@ internal sealed class CppEmitterGradualDisclosure
     /// </summary>
     private static void WriteMemberPage(
         IMarkdownWriterFactory factory,
-        string nsKey,
+        CppNames names,
+        string memberKey,
         string nsDisplayName,
         CppClass cls,
         object member,
-        string fileName,
         CppTypeLinkResolver cppResolver)
     {
-        var memberCurrentFolder = CppEmitter.SanitizePath($"{nsKey}/{cls.Name}");
-        using var memberWriter = factory.CreateMarkdown(memberCurrentFolder, CppEmitter.SanitizeFileName(fileName));
+        var memberCurrentFolder = names.Directory(memberKey);
+        using var memberWriter = factory.CreateMarkdown(memberCurrentFolder, names.Name(memberKey));
 
         var externalTypes = new SortedSet<CppExternalTypeInfo>();
 
@@ -938,11 +939,12 @@ internal sealed class CppEmitterGradualDisclosure
     /// </summary>
     private void WriteEnumPage(
         IMarkdownWriterFactory factory,
-        string nsKey,
+        string parentKey,
         string nsDisplayName,
         CppEnum cppEnum)
     {
-        using var writer = factory.CreateMarkdown(CppEmitter.SanitizePath(nsKey), CppEmitter.SanitizeFileName(cppEnum.Name));
+        var enumKey = CppNames.EnumKey(parentKey, cppEnum.Name);
+        using var writer = factory.CreateMarkdown(_names.Directory(enumKey), _names.Name(enumKey));
         writer.WriteHeading(1, cppEnum.Name);
 
         // Emit the fully-qualified name comment and optional #include directive so readers
@@ -1005,12 +1007,14 @@ internal sealed class CppEmitterGradualDisclosure
     /// </summary>
     private void WriteTypeAliasPage(
         IMarkdownWriterFactory factory,
-        string nsKey,
+        string parentKey,
         string nsDisplayName,
         CppTypeAlias alias,
         CppTypeLinkResolver cppResolver)
     {
-        using var writer = factory.CreateMarkdown(CppEmitter.SanitizePath(nsKey), CppEmitter.SanitizeFileName(alias.Name));
+        var aliasKey = CppNames.AliasKey(parentKey, alias.Name);
+        var aliasFolder = _names.Directory(aliasKey);
+        using var writer = factory.CreateMarkdown(aliasFolder, _names.Name(aliasKey));
         writer.WriteHeading(1, alias.Name);
 
         // Accumulate external type references found in the underlying type on this page
@@ -1059,7 +1063,7 @@ internal sealed class CppEmitterGradualDisclosure
         }
 
         // Resolve the underlying type to track any non-std external type references
-        cppResolver.Linkify(simplifiedUnderlying, CppEmitter.SanitizePath(nsKey), externalTypes);
+        cppResolver.Linkify(simplifiedUnderlying, aliasFolder, externalTypes);
         CppEmitter.WriteExternalTypesSection(writer, externalTypes);
     }
 
@@ -1067,16 +1071,17 @@ internal sealed class CppEmitterGradualDisclosure
     ///     Writes the summary page for a single namespace, listing its owned types,
     ///     enums, and free functions.
     /// </summary>
-    private static void WriteNamespacePage(
+    private void WriteNamespacePage(
         IMarkdownWriterFactory factory,
         string nsKey,
         CppEmitter.NamespaceDeclarations nsDecls,
         CppTypeLinkResolver cppResolver)
     {
-        // The page itself sits at the root under its (api-safe) page name, while the types, enums,
-        // aliases, and functions it links to live in the namespace's sanitized folder
-        var safeNs = CppEmitter.SanitizePath(nsKey);
-        using var writer = factory.CreateMarkdown("", CppEmitter.GetNamespacePageName(nsKey));
+        // The page sits at the root under its approved name; the types, enums, aliases, and
+        // functions it links to live in the namespace's approved folder
+        var nsRegistryKey = CppNames.NamespaceKey(nsKey);
+        using var writer = factory.CreateMarkdown(_names.Directory(nsRegistryKey), _names.Name(nsRegistryKey));
+        var nsDir = _names.Directory(nsRegistryKey);
         writer.WriteHeading(1, $"{nsDecls.DisplayName} Namespace");
 
         // Accumulate external type references found in type-column cells on this page
@@ -1092,7 +1097,7 @@ internal sealed class CppEmitterGradualDisclosure
                 .Select(cls =>
                 {
                     var summary = CppEmitter.GetSummary(cls.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
-                    return new[] { $"[{cls.Name}]({safeNs}/{CppEmitter.SanitizeFileName(cls.Name)}.md)", summary };
+                    return new[] { $"[{cls.Name}]({_names.Link(nsDir, CppNames.ClassKey(nsRegistryKey, cls.Name))})", summary };
                 });
             writer.WriteTable(typeHeaders, typeRows);
         }
@@ -1107,7 +1112,7 @@ internal sealed class CppEmitterGradualDisclosure
                 .Select(en =>
                 {
                     var summary = CppEmitter.GetSummary(en.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
-                    return new[] { $"[{en.Name}]({safeNs}/{CppEmitter.SanitizeFileName(en.Name)}.md)", summary };
+                    return new[] { $"[{en.Name}]({_names.Link(nsDir, CppNames.EnumKey(nsRegistryKey, en.Name))})", summary };
                 });
             writer.WriteTable(enumHeaders, enumRows);
         }
@@ -1123,7 +1128,7 @@ internal sealed class CppEmitterGradualDisclosure
                 {
                     var summary = CppEmitter.GetSummary(alias.Doc) ?? CppEmitter.NoDescriptionPlaceholder;
                     var underlying = cppResolver.Linkify(CppEmitter.SimplifyTypeName(alias.UnderlyingTypeName), string.Empty, externalTypes)!;
-                    return new[] { $"[{alias.Name}]({safeNs}/{CppEmitter.SanitizeFileName(alias.Name)}.md)", underlying, summary };
+                    return new[] { $"[{alias.Name}]({_names.Link(nsDir, CppNames.AliasKey(nsRegistryKey, alias.Name))})", underlying, summary };
                 });
             writer.WriteTable(aliasHeaders, aliasRows);
         }
@@ -1143,6 +1148,11 @@ internal sealed class CppEmitterGradualDisclosure
         {
             writer.WriteHeading(2, "Functions");
             var fnHeaders = new[] { "Function", ReturnsLabel, CppEmitter.DescriptionColumnHeader };
+            var overloadedNames = regularFreeFunctions
+                .GroupBy(f => f.Name, StringComparer.Ordinal)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToHashSet(StringComparer.Ordinal);
             var fnRows = regularFreeFunctions
                 .OrderBy(f => f.Name, StringComparer.Ordinal)
                 .Select(fn =>
@@ -1152,8 +1162,10 @@ internal sealed class CppEmitterGradualDisclosure
                     // Linkify the return type cell; namespace page folder is "" (root)
                     var returnType = cppResolver.Linkify(
                         CppEmitter.SimplifyTypeName(fn.ReturnTypeName), string.Empty, externalTypes)!;
-                    var safeName = CppEmitter.SanitizeFileName(fn.Name);
-                    return new[] { $"[{fn.Name}]({safeNs}/{safeName}.md)", returnType, summary };
+                    var linkText = overloadedNames.Contains(fn.Name)
+                        ? $"{fn.Name}({string.Join(", ", fn.Parameters.Select(p => CppEmitter.SimplifyTypeName(p.TypeName)))})"
+                        : fn.Name;
+                    return new[] { $"[{linkText}]({_names.Link(nsDir, CppNames.FunctionKey(nsRegistryKey, fn.Name))})", returnType, summary };
                 });
             writer.WriteTable(fnHeaders, fnRows);
         }
@@ -1165,7 +1177,7 @@ internal sealed class CppEmitterGradualDisclosure
             writer.WriteHeading(2, OperatorsLabel);
             writer.WriteTable(
                 new[] { OperatorsLabel, CppEmitter.DescriptionColumnHeader },
-                new[] { new[] { $"[operators]({safeNs}/operators.md)", "Operator overloads" } });
+                new[] { new[] { $"[operators]({_names.Link(nsDir, CppNames.OperatorsKey(nsRegistryKey))})", "Operator overloads" } });
         }
 
         CppEmitter.WriteExternalTypesSection(writer, externalTypes);

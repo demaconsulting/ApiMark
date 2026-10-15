@@ -246,9 +246,9 @@ public class CppEmitterGradualDisclosureTests
         Assert.True(factory.HasWriter("testlib/Widget", "Nested"));
     }
 
-    /// <summary>Validates that colliding member names are merged onto a single lowercase page.</summary>
+    /// <summary>Validates that members differing only by case get distinct pages; the first in ordinal order keeps the plain name.</summary>
     [Fact]
-    public void CppEmitterGradualDisclosure_Emit_CaseInsensitiveCollision_CreatesCombinedPage()
+    public void CppEmitterGradualDisclosure_Emit_CaseTwinMembers_GetDistinctPages()
     {
         // Arrange
         var factory = new InMemoryMarkdownWriterFactory();
@@ -258,8 +258,9 @@ public class CppEmitterGradualDisclosureTests
         new CppEmitterGradualDisclosure(emitter, nsDecls, resolver).Emit(factory, new EmitConfig(), new InMemoryContext());
 
         // Assert
-        Assert.True(factory.HasWriter("testlib/CaseCollisionClass", "name"));
-        Assert.False(factory.HasWriter("testlib/CaseCollisionClass", "Name"));
+        Assert.True(factory.HasWriter("testlib/CaseCollisionClass", "Name"));
+        Assert.True(factory.HasWriter("testlib/CaseCollisionClass", "name-2"));
+        Assert.False(factory.HasWriter("testlib/CaseCollisionClass", "name"));
     }
 
     /// <summary>
@@ -437,13 +438,7 @@ public class CppEmitterGradualDisclosureTests
         auxNs.Classes.Add(new CppClass("Plain", [], [], [], [], [], [], false, false, null, new CppDocComment("Plain.", null, [], null)));
         nsDecls["aux"] = auxNs;
 
-        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            { "Aux", "testlib/Aux" },
-            { "testlib::Aux", "testlib/Aux" },
-            { "testlib::Foo<int>", "testlib/Foo<int>" },
-            { "testlib::Foo<int>::Aux", "testlib/Foo<int>/Aux" },
-        });
+        var resolver = new CppTypeLinkResolver(CppNames.Build(nsDecls).BuildKnownTypes(nsDecls));
 
         return (new CppEmitter(options, nsDecls, resolver), nsDecls, resolver);
     }
@@ -470,30 +465,32 @@ public class CppEmitterGradualDisclosureTests
         {
             foreach (var segment in key.Split('/'))
             {
-                Assert.True(FileNameSanitizer.IsLegalSegment(segment), $"Illegal segment '{segment}' in '{key}'");
+                Assert.True(FileNameRules.IsLegalSegment(segment), $"Illegal segment '{segment}' in '{key}'");
             }
         }
     }
 
-    /// <summary>Validates that template, reserved, and namespace pages are created at their sanitized paths.</summary>
+    /// <summary>Validates that template, reserved, and namespace pages are created at their approved paths.</summary>
     [Fact]
-    public void CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_PagesUseSanitizedPaths()
+    public void CppEmitterGradualDisclosure_Emit_IllegalAndReservedNames_PagesUseApprovedPaths()
     {
         // Arrange / Act
         var factory = EmitIllegalNames();
 
         // Assert
         Assert.True(factory.HasWriter("testlib", "Foo{int}"));
-        Assert.True(factory.HasWriter("testlib", "Aux-"));
-        Assert.True(factory.HasWriter("testlib", "CON-"));
+        Assert.True(factory.HasWriter("testlib", "Aux_"));
+        Assert.True(factory.HasWriter("testlib", "CON_"));
+        Assert.True(factory.HasWriter("testlib", "a_b"));
         Assert.True(factory.HasWriter("testlib/Foo{int}", "Get"));
-        Assert.True(factory.HasWriter("testlib/Foo{int}", "name"));
+        Assert.True(factory.HasWriter("testlib/Foo{int}", "Name"));
+        Assert.True(factory.HasWriter("testlib/Foo{int}", "name-2"));
+        Assert.False(factory.HasWriter("testlib/Foo{int}", "name"));
         Assert.True(factory.HasWriter("testlib/Foo{int}", "operators"));
-        Assert.True(factory.HasWriter("testlib/Foo{int}", "Aux-"));
-        Assert.True(factory.HasWriter("", "aux-"));
-        Assert.True(factory.HasWriter("aux-", "Plain"));
-        Assert.True(factory.HasWriter("testlib", CppEmitter.SanitizeFileName("a:b")));
-        Assert.True(factory.HasWriter("testlib/Foo{int}", CppEmitter.SanitizeFileName("a:b")));
+        Assert.True(factory.HasWriter("testlib/Foo{int}", "Aux_"));
+        Assert.True(factory.HasWriter("testlib/Foo{int}", "a_b"));
+        Assert.True(factory.HasWriter("", "aux_"));
+        Assert.True(factory.HasWriter("aux_", "Plain"));
     }
 
     /// <summary>Validates that every relative link emitted for illegal names resolves to a page that was written.</summary>
@@ -562,23 +559,17 @@ public class CppEmitterGradualDisclosureTests
         // Generic, odd-namespace, and reserved-device types that link back to each other from member pages
         var generic = Cls(
             "Foo<int>",
-            [Fn("Self", "Foo<int>"), Fn("MakeInner", "Inner"), Fn("Use", "int", new CppParameter("a", "Aux"), new CppParameter("c", "CON"))],
+            [Fn("Self", "a::b::Foo<int>"), Fn("MakeInner", "Inner"), Fn("Use", "int", new CppParameter("a", "a::b::Aux"), new CppParameter("c", "a::b::CON"))],
             null,
-            [Cls("Aux")]);
+            [Cls("Inner")]);
         var oddNs = new CppEmitter.NamespaceDeclarations("a::b", null);
         oddNs.Classes.Add(generic);
         oddNs.Classes.Add(Cls("Aux"));
         oddNs.Enums.Add(new CppEnum("CON", [], false, null, null));
-        oddNs.Classes.Add(Cls("Sibling", [Fn("Back", "Foo<int>"), Fn("Other", "Aux")]));
+        oddNs.Classes.Add(Cls("Sibling", [Fn("Back", "a::b::Foo<int>"), Fn("Other", "a::b::Aux")]));
         nsDecls["a::b"] = oddNs;
 
-        var resolver = new CppTypeLinkResolver(new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            { "Foo", "a::b/Foo<int>" },
-            { "Inner", "a::b/Foo<int>/Aux" },
-            { "Aux", "a::b/Aux" },
-            { "CON", "a::b/CON" },
-        });
+        var resolver = new CppTypeLinkResolver(CppNames.Build(nsDecls).BuildKnownTypes(nsDecls));
 
         return (new CppEmitter(options, nsDecls, resolver), nsDecls, resolver);
     }
@@ -609,16 +600,17 @@ public class CppEmitterGradualDisclosureTests
         var factory = EmitReservedPages();
 
         // Assert: the operators page keeps its operator content, and the member page is moved aside
-        var operatorsPage = factory.GetWriter("api/Holder", "operators");
+        var operatorsPage = factory.GetWriter("api-2/Holder", "operators");
         Assert.Contains(operatorsPage.Operations.OfType<HeadingOperation>(), h => h.Level == 2 && h.Text.StartsWith("operator+", StringComparison.Ordinal));
-        Assert.True(factory.HasWriter("api/Holder", "operators-"));
+        Assert.True(factory.HasWriter("api-2/Holder", "operators-2"));
         Assert.Contains(
-            factory.GetWriter("api", "Holder").Operations.OfType<TableOperation>().SelectMany(t => t.Rows),
-            r => r[0].Contains("(Holder/operators-.md)", StringComparison.Ordinal));
+            factory.GetWriter("api-2", "Holder").Operations.OfType<TableOperation>().SelectMany(t => t.Rows),
+            r => r[0].Contains("(Holder/operators-2.md)", StringComparison.Ordinal));
 
-        // A case-colliding combined page is moved aside too
-        Assert.True(factory.HasWriter("api/Cased", "operators-"));
-        Assert.False(factory.HasWriter("api/Cased", "operators"));
+        // A case twin of the reserved name is moved aside too
+        Assert.True(factory.HasWriter("api-2/Cased", "Operators-2"));
+        Assert.False(factory.HasWriter("api-2/Cased", "operators"));
+        Assert.False(factory.HasWriter("api-2/Cased", "Operators"));
     }
 
     /// <summary>Validates that declarations and namespaces named like reserved pages are moved aside consistently.</summary>
@@ -629,43 +621,44 @@ public class CppEmitterGradualDisclosureTests
         var factory = EmitReservedPages();
 
         // Assert: class, nested class, and free function named operators; namespace named api
-        Assert.True(factory.HasWriter("api", "operators-"));
-        Assert.True(factory.HasWriter("api", "operators"));
+        Assert.True(factory.HasWriter("api-2", "operators-2"));
+        Assert.True(factory.HasWriter("api-2", "operators"));
         Assert.Contains(
-            factory.GetWriter("api", "operators").Operations.OfType<HeadingOperation>(),
+            factory.GetWriter("api-2", "operators").Operations.OfType<HeadingOperation>(),
             h => h.Level == 2 && h.Text.StartsWith("operator<<", StringComparison.Ordinal));
-        Assert.True(factory.HasWriter("api/Outer", "operators-"));
-        Assert.True(factory.HasWriter("api/Outer", "operators"));
-        Assert.True(factory.HasWriter("other", "operators-"));
+        Assert.True(factory.HasWriter("api-2/Outer", "operators-2"));
+        Assert.True(factory.HasWriter("api-2/Outer", "operators"));
+        Assert.True(factory.HasWriter("other", "operators-2"));
         Assert.True(factory.HasWriter("other", "operators"));
-        Assert.True(factory.HasWriter("", "api-"));
+        Assert.True(factory.HasWriter("", "api-2"));
+        Assert.True(factory.HasWriter("", "api"));
         Assert.Contains(
             factory.GetWriter("", "api").Operations.OfType<TableOperation>().SelectMany(t => t.Rows),
-            r => r[0].Contains("(api-.md)", StringComparison.Ordinal));
+            r => r[0].Contains("(api-2.md)", StringComparison.Ordinal));
     }
 
     /// <summary>Validates that links from member pages of generic and odd-named types use plain relative paths to written pages.</summary>
     [Fact]
-    public void CppEmitterGradualDisclosure_Emit_GenericAndOddNames_MemberPageLinksUseSingleSanitization()
+    public void CppEmitterGradualDisclosure_Emit_GenericAndOddNames_MemberPageLinksUseApprovedPaths()
     {
         // Arrange / Act
         var factory = EmitReservedPages();
-        var oddFolder = CppEmitter.SanitizePath("a::b");
-        var genericFolder = $"{oddFolder}/Foo{{int}}";
+        const string oddFolder = "a__b";
+        const string genericFolder = "a__b/Foo{int}";
 
         // Assert: from the generic member page, the owning type and nested type resolve without detours
         var self = factory.GetWriter(genericFolder, "Self").Operations.OfType<ParagraphOperation>().Select(p => p.Text);
         Assert.Contains(self, t => t.Contains("(../Foo{int}.md)", StringComparison.Ordinal));
         var inner = factory.GetWriter(genericFolder, "MakeInner").Operations.OfType<ParagraphOperation>().Select(p => p.Text);
-        Assert.Contains(inner, t => t.Contains("(Aux-.md)", StringComparison.Ordinal));
+        Assert.Contains(inner, t => t.Contains("(Inner.md)", StringComparison.Ordinal));
 
         // Assert: from sibling and reserved-name pages, the sibling, reserved class, and enum resolve directly
         var sibling = factory.GetWriter(oddFolder, "Sibling").Operations.OfType<TableOperation>().SelectMany(t => t.Rows).Select(r => r.Length > 1 ? r[1] : string.Empty);
         Assert.Contains(sibling, c => c.Contains("(Foo{int}.md)", StringComparison.Ordinal));
-        Assert.Contains(sibling, c => c.Contains("(Aux-.md)", StringComparison.Ordinal));
+        Assert.Contains(sibling, c => c.Contains("(Aux_.md)", StringComparison.Ordinal));
         var use = factory.GetWriter(genericFolder, "Use").Operations.OfType<TableOperation>().SelectMany(t => t.Rows).Select(r => r[1]);
-        Assert.Contains(use, c => c.Contains("(../Aux-.md)", StringComparison.Ordinal));
-        Assert.Contains(use, c => c.Contains("(../CON-.md)", StringComparison.Ordinal));
+        Assert.Contains(use, c => c.Contains("(../Aux_.md)", StringComparison.Ordinal));
+        Assert.Contains(use, c => c.Contains("(../CON_.md)", StringComparison.Ordinal));
     }
 
     /// <summary>Validates that every link in every table cell and paragraph resolves to a page the emitter wrote.</summary>
