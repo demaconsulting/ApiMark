@@ -116,7 +116,7 @@ pure method overload group (all methods sharing the same exact case-sensitive sa
   `XmlDocReader xmlDocs`, `TypeLinkResolver resolver`.
 - *Returns*: `void`
 - *Algorithm*: Computes `sanitizedName = BuildMethodFileName(overloads[0], type)`;
-  creates `{namespaceFolderPath}/{FlattenArity(type.Name)}/{sanitizedName}.md` via the
+  creates `{namespaceFolderPath}/{GetTypeFileName(type)}/{sanitizedName}.md` via the
   factory; writes an H1 heading using `GetMethodGroupName(overloads[0])`; for each overload
   writes an H2 heading using `BuildMethodDisplayName(overload)` and delegates to
   `WriteMethodDocumentation`; accumulates external type references across all overloads and
@@ -126,7 +126,7 @@ pure method overload group (all methods sharing the same exact case-sensitive sa
 page for a group of members whose sanitized file names collide on
 case-insensitive file systems.
 
-- *Algorithm*: Creates `{namespaceFolderPath}/{FlattenArity(type.Name)}/{lowerKey}.md` via the
+- *Algorithm*: Creates `{namespaceFolderPath}/{GetTypeFileName(type)}/{lowerKey}.md` via the
   factory; writes an H1 heading using `lowerKey`; for each member writes an H2
   heading of the form `{displayName} ({kindLabel})`; delegates to
   `WriteMethodDocumentation` for `MethodDefinition` members and to
@@ -153,7 +153,7 @@ a type that defines operator overloads.
   `IReadOnlyList<MethodDefinition> operatorMethods` — the operator methods to
   document, `XmlDocReader xmlDocs`, `TypeLinkResolver resolver`.
 - *Returns*: `void`
-- *Algorithm*: Creates `{namespaceFolderPath}/{FlattenArity(type.Name)}/operators.md`
+- *Algorithm*: Creates `{namespaceFolderPath}/{GetTypeFileName(type)}/operators.md`
   via the factory; writes an H1 heading; for each operator method writes an H2
   heading using `BuildMethodDisplayName`, which produces a C# method-signature form
   including the operator keyword and full parameter list, and delegates to
@@ -162,9 +162,9 @@ a type that defines operator overloads.
 
 **WriteNestedTypePage** (via recursive `WriteTypePage`): Writes a dedicated Markdown page for each visible nested type under its containing type's folder.
 
-- *Parameters*: `TypePageWriteContext ctx` — context for the nested type, where `NamespaceFolderPath` is set to `{parentNamespaceFolderPath}/{FlattenArity(containingTypeName)}` and `Type` is the nested type definition.
+- *Parameters*: `TypePageWriteContext ctx` — context for the nested type, where `NamespaceFolderPath` is set to `{parentNamespaceFolderPath}/{GetTypeFileName(containingType)}` and `Type` is the nested type definition.
 - *Returns*: `void`
-- *Path pattern*: `factory.CreateMarkdown("{namespaceFolderPath}/{FlattenArity(containingTypeName)}", nestedTypeName)` — the nested type's page is placed under its containing type's folder segment.
+- *Path pattern*: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(containingType)}", GetTypeFileName(nestedType))` — the nested type's page is placed under its containing type's folder segment.
 - *Algorithm*: Called from `WriteTypePage` for each element of `GetVisibleNestedTypes(ctx.Type)`. Each nested type's page is written by recursively calling `WriteTypePage` with the updated context; the nested type's own members are iterated and documented on that page following the same process as any other type page.
 
 **WriteMemberPage** (private static): Creates the dedicated detail page for a single
@@ -176,7 +176,7 @@ non-overloaded, non-collision member.
   XML-doc member ID for documentation lookups.
 - *Returns*: `void`
 - *Algorithm*: Computes `sanitizedName` via `GetSanitizedMemberFileName`; creates the page
-  writer at `{namespaceFolderPath}/{FlattenArity(type.Name)}/{sanitizedName}.md`; writes an H1
+  writer at `{namespaceFolderPath}/{GetTypeFileName(type)}/{sanitizedName}.md`; writes an H1
   heading using `GetMemberDisplayName`; if `member` is a `MethodDefinition`, creates a
   `SortedSet<ExternalTypeInfo>`, calls `WriteMethodDocumentation`, and emits the external types
   section via `WriteExternalTypesSection`; otherwise delegates to
@@ -394,13 +394,16 @@ member, and operators page patterns.
   (`FileNameSanitizer` plus reserved-name, `operators`, and case-twin disambiguation); `FlattenArity`
   is only the first step. Known limits: namespace segments that differ only by case, and
   external-assembly type twins, are not disambiguated.
-- Type page: `factory.CreateMarkdown(namespaceFolderPath, FlattenArity(type.Name))`
-  where `FlattenArity` replaces backtick-arity notation (e.g. `` SampleGenericClass`1 ``)
-  with a hyphenated arity form (`SampleGenericClass-1`) for file-system safety. This is distinct
+- Type page: `factory.CreateMarkdown(namespaceFolderPath, GetTypeFileName(type))`
+  where `GetTypeFileName` starts from `FlattenArity`, which replaces backtick-arity notation
+  (e.g. `` SampleGenericClass`1 ``) with a hyphenated arity form (`SampleGenericClass-1`), and
+  then applies the sanitizer, reserved-name, and case-twin rules. This is distinct
   from `StripArity`, which removes the arity suffix entirely and is used for display names.
-- Member detail: `factory.CreateMarkdown("{namespaceFolderPath}/{FlattenArity(type.Name)}", memberName)`
-- Operators page: `factory.CreateMarkdown("{namespaceFolderPath}/{FlattenArity(type.Name)}", "operators")`
-- Combined page: `factory.CreateMarkdown("{namespaceFolderPath}/{FlattenArity(type.Name)}", lowerKey)`
+- Member detail: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", GetSanitizedMemberFileName(member, type))`
+- Operators page: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", "operators")`
+  (a member literally named `operators` is escaped to `operators-` so the pages cannot collide)
+- Combined page: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", lowerKey)`
+  where `lowerKey` is `GetSanitizedMemberFileName(member, type)` lower-cased
 
 ### Error Handling
 
