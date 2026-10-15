@@ -43,19 +43,10 @@ pwsh ./build.ps1
 
 ## Breaking Changes
 
-Generated file names changed. All file and folder names now come from one symbol-name registry that
-resolves every collision before anything is written. Update any links that point at the old names:
-
-| Old name                         | New name                                 |
-| -------------------------------- | ---------------------------------------- |
-| `Foo-1.md` (`Foo<T>`)            | `Foo{1}.md`                              |
-| `Name-<hash>.md` (illegal char)  | `Name_.md` (character replaced by `_`)   |
-| `CON-.md` (reserved name)        | `CON_.md`                                |
-| `operators-.md` (member clash)   | `operators-2.md`                         |
-| One combined page for case twins | `Name.md` and `name-2.md`                |
-| `IFoo{System.Int32}.Get`         | `IFoo{int}.Get`                          |
-
-The complete rules are in the user guides and `docs/design/api-mark-core/file-naming-rules.md`.
+Generated file names changed (for example `Foo-1.md` is now `Foo{1}.md`). All names now come from one
+symbol-name registry that resolves every collision before anything is written. Output is regenerated on
+each build, so no migration is needed. The rules are in
+`docs/design/api-mark-core/file-naming-rules.md`.
 
 ## References
 

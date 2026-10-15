@@ -455,8 +455,8 @@ N/A — this is an internal class with no external interfaces exposed beyond its
 - Type and member files use the brace-arity form `Name{arity}` (for example `PropertyEditorRegistry{1}.md`).
   `Foo`, `Foo<T>` and `Foo<T1, T2>` map to `Foo.md`, `Foo{1}.md` and `Foo{2}.md`, and a type named `Foo1`
   keeps `Foo1.md`. All names are approved once by the symbol-name registry (`DotNetNames`); the emitters
-  and the link resolver only read them, so page keys and links cannot diverge. This is a breaking change
-  to earlier `Foo-1.md` output. Readable names appear in headings and link text.
+  and the link resolver only read them, so page keys and links cannot diverge.
+  Readable names appear in headings and link text.
 - Namespace pages begin with `[API Reference](api.md) › ancestors › This`; only ancestors that have
   pages are linked and the current namespace is plain text.
 - `api.md` starts with a `**Start here:**` link to the namespace with the most types (first

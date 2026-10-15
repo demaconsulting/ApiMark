@@ -136,8 +136,7 @@ Generic types use escaped headings (`PropertyEditorRegistry\<TEditor\>`), a Type
 table taken from `<typeparam>`, and `where` constraints in signatures. Their file names use brace arity, `Name{arity}` (for example `PropertyEditorRegistry{1}.md` for
 `PropertyEditorRegistry<TEditor>` and `KeyedPair{2}.md` for `KeyedPair<TKey, TValue>`). Braces cannot
 appear in a C# identifier, so `Foo{1}.md` (for `Foo<T>`) never collides with `Foo1.md` (for a type named
-`Foo1`), and `Foo.md`, `Foo{1}.md` and `Foo{2}.md` stay distinct. Earlier releases wrote `Foo-1.md` (and
-before that `Name1.md`); links that point at the old names must be updated. Overload rows
+`Foo1`), and `Foo.md`, `Foo{1}.md` and `Foo{2}.md` stay distinct. Overload rows
 list every distinct return type (including `void`); the row shows the summary only when every overload has the same summary; when they differ, or any overload has
 none, it shows `Overloaded; see the member page.` instead of one overload's summary. Cross-reference links to an overload
 include the signature in the link text (`UndoHistory.Transact(string, Action)`) and end with an anchor to
@@ -169,9 +168,7 @@ complete numbered rules are in `docs/design/api-mark-core/file-naming-rules.md`.
   the visibility filter.
 
 Limitation: a link to a type in an external (mapped) assembly uses that type's predictable name, and is
-wrong if the other package had to displace it with a numeric suffix. This is a breaking change from
-earlier releases (`Foo-1.md` is now `Foo{1}.md`, hash-suffixed names are now `_` and `-N` names); update
-any links that point at the old file names.
+wrong if the other package had to displace it with a numeric suffix.
 
 ### Breadcrumbs
 

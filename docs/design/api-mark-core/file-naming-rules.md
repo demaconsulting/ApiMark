@@ -139,8 +139,7 @@ other package's collisions cannot be known.
 
 - Predictability first: a plain name wins over a suffixed one, and `-N` is only the last resort.
 - Every symbol, visible or not, is registered so names are stable regardless of visibility.
-- Migrating from earlier releases: `Foo-1` is now `Foo{1}`; hash-suffixed names are now `_` and `-N` names;
-  reserved names use a `_` suffix instead of `-`.
+- No legacy naming or migration support: output is regenerated on each build, so only link integrity matters.
 
 ### Error Handling
 
