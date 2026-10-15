@@ -68,4 +68,7 @@ sections:
               assembly's own namespaces. XmlDocReader uses this answer to keep such a cref a
               plain code span.
             tests:
+              - CrefTargetResolver_DeclaresCrefType_OwnAssemblyType_ReturnsTrue
+              - CrefTargetResolver_DeclaresCrefType_ExplicitInterfaceMember_ReturnsTrue
+              - CrefTargetResolver_DeclaresCrefType_ForeignOrMalformed_ReturnsFalse
               - DotNetEmitterGradualDisclosure_Emit_OwnAssemblyCref_NotEmitted_NeverLinksExternally

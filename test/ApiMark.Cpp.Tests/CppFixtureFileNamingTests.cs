@@ -8,6 +8,12 @@ namespace ApiMark.Cpp.Tests;
 /// <summary>
 ///     Whole-output naming properties of the clang-generated fixture documentation. These tests require clang.
 /// </summary>
+/// <remarks>
+///     Shares the <c>"ClangEnvironment"</c> xUnit collection (see <see cref="ClangEnvironmentCollection"/>)
+///     with <see cref="ClangAstParserTests"/> so that the real clang invocations made during
+///     <see cref="CppGeneratorFixture"/> construction cannot race against tests there that mutate the
+///     process-wide <c>APIMARK_CLANG_TIMEOUT_MS</c> environment variable.
+/// </remarks>
 [Collection("ClangEnvironment")]
 public class CppFixtureFileNamingTests : IClassFixture<CppGeneratorFixture>
 {

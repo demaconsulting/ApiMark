@@ -114,4 +114,12 @@ real compiler-emitted XML doc IDs, and resolves back to the method via
 `TryResolveMember`. This scenario is tested by
 `CrefTargetResolver_TryResolveMember_GenericMethodWithArrayParameter_ResolvesPositionalNotation`.
 
+**DeclaresCrefType matches exactly**: Index the fixture assembly and query `DeclaresCrefType`. Expected: a `T:` cref
+of an indexed type, an existing member, a non-existent member of an indexed type, and an indexed explicit-interface
+member (dotted name) all return `true`; a nested name that merely shares a local type as prefix, an unknown kind
+prefix, a foreign `System` type or member, an unknown type, and malformed or empty input all return `false`. Tested by
+`CrefTargetResolver_DeclaresCrefType_OwnAssemblyType_ReturnsTrue`,
+`CrefTargetResolver_DeclaresCrefType_ExplicitInterfaceMember_ReturnsTrue`, and
+`CrefTargetResolver_DeclaresCrefType_ForeignOrMalformed_ReturnsFalse`.
+
 **Own-assembly crefs never link externally**: Arrange the fixture assembly mapped onto itself in `ExternalLinks` (forcing a namespace-prefix overlap) and a cref to a filtered-out private member. Expected: the cref stays a plain code span and no external link is emitted. Tested by `DotNetEmitterGradualDisclosure_Emit_OwnAssemblyCref_NotEmitted_NeverLinksExternally`.

@@ -257,6 +257,9 @@ sections:
               documented assembly. Without comparing the module identity such a type would be
               rendered as a link to a page that does not exist in the documented tree.
             tests:
+              - TypeLinkResolver_Linkify_ForeignModuleType_RendersPlainTextAndTracksExternal
+              - TypeLinkResolver_Linkify_ForeignModuleType_MappedAssembly_LinksExternally
+              - TypeLinkResolver_Linkify_DocumentedModuleType_StillLinksLocally
               - DotNetEmitterGradualDisclosure_Emit_ExternalBaseChain_Unmapped_RendersPlainTextHeadings
               - DotNetEmitterGradualDisclosure_Emit_ExternalBaseChain_Mapped_LinksEveryHeadingIntoExternalDocs
               - DotNetEmitterGradualDisclosure_Emit_WithReferences_AllRelativeLinksResolveToEmittedPages
