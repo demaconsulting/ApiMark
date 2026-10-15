@@ -166,4 +166,9 @@ types use brace-arity folders and files, and all relative links resolve. The reg
 `DotNetEmitterGradualDisclosure_Emit_NestedGenericType_UsesHyphenatedFolderAndFile`,
 `DotNetEmitterGradualDisclosure_Emit_AllPages_NoDigitSuffixFileNamesForGenericTypes`,
 `DotNetEmitterGradualDisclosure_Emit_AllRelativeLinks_ResolveToEmittedPages`, and
-`DotNetEmitterGradualDisclosure_Emit_CrefAndBaseTypeLinks_UseHyphenatedArityNames`.
+`DotNetEmitterGradualDisclosure_Emit_CrefAndBaseTypeLinks_UseHyphenatedArityNames`. The hand-built assembly
+tests in `DotNetSyntheticNamingTests` (`DotNetSyntheticNaming_HostileTypeNames_GetExactNames`,
+`..._NamesLikeApi_NeverOverwriteRootIndex`, `..._MemberNamedOperators_IsDisplacedAndOperatorCheckIsStrict`,
+`..._NamespaceAndTypeSamePath_NamespaceWinsTypeIsSuffixedAndLinksResolve`, `..._CaseTwins_GetSeparatePaths`,
+`..._TypeLinks_UseApprovedNamesWithoutDoubleEscaping`, and
+`..._AllVisibilities_PathsAreLegalAndLinksAndBreadcrumbsResolve`) assert the exact names and links.

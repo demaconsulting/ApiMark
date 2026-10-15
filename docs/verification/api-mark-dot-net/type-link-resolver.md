@@ -310,4 +310,6 @@ external fixture assembly. Expected: crefs and property types naming `NestedHost
 and `NestedGenericHost<T>.Inner<U>` link to `.../NestedHost/Inner.md`, `.../NestedHost/Deep/Leaf.md`, and
 `.../NestedGenericHost{1}/Inner{1}.md`. Tested by
 `DotNetEmitterGradualDisclosure_Emit_ExternalNestedTypeCrefs_LinkToNestedPages` and
-`DotNetEmitterGradualDisclosure_Emit_ExternalNestedPropertyTypes_LinkToNestedPages`.
+`DotNetEmitterGradualDisclosure_Emit_ExternalNestedPropertyTypes_LinkToNestedPages`. External link names equal
+the names the target assembly's own registry produces; tested by
+`DotNetEmitterGradualDisclosure_Emit_ExternalLinks_MatchTargetAssemblyRegistryNames`.

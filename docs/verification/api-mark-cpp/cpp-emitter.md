@@ -30,7 +30,9 @@ Tests run with the standard xUnit.net test runner.
 replaced once, collisions are separated, and every link resolves. Tested by
 `CppNames_ClassEnumAliasFunctionSameName_AreSeparatedInKindOrder`, `CppNames_CaseTwinClasses_SecondGetsSuffix`,
 `CppNames_ReservedNames_AreNeverTaken`, `CppNames_TemplateAndDeviceNames_AreEscapedOnce`,
-`CppNames_QualifiedNamespaceKey_IsOneEscapedSegment`, `CppEmitter_OverloadedFreeFunctions_ShareOnePageWithEveryOverload`,
+`CppNames_QualifiedNamespaceKey_IsOneEscapedSegment`, `CppNames_AngleTemplateAndLiteralBraceNames_AreDistinctPages`,
+`CppEmitter_NestedTemplateInEscapedNamespace_LinkTargetEqualsWrittenPath`,
+`CppEmitter_OverloadedFreeFunctions_ShareOnePageWithEveryOverload`,
 `CppEmitter_ClassAndFunctionSameName_BothPagesWrittenAndLinked`, `CppEmitter_CollisionModel_AllPagesUniqueLegalAndLinksResolve`,
 and `CppEmitter_CollisionModel_IsDeterministic`.
 

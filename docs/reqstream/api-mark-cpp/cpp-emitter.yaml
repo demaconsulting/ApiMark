@@ -57,6 +57,8 @@ sections:
               - CppNames_ReservedNames_AreNeverTaken
               - CppNames_TemplateAndDeviceNames_AreEscapedOnce
               - CppNames_QualifiedNamespaceKey_IsOneEscapedSegment
+              - CppNames_AngleTemplateAndLiteralBraceNames_AreDistinctPages
+              - CppEmitter_NestedTemplateInEscapedNamespace_LinkTargetEqualsWrittenPath
               - CppEmitter_OverloadedFreeFunctions_ShareOnePageWithEveryOverload
               - CppEmitter_ClassAndFunctionSameName_BothPagesWrittenAndLinked
               - CppEmitter_CollisionModel_AllPagesUniqueLegalAndLinksResolve

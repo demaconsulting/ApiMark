@@ -49,6 +49,7 @@ sections:
               - SymbolNameRegistry_Resolve_NamespaceAndType_NamespaceWins
               - SymbolNameRegistry_Resolve_ReservedName_KeepsNameAndDisplacesSymbol
               - SymbolNameRegistry_Resolve_DisplacedParent_ChildrenFollow
+              - SymbolNameRegistry_Resolve_BracesBracketsAndEscapeLookalikes_AreDistinctAndExact
           - id: ApiMarkCore-SymbolNameRegistry-NumericSuffixLastResort
             title: SymbolNameRegistry shall append "-N" (N from 2) only to a symbol whose
               every predictable name is taken, and shall skip suffixes already in use.

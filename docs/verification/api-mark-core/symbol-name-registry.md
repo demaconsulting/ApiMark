@@ -29,7 +29,7 @@ rule NR-06 to NR-09 with exact outputs and the legality predicate.
 
 **SymbolNameRegistry_Resolve_UniqueNames_AreUnchanged**, **..._IdentityName_BeatsTransformedName**,
 **..._NamespaceAndType_NamespaceWins**, **..._ReservedName_KeepsNameAndDisplacesSymbol**,
-**..._DisplacedParent_ChildrenFollow**: Verify rules NR-14 and NR-16.
+**..._DisplacedParent_ChildrenFollow**, **..._BracesBracketsAndEscapeLookalikes_AreDistinctAndExact**: Verify rules NR-14 and NR-16.
 
 **SymbolNameRegistry_Resolve_CaseTwins_LowestKeyWinsAndOtherGetsSuffix**,
 **..._SuffixCandidateTaken_UsesNextNumber**, **..._CanonicallyEquivalentNames_AreDistinguished**: Verify
@@ -47,6 +47,9 @@ Verify call-order and input validation.
 Verify rule NR-19.
 
 **Language tests**: `DotNetFileNamingTests` (namespace vs type, case twins, `api`, brace arity, `operators`,
-explicit interface members, fixtures for all visibilities, every link resolves), `CppFileNamingTests`, and
+explicit interface members, fixtures for all visibilities, every link resolves),
+`DotNetSyntheticNamingTests` (a hand-built assembly with hostile type names, device names, names like `api`
+and `operators`, namespace-versus-type collisions and case twins, asserting exact names, links and
+breadcrumbs at every visibility), `CppFileNamingTests`, and
 `VhdlFileNamingTests` (entity vs package, case twins, reserved names, overloads, fixtures) verify NR-03
 to NR-05, NR-10 to NR-13, NR-17, and NR-18.

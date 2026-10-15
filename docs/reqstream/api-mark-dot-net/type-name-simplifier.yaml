@@ -163,4 +163,11 @@ sections:
               - DotNetGenerator_Emit_ExplicitGenericInterfaceMembers_KeepTypeArguments
               - DotNetGenerator_Emit_GenericType_UsesBraceArity
               - DotNetGenerator_Emit_Fixtures_PathsAreUniqueLegalAndLinksResolve
+              - DotNetSyntheticNaming_HostileTypeNames_GetExactNames
+              - DotNetSyntheticNaming_NamesLikeApi_NeverOverwriteRootIndex
+              - DotNetSyntheticNaming_MemberNamedOperators_IsDisplacedAndOperatorCheckIsStrict
+              - DotNetSyntheticNaming_NamespaceAndTypeSamePath_NamespaceWinsTypeIsSuffixedAndLinksResolve
+              - DotNetSyntheticNaming_CaseTwins_GetSeparatePaths
+              - DotNetSyntheticNaming_TypeLinks_UseApprovedNamesWithoutDoubleEscaping
+              - DotNetSyntheticNaming_AllVisibilities_PathsAreLegalAndLinksAndBreadcrumbsResolve
               - DotNetGenerator_Emit_Fixtures_NamesAreIndependentOfVisibility

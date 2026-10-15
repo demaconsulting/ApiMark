@@ -46,6 +46,7 @@ sections:
               - VhdlNames_CaseTwinEntities_SecondGetsSuffix
               - VhdlNames_DuplicateEntityAcrossFiles_GetsDistinctPages
               - VhdlNames_ReservedApiName_KeepsIndexPage
+              - VhdlNames_EntityApiPackageApiAndAux_ShareOneResolvedNamePerSymbol
               - VhdlNames_OverloadedAndCaseTwinSubprograms_GetDistinctPages
               - VhdlNames_IllegalAndDeviceNames_AreEscaped
               - VhdlNames_SameModel_IsDeterministic
