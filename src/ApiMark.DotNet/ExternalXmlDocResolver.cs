@@ -221,32 +221,34 @@ public sealed class ExternalXmlDocResolver
         if (!string.IsNullOrEmpty(declaringAssemblyHint)
             && _referencePathsByAssemblyName.TryGetValue(declaringAssemblyHint, out var hintedPaths))
         {
-            foreach (var hintedMembers in hintedPaths.Select(GetOrLoadMembers))
-            {
-                if (hintedMembers != null && hintedMembers.TryGetValue(memberId, out var hintedMember))
-                {
-                    result = hintedMember;
-                    break;
-                }
-            }
+            result = FindMember(hintedPaths, memberId);
         }
 
         // Fall back to searching every configured reference path in order — either no usable
         // hint was supplied, or the hinted path did not actually contain the member.
-        if (result == null)
-        {
-            foreach (var members in _referenceAssemblyPaths.Select(GetOrLoadMembers))
-            {
-                if (members != null && members.TryGetValue(memberId, out var member))
-                {
-                    result = member;
-                    break;
-                }
-            }
-        }
+        result ??= FindMember(_referenceAssemblyPaths, memberId);
 
         _memberCache[cacheKey] = result;
         return result;
+    }
+
+    /// <summary>
+    ///     Searches the given reference assemblies, in order, for a member.
+    /// </summary>
+    /// <param name="paths">The reference assembly paths to search.</param>
+    /// <param name="memberId">The XML doc member identifier to find.</param>
+    /// <returns>The first matching element, or <c>null</c> when none of the paths contains it.</returns>
+    private XElement? FindMember(IEnumerable<string> paths, string memberId)
+    {
+        foreach (var members in paths.Select(GetOrLoadMembers))
+        {
+            if (members != null && members.TryGetValue(memberId, out var member))
+            {
+                return member;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

@@ -1,6 +1,7 @@
 // Copyright (c) DemaConsulting LLC. All rights reserved.
 // Licensed under the MIT License.
 
+using System.Text.RegularExpressions;
 using ApiMark.Core;
 using ApiMark.Core.TestHelpers;
 using ApiMark.DotNet;
@@ -12,8 +13,12 @@ namespace ApiMark.DotNet.Tests;
 ///     End-to-end tests for links from XML doc <c>cref</c> values and signatures to nested types of an
 ///     external assembly mapped through <see cref="DotNetGeneratorOptions.ExternalLinks"/>.
 /// </summary>
-public class DotNetEmitterExternalNestedLinkTests
+public partial class DotNetEmitterExternalNestedLinkTests
 {
+    /// <summary>Matches a link into the other library's API pages.</summary>
+    [GeneratedRegex(@"\]\(((?:\.\./)+OtherLib/api/[^)\s#]+)\.md", RegexOptions.Compiled)]
+    private static partial Regex LinkPattern();
+
     /// <summary>The page key of the consumer type.</summary>
     private const string ConsumerKey = "ApiMark.DotNet.Fixtures/NestedExternalConsumer";
 
@@ -83,7 +88,7 @@ public class DotNetEmitterExternalNestedLinkTests
             Visibility = ApiVisibility.Public,
         }).Parse(new InMemoryContext()).Emit(target, new EmitConfig(), new InMemoryContext());
         const string marker = "OtherLib/api/";
-        var pattern = new System.Text.RegularExpressions.Regex(@"\]\(((?:\.\./)+OtherLib/api/[^)\s#]+)\.md", System.Text.RegularExpressions.RegexOptions.Compiled);
+        var pattern = LinkPattern();
 
         // Act
         var linked = consumer.Writers.Values

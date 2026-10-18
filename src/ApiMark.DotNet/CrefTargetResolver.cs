@@ -142,7 +142,7 @@ internal sealed class CrefTargetResolver
         }
 
         var lastDot = name.LastIndexOf('.');
-        return lastDot > 0 && _types.ContainsKey("T:" + name.Substring(0, lastDot));
+        return lastDot > 0 && _types.ContainsKey($"T:{name.AsSpan(0, lastDot)}");
     }
 
     /// <summary>

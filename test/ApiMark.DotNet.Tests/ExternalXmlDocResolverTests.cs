@@ -314,7 +314,7 @@ public class ExternalXmlDocResolverTests
             // Assert: only the hinted reference path was ever parsed and cached; none of the
             // unrelated paths were probed
             var cacheField = typeof(ExternalXmlDocResolver).GetField("_docsByReferencePath", BindingFlags.NonPublic | BindingFlags.Instance);
-            var cache = Assert.IsAssignableFrom<System.Collections.IDictionary>(cacheField!.GetValue(sut));
+            var cache = Assert.IsType<System.Collections.IDictionary>(cacheField!.GetValue(sut), exactMatch: false);
             Assert.Single(cache);
             var cachedKey = Assert.Single(cache.Keys.Cast<string>());
             Assert.Equal(Path.GetFileNameWithoutExtension(hintedDllPath), Path.GetFileNameWithoutExtension(cachedKey));
@@ -552,7 +552,7 @@ public class ExternalXmlDocResolverTests
             Assert.Null(miss);
             var cacheField = typeof(ExternalXmlDocResolver).GetField("_docsByReferencePath", BindingFlags.NonPublic | BindingFlags.Instance);
             Assert.NotNull(cacheField);
-            var cache = Assert.IsAssignableFrom<System.Collections.IDictionary>(cacheField!.GetValue(sut));
+            var cache = Assert.IsType<System.Collections.IDictionary>(cacheField!.GetValue(sut), exactMatch: false);
             _ = Assert.Single(cache.Keys.Cast<object>());
         }
         finally
@@ -741,7 +741,7 @@ public class ExternalXmlDocResolverTests
         Assert.Null(member);
         var pathsField = typeof(ExternalXmlDocResolver).GetField("_referenceAssemblyPaths", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(pathsField);
-        var paths = Assert.IsAssignableFrom<System.Collections.ICollection>(pathsField!.GetValue(sut));
+        var paths = Assert.IsType<System.Collections.ICollection>(pathsField!.GetValue(sut), exactMatch: false);
         Assert.Empty(paths);
     }
 }

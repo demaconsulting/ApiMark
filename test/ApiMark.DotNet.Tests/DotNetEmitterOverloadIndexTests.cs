@@ -15,8 +15,24 @@ namespace ApiMark.DotNet.Tests;
 ///     <c>paramref</c>/<c>typeparamref</c>/<c>langword</c>, and example placement on overload pages, in both
 ///     gradual-disclosure and single-file modes.
 /// </summary>
-public class DotNetEmitterOverloadIndexTests
+public partial class DotNetEmitterOverloadIndexTests
 {
+    private static readonly string[] TypeParameterHeaders = ["Type Parameter", "Description"];
+
+    private static readonly string[] ResultTypeRow = ["T", "The result type; `T` may be a reference type."];
+
+    private static readonly string[] ValueTypeRow = ["T", "The value type; `value` has type `T`."];
+
+    private static readonly string[] ArgumentNullRow = ["ArgumentNullException", "Thrown when `name` is `null`."];
+
+    /// <summary>Matches characters dropped from a heading slug.</summary>
+    [GeneratedRegex(@"[^\p{L}\p{N} _-]")]
+    private static partial Regex NonSlugCharacters();
+
+    /// <summary>Matches a Markdown link to a page anchor.</summary>
+    [GeneratedRegex(@"\]\(([^)#\s]+\.md)#([^)\s]+)\)")]
+    private static partial Regex AnchorLinkPattern();
+
     /// <summary>The page key of the <c>UndoHistory</c> type page.</summary>
     private const string HistoryKey = "ApiMark.DotNet.Fixtures/UndoHistory";
 
@@ -76,7 +92,7 @@ public class DotNetEmitterOverloadIndexTests
     /// <param name="heading">The heading text as written (backslash escapes allowed).</param>
     /// <returns>The anchor slug.</returns>
     private static string Slug(string heading) =>
-        Regex.Replace(heading.ToLowerInvariant(), @"[^\p{L}\p{N} _-]", string.Empty).Replace(' ', '-');
+        NonSlugCharacters().Replace(heading.ToLowerInvariant(), string.Empty).Replace(' ', '-');
 
     /// <summary>Returns the operations that follow the heading starting with <paramref name="headingStart"/> up to the next heading of the same or higher level.</summary>
     /// <param name="ops">All operations.</param>
@@ -129,7 +145,7 @@ public class DotNetEmitterOverloadIndexTests
             member.Element("summary")!.Remove();
         }
 
-        var path = Path.Combine(Path.GetTempPath(), $"apimark-{Guid.NewGuid():N}.xml");
+        var path = Path.Join(Path.GetTempPath(), $"apimark-{Guid.NewGuid():N}.xml");
         try
         {
             doc.Save(path);
@@ -237,9 +253,9 @@ public class DotNetEmitterOverloadIndexTests
 
         // Assert
         var table = Assert.Single(section.OfType<TableOperation>(), t => t.Headers[0] == "Type Parameter");
-        Assert.Equal(new[] { "Type Parameter", "Description" }, table.Headers);
+        Assert.Equal(TypeParameterHeaders, table.Headers);
         var row = Assert.Single(table.Rows);
-        Assert.Equal(new[] { "T", "The result type; `T` may be a reference type." }, row);
+        Assert.Equal(ResultTypeRow, row);
         Assert.DoesNotContain(Section(factory.Writers[HistoryKey + "/Transact"].Operations, "Transact(string, Action)"), o => o is TableOperation t && t.Headers[0] == "Type Parameter");
     }
 
@@ -252,7 +268,7 @@ public class DotNetEmitterOverloadIndexTests
 
         // Assert
         var table = Assert.Single(section.OfType<TableOperation>(), t => t.Headers[0] == "Type Parameter");
-        Assert.Equal(new[] { "T", "The result type; `T` may be a reference type." }, Assert.Single(table.Rows));
+        Assert.Equal(ResultTypeRow, Assert.Single(table.Rows));
     }
 
     /// <summary>Validates overload-specific crefs keep the signature in the link text and link to the overload's heading anchor.</summary>
@@ -285,7 +301,7 @@ public class DotNetEmitterOverloadIndexTests
     {
         // Arrange / Act
         var factory = EmitGradual();
-        var linkPattern = new Regex(@"\]\(([^)#\s]+\.md)#([^)\s]+)\)");
+        var linkPattern = AnchorLinkPattern();
         var checkedAnchors = 0;
 
         // Assert
@@ -324,10 +340,10 @@ public class DotNetEmitterOverloadIndexTests
         Assert.Contains("Passing `null` for `name` throws.", paragraphs);
         Assert.Contains("Call with `name` set to `null` to see the exception.", paragraphs);
         var tables = ops.OfType<TableOperation>().ToList();
-        Assert.Contains(new[] { "T", "The value type; `value` has type `T`." }, tables.SelectMany(t => t.Rows));
+        Assert.Contains(ValueTypeRow, tables.SelectMany(t => t.Rows));
         Assert.Contains(tables.SelectMany(t => t.Rows), r => r[0] == "name" && r[^1] == "The label; `null` is not allowed.");
         Assert.Contains(tables.SelectMany(t => t.Rows), r => r[0] == "value" && r[^1] == "The value of type `T` for `name`.");
-        Assert.Contains(new[] { "ArgumentNullException", "Thrown when `name` is `null`." }, tables.SelectMany(t => t.Rows));
+        Assert.Contains(ArgumentNullRow, tables.SelectMany(t => t.Rows));
     }
 
     /// <summary>Validates parameter, type-parameter, and keyword references render as code spans in every prose location (single file).</summary>
@@ -343,7 +359,7 @@ public class DotNetEmitterOverloadIndexTests
         Assert.Contains("Formats `value` of type `T`, or `null`.", paragraphs);
         Assert.Contains("**Returns:** The text, or `null` when `value` is empty.", paragraphs);
         var rows = section.OfType<TableOperation>().SelectMany(t => t.Rows).ToList();
-        Assert.Contains(new[] { "T", "The value type; `value` has type `T`." }, rows);
-        Assert.Contains(new[] { "ArgumentNullException", "Thrown when `name` is `null`." }, rows);
+        Assert.Contains(ValueTypeRow, rows);
+        Assert.Contains(ArgumentNullRow, rows);
     }
 }

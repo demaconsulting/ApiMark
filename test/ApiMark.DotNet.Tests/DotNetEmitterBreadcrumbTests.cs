@@ -14,10 +14,11 @@ namespace ApiMark.DotNet.Tests;
 ///     breadcrumb whose first crumb is a relative link back to the API reference root, and that every
 ///     breadcrumb link resolves to an emitted page.
 /// </summary>
-public class DotNetEmitterBreadcrumbTests
+public partial class DotNetEmitterBreadcrumbTests
 {
     /// <summary>Matches a Markdown link and captures its target.</summary>
-    private static readonly Regex LinkPattern = new(@"\]\(([^)\s]+)\)", RegexOptions.Compiled);
+    [GeneratedRegex(@"\]\(([^)\s]+)\)", RegexOptions.Compiled)]
+    private static partial Regex LinkPattern();
 
     /// <summary>Emits an assembly in gradual-disclosure format.</summary>
     /// <param name="dll">The assembly path.</param>
@@ -64,11 +65,10 @@ public class DotNetEmitterBreadcrumbTests
             Assert.StartsWith("[API Reference](", crumb, StringComparison.Ordinal);
             Assert.Contains(" › ", crumb, StringComparison.Ordinal);
 
-            var links = LinkPattern.Matches(crumb).Select(m => m.Groups[1].Value).ToList();
+            var links = LinkPattern().Matches(crumb).Select(m => m.Groups[1].Value).ToList();
             Assert.Equal("api", Resolve(key, links[0]));
-            foreach (var link in links)
+            foreach (var target in links.Select(link => Resolve(key, link)))
             {
-                var target = Resolve(key, link);
                 Assert.True(factory.Writers.ContainsKey(target), $"{key} breadcrumb links to missing page {target}");
             }
         }

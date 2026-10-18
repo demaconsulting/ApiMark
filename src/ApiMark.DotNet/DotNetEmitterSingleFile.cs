@@ -45,6 +45,9 @@ internal sealed record SingleFileMemberContext(
 /// </remarks>
 internal sealed class DotNetEmitterSingleFile
 {
+    /// <summary>Column headers for the inherited-members tables.</summary>
+    private static readonly string[] InheritedMemberHeaders = ["Member", "Kind"];
+
     /// <summary>Fenced code block / signature language identifier for C# content.</summary>
     private const string CSharpLanguageId = "csharp";
 
@@ -355,7 +358,7 @@ internal sealed class DotNetEmitterSingleFile
 
             writer.WriteParagraph($"**Inherited from {baseName}**");
             writer.WriteTable(
-                new[] { "Member", "Kind" },
+                InheritedMemberHeaders,
                 group.Members.Select(m => new[] { EscapeMarkdownHeading(m.Name), m.Kind }));
         }
     }

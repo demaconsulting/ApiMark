@@ -584,33 +584,7 @@ internal sealed class Context : IContext, IDisposable
                     expanded ??= new List<string>(args[..i]);
 
                     var responseFilePath = arg[1..];
-                    string[] lines;
-                    try
-                    {
-                        lines = File.ReadAllLines(responseFilePath);
-                    }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                    {
-                        throw new ArgumentException(
-                            $"Unable to read response file '{responseFilePath}': {ex.Message}", ex);
-                    }
-
-                    foreach (var line in lines)
-                    {
-                        if (string.IsNullOrWhiteSpace(line))
-                        {
-                            continue;
-                        }
-
-                        // Apply the same "@@" escape used for top-level arguments above: a
-                        // response-file line beginning with "@@" is a literal value starting
-                        // with '@' (e.g. "@@mylib" written by a caller that needed to preserve a
-                        // leading '@' in an entry), not a nested response-file reference. Lines
-                        // beginning with a single '@' are still NOT expanded recursively — they
-                        // pass through unchanged, matching this method's documented single-pass
-                        // semantics — so only the escape is honored here, not further expansion.
-                        expanded.Add(line.StartsWith("@@", StringComparison.Ordinal) ? line[1..] : line);
-                    }
+                    expanded.AddRange(ReadResponseFileArguments(responseFilePath));
                 }
                 else
                 {
@@ -619,6 +593,35 @@ internal sealed class Context : IContext, IDisposable
             }
 
             return expanded?.ToArray() ?? args;
+        }
+
+        /// <summary>
+        ///     Reads the arguments from a single response file, skipping blank lines and honoring the
+        ///     <c>@@</c> literal-<c>@</c> escape.
+        /// </summary>
+        /// <param name="responseFilePath">Path to the response file.</param>
+        /// <returns>The arguments, one per non-blank line.</returns>
+        /// <exception cref="ArgumentException">Thrown when the file cannot be read.</exception>
+        private static IEnumerable<string> ReadResponseFileArguments(string responseFilePath)
+        {
+            string[] lines;
+            try
+            {
+                lines = File.ReadAllLines(responseFilePath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new ArgumentException(
+                    $"Unable to read response file '{responseFilePath}': {ex.Message}", ex);
+            }
+
+            // Apply the same "@@" escape used for top-level arguments: a line beginning with "@@" is a
+            // literal value starting with '@', not a nested response-file reference. Lines beginning
+            // with a single '@' are NOT expanded recursively (single-pass semantics) and pass through
+            // unchanged.
+            return lines
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .Select(line => line.StartsWith("@@", StringComparison.Ordinal) ? line[1..] : line);
         }
 
         /// <summary>

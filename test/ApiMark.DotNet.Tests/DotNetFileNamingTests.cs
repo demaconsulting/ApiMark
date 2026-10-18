@@ -14,10 +14,13 @@ namespace ApiMark.DotNet.Tests;
 ///     Tests for the symbol-name registry applied to .NET output: exact-name rules, every collision scenario,
 ///     and whole-output properties (unique, legal, visibility-independent names whose links all resolve).
 /// </summary>
-public class DotNetFileNamingTests
+public partial class DotNetFileNamingTests
 {
     /// <summary>Matches a Markdown link destination ending in <c>.md</c>, with an optional anchor.</summary>
-    private static readonly Regex LinkPattern = new(@"\]\(([^)\s#]+\.md)(?:#[^)\s]*)?\)", RegexOptions.Compiled);
+    [GeneratedRegex(@"\]\(([^)\s#]+\.md)(?:#[^)\s]*)?\)", RegexOptions.Compiled)]
+    private static partial Regex LinkPattern();
+
+    private static readonly string[] HostileNames = ["CON", "con", "Aux.txt", "a<b", "a>b", "A_B", "a:b", "x.", "COM1"];
 
     /// <summary>Creates an in-memory module whose types are created by <paramref name="build"/>.</summary>
     /// <param name="build">Callback that adds types to the module.</param>
@@ -180,7 +183,7 @@ public class DotNetFileNamingTests
     {
         var names = NamesOf(m =>
         {
-            foreach (var name in new[] { "CON", "con", "Aux.txt", "a<b", "a>b", "A_B", "a:b", "x.", "COM1" })
+            foreach (var name in HostileNames)
             {
                 AddType(m, "Hostile", name);
             }
@@ -244,7 +247,7 @@ public class DotNetFileNamingTests
         {
             var texts = writer.Operations.OfType<ParagraphOperation>().Select(p => p.Text)
                 .Concat(writer.Operations.OfType<TableOperation>().SelectMany(t => t.Rows.SelectMany(r => r)));
-            foreach (var link in texts.SelectMany(t => LinkPattern.Matches(t).Select(m => m.Groups[1].Value)))
+            foreach (var link in texts.SelectMany(t => LinkPattern().Matches(t).Select(m => m.Groups[1].Value)))
             {
                 if (link.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 {

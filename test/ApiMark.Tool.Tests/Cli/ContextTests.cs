@@ -7,6 +7,29 @@ namespace ApiMark.Tool.Tests.Cli;
 /// <summary>Unit tests for <see cref="Context"/>.</summary>
 public sealed class ContextTests
 {
+    private static readonly string[] ResponseFileReferencePaths =
+    [
+        "--reference-paths",
+        "/refs/One.dll",
+        "--reference-paths",
+        "/refs/Two.dll",
+    ];
+
+    private static readonly string[] ResponseFileBlankLines =
+    [
+        "",
+        "--reference-paths",
+        "   ",
+        "/refs/One.dll",
+        "",
+    ];
+
+    private static readonly string[] ResponseFileEscapedLibraryName =
+    [
+        "--library-name",
+        "@@mylib",
+    ];
+
     /// <summary>
     ///     Validates that --version sets the Version property to true.
     /// </summary>
@@ -516,13 +539,7 @@ public sealed class ContextTests
         var responseFilePath = Path.GetTempFileName();
         try
         {
-            File.WriteAllLines(responseFilePath, new[]
-            {
-                "--reference-paths",
-                "/refs/One.dll",
-                "--reference-paths",
-                "/refs/Two.dll",
-            });
+            File.WriteAllLines(responseFilePath, ResponseFileReferencePaths);
             var args = new[] { $"@{responseFilePath}" };
 
             // Act
@@ -549,14 +566,7 @@ public sealed class ContextTests
         var responseFilePath = Path.GetTempFileName();
         try
         {
-            File.WriteAllLines(responseFilePath, new[]
-            {
-                "",
-                "--reference-paths",
-                "   ",
-                "/refs/One.dll",
-                "",
-            });
+            File.WriteAllLines(responseFilePath, ResponseFileBlankLines);
             var args = new[] { $"@{responseFilePath}" };
 
             // Act
@@ -623,11 +633,7 @@ public sealed class ContextTests
         var responseFilePath = Path.GetTempFileName();
         try
         {
-            File.WriteAllLines(responseFilePath, new[]
-            {
-                "--library-name",
-                "@@mylib",
-            });
+            File.WriteAllLines(responseFilePath, ResponseFileEscapedLibraryName);
             var args = new[] { $"@{responseFilePath}" };
 
             // Act

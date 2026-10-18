@@ -1290,18 +1290,11 @@ internal sealed class ClangAstParser
             ? CppAccessibility.Public
             : CppAccessibility.Private;
 
-        var members = new List<CppFunction>();
-        var fields = new List<CppField>();
         var baseTypes = new List<CppBaseType>();
-        var nestedClasses = new List<CppClass>();
-        var typeAliases = new List<CppTypeAlias>();
-        CppDocComment? doc = null;
 
         // Deprecated if isDeprecated flag is set; DeprecatedAttr in inner also triggers
         var isDeprecated = node.TryGetProperty(IsDeprecatedProperty, out var dep) && dep.GetBoolean();
 
-        // Final if FinalAttr appears in the inner node array
-        var isFinal = false;
         var location = GetCurrentSourceLocation(node);
 
         // Clang 18+ surfaces base class information in a top-level "bases" array on the
@@ -1310,39 +1303,72 @@ internal sealed class ClangAstParser
         // Both paths are retained so the parser works across clang versions.
         var hasTopLevelBases = CollectTopLevelBaseTypes(node, baseTypes);
 
+        var state = new ClassBodyState(baseTypes, hasTopLevelBases, currentAccess, isDeprecated);
+
         if (node.TryGetProperty(InnerProperty, out var inner))
         {
             foreach (var child in inner.EnumerateArray())
             {
-                ProcessClassBodyChild(
-                    child,
-                    nsQualName,
-                    name,
-                    members,
-                    fields,
-                    nestedClasses,
-                    typeAliases,
-                    baseTypes,
-                    hasTopLevelBases,
-                    ref currentAccess,
-                    ref isDeprecated,
-                    ref isFinal,
-                    ref doc);
+                ProcessClassBodyChild(child, nsQualName, name, state);
             }
         }
 
         return new CppClass(
             name,
-            baseTypes,
+            state.BaseTypes,
             templateParams ?? [],
-            members,
-            fields,
-            nestedClasses,
-            typeAliases,
-            isDeprecated,
-            isFinal,
+            state.Members,
+            state.Fields,
+            state.NestedClasses,
+            state.TypeAliases,
+            state.IsDeprecated,
+            state.IsFinal,
             location,
-            doc);
+            state.Doc);
+    }
+
+    /// <summary>
+    ///     Accumulators and mutable state shared across the walk of a single class body.
+    /// </summary>
+    /// <param name="baseTypes">Base types, pre-populated from the top-level <c>bases</c> array when present.</param>
+    /// <param name="hasTopLevelBases">Whether base types were already collected from the top-level <c>bases</c> array.</param>
+    /// <param name="access">The initial access level (public for <c>struct</c>, private for <c>class</c>).</param>
+    /// <param name="isDeprecated">The initial deprecated flag.</param>
+    private sealed class ClassBodyState(
+        List<CppBaseType> baseTypes,
+        bool hasTopLevelBases,
+        CppAccessibility access,
+        bool isDeprecated)
+    {
+        /// <summary>Gets the base types, pre-populated from the top-level <c>bases</c> array when present.</summary>
+        public List<CppBaseType> BaseTypes { get; } = baseTypes;
+
+        /// <summary>Gets a value indicating whether base types were already collected from the top-level <c>bases</c> array.</summary>
+        public bool HasTopLevelBases { get; } = hasTopLevelBases;
+
+        /// <summary>Gets the parsed constructors, destructors, and methods.</summary>
+        public List<CppFunction> Members { get; } = [];
+
+        /// <summary>Gets the parsed fields.</summary>
+        public List<CppField> Fields { get; } = [];
+
+        /// <summary>Gets the parsed nested classes.</summary>
+        public List<CppClass> NestedClasses { get; } = [];
+
+        /// <summary>Gets the parsed class-scoped type aliases.</summary>
+        public List<CppTypeAlias> TypeAliases { get; } = [];
+
+        /// <summary>Gets or sets the current access level, updated by <c>AccessSpecDecl</c> children.</summary>
+        public CppAccessibility Access { get; set; } = access;
+
+        /// <summary>Gets or sets a value indicating whether the class is deprecated.</summary>
+        public bool IsDeprecated { get; set; } = isDeprecated;
+
+        /// <summary>Gets or sets a value indicating whether the class is final.</summary>
+        public bool IsFinal { get; set; }
+
+        /// <summary>Gets or sets the class documentation comment.</summary>
+        public CppDocComment? Doc { get; set; }
     }
 
     /// <summary>
@@ -1384,30 +1410,12 @@ internal sealed class ClangAstParser
     /// <param name="child">The class-body child JSON node to process.</param>
     /// <param name="nsQualName">The qualified name of the enclosing namespace.</param>
     /// <param name="className">The name of the enclosing class.</param>
-    /// <param name="members">Accumulator list that receives parsed constructors/destructors/methods.</param>
-    /// <param name="fields">Accumulator list that receives parsed fields.</param>
-    /// <param name="nestedClasses">Accumulator list that receives parsed nested classes.</param>
-    /// <param name="typeAliases">Accumulator list that receives parsed class-scoped type aliases.</param>
-    /// <param name="baseTypes">Accumulator list that receives base types from legacy <c>CXXBaseSpecifier</c> children.</param>
-    /// <param name="hasTopLevelBases">Whether base types were already collected from the top-level <c>bases</c> array.</param>
-    /// <param name="currentAccess">The current access level, updated in place by <c>AccessSpecDecl</c> children.</param>
-    /// <param name="isDeprecated">Whether the class is deprecated, set in place by a <c>DeprecatedAttr</c> child.</param>
-    /// <param name="isFinal">Whether the class is final, set in place by a <c>FinalAttr</c> child.</param>
-    /// <param name="doc">The class documentation comment, set in place by a <c>FullComment</c> child.</param>
+    /// <param name="state">The accumulators and mutable state shared across the class body walk.</param>
     private void ProcessClassBodyChild(
         JsonElement child,
         string nsQualName,
         string className,
-        List<CppFunction> members,
-        List<CppField> fields,
-        List<CppClass> nestedClasses,
-        List<CppTypeAlias> typeAliases,
-        List<CppBaseType> baseTypes,
-        bool hasTopLevelBases,
-        ref CppAccessibility currentAccess,
-        ref bool isDeprecated,
-        ref bool isFinal,
-        ref CppDocComment? doc)
+        ClassBodyState state)
     {
         UpdateCurrentFile(child);
         var kind = GetKind(child);
@@ -1416,7 +1424,7 @@ internal sealed class ClangAstParser
         {
             case "AccessSpecDecl":
                 // Transition the current access level for all following members
-                currentAccess = ParseAccessSpec(child);
+                state.Access = ParseAccessSpec(child);
                 break;
 
             case "CXXConstructorDecl":
@@ -1424,10 +1432,10 @@ internal sealed class ClangAstParser
             case "CXXMethodDecl":
                 {
                     // ParseMethod returns null for destructors and implicit members
-                    var method = ParseMethod(child, currentAccess);
+                    var method = ParseMethod(child, state.Access);
                     if (method != null)
                     {
-                        members.Add(method);
+                        state.Members.Add(method);
                     }
 
                     break;
@@ -1437,41 +1445,41 @@ internal sealed class ClangAstParser
             case "VarDecl":
                 {
                     // VarDecl covers static constexpr members inside the class body
-                    var field = ParseField(child, currentAccess);
+                    var field = ParseField(child, state.Access);
                     if (field != null)
                     {
-                        fields.Add(field);
+                        state.Fields.Add(field);
                     }
 
                     break;
                 }
 
             case CxxRecordDeclKind:
-                HandleNestedCxxRecord(child, nsQualName, className, currentAccess, nestedClasses);
+                HandleNestedCxxRecord(child, nsQualName, className, state.Access, state.NestedClasses);
                 break;
 
             case "ClassTemplateDecl":
-                HandleClassTemplate(child, nsQualName, className, currentAccess, nestedClasses);
+                HandleClassTemplate(child, nsQualName, className, state.Access, state.NestedClasses);
                 break;
 
             case "TypeAliasDecl":
-                HandleTypeAliasInClass(child, currentAccess, typeAliases);
+                HandleTypeAliasInClass(child, state.Access, state.TypeAliases);
                 break;
 
             case "CXXBaseSpecifier":
-                HandleCxxBaseSpecifier(child, hasTopLevelBases, baseTypes);
+                HandleCxxBaseSpecifier(child, state.HasTopLevelBases, state.BaseTypes);
                 break;
 
             case FullCommentKind:
-                doc = ParseFullComment(child);
+                state.Doc = ParseFullComment(child);
                 break;
 
             case DeprecatedAttrKind:
-                isDeprecated = true;
+                state.IsDeprecated = true;
                 break;
 
             case "FinalAttr":
-                isFinal = true;
+                state.IsFinal = true;
                 break;
         }
     }
@@ -2048,13 +2056,9 @@ internal sealed class ClangAstParser
 
         // VarDecl inside a class body is always a static member
         var kind = GetKind(node);
-        var isStatic = kind == "VarDecl" ||
-                       (node.TryGetProperty("storageClass", out var sc) && sc.GetString() == "static");
+        var isStatic = kind == "VarDecl" || GetStorageClass(node) == "static";
 
-        var typeName = node.TryGetProperty("type", out var t) &&
-                       t.TryGetProperty(QualTypeProperty, out var qt)
-            ? qt.GetString() ?? string.Empty
-            : string.Empty;
+        var typeName = GetQualType(node);
 
         var isDeprecated = node.TryGetProperty(IsDeprecatedProperty, out var dep) && dep.GetBoolean();
         var isConstexpr = node.TryGetProperty("constexpr", out var constexprProp) && constexprProp.GetBoolean();
@@ -2859,6 +2863,14 @@ internal sealed class ClangAstParser
                t.TryGetProperty(QualTypeProperty, out var qt)
             ? qt.GetString() ?? string.Empty
             : string.Empty;
+    }
+
+    /// <summary>Returns the <c>storageClass</c> string from a JSON AST node, or <see langword="null"/> when absent.</summary>
+    /// <param name="node">The JSON element to inspect.</param>
+    /// <returns>The storage class, or <see langword="null"/>.</returns>
+    private static string? GetStorageClass(JsonElement node)
+    {
+        return node.TryGetProperty("storageClass", out var sc) ? sc.GetString() : null;
     }
 
     // =========================================================================

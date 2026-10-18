@@ -39,7 +39,7 @@ namespace ApiMark.DotNet;
 ///     <c>_inheritanceChain</c>.
 ///     </para>
 /// </remarks>
-public sealed class XmlDocReader
+public sealed partial class XmlDocReader
 {
     /// <summary>The fenced-code language used when a <c>&lt;code&gt;</c> element has no valid <c>lang</c> attribute.</summary>
     private const string DefaultCodeLanguage = "csharp";
@@ -1869,6 +1869,10 @@ public sealed class XmlDocReader
         return -1;
     }
 
+    /// <summary>Matches the lower-bound prefix (for example <c>0:</c>) of an array-rank dimension.</summary>
+    [GeneratedRegex(@"\d+:", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex ArrayRankPrefixRegex();
+
     /// <summary>Formats one parameter type of a method cref as a C# short type name.</summary>
     /// <param name="type">The raw type text (for example <c>System.Func{``0}</c> or <c>System.Int32[]</c>).</param>
     /// <param name="typeArity">The generic arity of the declaring type.</param>
@@ -1885,7 +1889,7 @@ public sealed class XmlDocReader
         var suffix = string.Empty;
         if (bracket >= 0)
         {
-            suffix = Regex.Replace(type[bracket..], @"\d+:", string.Empty);
+            suffix = ArrayRankPrefixRegex().Replace(type[bracket..], string.Empty);
             type = type[..bracket];
         }
 

@@ -247,9 +247,10 @@ internal sealed class CppNames
             RegisterClass(registry, key, nested);
         }
 
-        foreach (var member in cls.Members.Where(m => m.IsConstructor || !CppEmitter.IsOperatorName(m.Name)))
+        foreach (var name in cls.Members
+            .Where(m => m.IsConstructor || !CppEmitter.IsOperatorName(m.Name))
+            .Select(m => CppEmitter.GetMemberBaseName(m, cls.Name)))
         {
-            var name = CppEmitter.GetMemberBaseName(member, cls.Name);
             RegisterOnce(registry, MemberKey(key, name), key, name, SymbolKind.Member);
         }
 

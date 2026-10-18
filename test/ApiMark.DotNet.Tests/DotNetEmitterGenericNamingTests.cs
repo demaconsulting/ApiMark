@@ -13,8 +13,12 @@ namespace ApiMark.DotNet.Tests;
 ///     Exact-output tests for the generic type file-name scheme (<c>Foo{1}.md</c> style): distinct files for
 ///     <c>Foo</c>, <c>Foo1</c>, <c>Foo&lt;T&gt;</c> and <c>Foo&lt;T1, T2&gt;</c>, and links that resolve to them.
 /// </summary>
-public class DotNetEmitterGenericNamingTests
+public partial class DotNetEmitterGenericNamingTests
 {
+    /// <summary>Matches a relative Markdown link to a page.</summary>
+    [GeneratedRegex(@"\]\(((?!https?:)[^)#\s]+\.md)(?:#[^)\s]*)?\)")]
+    private static partial Regex LinkPattern();
+
     /// <summary>The namespace of the naming fixtures.</summary>
     private const string Ns = "ApiMark.DotNet.Fixtures/Naming";
 
@@ -117,19 +121,16 @@ public class DotNetEmitterGenericNamingTests
     {
         // Arrange
         var factory = EmitGradual();
-        var pattern = new Regex(@"\]\(((?!https?:)[^)#\s]+\.md)(?:#[^)\s]*)?\)");
         var checkedLinks = 0;
 
         // Act / Assert
-        foreach (var (key, writer) in factory.Writers)
+        foreach (var (key, folder, writer) in factory.Writers.Select(w =>
+            (w.Key, Folder: w.Key.Contains('/') ? w.Key[..w.Key.LastIndexOf('/')] : string.Empty, w.Value)))
         {
-            var slash = key.LastIndexOf('/');
-            var folder = slash >= 0 ? key.Substring(0, slash) : string.Empty;
             foreach (var text in Texts(writer))
             {
-                foreach (Match match in pattern.Matches(text))
+                foreach (var target in LinkPattern().Matches(text).Select(m => ResolveRelative(folder, m.Groups[1].Value)))
                 {
-                    var target = ResolveRelative(folder, match.Groups[1].Value);
                     Assert.True(factory.Writers.ContainsKey(target), $"Page '{key}' links to missing page '{target}'");
                     checkedLinks++;
                 }

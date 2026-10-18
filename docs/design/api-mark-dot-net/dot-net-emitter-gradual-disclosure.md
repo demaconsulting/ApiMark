@@ -110,10 +110,10 @@ for a single method (or one overload) onto the caller-supplied writer.
 **WriteMethodOverloadPage** (private static): Writes a single shared Markdown page for a
 pure method overload group (all methods sharing the same exact case-sensitive sanitized file name).
 
-- *Parameters*: `IMarkdownWriterFactory factory`, `string namespaceName`,
-  `string namespaceFolderPath`, `TypeDefinition type`, `IReadOnlyList<MethodDefinition>
-  overloads` — ordered list of overload methods (at least one element),
-  `XmlDocReader xmlDocs`, `TypeLinkResolver resolver`.
+- *Parameters*: `TypePageWriteContext ctx` — the type-page context supplying the factory,
+  namespace name, namespace folder path, type, XML docs, resolver, and cross-reference
+  link context (re-scoped to the overload page's folder), and `List<MethodDefinition>
+  overloads` — ordered list of overload methods (at least one element).
 - *Returns*: `void`
 - *Algorithm*: Computes `sanitizedName = BuildMethodFileName(overloads[0], type)`;
   creates `{namespaceFolderPath}/{GetTypeFileName(type)}/{sanitizedName}.md` via the
@@ -149,10 +149,10 @@ in table cells.
 **WriteTypeOperatorsPage** (private static): Writes the `operators.md` page for
 a type that defines operator overloads.
 
-- *Parameters*: `IMarkdownWriterFactory factory`, `string namespaceName`,
-  `string namespaceFolderPath`, `TypeDefinition type`,
-  `IReadOnlyList<MethodDefinition> operatorMethods` — the operator methods to
-  document, `XmlDocReader xmlDocs`, `TypeLinkResolver resolver`.
+- *Parameters*: `TypePageWriteContext ctx` — the type-page context supplying the factory,
+  namespace name, namespace folder path, type, XML docs, resolver, and cross-reference
+  link context (re-scoped to the operators page's folder), and
+  `IReadOnlyList<MethodDefinition> operatorMethods` — the operator methods to document.
 - *Returns*: `void`
 - *Algorithm*: Creates `{namespaceFolderPath}/{GetTypeFileName(type)}/operators.md`
   via the factory; writes an H1 heading; for each operator method writes an H2

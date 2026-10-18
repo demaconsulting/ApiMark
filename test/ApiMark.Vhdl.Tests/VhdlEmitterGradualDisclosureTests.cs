@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Text.RegularExpressions;
 using ApiMark.Core;
 using ApiMark.Core.TestHelpers;
 using ApiMark.Vhdl.VhdlAst;
@@ -7,8 +8,12 @@ using Xunit;
 namespace ApiMark.Vhdl.Tests;
 
 /// <summary>Unit tests for <see cref="VhdlEmitterGradualDisclosure"/>.</summary>
-public class VhdlEmitterGradualDisclosureTests
+public partial class VhdlEmitterGradualDisclosureTests
 {
+    /// <summary>Matches a Markdown link destination.</summary>
+    [GeneratedRegex(@"\]\(([^)]+)\)")]
+    private static partial Regex LinkPattern();
+
     /// <summary>Validates that entities and packages named like Windows reserved device names get legal, linked pages.</summary>
     [Fact]
     public void VhdlEmitterGradualDisclosure_Emit_ReservedDeviceNames_ProducesLegalLinkedPages()
@@ -75,15 +80,14 @@ public class VhdlEmitterGradualDisclosureTests
         // Assert: package page, subprogram page in the matching folder, and every link resolves
         Assert.True(factory.HasWriter("", page));
         Assert.True(factory.HasWriter(page, "Do_It"));
-        var link = new System.Text.RegularExpressions.Regex(@"\]\(([^)]+)\)");
         foreach (var (key, writer) in factory.Writers)
         {
             var dir = key.Contains('/') ? key[..key.LastIndexOf('/')] : "";
             var texts = writer.Operations.OfType<ParagraphOperation>().Select(p => p.Text)
                 .Concat(writer.Operations.OfType<TableOperation>().SelectMany(t => t.Rows).SelectMany(r => r));
-            foreach (var m in texts.SelectMany(t => link.Matches(t).Select(x => x.Groups[1].Value)))
+            foreach (var target in texts.SelectMany(t => LinkPattern().Matches(t).Select(x => x.Groups[1].Value))
+                .Select(m => dir.Length == 0 ? m : dir + "/" + m))
             {
-                var target = (dir.Length == 0 ? m : dir + "/" + m);
                 Assert.True(factory.Writers.ContainsKey(target[..^3]), $"{key} links to missing {target}");
             }
         }

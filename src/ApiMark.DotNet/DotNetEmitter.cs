@@ -24,6 +24,9 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <summary>The .NET metadata method name used for all instance constructors.</summary>
     internal const string ConstructorMethodName = ".ctor";
 
+    /// <summary>The C# <c>public</c> accessibility keyword.</summary>
+    private const string PublicKeyword = "public";
+
     /// <summary>Gets the pre-parsed assembly data used during emit.</summary>
     internal DotNetAstModel Model { get; }
 
@@ -1438,9 +1441,9 @@ internal sealed class DotNetEmitter : IApiEmitter
             PropertyDefinition p => GetAccessibilityKeyword(MostPermissiveAccessor(p.GetMethod, p.SetMethod)),
             FieldDefinition f => GetAccessibilityKeyword(f),
             EventDefinition e => GetAccessibilityKeyword(e),
-            _ => "public",
+            _ => PublicKeyword,
         };
-        return keyword == "public" ? string.Empty : keyword + " ";
+        return keyword == PublicKeyword ? string.Empty : keyword + " ";
     }
 
     /// <summary>Builds a human-readable C# method declaration signature.</summary>
@@ -2153,7 +2156,7 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns>The lowercase C# accessibility keyword string.</returns>
     internal static string GetAccessibilityKeyword(MethodDefinition method) => method switch
     {
-        { IsPublic: true } => "public",
+        { IsPublic: true } => PublicKeyword,
         { IsFamilyOrAssembly: true } => "protected internal",
         { IsFamily: true } => "protected",
         { IsAssembly: true } => "internal",
@@ -2170,7 +2173,7 @@ internal sealed class DotNetEmitter : IApiEmitter
     /// <returns>The lowercase C# accessibility keyword string.</returns>
     internal static string GetAccessibilityKeyword(FieldDefinition field) => field switch
     {
-        { IsPublic: true } => "public",
+        { IsPublic: true } => PublicKeyword,
         { IsFamilyOrAssembly: true } => "protected internal",
         { IsFamily: true } => "protected",
         { IsAssembly: true } => "internal",

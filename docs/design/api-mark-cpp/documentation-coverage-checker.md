@@ -66,9 +66,9 @@ lack a non-empty Doxygen summary.
   recursion depth, which does not re-apply the filter to nested classes).
 
 **CheckClass** (private): Checks a single class for a missing summary, then
-checks its visible members and fields (tier-filtered via `IsVisibleMember`),
-its type aliases, and — unconditionally, since already pre-filtered to
-public — its nested classes.
+delegates to `CheckClassMembers` and `CheckClassFields` (visible members and fields,
+tier-filtered via `IsVisibleMember`), then checks its type aliases and —
+unconditionally, since already pre-filtered to public — its nested classes.
 
 **CheckFunction / CheckEnum / CheckTypeAlias** (private): Check a single free
 function, enum (and its values), or type alias for a missing summary.

@@ -736,7 +736,7 @@ internal sealed class DotNetEmitterGradualDisclosure
     /// <param name="operatorMethods">The type's operator overload methods; must be non-empty.</param>
     private static void WriteTypeOperatorsSection(IMarkdownWriter typeWriter, TypePageWriteContext ctx, List<MethodDefinition> operatorMethods)
     {
-        WriteTypeOperatorsPage(ctx.Factory, ctx.NamespaceName, ctx.NamespaceFolderPath, ctx.Type, operatorMethods, ctx.XmlDocs, ctx.Resolver, ctx.LinkContext);
+        WriteTypeOperatorsPage(ctx, operatorMethods);
         typeWriter.WriteHeading(2, "Operators");
         typeWriter.WriteTable(
             new[] { MemberColumnHeader, DotNetEmitter.DescriptionColumnHeader },
@@ -887,27 +887,17 @@ internal sealed class DotNetEmitterGradualDisclosure
     ///     <see cref="DotNetEmitter.BuildMethodDisplayName"/>. External type references are accumulated
     ///     across all overloads and emitted as a shared External Types section at the bottom of the page.
     /// </remarks>
-    /// <param name="factory">Factory for creating the output Markdown writer.</param>
-    /// <param name="namespaceName">Full namespace name of the declaring type; used to simplify type names.</param>
-    /// <param name="namespaceFolderPath">File-system folder path for the namespace.</param>
-    /// <param name="type">The type definition that declares the overload group.</param>
-    /// <param name="overloads">Ordered list of overload methods (at least one element).</param>
-    /// <param name="xmlDocs">Documentation index for per-overload member-ID lookups.</param>
-    /// <param name="resolver">Type link resolver for table cell link generation.</param>
-    /// <param name="linkContext">
-    ///     Cross-reference resolution context scoped to the containing type's own page folder;
-    ///     re-scoped internally to this overload page's folder via a <see langword="with"/> expression.
+    /// <param name="ctx">
+    ///     The type-page context containing the factory, namespace, type, resolver, and cross-reference context;
+    ///     the link context is re-scoped internally to this overload page's folder via a
+    ///     <see langword="with"/> expression.
     /// </param>
+    /// <param name="overloads">Ordered list of overload methods (at least one element).</param>
     private static void WriteMethodOverloadPage(
-        IMarkdownWriterFactory factory,
-        string namespaceName,
-        string namespaceFolderPath,
-        TypeDefinition type,
-        List<MethodDefinition> overloads,
-        XmlDocReader xmlDocs,
-        TypeLinkResolver resolver,
-        CrefLinkContext linkContext)
+        TypePageWriteContext ctx,
+        List<MethodDefinition> overloads)
     {
+        var (factory, namespaceName, namespaceFolderPath, type, xmlDocs, resolver, linkContext, _) = ctx;
         var sanitizedName = BuildMethodFileName(overloads[0], type);
         var overloadCurrentFolder = $"{namespaceFolderPath}/{GetTypeFileName(type)}";
         var overloadLinkContext = linkContext with { CurrentFolder = overloadCurrentFolder };
@@ -937,33 +927,20 @@ internal sealed class DotNetEmitterGradualDisclosure
     ///     them onto a single deterministic page resolves the collision and makes the operators
     ///     section a stable navigation target for both human readers and AI agents.
     /// </remarks>
-    /// <param name="factory">Factory for creating the output writer.</param>
-    /// <param name="namespaceName">The namespace that owns the declaring type; used to simplify type names in signatures.</param>
-    /// <param name="namespaceFolderPath">
-    ///     The file-system folder path for the namespace (e.g. <c>ApiMark.DotNet.Fixtures</c>).
-    ///     Used to construct the operators file's subfolder path.
+    /// <param name="ctx">
+    ///     The type-page context containing the factory, namespace, declaring type, resolver, and
+    ///     cross-reference context; the link context is re-scoped internally to the operators
+    ///     page's folder via a <see langword="with"/> expression.
     /// </param>
-    /// <param name="type">The declaring type whose operator overloads are being documented.</param>
     /// <param name="operators">
     ///     The ordered list of operator methods to document. All elements must satisfy
     ///     <see cref="DotNetEmitter.IsOperator"/>. Must contain at least one element.
     /// </param>
-    /// <param name="xmlDocs">XML documentation index for summary and detail lookups.</param>
-    /// <param name="resolver">Type link resolver used to linkify parameter type cells.</param>
-    /// <param name="linkContext">
-    ///     Cross-reference resolution context scoped to the containing type's own page folder;
-    ///     re-scoped internally to the operators page's folder via a <see langword="with"/> expression.
-    /// </param>
     private static void WriteTypeOperatorsPage(
-        IMarkdownWriterFactory factory,
-        string namespaceName,
-        string namespaceFolderPath,
-        TypeDefinition type,
-        IReadOnlyList<MethodDefinition> operators,
-        XmlDocReader xmlDocs,
-        TypeLinkResolver resolver,
-        CrefLinkContext linkContext)
+        TypePageWriteContext ctx,
+        IReadOnlyList<MethodDefinition> operators)
     {
+        var (factory, namespaceName, namespaceFolderPath, type, xmlDocs, resolver, linkContext, _) = ctx;
         var operatorsCurrentFolder = $"{namespaceFolderPath}/{GetTypeFileName(type)}";
         var operatorsLinkContext = linkContext with { CurrentFolder = operatorsCurrentFolder };
         using var writer = factory.CreateMarkdown(operatorsCurrentFolder, "operators");
@@ -1419,7 +1396,7 @@ internal sealed class DotNetEmitterGradualDisclosure
         var memberLink = $"{GetTypeFileName(ctx.Type)}/{overloadFileName}.md";
         var isConstructorGroup = representative.Name == DotNetEmitter.ConstructorMethodName;
 
-        WriteMethodOverloadPage(ctx.Factory, ctx.NamespaceName, ctx.NamespaceFolderPath, ctx.Type, orderedOverloads, ctx.XmlDocs, ctx.Resolver, ctx.LinkContext);
+        WriteMethodOverloadPage(ctx, orderedOverloads);
 
         if (isConstructorGroup)
         {
