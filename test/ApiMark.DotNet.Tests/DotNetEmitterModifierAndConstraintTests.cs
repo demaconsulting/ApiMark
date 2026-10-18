@@ -39,8 +39,9 @@ public class DotNetEmitterModifierAndConstraintTests
     /// <returns>The signature with single-line formatting.</returns>
     private static string Signature(InMemoryMarkdownWriterFactory factory, string key)
     {
-        Assert.True(factory.Writers.ContainsKey(key), $"Missing page '{key}'");
-        return factory.Writers[key].Operations.OfType<SignatureOperation>().Single().Code.Replace("\r\n", "\n").Replace('\n', ' ');
+        var page = factory.Writers.TryGetValue(key, out var writer) ? writer : null;
+        Assert.True(page != null, $"Missing page '{key}'");
+        return page!.Operations.OfType<SignatureOperation>().Single().Code.Replace("\r\n", "\n").Replace('\n', ' ');
     }
 
     /// <summary>Validates <c>new</c> is rendered exactly where a member hides an accessible base member.</summary>

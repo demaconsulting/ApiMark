@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using ApiMark.Core;
 using ApiMark.Core.TestHelpers;
 using ApiMark.DotNet;
@@ -7,8 +8,14 @@ using Xunit;
 namespace ApiMark.DotNet.Tests;
 
 /// <summary>Integration tests for <see cref="DotNetGenerator"/>.</summary>
-public class DotNetGeneratorTests
+public partial class DotNetGeneratorTests
 {
+    private static readonly string[] NamespaceTableHeaders = ["Namespace", "Types", "Key Types", "Description"];
+
+    /// <summary>Matches a Markdown link to a page, with an optional anchor.</summary>
+    [GeneratedRegex(@"\]\(([^)]+\.md)(#[^)]*)?\)")]
+    private static partial Regex PageLinkPattern();
+
     /// <summary>Expected headers for the Constructors table — Member and Description only (no Returns column).</summary>
     private static readonly string[] ConstructorTableHeaders = ["Member", "Description"];
 
@@ -706,7 +713,7 @@ public class DotNetGeneratorTests
         Assert.Contains(nsTable.Rows, row => row[0].Contains("ApiMark.DotNet.Fixtures.Inner"));
 
         // Assert: each row has four columns — Namespace, Types, Key Types, Description
-        Assert.Equal(new[] { "Namespace", "Types", "Key Types", "Description" }, nsTable.Headers);
+        Assert.Equal(NamespaceTableHeaders, nsTable.Headers);
         Assert.All(nsTable.Rows, row => Assert.Equal(4, row.Length));
     }
 
@@ -2858,9 +2865,7 @@ public class DotNetGeneratorTests
 
         // Assert: every [Text](path.md) link found in every page's paragraphs and tables must
         // resolve — relative to its containing page's folder — to a page that was actually created
-        var linkPattern = new System.Text.RegularExpressions.Regex(
-            @"\]\(([^)]+\.md)(#[^)]*)?\)",
-            System.Text.RegularExpressions.RegexOptions.None);
+        var linkPattern = PageLinkPattern();
         var brokenLinks = new List<string>();
 
         foreach (var (pageKey, writer) in factory.Writers)

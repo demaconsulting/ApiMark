@@ -26,3 +26,11 @@ query-filters:
   - exclude:
       id: cs/missed-readonly-modifier
     paths: ['**/VhdlAst/Antlr/**']
+  # Test fixtures deliberately model C# API shapes (explicit IEquatable without Equals(object),
+  # `new` field hiding) so the emitters can be tested against them.
+  - exclude:
+      id: cs/class-missing-equals
+    paths: ['test/ApiMark.DotNet.Fixtures*/**']
+  - exclude:
+      id: cs/field-masks-base-field
+    paths: ['test/ApiMark.DotNet.Fixtures*/**']

@@ -19,8 +19,12 @@ namespace ApiMark.Cpp.Tests;
 ///     real clang invocations.
 /// </remarks>
 [Collection("ClangEnvironment")]
-public class ClangAstParserTests
+public partial class ClangAstParserTests
 {
+    /// <summary>Matches the PID reported in a timeout exception message.</summary>
+    [GeneratedRegex(@"PID: (\d+)")]
+    private static partial Regex PidPattern();
+
     /// <summary>Checks whether clang is available on the current system by attempting to run "clang --version".</summary>
     /// <returns><see langword="true"/> when clang is discoverable; <see langword="false"/> otherwise.</returns>
     private static bool IsClangAvailable()
@@ -655,13 +659,9 @@ public class ClangAstParserTests
                 // TryKillProcess would otherwise still pass the message assertions above while
                 // leaving the 1000-second child running
                 var pid = int.Parse(
-                    Regex.Match(ex.Message, @"PID: (\d+)").Groups[1].Value,
+                    PidPattern().Match(ex.Message).Groups[1].Value,
                     CultureInfo.InvariantCulture);
-                var deadline = DateTime.UtcNow.AddSeconds(5);
-                while (IsProcessRunning(pid) && DateTime.UtcNow < deadline)
-                {
-                    Thread.Sleep(50);
-                }
+                SpinWait.SpinUntil(() => !IsProcessRunning(pid), TimeSpan.FromSeconds(5));
 
                 Assert.False(IsProcessRunning(pid), $"Process {pid} should have been killed after the timeout.");
             }

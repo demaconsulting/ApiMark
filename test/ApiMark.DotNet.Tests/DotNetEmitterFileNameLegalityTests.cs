@@ -1,6 +1,7 @@
 // Copyright (c) DemaConsulting LLC. All rights reserved.
 // Licensed under the MIT License.
 
+using System.Buffers;
 using System.Text.RegularExpressions;
 using ApiMark.Core;
 using ApiMark.Core.TestHelpers;
@@ -18,13 +19,14 @@ namespace ApiMark.DotNet.Tests;
 ///     The legality rules are re-implemented here independently of the product code so the tests do not
 ///     trust the sanitizer they verify.
 /// </remarks>
-public class DotNetEmitterFileNameLegalityTests
+public partial class DotNetEmitterFileNameLegalityTests
 {
     /// <summary>Matches a Markdown link and captures its target.</summary>
-    private static readonly Regex LinkPattern = new(@"\]\(([^)\s]+)\)", RegexOptions.Compiled);
+    [GeneratedRegex(@"\]\(([^)\s]+)\)", RegexOptions.Compiled)]
+    private static partial Regex LinkPattern();
 
     /// <summary>Characters that are illegal in a Windows file name segment.</summary>
-    private static readonly char[] IllegalChars = ['<', '>', '|', '?', '*', ':', '"', '/', '\\'];
+    private static readonly SearchValues<char> IllegalChars = SearchValues.Create(['<', '>', '|', '?', '*', ':', '"', '/', '\\']);
 
     /// <summary>Windows reserved device names.</summary>
     private static readonly HashSet<string> Reserved = new(StringComparer.OrdinalIgnoreCase)
@@ -70,7 +72,7 @@ public class DotNetEmitterFileNameLegalityTests
             return "empty";
         }
 
-        if (segment.IndexOfAny(IllegalChars) >= 0)
+        if (segment.AsSpan().ContainsAny(IllegalChars))
         {
             return "illegal character";
         }
@@ -199,7 +201,7 @@ public class DotNetEmitterFileNameLegalityTests
             {
                 var links = op is LinkOperation link
                     ? [link.RelativePath]
-                    : TextsOf(op).SelectMany(t => LinkPattern.Matches(t).Select(m => m.Groups[1].Value)).ToList();
+                    : TextsOf(op).SelectMany(t => LinkPattern().Matches(t).Select(m => m.Groups[1].Value)).ToList();
                 foreach (var match in links)
                 {
                     var target = Resolve(key, match);
@@ -256,7 +258,7 @@ public class DotNetEmitterFileNameLegalityTests
     public void DotNetEmitterGradualDisclosure_EmitToDisk_AllVisibility_WritesEveryPageToFileSystem()
     {
         // Arrange
-        var dir = Path.Combine(Path.GetTempPath(), "apimark-legality-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Join(Path.GetTempPath(), "apimark-legality-" + Guid.NewGuid().ToString("N"));
         try
         {
             var expected = Emit(ApiVisibility.All, OutputFormat.GradualDisclosure).Writers.Keys.ToList();

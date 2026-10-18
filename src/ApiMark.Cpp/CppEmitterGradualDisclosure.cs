@@ -650,7 +650,7 @@ internal sealed class CppEmitterGradualDisclosure
         IMarkdownWriterFactory factory,
         string nsRegistryKey,
         string nsDisplayName,
-        IReadOnlyList<CppFunction> overloads,
+        List<CppFunction> overloads,
         CppTypeLinkResolver cppResolver)
     {
         var fnKey = CppNames.FunctionKey(nsRegistryKey, overloads[0].Name);

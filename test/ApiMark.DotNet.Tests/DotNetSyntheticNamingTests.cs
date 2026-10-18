@@ -17,13 +17,14 @@ namespace ApiMark.DotNet.Tests;
 ///     namespace that collides with a type, and case twins. Every scenario asserts the exact file names
 ///     the symbol-name registry produces and that every link and breadcrumb resolves to a written page.
 /// </summary>
-public class DotNetSyntheticNamingTests : IDisposable
+public partial class DotNetSyntheticNamingTests : IDisposable
 {
     /// <summary>Matches a Markdown link destination ending in <c>.md</c>, with an optional anchor.</summary>
-    private static readonly Regex LinkPattern = new(@"\]\(([^)\s#]+\.md)(?:#[^)\s]*)?\)", RegexOptions.Compiled);
+    [GeneratedRegex(@"\]\(([^)\s#]+\.md)(?:#[^)\s]*)?\)", RegexOptions.Compiled)]
+    private static partial Regex LinkPattern();
 
     /// <summary>The directory that holds the synthetic assembly.</summary>
-    private readonly string _directory = Path.Combine(Path.GetTempPath(), "apimark-synthetic-" + Guid.NewGuid().ToString("N"));
+    private readonly string _directory = Path.Join(Path.GetTempPath(), "apimark-synthetic-" + Guid.NewGuid().ToString("N"));
 
     /// <summary>Gets the page keys of the shared all-visibility emit.</summary>
     private HashSet<string> AllKeys => Emitted.Writers.Keys.ToHashSet(StringComparer.Ordinal);
@@ -140,9 +141,9 @@ public class DotNetSyntheticNamingTests : IDisposable
         AddField(m, twins, "value");
         AddField(m, twins, "Value");
 
-        var dll = Path.Combine(_directory, "Synth.dll");
+        var dll = Path.Join(_directory, "Synth.dll");
         assembly.Write(dll);
-        var xml = Path.Combine(_directory, "Synth.xml");
+        var xml = Path.Join(_directory, "Synth.xml");
         File.WriteAllText(xml, "<doc><assembly><name>Synth</name></assembly><members/></doc>");
         return (dll, xml);
     }
@@ -303,7 +304,7 @@ public class DotNetSyntheticNamingTests : IDisposable
         {
             foreach (var text in Texts(writer))
             {
-                foreach (Match match in LinkPattern.Matches(text))
+                foreach (Match match in LinkPattern().Matches(text))
                 {
                     var target = Resolve(key, match.Groups[1].Value);
                     Assert.True(factory.Writers.ContainsKey(target), $"{key} -> {match.Groups[1].Value} resolves to missing {target}");
@@ -318,7 +319,7 @@ public class DotNetSyntheticNamingTests : IDisposable
 
             var ops = writer.Operations.ToList();
             var crumb = Assert.IsType<ParagraphOperation>(ops[ops.FindIndex(o => o is HeadingOperation { Level: 1 }) + 1]).Text;
-            var first = LinkPattern.Matches(crumb).First().Groups[1].Value;
+            var first = LinkPattern().Matches(crumb).First().Groups[1].Value;
             Assert.Equal("api", Resolve(key, first));
             checkedCrumbs++;
         }

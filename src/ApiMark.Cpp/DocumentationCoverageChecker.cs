@@ -112,28 +112,8 @@ internal static class DocumentationCoverageChecker
             undocumented.Add(new UndocumentedApiItem("Class", classDisplay));
         }
 
-        foreach (var member in cls.Members
-            .Where(m => IsVisibleMember(m.Accessibility, visibility))
-            .Where(m => includeDeprecated || !m.IsDeprecated))
-        {
-            checkedCount++;
-            if (string.IsNullOrWhiteSpace(member.Doc?.Summary))
-            {
-                var name = member.IsConstructor ? cls.Name : member.Name;
-                undocumented.Add(new UndocumentedApiItem("Function", $"{classDisplay}::{name}{FormatParameterSignature(member)}"));
-            }
-        }
-
-        foreach (var field in cls.Fields
-            .Where(f => IsVisibleMember(f.Accessibility, visibility))
-            .Where(f => includeDeprecated || !f.IsDeprecated))
-        {
-            checkedCount++;
-            if (string.IsNullOrWhiteSpace(field.Doc?.Summary))
-            {
-                undocumented.Add(new UndocumentedApiItem("Field", $"{classDisplay}::{field.Name}"));
-            }
-        }
+        CheckClassMembers(cls, classDisplay, visibility, includeDeprecated, undocumented, ref checkedCount);
+        CheckClassFields(cls, classDisplay, visibility, includeDeprecated, undocumented, ref checkedCount);
 
         foreach (var alias in cls.TypeAliases.Where(a => includeDeprecated || !a.IsDeprecated))
         {
@@ -145,6 +125,61 @@ internal static class DocumentationCoverageChecker
         foreach (var nested in cls.NestedClasses.Where(n => includeDeprecated || !n.IsDeprecated))
         {
             CheckClass(nested, classDisplay, visibility, includeDeprecated, undocumented, ref checkedCount);
+        }
+    }
+
+    /// <summary>Checks the visible member functions of a class for missing summaries.</summary>
+    /// <param name="cls">The class whose members are checked.</param>
+    /// <param name="classDisplay">The fully-qualified display name of the class.</param>
+    /// <param name="visibility">The enforcement visibility tier.</param>
+    /// <param name="includeDeprecated">Whether deprecated declarations are included in the check.</param>
+    /// <param name="undocumented">The accumulator list to append violations to.</param>
+    /// <param name="checkedCount">Running count of declarations checked, incremented by reference.</param>
+    private static void CheckClassMembers(
+        CppClass cls,
+        string classDisplay,
+        ApiVisibility visibility,
+        bool includeDeprecated,
+        List<UndocumentedApiItem> undocumented,
+        ref int checkedCount)
+    {
+        foreach (var member in cls.Members
+            .Where(m => IsVisibleMember(m.Accessibility, visibility))
+            .Where(m => includeDeprecated || !m.IsDeprecated))
+        {
+            checkedCount++;
+            if (string.IsNullOrWhiteSpace(member.Doc?.Summary))
+            {
+                var name = member.IsConstructor ? cls.Name : member.Name;
+                undocumented.Add(new UndocumentedApiItem("Function", $"{classDisplay}::{name}{FormatParameterSignature(member)}"));
+            }
+        }
+    }
+
+    /// <summary>Checks the visible fields of a class for missing summaries.</summary>
+    /// <param name="cls">The class whose fields are checked.</param>
+    /// <param name="classDisplay">The fully-qualified display name of the class.</param>
+    /// <param name="visibility">The enforcement visibility tier.</param>
+    /// <param name="includeDeprecated">Whether deprecated declarations are included in the check.</param>
+    /// <param name="undocumented">The accumulator list to append violations to.</param>
+    /// <param name="checkedCount">Running count of declarations checked, incremented by reference.</param>
+    private static void CheckClassFields(
+        CppClass cls,
+        string classDisplay,
+        ApiVisibility visibility,
+        bool includeDeprecated,
+        List<UndocumentedApiItem> undocumented,
+        ref int checkedCount)
+    {
+        foreach (var field in cls.Fields
+            .Where(f => IsVisibleMember(f.Accessibility, visibility))
+            .Where(f => includeDeprecated || !f.IsDeprecated))
+        {
+            checkedCount++;
+            if (string.IsNullOrWhiteSpace(field.Doc?.Summary))
+            {
+                undocumented.Add(new UndocumentedApiItem("Field", $"{classDisplay}::{field.Name}"));
+            }
         }
     }
 

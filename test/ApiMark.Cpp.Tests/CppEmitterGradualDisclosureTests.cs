@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using ApiMark.Core;
 using ApiMark.Core.TestHelpers;
 using ApiMark.Cpp;
@@ -11,8 +12,12 @@ using Xunit;
 namespace ApiMark.Cpp.Tests;
 
 /// <summary>Unit tests for <see cref="CppEmitterGradualDisclosure"/>.</summary>
-public class CppEmitterGradualDisclosureTests
+public partial class CppEmitterGradualDisclosureTests
 {
+    /// <summary>Matches a Markdown link destination ending in <c>.md</c>.</summary>
+    [GeneratedRegex(@"\]\(([^)]+\.md)\)")]
+    private static partial Regex LinkPattern();
+
     /// <summary>Builds a representative synthetic API model without invoking clang.</summary>
     private static (CppEmitter emitter, SortedDictionary<string, CppEmitter.NamespaceDeclarations> nsDecls, CppTypeLinkResolver resolver) BuildRichData()
     {
@@ -501,7 +506,7 @@ public class CppEmitterGradualDisclosureTests
         var factory = EmitIllegalNames();
 
         // Assert: parse every Markdown link in every table cell and resolve it against the page folder
-        var linkPattern = new System.Text.RegularExpressions.Regex(@"\]\(([^)]+\.md)\)");
+        var linkPattern = LinkPattern();
         var checkedLinks = 0;
         foreach (var (key, writer) in factory.Writers)
         {
@@ -511,7 +516,7 @@ public class CppEmitterGradualDisclosureTests
             {
                 foreach (System.Text.RegularExpressions.Match match in linkPattern.Matches(cell))
                 {
-                    var target = Path.GetRelativePath(".", Path.Combine(folder, match.Groups[1].Value)).Replace('\\', '/');
+                    var target = Path.GetRelativePath(".", Path.Join(folder, match.Groups[1].Value)).Replace('\\', '/');
                     target = target[..^".md".Length];
                     Assert.True(factory.Writers.ContainsKey(target), $"Link '{match.Groups[1].Value}' on '{key}' resolves to missing page '{target}'");
                     checkedLinks++;
@@ -586,7 +591,7 @@ public class CppEmitterGradualDisclosureTests
     /// <summary>Gets every link target found in the table cells and paragraphs of a page.</summary>
     private static IEnumerable<string> LinkTargets(InMemoryMarkdownWriter writer)
     {
-        var linkPattern = new System.Text.RegularExpressions.Regex(@"\]\(([^)]+\.md)\)");
+        var linkPattern = LinkPattern();
         var texts = writer.Operations.OfType<TableOperation>().SelectMany(t => t.Rows).SelectMany(r => r)
             .Concat(writer.Operations.OfType<ParagraphOperation>().Select(p => p.Text));
         return texts.SelectMany(t => linkPattern.Matches(t).Select(m => m.Groups[1].Value));
@@ -676,7 +681,7 @@ public class CppEmitterGradualDisclosureTests
             var folder = slash < 0 ? string.Empty : key[..slash];
             foreach (var link in LinkTargets(writer))
             {
-                var target = Path.GetRelativePath(".", Path.Combine(folder, link)).Replace('\\', '/');
+                var target = Path.GetRelativePath(".", Path.Join(folder, link)).Replace('\\', '/');
                 target = target[..^".md".Length];
                 Assert.True(factory.Writers.ContainsKey(target), $"Link '{link}' on '{key}' resolves to missing page '{target}'");
                 checkedLinks++;

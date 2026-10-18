@@ -1,5 +1,7 @@
 using Xunit;
 
+namespace ApiMark.Tool.Tests;
+
 /// <summary>
 ///     xUnit collection definition that serializes tests that mutate
 ///     global <see cref="System.Console"/> streams (Out and Error).

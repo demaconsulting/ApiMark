@@ -80,20 +80,10 @@ public static class FileNameRules
         var builder = new StringBuilder(normalized.Length);
         foreach (var c in normalized)
         {
-            if (c is '{' or '}')
-            {
-                builder.Append(c);
-                transformed = true;
-            }
-            else if (IsReplacedCharacter(c))
-            {
-                builder.Append(ReplacementCharacter);
-                transformed = true;
-            }
-            else
-            {
-                builder.Append(c);
-            }
+            var isStructural = c is '{' or '}';
+            var isReplaced = !isStructural && IsReplacedCharacter(c);
+            builder.Append(isReplaced ? ReplacementCharacter : c);
+            transformed |= isStructural || isReplaced;
         }
 
         // Windows silently strips trailing dots and spaces, so they must not appear.

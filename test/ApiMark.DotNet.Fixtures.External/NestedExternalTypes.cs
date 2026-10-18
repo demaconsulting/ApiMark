@@ -12,6 +12,7 @@ public class NestedHost
         /// <summary>Runs the nested type.</summary>
         public void Run()
         {
+            // Intentionally empty: only the declaration shape matters to the tests
         }
     }
 

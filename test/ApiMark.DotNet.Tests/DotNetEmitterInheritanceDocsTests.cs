@@ -17,6 +17,18 @@ public class DotNetEmitterInheritanceDocsTests
 {
     private const string Ns = "ApiMark.DotNet.Fixtures";
 
+    private static readonly string[] MemberKindHeaders = ["Member", "Kind"];
+
+    private static readonly string[] SharedAndMiddleNames = ["Shared", "MiddleMethod"];
+
+    private static readonly string[] GrandMemberNames = ["GrandValue", "GrandMethod"];
+
+    private static readonly string[] PropertyAndMethodKinds = ["Property", "Method"];
+
+    private static readonly string[] DescribeBaseNames = ["DescribeBase"];
+
+    private static readonly string[] MethodKinds = ["Method"];
+
     /// <summary>Builds generator options for the fixture assembly.</summary>
     /// <param name="withReferences">Whether the external fixture assembly is supplied as a reference.</param>
     /// <param name="externalLinks">Optional external link mappings.</param>
@@ -90,7 +102,7 @@ public class DotNetEmitterInheritanceDocsTests
     /// <param name="writer">The writer.</param>
     /// <returns>The table operations.</returns>
     private static List<TableOperation> InheritedTables(InMemoryMarkdownWriter writer) =>
-        writer.Operations.OfType<TableOperation>().Where(t => t.Headers.SequenceEqual(new[] { "Member", "Kind" })).ToList();
+        writer.Operations.OfType<TableOperation>().Where(t => t.Headers.SequenceEqual(MemberKindHeaders)).ToList();
 
     /// <summary>Validates inherited members are listed per declaring type, minus overridden and Object members.</summary>
     [Fact]
@@ -107,9 +119,9 @@ public class DotNetEmitterInheritanceDocsTests
             inherited);
         var tables = InheritedTables(page);
         Assert.Equal(2, tables.Count);
-        Assert.Equal(new[] { "Shared", "MiddleMethod" }.Order(), tables[0].Rows.Select(r => r[0]).Order());
-        Assert.Equal(new[] { "GrandValue", "GrandMethod" }, tables[1].Rows.Select(r => r[0]));
-        Assert.Equal(new[] { "Property", "Method" }, tables[1].Rows.Select(r => r[1]));
+        Assert.Equal(SharedAndMiddleNames.Order(), tables[0].Rows.Select(r => r[0]).Order());
+        Assert.Equal(GrandMemberNames, tables[1].Rows.Select(r => r[0]));
+        Assert.Equal(PropertyAndMethodKinds, tables[1].Rows.Select(r => r[1]));
     }
 
     /// <summary>Validates inherited members do not become members of the leaf type's own pages.</summary>
@@ -143,18 +155,18 @@ public class DotNetEmitterInheritanceDocsTests
     public void DotNetEmitterGradualDisclosure_Emit_UnresolvableBase_RendersNoteAndDoesNotThrow()
     {
         // Arrange: synthesize an assembly whose only type derives from a base in a missing assembly
-        var directory = Path.Combine(Path.GetTempPath(), $"unresolved-{Guid.NewGuid():N}");
+        var directory = Path.Join(Path.GetTempPath(), $"unresolved-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {
-            var dll = Path.Combine(directory, "Orphans.dll");
+            var dll = Path.Join(directory, "Orphans.dll");
             var module = Mono.Cecil.AssemblyDefinition.CreateAssembly(new Mono.Cecil.AssemblyNameDefinition("Orphans", new Version(1, 0)), "Orphans", Mono.Cecil.ModuleKind.Dll);
             var missing = new Mono.Cecil.AssemblyNameReference("Missing.Lib", new Version(1, 0));
             var baseRef = new Mono.Cecil.TypeReference("Missing", "MissingBase", module.MainModule, missing);
             var orphan = new Mono.Cecil.TypeDefinition("Orphans", "Orphan", Mono.Cecil.TypeAttributes.Public | Mono.Cecil.TypeAttributes.Class, baseRef);
             module.MainModule.Types.Add(orphan);
             module.Write(dll);
-            var xml = Path.Combine(directory, "Orphans.xml");
+            var xml = Path.Join(directory, "Orphans.xml");
             File.WriteAllText(xml, "<?xml version=\"1.0\"?><doc><assembly><name>Orphans</name></assembly><members /></doc>");
             var options = new DotNetGeneratorOptions { AssemblyPath = dll, XmlDocPath = xml, Visibility = ApiVisibility.Public };
             // Act
@@ -182,8 +194,8 @@ public class DotNetEmitterInheritanceDocsTests
 
         // Assert (Public visibility: the protected BaseCounter field is not listed)
         var table = Assert.Single(InheritedTables(page));
-        Assert.Equal(new[] { "DescribeBase" }, table.Rows.Select(r => r[0]));
-        Assert.Equal(new[] { "Method" }, table.Rows.Select(r => r[1]));
+        Assert.Equal(DescribeBaseNames, table.Rows.Select(r => r[0]));
+        Assert.Equal(MethodKinds, table.Rows.Select(r => r[1]));
         Assert.Contains("### Inherited from ExternalBaseClass", Headings(page));
     }
 
@@ -205,7 +217,7 @@ public class DotNetEmitterInheritanceDocsTests
     {
         // Arrange
         const string id = "M:ApiMark.DotNet.Fixtures.Inner.InnerNamespaceClass.Compute(System.Int32)";
-        var xmlPath = Path.Combine(Path.GetTempPath(), $"inheritdoc-{Guid.NewGuid():N}.xml");
+        var xmlPath = Path.Join(Path.GetTempPath(), $"inheritdoc-{Guid.NewGuid():N}.xml");
         try
         {
             File.WriteAllText(

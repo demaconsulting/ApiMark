@@ -534,7 +534,7 @@ internal sealed class TypeLinkResolver
     /// <param name="segments">The dotted cref name split into segments, with any member removed.</param>
     /// <param name="target">The external target to match.</param>
     /// <returns>The namespace, or <see langword="null"/> when the target does not own the name.</returns>
-    private static string? FindExternalNamespace(IReadOnlyList<string> segments, ExternalLinkTarget target)
+    private static string? FindExternalNamespace(List<string> segments, ExternalLinkTarget target)
     {
         if (target.Namespaces == null)
         {

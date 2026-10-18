@@ -6,6 +6,7 @@ public class ExternalChainTop
     /// <summary>Runs the top-level operation.</summary>
     public void TopOp()
     {
+        // Intentionally empty: only the declaration shape matters to the tests
     }
 }
 
@@ -15,5 +16,6 @@ public class ExternalChainMiddle : ExternalChainTop
     /// <summary>Runs the middle operation.</summary>
     public void MiddleOp()
     {
+        // Intentionally empty: only the declaration shape matters to the tests
     }
 }

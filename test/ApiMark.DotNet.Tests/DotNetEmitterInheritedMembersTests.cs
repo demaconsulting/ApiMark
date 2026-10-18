@@ -14,10 +14,81 @@ namespace ApiMark.DotNet.Tests;
 ///     external bases (resolved, unresolved and link-mapped), generic and nested bases, and the
 ///     "Inherited from" link targets.
 /// </summary>
-public class DotNetEmitterInheritedMembersTests
+public partial class DotNetEmitterInheritedMembersTests
 {
+    /// <summary>Matches an "Inherited from" heading that links to a page.</summary>
+    [GeneratedRegex(@"^Inherited from \[[^\]]+\]\(((?!https?:)[^)#\s]+)\.md\)", RegexOptions.Multiline)]
+    private static partial Regex InheritedFromPattern();
+
+    /// <summary>Matches a relative Markdown link to a page.</summary>
+    [GeneratedRegex(@"\]\(((?!https?:|file:|#)[^)#\s]+)\.md(?:#[^)\s]*)?\)")]
+    private static partial Regex RelativeLinkPattern();
+
     /// <summary>The fixture namespace and root page folder.</summary>
     private const string Ns = "ApiMark.DotNet.Fixtures";
+
+    private static readonly string[] TierBaseHeading = ["### Inherited from [InheritedTierBase](InheritedTierBase.md)"];
+
+    private static readonly string[] PublicTierMembers = ["PublicOp | Method"];
+
+    private static readonly string[] ProtectedTierMembers =
+        ["ProtectedInternalOp | Method", "ProtectedOp | Method", "PublicOp | Method", "ProtectedField | Field"];
+
+    private static readonly string[] AllTierMembers =
+    [
+        "InternalOp | Method",
+        "PrivateProtectedOp | Method",
+        "ProtectedInternalOp | Method",
+        "ProtectedOp | Method",
+        "PublicOp | Method",
+        "ProtectedField | Field",
+    ];
+
+    private static readonly string[] AbstractMidLines =
+        ["### Inherited from [InheritedAbstractBase](InheritedAbstractBase.md)", "Name | Property", "Concrete | Method"];
+
+    private static readonly string[] AbstractLeafLines =
+    [
+        "### Inherited from [InheritedAbstractMid](InheritedAbstractMid.md)",
+        "Compute | Method",
+        "### Inherited from [InheritedAbstractBase](InheritedAbstractBase.md)",
+        "Concrete | Method",
+    ];
+
+    private static readonly string[] ExternalProtectedLines =
+        ["### Inherited from ExternalBaseClass", "DescribeBase | Method", "BaseCounter | Field"];
+
+    private static readonly string[] ExternalOverrideProtectedLines = ["### Inherited from ExternalBaseClass", "BaseCounter | Field"];
+
+    private static readonly string[] ExternalUnmappedLines = ["### Inherited from ExternalBaseClass", "DescribeBase | Method"];
+
+    private static readonly string[] ExternalMappedLines =
+    [
+        "### Inherited from [ExternalBaseClass](../../OtherLib/api/ApiMark.DotNet.Fixtures.External/ExternalBaseClass.md)",
+        "DescribeBase | Method",
+    ];
+
+    private static readonly string[] ExternalChainUnmappedLines =
+    [
+        "### Inherited from ExternalChainMiddle",
+        "MiddleOp | Method",
+        "### Inherited from ExternalChainTop",
+        "TopOp | Method",
+    ];
+
+    private static readonly string[] ExternalChainMappedLines =
+    [
+        "### Inherited from [ExternalChainMiddle](../../OtherLib/api/ApiMark.DotNet.Fixtures.External/ExternalChainMiddle.md)",
+        "MiddleOp | Method",
+        "### Inherited from [ExternalChainTop](../../OtherLib/api/ApiMark.DotNet.Fixtures.External/ExternalChainTop.md)",
+        "TopOp | Method",
+    ];
+
+    private static readonly string[] GenericBaseLines =
+        ["### Inherited from [InheritedGenericBase](InheritedGenericBase{1}.md)\\<string\\>", "Take | Method"];
+
+    private static readonly string[] NestedBaseLines =
+        ["### Inherited from [NestedBase](InheritedNestedHost/NestedBase.md)", "NestedOp | Method"];
 
     /// <summary>Emits the fixture assembly in gradual-disclosure format.</summary>
     /// <param name="visibility">The visibility tier.</param>
@@ -105,30 +176,16 @@ public class DotNetEmitterInheritedMembersTests
         var lines = InheritedLines(Emit(visibility), "InheritedTierDerived");
 
         // Assert
-        Assert.Equal(new[] { "### Inherited from [InheritedTierBase](InheritedTierBase.md)" }.Concat(expected).ToArray(), lines);
+        Assert.Equal(TierBaseHeading.Concat(expected).ToArray(), lines);
     }
 
     /// <summary>Gets the tier theory data.</summary>
     /// <returns>The data rows.</returns>
     public static TheoryData<ApiVisibility, string[]> TierData() => new()
     {
-        { ApiVisibility.Public, new[] { "PublicOp | Method" } },
-        {
-            ApiVisibility.PublicAndProtected,
-            new[] { "ProtectedInternalOp | Method", "ProtectedOp | Method", "PublicOp | Method", "ProtectedField | Field" }
-        },
-        {
-            ApiVisibility.All,
-            new[]
-            {
-                "InternalOp | Method",
-                "PrivateProtectedOp | Method",
-                "ProtectedInternalOp | Method",
-                "ProtectedOp | Method",
-                "PublicOp | Method",
-                "ProtectedField | Field",
-            }
-        },
+        { ApiVisibility.Public, PublicTierMembers },
+        { ApiVisibility.PublicAndProtected, ProtectedTierMembers },
+        { ApiVisibility.All, AllTierMembers },
     };
 
     /// <summary>Validates abstract members implemented lower in the chain are listed once, at the declaring type that still owns them.</summary>
@@ -139,20 +196,10 @@ public class DotNetEmitterInheritedMembersTests
         var factory = Emit(ApiVisibility.Public);
 
         // Assert: Mid implements Compute, so only Name (still abstract) and Concrete remain from the base
-        Assert.Equal(
-            new[] { "### Inherited from [InheritedAbstractBase](InheritedAbstractBase.md)", "Name | Property", "Concrete | Method" },
-            InheritedLines(factory, "InheritedAbstractMid"));
+        Assert.Equal(AbstractMidLines, InheritedLines(factory, "InheritedAbstractMid"));
 
         // Assert: Leaf implements Name; Compute is owned by Mid and Concrete by the base
-        Assert.Equal(
-            new[]
-            {
-                "### Inherited from [InheritedAbstractMid](InheritedAbstractMid.md)",
-                "Compute | Method",
-                "### Inherited from [InheritedAbstractBase](InheritedAbstractBase.md)",
-                "Concrete | Method",
-            },
-            InheritedLines(factory, "InheritedAbstractLeaf"));
+        Assert.Equal(AbstractLeafLines, InheritedLines(factory, "InheritedAbstractLeaf"));
     }
 
     /// <summary>Validates a resolved external base lists its protected members at the protected tier.</summary>
@@ -163,12 +210,8 @@ public class DotNetEmitterInheritedMembersTests
         var factory = Emit(ApiVisibility.PublicAndProtected, withReferences: true);
 
         // Assert
-        Assert.Equal(
-            new[] { "### Inherited from ExternalBaseClass", "DescribeBase | Method", "BaseCounter | Field" },
-            InheritedLines(factory, "InheritedFromExternal"));
-        Assert.Equal(
-            new[] { "### Inherited from ExternalBaseClass", "BaseCounter | Field" },
-            InheritedLines(factory, "InheritedFromExternalOverride"));
+        Assert.Equal(ExternalProtectedLines, InheritedLines(factory, "InheritedFromExternal"));
+        Assert.Equal(ExternalOverrideProtectedLines, InheritedLines(factory, "InheritedFromExternalOverride"));
     }
 
     /// <summary>Validates an external base whose members are all overridden or hidden produces no Inherited Members section.</summary>
@@ -193,7 +236,7 @@ public class DotNetEmitterInheritedMembersTests
         var lines = InheritedLines(Emit(ApiVisibility.Public), "InheritedFromExternal");
 
         // Assert
-        Assert.Equal(new[] { "### Inherited from ExternalBaseClass", "DescribeBase | Method" }, lines);
+        Assert.Equal(ExternalUnmappedLines, lines);
     }
 
     /// <summary>Validates a link-mapped external base heading links into the external documentation.</summary>
@@ -207,13 +250,7 @@ public class DotNetEmitterInheritedMembersTests
             externalLinks: new Dictionary<string, string> { ["ApiMark.DotNet.Fixtures.External"] = "../OtherLib/api" });
 
         // Assert
-        Assert.Equal(
-            new[]
-            {
-                "### Inherited from [ExternalBaseClass](../../OtherLib/api/ApiMark.DotNet.Fixtures.External/ExternalBaseClass.md)",
-                "DescribeBase | Method",
-            },
-            InheritedLines(factory, "InheritedFromExternal"));
+        Assert.Equal(ExternalMappedLines, InheritedLines(factory, "InheritedFromExternal"));
     }
 
     /// <summary>
@@ -227,15 +264,7 @@ public class DotNetEmitterInheritedMembersTests
         var factory = Emit(ApiVisibility.Public, withReferences: true);
 
         // Assert
-        Assert.Equal(
-            new[]
-            {
-                "### Inherited from ExternalChainMiddle",
-                "MiddleOp | Method",
-                "### Inherited from ExternalChainTop",
-                "TopOp | Method",
-            },
-            InheritedLines(factory, "InheritedFromExternalChain"));
+        Assert.Equal(ExternalChainUnmappedLines, InheritedLines(factory, "InheritedFromExternalChain"));
     }
 
     /// <summary>Validates every base in an external chain links into the mapped external documentation.</summary>
@@ -249,15 +278,7 @@ public class DotNetEmitterInheritedMembersTests
             externalLinks: new Dictionary<string, string> { ["ApiMark.DotNet.Fixtures.External"] = "../OtherLib/api" });
 
         // Assert
-        Assert.Equal(
-            new[]
-            {
-                "### Inherited from [ExternalChainMiddle](../../OtherLib/api/ApiMark.DotNet.Fixtures.External/ExternalChainMiddle.md)",
-                "MiddleOp | Method",
-                "### Inherited from [ExternalChainTop](../../OtherLib/api/ApiMark.DotNet.Fixtures.External/ExternalChainTop.md)",
-                "TopOp | Method",
-            },
-            InheritedLines(factory, "InheritedFromExternalChain"));
+        Assert.Equal(ExternalChainMappedLines, InheritedLines(factory, "InheritedFromExternalChain"));
     }
 
     /// <summary>Validates generic and nested bases render a correct heading and only link to existing pages.</summary>
@@ -268,12 +289,8 @@ public class DotNetEmitterInheritedMembersTests
         var factory = Emit(ApiVisibility.Public);
 
         // Assert
-        Assert.Equal(
-            new[] { "### Inherited from [InheritedGenericBase](InheritedGenericBase{1}.md)\\<string\\>", "Take | Method" },
-            InheritedLines(factory, "InheritedFromGeneric"));
-        Assert.Equal(
-            new[] { "### Inherited from [NestedBase](InheritedNestedHost/NestedBase.md)", "NestedOp | Method" },
-            InheritedLines(factory, "InheritedFromNested"));
+        Assert.Equal(GenericBaseLines, InheritedLines(factory, "InheritedFromGeneric"));
+        Assert.Equal(NestedBaseLines, InheritedLines(factory, "InheritedFromNested"));
     }
 
     /// <summary>Validates every "Inherited from" link on every page resolves to an emitted page.</summary>
@@ -282,23 +299,20 @@ public class DotNetEmitterInheritedMembersTests
     {
         // Arrange
         var factory = Emit(ApiVisibility.All);
-        var pattern = new Regex(@"^Inherited from \[[^\]]+\]\(((?!https?:)[^)#\s]+)\.md\)", RegexOptions.Multiline);
+        var pattern = InheritedFromPattern();
         var checkedLinks = 0;
 
         // Act / Assert
         foreach (var (key, writer) in factory.Writers)
         {
             var folder = key.Contains('/', StringComparison.Ordinal) ? key.Substring(0, key.LastIndexOf('/')) : string.Empty;
-            foreach (var heading in writer.Operations.OfType<HeadingOperation>().Where(h => h.Level == 3))
+            var matches = writer.Operations.OfType<HeadingOperation>().Where(h => h.Level == 3)
+                .Select(heading => pattern.Match(heading.Text))
+                .Where(match => match.Success);
+            foreach (var match in matches)
             {
-                var match = pattern.Match(heading.Text);
-                if (!match.Success)
-                {
-                    continue;
-                }
-
-                var target = Path.GetFullPath(Path.Combine("/root", folder, match.Groups[1].Value)).Replace('\\', '/');
-                var rootless = target.Substring(target.IndexOf("/root/", StringComparison.Ordinal) >= 0 ? target.IndexOf("/root/", StringComparison.Ordinal) + 6 : target.IndexOf(':') + 2);
+                var target = Path.GetFullPath(Path.Join("/root", folder, match.Groups[1].Value)).Replace('\\', '/');
+                var rootless = target.Substring(target.Contains("/root/", StringComparison.Ordinal) ? target.IndexOf("/root/", StringComparison.Ordinal) + 6 : target.IndexOf(':') + 2);
                 Assert.True(factory.Writers.ContainsKey(rootless), $"'{key}' links to missing page '{rootless}'");
                 checkedLinks++;
             }
@@ -320,7 +334,7 @@ public class DotNetEmitterInheritedMembersTests
     {
         // Arrange
         var factory = Emit(visibility, withReferences: true);
-        var linkPattern = new Regex(@"\]\(((?!https?:|file:|#)[^)#\s]+)\.md(?:#[^)\s]*)?\)");
+        var linkPattern = RelativeLinkPattern();
         var checkedLinks = 0;
 
         // Act / Assert

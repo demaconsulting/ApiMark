@@ -13,10 +13,11 @@ namespace ApiMark.Cpp.Tests;
 ///     Tests for the symbol-name registry applied to C++ output: exact-name rules, every collision scenario,
 ///     and whole-output properties (unique, legal names whose links all resolve).
 /// </summary>
-public class CppFileNamingTests
+public partial class CppFileNamingTests
 {
     /// <summary>Matches a Markdown link destination ending in <c>.md</c>, with an optional anchor.</summary>
-    private static readonly Regex LinkPattern = new(@"\]\(([^)\s#]+\.md)(?:#[^)\s]*)?\)", RegexOptions.Compiled);
+    [GeneratedRegex(@"\]\(([^)\s#]+\.md)(?:#[^)\s]*)?\)")]
+    private static partial Regex LinkPattern();
 
     /// <summary>A factory that records every page request so that overwritten pages are detected.</summary>
     private sealed class RecordingFactory : IMarkdownWriterFactory
@@ -142,9 +143,9 @@ public class CppFileNamingTests
                 .Concat(writer.Operations.OfType<ParagraphOperation>().Select(p => p.Text));
             foreach (var text in texts)
             {
-                foreach (Match match in LinkPattern.Matches(text))
+                foreach (Match match in LinkPattern().Matches(text))
                 {
-                    var target = Path.GetRelativePath(".", Path.Combine(folder, match.Groups[1].Value)).Replace('\\', '/');
+                    var target = Path.GetRelativePath(".", Path.Join(folder, match.Groups[1].Value)).Replace('\\', '/');
                     target = target[..^".md".Length];
                     Assert.True(writers.ContainsKey(target), $"Link '{match.Groups[1].Value}' on '{key}' resolves to missing page '{target}'");
                     checkedLinks++;
