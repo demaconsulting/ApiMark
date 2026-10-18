@@ -8,12 +8,19 @@ paths-ignore:
   - '**/bin/**'
 # Query filters to disable specific queries for certain paths
 query-filters:
-  # Suppress warnings in all generated build output under obj/
+  # Suppress warnings in generated build output under obj/ (for example the source-generated
+  # regex implementations), which cannot be modified.
   - exclude:
       id: cs/useless-assignment-to-local
     paths: ['**/obj/**/*.cs']
   - exclude:
       id: cs/missed-ternary-operator
+    paths: ['**/obj/**/*.cs']
+  - exclude:
+      id: cs/useless-cast-to-self
+    paths: ['**/obj/**/*.cs']
+  - exclude:
+      id: cs/unused-label
     paths: ['**/obj/**/*.cs']
   - exclude:
       id: cs/catch-of-all-exceptions
