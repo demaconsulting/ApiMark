@@ -15,6 +15,15 @@ namespace ApiMark.DotNet.Tests;
 /// </summary>
 public class DotNetEmitterGradualDisclosureGenericsTests
 {
+    private static readonly string[] TransactHeadings = ["# Transact", "## Transact(Func\\<int\\>)", "## Transact\\<T\\>(Func\\<T\\>)"];
+    private static readonly string[] TransactItemHeadings = ["# Transact", "## Transact(Func\\<TItem\\>)", "## Transact\\<T\\>(Func\\<T\\>)"];
+    private static readonly string[] RegistryHeadings = ["# PropertyEditorRegistry\\<TEditor\\>", "## Type Parameters", "## Constructors", "## Methods"];
+    private static readonly string[] TypeParameterHeaders = ["Type Parameter", "Description"];
+    private static readonly string[] EditorRow = ["TEditor", "The editor type stored in the registry."];
+    private static readonly string[] KeyRow = ["TKey", "The key type."];
+    private static readonly string[] ValueRow = ["TValue", "*No description provided.*"];
+    private static readonly string[] ResultRow = ["TResult", "The value type to produce."];
+    private static readonly string[] NamespaceTableHeaders = ["Namespace", "Types", "Key Types", "Description"];
     /// <summary>Emits the fixture assembly in gradual-disclosure format.</summary>
     /// <returns>The populated factory.</returns>
     private static InMemoryMarkdownWriterFactory EmitGradual()
@@ -104,10 +113,10 @@ public class DotNetEmitterGradualDisclosureGenericsTests
 
         // Assert
         Assert.Equal(
-            new[] { "# Transact", "## Transact(Func\\<int\\>)", "## Transact\\<T\\>(Func\\<T\\>)" },
+            TransactHeadings,
             Headings(factory, "ApiMark.DotNet.Fixtures/OverloadMatrix/Transact"));
         Assert.Equal(
-            new[] { "# Transact", "## Transact(Func\\<TItem\\>)", "## Transact\\<T\\>(Func\\<T\\>)" },
+            TransactItemHeadings,
             Headings(factory, "ApiMark.DotNet.Fixtures/OverloadMatrix{1}/Transact"));
     }
 
@@ -157,13 +166,13 @@ public class DotNetEmitterGradualDisclosureGenericsTests
         const string key = "ApiMark.DotNet.Fixtures/PropertyEditorRegistry{1}";
 
         // Assert: file name keeps the Name{arity} form, H1 is escaped
-        Assert.Equal(new[] { "# PropertyEditorRegistry\\<TEditor\\>", "## Type Parameters", "## Constructors", "## Methods" }, Headings(factory, key));
+        Assert.Equal(RegistryHeadings, Headings(factory, key));
         Assert.Equal("[API Reference](../api.md) › [ApiMark.DotNet.Fixtures](../ApiMark.DotNet.Fixtures.md)", Paragraphs(factory, key)[0]);
         var sig = Page(factory, key).Operations.OfType<SignatureOperation>().Single();
         Assert.Equal("public class PropertyEditorRegistry<TEditor> where TEditor : class", sig.Code);
         var table = Page(factory, key).Operations.OfType<TableOperation>().First();
-        Assert.Equal(new[] { "Type Parameter", "Description" }, table.Headers);
-        Assert.Equal(new[] { "TEditor", "The editor type stored in the registry." }, Assert.Single(table.Rows));
+        Assert.Equal(TypeParameterHeaders, table.Headers);
+        Assert.Equal(EditorRow, Assert.Single(table.Rows));
 
         // Assert: the namespace page link text is escaped and points at the arity file
         var nsRow = Row(factory, "ApiMark.DotNet.Fixtures", "[PropertyEditorRegistry");
@@ -184,8 +193,8 @@ public class DotNetEmitterGradualDisclosureGenericsTests
             "public class KeyedPair<TKey, TValue> where TKey : IComparable<TKey> where TValue : new()",
             Page(factory, key).Operations.OfType<SignatureOperation>().Single().Code);
         var rows = Page(factory, key).Operations.OfType<TableOperation>().First().Rows;
-        Assert.Equal(new[] { "TKey", "The key type." }, rows[0]);
-        Assert.Equal(new[] { "TValue", "*No description provided.*" }, rows[1]);
+        Assert.Equal(KeyRow, rows[0]);
+        Assert.Equal(ValueRow, rows[1]);
     }
 
     /// <summary>Validates generic method pages show a Type Parameters table and the where clause.</summary>
@@ -200,8 +209,8 @@ public class DotNetEmitterGradualDisclosureGenericsTests
         Assert.Equal("# Convert\\<TResult\\>(TEditor)", Headings(factory, key)[0]);
         Assert.Equal("public TResult Convert<TResult>(TEditor editor) where TResult : struct", Page(factory, key).Operations.OfType<SignatureOperation>().Single().Code);
         var table = Page(factory, key).Operations.OfType<TableOperation>().First();
-        Assert.Equal(new[] { "Type Parameter", "Description" }, table.Headers);
-        Assert.Equal(new[] { "TResult", "The value type to produce." }, Assert.Single(table.Rows));
+        Assert.Equal(TypeParameterHeaders, table.Headers);
+        Assert.Equal(ResultRow, Assert.Single(table.Rows));
         Assert.Equal(
             "[API Reference](../../api.md) › [ApiMark.DotNet.Fixtures](../../ApiMark.DotNet.Fixtures.md) › [PropertyEditorRegistry\\<TEditor\\>](../PropertyEditorRegistry{1}.md)",
             Paragraphs(factory, key)[0]);
@@ -282,7 +291,7 @@ public class DotNetEmitterGradualDisclosureGenericsTests
         // Assert
         Assert.Contains("**Start here:** [ApiMark.DotNet.Fixtures](ApiMark.DotNet.Fixtures.md)", api.Operations.OfType<ParagraphOperation>().Select(p => p.Text));
         var table = api.Operations.OfType<TableOperation>().First();
-        Assert.Equal(new[] { "Namespace", "Types", "Key Types", "Description" }, table.Headers);
+        Assert.Equal(NamespaceTableHeaders, table.Headers);
         var nav = table.Rows.Single(r => r[0].StartsWith("[ApiMark.DotNet.Fixtures.Navigation]", StringComparison.Ordinal));
         Assert.Equal(
             "[Bravo](ApiMark.DotNet.Fixtures/Navigation/Bravo.md), [Charlie](ApiMark.DotNet.Fixtures/Navigation/Charlie.md), [Delta](ApiMark.DotNet.Fixtures/Navigation/Delta.md)",

@@ -2043,7 +2043,7 @@ internal sealed class ClangAstParser
     private static CppField? ParseField(JsonElement node, CppAccessibility accessibility)
     {
         // Skip compiler-synthesized fields
-        if (node.TryGetProperty(IsImplicitProperty, out var impl) && impl.GetBoolean())
+        if (GetBoolProperty(node, IsImplicitProperty))
         {
             return null;
         }
@@ -2060,8 +2060,8 @@ internal sealed class ClangAstParser
 
         var typeName = GetQualType(node);
 
-        var isDeprecated = node.TryGetProperty(IsDeprecatedProperty, out var dep) && dep.GetBoolean();
-        var isConstexpr = node.TryGetProperty("constexpr", out var constexprProp) && constexprProp.GetBoolean();
+        var isDeprecated = GetBoolProperty(node, IsDeprecatedProperty);
+        var isConstexpr = GetBoolProperty(node, "constexpr");
         CppDocComment? doc = null;
         string? value = null;
 
@@ -2863,6 +2863,17 @@ internal sealed class ClangAstParser
                t.TryGetProperty(QualTypeProperty, out var qt)
             ? qt.GetString() ?? string.Empty
             : string.Empty;
+    }
+
+    /// <summary>
+    ///     Returns whether a JSON AST node has a boolean property set to <see langword="true"/>.
+    /// </summary>
+    /// <param name="node">The JSON element to inspect.</param>
+    /// <param name="propertyName">The property name to read.</param>
+    /// <returns><see langword="true"/> when the property exists and is true; otherwise <see langword="false"/>.</returns>
+    private static bool GetBoolProperty(JsonElement node, string propertyName)
+    {
+        return node.TryGetProperty(propertyName, out var value) && value.GetBoolean();
     }
 
     /// <summary>Returns the <c>storageClass</c> string from a JSON AST node, or <see langword="null"/> when absent.</summary>
