@@ -107,7 +107,17 @@ public static class FileNameRules
         }
 
         var text = builder.ToString();
+        return GuardReservedName(text, ref transformed);
+    }
 
+    /// <summary>
+    ///     Appends the replacement character to a reserved device name.
+    /// </summary>
+    /// <param name="text">The escaped name.</param>
+    /// <param name="transformed">Set to <see langword="true"/> when the name was changed.</param>
+    /// <returns>The name, adjusted when it is reserved.</returns>
+    private static string GuardReservedName(string text, ref bool transformed)
+    {
         // A reserved device name is checked on the part before the first dot ("Con.Foo" is reserved).
         var dot = text.IndexOf('.');
         var baseName = dot < 0 ? text : text[..dot];
