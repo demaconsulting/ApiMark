@@ -9,19 +9,18 @@
   <rect x="10" y="10" width="875" height="551" rx="28" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
 
   <g transform="translate(30,30)">
-  <!-- Entry points -->
-  <rect x="200" y="0" width="190" height="64" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
-  <text x="295" y="28" font-size="16" font-family="Consolas, monospace" fill="#92400e" text-anchor="middle">apimark</text>
-  <text x="295" y="48" font-size="12" fill="#92400e" text-anchor="middle">CLI tool</text>
-
+  <!-- Entry points: MSBuild runs the apimark tool out-of-process; the tool drives the generators -->
+  <rect x="150" y="0" width="190" height="64" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+  <text x="245" y="28" font-size="16" font-family="Consolas, monospace" fill="#92400e" text-anchor="middle">ApiMark.MSBuild</text>
+  <text x="245" y="48" font-size="12" fill="#92400e" text-anchor="middle">builds .NET and C++ projects</text>
   <rect x="420" y="0" width="190" height="64" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
-  <text x="515" y="28" font-size="16" font-family="Consolas, monospace" fill="#92400e" text-anchor="middle">ApiMark.MSBuild</text>
-  <text x="515" y="48" font-size="12" fill="#92400e" text-anchor="middle">builds .NET and C++ projects</text>
+  <text x="515" y="28" font-size="16" font-family="Consolas, monospace" fill="#92400e" text-anchor="middle">ApiMark.Tool</text>
+  <text x="515" y="48" font-size="12" fill="#92400e" text-anchor="middle">apimark CLI process</text>
+  <line x1="344" y1="32" x2="416" y2="32" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+  <text x="380" y="24" font-size="12" fill="#334155" text-anchor="middle">runs</text>
+  <line x1="515" y1="68" x2="515" y2="97" stroke="#475569" stroke-width="2"   marker-end="url(#a)"/>
 
-  <line x1="295" y1="68" x2="295"   y2="97" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
-    <line x1="515" y1="68" x2="515" y2="97"  stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
-
-  <!-- ApiMark boundary -->
+    <!-- ApiMark boundary -->
   <rect x="180" y="100" width="450" height="340" rx="14" fill="#f8fafc" stroke="#2563eb" stroke-width="2" stroke-dasharray="8 5"/>
   <text x="196" y="126" font-size="14" font-weight="600" fill="#2563eb">ApiMark</text>
 
