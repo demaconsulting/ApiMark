@@ -31,7 +31,9 @@ public partial class ClangAstParserTests
     {
         try
         {
-            var psi = new ProcessStartInfo("clang", "--version")
+            var envPath = Environment.GetEnvironmentVariable("APIMARK_CLANG_PATH");
+            var clang = !string.IsNullOrEmpty(envPath) ? envPath : "clang";
+            var psi = new ProcessStartInfo(clang, "--version")
             {
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -63,6 +65,137 @@ public partial class ClangAstParserTests
         LibraryName = "Fixtures",
         PublicIncludeRoots = [FixturePaths.GetFixtureIncludeDir()],
     };
+
+    /// <summary>Parses an inline header containing emphasis comments and returns the free-function docs by name.</summary>
+    /// <param name="headerText">The header source.</param>
+    /// <returns>A map from free function name to its documentation comment.</returns>
+    private static Dictionary<string, CppDocComment?> ParseEmphasisHeader(string headerText)
+    {
+        var dir = Path.Join(Path.GetTempPath(), $"apimark-emphasis-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var header = Path.Join(dir, "emphasis.h");
+            File.WriteAllText(header, headerText);
+            var options = new CppGeneratorOptions { LibraryName = "Emphasis", PublicIncludeRoots = [dir] };
+            var result = ClangAstParser.Parse([header], options);
+            return result.Namespaces
+                .SelectMany(ns => ns.FreeFunctions)
+                .ToDictionary(f => f.Name, f => f.Doc);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>Validates that Doxygen inline commands and HTML tags render as Markdown emphasis.</summary>
+    [Fact]
+    public void ClangAstParser_Parse_InlineEmphasis_RendersMarkdownEmphasis()
+    {
+        if (!IsClangAvailable())
+        {
+            Assert.Skip("clang is not available on this system.");
+        }
+
+        // Arrange
+        const string header = """
+            #pragma once
+            /// @brief Does @b bold, then \em soft. and <b>html bold</b>, <i>html italic</i>
+            /// @param value Uses @c code and @p value; <strong>strong</strong> <em>em</em>.
+            /// @return A @a result.
+            int Emphasized(int value);
+
+            /// @brief Plain **raw** text.
+            ///
+            /// @details Details with <b>unclosed bold
+            void Plain();
+            """;
+
+        // Act
+        var docs = ParseEmphasisHeader(header);
+
+        // Assert
+        var doc = docs["Emphasized"];
+        Assert.NotNull(doc);
+        Assert.Equal("Does **bold**, then *soft*. and **html bold**, *html italic*", doc.Summary);
+        Assert.Equal("Uses `code` and `value`; **strong** *em*.", Assert.Single(doc.Params).Description);
+        Assert.Equal("A *result*.", doc.Returns);
+        var plain = docs["Plain"];
+        Assert.NotNull(plain);
+        Assert.Equal("Plain **raw** text.", plain.Summary);
+        Assert.Equal("Details with unclosed bold", plain.Details);
+    }
+
+    /// <summary>Validates that nested same-family HTML emphasis tags match one-for-one.</summary>
+    [Fact]
+    public void ClangAstParser_Parse_NestedHtmlEmphasis_MatchesTagsOneForOne()
+    {
+        if (!IsClangAvailable())
+        {
+            Assert.Skip("clang is not available on this system.");
+        }
+
+        // Arrange
+        const string header = """
+            #pragma once
+            /// @brief Nested <b><strong>x</strong></b> done.
+            void Nested();
+
+            /// @brief Outer <b>open <strong>inner</strong> never closed
+            void Unterminated();
+            """;
+
+        // Act
+        var docs = ParseEmphasisHeader(header);
+
+        // Assert
+        Assert.Equal("Nested **x** done.", docs["Nested"]!.Summary);
+        Assert.Equal("Outer open inner never closed", docs["Unterminated"]!.Summary);
+    }
+
+    /// <summary>Validates that Doxygen code blocks keep a <c>{.lang}</c> hint and default to cpp.</summary>
+    [Fact]
+    public void ClangAstParser_Parse_CodeBlockLanguage_HonorsHintAndDefaults()
+    {
+        if (!IsClangAvailable())
+        {
+            Assert.Skip("clang is not available on this system.");
+        }
+
+        // Arrange
+        const string header = """
+            #pragma once
+            /// @brief Python hint.
+            /// @code{.py}
+            /// print(1)
+            /// @endcode
+            void WithHint();
+
+            /// @brief Invalid hint.
+            /// @code{.bad!lang}
+            /// x
+            /// @endcode
+            void WithBadHint();
+
+            /// @brief No hint.
+            /// @code
+            /// int a = 1;
+            /// @endcode
+            void NoHint();
+            """;
+
+        // Act
+        var docs = ParseEmphasisHeader(header);
+
+        // Assert
+        Assert.Equal("py", docs["WithHint"]!.ExampleLanguage);
+        Assert.Equal("print(1)", docs["WithHint"]!.Example);
+        Assert.Equal("cpp", docs["WithBadHint"]!.ExampleLanguage);
+        Assert.Equal("x", docs["WithBadHint"]!.Example);
+        Assert.Equal("cpp", docs["NoHint"]!.ExampleLanguage);
+        Assert.Equal("int a = 1;", docs["NoHint"]!.Example);
+    }
 
     /// <summary>Validates that null headers are rejected before any clang discovery occurs.</summary>
     [Fact]

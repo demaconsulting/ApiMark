@@ -233,7 +233,7 @@ internal sealed class CppEmitterGradualDisclosure
         var typeExample = CppEmitter.GetExample(ctx.Class.Doc);
         if (!string.IsNullOrEmpty(typeExample))
         {
-            writer.WriteCodeBlock("cpp", typeExample);
+            writer.WriteCodeBlock(CppEmitter.GetExampleLanguage(ctx.Class.Doc), typeExample);
         }
 
         WriteClassBaseTypesParagraph(writer, ctx.Class);
@@ -727,7 +727,7 @@ internal sealed class CppEmitterGradualDisclosure
         var example = CppEmitter.GetExample(fn.Doc);
         if (!string.IsNullOrEmpty(example))
         {
-            writer.WriteCodeBlock("cpp", example);
+            writer.WriteCodeBlock(CppEmitter.GetExampleLanguage(fn.Doc), example);
         }
 
         // Emit parameter table when the function has at least one parameter
@@ -842,7 +842,7 @@ internal sealed class CppEmitterGradualDisclosure
         var example = CppEmitter.GetExample(method.Doc);
         if (!string.IsNullOrEmpty(example))
         {
-            writer.WriteCodeBlock("cpp", example);
+            writer.WriteCodeBlock(CppEmitter.GetExampleLanguage(method.Doc), example);
         }
 
         // Emit parameter table when the method has at least one parameter
@@ -929,7 +929,7 @@ internal sealed class CppEmitterGradualDisclosure
         var example = CppEmitter.GetExample(field.Doc);
         if (!string.IsNullOrEmpty(example))
         {
-            writer.WriteCodeBlock("cpp", example);
+            writer.WriteCodeBlock(CppEmitter.GetExampleLanguage(field.Doc), example);
         }
 
     }
@@ -984,7 +984,7 @@ internal sealed class CppEmitterGradualDisclosure
         var enumExample = CppEmitter.GetExample(cppEnum.Doc);
         if (!string.IsNullOrEmpty(enumExample))
         {
-            writer.WriteCodeBlock("cpp", enumExample);
+            writer.WriteCodeBlock(CppEmitter.GetExampleLanguage(cppEnum.Doc), enumExample);
         }
 
         // Emit a values table so readers can see all valid values and their meanings
@@ -1059,7 +1059,7 @@ internal sealed class CppEmitterGradualDisclosure
         var aliasExample = CppEmitter.GetExample(alias.Doc);
         if (!string.IsNullOrEmpty(aliasExample))
         {
-            writer.WriteCodeBlock("cpp", aliasExample);
+            writer.WriteCodeBlock(CppEmitter.GetExampleLanguage(alias.Doc), aliasExample);
         }
 
         // Resolve the underlying type to track any non-std external type references

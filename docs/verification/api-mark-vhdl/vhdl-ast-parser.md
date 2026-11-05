@@ -116,3 +116,10 @@ on a file containing deliberately invalid VHDL syntax throws `InvalidOperationEx
 confirming that syntax errors are detected and surfaced rather than silently producing corrupt
 output.
 This scenario is tested by `VhdlAstParser_Parse_InvalidVhdl_ThrowsInvalidOperationException`.
+
+**Inline emphasis**: Verifies `@b`, `\em`, `@c`, `@a`, and `@e` convert to Markdown in brief, details, and
+port comments while backtick spans, fenced blocks, and e-mail-like text are untouched. Tested by
+`VhdlAstParser_Parse_InlineEmphasisCommands_ConvertedToMarkdown`.
+
+**Code block language**: Verifies `@code`, `@code{.py}`, and a bare fence in details become fences tagged
+`vhdl`, `py`, and `vhdl`. Tested by `VhdlAstParser_Parse_CodeBlocks_FencedWithLanguage`.

@@ -353,3 +353,21 @@ sections:
               Without the parameter types a reader cannot tell which overload a reference means.
             tests:
               - XmlDocReader_GetSummary_SeeCrefToOverload_KeepsSignatureInCodeSpan
+          - id: ApiMarkDotNet-XmlDocReader-RenderEmphasis
+            title: XmlDocReader shall render the b, strong, i, and em elements as Markdown bold and
+              italic emphasis.
+            justification: |
+              Authors use these elements to stress words; dropping them loses meaning in the
+              generated documentation.
+            tests:
+              - XmlDocReader_GetSummary_EmphasisElements_RendersMarkdownEmphasis
+          - id: ApiMarkDotNet-XmlDocReader-CodeBlockLanguage
+            title: XmlDocReader shall emit fenced code blocks from code elements with the language given by
+              the lang or language attribute, restricted to letters, digits, and a few safe symbols,
+              defaulting to csharp.
+            justification: |
+              A language tag enables syntax highlighting; sanitizing the hint prevents it from
+              corrupting the fence line.
+            tests:
+              - XmlDocReader_GetRemarks_CodeBlockLanguage_HonorsHintAndDefaults
+              - XmlDocReader_GetRemarks_MultiLineCodeElement_RendersAsFencedBlock

@@ -170,3 +170,8 @@ always matches whether `Parse` would succeed or throw for the same inputs.
 - `IsAvailable()`'s result is consistent with `ClangAstParser.Parse`'s actual behavior: when
   unavailable, `Parse` throws `InvalidOperationException` mentioning clang. Tested by
   `ClangDiscovery_IsAvailable_MatchesActualDiscoveryOutcome`.
+- Doxygen inline commands and HTML `b`/`strong`/`i`/`em` render as Markdown emphasis/code spans with the
+  argument word preserved and `**raw**` text untouched. Tested by
+  `ClangAstParser_Parse_InlineEmphasis_RendersMarkdownEmphasis`.
+- `@code{.py}` yields example language `py` with the hint line removed; an invalid hint or no hint yields
+  `cpp`. Tested by `ClangAstParser_Parse_CodeBlockLanguage_HonorsHintAndDefaults`.

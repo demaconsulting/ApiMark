@@ -176,6 +176,8 @@ sections:
           - ApiMarkDotNet-XmlDocReader-LinkifyResolvedCrefReferences
           - ApiMarkDotNet-XmlDocReader-InlineReferenceCodeSpans
           - ApiMarkDotNet-XmlDocReader-OverloadCrefSignature
+          - ApiMarkDotNet-XmlDocReader-RenderEmphasis
+          - ApiMarkDotNet-XmlDocReader-CodeBlockLanguage
           - ApiMarkDotNet-ExternalXmlDocResolver-LocateAndCacheReferencedAssemblyDocs
           - ApiMarkDotNet-ExternalXmlDocResolver-RejectNullReferencePaths
           - ApiMarkDotNet-ExternalXmlDocResolver-ProbeHintedAssemblyBeforeFullScan

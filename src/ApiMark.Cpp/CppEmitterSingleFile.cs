@@ -208,7 +208,7 @@ internal sealed class CppEmitterSingleFile
         var typeExample = CppEmitter.GetExample(cls.Doc);
         if (!string.IsNullOrEmpty(typeExample))
         {
-            writer.WriteCodeBlock("cpp", typeExample);
+            writer.WriteCodeBlock(CppEmitter.GetExampleLanguage(cls.Doc), typeExample);
         }
     }
 
@@ -442,7 +442,7 @@ internal sealed class CppEmitterSingleFile
         var fnExample = CppEmitter.GetExample(fn.Doc);
         if (!string.IsNullOrEmpty(fnExample))
         {
-            writer.WriteCodeBlock("cpp", fnExample);
+            writer.WriteCodeBlock(CppEmitter.GetExampleLanguage(fn.Doc), fnExample);
         }
     }
 
@@ -478,7 +478,7 @@ internal sealed class CppEmitterSingleFile
         var fieldExample = CppEmitter.GetExample(field.Doc);
         if (!string.IsNullOrEmpty(fieldExample))
         {
-            writer.WriteCodeBlock("cpp", fieldExample);
+            writer.WriteCodeBlock(CppEmitter.GetExampleLanguage(field.Doc), fieldExample);
         }
     }
 

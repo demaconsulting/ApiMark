@@ -281,6 +281,11 @@ internal sealed class CppEmitter : IApiEmitter
     /// <returns>The example code string, or <see langword="null"/>.</returns>
     internal static string? GetExample(CppDocComment? doc) => doc?.Example;
 
+    /// <summary>Gets the fenced-code language of the example, defaulting to <c>cpp</c>.</summary>
+    /// <param name="doc">The doc comment to read, or <see langword="null"/>.</param>
+    /// <returns>The language identifier.</returns>
+    internal static string GetExampleLanguage(CppDocComment? doc) => doc?.ExampleLanguage ?? "cpp";
+
     /// <summary>
     ///     Looks up the description for a named parameter in a <see cref="CppDocComment"/>.
     /// </summary>

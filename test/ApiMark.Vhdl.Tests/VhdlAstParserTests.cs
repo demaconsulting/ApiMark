@@ -7,6 +7,114 @@ namespace ApiMark.Vhdl.Tests;
 /// <summary>Unit tests for <see cref="VhdlAstParser"/>.</summary>
 public class VhdlAstParserTests
 {
+    /// <summary>Validates that inline Doxygen emphasis commands are converted to Markdown in doc comments.</summary>
+    [Fact]
+    public void VhdlAstParser_Parse_InlineEmphasisCommands_ConvertedToMarkdown()
+    {
+        // Arrange: entity with emphasis in brief, details (including a code span and fence) and a port comment
+        var path = Path.Join(Path.GetTempPath(), $"emphasis-{Guid.NewGuid():N}.vhd");
+        File.WriteAllText(path, string.Join(
+            "\n",
+            "--! @brief Does @b bold, then \\em soft. and `@b kept` mail a@b x.",
+            "--!",
+            "--! Details with @c code and @a word;",
+            "--! ```",
+            "--! @b fenced",
+            "--! ```",
+            "ENTITY emphasized IS",
+            "    PORT (",
+            "        clk : IN BIT --! Clock @e input",
+            "    );",
+            "END ENTITY emphasized;"));
+        try
+        {
+            // Act
+            var model = VhdlAstParser.Parse(path);
+
+            // Assert
+            var entity = Assert.Single(model.Entities);
+            Assert.NotNull(entity.Doc);
+            Assert.Equal("Does **bold**, then *soft*. and `@b kept` mail a@b x.", entity.Doc.Summary);
+            Assert.NotNull(entity.Doc.Details);
+            Assert.Contains("Details with `code` and *word*;", entity.Doc.Details);
+            Assert.Contains("@b fenced", entity.Doc.Details);
+            var port = Assert.Single(entity.Ports);
+            Assert.NotNull(port.Doc);
+            Assert.Equal("Clock *input*", port.Doc.Summary);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that VHDL code blocks get a language hint, defaulting to vhdl.</summary>
+    [Fact]
+    public void VhdlAstParser_Parse_CodeBlocks_FencedWithLanguage()
+    {
+        // Arrange
+        var path = Path.Join(Path.GetTempPath(), $"code-fence-{Guid.NewGuid():N}.vhd");
+        File.WriteAllText(path, string.Join(
+            "\n",
+            "--! @brief Summary.",
+            "--!",
+            "--! @code",
+            "--! a <= b;",
+            "--! @endcode",
+            "--! @code{.py}",
+            "--! print(1)",
+            "--! @endcode",
+            "--! ```",
+            "--! c <= d;",
+            "--! ```",
+            "ENTITY fence IS",
+            "END ENTITY fence;"));
+        try
+        {
+            // Act
+            var entity = Assert.Single(VhdlAstParser.Parse(path).Entities);
+
+            // Assert
+            Assert.NotNull(entity.Doc?.Details);
+            Assert.Contains("```vhdl\na <= b;\n```", entity.Doc.Details);
+            Assert.Contains("```py\nprint(1)\n```", entity.Doc.Details);
+            Assert.Contains("```vhdl\nc <= d;\n```", entity.Doc.Details);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Validates that a doc comment starting with @code and lacking @brief still produces a fenced block.</summary>
+    [Fact]
+    public void VhdlAstParser_Parse_LeadingCodeWithoutBrief_FencedAndNotSummary()
+    {
+        // Arrange
+        var path = Path.Join(Path.GetTempPath(), $"code-lead-{Guid.NewGuid():N}.vhd");
+        File.WriteAllText(path, string.Join(
+            "\n",
+            "--! @code",
+            "--! a <= b;",
+            "--! @endcode",
+            "ENTITY lead IS",
+            "END ENTITY lead;"));
+        try
+        {
+            // Act
+            var entity = Assert.Single(VhdlAstParser.Parse(path).Entities);
+
+            // Assert
+            Assert.NotNull(entity.Doc);
+            Assert.True(string.IsNullOrEmpty(entity.Doc.Summary));
+            Assert.Equal("```vhdl\na <= b;\n```", entity.Doc.Details);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     /// <summary>Validates that the parser returns a non-null entity from the fixture file.</summary>
     [Fact]
     public void VhdlAstParser_Parse_FixtureFile_ReturnsEntity()

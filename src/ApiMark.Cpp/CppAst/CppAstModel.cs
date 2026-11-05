@@ -58,7 +58,14 @@ public record CppDocComment(
     IReadOnlyList<CppParamDoc> Params,
     string? Returns,
     string? Note = null,
-    string? Example = null);
+    string? Example = null)
+{
+    /// <summary>
+    ///     Gets the sanitized fenced-code language of the example (from <c>@code{.lang}</c>),
+    ///     or <c>cpp</c> when no valid hint was given.
+    /// </summary>
+    public string ExampleLanguage { get; init; } = "cpp";
+}
 
 /// <summary>Names a base type in a C++ class inheritance list.</summary>
 /// <param name="Name">

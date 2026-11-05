@@ -761,3 +761,11 @@ summary spanning two source lines stays one line. Tested by
 ``Go``1(System.String,System.Func{``0})``, `Go(System.Int32[])`, and a parameterless `Go`. Act with `GetSummary`.
 Expected: ``Bar.Go(string, Action)``, ``Bar.Go<T>(string, Func<T>)``, ``Bar.Go(int[])``, and ``Bar.Stop`` as code spans.
 Tested by `XmlDocReader_GetSummary_SeeCrefToOverload_KeepsSignatureInCodeSpan`.
+
+**Emphasis elements**: Arrange a summary using `b`, `strong`, `i`, `em`, nested same-family emphasis, and
+an empty `b`. Expected: Markdown `**`/`*` markers, no doubled markers, none for empty content. Tested by
+`XmlDocReader_GetSummary_EmphasisElements_RendersMarkdownEmphasis`.
+
+**Code block language**: Arrange remarks with `code` elements using `lang`, `language`, an invalid
+hint, and no hint. Expected: info strings `xml`, `python`, `csharp`, `csharp`. Tested by
+`XmlDocReader_GetRemarks_CodeBlockLanguage_HonorsHintAndDefaults`.

@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.RegularExpressions;
 using Antlr4.Runtime;
 using ApiMark.Vhdl.VhdlAst.Antlr;
 
@@ -6,8 +8,110 @@ namespace ApiMark.Vhdl.VhdlAst;
 /// <summary>
 ///     Parses a VHDL source file into a <see cref="VhdlFileModel"/> using the ANTLR4 vhdl2008 grammar.
 /// </summary>
-internal static class VhdlAstParser
+internal static partial class VhdlAstParser
 {
+    /// <summary>Matches an inline Doxygen emphasis command (<c>@b</c>, <c>\em</c>, ...) and its one-word argument.</summary>
+    /// <returns>The compiled regular expression.</returns>
+    [GeneratedRegex(@"(?<![\w\\@])[@\\](b|em|e|a|c|p)[ \t]+(\S+)")]
+    private static partial Regex InlineDoxygenRegex();
+
+    /// <summary>Matches a Markdown inline code span (kept intact during conversion).</summary>
+    /// <returns>The compiled regular expression.</returns>
+    [GeneratedRegex(@"(`[^`]*`)")]
+    private static partial Regex CodeSpanRegex();
+
+    /// <summary>
+    ///     Converts inline Doxygen emphasis commands in <paramref name="text"/> to Markdown:
+    ///     <c>@b</c> to bold, <c>@em</c>/<c>@e</c>/<c>@a</c> to italic and <c>@c</c>/<c>@p</c> to
+    ///     inline code. Existing backtick code spans are left untouched, and trailing punctuation of
+    ///     the argument stays outside the markers.
+    /// </summary>
+    /// <param name="text">The documentation text.</param>
+    /// <returns>The converted text.</returns>
+    private static string ConvertInlineDoxygen(string text)
+    {
+        var segments = CodeSpanRegex().Split(text);
+        var builder = new StringBuilder();
+        for (var i = 0; i < segments.Length; i++)
+        {
+            builder.Append(i % 2 == 1 ? segments[i] : InlineDoxygenRegex().Replace(segments[i], EvaluateInlineDoxygen));
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>
+    ///     Converts inline Doxygen commands line by line, leaving lines inside fenced code blocks untouched.
+    /// </summary>
+    /// <param name="lines">The documentation lines.</param>
+    /// <returns>The converted lines joined with newlines.</returns>
+    private static string ConvertInlineDoxygenLines(IEnumerable<string> lines)
+    {
+        var inFence = false;
+        var result = new List<string>();
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            var codeMatch = CodeStartRegex().Match(trimmed);
+            if (!inFence && codeMatch.Success)
+            {
+                // Doxygen @code / @code{.lang} opens a fenced block; default to vhdl
+                inFence = true;
+                result.Add($"```{SanitizeCodeLanguage(codeMatch.Groups[1].Value)}");
+            }
+            else if (inFence && (trimmed == "@endcode" || trimmed == "\\endcode"))
+            {
+                inFence = false;
+                result.Add("```");
+            }
+            else if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                // A bare opening fence gets the default language; closing fences and fences
+                // that already carry an info string are kept as written.
+                result.Add(!inFence && trimmed == "```" ? "```vhdl" : line);
+                inFence = !inFence;
+            }
+            else
+            {
+                result.Add(inFence ? line : ConvertInlineDoxygen(line));
+            }
+        }
+
+        return string.Join("\n", result);
+    }
+
+    /// <summary>Matches a Doxygen <c>@code</c> line with an optional <c>{.lang}</c> hint.</summary>
+    [GeneratedRegex(@"^[@\\]code(?:\{\s*\.?([^\s{}]*)\s*\})?$")]
+    private static partial Regex CodeStartRegex();
+
+    /// <summary>Sanitizes a fenced-code language hint (letters, digits, <c>+#-_</c>); falls back to <c>vhdl</c>.</summary>
+    /// <param name="lang">The raw hint.</param>
+    /// <returns>The safe language identifier.</returns>
+    private static string SanitizeCodeLanguage(string lang) =>
+        lang.Length > 0 && lang.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '_' or '+' or '#' or '-')
+            ? lang
+            : "vhdl";
+
+    /// <summary>Regex evaluator that renders a single matched inline command as Markdown.</summary>
+    /// <param name="match">The regex match.</param>
+    /// <returns>The Markdown replacement.</returns>
+    private static string EvaluateInlineDoxygen(Match match)
+    {
+        var marker = match.Groups[1].Value switch
+        {
+            "b" => "**",
+            "c" or "p" => "`",
+            _ => "*"
+        };
+        var word = match.Groups[2].Value;
+        var core = word.TrimEnd(',', '.', ';', ':', '!', '?', ')');
+        if (core.Length == 0 || (marker == "`" && core.Contains('`')))
+        {
+            return match.Value;
+        }
+
+        return marker + core + marker + word[core.Length..];
+    }
     /// <summary>
     ///     Parses the specified VHDL file and returns a <see cref="VhdlFileModel"/> containing
     ///     all entity, architecture, and package declarations found.
@@ -784,7 +888,7 @@ internal static class VhdlAstParser
                 return null;
             }
 
-            return new VhdlDocComment(text, null, []);
+            return new VhdlDocComment(ConvertInlineDoxygen(text), null, []);
         }
 
         /// <summary>
@@ -809,7 +913,7 @@ internal static class VhdlAstParser
             {
                 if (line.StartsWith("@brief ", StringComparison.Ordinal))
                 {
-                    summary = line["@brief ".Length..].Trim();
+                    summary = ConvertInlineDoxygen(line["@brief ".Length..].Trim());
                 }
                 else if (line.StartsWith("@param ", StringComparison.Ordinal))
                 {
@@ -818,7 +922,7 @@ internal static class VhdlAstParser
                     if (spaceIdx > 0)
                     {
                         var paramName = rest[..spaceIdx];
-                        var paramDesc = rest[(spaceIdx + 1)..].Trim();
+                        var paramDesc = ConvertInlineDoxygen(rest[(spaceIdx + 1)..].Trim());
                         paramDocs.Add(new VhdlParamDoc(paramName, paramDesc));
                     }
                     else if (rest.Length > 0)
@@ -829,7 +933,7 @@ internal static class VhdlAstParser
                 }
                 else if (line.StartsWith("@return ", StringComparison.Ordinal))
                 {
-                    returns = line["@return ".Length..].Trim();
+                    returns = ConvertInlineDoxygen(line["@return ".Length..].Trim());
                 }
                 else
                 {
@@ -841,15 +945,18 @@ internal static class VhdlAstParser
             if (summary == null)
             {
                 var firstLine = bodyLines.FirstOrDefault(l => !string.IsNullOrWhiteSpace(l));
-                if (firstLine != null)
+                // A leading code block opener (@code / ``` ) is never a summary; leave the block to the details
+                if (firstLine != null
+                    && !CodeStartRegex().IsMatch(firstLine.Trim())
+                    && !firstLine.TrimStart().StartsWith("```", StringComparison.Ordinal))
                 {
-                    summary = firstLine.Trim();
+                    summary = ConvertInlineDoxygen(firstLine.Trim());
                     bodyLines.Remove(firstLine);
                 }
             }
 
             // Remaining body lines become the details text
-            var detailText = string.Join("\n", bodyLines.SkipWhile(l => string.IsNullOrWhiteSpace(l))).Trim();
+            var detailText = ConvertInlineDoxygenLines(bodyLines.SkipWhile(l => string.IsNullOrWhiteSpace(l))).Trim();
             string? details = !string.IsNullOrEmpty(detailText) ? detailText : null;
 
             return new VhdlDocComment(summary, details, paramDocs, returns);

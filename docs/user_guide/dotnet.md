@@ -365,6 +365,9 @@ ApiMark reads standard C# XML doc comments (`///`).
 | `<exception cref="...">` | Documents an exception the method may throw |
 | `<example>` | Code example rendered in a fenced code block. A `<code lang="xml">` attribute selects the fence language; without it, or with an invalid value, the fence uses `csharp` |
 | `<list>` | Bullet (`type="bullet"`), numbered (`type="number"`), and table (`type="table"`) lists rendered as their Markdown equivalents; `<item>` `<term>`/`<description>` pairs render as **term** — description |
+| `<b>`, `<strong>` | Rendered as Markdown **bold** |
+| `<i>`, `<em>` | Rendered as Markdown *italic* |
+| `<code>` | Rendered as a fenced block (multi-line) or code span. The `lang` attribute (or `language` alias) selects the fence language using letters, digits, and `+#-_`; without it, or with an invalid value, the fence uses `csharp` |
 
 Missing `<summary>` tags render as *No description provided.* in the output. Missing
 `<param>` descriptions render as *No description provided.* in parameter tables.

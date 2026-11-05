@@ -113,3 +113,15 @@ sections:
               Failing fast on syntax errors prevents silently emitting corrupt or empty
               documentation from a file that could not be correctly parsed.
             tests: [VhdlAstParser_Parse_InvalidVhdl_ThrowsInvalidOperationException]
+          - id: ApiMarkVhdl-VhdlAstParser-RenderInlineEmphasis
+            title: VhdlAstParser shall convert Doxygen inline commands (b, em, e, a, c, p) in doc
+              comments to Markdown emphasis or code spans, except inside code spans and fenced blocks.
+            justification: |
+              Emphasis carries author intent and must render in the generated documentation.
+            tests: [VhdlAstParser_Parse_InlineEmphasisCommands_ConvertedToMarkdown]
+          - id: ApiMarkVhdl-VhdlAstParser-CodeBlockLanguage
+            title: VhdlAstParser shall emit Doxygen code blocks and bare fences in doc comments as
+              fenced blocks with the sanitized code{.lang} language, defaulting to vhdl.
+            justification: |
+              A language tag enables syntax highlighting of examples.
+            tests: [VhdlAstParser_Parse_CodeBlocks_FencedWithLanguage]

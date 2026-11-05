@@ -161,6 +161,18 @@ Block form:
 
 Missing `@brief` tags render as *No description provided.* in the output.
 
+### Emphasis
+
+| Markup | Rendered as |
+| --- | --- |
+| `@b word`, `\b word` | **bold** |
+| `@em word`, `@e word`, `@a word` | *italic* |
+| `@c word`, `@p word` | `code` span |
+| `<b>…</b>`, `<strong>…</strong>` | **bold** |
+| `<i>…</i>`, `<em>…</em>` | *italic* |
+
+Inline commands take a single word; trailing punctuation stays outside the markers.
+
 ## Example Code Blocks
 
 ApiMark captures Doxygen `@code`/`@endcode` blocks from doc-comments and renders them as
@@ -195,6 +207,9 @@ Config ParseConfig(const std::string& path);
 The content between `@code` and `@endcode` is extracted verbatim by `ClangAstParser`
 from the Doxygen `BlockCommandComment` AST node and emitted as a fenced `cpp` code block
 in the output. The code block appears on the member detail page under the *Example* heading.
+
+Use the Doxygen language hint `@code{.py}` to select another fence language; the hint may contain
+letters, digits, and `+#-_`. Without a hint, or with an invalid one, the fence uses `cpp`.
 
 ## Output Structure
 

@@ -550,7 +550,7 @@ public sealed partial class XmlDocReader
     /// <returns>The sanitized language identifier, or <c>csharp</c> when absent or invalid.</returns>
     private static string GetCodeLanguage(XElement codeElement)
     {
-        var lang = ((string?)codeElement.Attribute("lang"))?.Trim();
+        var lang = ((string?)codeElement.Attribute("lang") ?? (string?)codeElement.Attribute("language"))?.Trim();
         return !string.IsNullOrEmpty(lang) && lang.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '_' or '+' or '#' or '-')
             ? lang
             : DefaultCodeLanguage;
@@ -1002,11 +1002,100 @@ public sealed partial class XmlDocReader
             case "list":
                 AppendListText(builder, element, singleLine, linkContext);
                 break;
+            case "b":
+            case "strong":
+                AppendEmphasisElementText(builder, element, "**", singleLine, codeBlocks, linkContext);
+                break;
+            case "i":
+            case "em":
+                AppendEmphasisElementText(builder, element, "*", singleLine, codeBlocks, linkContext);
+                break;
             default:
                 AppendNodeText(builder, element.Nodes(), singleLine, codeBlocks, linkContext);
                 break;
         }
     }
+
+    /// <summary>
+    ///     Appends the rendering of a bold (<c>&lt;b&gt;</c>/<c>&lt;strong&gt;</c>) or italic
+    ///     (<c>&lt;i&gt;</c>/<c>&lt;em&gt;</c>) element wrapped in Markdown emphasis markers.
+    /// </summary>
+    /// <remarks>
+    ///     Leading and trailing whitespace of the rendered content is moved outside the markers so
+    ///     the output is valid Markdown. Markers are omitted when the content is empty, when the
+    ///     element is nested inside an element of the same emphasis family, when the content
+    ///     spans a paragraph break or contains a code-block placeholder, or when the content
+    ///     starts or ends with an asterisk.
+    /// </remarks>
+    /// <param name="builder">The string builder that accumulates the output text.</param>
+    /// <param name="element">The emphasis element to render.</param>
+    /// <param name="marker">The Markdown emphasis marker (<c>**</c> or <c>*</c>).</param>
+    /// <param name="singleLine">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?, CrefLinkContext?)"/>.</param>
+    /// <param name="codeBlocks">See <see cref="AppendNodeText(StringBuilder, IEnumerable{XNode}, bool, Dictionary{string, string}?, CrefLinkContext?)"/>.</param>
+    /// <param name="linkContext">See <see cref="GetSummary(string)"/>.</param>
+    private static void AppendEmphasisElementText(
+        StringBuilder builder,
+        XElement element,
+        string marker,
+        bool singleLine,
+        Dictionary<string, string>? codeBlocks,
+        CrefLinkContext? linkContext)
+    {
+        var inner = new StringBuilder();
+        AppendNodeText(inner, element.Nodes(), singleLine, codeBlocks, linkContext);
+        var rendered = inner.ToString();
+
+        // Avoid nested markers of the same emphasis family (e.g. <b><strong>x</strong></b>)
+        var family = marker.Length;
+        var nested = element.Ancestors().Any(a => GetEmphasisMarkerLength(a.Name.LocalName) == family);
+        var core = rendered.Trim();
+        if (nested || core.Length == 0 || core.Contains('\u0001') || core.Contains("\n\n")
+            || StartsOrEndsWithConflictingAsterisk(core, marker))
+        {
+            builder.Append(rendered);
+            return;
+        }
+
+        var lead = rendered[..(rendered.Length - rendered.TrimStart().Length)];
+        var trail = rendered[rendered.TrimEnd().Length..];
+        builder.Append(lead).Append(marker).Append(core).Append(marker).Append(trail);
+    }
+
+    /// <summary>
+    ///     Determines whether wrapping <paramref name="core"/> in <paramref name="marker"/> would be ambiguous.
+    /// </summary>
+    /// <remarks>
+    ///     Content wrapped in exactly the other emphasis family (e.g. <c>*x*</c> inside bold, or
+    ///     <c>**x**</c> inside italic) is safe to wrap, producing <c>***x***</c>. Any other leading or
+    ///     trailing asterisk is treated as a conflict.
+    /// </remarks>
+    /// <param name="core">The trimmed rendered content.</param>
+    /// <param name="marker">The marker about to be applied.</param>
+    /// <returns><see langword="true"/> when the content must be left unwrapped.</returns>
+    private static bool StartsOrEndsWithConflictingAsterisk(string core, string marker)
+    {
+        var otherLength = marker.Length == 2 ? 1 : 2;
+        var other = new string('*', otherLength);
+        var wrapped = core.Length > 2 * otherLength
+            && core.StartsWith(other, StringComparison.Ordinal) && core.EndsWith(other, StringComparison.Ordinal)
+            && core[otherLength] != '*' && core[^(otherLength + 1)] != '*';
+        if (wrapped)
+        {
+            return false;
+        }
+
+        return core.StartsWith('*') || core.EndsWith('*');
+    }
+
+    /// <summary>Returns the emphasis marker length (2 for bold, 1 for italic) of an element name, or 0.</summary>
+    /// <param name="name">The element local name.</param>
+    /// <returns>The marker length, or 0 when the element is not an emphasis element.</returns>
+    private static int GetEmphasisMarkerLength(string name) => name switch
+    {
+        "b" or "strong" => 2,
+        "i" or "em" => 1,
+        _ => 0
+    };
 
     /// <summary>
     ///     Appends the rendering of a <c>&lt;code&gt;</c> element to <paramref name="builder"/>,
@@ -1053,7 +1142,7 @@ public sealed partial class XmlDocReader
         if (!singleLine && codeBlocks != null && dedented.Contains('\n'))
         {
             var fence = new string('`', Math.Max(3, ComputeFenceLength(dedented)));
-            var fencedBlock = $"{fence}\n{dedented}\n{fence}";
+            var fencedBlock = $"{fence}{GetCodeLanguage(element)}\n{dedented}\n{fence}";
             builder.Append("\n\n");
             builder.Append(RegisterCodeBlockPlaceholder(codeBlocks, fencedBlock));
             builder.Append("\n\n");
