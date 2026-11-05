@@ -51,6 +51,13 @@
       ],
       "rollForward": false
     },
+    "demaconsulting.canvasnet.tool": {
+      "version": "0.2.0-beta.6",
+      "commands": [
+        "canvasnet"
+      ],
+      "rollForward": false
+    },
     "demaconsulting.versionmark": {
       "version": "1.4.3",
       "commands": [

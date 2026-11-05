@@ -12,6 +12,7 @@ version: '0.2'
 language: en
 words:
   - arities
+  - canvasnet
   - hideable
   - Konst
   - notnull

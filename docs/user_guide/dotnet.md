@@ -378,7 +378,10 @@ ApiMark supports two output formats selectable via `--format`.
 
 ### Gradual Disclosure (default: `--format gradual`)
 
-A hierarchy of Markdown files designed for incremental context loading.
+A hierarchy of Markdown files designed for incremental context loading. Each level
+links to the next, as shown below.
+
+![Gradual-disclosure pages: root index, namespace summary, type page, member detail](gradual-disclosure.svg)
 
 | File | Description |
 | --- | --- |
