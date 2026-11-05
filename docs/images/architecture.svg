@@ -16,7 +16,7 @@
 
   <rect x="420" y="0" width="190" height="64" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
   <text x="515" y="28" font-size="16" font-family="Consolas, monospace" fill="#92400e" text-anchor="middle">ApiMark.MSBuild</text>
-  <text x="515" y="48" font-size="12" fill="#92400e" text-anchor="middle">builds .csproj / .vcxproj</text>
+  <text x="515" y="48" font-size="12" fill="#92400e" text-anchor="middle">builds .NET and C++ projects</text>
 
   <line x1="295" y1="68" x2="295"   y2="97" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
     <line x1="515" y1="68" x2="515" y2="97"  stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
@@ -63,7 +63,7 @@
   <rect x="436" y="254" width="158" height="44" rx="6" fill="#ffffff" stroke="#16a34a"/>
   <text x="515" y="281" font-size="14" font-family="Consolas, monospace" fill="#14532d" text-anchor="middle">IApiEmitter</text>
   <rect x="436" y="310" width="158" height="44" rx="6" fill="#ffffff" stroke="#16a34a"/>
-  <text x="515" y="337" font-size="14" font-family="Consolas, monospace" fill="#14532d" text-anchor="middle">MarkdownWriter</text>
+  <text x="515" y="337" font-size="14" font-family="Consolas, monospace" fill="#14532d" text-anchor="middle">IMarkdownWriter</text>
   <text x="515" y="383" font-size="12" fill="#166534" text-anchor="middle">shared contracts, file</text>
   <text x="515" y="401" font-size="12" fill="#166534" text-anchor="middle">discovery and writers</text>
 
