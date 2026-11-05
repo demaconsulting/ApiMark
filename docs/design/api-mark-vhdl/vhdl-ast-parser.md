@@ -158,6 +158,14 @@ lines into a `VhdlDocComment`, recognizing `@brief`, `@param`, and `@return` tag
 - `@return <text>` → `Returns`
 - Non-tagged lines → `Details` (or `Summary` when no `@brief` is present)
 
+Inline Doxygen commands (`@b`/`\b` → `**`, `@em`/`@e`/`@a` → `*`, `@c`/`@p` → backticks) are converted
+by `ConvertInlineDoxygen` in summaries, parameter and return descriptions, details, and trailing port
+comments. Single-word arguments only; trailing punctuation stays outside the markers; text inside code
+spans and fenced blocks and commands preceded by a word character (e-mail addresses) are left untouched.
+
+In details, `@code` / `@code{.lang}` … `@endcode` become fenced blocks and a bare opening fence gets a
+language. The language is sanitized to letters, digits, and `+#-_` and defaults to `vhdl`.
+
 ### Error Handling
 
 - Parse errors from the ANTLR4 lexer or parser are collected by

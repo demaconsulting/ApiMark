@@ -8,6 +8,75 @@ namespace ApiMark.DotNet.Tests;
 /// <summary>Unit tests for <see cref="XmlDocReader"/>.</summary>
 public class XmlDocReaderTests
 {
+    /// <summary>Validates that bold and italic XML elements render as Markdown emphasis.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_EmphasisElements_RendersMarkdownEmphasis()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>Is <b>bold </b>, <strong>strong</strong>, <i>italic</i> and <em>em</em>; <b><strong>nested</strong></b> and <b>  </b>x.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+
+            // Assert
+            Assert.Equal("Is **bold** , **strong**, *italic* and *em*; **nested** and x.", reader.GetSummary("T:Foo.Bar"));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Writes a minimal XML doc file containing remarks <c>&lt;code&gt;</c> blocks and checks fence languages.</summary>
+    [Fact]
+    public void XmlDocReader_GetRemarks_CodeBlockLanguage_HonorsHintAndDefaults()
+    {
+        // Arrange: lang attribute, language alias, invalid hint, and no hint
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <remarks>
+                <code lang="xml">
+                &lt;a/&gt;
+                &lt;b/&gt;
+                </code>
+                <code language="python">
+                x = 1
+                y = 2
+                </code>
+                <code lang="bad lang!">
+                p
+                q
+                </code>
+                <code>
+                m
+                n
+                </code>
+              </remarks>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var remarks = new XmlDocReader(path).GetRemarks("T:Foo.Bar");
+
+            // Assert
+            Assert.NotNull(remarks);
+            Assert.Contains("```xml\n<a/>", remarks);
+            Assert.Contains("```python\nx = 1", remarks);
+            Assert.Contains("```csharp\np\nq", remarks);
+            Assert.Contains("```csharp\nm\nn", remarks);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     /// <summary>
     ///     Writes a minimal XML doc file containing <paramref name="membersXml"/> and returns the
     ///     path so the caller can clean it up after use.
@@ -3169,7 +3238,7 @@ public class XmlDocReaderTests
 
             // Assert: fence lines and content lines are each on their own line, with blank-line
             // separators from the surrounding prose.
-            Assert.Equal("Before.\n\n```\nline one\nline two\n```\n\nAfter.", remarks);
+            Assert.Equal("Before.\n\n```csharp\nline one\nline two\n```\n\nAfter.", remarks);
         }
         finally
         {
@@ -3205,7 +3274,7 @@ public class XmlDocReaderTests
             // Assert: the exact whitespace inside the fenced block is preserved
             Assert.NotNull(remarks);
             Assert.Contains("a  b\tc   d", remarks, StringComparison.Ordinal);
-            Assert.Equal("```\na  b\tc   d\nsecond line\n```", remarks.Trim());
+            Assert.Equal("```csharp\na  b\tc   d\nsecond line\n```", remarks.Trim());
         }
         finally
         {
@@ -3321,7 +3390,7 @@ public class XmlDocReaderTests
 
             // Assert: the fence uses 4 backticks, not 3, so it cannot be confused with content
             Assert.NotNull(remarks);
-            Assert.StartsWith("````\n", remarks, StringComparison.Ordinal);
+            Assert.StartsWith("````csharp\n", remarks, StringComparison.Ordinal);
             Assert.EndsWith("\n````", remarks, StringComparison.Ordinal);
         }
         finally

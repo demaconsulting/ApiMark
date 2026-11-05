@@ -95,3 +95,19 @@ sections:
               - ClangAstParser_Parse_ClangTimeoutMillisecondsOption_HonoredWithoutTestSeam
               - ClangAstParser_Parse_ClangTimeoutEnvVar_OverridesDefaultTimeout
               - ClangAstParser_Parse_ClangTimeoutEnvVar_InvalidValue_ThrowsInvalidOperationException
+          - id: ApiMarkCpp-ClangAstParser-RenderInlineEmphasis
+            title: ClangAstParser shall render Doxygen inline commands (b, em, e, a, c, p) and HTML b,
+              strong, i, and em tags in doc comments as Markdown emphasis or code spans, without losing
+              the command argument.
+            justification: |
+              Emphasis carries author intent, and the argument word of an inline command must not be
+              dropped from the generated documentation.
+            tests:
+              - ClangAstParser_Parse_InlineEmphasis_RendersMarkdownEmphasis
+          - id: ApiMarkCpp-ClangAstParser-CodeBlockLanguage
+            title: ClangAstParser shall use the sanitized language from a Doxygen code{.lang} hint for
+              example code blocks, defaulting to cpp, and exclude the hint from the code.
+            justification: |
+              A language tag enables correct syntax highlighting of non-C++ examples.
+            tests:
+              - ClangAstParser_Parse_CodeBlockLanguage_HonorsHintAndDefaults

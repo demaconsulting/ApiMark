@@ -103,6 +103,15 @@ For subprogram parameters, object-class keywords (`SIGNAL`, `VARIABLE`, `CONSTAN
 `BUFFER`) are prepended to the type name in the parameters table. Entity ports are
 shown with separate Direction and Type columns.
 
+### Emphasis and Code Blocks
+
+Inline Doxygen commands in `--!` comments render as Markdown: `@b`/`\b` → **bold**,
+`@em`/`@e`/`@a` → *italic*, `@c`/`@p` → `code`. They take a single word, leave trailing
+punctuation outside the markers, and are ignored inside backtick spans and fenced blocks.
+
+Code in detail text can be written with `@code` … `@endcode` or with a Markdown fence. The fence
+language defaults to `vhdl`; `@code{.py}` selects another language (letters, digits, and `+#-_`).
+
 ### Entity Example
 
 ```vhdl

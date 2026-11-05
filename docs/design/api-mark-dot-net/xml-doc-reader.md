@@ -646,6 +646,17 @@ assembly (a type of it, or a member of one of its types, whether or not that mem
 never passed to `TryLinkifyExternalCref`: it stays a plain code span, because a mapped assembly's namespaces
 may be a prefix of the documented assembly's own.
 
+#### Emphasis and code-block language
+
+`b`/`strong` render as `**…**` and `i`/`em` as `*…*` (`AppendEmphasisElementText`). Leading and trailing
+whitespace moves outside the markers; markers are omitted for empty content, nesting inside the same
+emphasis family, content spanning a paragraph break or containing a code-block placeholder, and content
+starting or ending with `*`.
+
+Fenced blocks from `<code>` (`AppendCodeElementText`) carry an info string produced by `GetCodeLanguage`,
+the same sanitizer used for `<example>`: the `lang` attribute, or `language` as an alias, restricted to
+letters, digits, and `+#-_`; otherwise `csharp`.
+
 ### Error Handling
 
 `XmlDocReader` throws `FileNotFoundException` when the XML documentation file

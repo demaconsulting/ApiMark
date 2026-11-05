@@ -2,7 +2,9 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using ApiMark.Core;
 
 namespace ApiMark.Cpp.CppAst;
@@ -21,7 +23,7 @@ namespace ApiMark.Cpp.CppAst;
 ///     A declaration is included only when its source file is both listed in the selected
 ///     headers set and under a <see cref="CppGeneratorOptions.PublicIncludeRoots"/> entry.
 /// </remarks>
-internal sealed class ClangAstParser
+internal sealed partial class ClangAstParser
 {
     // =========================================================================
     // Clang JSON AST field name constants
@@ -2455,7 +2457,7 @@ internal sealed class ClangAstParser
             return null;
         }
 
-        return new CppDocComment(state.Summary, state.Details, state.ParamDocs, state.Returns, state.Note, state.Example);
+        return new CppDocComment(state.Summary, state.Details, state.ParamDocs, state.Returns, state.Note, state.Example, state.ExampleLanguage);
     }
 
     /// <summary>
@@ -2495,10 +2497,11 @@ internal sealed class ClangAstParser
             return;
         }
 
-        var blockText = CollectVerbatimBlockText(child);
+        var blockText = CollectVerbatimBlockText(child, out var language);
         if (!string.IsNullOrEmpty(blockText))
         {
             state.Example = blockText;
+            state.ExampleLanguage = language;
         }
     }
 
@@ -2526,6 +2529,9 @@ internal sealed class ClangAstParser
 
         /// <summary>Gets or sets the accumulated code example text, or <see langword="null"/> when none has been found.</summary>
         public string? Example { get; set; }
+
+        /// <summary>Gets or sets the fenced-code language of <see cref="Example"/>.</summary>
+        public string ExampleLanguage { get; set; } = "cpp";
 
         /// <summary>Gets the accumulated parameter documentation entries.</summary>
         public List<CppParamDoc> ParamDocs { get; } = [];
@@ -2605,7 +2611,7 @@ internal sealed class ClangAstParser
 
     /// <summary>
     ///     Recursively collects all <c>TextComment</c> leaf node text values from a node
-    ///     subtree and joins them with a single space.
+    ///     subtree, rendering bold/italic/monospace inline commands and HTML emphasis tags as Markdown.
     /// </summary>
     /// <param name="node">The JSON node whose subtree to harvest for text.</param>
     /// <returns>
@@ -2614,44 +2620,206 @@ internal sealed class ClangAstParser
     /// </returns>
     private static string? CollectText(JsonElement node)
     {
-        var parts = new List<string>();
-        CollectTextNodes(node, parts);
-        if (parts.Count == 0)
+        var builder = new StringBuilder();
+        var state = new CommentTextState(builder);
+        CollectTextNodes(node, state);
+        state.CloseUnterminatedTags();
+
+        var text = WhitespaceRunRegex().Replace(builder.ToString(), " ").Trim();
+        return text.Length == 0 ? null : text;
+    }
+
+    /// <summary>Matches a run of whitespace characters.</summary>
+    /// <returns>The compiled regular expression.</returns>
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex WhitespaceRunRegex();
+
+    /// <summary>Characters treated as trailing punctuation that is kept outside emphasis markers.</summary>
+    private static readonly char[] TrailingPunctuation = [',', '.', ';', ':', '!', '?', ')'];
+
+    /// <summary>
+    ///     Mutable state used while rendering the inline content of a comment node to Markdown.
+    /// </summary>
+    private sealed class CommentTextState(StringBuilder builder)
+    {
+        /// <summary>Gets the output builder.</summary>
+        public StringBuilder Builder { get; } = builder;
+
+        /// <summary>Gets or sets a value indicating whether the previously appended node was a text node.</summary>
+        public bool LastWasText { get; set; }
+
+        /// <summary>Gets the builder index of each currently open HTML emphasis marker, keyed by marker.</summary>
+        public Dictionary<string, int> OpenTags { get; } = [];
+
+        /// <summary>
+        ///     Removes the markers of any HTML emphasis tags that were never closed.
+        /// </summary>
+        public void CloseUnterminatedTags()
         {
-            return null;
+            foreach (var (marker, index) in OpenTags.OrderByDescending(kv => kv.Value).Select(kv => (kv.Key, kv.Value)))
+            {
+                Builder.Remove(index, marker.Length);
+            }
+
+            OpenTags.Clear();
+        }
+    }
+
+    /// <summary>
+    ///     Maps an HTML tag name to its Markdown emphasis marker.
+    /// </summary>
+    /// <param name="name">The HTML tag name.</param>
+    /// <returns>The marker, or <see langword="null"/> when the tag is not an emphasis tag.</returns>
+    private static string? GetHtmlEmphasisMarker(string? name) => name?.ToLowerInvariant() switch
+    {
+        "b" or "strong" => "**",
+        "i" or "em" => "*",
+        _ => null
+    };
+
+    /// <summary>
+    ///     Renders an <c>InlineCommandComment</c> (e.g. <c>@b</c>, <c>@em</c>, <c>@c</c>) to Markdown.
+    /// </summary>
+    /// <param name="node">The inline command node.</param>
+    /// <param name="state">The rendering state.</param>
+    private static void AppendInlineCommand(JsonElement node, CommentTextState state)
+    {
+        var name = GetName(node);
+        var renderKind = node.TryGetProperty("renderKind", out var rk) ? rk.GetString() : null;
+        var word = string.Empty;
+        if (node.TryGetProperty("args", out var args) && args.ValueKind == JsonValueKind.Array)
+        {
+            word = string.Join(" ", args.EnumerateArray().Select(a => a.GetString() ?? string.Empty));
         }
 
-        return string.Join(" ", parts.Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)));
+        var marker = name switch
+        {
+            "b" => "**",
+            "em" or "e" or "a" => "*",
+            "c" or "p" => "`",
+            _ => renderKind switch { "bold" => "**", "emphasized" => "*", "monospaced" => "`", _ => null }
+        };
+
+        // Keep trailing punctuation outside the markers
+        var core = word.TrimEnd(TrailingPunctuation);
+        var trailing = word[core.Length..];
+        var builder = state.Builder;
+        if (marker == null || core.Length == 0 || (marker == "`" && core.Contains('`')))
+        {
+            builder.Append(word);
+        }
+        else
+        {
+            builder.Append(marker).Append(core).Append(marker).Append(trailing);
+        }
+
+        state.LastWasText = false;
+    }
+
+    /// <summary>
+    ///     Handles an <c>HTMLStartTagComment</c>/<c>HTMLEndTagComment</c> emphasis tag.
+    /// </summary>
+    /// <param name="marker">The Markdown marker for the tag.</param>
+    /// <param name="isStart">Whether the tag is a start tag.</param>
+    /// <param name="state">The rendering state.</param>
+    private static void HandleHtmlEmphasisTag(string marker, bool isStart, CommentTextState state)
+    {
+        var builder = state.Builder;
+        if (isStart)
+        {
+            // Ignore nested tags of the same family
+            if (!state.OpenTags.ContainsKey(marker))
+            {
+                state.OpenTags[marker] = builder.Length;
+                builder.Append(marker);
+            }
+
+            return;
+        }
+
+        if (!state.OpenTags.Remove(marker, out var index))
+        {
+            return;
+        }
+
+        var content = builder.ToString(index + marker.Length, builder.Length - index - marker.Length);
+        var core = content.Trim();
+        builder.Remove(index, marker.Length);
+        if (core.Length == 0)
+        {
+            return;
+        }
+
+        // Place the markers just inside the leading/trailing whitespace
+        var lead = content.Length - content.TrimStart().Length;
+        var trail = content.Length - content.TrimEnd().Length;
+        builder.Insert(index + lead, marker);
+        builder.Insert(builder.Length - trail, marker);
     }
 
     /// <summary>
     ///     Depth-first recursion that appends every <c>TextComment</c> text value to
-    ///     <paramref name="parts"/>, descending into all non-text child nodes.
+    ///     <paramref name="state"/>, converting inline emphasis nodes and descending into all other child nodes.
     /// </summary>
     /// <param name="node">The current JSON node to inspect.</param>
-    /// <param name="parts">The list to append text values to.</param>
-    private static void CollectTextNodes(JsonElement node, List<string> parts)
+    /// <param name="state">The rendering state to append to.</param>
+    private static void CollectTextNodes(JsonElement node, CommentTextState state)
     {
         if (!node.TryGetProperty(InnerProperty, out var inner))
         {
             return;
         }
 
+        var builder = state.Builder;
         foreach (var child in inner.EnumerateArray())
         {
             var kind = child.TryGetProperty("kind", out var k) ? k.GetString() : null;
-            if (kind == "TextComment")
+            switch (kind)
             {
-                // Append the raw text — leading/trailing whitespace is trimmed by the caller
-                if (child.TryGetProperty("text", out var textEl))
-                {
-                    parts.Add(textEl.GetString() ?? string.Empty);
-                }
-            }
-            else
-            {
-                // Descend into any non-text node to find nested TextComments
-                CollectTextNodes(child, parts);
+                case "TextComment":
+                    // Append the raw text so punctuation adjacent to inline nodes is preserved;
+                    // separate consecutive text lines that carry no whitespace of their own.
+                    if (child.TryGetProperty("text", out var textEl))
+                    {
+                        var text = textEl.GetString() ?? string.Empty;
+                        if (state.LastWasText && builder.Length > 0 && !char.IsWhiteSpace(builder[^1]) &&
+                            text.Length > 0 && !char.IsWhiteSpace(text[0]))
+                        {
+                            builder.Append(' ');
+                        }
+
+                        builder.Append(text);
+                        state.LastWasText = true;
+                    }
+
+                    break;
+
+                case "InlineCommandComment":
+                    AppendInlineCommand(child, state);
+                    break;
+
+                case "HTMLStartTagComment":
+                case "HTMLEndTagComment":
+                    var marker = GetHtmlEmphasisMarker(GetName(child));
+                    if (marker != null)
+                    {
+                        HandleHtmlEmphasisTag(marker, kind == "HTMLStartTagComment", state);
+                    }
+
+                    // A tag is not a line break: keep adjacent text concatenated as-is
+                    state.LastWasText = false;
+                    break;
+
+                default:
+                    // Descend into any other node (e.g. paragraphs) and keep paragraphs apart
+                    if (builder.Length > 0 && !char.IsWhiteSpace(builder[^1]))
+                    {
+                        builder.Append(' ');
+                    }
+
+                    CollectTextNodes(child, state);
+                    state.LastWasText = false;
+                    break;
             }
         }
     }
@@ -2661,12 +2829,17 @@ internal sealed class ClangAstParser
     ///     Doxygen <c>@code</c>/<c>@endcode</c> blocks) and joins them into a single string.
     /// </summary>
     /// <param name="node">The <c>VerbatimBlockComment</c> JSON node.</param>
+    /// <param name="language">
+    ///     The sanitized language from a Doxygen <c>@code{.lang}</c> hint (letters, digits, <c>+#-_</c>
+    ///     only), or <c>cpp</c> when there is no valid hint. The hint line is removed from the code.
+    /// </param>
     /// <returns>
     ///     The joined code text, trimmed of leading/trailing blank lines, or
     ///     <see langword="null"/> when the block contains no lines.
     /// </returns>
-    private static string? CollectVerbatimBlockText(JsonElement node)
+    private static string? CollectVerbatimBlockText(JsonElement node, out string language)
     {
+        language = "cpp";
         if (!node.TryGetProperty(InnerProperty, out var inner))
         {
             return null;
@@ -2688,8 +2861,25 @@ internal sealed class ClangAstParser
             return null;
         }
 
+        // clang exposes "@code{.py}" by putting "{.py}" in the first verbatim line
+        var hint = CodeHintRegex().Match(lines[0]);
+        if (hint.Success)
+        {
+            var lang = hint.Groups[1].Value;
+            if (lang.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '_' or '+' or '#' or '-'))
+            {
+                language = lang;
+            }
+
+            lines.RemoveAt(0);
+        }
+
         return string.Join("\n", lines).Trim();
     }
+
+    /// <summary>Matches a Doxygen <c>{.lang}</c> hint line that follows <c>@code</c>.</summary>
+    [GeneratedRegex(@"^\s*\{\s*\.?([^\s{}]+)\s*\}\s*$")]
+    private static partial Regex CodeHintRegex();
 
     /// <summary>
     ///     Collapses a multi-line string into a single space-separated line by splitting on

@@ -128,8 +128,14 @@ while walking the JSON AST.
 - **HandleBlockCommandComment** — processes `@brief`, `@details`, `@remarks`,
   `@return`, `@returns`, and `@note`.
 - **HandleParamCommandComment** — extracts `@param` entries.
-- **CollectText / CollectTextNodes** — recursively flatten text-comment content.
-- **CollectVerbatimBlockText** — captures `@code` blocks as multi-line examples.
+- **CollectText / CollectTextNodes** — flatten text-comment content; render `InlineCommandComment`
+  (`b` → `**`, `em`/`e`/`a` → `*`, `c`/`p` → backticks, trailing punctuation kept outside markers, the
+  argument word is never dropped) and flat `HTMLStartTagComment`/`HTMLEndTagComment` pairs for
+  `b`/`strong`/`i`/`em` (unmatched tags are ignored and unclosed tags closed at the end).
+- **CollectVerbatimBlockText** — captures `@code` blocks as multi-line examples. clang exposes
+  `@code{.py}` as a first verbatim line `{.py}`; it is removed from the code and its language,
+  sanitized to letters, digits, and `+#-_`, is stored in `CppDocComment.ExampleLanguage` (default
+  `cpp`). Emitters pass it to `WriteCodeBlock`.
 - **NormalizeSingleLine** — collapses multi-line text to a single paragraph line.
 
 #### Type and location helpers
