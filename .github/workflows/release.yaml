@@ -73,6 +73,7 @@ jobs:
     needs: release
     environment: release
     permissions:
+      actions: read
       contents: read
       id-token: write  # lets GitHub issue the token NuGet checks
     steps:
