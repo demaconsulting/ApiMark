@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="580" viewBox="0 0 900 580" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <!-- Transparent canvas; a white rounded card keeps the diagram readable in light and dark themes -->
+  <rect x="14" y="16" width="875" height="551" rx="28" fill="#d5dce6"/>
+  <rect x="10" y="10" width="875" height="551" rx="28" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+
+  <g transform="translate(30,30)">
+  <!-- Entry points -->
+  <rect x="200" y="0" width="190" height="64" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+  <text x="295" y="28" font-size="16" font-family="Consolas, monospace" fill="#92400e" text-anchor="middle">apimark</text>
+  <text x="295" y="48" font-size="12" fill="#92400e" text-anchor="middle">CLI tool</text>
+
+  <rect x="420" y="0" width="190" height="64" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+  <text x="515" y="28" font-size="16" font-family="Consolas, monospace" fill="#92400e" text-anchor="middle">ApiMark.MSBuild</text>
+  <text x="515" y="48" font-size="12" fill="#92400e" text-anchor="middle">builds .csproj / .vcxproj</text>
+
+  <line x1="295" y1="68" x2="295"   y2="97" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+    <line x1="515" y1="68" x2="515" y2="97"  stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+
+  <!-- ApiMark boundary -->
+  <rect x="180" y="100" width="450" height="340" rx="14" fill="#f8fafc" stroke="#2563eb" stroke-width="2" stroke-dasharray="8 5"/>
+  <text x="196" y="126" font-size="14" font-weight="600" fill="#2563eb">ApiMark</text>
+
+  <!-- Inputs -->
+  <rect x="0" y="150" width="150" height="70" rx="6" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="75" y="177" font-size="15" font-weight="600" fill="#334155" text-anchor="middle">.NET assembly</text>
+  <text x="75" y="198" font-size="12" fill="#475569" text-anchor="middle">.dll + XML docs</text>
+
+  <rect x="0" y="250" width="150" height="70" rx="6" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="75" y="277" font-size="15" font-weight="600" fill="#334155" text-anchor="middle">C++ headers</text>
+  <text x="75" y="298" font-size="12" fill="#475569" text-anchor="middle">Doxygen comments</text>
+
+  <rect x="0" y="350" width="150" height="70" rx="6" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="75" y="377" font-size="15" font-weight="600" fill="#334155" text-anchor="middle">VHDL sources</text>
+  <text x="75" y="398" font-size="12" fill="#475569" text-anchor="middle">--! doc comments</text>
+
+  <line x1="154" y1="185" x2="196" y2="185" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="154" y1="285" x2="196" y2="285" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="154" y1="385" x2="196" y2="385" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+
+  <!-- Language generators -->
+  <rect x="200" y="150" width="190" height="70" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="295" y="176" font-size="15" font-family="Consolas, monospace" fill="#1e3a8a" text-anchor="middle">ApiMark.DotNet</text>
+  <text x="295" y="198" font-size="12" fill="#1e40af" text-anchor="middle">Mono.Cecil → AST → emitter</text>
+
+  <rect x="200" y="250" width="190" height="70" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="295" y="276" font-size="15" font-family="Consolas, monospace" fill="#1e3a8a" text-anchor="middle">ApiMark.Cpp</text>
+  <text x="295" y="298" font-size="12" fill="#1e40af" text-anchor="middle">clang AST → AST → emitter</text>
+
+  <rect x="200" y="350" width="190" height="70" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="295" y="376" font-size="15" font-family="Consolas, monospace" fill="#1e3a8a" text-anchor="middle">ApiMark.Vhdl</text>
+  <text x="295" y="398" font-size="12" fill="#1e40af" text-anchor="middle">ANTLR4 → AST → emitter</text>
+
+  <!-- Shared core -->
+  <rect x="420" y="150" width="190" height="270" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+  <text x="515" y="180" font-size="16" font-weight="600" fill="#166534" text-anchor="middle">ApiMark.Core</text>
+  <rect x="436" y="198" width="158" height="44" rx="6" fill="#ffffff" stroke="#16a34a"/>
+  <text x="515" y="225" font-size="14" font-family="Consolas, monospace" fill="#14532d" text-anchor="middle">IApiGenerator</text>
+  <rect x="436" y="254" width="158" height="44" rx="6" fill="#ffffff" stroke="#16a34a"/>
+  <text x="515" y="281" font-size="14" font-family="Consolas, monospace" fill="#14532d" text-anchor="middle">IApiEmitter</text>
+  <rect x="436" y="310" width="158" height="44" rx="6" fill="#ffffff" stroke="#16a34a"/>
+  <text x="515" y="337" font-size="14" font-family="Consolas, monospace" fill="#14532d" text-anchor="middle">MarkdownWriter</text>
+  <text x="515" y="383" font-size="12" fill="#166534" text-anchor="middle">shared contracts, file</text>
+  <text x="515" y="401" font-size="12" fill="#166534" text-anchor="middle">discovery and writers</text>
+
+  <line x1="394" y1="185" x2="416" y2="185" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="394" y1="285" x2="416" y2="285" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="394" y1="385" x2="416" y2="385" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+
+  <!-- Output -->
+  <rect x="660" y="150" width="180" height="270" rx="12" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+  <text x="750" y="180" font-size="16" font-weight="600" fill="#5b21b6" text-anchor="middle">Markdown output</text>
+  <rect x="676" y="198" width="148" height="40" rx="6" fill="#ffffff" stroke="#7c3aed"/>
+  <text x="750" y="223" font-size="14" font-family="Consolas, monospace" fill="#4c1d95" text-anchor="middle">api.md</text>
+  <rect x="676" y="248" width="148" height="40" rx="6" fill="#ffffff" stroke="#7c3aed"/>
+  <text x="750" y="273" font-size="14" font-family="Consolas, monospace" fill="#4c1d95" text-anchor="middle">namespace.md</text>
+  <rect x="676" y="298" width="148" height="40" rx="6" fill="#ffffff" stroke="#7c3aed"/>
+  <text x="750" y="323" font-size="14" font-family="Consolas, monospace" fill="#4c1d95" text-anchor="middle">type.md</text>
+  <rect x="676" y="348" width="148" height="40" rx="6" fill="#ffffff" stroke="#7c3aed"/>
+  <text x="750" y="373" font-size="14" font-family="Consolas, monospace" fill="#4c1d95" text-anchor="middle">member.md</text>
+  <text x="750" y="410" font-size="12" fill="#5b21b6" text-anchor="middle">or a single api.md</text>
+
+  <line x1="614" y1="285" x2="656" y2="285" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+
+  <!-- Consumer -->
+  <line x1="750" y1="424" x2="750" y2="446" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+  <rect x="660" y="450" width="180" height="50" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+  <text x="750" y="480" font-size="16" font-weight="600" fill="#92400e" text-anchor="middle">AI agent / reader</text>
+  </g>
+</svg>
