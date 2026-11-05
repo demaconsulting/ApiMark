@@ -23,7 +23,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.x
       - name: Restore Tools
@@ -100,7 +100,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
             8.x
@@ -236,7 +236,7 @@ jobs:
           queries: security-and-quality
           config-file: ./.github/codeql-config.yml
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
             8.x
@@ -303,7 +303,7 @@ jobs:
           name: packages-${{ matrix.os }}
           path: packages
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
       - name: Restore Tools
@@ -406,7 +406,7 @@ jobs:
         with:
           node-version: lts/*
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.x
       - name: Install npm dependencies
