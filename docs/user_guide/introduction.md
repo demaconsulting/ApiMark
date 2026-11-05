@@ -18,7 +18,8 @@ agent or reader.
 ## Scope
 
 Covers the `apimark` CLI tool and the `DemaConsulting.ApiMark.MSBuild` NuGet package
-integration. Excludes internal architecture and design details. This guide includes
+integration. Excludes internal design details beyond the high-level overview
+diagram above. This guide includes
 installation instructions, a global CLI reference, MSBuild integration concepts, and
 dedicated language sections for .NET, C++, and VHDL — each covering CLI options,
 documented constructs, doc comment format, and output structure. The C++ and VHDL
