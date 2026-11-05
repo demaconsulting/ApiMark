@@ -2457,7 +2457,10 @@ internal sealed partial class ClangAstParser
             return null;
         }
 
-        return new CppDocComment(state.Summary, state.Details, state.ParamDocs, state.Returns, state.Note, state.Example, state.ExampleLanguage);
+        return new CppDocComment(state.Summary, state.Details, state.ParamDocs, state.Returns, state.Note, state.Example)
+        {
+            ExampleLanguage = state.ExampleLanguage
+        };
     }
 
     /// <summary>
@@ -2648,15 +2651,18 @@ internal sealed partial class ClangAstParser
         /// <summary>Gets or sets a value indicating whether the previously appended node was a text node.</summary>
         public bool LastWasText { get; set; }
 
-        /// <summary>Gets the builder index of each currently open HTML emphasis marker, keyed by marker.</summary>
-        public Dictionary<string, int> OpenTags { get; } = [];
+        /// <summary>
+        ///     Gets the stack of currently open HTML emphasis tag instances. Tags nested inside an open tag of the
+        ///     same family are tracked as ignored (no marker emitted) so starts and ends match one-for-one.
+        /// </summary>
+        public List<(string Marker, int Index, bool Ignored)> OpenTags { get; } = [];
 
         /// <summary>
         ///     Removes the markers of any HTML emphasis tags that were never closed.
         /// </summary>
         public void CloseUnterminatedTags()
         {
-            foreach (var (marker, index) in OpenTags.OrderByDescending(kv => kv.Value).Select(kv => (kv.Key, kv.Value)))
+            foreach (var (marker, index, _) in OpenTags.Where(t => !t.Ignored).OrderByDescending(t => t.Index))
             {
                 Builder.Remove(index, marker.Length);
             }
@@ -2727,17 +2733,28 @@ internal sealed partial class ClangAstParser
         var builder = state.Builder;
         if (isStart)
         {
-            // Ignore nested tags of the same family
-            if (!state.OpenTags.ContainsKey(marker))
+            // Nested tags of the same family are tracked but emit no marker
+            if (state.OpenTags.Any(t => t.Marker == marker && !t.Ignored))
             {
-                state.OpenTags[marker] = builder.Length;
-                builder.Append(marker);
+                state.OpenTags.Add((marker, builder.Length, true));
+                return;
             }
 
+            state.OpenTags.Add((marker, builder.Length, false));
+            builder.Append(marker);
             return;
         }
 
-        if (!state.OpenTags.Remove(marker, out var index))
+        // Match the innermost open tag of this family
+        var openIndex = state.OpenTags.FindLastIndex(t => t.Marker == marker);
+        if (openIndex < 0)
+        {
+            return;
+        }
+
+        var (_, index, ignored) = state.OpenTags[openIndex];
+        state.OpenTags.RemoveAt(openIndex);
+        if (ignored)
         {
             return;
         }

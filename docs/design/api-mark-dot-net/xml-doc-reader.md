@@ -651,7 +651,8 @@ may be a prefix of the documented assembly's own.
 `b`/`strong` render as `**…**` and `i`/`em` as `*…*` (`AppendEmphasisElementText`). Leading and trailing
 whitespace moves outside the markers; markers are omitted for empty content, nesting inside the same
 emphasis family, content spanning a paragraph break or containing a code-block placeholder, and content
-starting or ending with `*`.
+starting or ending with `*`. Content wrapped in exactly the other family (`<b><i>x</i></b>`) is still
+wrapped, preserving both styles as `***x***`.
 
 Fenced blocks from `<code>` (`AppendCodeElementText`) carry an info string produced by `GetCodeLanguage`,
 the same sanitizer used for `<example>`: the `lang` attribute, or `language` as an alias, restricted to

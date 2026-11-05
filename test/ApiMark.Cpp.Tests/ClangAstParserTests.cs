@@ -32,7 +32,7 @@ public partial class ClangAstParserTests
         try
         {
             var envPath = Environment.GetEnvironmentVariable("APIMARK_CLANG_PATH");
-            var clang = !string.IsNullOrEmpty(envPath) && File.Exists(envPath) ? envPath : "clang";
+            var clang = !string.IsNullOrEmpty(envPath) ? envPath : "clang";
             var psi = new ProcessStartInfo(clang, "--version")
             {
                 RedirectStandardOutput = true,
@@ -125,6 +125,33 @@ public partial class ClangAstParserTests
         Assert.NotNull(plain);
         Assert.Equal("Plain **raw** text.", plain.Summary);
         Assert.Equal("Details with unclosed bold", plain.Details);
+    }
+
+    /// <summary>Validates that nested same-family HTML emphasis tags match one-for-one.</summary>
+    [Fact]
+    public void ClangAstParser_Parse_NestedHtmlEmphasis_MatchesTagsOneForOne()
+    {
+        if (!IsClangAvailable())
+        {
+            Assert.Skip("clang is not available on this system.");
+        }
+
+        // Arrange
+        const string header = """
+            #pragma once
+            /// @brief Nested <b><strong>x</strong></b> done.
+            void Nested();
+
+            /// @brief Outer <b>open <strong>inner</strong> never closed
+            void Unterminated();
+            """;
+
+        // Act
+        var docs = ParseEmphasisHeader(header);
+
+        // Assert
+        Assert.Equal("Nested **x** done.", docs["Nested"]!.Summary);
+        Assert.Equal("Outer open inner never closed", docs["Unterminated"]!.Summary);
     }
 
     /// <summary>Validates that Doxygen code blocks keep a <c>{.lang}</c> hint and default to cpp.</summary>

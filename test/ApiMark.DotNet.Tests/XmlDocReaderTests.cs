@@ -32,6 +32,30 @@ public class XmlDocReaderTests
         }
     }
 
+    /// <summary>Validates that nested different-family emphasis preserves both styles.</summary>
+    [Fact]
+    public void XmlDocReader_GetSummary_NestedMixedEmphasis_PreservesBothStyles()
+    {
+        // Arrange
+        var path = WriteXmlDoc("""
+            <member name="T:Foo.Bar">
+              <summary>A <b><i>x</i></b> and <i><b>y</b></i>.</summary>
+            </member>
+            """);
+        try
+        {
+            // Act
+            var reader = new XmlDocReader(path);
+
+            // Assert
+            Assert.Equal("A ***x*** and ***y***.", reader.GetSummary("T:Foo.Bar"));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     /// <summary>Writes a minimal XML doc file containing remarks <c>&lt;code&gt;</c> blocks and checks fence languages.</summary>
     [Fact]
     public void XmlDocReader_GetRemarks_CodeBlockLanguage_HonorsHintAndDefaults()

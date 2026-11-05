@@ -1050,7 +1050,7 @@ public sealed partial class XmlDocReader
         var nested = element.Ancestors().Any(a => GetEmphasisMarkerLength(a.Name.LocalName) == family);
         var core = rendered.Trim();
         if (nested || core.Length == 0 || core.Contains('\u0001') || core.Contains("\n\n")
-            || core.StartsWith('*') || core.EndsWith('*'))
+            || StartsOrEndsWithConflictingAsterisk(core, marker))
         {
             builder.Append(rendered);
             return;
@@ -1059,6 +1059,32 @@ public sealed partial class XmlDocReader
         var lead = rendered[..(rendered.Length - rendered.TrimStart().Length)];
         var trail = rendered[rendered.TrimEnd().Length..];
         builder.Append(lead).Append(marker).Append(core).Append(marker).Append(trail);
+    }
+
+    /// <summary>
+    ///     Determines whether wrapping <paramref name="core"/> in <paramref name="marker"/> would be ambiguous.
+    /// </summary>
+    /// <remarks>
+    ///     Content wrapped in exactly the other emphasis family (e.g. <c>*x*</c> inside bold, or
+    ///     <c>**x**</c> inside italic) is safe to wrap, producing <c>***x***</c>. Any other leading or
+    ///     trailing asterisk is treated as a conflict.
+    /// </remarks>
+    /// <param name="core">The trimmed rendered content.</param>
+    /// <param name="marker">The marker about to be applied.</param>
+    /// <returns><see langword="true"/> when the content must be left unwrapped.</returns>
+    private static bool StartsOrEndsWithConflictingAsterisk(string core, string marker)
+    {
+        var otherLength = marker.Length == 2 ? 1 : 2;
+        var other = new string('*', otherLength);
+        var wrapped = core.Length > 2 * otherLength
+            && core.StartsWith(other, StringComparison.Ordinal) && core.EndsWith(other, StringComparison.Ordinal)
+            && core[otherLength] != '*' && core[^(otherLength + 1)] != '*';
+        if (wrapped)
+        {
+            return false;
+        }
+
+        return core.StartsWith('*') || core.EndsWith('*');
     }
 
     /// <summary>Returns the emphasis marker length (2 for bold, 1 for italic) of an element name, or 0.</summary>

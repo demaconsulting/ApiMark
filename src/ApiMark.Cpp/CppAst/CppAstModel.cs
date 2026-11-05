@@ -52,17 +52,20 @@ public record CppParamDoc(string Name, string Description);
 /// <param name="Returns">Return description from a <c>@return</c> or <c>@returns</c> tag.</param>
 /// <param name="Note">Contextual note from a <c>@note</c> tag, or <see langword="null"/> when absent.</param>
 /// <param name="Example">Example code from a <c>@code</c>/<c>@endcode</c> block, or <see langword="null"/> when absent.</param>
-/// <param name="ExampleLanguage">
-///     Sanitized fenced-code language of the example (from <c>@code{.lang}</c>), or <c>cpp</c> when no valid hint was given.
-/// </param>
 public record CppDocComment(
     string? Summary,
     string? Details,
     IReadOnlyList<CppParamDoc> Params,
     string? Returns,
     string? Note = null,
-    string? Example = null,
-    string ExampleLanguage = "cpp");
+    string? Example = null)
+{
+    /// <summary>
+    ///     Gets the sanitized fenced-code language of the example (from <c>@code{.lang}</c>),
+    ///     or <c>cpp</c> when no valid hint was given.
+    /// </summary>
+    public string ExampleLanguage { get; init; } = "cpp";
+}
 
 /// <summary>Names a base type in a C++ class inheritance list.</summary>
 /// <param name="Name">
