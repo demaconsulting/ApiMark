@@ -48,7 +48,7 @@ jobs:
           echo "Capturing tool versions..."
           dotnet versionmark --capture --job-id "quality" \
             --output "artifacts/versionmark-quality.json" -- \
-            dotnet git versionmark
+            dotnet git versionmark textlint
           echo "✓ Tool versions captured"
 
       # === CAPTURE OTS SELF-VALIDATION RESULTS ===
@@ -332,7 +332,7 @@ jobs:
           JOB_ID="int-${OS_SHORT}-${DOTNET_SHORT}"
           dotnet versionmark --capture --job-id "${JOB_ID}" \
             --output "artifacts/versionmark-${JOB_ID}.json" -- \
-            dotnet git versionmark
+            dotnet git versionmark textlint
           echo "✓ Tool versions captured"
 
       # === RUN INTEGRATION TESTS ===
@@ -439,7 +439,7 @@ jobs:
           dotnet versionmark --capture --job-id "build-docs" \
             --output "artifacts/versionmark-build-docs.json" -- \
             dotnet git node npm pandoc weasyprint sarifmark sonarmark reqstream \
-            buildmark versionmark reviewmark fileassert sysml2tools canvasnet
+            buildmark versionmark reviewmark fileassert textlint sysml2tools canvasnet
           echo "✓ Tool versions captured"
 
       # === PREPARE DOCUMENT OUTPUT ===
@@ -670,6 +670,7 @@ jobs:
           dotnet sysml2tools render
           --output docs/design/generated
           --format svg
+          'docs/sysml2/common/**/*.sysml'
           'docs/sysml2/model/**/*.sysml'
           'docs/sysml2/views/design-views.sysml'
       - name: Generate Design HTML with Pandoc

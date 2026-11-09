@@ -11,7 +11,7 @@ using Xunit;
 
 namespace ApiMark.Cpp.Tests;
 
-/// <summary>Integration-flavoured unit tests for <see cref="ClangAstParser"/> that require clang to be available.</summary>
+/// <summary>Integration-flavored unit tests for <see cref="ClangAstParser"/> that require clang to be available.</summary>
 /// <remarks>
 ///     Shares the <c>"ClangEnvironment"</c> xUnit collection (see <see cref="ClangEnvironmentCollection"/>)
 ///     with <see cref="CppGeneratorTests"/> so that tests here which mutate the process-wide
@@ -779,7 +779,7 @@ public partial class ClangAstParserTests
                 // Assert: the partial output genuinely produced by the hung process before it
                 // was killed was captured and reported, not merely that the labels are present.
                 // The exact character count is platform-dependent (CRLF vs LF line endings), so
-                // match the marker's presence within its labelled section rather than an exact count.
+                // match the marker's presence within its labeled section rather than an exact count.
                 Assert.Matches(
                     new Regex(@"Partial stdout \(\d+ chars\): " + Regex.Escape(HangStdoutMarker)),
                     ex.Message);

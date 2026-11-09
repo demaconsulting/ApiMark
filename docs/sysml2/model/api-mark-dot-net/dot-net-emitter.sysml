@@ -1,11 +1,16 @@
 package ApiMarkDotNet {
+    private import SoftwareItemMetadata::*;
+
     part def DotNetEmitter {
         doc /* DotNetEmitter implements IApiEmitter and dispatches between the gradual-disclosure and single-file emitters. */
 
-        comment sourceRef /* Source: src/ApiMark.DotNet/DotNetEmitter.cs */
-        comment testRef /* Test: test/ApiMark.DotNet.Tests/DotNetEmitterTests.cs */
-        comment designRef /* Design: docs/design/api-mark-dot-net/dot-net-emitter.md */
-        comment verificationRef /* Verification: docs/verification/api-mark-dot-net/dot-net-emitter.md */
-        comment reqRef /* Requirements: docs/reqstream/api-mark-dot-net/dot-net-emitter.yaml */
+        metadata info : SoftwareInfo {
+            description = "DotNetEmitter implements IApiEmitter and dispatches between the gradual-disclosure and single-file emitters.";
+            sourceFiles = ("src/ApiMark.DotNet/DotNetEmitter.cs");
+            testFiles = ("test/ApiMark.DotNet.Tests/DotNetEmitterTests.cs");
+            designFiles = ("docs/design/api-mark-dot-net/dot-net-emitter.md");
+            verificationFiles = ("docs/verification/api-mark-dot-net/dot-net-emitter.md");
+            requirementFiles = ("docs/reqstream/api-mark-dot-net/dot-net-emitter.yaml");
+        }
     }
 }

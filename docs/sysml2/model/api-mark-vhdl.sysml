@@ -1,4 +1,6 @@
 package ApiMarkVhdl {
+    private import SoftwareItemMetadata::*;
+
     import OtsDependencies::*;
 
     doc
@@ -9,9 +11,12 @@ package ApiMarkVhdl {
     part def ApiMarkVhdlSystem {
         doc /* The ApiMarkVhdl system as a whole. */
 
-        comment designRef /* Design: docs/design/api-mark-vhdl.md */
-        comment verificationRef /* Verification: docs/verification/api-mark-vhdl.md */
-        comment reqRef /* Requirements: docs/reqstream/api-mark-vhdl.yaml */
+        metadata info : SoftwareInfo {
+            description = "The ApiMarkVhdl system as a whole.";
+            designFiles = ("docs/design/api-mark-vhdl.md");
+            verificationFiles = ("docs/verification/api-mark-vhdl.md");
+            requirementFiles = ("docs/reqstream/api-mark-vhdl.yaml");
+        }
 
         part vhdlGenerator : VhdlGenerator;
         part vhdlAstModel : VhdlAstModel;

@@ -131,7 +131,7 @@ the item is correct, well-designed, and proven to work:
 - **Source code** - The implementation of the design (local units only; not applicable to OTS or Shared Package)
 - **Tests** - PROOF the item does WHAT it is required to do (applies to all item types)
 
-Where the repository models its software structure in SysML2, each item's part def carries
-`comment` metadata pointing at these same artifact locations (`sourceRef`/`testRef`/
-`designRef`/`verificationRef`/`reqRef`) so agents can query them directly — see
-`sysml2-modeling.md`.
+Where the repository models its software structure in SysML2, each item's part def carries a
+`metadata info : SoftwareInfo` annotation whose attributes (`sourceFiles`/`testFiles`/
+`designFiles`/`verificationFiles`/`requirementFiles`) point at these same artifact locations
+so agents can query them directly — see `sysml2-modeling.md`.

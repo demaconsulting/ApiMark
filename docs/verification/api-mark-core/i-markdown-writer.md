@@ -70,7 +70,7 @@ by `FileMarkdownWriter_WriteParagraph_ValidText_WritesParagraphText`.
 
 **WriteTable produces pipe-delimited GFM table with separator row**: Verifies that
 `FileMarkdownWriter.WriteTable` emits a header row, a `| --- |` separator row, and
-data rows in pipe-delimited format, confirming the output is valid GitHub-Flavoured
+data rows in pipe-delimited format, confirming the output is valid GitHub-Flavored
 Markdown table syntax. Tested by `FileMarkdownWriter_WriteTable_ValidArgs_WritesPipeTable`.
 
 **WriteCodeBlock produces fenced code block with language tag**: Verifies that
