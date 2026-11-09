@@ -43,42 +43,49 @@ correctly — pass a single **quoted** glob string and let the tool resolve it, 
 relying on the shell (quoting works identically in both PowerShell and bash):
 
 ```pwsh
-dotnet sysml2tools query list 'docs/sysml2/model/**/*.sysml'
+dotnet sysml2tools query list 'docs/sysml2/**/*.sysml'
 ```
 
 ## Artifact-location metadata
 
-Every System/Subsystem/Unit `part def` carries named `comment` elements pointing at its
+Every System/Subsystem/Unit `part def` applies a single `metadata info : SoftwareInfo { ... }`
+annotation (defined once in `docs/sysml2/common/software-items.sysml`) pointing at its
 companion artifacts (source, test, design, verification, and — for repositories that still
-use ReqStream — requirements file). `query describe` returns every comment attached to
-an element, so one query gets you every artifact location for that item without grepping the
-source tree:
+use ReqStream — requirements file). As of `sysml2tools` 0.1.0-beta.13+, `query describe`
+surfaces every applied metadata attribute value as a `Metadata SoftwareInfo.{attribute}: ...`
+summary line, so one query gets you every artifact location for that item without grepping
+the source tree:
 
 ```pwsh
-dotnet sysml2tools query describe -e {SystemName}::{UnitName} 'docs/sysml2/model/**/*.sysml'
+dotnet sysml2tools query describe -e {SystemName}::{UnitName} 'docs/sysml2/**/*.sysml'
 ```
 
 ```text
 - Documentation: One-line purpose statement for the unit.
-- Comment: Source: src/{Project}/{Subsystem}/{UnitName}.cs
-- Comment: Test: test/{Project}.Tests/{Subsystem}/{UnitName}Tests.cs
-- Comment: Design: docs/design/{system-name}/{subsystem-name}/{unit-name}.md
-- Comment: Verification: docs/verification/{system-name}/{subsystem-name}/{unit-name}.md
-- Comment: Requirements: docs/reqstream/{system-name}/{subsystem-name}/{unit-name}.yaml
+- Metadata SoftwareInfo.description: One-line purpose statement for the unit.
+- Metadata SoftwareInfo.sourceFiles: ("src/{Project}/{Subsystem}/{UnitName}.cs")
+- Metadata SoftwareInfo.testFiles: ("test/{Project}.Tests/{Subsystem}/{UnitName}Tests.cs")
+- Metadata SoftwareInfo.designFiles: ("docs/design/{system-name}/{subsystem-name}/{unit-name}.md")
+- Metadata SoftwareInfo.verificationFiles: ("docs/verification/{system-name}/{subsystem-name}/{unit-name}.md")
+- Metadata SoftwareInfo.requirementFiles: ("docs/reqstream/{system-name}/{subsystem-name}/{unit-name}.yaml")
 ```
 
-Not every item has all five comments — Systems/Subsystems have no `Source` comment, and
-units without a dedicated companion doc point at their parent's doc instead (see the
-Artifact-Location Comments section of `sysml2-modeling.md` for the full rules). Prefer these
+Not every item sets all five attributes — Systems/Subsystems have no `sourceFiles`, and units
+without a dedicated companion doc point at their parent's doc instead (see the
+Artifact-Location Metadata section of `sysml2-modeling.md` for the full rules). Prefer these
 paths over guessing a file location from the unit name; fall back to `grep`/`glob` only when
-a comment is missing or the model is stale.
+the metadata is missing or the model is stale. Note: repositories still on a `sysml2tools`
+version older than 0.1.0-beta.13, or that haven't yet migrated from the older `comment`-based
+convention, won't show `Metadata ...` lines here — check `.config/dotnet-tools.json`'s pinned
+version and fall back to reading `comment sourceRef`/`testRef`/`designRef`/`verificationRef`/
+`reqRef` elements (rendered as `Comment: ...` lines) if present instead.
 
 ## Recommended workflow
 
 1. **Discover the system(s) present** — do not assume a fixed name:
 
    ```pwsh
-   dotnet sysml2tools query list --kind "part def" 'docs/sysml2/model/**/*.sysml'
+   dotnet sysml2tools query list --kind "part def" 'docs/sysml2/**/*.sysml'
    ```
 
    Look for the top-level part def with no containing part (or the one with the most
@@ -87,42 +94,47 @@ a comment is missing or the model is stale.
 2. **Get the full hierarchy** (subsystems and units) for a system found above:
 
    ```pwsh
-   dotnet sysml2tools query describe -e <QualifiedName> 'docs/sysml2/model/**/*.sysml'
+   dotnet sysml2tools query describe -e <QualifiedName> 'docs/sysml2/**/*.sysml'
    ```
 
-   `describe` lists direct children and every artifact-location comment; repeat on each
-   child to walk deeper, or use `query list` to see the full flat inventory.
+   `describe` lists direct children and every artifact-location metadata attribute; repeat on
+   each child to walk deeper, or use `query list` to see the full flat inventory.
 
 3. **Understand a specific unit's purpose and find its files** before opening its source
-   file — `describe` returns both the purpose `doc` and every `Comment:` artifact-location
-   line in one call (see Artifact-location metadata above):
+   file — `describe` returns both the purpose `doc` and every `Metadata SoftwareInfo...`
+   artifact-location line in one call (see Artifact-location metadata above):
 
    ```pwsh
-   dotnet sysml2tools query describe -e <QualifiedName> 'docs/sysml2/model/**/*.sysml'
+   dotnet sysml2tools query describe -e <QualifiedName> 'docs/sysml2/**/*.sysml'
    ```
 
-4. **Assess impact before editing a unit** — see what depends on it:
+4. **Assess impact before editing a unit, and see what it depends on** — use `dependencies`
+   for the combined view, or `uses`/`used-by`/`impact` individually:
 
    ```pwsh
-   dotnet sysml2tools query used-by -e <QualifiedName> 'docs/sysml2/model/**/*.sysml'
-   dotnet sysml2tools query impact -e <QualifiedName> 'docs/sysml2/model/**/*.sysml'
+   dotnet sysml2tools query dependencies -e <QualifiedName> 'docs/sysml2/**/*.sysml'
+   dotnet sysml2tools query impact -e <QualifiedName> 'docs/sysml2/**/*.sysml'
    ```
 
-   Note: this only surfaces structural (typing/containment) references modeled in
-   `.sysml` — not full call-graph/behavioral dependencies. Confirm actual usage in source
-   before making impact-sensitive changes.
+   `dependencies`/`uses`/`used-by` return both structural (typing/containment) references
+   *and* explicit `dependency A to B;` statements (see `sysml2-modeling.md`'s Dependency
+   Relationships section) — repositories that model real collaborators this way get accurate
+   usage-impact results directly from the query, not just structural references. If a
+   repository hasn't adopted explicit `dependency` modeling yet, these verbs only surface
+   structural references; confirm actual usage in source before making impact-sensitive
+   changes in that case.
 
 5. **Trace requirements** linked to a unit, if modeled:
 
    ```pwsh
-   dotnet sysml2tools query requirements -e <QualifiedName> 'docs/sysml2/model/**/*.sysml'
+   dotnet sysml2tools query requirements -e <QualifiedName> 'docs/sysml2/**/*.sysml'
    ```
 
 6. **Search by name or kind** when the qualified name is unknown:
 
    ```pwsh
-   dotnet sysml2tools query find --name <PartialOrFullName> 'docs/sysml2/model/**/*.sysml'
-   dotnet sysml2tools query list --kind "part def" 'docs/sysml2/model/**/*.sysml'
+   dotnet sysml2tools query find --name <PartialOrFullName> 'docs/sysml2/**/*.sysml'
+   dotnet sysml2tools query list --kind "part def" 'docs/sysml2/**/*.sysml'
    ```
 
 Use `--format json` on any query verb for machine-parsed output.
@@ -132,7 +144,7 @@ Use `--format json` on any query verb for machine-parsed output.
 If the model is stale, doesn't yet cover a unit, or a query returns nothing useful, fall
 back to `grep`/`glob`/reading source directly. When you finish work that adds or changes a
 Unit/Subsystem, update the corresponding `.sysml` model file (including its artifact-location
-comments) in the same change (mirrors the existing requirement to keep `docs/design/*.md` and
+metadata) in the same change (mirrors the existing requirement to keep `docs/design/*.md` and
 `docs/reqstream/*.yaml` companion artifacts in sync). See the `sysml2-modeling.md`
 standard for full modeling and view-authoring conventions.
 

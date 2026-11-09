@@ -1,0 +1,106 @@
+---
+# Spell-Checking with TextLint
+#
+# PURPOSE:
+# - Maintain professional documentation and code quality
+# - Catch spelling errors before publication
+# - Support consistent technical terminology usage
+# - NEVER add a misspelled word - fix the typo in the source instead
+# - NEVER add a British-English spelling - correct to US-English in the source
+# - PROPOSE only genuine technical terms/names as needed
+version: '0.2'
+language: en
+files: ['**/*.{md,yaml,yml,json,cs,cpp,hpp,h,txt}']
+enableGlobDot: true
+words:
+  - APFS
+  - archs
+  - arities
+  - bodyless
+  - casefold
+  - casetwin
+  - CODEDOC
+  - Constexpr
+  - cout
+  - cppreference
+  - Crefs
+  - cstdint
+  - dedented
+  - dedenting
+  - Dema
+  - demaconsulting
+  - desync
+  - docstrings
+  - downcasting
+  - DOWNTO
+  - endcode
+  - fparse
+  - fsyntax
+  - funct
+  - headerless
+  - hideable
+  - hrefs
+  - interp
+  - invocability
+  - isystem
+  - Konst
+  - Ldarg
+  - libclang
+  - libext
+  - Linkification
+  - linkified
+  - linkifies
+  - Linkify
+  - linkifying
+  - maxcount
+  - metacharacter
+  - misdescribes
+  - modreq
+  - MYLIB
+  - ncipollo
+  - NDEBUG
+  - nestings
+  - netstandard
+  - newslot
+  - NOSONAR
+  - ostream
+  - pasteable
+  - renderable
+  - REQDOC
+  - REQIMP
+  - REQTEST
+  - sarif
+  - shopt
+  - sonarscanner
+  - Stfld
+  - testbenches
+  - testlib
+  - thirdparty
+  - toavaloniaint
+  - TOCTOU
+  - tparam
+  - transactstring
+  - transacttstring
+  - undoable
+  - unidirectionality
+  - unsymbolized
+  - venv
+  - virtuals
+  - writability
+  - Xclang
+  - xcrun
+  - yamlfix
+ignorePaths:
+  - '**/.git/**'
+  - '**/node_modules/**'
+  - '**/.venv/**'
+  - '**/thirdparty/**'
+  - '**/third-party/**'
+  - '**/3rd-party/**'
+  - '**/.agent-logs/**'
+  - '**/bin/**'
+  - '**/obj/**'
+  - '**/generated/**'
+  - '**/packages/**'
+  - '**/VhdlAst/Antlr/**'
+  - package-lock.json

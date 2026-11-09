@@ -1,11 +1,16 @@
 package ApiMarkCore {
+    private import SoftwareItemMetadata::*;
+
     part def FileMarkdownWriter {
         doc /* FileMarkdownWriter is the production file-system implementation of IMarkdownWriter. */
 
-        comment sourceRef /* Source: src/ApiMark.Core/FileMarkdownWriter.cs */
-        comment testRef /* Test: test/ApiMark.Core.Tests/FileMarkdownWriterTests.cs */
-        comment designRef /* Design: docs/design/api-mark-core/file-markdown-writer.md */
-        comment verificationRef /* Verification: docs/verification/api-mark-core/file-markdown-writer.md */
-        comment reqRef /* Requirements: docs/reqstream/api-mark-core/file-markdown-writer.yaml */
+        metadata info : SoftwareInfo {
+            description = "FileMarkdownWriter is the production file-system implementation of IMarkdownWriter.";
+            sourceFiles = ("src/ApiMark.Core/FileMarkdownWriter.cs");
+            testFiles = ("test/ApiMark.Core.Tests/FileMarkdownWriterTests.cs");
+            designFiles = ("docs/design/api-mark-core/file-markdown-writer.md");
+            verificationFiles = ("docs/verification/api-mark-core/file-markdown-writer.md");
+            requirementFiles = ("docs/reqstream/api-mark-core/file-markdown-writer.yaml");
+        }
     }
 }

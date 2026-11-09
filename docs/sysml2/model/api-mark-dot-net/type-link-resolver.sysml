@@ -1,11 +1,16 @@
 package ApiMarkDotNet {
+    private import SoftwareItemMetadata::*;
+
     part def TypeLinkResolver {
         doc /* TypeLinkResolver resolves Mono.Cecil TypeReference instances to Markdown link targets. */
 
-        comment sourceRef /* Source: src/ApiMark.DotNet/TypeLinkResolver.cs */
-        comment testRef /* Test: test/ApiMark.DotNet.Tests/TypeLinkResolverTests.cs */
-        comment designRef /* Design: docs/design/api-mark-dot-net/type-link-resolver.md */
-        comment verificationRef /* Verification: docs/verification/api-mark-dot-net/type-link-resolver.md */
-        comment reqRef /* Requirements: docs/reqstream/api-mark-dot-net/type-link-resolver.yaml */
+        metadata info : SoftwareInfo {
+            description = "TypeLinkResolver resolves Mono.Cecil TypeReference instances to Markdown link targets.";
+            sourceFiles = ("src/ApiMark.DotNet/TypeLinkResolver.cs");
+            testFiles = ("test/ApiMark.DotNet.Tests/TypeLinkResolverTests.cs");
+            designFiles = ("docs/design/api-mark-dot-net/type-link-resolver.md");
+            verificationFiles = ("docs/verification/api-mark-dot-net/type-link-resolver.md");
+            requirementFiles = ("docs/reqstream/api-mark-dot-net/type-link-resolver.yaml");
+        }
     }
 }

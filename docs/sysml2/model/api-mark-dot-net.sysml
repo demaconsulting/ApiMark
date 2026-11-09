@@ -1,4 +1,6 @@
 package ApiMarkDotNet {
+    private import SoftwareItemMetadata::*;
+
     import OtsDependencies::*;
 
     doc
@@ -9,9 +11,12 @@ package ApiMarkDotNet {
     part def ApiMarkDotNetSystem {
         doc /* The ApiMarkDotNet system as a whole. */
 
-        comment designRef /* Design: docs/design/api-mark-dot-net.md */
-        comment verificationRef /* Verification: docs/verification/api-mark-dot-net.md */
-        comment reqRef /* Requirements: docs/reqstream/api-mark-dot-net.yaml */
+        metadata info : SoftwareInfo {
+            description = "The ApiMarkDotNet system as a whole.";
+            designFiles = ("docs/design/api-mark-dot-net.md");
+            verificationFiles = ("docs/verification/api-mark-dot-net.md");
+            requirementFiles = ("docs/reqstream/api-mark-dot-net.yaml");
+        }
 
         part dotNetGenerator : DotNetGenerator;
         part dotNetAstModel : DotNetAstModel;

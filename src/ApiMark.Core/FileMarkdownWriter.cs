@@ -47,7 +47,7 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
     /// <exception cref="ObjectDisposedException">Thrown if this writer has been disposed.</exception>
     public void WriteHeading(int level, string text)
     {
-        // Guard against use-after-dispose to honour the IDisposable contract
+        // Guard against use-after-dispose to honor the IDisposable contract
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         // Reject levels outside the 1–6 range defined by CommonMark ATX headings
@@ -73,7 +73,7 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
     /// </summary>
     /// <param name="language">
     ///     Language identifier placed on the opening fence (e.g. "csharp").
-    ///     Must not be null; use an empty string for an unlabelled fence.
+    ///     Must not be null; use an empty string for an unlabeled fence.
     /// </param>
     /// <param name="code">Signature text. Must not be null.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="language"/> or <paramref name="code"/> is null.</exception>
@@ -208,7 +208,7 @@ internal sealed class FileMarkdownWriter : IMarkdownWriter
     /// </summary>
     /// <param name="language">
     ///     Language identifier placed on the opening fence. Must not be null;
-    ///     use an empty string for an unlabelled fence.
+    ///     use an empty string for an unlabeled fence.
     /// </param>
     /// <param name="code">Example code. Must not be null.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="language"/> or <paramref name="code"/> is null.</exception>

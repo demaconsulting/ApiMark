@@ -1,4 +1,6 @@
 package ApiMarkCpp {
+    private import SoftwareItemMetadata::*;
+
     import OtsDependencies::*;
 
     doc
@@ -9,9 +11,12 @@ package ApiMarkCpp {
     part def ApiMarkCppSystem {
         doc /* The ApiMarkCpp system as a whole. */
 
-        comment designRef /* Design: docs/design/api-mark-cpp.md */
-        comment verificationRef /* Verification: docs/verification/api-mark-cpp.md */
-        comment reqRef /* Requirements: docs/reqstream/api-mark-cpp.yaml */
+        metadata info : SoftwareInfo {
+            description = "The ApiMarkCpp system as a whole.";
+            designFiles = ("docs/design/api-mark-cpp.md");
+            verificationFiles = ("docs/verification/api-mark-cpp.md");
+            requirementFiles = ("docs/reqstream/api-mark-cpp.yaml");
+        }
 
         part cppGenerator : CppGenerator;
         part cppAstModel : CppAstModel;

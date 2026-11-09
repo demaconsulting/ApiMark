@@ -1,4 +1,6 @@
 package ApiMarkCore {
+    private import SoftwareItemMetadata::*;
+
     import OtsDependencies::*;
 
     doc
@@ -9,9 +11,12 @@ package ApiMarkCore {
     part def ApiMarkCoreSystem {
         doc /* The ApiMarkCore system as a whole. */
 
-        comment designRef /* Design: docs/design/api-mark-core.md */
-        comment verificationRef /* Verification: docs/verification/api-mark-core.md */
-        comment reqRef /* Requirements: docs/reqstream/api-mark-core.yaml */
+        metadata info : SoftwareInfo {
+            description = "The ApiMarkCore system as a whole.";
+            designFiles = ("docs/design/api-mark-core.md");
+            verificationFiles = ("docs/verification/api-mark-core.md");
+            requirementFiles = ("docs/reqstream/api-mark-core.yaml");
+        }
 
         part iApiGenerator : IApiGenerator;
         part iApiEmitter : IApiEmitter;

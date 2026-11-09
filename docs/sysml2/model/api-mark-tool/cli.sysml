@@ -1,10 +1,15 @@
 package ApiMarkTool {
+    private import SoftwareItemMetadata::*;
+
     part def CliSubsystem {
         doc /* Cli subsystem: command-line argument parsing and I/O ownership for ApiMarkTool. */
 
-        comment designRef /* Design: docs/design/api-mark-tool/cli.md */
-        comment verificationRef /* Verification: docs/verification/api-mark-tool/cli.md */
-        comment reqRef /* Requirements: docs/reqstream/api-mark-tool/cli.yaml */
+        metadata info : SoftwareInfo {
+            description = "Cli subsystem: command-line argument parsing and I/O ownership for ApiMarkTool.";
+            designFiles = ("docs/design/api-mark-tool/cli.md");
+            verificationFiles = ("docs/verification/api-mark-tool/cli.md");
+            requirementFiles = ("docs/reqstream/api-mark-tool/cli.yaml");
+        }
 
         part context : Context;
     }
