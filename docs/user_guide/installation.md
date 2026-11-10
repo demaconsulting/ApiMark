@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-The ApiMark CLI tool and MSBuild package require the .NET SDK (version 8.0 or later).
+The ApiMark CLI tool and MSBuild package require the .NET SDK (version 10.0 or later). Projects being documented can still target earlier frameworks.
 
 C++ documentation generation additionally requires `clang` to be installed. See the
 *C++ Documentation* section for platform-specific installation instructions and clang

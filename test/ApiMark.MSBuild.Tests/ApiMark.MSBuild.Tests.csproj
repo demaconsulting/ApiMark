@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -39,9 +39,9 @@
     files that 'dotnet <dll>' requires. Copy them explicitly after the build.
   -->
   <Target Name="CopyApiMarkToolRuntimeFiles" AfterTargets="Build">
-    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\src\ApiMark.Tool\bin\$(Configuration)\net8.0\ApiMark.Tool.runtimeconfig.json"
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\src\ApiMark.Tool\bin\$(Configuration)\net10.0\ApiMark.Tool.runtimeconfig.json"
           DestinationFolder="$(OutDir)" />
-    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\src\ApiMark.Tool\bin\$(Configuration)\net8.0\ApiMark.Tool.deps.json"
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\src\ApiMark.Tool\bin\$(Configuration)\net10.0\ApiMark.Tool.deps.json"
           DestinationFolder="$(OutDir)" />
   </Target>
 </Project>

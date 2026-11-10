@@ -88,14 +88,14 @@
     </ItemGroup>
   </Target>
 
-  <!-- Publish ApiMark.Tool for net8.0 and bundle its output into tools/net8.0/ in the package -->
+  <!-- Publish ApiMark.Tool for net10.0 and bundle its output into tools/net10.0/ in the package -->
   <Target Name="PublishApiMarkTool">
     <MSBuild Projects="..\..\src\ApiMark.Tool\ApiMark.Tool.csproj"
              Targets="Publish"
-             Properties="Configuration=$(Configuration);TargetFramework=net8.0;PublishDir=$(MSBuildProjectDirectory)\obj\tool-publish\;SelfContained=false;RuntimeIdentifier=" />
+             Properties="Configuration=$(Configuration);TargetFramework=net10.0;PublishDir=$(MSBuildProjectDirectory)\obj\tool-publish\;SelfContained=false;RuntimeIdentifier=" />
     <ItemGroup>
       <_ToolPublishFiles Include="$(MSBuildProjectDirectory)\obj\tool-publish\**\*.*" />
-      <None Include="@(_ToolPublishFiles)" Pack="true" PackagePath="tools/net8.0/%(RecursiveDir)%(Filename)%(Extension)" />
+      <None Include="@(_ToolPublishFiles)" Pack="true" PackagePath="tools/net10.0/%(RecursiveDir)%(Filename)%(Extension)" />
     </ItemGroup>
   </Target>
 </Project>

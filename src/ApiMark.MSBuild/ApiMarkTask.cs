@@ -15,7 +15,7 @@ using Microsoft.Build.Utilities;
 ///
 ///     This task targets <c>netstandard2.0</c> so the same assembly runs under both .NET Framework
 ///     MSBuild (Visual Studio) and .NET SDK MSBuild (<c>dotnet build</c>). Language generators are
-///     intentionally kept out-of-process in <c>ApiMark.Tool</c>, which targets <c>net8.0</c> and may
+///     intentionally kept out-of-process in <c>ApiMark.Tool</c>, which targets <c>net10.0</c> and may
 ///     use libraries that do not support <c>netstandard2.0</c>.
 /// </remarks>
 public class ApiMarkTask : Task
@@ -306,7 +306,7 @@ public class ApiMarkTask : Task
     ///     Gets or sets the full path to <c>ApiMark.Tool.dll</c> bundled inside the NuGet package.
     /// </summary>
     /// <remarks>
-    ///     Set by the <c>.targets</c> file to the <c>tools/net8.0/ApiMark.Tool.dll</c> location
+    ///     Set by the <c>.targets</c> file to the <c>tools/net10.0/ApiMark.Tool.dll</c> location
     ///     inside the installed NuGet package. Must not be overridden by project authors. Must not be
     ///     null or empty.
     /// </remarks>

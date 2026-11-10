@@ -203,7 +203,7 @@ Example item group usage:
 ```
 
 **ApiMarkTask.ToolDllPath**: `string` — set by the `.targets` file to the path of
-the bundled `ApiMark.Tool.dll` inside the NuGet package `tools/net8.0/` directory.
+the bundled `ApiMark.Tool.dll` inside the NuGet package `tools/net10.0/` directory.
 Not intended to be overridden by project authors.
 
 ### Key Methods
@@ -274,7 +274,7 @@ message via `Log.LogMessage(MessageImportance.Normal, ...)`, exactly as
 before this method existed.
 
 - *Rationale*: `ApiMark.MSBuild` (`netstandard2.0`) and `ApiMark.Tool`
-  (`net8.0`) are separate, out-of-process assemblies with no shared project
+  (`net10.0`) are separate, out-of-process assemblies with no shared project
   reference (see the class remarks), so there is no shared constant or type
   to carry a finding's severity across the process boundary — only
   ApiMark.Tool's plain stdout text. Matching that exact literal prefix is a

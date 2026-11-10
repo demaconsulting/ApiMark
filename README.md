@@ -35,7 +35,7 @@ type page — consuming only as much context as the task requires.
 - 🔧 **MSBuild Integration** - Auto-documents `.csproj` and `.vcxproj` builds
 - 🖥️ **CLI Tool** - `apimark` dotnet tool covering all languages
 - 🤖 **AI-Optimized** - Minimal noise, explicit navigation links
-- 🌐 **Multi-Platform** - Windows, Linux, and macOS on .NET 8, 9, and 10
+- 🌐 **Multi-Platform** - Windows, Linux, and macOS on .NET 10 and 11
 - ✅ **Self-Validation** - Built-in qualification tests for regulated environments
 
 ## Platform Support

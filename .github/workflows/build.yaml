@@ -25,7 +25,9 @@ jobs:
       - name: Setup dotnet
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: 10.x
+          dotnet-version: |
+            10.x
+            11.x
       - name: Restore Tools
         run: >
           dotnet tool restore
@@ -103,9 +105,8 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
-            8.x
-            9.x
             10.x
+            11.x
       - name: Restore Tools
         run: >
           dotnet tool restore
@@ -239,9 +240,8 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
-            8.x
-            9.x
             10.x
+            11.x
       - name: Restore Tools
         run: >
           dotnet tool restore
@@ -286,7 +286,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
-        dotnet-version: [8.x, 9.x, 10.x]
+        dotnet-version: [10.x, 11.x]
     steps:
       # === INSTALL DEPENDENCIES ===
       # This section installs all required dependencies and tools for integration testing.
