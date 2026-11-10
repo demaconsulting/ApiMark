@@ -20,7 +20,10 @@ docstrings, etc.). The output is designed for gradual disclosure: an AI can
 read a lightweight index, drill into a namespace summary, and then read a full
 type page — consuming only as much context as the task requires.
 
-![ApiMark architecture: source files, language generators, shared core, Markdown output and the AI reader](https://raw.githubusercontent.com/demaconsulting/ApiMark/main/docs/images/architecture.png)
+The workflow below shows how to use it: document your code, run ApiMark from MSBuild or the CLI,
+and give the resulting Markdown to an AI agent or ship it with your package.
+
+![ApiMark workflow: document your code, run ApiMark, get Markdown, then use it with an AI agent, your repository or your NuGet package](https://raw.githubusercontent.com/demaconsulting/ApiMark/main/docs/images/workflow.png)
 
 ## Features
 

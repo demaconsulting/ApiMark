@@ -49,6 +49,12 @@ diagram or the prose below.
 
 ![Software Structure](SoftwareStructureView.svg)
 
+The diagram below complements the structure view by showing how data flows at run time:
+source inputs go through the per-language generators and the shared core contracts to
+produce Markdown, with the MSBuild task driving the tool.
+
+![ApiMark architecture: source files, language generators, shared core, Markdown output and the AI reader](architecture.svg)
+
 ## Folder Layout
 
 ```text

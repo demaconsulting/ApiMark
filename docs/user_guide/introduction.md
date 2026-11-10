@@ -9,17 +9,16 @@ and integrators. ApiMark generates compact, AI-friendly API reference
 documentation in Markdown from source code and its associated metadata (XML doc
 comments, header files, docstrings, etc.).
 
-The diagram below shows how source files flow through the `apimark` CLI or MSBuild
-integration, a language generator, and the shared core to produce Markdown for an AI
-agent or reader.
+The workflow below shows how ApiMark is used: document your code, run the `apimark` CLI or
+MSBuild integration, and use the resulting Markdown with an AI agent, in your repository, or
+in your NuGet package.
 
-![ApiMark architecture: source files, language generators, shared core, Markdown output and the AI reader](architecture.svg)
+![ApiMark workflow: document your code, run ApiMark, get Markdown, then use it with an AI agent, your repository or your NuGet package](workflow.svg)
 
 ## Scope
 
 Covers the `apimark` CLI tool and the `DemaConsulting.ApiMark.MSBuild` NuGet package
-integration. Excludes internal design details beyond the high-level overview
-diagram above. This guide includes
+integration. Excludes internal design details; see the design documentation for those. This guide includes
 installation instructions, a global CLI reference, MSBuild integration concepts, and
 dedicated language sections for .NET, C++, and VHDL — each covering CLI options,
 documented constructs, doc comment format, and output structure. The C++ and VHDL
