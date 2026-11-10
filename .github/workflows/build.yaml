@@ -326,7 +326,7 @@ jobs:
         run: |
           mkdir -p artifacts
           echo "Capturing tool versions..."
-          # Create short job ID: int-windows-8, int-ubuntu-9, int-macos-10, etc.
+          # Create short job ID: int-windows-10, int-ubuntu-11, int-macos-10, etc.
           OS_SHORT=$(echo "${{ matrix.os }}" | sed 's/-latest//')
           DOTNET_SHORT=$(echo "${{ matrix.dotnet-version }}" | sed 's/\.x$//')
           JOB_ID="int-${OS_SHORT}-${DOTNET_SHORT}"

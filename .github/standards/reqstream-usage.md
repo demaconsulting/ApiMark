@@ -141,7 +141,7 @@ requirement would incorrectly pass on Linux:
 tests:
   - "windows@TestMethodName"    # Only Windows test runs count as evidence
   - "ubuntu@TestMethodName"     # Only Linux test runs count as evidence
-  - "net8.0@TestMethodName"     # Only .NET 8 runs count as evidence
+  - "net10.0@TestMethodName"    # Only .NET 10 runs count as evidence
   - "TestMethodName"            # Any platform acceptable
 ```
 
