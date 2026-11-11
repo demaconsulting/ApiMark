@@ -62,7 +62,6 @@ dotnet sysml2tools query describe -e {SystemName}::{UnitName} 'docs/sysml2/**/*.
 
 ```text
 - Documentation: One-line purpose statement for the unit.
-- Metadata SoftwareInfo.description: One-line purpose statement for the unit.
 - Metadata SoftwareInfo.sourceFiles: ("src/{Project}/{Subsystem}/{UnitName}.cs")
 - Metadata SoftwareInfo.testFiles: ("test/{Project}.Tests/{Subsystem}/{UnitName}Tests.cs")
 - Metadata SoftwareInfo.designFiles: ("docs/design/{system-name}/{subsystem-name}/{unit-name}.md")
