@@ -12,7 +12,6 @@ package SoftwareItemMetadata {
     metadata def SoftwareInfo {
         doc /* Traceability links from a model element to its supporting project artifacts. */
 
-        attribute description : String [0..1];
         attribute sourceFiles : String [0..*];
         attribute testFiles : String [0..*];
         attribute designFiles : String [0..*];

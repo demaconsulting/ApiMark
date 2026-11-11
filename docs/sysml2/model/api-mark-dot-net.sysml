@@ -12,7 +12,6 @@ package ApiMarkDotNet {
         doc /* The ApiMarkDotNet system as a whole. */
 
         metadata info : SoftwareInfo {
-            description = "The ApiMarkDotNet system as a whole.";
             designFiles = ("docs/design/api-mark-dot-net.md");
             verificationFiles = ("docs/verification/api-mark-dot-net.md");
             requirementFiles = ("docs/reqstream/api-mark-dot-net.yaml");

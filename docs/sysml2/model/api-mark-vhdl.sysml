@@ -12,7 +12,6 @@ package ApiMarkVhdl {
         doc /* The ApiMarkVhdl system as a whole. */
 
         metadata info : SoftwareInfo {
-            description = "The ApiMarkVhdl system as a whole.";
             designFiles = ("docs/design/api-mark-vhdl.md");
             verificationFiles = ("docs/verification/api-mark-vhdl.md");
             requirementFiles = ("docs/reqstream/api-mark-vhdl.yaml");

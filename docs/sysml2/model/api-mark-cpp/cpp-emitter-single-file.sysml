@@ -5,7 +5,6 @@ package ApiMarkCpp {
         doc /* CppEmitterSingleFile writes all C++ API documentation into a single Markdown file. */
 
         metadata info : SoftwareInfo {
-            description = "CppEmitterSingleFile writes all C++ API documentation into a single Markdown file.";
             sourceFiles = ("src/ApiMark.Cpp/CppEmitterSingleFile.cs");
             testFiles = ("test/ApiMark.Cpp.Tests/CppEmitterSingleFileTests.cs");
             designFiles = ("docs/design/api-mark-cpp/cpp-emitter-single-file.md");

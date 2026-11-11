@@ -5,7 +5,6 @@ package ApiMarkCore {
         doc /* FileMarkdownWriterFactory is the production file-system implementation of IMarkdownWriterFactory. */
 
         metadata info : SoftwareInfo {
-            description = "FileMarkdownWriterFactory is the production file-system implementation of IMarkdownWriterFactory.";
             sourceFiles = ("src/ApiMark.Core/FileMarkdownWriterFactory.cs");
             testFiles = ("test/ApiMark.Core.Tests/FileMarkdownWriterFactoryTests.cs");
             designFiles = ("docs/design/api-mark-core/file-markdown-writer-factory.md");

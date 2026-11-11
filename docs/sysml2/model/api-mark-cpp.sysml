@@ -12,7 +12,6 @@ package ApiMarkCpp {
         doc /* The ApiMarkCpp system as a whole. */
 
         metadata info : SoftwareInfo {
-            description = "The ApiMarkCpp system as a whole.";
             designFiles = ("docs/design/api-mark-cpp.md");
             verificationFiles = ("docs/verification/api-mark-cpp.md");
             requirementFiles = ("docs/reqstream/api-mark-cpp.yaml");

@@ -5,7 +5,6 @@ package ApiMarkCore {
         doc /* IContext is the minimal output channel that language generators use to emit Markdown writers and diagnostics. */
 
         metadata info : SoftwareInfo {
-            description = "IContext is the minimal output channel that language generators use to emit Markdown writers and diagnostics.";
             sourceFiles = ("src/ApiMark.Core/IContext.cs");
             testFiles = ("test/ApiMark.Core.Tests/IContextTests.cs");
             designFiles = ("docs/design/api-mark-core/i-context.md");

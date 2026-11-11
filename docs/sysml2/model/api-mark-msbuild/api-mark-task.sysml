@@ -5,7 +5,6 @@ package ApiMarkMsbuild {
         doc /* ApiMarkTask is the MSBuild task entry point for ApiMarkMsbuild; it fires ApiMarkTool out-of-process and reports results back to MSBuild. */
 
         metadata info : SoftwareInfo {
-            description = "ApiMarkTask is the MSBuild task entry point for ApiMarkMsbuild; it fires ApiMarkTool out-of-process and reports results back to MSBuild.";
             sourceFiles = ("src/ApiMark.MSBuild/ApiMarkTask.cs");
             testFiles = ("test/ApiMark.MSBuild.Tests/ApiMarkTaskTests.cs");
             designFiles = ("docs/design/api-mark-msbuild/api-mark-task.md");

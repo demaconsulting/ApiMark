@@ -5,7 +5,6 @@ package ApiMarkDotNet {
         doc /* XmlDocReader reads and indexes a .NET XML documentation file for fast lookup of member documentation. */
 
         metadata info : SoftwareInfo {
-            description = "XmlDocReader reads and indexes a .NET XML documentation file for fast lookup of member documentation.";
             sourceFiles = ("src/ApiMark.DotNet/XmlDocReader.cs");
             testFiles = ("test/ApiMark.DotNet.Tests/XmlDocReaderTests.cs");
             designFiles = ("docs/design/api-mark-dot-net/xml-doc-reader.md");

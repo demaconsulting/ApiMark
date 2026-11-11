@@ -5,7 +5,6 @@ package ApiMarkTool {
         doc /* Program is the CLI entry point for ApiMarkTool; it parses command-line arguments and dispatches to the Cli and SelfTest subsystems. */
 
         metadata info : SoftwareInfo {
-            description = "Program is the CLI entry point for ApiMarkTool; it parses command-line arguments and dispatches to the Cli and SelfTest subsystems.";
             sourceFiles = ("src/ApiMark.Tool/Program.cs");
             testFiles = ("test/ApiMark.Tool.Tests/ProgramTests.cs");
             designFiles = ("docs/design/api-mark-tool/program.md");

@@ -10,7 +10,6 @@ package ApiMarkMsbuild {
         doc /* The ApiMarkMsbuild system as a whole. */
 
         metadata info : SoftwareInfo {
-            description = "The ApiMarkMsbuild system as a whole.";
             testFiles = ("test/ApiMark.MSBuild.PackageTests/PackageIntegrationTests.cs");
             designFiles = ("docs/design/api-mark-msbuild.md");
             verificationFiles = ("docs/verification/api-mark-msbuild.md");

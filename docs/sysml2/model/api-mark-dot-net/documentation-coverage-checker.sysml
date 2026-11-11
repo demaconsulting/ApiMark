@@ -5,7 +5,6 @@ package ApiMarkDotNet {
         doc /* DocumentationCoverageChecker scans a parsed .NET assembly for types and members lacking an XML doc summary, at a caller-supplied visibility tier independent of the emission visibility tier. */
 
         metadata info : SoftwareInfo {
-            description = "DocumentationCoverageChecker scans a parsed .NET assembly for types and members lacking an XML doc summary, at a caller-supplied visibility tier independent of the emission visibility tier.";
             sourceFiles = ("src/ApiMark.DotNet/DocumentationCoverageChecker.cs");
             testFiles = ("test/ApiMark.DotNet.Tests/DocumentationCoverageCheckerTests.cs");
             designFiles = ("docs/design/api-mark-dot-net/documentation-coverage-checker.md");

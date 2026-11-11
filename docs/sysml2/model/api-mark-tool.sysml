@@ -10,7 +10,6 @@ package ApiMarkTool {
         doc /* The ApiMarkTool system as a whole. */
 
         metadata info : SoftwareInfo {
-            description = "The ApiMarkTool system as a whole.";
             designFiles = ("docs/design/api-mark-tool.md");
             verificationFiles = ("docs/verification/api-mark-tool.md");
             requirementFiles = ("docs/reqstream/api-mark-tool.yaml");

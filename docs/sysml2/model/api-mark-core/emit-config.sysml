@@ -5,7 +5,6 @@ package ApiMarkCore {
         doc /* EmitConfig and OutputFormat together define the shared output-configuration contract passed to every emitter. */
 
         metadata info : SoftwareInfo {
-            description = "EmitConfig and OutputFormat together define the shared output-configuration contract passed to every emitter.";
             sourceFiles = ("src/ApiMark.Core/EmitConfig.cs", "src/ApiMark.Core/OutputFormat.cs");
             testFiles = ("test/ApiMark.Core.Tests/EmitConfigTests.cs");
             designFiles = ("docs/design/api-mark-core/emit-config.md");

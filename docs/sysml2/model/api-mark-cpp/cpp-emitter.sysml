@@ -5,7 +5,6 @@ package ApiMarkCpp {
         doc /* CppEmitter implements IApiEmitter for C++ documentation, storing the parsed AST and dispatching to an emit strategy. */
 
         metadata info : SoftwareInfo {
-            description = "CppEmitter implements IApiEmitter for C++ documentation, storing the parsed AST and dispatching to an emit strategy.";
             sourceFiles = ("src/ApiMark.Cpp/CppEmitter.cs");
             testFiles = ("test/ApiMark.Cpp.Tests/CppEmitterTests.cs");
             designFiles = ("docs/design/api-mark-cpp/cpp-emitter.md");

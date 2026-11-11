@@ -5,7 +5,6 @@ package ApiMarkVhdl {
         doc /* VhdlEmitter implements IApiEmitter, validates emitter arguments, and dispatches to an emit strategy for VHDL documentation. */
 
         metadata info : SoftwareInfo {
-            description = "VhdlEmitter implements IApiEmitter, validates emitter arguments, and dispatches to an emit strategy for VHDL documentation.";
             sourceFiles = ("src/ApiMark.Vhdl/VhdlEmitter.cs");
             testFiles = ("test/ApiMark.Vhdl.Tests/VhdlEmitterTests.cs");
             designFiles = ("docs/design/api-mark-vhdl/vhdl-emitter.md");
