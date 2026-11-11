@@ -19,7 +19,7 @@ sections:
             title: ApiMarkTask shall spawn ApiMark.Tool with the dotnet subcommand
               and pass assembly and XML documentation paths for .NET builds.
             justification: |
-              Out-of-process generation allows ApiMark.Tool to use net8.0 libraries that
+              Out-of-process generation allows ApiMark.Tool to use net10.0 libraries that
               do not support netstandard2.0, keeping the MSBuild task thin and broadly
               compatible while enabling full .NET generator functionality.
             tests:
@@ -128,7 +128,7 @@ sections:
             title: ApiMarkTask shall spawn ApiMark.Tool with the cpp subcommand and
               pass include paths for C++ builds.
             justification: |
-              ApiMark.Cpp invokes system clang and targets net8.0+; the out-of-process
+              ApiMark.Cpp invokes system clang and targets net10.0+; the out-of-process
               model is the only viable integration strategy for vcxproj builds run under
               .NET Framework MSBuild inside Visual Studio.
             tests: [ApiMarkTask_Cpp_SpawnsToolWithCorrectIncludePathArguments]

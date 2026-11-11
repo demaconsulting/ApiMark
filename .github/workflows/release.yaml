@@ -41,9 +41,8 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
-            8.x
-            9.x
             10.x
+            11.x
       - name: Download package artifacts
         uses: actions/download-artifact@v8
         with:
@@ -81,9 +80,8 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
-            8.x
-            9.x
             10.x
+            11.x
       - name: Download package artifacts
         uses: actions/download-artifact@v8
         with:

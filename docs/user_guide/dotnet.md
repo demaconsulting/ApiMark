@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-The ApiMark CLI tool requires the .NET SDK 8.0 or later. See the *Installation* section
+The ApiMark CLI tool requires the .NET SDK 10.0 or later. See the *Installation* section
 for CLI tool and MSBuild package installation steps.
 
 To enable XML documentation generation so ApiMark can read doc comments, add the

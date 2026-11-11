@@ -8,7 +8,7 @@
     <ApiMarkXmlDocPath Condition="'$(ApiMarkXmlDocPath)' == ''">$(DocumentationFile)</ApiMarkXmlDocPath>
     <ApiMarkLibraryName Condition="'$(ApiMarkLibraryName)' == ''">$(MSBuildProjectName)</ApiMarkLibraryName>
     <ApiMarkCppStandard Condition="'$(ApiMarkCppStandard)' == ''">c++17</ApiMarkCppStandard>
-    <_ApiMarkToolDllPath>$(MSBuildThisFileDirectory)..\tools\net8.0\ApiMark.Tool.dll</_ApiMarkToolDllPath>
+    <_ApiMarkToolDllPath>$(MSBuildThisFileDirectory)..\tools\net10.0\ApiMark.Tool.dll</_ApiMarkToolDllPath>
 
     <!-- Set to 'true' to include the generated api/ documentation folder in the NuGet package -->
     <ApiMarkPackDocs Condition="'$(ApiMarkPackDocs)' == ''">false</ApiMarkPackDocs>

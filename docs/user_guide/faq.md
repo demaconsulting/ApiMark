@@ -136,7 +136,7 @@ Use the CLI tool directly in a separate CI step:
 
 ```bash
 # C#
-apimark dotnet --assembly bin/Release/net8.0/MyLib.dll --xml-doc bin/Release/net8.0/MyLib.xml --output docs/api
+apimark dotnet --assembly bin/Release/net10.0/MyLib.dll --xml-doc bin/Release/net10.0/MyLib.xml --output docs/api
 
 # C++
 apimark cpp --includes include/ --output docs/api

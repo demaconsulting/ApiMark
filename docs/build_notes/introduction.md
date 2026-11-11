@@ -22,7 +22,7 @@ This build notes report covers:
 
 To build ApiMark, the following tools must be installed:
 
-- **.NET SDK 8.0 or later** — required for building and testing the C# solution
+- **.NET SDK 10.0 or later** — required for building and testing the C# solution
 - **Node.js** — required for npm packages such as `markdownlint-cli2`
 - **Python 3** — required for `yamllint` and `yamlfix`
 - **PowerShell 7+** (`pwsh`) — required for build and fix scripts

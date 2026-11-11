@@ -6,7 +6,7 @@ Thank you for your interest in contributing to ApiMark.
 
 ### Prerequisites
 
-- [.NET SDK](https://dotnet.microsoft.com/download) 8.0 or later
+- [.NET SDK](https://dotnet.microsoft.com/download) 10.0 or later
 - [LLVM/Clang](https://releases.llvm.org/) (for C++ support)
 - [PowerShell](https://github.com/PowerShell/PowerShell) 7.0 or later
 

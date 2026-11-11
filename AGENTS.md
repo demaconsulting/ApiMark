@@ -94,8 +94,10 @@ from `.github/standards/`. Use this matrix to determine which to load:
 
 - **Any code**: `coding-principles.md`
 - **C# code**: `coding-principles.md`, `csharp-language.md`
+- **C++ code**: `coding-principles.md`, `cpp-language.md`
 - **Any tests**: `testing-principles.md`
 - **C# tests**: `testing-principles.md`, `csharp-testing.md`
+- **C++ tests**: `testing-principles.md`, `cpp-testing.md`
 - **Requirements**: `requirements-principles.md`, `software-items.md`, `reqstream-usage.md`
 - **Design docs**: `software-items.md`, `design-documentation.md`, `technical-documentation.md`
 - **Verification docs**: `software-items.md`, `verification-documentation.md`, `technical-documentation.md`

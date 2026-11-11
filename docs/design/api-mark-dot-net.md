@@ -277,7 +277,7 @@ N/A - not a safety-classified software item.
 
 ## Design Constraints
 
-- Platform: targets .NET 8 as a class library; no platform-specific code.
+- Platform: targets .NET 10 as a class library; no platform-specific code.
 - Dependency on ApiMarkCore: depends on IApiGenerator, IApiEmitter, EmitConfig,
   IMarkdownWriterFactory, and IMarkdownWriter from ApiMarkCore; must not duplicate
   their logic.

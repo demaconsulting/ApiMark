@@ -9,8 +9,8 @@
 
 ApiMarkTool is organized into two subsystems (`Cli` and `SelfTest`) and one top-level
 unit (`Program`). It is the .NET executable (`ApiMark.Tool.dll`) distributed as part of
-the NuGet package `ApiMark.MSBuild` (under `tools/net8.0/`, `tools/net9.0/`, and
-`tools/net10.0/`) and optionally as a standalone dotnet tool in the NuGet package
+the NuGet package `ApiMark.MSBuild` (under `tools/net10.0/`, rolling forward to later
+runtimes) and optionally as a standalone dotnet tool in the NuGet package
 `DemaConsulting.ApiMark.Tool`.
 
 - `Cli` subsystem — provides the `Context` unit, which parses command-line arguments into
@@ -23,7 +23,7 @@ the NuGet package `ApiMark.MSBuild` (under `tools/net8.0/`, `tools/net9.0/`, and
   `Parse()` to obtain an `IApiEmitter`, then calls `IApiEmitter.Emit()` with an `EmitConfig`
   built from the parsed context.
 
-ApiMarkTool targets `net8.0;net9.0;net10.0` (multi-target). It is packaged as a
+ApiMarkTool targets `net10.0;net11.0` (multi-target). It is packaged as a
 dotnet tool (`PackAsTool=true`, `ToolCommandName=apimark`). Because it runs as a
 standalone process rather than inside the MSBuild host, language generators may
 depend on any .NET library regardless of `netstandard2.0` support requirements.
@@ -135,13 +135,13 @@ N/A - not a safety-classified software item.
 
 ## Design Constraints
 
-- Platform: targets `net8.0;net9.0;net10.0`; runs on Linux, macOS, and Windows
+- Platform: targets `net10.0;net11.0` with `RollForward=LatestMajor`; runs on Linux, macOS, and Windows
   via `dotnet` or as an installed dotnet tool.
 - Language extensibility: new language subcommands are added by implementing
   `IApiGenerator` and adding a dispatch branch; no changes to Core are required.
 - No direct assembly reflection: all assembly reading is delegated to the
   appropriate `IApiGenerator` implementation; Program never calls Mono.Cecil or
   CppAst.Net directly.
-- NuGet packaging: bundled inside `ApiMark.MSBuild` under `tools/net8.0/`,
-  `tools/net9.0/`, and `tools/net10.0/`; also published separately as
+- NuGet packaging: bundled inside `ApiMark.MSBuild` under `tools/net10.0/`;
+  also published separately as
   `DemaConsulting.ApiMark.Tool` for direct CLI use.

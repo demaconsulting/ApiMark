@@ -22,7 +22,7 @@ Studio) and the .NET SDK MSBuild (`dotnet build`).
 
 The NuGet package `ApiMark.MSBuild` bundles the task assembly under
 `tasks/netstandard2.0/` and the pre-compiled `ApiMark.Tool` DLL and its
-dependencies under `tools/net8.0/`. The `.targets` file wires `ApiMarkTask`
+dependencies under `tools/net10.0/`. The `.targets` file wires `ApiMarkTask`
 into `AfterTargets="Build"` and sets the `ToolDllPath` property to the
 bundled tool location.
 
@@ -150,7 +150,7 @@ bundled in the NuGet package.
 
 - Task platform: targets `netstandard2.0` so the same assembly runs in .NET
   Framework MSBuild (Visual Studio) and .NET SDK MSBuild (`dotnet build`).
-- Tool platform: `ApiMark.Tool.dll` targets `net8.0`; language generators are free
+- Tool platform: `ApiMark.Tool.dll` targets `net10.0` (rolling forward to later runtimes); language generators are free
   to use any library regardless of `netstandard2.0` support.
 - Cross-platform `dotnet` resolution: `DOTNET_HOST_PATH` is set by the SDK on all
   platforms; the task must fall back to searching `PATH` for environments where it

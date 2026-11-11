@@ -13,6 +13,7 @@ language: en
 files: ['**/*.{md,yaml,yml,json,cs,cpp,hpp,h,txt}']
 enableGlobDot: true
 words:
+  - Allman
   - APFS
   - archs
   - arities
@@ -37,6 +38,7 @@ words:
   - fparse
   - fsyntax
   - funct
+  - gmock
   - headerless
   - hideable
   - hrefs
@@ -86,6 +88,8 @@ words:
   - unsymbolized
   - venv
   - virtuals
+  - Werror
+  - Wextra
   - writability
   - Xclang
   - xcrun

@@ -13,7 +13,7 @@ namespace ApiMark.MSBuild.PackageTests;
 /// <remarks>
 ///     These tests exercise the full package install path: the <c>.targets</c> file is auto-imported
 ///     by NuGet, <c>UsingTask</c> loads the task assembly from <c>tasks/netstandard2.0/</c>, and the
-///     task spawns <c>ApiMark.Tool.dll</c> from <c>tools/net8.0/</c>. This is the only test layer
+///     task spawns <c>ApiMark.Tool.dll</c> from <c>tools/net10.0/</c>. This is the only test layer
 ///     that catches wrong paths inside the <c>.nupkg</c>.
 ///
 ///     The tests require the package to be pre-built by the build script. They are skipped gracefully
@@ -723,7 +723,7 @@ public class PackageIntegrationTests
             return Path.GetFullPath(fromEnv);
         }
 
-        // Navigate from bin/[Config]/net8.0 up 4 levels to test/, then into packages/
+        // Navigate from bin/[Config]/net10.0 up 4 levels to test/, then into packages/
         var testBinDir = Path.GetDirectoryName(typeof(PackageIntegrationTests).Assembly.Location)!;
         return Path.GetFullPath(Path.Join(testBinDir, "..", "..", "..", "..", "packages"));
     }
