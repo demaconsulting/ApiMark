@@ -1,5 +1,6 @@
 ---
-resource-path: [docs/design, docs/images, docs/template]
+resource-path: [docs/design, docs/design/generated, docs/images, docs/template]
+embed-resources: true
 input-files:
   - docs/design/title.txt
   - docs/design/introduction.md
