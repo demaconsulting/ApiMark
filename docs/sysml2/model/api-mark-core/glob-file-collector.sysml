@@ -5,7 +5,6 @@ package ApiMarkCore {
         doc /* GlobFileCollector is a stateless utility that discovers source files from glob patterns for filesystem-based generators. */
 
         metadata info : SoftwareInfo {
-            description = "GlobFileCollector is a stateless utility that discovers source files from glob patterns for filesystem-based generators.";
             sourceFiles = ("src/ApiMark.Core/GlobFileCollector.cs");
             testFiles = ("test/ApiMark.Core.Tests/GlobFileCollectorTests.cs");
             designFiles = ("docs/design/api-mark-core/glob-file-collector.md");

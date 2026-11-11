@@ -5,7 +5,6 @@ package ApiMarkVhdl {
         doc /* VhdlEmitterGradualDisclosure writes one Markdown file per VHDL entity and an index for gradual disclosure. */
 
         metadata info : SoftwareInfo {
-            description = "VhdlEmitterGradualDisclosure writes one Markdown file per VHDL entity and an index for gradual disclosure.";
             sourceFiles = ("src/ApiMark.Vhdl/VhdlEmitterGradualDisclosure.cs");
             testFiles = ("test/ApiMark.Vhdl.Tests/VhdlEmitterGradualDisclosureTests.cs");
             designFiles = ("docs/design/api-mark-vhdl/vhdl-emitter-gradual-disclosure.md");

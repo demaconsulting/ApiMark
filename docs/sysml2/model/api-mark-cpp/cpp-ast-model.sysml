@@ -5,7 +5,6 @@ package ApiMarkCpp {
         doc /* CppAstModel defines the immutable record types that represent the parsed C++ AST. */
 
         metadata info : SoftwareInfo {
-            description = "CppAstModel defines the immutable record types that represent the parsed C++ AST.";
             sourceFiles = ("src/ApiMark.Cpp/CppAst/CppAstModel.cs", "src/ApiMark.Cpp/CppExternalTypeInfo.cs", "src/ApiMark.Cpp/ApiVisibility.cs");
             testFiles = ("test/ApiMark.Cpp.Tests/CppAstModelTests.cs");
             designFiles = ("docs/design/api-mark-cpp/cpp-ast-model.md");

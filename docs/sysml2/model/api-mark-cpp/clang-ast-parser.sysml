@@ -5,7 +5,6 @@ package ApiMarkCpp {
         doc /* ClangAstParser is the internal C++ parsing unit used by CppGenerator; it invokes clang and builds the AST model from its JSON output. */
 
         metadata info : SoftwareInfo {
-            description = "ClangAstParser is the internal C++ parsing unit used by CppGenerator; it invokes clang and builds the AST model from its JSON output.";
             sourceFiles = ("src/ApiMark.Cpp/CppAst/ClangAstParser.cs");
             testFiles = ("test/ApiMark.Cpp.Tests/ClangAstParserTests.cs");
             designFiles = ("docs/design/api-mark-cpp/clang-ast-parser.md");

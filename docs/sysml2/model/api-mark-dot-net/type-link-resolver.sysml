@@ -5,7 +5,6 @@ package ApiMarkDotNet {
         doc /* TypeLinkResolver resolves Mono.Cecil TypeReference instances to Markdown link targets. */
 
         metadata info : SoftwareInfo {
-            description = "TypeLinkResolver resolves Mono.Cecil TypeReference instances to Markdown link targets.";
             sourceFiles = ("src/ApiMark.DotNet/TypeLinkResolver.cs");
             testFiles = ("test/ApiMark.DotNet.Tests/TypeLinkResolverTests.cs");
             designFiles = ("docs/design/api-mark-dot-net/type-link-resolver.md");

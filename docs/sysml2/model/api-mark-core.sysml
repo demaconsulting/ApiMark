@@ -12,7 +12,6 @@ package ApiMarkCore {
         doc /* The ApiMarkCore system as a whole. */
 
         metadata info : SoftwareInfo {
-            description = "The ApiMarkCore system as a whole.";
             designFiles = ("docs/design/api-mark-core.md");
             verificationFiles = ("docs/verification/api-mark-core.md");
             requirementFiles = ("docs/reqstream/api-mark-core.yaml");
