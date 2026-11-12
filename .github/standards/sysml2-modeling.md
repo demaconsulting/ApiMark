@@ -175,9 +175,10 @@ Views control what gets rendered into diagrams for the design document. Use name
 
 ```sysml
 package {SystemName} {
-    view SoftwareStructureView {
+    private import StandardViewDefinitions::*;
+
+    view SoftwareStructureView : InterconnectionView {
         expose {SystemName}::**;     // all members, recursively: system + subsystems + units
-        render asInterconnectionDiagram;
     }
 
     view {SystemName}View {
@@ -190,17 +191,22 @@ package {SystemName} {
 }
 ```
 
+Type `SoftwareStructureView` by a standard view definition from the SysML v2 Views library
+(`GeneralView`, `InterconnectionView`, ...; requires `sysml2tools` 0.3.0-beta.3+). The view
+definition selects the diagram notation; `InterconnectionView` draws the system as nested
+containment boxes, which is the clearest full-detail overview for a single system.
+
 **Critical distinction** (do not confuse these — this cost significant trial-and-error to
 discover): `expose <name>;` is what scopes a rendered diagram's content (the union of the
-named element's containment subtree). `render <kind>;` selects a rendering *style* (e.g.
-`asInterconnectionDiagram`) — it has **no effect on scope**. `expose` is only legal inside a named
+named element's containment subtree). The view definition (or a `render <kind>;` member)
+selects a rendering *style* — it has **no effect on scope**. `expose` is only legal inside a named
 `view Name { ... }` **usage**; it is a syntax/semantic error inside a `view def Name { ... }`
 **definition**. `expose` targets must be `::`-qualified or locally-resolvable names, not
 dotted member-access chains (`expose foo.bar;` is invalid — use `expose Bar;`).
 
 **Exposing a package needs a membership wildcard.** `expose {Package};` exposes only the
-package element itself, not its contents, and renders an **empty** diagram. To show what a
-package contains, expose its members: `expose {Package}::*;` (direct members) or
+package element itself, which renders as an empty package symbol. To show what a package
+contains, expose its members: `expose {Package}::*;` (direct members) or
 `expose {Package}::**;` (recursively). Exposing a `part def` by name (as `{SystemName}View`
 and `{SubsystemName}View` do) is fine: its own parts are its structure.
 
@@ -216,11 +222,26 @@ There is no dedicated `DependencyView`/`{SubsystemName}DependencyView` diagram c
 `dependency` relationships are consumed via `sysml2tools query` (see Dependency Relationships
 above), not rendered.
 
-When a repository has multiple systems, `asInterconnectionDiagram` currently draws only the
-first root `part def`, so a single `SoftwareStructureView` cannot show every system. Until
-`sysml2tools` supports multiple roots in one interconnection diagram, omit
-`SoftwareStructureView` and embed each `{SystemName}View` in `docs/design/introduction.md`
-instead.
+When a repository has multiple systems, type `SoftwareStructureView` by `GeneralView`,
+expose each system package's members, and filter out documentation so the overview stays
+readable — the general view draws one package frame per system, while an interconnection
+view places all systems in a single row:
+
+```sysml
+package {RepoName}DesignViews {
+    private import StandardViewDefinitions::*;
+
+    view SoftwareStructureView : GeneralView {
+        expose {SystemNameA}::**;
+        expose {SystemNameB}::**;
+        filter not @SysML::Documentation;
+    }
+}
+```
+
+Documentation (`doc`) is exposed with its owner and drawn as a `doc` compartment unless a
+view filters it out; use `filter not @SysML::Documentation;` wherever doc text would clutter
+a diagram.
 
 ## Diagram Embedding
 
@@ -243,8 +264,7 @@ in one invocation, one file per view, using each view's own name as the filename
 Embed diagrams in `docs/design/` per this rule: every design doc for an item embeds the
 diagram for the narrowest view that still shows that item's own immediate structure —
 
-- `docs/design/introduction.md` — `SoftwareStructureView.svg` (the full-detail overview; in a
-  multi-system repository, each `{SystemName}View.svg` instead — see Views above)
+- `docs/design/introduction.md` — `SoftwareStructureView.svg` (the full-detail overview)
 - `docs/design/{system-name}.md` and every unit doc for a unit directly under the system
   (no subsystem parent) — `{SystemName}View.svg`
 - `docs/design/{system-name}/{subsystem-name}.md` and every unit doc nested under that
