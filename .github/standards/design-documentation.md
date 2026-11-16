@@ -30,8 +30,8 @@ docs/design/
     └── {package-name}.md        # heading depth ##
 ```
 
-All sections in every file are mandatory; write "N/A - {justification}" rather than removing any.
-Determine subsystem vs. unit classification from `docs/design/introduction.md` — folder depth does not determine classification.
+All sections in every file are mandatory; write "N/A - {justification}" rather than removing any. Determine subsystem
+vs. unit classification from `docs/design/introduction.md` — folder depth does not determine classification.
 
 # introduction.md (MANDATORY)
 
@@ -43,7 +43,7 @@ Must include:
   per `sysml2-modeling.md` — not a hand-maintained text tree
 - **Folder Layout**: text tree showing source folder structure
 - **Companion Artifact Structure**: parallel paths for requirements, design, verification, source, tests
-- **References** _(if applicable)_: external standards or specifications - only in `introduction.md`
+- **References** *(if applicable)*: external standards or specifications - only in `introduction.md`
 
 # System Design (MANDATORY)
 
@@ -98,7 +98,7 @@ For each Shared Package, create `docs/design/shared/{package-name}.md` (`##` hea
 # Writing Guidelines
 
 - Use Mermaid diagrams to supplement (not replace) text
-- Use verbal cross-references ("see _Parser Design_") - not markdown hyperlinks (break in PDF)
+- Use verbal cross-references ("see *Parser Design*") - not markdown hyperlinks (break in PDF)
 - Provide sufficient detail for formal code review
 - Do not record version numbers in design documentation — they go stale with dependency updates and
   are managed in SBOMs. Version numbers are pinned release versions (e.g., `1.2.3`, `v2.0.1`).
@@ -116,7 +116,8 @@ For each Shared Package, create `docs/design/shared/{package-name}.md` (`##` hea
 - [ ] System design includes all mandatory sections (Architecture, External Interfaces, Dependencies,
   Risk Control Measures, Data Flow, Design Constraints)
 - [ ] Subsystem design includes all mandatory sections (Overview, Interfaces, Design)
-- [ ] Unit design includes all mandatory sections (Purpose, Data Model, Key Methods, Error Handling, Dependencies, Callers)
+- [ ] Unit design includes all mandatory sections (Purpose, Data Model, Key Methods, Error Handling, Dependencies,
+  Callers)
 - [ ] Non-applicable mandatory sections contain "N/A - {justification}"
 - [ ] `docs/design/ots.md` and `docs/design/ots/{ots-name}.md` exist when OTS items are present
 - [ ] `docs/design/shared.md` and `docs/design/shared/{package-name}.md` exist when Shared Packages are present

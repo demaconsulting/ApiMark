@@ -285,12 +285,11 @@ Document dependencies in prose instead of a diagram: each System/Subsystem desig
   Pass a single quoted recursive glob, e.g. `dotnet sysml2tools lint 'docs/sysml2/**/*.sysml'`
   — `sysml2tools` (0.1.0-beta.5+) expands and recurses this itself, so no
   `Get-ChildItem`/shell-side globbing is needed.
-- The CI design-document job renders the views (see the render command above) before running
-  Pandoc, so generated SVGs exist before HTML generation. Rename/stable-filename workarounds
-  are unnecessary since view names are stable by definition. Pass the common, model, and views globs as
-  separate quoted arguments (e.g. `'docs/sysml2/common/**/*.sysml' 'docs/sysml2/model/**/*.sysml' 'docs/sysml2/views/design-views.sysml'`)
-  — plain PowerShell (the default shell) is sufficient; no `shell: bash`/`shopt -s globstar`
-  workaround is needed.
+- The CI design-document job renders the views (see the render command above) before running Pandoc, so generated SVGs
+  exist before HTML generation. Rename/stable-filename workarounds are unnecessary since view names are stable by
+  definition. Pass the common, model, and views globs as separate quoted arguments (e.g.
+  `'docs/sysml2/common/**/*.sysml' 'docs/sysml2/model/**/*.sysml' 'docs/sysml2/views/design-views.sysml'`) — plain
+  PowerShell (the default shell) is sufficient; no `shell: bash`/`shopt -s globstar` workaround is needed.
 - Add `sysml2tools` to `.config/dotnet-tools.json` (`demaconsulting.sysml2tools.tool`) and to
   `.versionmark.yaml`'s captured tool list.
 

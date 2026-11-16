@@ -44,3 +44,7 @@ briefly, what you loaded.
 
 - Keep replies short: results and decisions needed.
 - Ask before decisions that change scope, design, or user-visible behavior; otherwise proceed.
+- Discuss decisions in conversation: explain the context, the options and your recommendation in prose, and
+  let the user answer in their own words. Do not batch decisions into structured question forms (such as an
+  `ask_user` tool); they strip away the context the user needs to decide and turn the session into a
+  questionnaire.
