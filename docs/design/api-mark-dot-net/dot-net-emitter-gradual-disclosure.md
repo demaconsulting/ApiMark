@@ -78,10 +78,12 @@ single namespace.
   paragraph; otherwise the "No description provided." placeholder is emitted ONLY
   when remarks are also absent (see "Placeholder Suppression" below) — when remarks
   alone are present, nothing is written here and the remarks paragraph (emitted next)
-  carries the type's description; emits structured example blocks via `ctx.XmlDocs.GetExampleBlocks(typeMemberId, linkContext)`; groups all
+  carries the type's description; emits structured example blocks via
+  `ctx.XmlDocs.GetExampleBlocks(typeMemberId, linkContext)`; groups all
   visible members by kind (Constructors, Properties, Fields, Events, Methods,
   Operators, Nested Types) and writes one table row per member (or one representative row
-  per method overload group) with a link to the member's dedicated page; calls per-kind page writers for each member or member group.
+  per method overload group) with a link to the member's dedicated page; calls per-kind
+  page writers for each member or member group.
   The Nested Types section is written unconditionally via `WriteNestedTypesSection`,
   even when the containing type has no own members/operators, since a type can be a
   pure namespace-like container for nested types; this must match

@@ -29,15 +29,29 @@ apimark dotnet [options]
 | `--assembly <path>` | Path to the .NET assembly (required) |
 | `--xml-doc <path>` | Path to the XML documentation file |
 | `--output <dir>` | Output directory for Markdown files (required) |
-| `--format <value>` | Output format: `gradual` (file-per-type) or `single-file` (single `api.md`) (default: `gradual`) |
-| `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `PublicAndProtected`) |
+| `--format <value>` | Output format (default: `gradual`; see below) |
+| `--visibility <value>` | Visibility filter (default: `PublicAndProtected`; see below) |
 | `--include-obsolete` | Include obsolete members in generated output |
 | `--exclude <pattern>` | Exclude namespaces/types matching a wildcard pattern (repeatable) |
-| `--external-link <Assembly=path>` | Link types from the named referenced assembly to its own ApiMark documentation at `path` (a path relative to this API root, or an `http(s)` base URL). The assembly's DLL must also be supplied via `--reference-paths`. Repeatable |
-| `--reference-paths <path>` | Path to a referenced assembly DLL, used to resolve cross-assembly `<inheritdoc/>` (repeatable; also accepts `@<file>` to read paths/flags from a response file, one argument per line) |
-| `--library-description <text>` | Optional description for the `api.md` introduction paragraph; overrides the assembly's compiled `AssemblyDescriptionAttribute` when set |
-| `--enforce-docs <value>` | Enable documentation-coverage enforcement at the given visibility tier: `Public`, `PublicAndProtected`, `All` (default: disabled) |
-| `--enforce-docs-severity <value>` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build) (default: `Warning`) |
+| `--external-link <Assembly=path>` | Link a referenced assembly's types to its ApiMark documentation (see below) |
+| `--reference-paths <path>` | Path to a referenced assembly DLL (repeatable; see below) |
+| `--library-description <text>` | Optional description for the `api.md` introduction paragraph (see below) |
+| `--enforce-docs <value>` | Enable documentation-coverage enforcement (default: disabled; see below) |
+| `--enforce-docs-severity <value>` | Severity when undocumented items are found (default: `Warning`; see below) |
+
+Option details:
+
+- `--format <value>`: `gradual` (file-per-type) or `single-file` (single `api.md`).
+- `--visibility <value>`: `Public`, `PublicAndProtected`, or `All`.
+- `--external-link <Assembly=path>`: links types from the named referenced assembly to its own ApiMark documentation
+  at `path` (a path relative to this API root, or an `http(s)` base URL). The assembly's DLL must also be supplied via
+  `--reference-paths`. Repeatable.
+- `--reference-paths <path>`: used to resolve cross-assembly `<inheritdoc/>`; also accepts `@<file>` to read
+  paths/flags from a response file, one argument per line.
+- `--library-description <text>`: overrides the assembly's compiled `AssemblyDescriptionAttribute` when set.
+- `--enforce-docs <value>`: enables documentation-coverage enforcement at the given visibility tier: `Public`,
+  `PublicAndProtected`, or `All`.
+- `--enforce-docs-severity <value>`: `Warning` (report only) or `Error` (fail the build).
 
 ## Documented Constructs
 
@@ -363,11 +377,20 @@ ApiMark reads standard C# XML doc comments (`///`).
 | `<param name="...">` | Description for a method or constructor parameter |
 | `<returns>` | Description for the return value |
 | `<exception cref="...">` | Documents an exception the method may throw |
-| `<example>` | Code example rendered in a fenced code block. A `<code lang="xml">` attribute selects the fence language; without it, or with an invalid value, the fence uses `csharp` |
-| `<list>` | Bullet (`type="bullet"`), numbered (`type="number"`), and table (`type="table"`) lists rendered as their Markdown equivalents; `<item>` `<term>`/`<description>` pairs render as **term** — description |
+| `<example>` | Code example rendered in a fenced code block (see below) |
+| `<list>` | Bullet, numbered, and table lists rendered as their Markdown equivalents (see below) |
 | `<b>`, `<strong>` | Rendered as Markdown **bold** |
 | `<i>`, `<em>` | Rendered as Markdown *italic* |
-| `<code>` | Rendered as a fenced block (multi-line) or code span. The `lang` attribute (or `language` alias) selects the fence language using letters, digits, and `+#-_`; without it, or with an invalid value, the fence uses `csharp` |
+| `<code>` | Rendered as a fenced block (multi-line) or code span (see below) |
+
+Tag details:
+
+- `<example>`: a `<code lang="xml">` attribute selects the fence language; without it, or with an invalid value, the
+  fence uses `csharp`.
+- `<list>`: bullet (`type="bullet"`), numbered (`type="number"`), and table (`type="table"`) lists are supported;
+  `<item>` `<term>`/`<description>` pairs render as **term** — description.
+- `<code>`: the `lang` attribute (or `language` alias) selects the fence language using letters, digits, and `+#-_`;
+  without it, or with an invalid value, the fence uses `csharp`.
 
 Missing `<summary>` tags render as *No description provided.* in the output. Missing
 `<param>` descriptions render as *No description provided.* in parameter tables.
@@ -439,14 +462,34 @@ After the next `dotnet build`, documentation is written to `$(MSBuildProjectDire
 | `ApiMarkAssemblyPath` | `$(TargetPath)` | Path to the compiled assembly |
 | `ApiMarkXmlDocPath` | `$(DocumentationFile)` | Path to the XML documentation file |
 | `ApiMarkVisibility` | `PublicAndProtected` | Visibility filter: `Public`, `PublicAndProtected`, `All` |
-| `ApiMarkExternalLinks` | (empty) | Semicolon-separated `Assembly=path` pairs linking referenced assemblies' types to their ApiMark documentation (relative path or `http(s)` URL); forwarded as `--external-link` |
+| `ApiMarkExternalLinks` | (empty) | `Assembly=path` pairs forwarded as `--external-link` (see below) |
 | `ApiMarkIncludeObsolete` | `false` | Include `[Obsolete]` members in generated output |
-| `ApiMarkExclude` | (empty) | Semicolon-separated wildcard patterns identifying namespaces/types to exclude, e.g. `Antlr4.*;MyNamespace.Generated.*` |
-| `ApiMarkLibraryDescription` | *(unset)* | Optional description for the `api.md` introduction paragraph. When set, overrides the assembly's compiled `AssemblyDescriptionAttribute` |
-| `ApiMarkReferencePaths` | Auto-populated from `@(ReferencePath)` | Semicolon-separated paths to referenced assembly DLLs, used to resolve cross-assembly `<inheritdoc/>`. Auto-populated from the project's resolved `@(ReferencePath)` items when not explicitly set; set explicitly to a non-empty list to override. When non-empty, `ApiMarkTask` automatically forwards the paths via a temporary `@<file>` response file rather than individual `--reference-paths` arguments, avoiding OS command-line length limits |
-| `ApiMarkDisableReferencePathsHarvest` | `false` | Set to `true` to disable auto-population of `ApiMarkReferencePaths` from `@(ReferencePath)` without providing a replacement list. Needed because MSBuild cannot distinguish "never set" from "explicitly set to empty" for a plain property, so setting `ApiMarkReferencePaths=""` alone does not suppress auto-harvesting |
-| `ApiMarkEnforceDocs` | (unset) | Enforcement visibility tier for documentation-coverage checking: `Public`, `PublicAndProtected`, `All`; omitted disables enforcement |
-| `ApiMarkEnforceDocsSeverity` | `Warning` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build); only takes effect when `ApiMarkEnforceDocs` is also set |
+| `ApiMarkExclude` | (empty) | Wildcard patterns identifying namespaces/types to exclude (see below) |
+| `ApiMarkLibraryDescription` | *(unset)* | Optional description for the `api.md` introduction paragraph (see below) |
+| `ApiMarkReferencePaths` | Auto-populated from `@(ReferencePath)` | Paths to referenced assembly DLLs (see below) |
+| `ApiMarkDisableReferencePathsHarvest` | `false` | Set to `true` to disable auto-population (see below) |
+| `ApiMarkEnforceDocs` | (unset) | Enforcement visibility tier for documentation-coverage checking (see below) |
+| `ApiMarkEnforceDocsSeverity` | `Warning` | Severity when undocumented items are found (see below) |
+
+Property details:
+
+- `ApiMarkExternalLinks`: semicolon-separated `Assembly=path` pairs linking referenced assemblies' types to their
+  ApiMark documentation (relative path or `http(s)` URL); forwarded as `--external-link`.
+- `ApiMarkExclude`: semicolon-separated wildcard patterns identifying namespaces/types to exclude, e.g.
+  `Antlr4.*;MyNamespace.Generated.*`.
+- `ApiMarkLibraryDescription`: when set, overrides the assembly's compiled `AssemblyDescriptionAttribute`.
+- `ApiMarkReferencePaths`: semicolon-separated paths to referenced assembly DLLs, used to resolve cross-assembly
+  `<inheritdoc/>`. Auto-populated from the project's resolved `@(ReferencePath)` items when not explicitly set; set
+  explicitly to a non-empty list to override. When non-empty, `ApiMarkTask` automatically forwards the paths via a
+  temporary `@<file>` response file rather than individual `--reference-paths` arguments, avoiding OS command-line
+  length limits.
+- `ApiMarkDisableReferencePathsHarvest`: set to `true` to disable auto-population of `ApiMarkReferencePaths` from
+  `@(ReferencePath)` without providing a replacement list. Needed because MSBuild cannot distinguish "never set" from
+  "explicitly set to empty" for a plain property, so setting `ApiMarkReferencePaths=""` alone does not suppress
+  auto-harvesting.
+- `ApiMarkEnforceDocs`: `Public`, `PublicAndProtected`, or `All`; omitted disables enforcement.
+- `ApiMarkEnforceDocsSeverity`: `Warning` (report only) or `Error` (fail the build); only takes effect when
+  `ApiMarkEnforceDocs` is also set.
 
 See the *MSBuild Integration* section for common properties (`ApiMarkOutputDir`,
 `ApiMarkFormat`, `DisableApiMark`, `ApiMarkPackDocs`) that apply to all project types.
