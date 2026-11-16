@@ -62,51 +62,81 @@ assembly is needed.
 - Bare `<inheritdoc />` without a chain returns `null`.
 - Bare `<inheritdoc />` with a chain entry pointing to an absent member returns `null`.
 - Multi-hop `cref` chains resolve transitively (A → B → C yields C's docs).
-- A failed first-candidate traversal does not poison the visited set for subsequent candidates in a bare `<inheritdoc />` chain.
+- A failed first-candidate traversal does not poison the visited set for subsequent candidates in a bare
+  `<inheritdoc />` chain.
 - A bare `<inheritdoc />` chain candidate absent locally resolves via an injected external member lookup delegate.
 - An explicit `cref` target absent locally resolves via an injected external member lookup delegate.
 - The `path` XPath filter applies identically to content resolved from the external member lookup delegate.
 - A bare `<inheritdoc />` chain candidate absent both locally and externally returns `null`.
 - Cycle detection catches a resolution chain that crosses the local/external boundary.
-- Constructing an `XmlDocReader` without an external member lookup (the 2-arg overload) preserves the prior local-miss behavior exactly.
-- A local member that is simply undocumented (no local entry, no `<inheritdoc />` anywhere) is never satisfied by an incidentally-colliding member ID in the external member lookup delegate, even when one is configured.
-- `GetSummaryMarkdown` returns trimmed summary text unchanged for a member with no `<list>` content, matching `GetSummary`'s plain-text behavior.
+- Constructing an `XmlDocReader` without an external member lookup (the 2-arg overload) preserves the prior local-miss
+  behavior exactly.
+- A local member that is simply undocumented (no local entry, no `<inheritdoc />` anywhere) is never satisfied by an
+  incidentally-colliding member ID in the external member lookup delegate, even when one is configured.
+- `GetSummaryMarkdown` returns trimmed summary text unchanged for a member with no `<list>` content, matching
+  `GetSummary`'s plain-text behavior.
 - `GetSummaryMarkdown` returns `null` for a member not present in the XML doc file.
-- `GetSummaryMarkdown` follows a `cref` inheritdoc reference and returns the summary from the referenced target member, matching `GetSummary`'s inheritdoc-resolution behavior.
-- `GetSummaryMarkdown` renders a `<list type="number">` inside a `<summary>` as real multi-line ordered Markdown items, with trailing prose as a separate paragraph.
+- `GetSummaryMarkdown` follows a `cref` inheritdoc reference and returns the summary from the referenced target member,
+  matching `GetSummary`'s inheritdoc-resolution behavior.
+- `GetSummaryMarkdown` renders a `<list type="number">` inside a `<summary>` as real multi-line ordered Markdown items,
+  with trailing prose as a separate paragraph.
 - `GetSummaryMarkdown` renders a `<list type="bullet">` inside a `<summary>` as real multi-line dash items.
 - `GetSummaryMarkdown` renders a `<list type="table">` inside a `<summary>` as a real multi-line Markdown table.
-- `GetSummary` renders a `<list type="number">` inside a `<summary>` as single-line inline numbered markers `(1) ... (2) ...`.
+- `GetSummary` renders a `<list type="number">` inside a `<summary>` as single-line inline numbered markers
+  `(1) ... (2) ...`.
 - `GetSummary` renders a `<list type="bullet">` inside a `<summary>` as single-line inline numbered markers.
 - `GetSummary` renders a `<list type="table">` inside a `<summary>` as single-line inline numbered markers.
 - `GetSummary` renders a `<see cref="P:...">` reference as `` `Type.Member` `` wrapped in an inline code span.
 - `GetSummary` renders a `<see cref="F:...">` reference as `` `Type.Member` `` wrapped in an inline code span.
 - `GetSummary` renders a `<see cref="E:...">` reference as `` `Type.Member` `` wrapped in an inline code span.
-- `GetSummary` continues to render a `<see cref="M:...">` reference as `` `Type.Member` `` wrapped in an inline code span (regression guard; method crefs were unaffected by the P/F/E type-name fix, but are included in the new code-span-wrapping behavior).
-- A constructor (`#ctor`) cref renders its display text unwrapped (no inline code span). A type-only (`T:`) cref is wrapped in an inline code span the same as the `P`/`F`/`E`/`M` member crefs above (see "GetSummary wraps a plain type-only cref in a code span" in the Test Scenarios below).
+- `GetSummary` continues to render a `<see cref="M:...">` reference as `` `Type.Member` `` wrapped in an inline code
+  span (regression guard; method crefs were unaffected by the P/F/E type-name fix, but are included in the new
+  code-span-wrapping behavior).
+- A constructor (`#ctor`) cref renders its display text unwrapped (no inline code span). A type-only (`T:`) cref is
+  wrapped in an inline code span the same as the `P`/`F`/`E`/`M` member crefs above (see "GetSummary wraps a plain
+  type-only cref in a code span" in the Test Scenarios below).
 - `GetRemarks` renders a `<br/>` element as a paragraph break (a blank line) between the surrounding text.
-- `GetSummary` collapses a `<br/>` element to a single space, since a blank line has no meaning in a single-line context.
+- `GetSummary` collapses a `<br/>` element to a single space, since a blank line has no meaning in a single-line
+  context.
 - `GetRemarks` renders a single-line `<code>` element as an inline backtick code span.
-- `GetRemarks` renders a multi-line `<code>` element as a fenced Markdown code block surrounded by blank-line separators.
-- A fenced `<code>` block's internal whitespace (multiple consecutive spaces, tabs) survives whitespace normalization byte-for-byte.
+- `GetRemarks` renders a multi-line `<code>` element as a fenced Markdown code block surrounded by blank-line
+  separators.
+- A fenced `<code>` block's internal whitespace (multiple consecutive spaces, tabs) survives whitespace normalization
+  byte-for-byte.
 - An empty or whitespace-only `<code>` element emits nothing, mirroring the existing `<c>` empty-skip guard.
 - `GetSummary` flattens a multi-line `<code>` element to a single-line inline code span rather than a fenced block.
-- A fenced `<code>` block whose content contains an embedded backtick run uses a longer fence so the delimiter is unambiguous.
+- A fenced `<code>` block whose content contains an embedded backtick run uses a longer fence so the delimiter is
+  unambiguous.
 - `GetRemarks` leaves at most one blank line between a `<list>` and an immediately following fenced `<code>` block.
 - `GetRemarks` collapses three or more consecutive `<br/>` tags to at most one blank line.
-- A multi-line `<code>` element nested inside a `<list>` item's `<description>` renders as an inline span, not a fenced block.
-- A multi-line `<code>` element reached through `<example>` mixed-prose accumulation (nested inside a `<para>`, not a direct `<example>` child) renders as an inline span, not a fenced block.
-- Every public `XmlDocReader` method called without a `linkContext` argument (or with `linkContext: null`) renders a resolvable cref exactly as it did before cross-reference linking existed — code-span-only, never linked.
-- A `<see cref>` to an intra-assembly type that will be emitted, rendered with a non-null `linkContext` resolving that type and reporting it as emitted, produces a code span nested inside a Markdown link.
-- A `<see cref>` to an intra-assembly member that will be emitted, rendered with a non-null `linkContext` resolving that member and reporting it as emitted, produces a code span (via the member-page index) nested inside a Markdown link.
-- A `<see cref>` to an external (non-indexed) type falls back to code-span-only rendering even with a non-null `linkContext`.
+- A multi-line `<code>` element nested inside a `<list>` item's `<description>` renders as an inline span, not a fenced
+  block.
+- A multi-line `<code>` element reached through `<example>` mixed-prose accumulation (nested inside a `<para>`, not a
+  direct `<example>` child) renders as an inline span, not a fenced block.
+- Every public `XmlDocReader` method called without a `linkContext` argument (or with `linkContext: null`) renders a
+  resolvable cref exactly as it did before cross-reference linking existed — code-span-only, never linked.
+- A `<see cref>` to an intra-assembly type that will be emitted, rendered with a non-null `linkContext` resolving that
+  type and reporting it as emitted, produces a code span nested inside a Markdown link.
+- A `<see cref>` to an intra-assembly member that will be emitted, rendered with a non-null `linkContext` resolving that
+  member and reporting it as emitted, produces a code span (via the member-page index) nested inside a Markdown link.
+- A `<see cref>` to an external (non-indexed) type falls back to code-span-only rendering even with a non-null
+  `linkContext`.
 - A malformed/unresolvable `cref` string falls back to code-span-only rendering even with a non-null `linkContext`.
-- A `<see cref>` to a constructor falls back to its existing unwrapped-text rendering even with a non-null `linkContext` — constructors are never linked.
-- A `<seealso cref>` to a resolved, emitted intra-assembly type (nested inside `<remarks>`) produces a code span nested inside a Markdown link, confirming `<seealso>` shares the same `TryLinkifyCref` rendering path as `<see>`.
-- A `<see cref>` carrying an explicit display label (e.g. `<see cref="...">custom label</see>`) that resolves to an emitted intra-assembly type is rendered with that label wrapped in a Markdown link, instead of being left unlinked merely because it has a custom label.
-- A `<see cref>` into the documented assembly that is not linked locally (filtered out) stays a plain code span even when an external mapping's namespaces overlap the documented assembly's; tested by `DotNetEmitterGradualDisclosure_Emit_OwnAssemblyCref_NotEmitted_NeverLinksExternally`.
-- A `<see cref>` with an explicit display label and no `linkContext`, or whose `cref` does not resolve, falls back to the plain label text with no link, preserving the existing fallback exactly.
-- A `<see cref>` carrying an explicit display label that targets a constructor is never linked, even when the constructor's declaring type is a resolvable, emitted intra-assembly type — constructors are never linked regardless of whether the reference has an explicit label.
+- A `<see cref>` to a constructor falls back to its existing unwrapped-text rendering even with a non-null `linkContext`
+  — constructors are never linked.
+- A `<seealso cref>` to a resolved, emitted intra-assembly type (nested inside `<remarks>`) produces a code span nested
+  inside a Markdown link, confirming `<seealso>` shares the same `TryLinkifyCref` rendering path as `<see>`.
+- A `<see cref>` carrying an explicit display label (e.g. `<see cref="...">custom label</see>`) that resolves to an
+  emitted intra-assembly type is rendered with that label wrapped in a Markdown link, instead of being left unlinked
+  merely because it has a custom label.
+- A `<see cref>` into the documented assembly that is not linked locally (filtered out) stays a plain code span even
+  when an external mapping's namespaces overlap the documented assembly's; tested by
+  `DotNetEmitterGradualDisclosure_Emit_OwnAssemblyCref_NotEmitted_NeverLinksExternally`.
+- A `<see cref>` with an explicit display label and no `linkContext`, or whose `cref` does not resolve, falls back to
+  the plain label text with no link, preserving the existing fallback exactly.
+- A `<see cref>` carrying an explicit display label that targets a constructor is never linked, even when the
+  constructor's declaring type is a resolvable, emitted intra-assembly type — constructors are never linked regardless
+  of whether the reference has an explicit label.
 
 ### Test Scenarios
 
@@ -634,7 +664,7 @@ no existing behavior by default. This scenario is tested by
 **A resolved, emitted intra-assembly type renders as a linked code span**:
 Verifies that `GetSummary`, given a `linkContext` whose `Targets` resolves the
 cref to a `TypeDefinition` and whose `IsTypeEmitted` delegate reports `true`
-for it, renders `` [`Type`](path.md) `` — a code span nested inside a
+for it, renders ``[`Type`](path.md)`` — a code span nested inside a
 Markdown link — rather than plain code-span text. This scenario is tested by
 `XmlDocReader_GetSummary_ResolvedEmittedType_RendersLinkedCodeSpan`.
 

@@ -29,11 +29,16 @@ service or network dependency is needed.
 - A type with pure method overloads produces a consolidated method overload page.
 - A type with operator overloads produces an `operators.md` page.
 - A type with a nested type produces a dedicated page under the containing type's folder.
-- When a namespace has NamespaceDoc remarks and example parts, they are emitted on the namespace page after the summary (remarks as a paragraph, example code as a fenced code block).
-- A type whose `<remarks>` contains a `<list type="number">` renders the list as ordered Markdown items on the type page.
-- A type whose `<summary>` contains a `<list type="number">` renders the list as real multi-line ordered Markdown items on the type page body, with trailing prose as a separate paragraph.
-- A member with no `<summary>` but present `<remarks>` content does not show the "No description provided." placeholder on its detail page, and the remarks content is shown.
-- A member with neither `<summary>` nor `<remarks>` still shows the "No description provided." placeholder on its detail page (regression guard).
+- When a namespace has NamespaceDoc remarks and example parts, they are emitted on the namespace page after the summary
+  (remarks as a paragraph, example code as a fenced code block).
+- A type whose `<remarks>` contains a `<list type="number">` renders the list as ordered Markdown items on the type
+  page.
+- A type whose `<summary>` contains a `<list type="number">` renders the list as real multi-line ordered Markdown items
+  on the type page body, with trailing prose as a separate paragraph.
+- A member with no `<summary>` but present `<remarks>` content does not show the "No description provided." placeholder
+  on its detail page, and the remarks content is shown.
+- A member with neither `<summary>` nor `<remarks>` still shows the "No description provided." placeholder on its detail
+  page (regression guard).
 - A `<see cref>` to a visible intra-assembly type renders as a Markdown link in gradual-disclosure output.
 - A `<see cref>` to a visible intra-assembly member renders as a Markdown link in gradual-disclosure output.
 - A `<see cref>` to a member filtered out by visibility renders as plain code-span text with no link.
@@ -41,9 +46,11 @@ service or network dependency is needed.
 - A malformed/unresolvable `<see cref>` renders as plain code-span text with no link.
 - A `<seealso cref>` to a visible intra-assembly type renders as a Markdown link.
 - Every entry in `DotNetAstModel.MemberPageIndex` corresponds to a page actually written during `Emit`.
-- Type, member, overload, operators, combined, nested-type and nested-member pages start with the expected breadcrumb paragraph.
+- Type, member, overload, operators, combined, nested-type and nested-member pages start with the expected breadcrumb
+  paragraph.
 - Parameter tables show default values of every supported constant kind and per-type nullability.
-- Init-only properties render `init`; generic method signatures include type parameters and constraints; record and struct kind keywords are correct.
+- Init-only properties render `init`; generic method signatures include type parameters and constraints; record and
+  struct kind keywords are correct.
 - Each fenced example block carries its own language; prose example parts are not fenced.
 
 ### Test Scenarios
@@ -358,10 +365,11 @@ Type Parameters table lists each `<typeparam>` (placeholder when undocumented), 
 `DotNetEmitterGradualDisclosure_Emit_GenericMethodPage_ShowsConstraintAndTypeParameters`, and
 `DotNetEmitterGradualDisclosure_Emit_NestedTypeOfGenericHost_HasNoOwnTypeParameters`.
 
-**Namespace navigation**: Arrange the root, `Inner.RemarksOnly` and `Navigation` namespaces. Act by
-emitting gradual disclosure. Expected: exact breadcrumbs on namespace pages, a Start here paragraph
-and a Key Types column (documented types first, then alphabetical, at most three). Tested by
-`DotNetEmitterGradualDisclosure_Emit_NamespacePages_ShowBreadcrumb` and `DotNetEmitterGradualDisclosure_Emit_ApiPage_HasStartHereAndKeyTypes`.
+**Namespace navigation**: Arrange the root, `Inner.RemarksOnly` and `Navigation` namespaces. Act by emitting gradual
+disclosure. Expected: exact breadcrumbs on namespace pages, a Start here paragraph and a Key Types column (documented
+types first, then alphabetical, at most three). Tested by
+`DotNetEmitterGradualDisclosure_Emit_NamespacePages_ShowBreadcrumb` and
+`DotNetEmitterGradualDisclosure_Emit_ApiPage_HasStartHereAndKeyTypes`.
 
 **Legal file names**: Emits the `LegalNameShapes` fixtures (explicit generic interface
 implementations, nested generics, operators, types named `CON` or `Aux`, case-differing names) at

@@ -23,13 +23,21 @@ Cpp emitters.
 | `CppTemplateParam` | Template parameter name. |
 | `CppEnumValue` | Enumerator name and optional doc comment. |
 | `CppParameter` | Function parameter: name, type name, optional default value. |
-| `CppField` | Class field: name, type, accessibility, static/deprecated flags, location, doc, optional compile-time literal value. |
-| `CppFunction` | Function or method: name, return type, parameters, accessibility, static/virtual/constructor/variadic/deprecated/deleted flags, location, doc. |
-| `CppClass` | Class or struct: name, base types, template params, members, fields, nested classes, type aliases, deprecated/final flags, location, doc. |
+| `CppField` | Class field (members listed below the table). |
+| `CppFunction` | Function or method (members listed below the table). |
+| `CppClass` | Class or struct (members listed below the table). |
 | `CppEnum` | Scoped or unscoped enum: name, values, deprecated flag, location, doc. |
 | `CppTypeAlias` | `using` alias: name, underlying type, deprecated flag, location, doc. |
 | `CppNamespaceDecl` | Namespace: qualified name, classes, free functions, enums, type aliases, doc. |
 | `CppCompilationResult` | Parsed namespaces plus clang error/fatal-error lines. |
+
+The members of the larger model types are:
+
+- `CppField`: name, type, accessibility, static/deprecated flags, location, doc, optional compile-time literal value.
+- `CppFunction`: name, return type, parameters, accessibility, static/virtual/constructor/variadic/deprecated/deleted
+  flags, location, doc.
+- `CppClass`: name, base types, template params, members, fields, nested classes, type aliases, deprecated/final flags,
+  location, doc.
 
 `CppFunction.IsDeleted` records whether the declaration was explicitly written with
 `= delete`; emitters use the flag to append the `= delete` suffix so deleted

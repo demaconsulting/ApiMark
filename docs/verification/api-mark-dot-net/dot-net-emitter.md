@@ -36,8 +36,10 @@ service or network dependency is needed.
   accessibility (e.g., a protected property with protected get and set renders as
   `protected { get; set; }` without redundant prefixes).
 - `BuildPropertyAccessors` emits `init;` for init-only (C# 9+) property setters.
-- `ToXmlDocTypeName` converts Cecil generic type names (e.g. `List\`1`) to XML doc member-ID format (e.g.`List{T}`) so XML doc lookups use the correct key format.
-- `ToXmlDocTypeName` converts Cecil byref type names (trailing `&`, used for `ref`/`out`/`in` parameters) to XML doc member-ID format (trailing `@`) so XML doc lookups use the correct key format.
+- `ToXmlDocTypeName` converts Cecil generic type names (e.g. `List\`1`) to XML doc member-ID format (e.g.`List{T}`) so
+  XML doc lookups use the correct key format.
+- `ToXmlDocTypeName` converts Cecil byref type names (trailing `&`, used for `ref`/`out`/`in` parameters) to XML doc
+  member-ID format (trailing `@`) so XML doc lookups use the correct key format.
 - `IsImplicitDefaultConstructor` returns `true` for a compiler-synthesized implicit default
   constructor (with or without field/property initializers) and `false` for an explicit
   parameterless constructor (empty, expression-bodied, or otherwise) and for a constructor
@@ -365,18 +367,17 @@ no `new` on overloads or overrides, and `static` on static events. Tested by
 the public tier, protected setters appear at the protected tier, and everything appears at the all
 tier. Tested by `DotNetEmitter_BuildMemberSignature_AccessorShapes_HidesNonVisibleAccessors`.
 
-**Inherited members**: Arrange `InheritedLeaf : InheritedMiddle : InheritedGrandBase`. Act by emitting
-gradual disclosure and single file. Expected: an `Inherited Members` section with one group per
-declaring type, listing `MiddleMethod` and `Shared` under `InheritedMiddle` and `GrandValue` and
-`GrandMethod` under `InheritedGrandBase`; no `Object` members, no overridden duplicates, and no member
-pages for inherited members. Tested by
+**Inherited members**: Arrange `InheritedLeaf : InheritedMiddle : InheritedGrandBase`. Act by emitting gradual
+disclosure and single file. Expected: an `Inherited Members` section with one group per declaring type, listing
+`MiddleMethod` and `Shared` under `InheritedMiddle` and `GrandValue` and `GrandMethod` under `InheritedGrandBase`; no
+`Object` members, no overridden duplicates, and no member pages for inherited members. Tested by
 `DotNetEmitterGradualDisclosure_Emit_InheritedMembers_ListedPerDeclaringTypeWithoutOverridesOrObjectMembers`,
 `DotNetEmitterGradualDisclosure_Emit_InheritedMembers_DoNotCreateMemberPages`, and
-`DotNetEmitterSingleFile_Emit_InheritedMembers_ListedPerDeclaringType`. A base in a missing assembly
-yields a note naming `--reference-paths` (`DotNetEmitterGradualDisclosure_Emit_UnresolvableBase_RendersNoteAndDoesNotThrow`),
-and a resolvable external base lists its public members
-(`DotNetEmitterGradualDisclosure_Emit_ExternalBaseWithReferences_ListsExternalMembers`). Inherited
-members never enter the member page index (`DocumentationCoverageChecker_Check_InheritedMembers_AreNotChecked`).
+`DotNetEmitterSingleFile_Emit_InheritedMembers_ListedPerDeclaringType`. A base in a missing assembly yields a note
+naming `--reference-paths` (`DotNetEmitterGradualDisclosure_Emit_UnresolvableBase_RendersNoteAndDoesNotThrow`), and a
+resolvable external base lists its public members
+(`DotNetEmitterGradualDisclosure_Emit_ExternalBaseWithReferences_ListsExternalMembers`). Inherited members never enter
+the member page index (`DocumentationCoverageChecker_Check_InheritedMembers_AreNotChecked`).
 
 **Unresolved inheritdoc placeholder**: Arrange `ExternalInheritDocClass` with and without the
 external reference. Expected: "Inherits documentation from base member." when unresolved and the real

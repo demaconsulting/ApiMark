@@ -26,7 +26,7 @@ accumulator populated during `CppGenerator.Parse`.
 
 **CppExternalTypeInfo** (internal record, defined in `CppExternalTypeInfo.cs`):
 per-page external-type entry emitted in an `External Types` section — see
-_CppTypeLinkResolver Data Model_ for the full definition.
+*CppTypeLinkResolver Data Model* for the full definition.
 
 **CppTypePageWriteContext** (internal record): bundles per-type-page constants for
 member page and table generation.
@@ -49,18 +49,28 @@ by `WriteFunctionContent`.
 
 **CppEmitter instance fields** (private): state carried from construction through dispatch.
 
-- `_options`: `CppGeneratorOptions` — generator configuration; exposed to sub-emitters via the `internal Options` property.
-- `_namespaceDecls`: `SortedDictionary<string, NamespaceDeclarations>` — sorted map of namespace key → declarations; passed directly to the format-specific sub-emitter constructor.
+- `_options`: `CppGeneratorOptions` — generator configuration; exposed to sub-emitters via the `internal Options`
+  property.
+- `_namespaceDecls`: `SortedDictionary<string, NamespaceDeclarations>` — sorted map of namespace key → declarations;
+  passed directly to the format-specific sub-emitter constructor.
 - `_cppResolver`: `CppTypeLinkResolver` — type link resolver; forwarded to the sub-emitter constructor.
-- `_includeRootDirectoryEntryCache`: `Dictionary<string, string[]>` — directory-entry cache backing `PathHelpers.NormalizeCase`/`NormalizeCaseDirectory`, shared across every `GetIncludePath` call for the lifetime of this emitter (public include roots and their on-disk contents do not change mid-generation-run). Not thread-safe; `CppEmitter` instances are used single-threaded per generation run.
-- `_normalizedPublicIncludeRoots`: `IReadOnlyList<string>` — each configured `PublicIncludeRoots` entry, resolved once in the constructor to its actual on-disk casing (via `PathHelpers.NormalizeCaseDirectory`); fixed for the lifetime of this emitter.
-- `_includePathCache`: `Dictionary<string, string>` — memoizes `GetIncludePath` results keyed by the as-supplied source file path, since many declarations commonly share the same source file.
+- `_includeRootDirectoryEntryCache`: `Dictionary<string, string[]>` — directory-entry cache backing
+  `PathHelpers.NormalizeCase`/`NormalizeCaseDirectory`, shared across every `GetIncludePath` call for the lifetime of
+  this emitter (public include roots and their on-disk contents do not change mid-generation-run). Not thread-safe;
+  `CppEmitter` instances are used single-threaded per generation run.
+- `_normalizedPublicIncludeRoots`: `IReadOnlyList<string>` — each configured `PublicIncludeRoots` entry, resolved once
+  in the constructor to its actual on-disk casing (via `PathHelpers.NormalizeCaseDirectory`); fixed for the lifetime of
+  this emitter.
+- `_includePathCache`: `Dictionary<string, string>` — memoizes `GetIncludePath` results keyed by the as-supplied source
+  file path, since many declarations commonly share the same source file.
 
 ### Key Methods
 
 #### Constructor
 
-**CppEmitter(options, namespaceDecls, cppResolver)** — stores all three arguments as private fields. Preconditions: none of the parameters are null (null-guard not enforced by the constructor itself; the caller `CppGenerator.Parse` always supplies non-null values).
+**CppEmitter(options, namespaceDecls, cppResolver)** — stores all three arguments as private fields. Preconditions: none
+of the parameters are null (null-guard not enforced by the constructor itself; the caller `CppGenerator.Parse` always
+supplies non-null values).
 
 #### Dispatch
 
@@ -68,10 +78,10 @@ by `WriteFunctionContent`.
   config, IContext context)` — chooses `CppEmitterSingleFile` when
   `config.Format == OutputFormat.SingleFile`; otherwise chooses
   `CppEmitterGradualDisclosure`.
-  - _IContext description_: output channel for diagnostic messages; not used by the
+  - *IContext description*: output channel for diagnostic messages; not used by the
     emitter itself but satisfies the interface contract.
-  - _Preconditions_: `factory` must not be null.
-  - _Exceptions_: `ArgumentNullException` when `factory` is null.
+  - *Preconditions*: `factory` must not be null.
+  - *Exceptions*: `ArgumentNullException` when `factory` is null.
 
 #### Visibility filtering helpers
 
@@ -153,20 +163,20 @@ by `WriteFunctionContent`.
 
 `CppEmitter` implements the ApiMarkCore emission contract.
 
-- _Type_: in-process .NET interface.
-- _Role_: provider.
-- _Contract_: `Emit` writes the full Markdown output using the supplied factory.
-- _Constraints_: callers must supply a non-null factory and a fully parsed emitter.
+- *Type*: in-process .NET interface.
+- *Role*: provider.
+- *Contract*: `Emit` writes the full Markdown output using the supplied factory.
+- *Constraints*: callers must supply a non-null factory and a fully parsed emitter.
 
 #### IMarkdownWriterFactory (consumed)
 
-- _Type_: in-process .NET interface from ApiMarkCore.
-- _Role_: consumer.
-- _Contract_: received from the caller in `Emit`, validated (null throws
+- *Type*: in-process .NET interface from ApiMarkCore.
+- *Role*: consumer.
+- *Contract*: received from the caller in `Emit`, validated (null throws
   `ArgumentNullException`), then forwarded to the format-specific sub-emitter
   (`CppEmitterGradualDisclosure` or `CppEmitterSingleFile`) to create per-page
   `IMarkdownWriter` instances.
-- _Constraints_: must not be null.
+- *Constraints*: must not be null.
 
 ### Dependencies
 

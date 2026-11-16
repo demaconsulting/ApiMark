@@ -19,7 +19,7 @@ argument array.
 **Properties** (all `private init`; set during construction):
 
 | Property | Type | Default | Description |
-| :------- | :--- | :------ | :---------- |
+| :--- | :--- | :--- | :--- |
 | `Version` | `bool` | `false` | `--version` / `-v` flag |
 | `Help` | `bool` | `false` | `--help` / `-?` / `-h` flag |
 | `Silent` | `bool` | `false` | `--silent` flag |
@@ -29,24 +29,38 @@ argument array.
 | `Language` | `string?` | `null` | First positional non-flag token |
 | `Assembly` | `string?` | `null` | Path from `--assembly` |
 | `XmlDoc` | `string?` | `null` | Path from `--xml-doc` |
-| `Includes` | `string[]` | `[]` | Plain directory paths accumulated from repeated `--includes` invocations |
-| `ApiHeaders` | `string[]` | `[]` | Ordered patterns from repeated `--api-headers` invocations (may start with `!`) |
-| `Sources` | `string[]` | `[]` | Ordered glob patterns accumulated from repeated `--source` invocations; `!`-prefixed patterns are exclusions |
+| `Includes` | `string[]` | `[]` | Plain directory paths from repeated `--includes` |
+| `ApiHeaders` | `string[]` | `[]` | Ordered patterns from repeated `--api-headers` (may start with `!`) |
+| `Sources` | `string[]` | `[]` | Ordered glob patterns from repeated `--source` (see notes) |
 | `Output` | `string?` | `null` | Directory from `--output` |
-| `Visibility` | `string?` | `null` | Value from `--visibility`; `null` when not supplied so `Program` applies the per-language default (dotnet `PublicAndProtected`, cpp and vhdl `Public`) |
+| `Visibility` | `string?` | `null` | Value from `--visibility` (see notes) |
 | `IncludeObsolete` | `bool` | `false` | `--include-obsolete` flag |
-| `LibraryName` | `string?` | `null` | Library name from `--library-name`; optional, used for C++ `api.md` heading |
-| `LibraryDescription` | `string?` | `null` | Library description from `--library-description`; optional, omitted when null |
-| `Defines` | `string[]` | `[]` | Preprocessor definitions from `--defines` (comma-separated, split into entries of the form `NAME` or `NAME=value`) |
-| `CppStandard` | `string?` | `null` | C++ language standard from `--cpp-standard` (e.g. `c++17`); optional, tool defaults to `c++17` when null |
-| `ClangPath` | `string?` | `null` | Explicit clang executable path from `--clang-path`; optional, auto-discovered when null |
-| `ClangTimeoutMilliseconds` | `int?` | `null` | Clang subprocess timeout in milliseconds from `--clang-timeout-ms`; optional, falls back to `APIMARK_CLANG_TIMEOUT_MS` then a built-in 120000ms default when null |
-| `Format` | `OutputFormat` | `GradualDisclosure` | Output format from `--format` (`gradual` → `GradualDisclosure`, `single-file` → `SingleFile`) |
-| `Excludes` | `string[]` | `[]` | Wildcard patterns accumulated from repeated `--exclude` invocations |
-| `ReferencePaths` | `string[]` | `[]` | Referenced assembly DLL paths accumulated from repeated `--reference-paths` invocations, used to resolve cross-assembly `<inheritdoc/>` |
-| `ExternalLinks` | `string[]` | `[]` | Raw `Assembly=path` entries accumulated from repeated `--external-link` invocations; blank values skipped |
-| `EnforceDocs` | `string?` | `null` | Enforcement visibility tier from `--enforce-docs` (`Public`, `PublicAndProtected`, or `All`); absent disables enforcement |
-| `EnforceDocsSeverity` | `string` | `"Warning"` | Enforcement severity from `--enforce-docs-severity` (`Warning` or `Error`) |
+| `LibraryName` | `string?` | `null` | From `--library-name`; optional, used for C++ `api.md` heading |
+| `LibraryDescription` | `string?` | `null` | From `--library-description`; optional, omitted when null |
+| `Defines` | `string[]` | `[]` | Preprocessor definitions from `--defines` (see notes) |
+| `CppStandard` | `string?` | `null` | C++ language standard from `--cpp-standard` (see notes) |
+| `ClangPath` | `string?` | `null` | Clang path from `--clang-path`; optional, auto-discovered when null |
+| `ClangTimeoutMilliseconds` | `int?` | `null` | Clang timeout from `--clang-timeout-ms` (see notes) |
+| `Format` | `OutputFormat` | `GradualDisclosure` | Output format from `--format` (see notes) |
+| `Excludes` | `string[]` | `[]` | Wildcard patterns from repeated `--exclude` |
+| `ReferencePaths` | `string[]` | `[]` | Referenced assembly DLL paths from repeated `--reference-paths` (see notes) |
+| `ExternalLinks` | `string[]` | `[]` | Raw `Assembly=path` entries from repeated `--external-link` (see notes) |
+| `EnforceDocs` | `string?` | `null` | Enforcement visibility tier from `--enforce-docs` (see notes) |
+| `EnforceDocsSeverity` | `string` | `"Warning"` | From `--enforce-docs-severity` (`Warning` or `Error`) |
+
+**Property notes**:
+
+- `Sources`: `!`-prefixed patterns are exclusions.
+- `Visibility`: `null` when not supplied so `Program` applies the per-language default (dotnet `PublicAndProtected`,
+  cpp and vhdl `Public`).
+- `Defines`: the comma-separated value is split into entries of the form `NAME` or `NAME=value`.
+- `CppStandard`: for example `c++17`; optional, the tool defaults to `c++17` when null.
+- `ClangTimeoutMilliseconds`: the clang subprocess timeout in milliseconds; optional, falls back to
+  `APIMARK_CLANG_TIMEOUT_MS` then a built-in 120000ms default when null.
+- `Format`: `gradual` maps to `GradualDisclosure` and `single-file` maps to `SingleFile`.
+- `ReferencePaths`: used to resolve cross-assembly `<inheritdoc/>`.
+- `ExternalLinks`: blank values are skipped.
+- `EnforceDocs`: `Public`, `PublicAndProtected`, or `All`; absent disables enforcement.
 
 **Private fields**:
 
@@ -135,8 +149,8 @@ to stderr (in red) and to the log file.
   name in the message.
 - Flags that require a value (e.g., `--assembly`) throw `ArgumentException`
   when the value token is absent or is another flag.
-- A malformed `--external-link` value (no `=`, empty or whitespace-only assembly name, or empty or whitespace-only path) throws
-  `ArgumentException` whose message names `--external-link` and the offending value.
+- A malformed `--external-link` value (no `=`, empty or whitespace-only assembly name, or empty or whitespace-only path)
+  throws `ArgumentException` whose message names `--external-link` and the offending value.
 - A `@<file>` response-file token referencing a missing or unreadable file
   throws `ArgumentException` naming the offending response-file path, rather
   than propagating the underlying `IOException`/`UnauthorizedAccessException`

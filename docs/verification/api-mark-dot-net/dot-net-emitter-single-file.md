@@ -24,19 +24,26 @@ service or network dependency is needed.
 - The output file contains a namespace-level heading.
 - The output file contains a type-level heading for the fixture type.
 - When `HeadingDepth` is set to a non-default value, all heading levels in the output are offset accordingly.
-- When the assembly carries an `AssemblyDescriptionAttribute`, its value is emitted as a paragraph after the assembly-level heading.
+- When the assembly carries an `AssemblyDescriptionAttribute`, its value is emitted as a paragraph after the
+  assembly-level heading.
 - When an explicit `LibraryDescription` option is supplied, its value is emitted as the
   paragraph instead of the compiled `AssemblyDescriptionAttribute` value.
 - When `LibraryDescription` is null, empty, or consists only of whitespace, the compiled
   `AssemblyDescriptionAttribute` value is emitted as a fallback.
 - When a namespace has a NamespaceDoc XML summary, that summary is emitted as a paragraph below the namespace heading.
-- When a namespace has NamespaceDoc remarks and example parts, they are emitted after the summary (remarks as a paragraph, example code as a fenced code block).
+- When a namespace has NamespaceDoc remarks and example parts, they are emitted after the summary (remarks as a
+  paragraph, example code as a fenced code block).
 - A type whose `<remarks>` contains a `<list type="table">` renders the list as a Markdown table in single-file output.
-- A type whose `<summary>` contains a `<list type="number">` renders the list as real multi-line ordered Markdown items in single-file output.
-- A member whose `<summary>` contains a `<list type="number">` renders the list as real multi-line ordered Markdown items in single-file output.
-- A type with no `<summary>` but present `<remarks>` content does not show the "No description provided." placeholder; the remarks content is shown.
-- A member with no `<summary>` but present `<remarks>` content does not show the "No description provided." placeholder; the remarks content is shown.
-- A compact bullet list of member names and summaries is emitted before the per-member heading sections within each type section.
+- A type whose `<summary>` contains a `<list type="number">` renders the list as real multi-line ordered Markdown items
+  in single-file output.
+- A member whose `<summary>` contains a `<list type="number">` renders the list as real multi-line ordered Markdown
+  items in single-file output.
+- A type with no `<summary>` but present `<remarks>` content does not show the "No description provided." placeholder;
+  the remarks content is shown.
+- A member with no `<summary>` but present `<remarks>` content does not show the "No description provided." placeholder;
+  the remarks content is shown.
+- A compact bullet list of member names and summaries is emitted before the per-member heading sections within each type
+  section.
 - Constructor members appear before all other members; remaining members are ordered alphabetically.
 - Delegate types do not emit compiler-generated member sections (Invoke, BeginInvoke, EndInvoke).
 - Nested types include a parent-context notice paragraph (e.g., "Nested type of `OuterClass`.").
@@ -45,7 +52,8 @@ service or network dependency is needed.
 - No breadcrumb paragraphs are emitted.
 - Generic method signatures include type parameters and constraints; record and struct kind keywords are correct.
 - Each fenced example block carries its own language.
-- A `<see cref>` to a visible in-assembly type renders as plain code-span text with no link, even though the same cref would resolve to a real link in gradual-disclosure mode.
+- A `<see cref>` to a visible in-assembly type renders as plain code-span text with no link, even though the same cref
+  would resolve to a real link in gradual-disclosure mode.
 
 ### Test Scenarios
 
@@ -207,7 +215,7 @@ default for each supported constant kind, and init-only properties render `init`
 `DotNetEmitterSingleFile_Emit_InitOnlyProperties_RenderInitAccessor`.
 
 **No breadcrumbs**: Arrange the fixture assembly. Act by emitting single-file output.
-Expected: no paragraph contains a breadcrumb (` › ` with links). Tested by
+Expected: no paragraph contains a breadcrumb (`›` with links). Tested by
 `DotNetEmitterSingleFile_Emit_ValidModel_EmitsNoBreadcrumbs`.
 
 **Nullable parameter annotation**: Arrange a nullable reference parameter. Expected: the type
@@ -241,5 +249,5 @@ references render as code spans. Tested by `DotNetEmitterSingleFile_Emit_Overloa
 `DotNetEmitterSingleFile_Emit_GenericOverload_HasTypeParameterTable`, and
 `DotNetEmitterSingleFile_Emit_InlineReferences_RenderAsCodeSpansEverywhere`.
 
-**Inheritance docs test class**: `DotNetEmitterInheritanceDocsTests` verifies the single-file output for inherited-member
-listings per declaring type and record primary-constructor summaries.
+**Inheritance docs test class**: `DotNetEmitterInheritanceDocsTests` verifies the single-file output for
+inherited-member listings per declaring type and record primary-constructor summaries.

@@ -24,17 +24,28 @@ itself, only path strings and the sibling/`ref`/`lib`-swapped XML file.
 - All `ExternalXmlDocResolver` tests pass with zero failures.
 - `TryGetMember` resolves a member from the conventional sibling `.xml` file.
 - `TryGetMember` returns `null` when no XML documentation file exists anywhere for the configured reference path.
-- `TryGetMember` falls back to a `lib/` folder XML doc file when the reference assembly DLL sits under `ref/` with no sibling XML doc of its own.
-- `TryGetMember` falls back to a `ref/` folder XML doc file when the reference assembly DLL sits under `lib/` with no sibling XML doc of its own.
-- `TryGetMember` searches all configured reference paths in order, using the second path's documentation when the member is absent from the first path's documentation.
-- `ExternalXmlDocResolver` parses each reference assembly's XML documentation file at most once and caches the result, verified by deleting the file after a successful lookup and confirming a second, different member from the same file still resolves.
+- `TryGetMember` falls back to a `lib/` folder XML doc file when the reference assembly DLL sits under `ref/` with no
+  sibling XML doc of its own.
+- `TryGetMember` falls back to a `ref/` folder XML doc file when the reference assembly DLL sits under `lib/` with no
+  sibling XML doc of its own.
+- `TryGetMember` searches all configured reference paths in order, using the second path's documentation when the member
+  is absent from the first path's documentation.
+- `ExternalXmlDocResolver` parses each reference assembly's XML documentation file at most once and caches the result,
+  verified by deleting the file after a successful lookup and confirming a second, different member from the same file
+  still resolves.
 - `TryGetMember` returns `null` when constructed with an empty reference-path list.
-- `TryGetMember` returns `null` (rather than throwing) when a reference assembly's XML documentation file exists but contains malformed/corrupt XML.
-- A repeated `TryGetMember` miss for the same member ID is served from the negative per-member cache without re-reading the underlying XML documentation file from disk.
+- `TryGetMember` returns `null` (rather than throwing) when a reference assembly's XML documentation file exists but
+  contains malformed/corrupt XML.
+- A repeated `TryGetMember` miss for the same member ID is served from the negative per-member cache without re-reading
+  the underlying XML documentation file from disk.
 - The constructor throws `ArgumentNullException` when `referenceAssemblyPaths` is `null`.
-- The constructor filters out blank (empty/whitespace-only) reference-path entries rather than normalizing them into a bogus current-working-directory search path.
-- `TryGetMember(memberId, declaringAssemblyHint)` probes only the hinted reference path's documentation, and no other configured path, when the hint matches a configured reference path's simple assembly name and the member is found there.
-- `TryGetMember(memberId, declaringAssemblyHint)` falls back to the full in-order scan of every configured reference path when the hint is absent, does not match any configured path, or the hinted path does not contain the member.
+- The constructor filters out blank (empty/whitespace-only) reference-path entries rather than normalizing them into a
+  bogus current-working-directory search path.
+- `TryGetMember(memberId, declaringAssemblyHint)` probes only the hinted reference path's documentation, and no other
+  configured path, when the hint matches a configured reference path's simple assembly name and the member is found
+  there.
+- `TryGetMember(memberId, declaringAssemblyHint)` falls back to the full in-order scan of every configured reference
+  path when the hint is absent, does not match any configured path, or the hinted path does not contain the member.
 
 ### Test Scenarios
 

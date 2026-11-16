@@ -24,21 +24,21 @@ version string read from `AssemblyInformationalVersionAttribute` via reflection,
 fallback to `AssemblyVersion`, then `"0.0.0"`. Used by `PrintBanner`
 and `Run` when responding to `--version`.
 
-**Context** (`Cli/Context.cs`): See _Cli Subsystem Design_ (`cli.md`) and
-_Context Unit Design_ (`cli/context.md`) for the full data model and interface.
+**Context** (`Cli/Context.cs`): See *Cli Subsystem Design* (`cli.md`) and
+*Context Unit Design* (`cli/context.md`) for the full data model and interface.
 
-**Validation** (`SelfTest/Validation.cs`): See _SelfTest Subsystem Design_
-(`self-test.md`) and _Validation Unit Design_ (`self-test/validation.md`) for
+**Validation** (`SelfTest/Validation.cs`): See *SelfTest Subsystem Design*
+(`self-test.md`) and *Validation Unit Design* (`self-test/validation.md`) for
 the full design.
 
 ### Key Methods
 
 **Program.Main**: CLI entry point.
 
-- _Parameters_: `string[] args` — command-line arguments from the host environment.
-- _Returns_: `int` — exit code; 0 on success, non-zero on error.
-- _Preconditions_: None — `Main` handles all argument parsing errors gracefully.
-- _Postconditions_: On success, the output directory contains a complete Markdown
+- *Parameters*: `string[] args` — command-line arguments from the host environment.
+- *Returns*: `int` — exit code; 0 on success, non-zero on error.
+- *Preconditions*: None — `Main` handles all argument parsing errors gracefully.
+- *Postconditions*: On success, the output directory contains a complete Markdown
   tree for the requested component. On error, a descriptive message is written to
   stderr and the process exits non-zero.
 
@@ -49,7 +49,7 @@ are written to `Console.Error` and re-thrown.
 
 **Program.Run** (public static): Priority-ordered dispatch method.
 
-- _Parameters_: `Context context` — fully initialized context.
+- *Parameters*: `Context context` — fully initialized context.
 - Priority 1: `--version` — writes version string, returns immediately (no banner).
 - Banner is printed for all paths that do not return at Priority 1.
 - Priority 2: `--help` — prints help text.
@@ -59,7 +59,7 @@ are written to `Console.Error` and re-thrown.
 **Program.RunToolLogic** (private static): Validates required options, constructs
 the generator, and calls `Parse` then `Emit`.
 
-- _Parameters_: `Context context`.
+- *Parameters*: `Context context`.
 - Validates `Language` and `Output` for all subcommands; additionally validates `Assembly` and
   `XmlDoc` for dotnet, `Includes` for cpp, and at least one non-exclusion `--source` pattern
   (i.e. a pattern not prefixed with `!`) for vhdl; calls `context.WriteError` and `PrintHelp`
@@ -94,10 +94,10 @@ documentation-coverage scan results to the context output stream, and signals
 a build failure via `context.WriteError` when the configured severity is
 `Error` and at least one violation was found.
 
-- _Parameters_: `Context context`; `DocumentationCoverageResult result` — the
+- *Parameters*: `Context context`; `DocumentationCoverageResult result` — the
   scan result from `IDocumentationCoverageCapable.CheckDocumentationCoverage`
   on whichever generator is active for the selected language.
-- _Algorithm_: Parses `context.EnforceDocsSeverity` into the private
+- *Algorithm*: Parses `context.EnforceDocsSeverity` into the private
   `EnforcementSeverity` enum (`Warning`, `Error`), throwing `ArgumentException`
   for an unrecognized value. Writes one line per undocumented item, followed
   by a single summary line reporting the undocumented/checked counts. Calls
@@ -105,7 +105,7 @@ a build failure via `context.WriteError` when the configured severity is
   `result.HasViolations` is `true` and severity is `Error`; this keeps the
   console output proportionate to a single logical failure rather than
   flooding the error channel with one entry per undocumented item.
-- _Reporting scope_: Console-only for v1 — there is no new results-file
+- *Reporting scope*: Console-only for v1 — there is no new results-file
   format; enforcement reuses the existing `Context.WriteError`/`ExitCode`
   mechanism that already gates the process exit code for every other kind of
   tool error.
@@ -113,9 +113,9 @@ a build failure via `context.WriteError` when the configured severity is
 **Program.CreateGenerator** (private static): Constructs and returns an
 `IApiGenerator` configured from the parsed context.
 
-- _Parameters_: `Context context` — fully parsed CLI context.
-- _Returns_: `IApiGenerator` — language-specific generator instance.
-- _Preconditions_: `context.Language` must be a recognized, implemented subcommand.
+- *Parameters*: `Context context` — fully parsed CLI context.
+- *Returns*: `IApiGenerator` — language-specific generator instance.
+- *Preconditions*: `context.Language` must be a recognized, implemented subcommand.
 - Throws `ArgumentException` for invalid `Visibility` values; throws
   `NotSupportedException` for unrecognized or not-yet-implemented language
   identifiers.
@@ -137,7 +137,7 @@ a build failure via `context.WriteError` when the configured severity is
   mappings below, so the `dotnet` subcommand also honors an explicitly-supplied
   `--library-description` / `ApiMarkLibraryDescription` override for the `api.md`
   introduction paragraph rather than silently ignoring it.
-- _Visibility resolution_: `context.Visibility` is `null` when `--visibility` was not
+- *Visibility resolution*: `context.Visibility` is `null` when `--visibility` was not
   supplied. In that case `CreateGenerator` applies the per-language default:
   `PublicAndProtected` for `dotnet` (protected members are part of the inheritance API
   surface), and `Public` for `cpp` and `vhdl`. The resulting string is parsed
@@ -171,11 +171,11 @@ a build failure via `context.WriteError` when the configured severity is
 entries of `Context.ExternalLinks` into the dictionary consumed by
 `DotNetGeneratorOptions.ExternalLinks`.
 
-- _Parameters_: `string[] entries` — entries already validated by `Context` (non-empty
+- *Parameters*: `string[] entries` — entries already validated by `Context` (non-empty
   assembly name and non-empty path around the first `=`).
-- _Returns_: `Dictionary<string, string>` keyed with `StringComparer.OrdinalIgnoreCase`
+- *Returns*: `Dictionary<string, string>` keyed with `StringComparer.OrdinalIgnoreCase`
   by trimmed assembly name; the value is the trimmed path or URL.
-- _Algorithm_: for each entry split at the first `=`; later entries for the same
+- *Algorithm*: for each entry split at the first `=`; later entries for the same
   assembly (compared case-insensitively) replace earlier ones (last wins). An entry
   without a name before the `=` (including one with no `=` at all) is skipped
   defensively rather than throwing, although `Context` never produces such entries.
@@ -206,11 +206,11 @@ re-thrown.
 ### Dependencies
 
 - **Context** (Cli subsystem) — owns argument parsing and output routing; created by
-  Program — see _Cli Subsystem Design_ (`cli.md`) and _Context Unit Design_
+  Program — see *Cli Subsystem Design* (`cli.md`) and *Context Unit Design*
   (`cli/context.md`).
 - **Validation** (SelfTest subsystem) — runs self-validation tests when `--validate`
-  is specified — see _SelfTest Subsystem Design_ (`self-test.md`) and _Validation
-  Unit Design_ (`self-test/validation.md`).
+  is specified — see *SelfTest Subsystem Design* (`self-test.md`) and *Validation
+  Unit Design* (`self-test/validation.md`).
 - **IApiGenerator** — Program references `IApiGenerator` from ApiMarkCore as the
   common interface for all language generators — see IApiGenerator Unit Design.
 - **IApiEmitter** — Program calls `IApiEmitter.Emit` on the value returned by

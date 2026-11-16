@@ -17,9 +17,9 @@ invoked with the required flags, and that the resulting JSON AST is parsed succe
 the top-level `api.md` entrypoint file. Tested by
 `CppGenerator_Generate_ValidHeaders_CreatesApiEntrypoint`.
 
-**Declaration provenance identifies public API declarations**: Verifies that the source file path
-exposed by clang in the JSON AST is sufficient for ClangAstParser to distinguish declarations
-defined in the public include roots from system and third-party declarations. Tested by `CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass`.
+**Declaration provenance identifies public API declarations**: Verifies that the source file path exposed by clang in
+the JSON AST is sufficient for ClangAstParser to distinguish declarations defined in the public include roots from
+system and third-party declarations. Tested by `CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass`.
 
 **Type and member metadata is complete enough for documentation generation**: Verifies that clang
 exposes the names, types, parameters, and access specifiers needed for ClangAstParser to produce

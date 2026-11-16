@@ -76,15 +76,14 @@ yet cover something.
 - **`.editorconfig`** - Code formatting rules
 - **`.clang-format`** - C/C++ formatting (if applicable)
 - **`.textlint.yaml`** - Spell-check configuration and technical term dictionary (TextLint)
-- **`.markdownlint-cli2.yaml`** - Markdown formatting rules
+- **`.lintmark.yaml`** - Markdown formatting rules (LintMark)
 - **`.yamllint.yaml`** - YAML formatting configuration
 - **`.reviewmark.yaml`** - File review definitions and tracking
 - **`nuget.config`** - NuGet package sources (if .NET)
-- **`package.json`** - Node.js dependencies for formatting tools
 - **`requirements.yaml`** - Root requirements file with includes
 - **`pip-requirements.txt`** - Python dependencies for yamllint and yamlfix
 - **`docs/sysml2/`** - SysML2 architecture model; authoritative source for software structure
-- **`fix.ps1`** - Applies all auto-fixers silently (dotnet format, markdown, YAML). Always exits 0.
+- **`fix.ps1`** - Applies all auto-fixers silently (dotnet format, LintMark, YAML). Always exits 0.
 - **`build.ps1`** - Builds the solution and runs all tests.
 
 # Standards Application (ALL Agents Must Follow)
@@ -151,13 +150,13 @@ silently and **always exits 0** - agents do not need to respond to its output.
 pwsh ./fix.ps1
 ```
 
-This automatically handles: `dotnet format`, markdown formatting, and YAML
+This automatically handles: `dotnet format`, Markdown formatting (LintMark), and YAML
 formatting. Full lint compliance is a **pre-PR responsibility**, not an agent
 responsibility - invoke the lint-fix agent once before submitting a pull request.
 
 ## CI Quality Tools
 
-CI runs `lint.ps1` which checks: markdownlint-cli2, textlint, yamllint, dotnet format,
+CI runs `lint.ps1` which checks: lintmark, textlint, yamllint, dotnet format,
 reqstream, versionmark, reviewmark, and sysml2tools.
 
 # Scope Discipline (ALL Agents Must Follow)
@@ -179,7 +178,7 @@ in header comments. Agents MUST NOT modify them unless the task explicitly
 requires it and the modification preserves the documented design intent:
 
 - `.reviewmark.yaml`, `.textlint.yaml`, `.editorconfig`
-- `.markdownlint-cli2.yaml`, `.yamllint.yaml`
+- `.lintmark.yaml`, `.yamllint.yaml`
 - `requirements.yaml`, `fix.ps1`, `lint.ps1`
 
 # Continuous Compliance Overview

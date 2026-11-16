@@ -19,11 +19,17 @@ apimark vhdl [options]
 | --- | --- |
 | `--source <glob>` | Source glob pattern — repeatable, prefix with `!` to exclude (required) |
 | `--output <dir>` | Output directory for Markdown files (required) |
-| `--format <value>` | Output format: `gradual` (file-per-entity) or `single-file` (single `api.md`) (default: `gradual`) |
+| `--format <value>` | Output format: `gradual` (file-per-entity) or `single-file` (one `api.md`); default `gradual` |
 | `--library-name <name>` | Library name used as the top-level heading (default: output directory name) |
 | `--library-description <d>` | Optional description for the library `api.md` introduction |
-| `--enforce-docs <value>` | Enable documentation-coverage enforcement: `Public`, `PublicAndProtected`, `All` (default: disabled). All three values are accepted for CLI consistency with `dotnet`/`cpp` but behave identically — see *Documentation Coverage Enforcement* below |
-| `--enforce-docs-severity <value>` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build) (default: `Warning`) |
+| `--enforce-docs <value>` | Enable documentation-coverage enforcement (default: disabled; see below) |
+| `--enforce-docs-severity <value>` | Severity when undocumented items are found (default: `Warning`; see below) |
+
+Option details:
+
+- `--enforce-docs <value>`: `Public`, `PublicAndProtected`, or `All`. All three values are accepted for CLI
+  consistency with `dotnet`/`cpp` but behave identically — see *Documentation Coverage Enforcement* below.
+- `--enforce-docs-severity <value>`: `Warning` (report only) or `Error` (fail the build).
 
 ## File Discovery
 

@@ -48,17 +48,25 @@ apimark cpp [options]
 | `--includes <path>` | Include directory for clang `-I` (repeatable, required) |
 | `--api-headers <pattern>` | Glob pattern for documented headers; supports `!` exclusions (repeatable, ordered) |
 | `--output <dir>` | Output directory for Markdown files (required) |
-| `--format <value>` | Output format: `gradual` (file-per-type) or `single-file` (single `api.md`) (default: `gradual`) |
+| `--format <value>` | Output format: `gradual` (file-per-type) or `single-file` (single `api.md`); default `gradual` |
 | `--library-name <name>` | Library name used as the top-level heading (default: output directory name) |
 | `--library-description <d>` | Optional description for the library `api.md` introduction |
 | `--defines <values>` | Comma-separated preprocessor definitions (e.g. `MYLIB_API=,NDEBUG`) |
 | `--cpp-standard <std>` | C++ language standard passed to Clang (default: `c++17`) |
 | `--clang-path <path>` | Path to clang executable (default: auto-discovered, see *Prerequisites*) |
-| `--clang-timeout-ms <ms>` | Timeout in milliseconds for the clang subprocess; the process (and its tree) is killed and a diagnostic error raised if exceeded (default: `120000`) |
+| `--clang-timeout-ms <ms>` | Timeout in milliseconds for the clang subprocess (default: `120000`; see below) |
 | `--visibility <value>` | Visibility filter: `Public`, `PublicAndProtected`, `All` (default: `Public`) |
 | `--include-obsolete` | Include deprecated members in generated output |
-| `--enforce-docs <value>` | Enable documentation-coverage enforcement at the given visibility tier: `Public`, `PublicAndProtected`, `All` (default: disabled) |
-| `--enforce-docs-severity <value>` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build) (default: `Warning`) |
+| `--enforce-docs <value>` | Enable documentation-coverage enforcement (default: disabled; see below) |
+| `--enforce-docs-severity <value>` | Severity when undocumented items are found (default: `Warning`; see below) |
+
+Option details:
+
+- `--clang-timeout-ms <ms>`: if the timeout is exceeded, the clang process (and its tree) is killed and a diagnostic
+  error is raised.
+- `--enforce-docs <value>`: enables documentation-coverage enforcement at the given visibility tier: `Public`,
+  `PublicAndProtected`, or `All`.
+- `--enforce-docs-severity <value>`: `Warning` (report only) or `Error` (fail the build).
 
 ## File Discovery
 
@@ -320,8 +328,8 @@ include structures, generated headers, or complex NuGet arrangements, use the
 
 | Property | Default | Description |
 | --- | --- | --- |
-| `ApiMarkIncludePaths` | *(auto-detected)* | Semicolon-separated include directory paths passed to Clang as `-I` paths. Defaults to the resolved `AdditionalIncludeDirectories` from all `ClCompile` items (including NuGet-injected paths). Set explicitly to override auto-detection. When `ApiMarkApiHeaders` is not set, all headers with recognized C++ extensions under these paths are documented. |
-| `ApiMarkApiHeaders` | *(unset)* | Semicolon-separated, order-preserved list of glob and exclusion pattern strings. Entries with `!` are exclusion patterns; gitignore-style last-match-wins semantics apply. When unset, all headers with recognized C++ extensions under `ApiMarkIncludePaths` are documented. |
+| `ApiMarkIncludePaths` | *(auto-detected)* | Include directory paths passed to Clang as `-I` paths (see below) |
+| `ApiMarkApiHeaders` | *(unset)* | Glob and exclusion patterns selecting the documented headers (see below) |
 | `ApiMarkLibraryName` | `$(MSBuildProjectName)` | Library name used as the top-level heading in `api.md` |
 | `ApiMarkLibraryDescription` | *(unset)* | Optional description for the `api.md` introduction paragraph |
 | `ApiMarkDefines` | *(unset)* | Semicolon-separated preprocessor definitions (e.g. `MYLIB_API=;NDEBUG`) |
@@ -330,8 +338,21 @@ include structures, generated headers, or complex NuGet arrangements, use the
 | `ApiMarkClangTimeoutMs` | `120000` | Timeout in milliseconds for the clang subprocess |
 | `ApiMarkVisibility` | `Public` | Visibility filter: `Public`, `PublicAndProtected`, `All` |
 | `ApiMarkIncludeObsolete` | `false` | Include deprecated members in generated output |
-| `ApiMarkEnforceDocs` | (unset) | Enforcement visibility tier for documentation-coverage checking: `Public`, `PublicAndProtected`, `All`; omitted disables enforcement |
-| `ApiMarkEnforceDocsSeverity` | `Warning` | Severity when undocumented items are found: `Warning` (report only) or `Error` (fail the build); only takes effect when `ApiMarkEnforceDocs` is also set |
+| `ApiMarkEnforceDocs` | (unset) | Enforcement visibility tier for documentation-coverage checking (see below) |
+| `ApiMarkEnforceDocsSeverity` | `Warning` | Severity when undocumented items are found (see below) |
+
+Property details:
+
+- `ApiMarkIncludePaths`: semicolon-separated include directory paths passed to Clang as `-I` paths. Defaults to the
+  resolved `AdditionalIncludeDirectories` from all `ClCompile` items (including NuGet-injected paths). Set explicitly
+  to override auto-detection. When `ApiMarkApiHeaders` is not set, all headers with recognized C++ extensions under
+  these paths are documented.
+- `ApiMarkApiHeaders`: semicolon-separated, order-preserved list of glob and exclusion pattern strings. Entries with `!`
+  are exclusion patterns; gitignore-style last-match-wins semantics apply. When unset, all headers with recognized C++
+  extensions under `ApiMarkIncludePaths` are documented.
+- `ApiMarkEnforceDocs`: `Public`, `PublicAndProtected`, or `All`; omitted disables enforcement.
+- `ApiMarkEnforceDocsSeverity`: `Warning` (report only) or `Error` (fail the build); only takes effect when
+  `ApiMarkEnforceDocs` is also set.
 
 See the *MSBuild Integration* section for common properties (`ApiMarkOutputDir`,
 `ApiMarkFormat`, `DisableApiMark`) that apply to all project types.

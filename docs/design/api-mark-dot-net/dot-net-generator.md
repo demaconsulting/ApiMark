@@ -213,11 +213,23 @@ memory and returns a `DotNetEmitter` ready to emit.
   filtered) never becomes a dictionary key and therefore never appears in any
   generated index or page — the same mechanism that already applies to
   obsolete-only namespaces when `IncludeObsolete` is false.
-- *TypeLinkResolver scope*: `TypeLinkResolver` is constructed with `rootNamespaces` only (not all namespaces), plus `generateLinks: true`, the external link targets, and `documentedModule: assembly.MainModule` (the identity of the module being documented, so that types of other modules are never treated as intra-assembly), which constrains which type references can produce intra-assembly Markdown links; types whose namespace does not map to a known root namespace path fall back to plain text.
-- *`ComputeRootNamespaces`*: shared helper reducing a namespace list to its root namespaces; used for both the documented assembly and each mapped external assembly. The empty (global) namespace is never treated as a prefix, so it is always a root and never hides other roots.
-- *`BuildExternalLinkTargets`*: validates each `ExternalLinks` entry (`IsValidExternalLinkPath`), locates the DLL via `FindReferenceAssembly`, reads its namespaces with Mono.Cecil, and returns `ExternalLinkTarget` values keyed by assembly name case-insensitively; failures produce warnings and skipped mappings.
-- *`FindReferenceAssembly`*: resolves each reference path with `Path.GetFullPath` and `PathHelpers.NormalizeCase`, accepting a path naming the DLL, a file beside it, or a directory containing it; blank paths are skipped.
-- *NamespaceDoc selection*: When multiple `NamespaceDoc` carrier types exist in the same namespace, `BuildNamespaceDescription` selects the first non-empty summary, the first non-empty remarks, and the first non-empty example parts independently via `FirstOrDefault`; the historical "first non-empty summary wins" behavior is preserved and extended to remarks and examples.
+- *TypeLinkResolver scope*: `TypeLinkResolver` is constructed with `rootNamespaces` only (not all namespaces), plus
+  `generateLinks: true`, the external link targets, and `documentedModule: assembly.MainModule` (the identity of the
+  module being documented, so that types of other modules are never treated as intra-assembly), which constrains which
+  type references can produce intra-assembly Markdown links; types whose namespace does not map to a known root
+  namespace path fall back to plain text.
+- *`ComputeRootNamespaces`*: shared helper reducing a namespace list to its root namespaces; used for both the
+  documented assembly and each mapped external assembly. The empty (global) namespace is never treated as a prefix, so
+  it is always a root and never hides other roots.
+- *`BuildExternalLinkTargets`*: validates each `ExternalLinks` entry (`IsValidExternalLinkPath`), locates the DLL via
+  `FindReferenceAssembly`, reads its namespaces with Mono.Cecil, and returns `ExternalLinkTarget` values keyed by
+  assembly name case-insensitively; failures produce warnings and skipped mappings.
+- *`FindReferenceAssembly`*: resolves each reference path with `Path.GetFullPath` and `PathHelpers.NormalizeCase`,
+  accepting a path naming the DLL, a file beside it, or a directory containing it; blank paths are skipped.
+- *NamespaceDoc selection*: When multiple `NamespaceDoc` carrier types exist in the same namespace,
+  `BuildNamespaceDescription` selects the first non-empty summary, the first non-empty remarks, and the first non-empty
+  example parts independently via `FirstOrDefault`; the historical "first non-empty summary wins" behavior is preserved
+  and extended to remarks and examples.
 - *Coverage-check caching*: `Parse` caches the parsed `AssemblyDefinition` and
   constructed `XmlDocReader` into private fields (`_assembly`, `_xmlDocs`) so
   that a later `CheckDocumentationCoverage(string? enforceTier)` call can reuse
@@ -310,16 +322,15 @@ alongside a per-candidate declaring-assembly-name hint map used to speed up cros
 lookups.
 
 - *Parameters*: `AssemblyDefinition assembly` — the parsed assembly whose types are traversed.
-- *Returns*: `(IReadOnlyDictionary<string, IReadOnlyList<string>> Chain, IReadOnlyDictionary<string, string> AssemblyHints)` —
-  `Chain` maps each member's XML-doc ID to an ordered list of XML-doc IDs of base/interface
-  members that should be checked (in priority order) when resolving a bare
-  `<inheritdoc />`; `AssemblyHints` maps each candidate target member ID appearing
-  anywhere in `Chain` to the simple name of the assembly that declares it, when known —
-  consumed by `ExternalXmlDocResolver.TryGetMember(string, string?)` as a fast path for
-  the common case where the hinted reference path actually contains the target; when it
-  does not (a stale or otherwise incorrect hint), the resolver still falls back to
-  scanning every remaining configured reference path in order, so a miss does not
-  guarantee avoiding the full scan.
+- *Returns*:
+  `(IReadOnlyDictionary<string, IReadOnlyList<string>> Chain, IReadOnlyDictionary<string, string> AssemblyHints)` —
+  `Chain` maps each member's XML-doc ID to an ordered list of XML-doc IDs of base/interface members that should be
+  checked (in priority order) when resolving a bare `<inheritdoc />`; `AssemblyHints` maps each candidate target member
+  ID appearing anywhere in `Chain` to the simple name of the assembly that declares it, when known — consumed by
+  `ExternalXmlDocResolver.TryGetMember(string, string?)` as a fast path for the common case where the hinted reference
+  path actually contains the target; when it does not (a stale or otherwise incorrect hint), the resolver still falls
+  back to scanning every remaining configured reference path in order, so a miss does not guarantee avoiding the full
+  scan.
 - *When it runs*: During `Parse`, before constructing `XmlDocReader`; `Chain` is passed
   directly to the `XmlDocReader` constructor, and `AssemblyHints` is captured by the
   closure passed as `XmlDocReader`'s external member lookup delegate (see *Collaborators*

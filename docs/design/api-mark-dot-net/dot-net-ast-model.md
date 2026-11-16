@@ -32,9 +32,9 @@ parameters (see Key Methods below).
 **DotNetAstModel** (internal sealed class): Holds all data that survives the
 boundary between parse and emit.
 
-- *Assembly* (`AssemblyDefinition`): The Mono.Cecil assembly definition held
-  open for the duration of emit. Ownership is transferred to the model on
-  construction; the `AssemblyDefinition` is disposed via a `using (Model.Assembly)` block in `DotNetEmitter.Emit` after the emit run completes or throws.
+- *Assembly* (`AssemblyDefinition`): The Mono.Cecil assembly definition held open for the duration of emit. Ownership is
+  transferred to the model on construction; the `AssemblyDefinition` is disposed via a `using (Model.Assembly)` block in
+  `DotNetEmitter.Emit` after the emit run completes or throws.
 - *AssemblyResolver* (`IAssemblyResolver`): The Mono.Cecil assembly resolver
   used to resolve externally referenced assemblies during inheritance analysis
   and lazy metadata resolution. Ownership is transferred to the model on
@@ -98,7 +98,8 @@ callers do not need to thread six constant parameters through each call site.
 - *XmlDocs* (`XmlDocReader`): Documentation index.
 - *Resolver* (`TypeLinkResolver`): Type link resolver.
 - *CurrentFolder* (`string`): Folder path of the containing Markdown file.
-- *ExternalTypes* (`ISet<ExternalTypeInfo>`): Accumulator for external type references found during table cell generation.
+- *ExternalTypes* (`ISet<ExternalTypeInfo>`): Accumulator for external type references found during table cell
+  generation.
 - *LinkContext* (`CrefLinkContext`): Cross-reference resolution context for
   `<see cref>`/`<seealso cref>` linking, scoped to `CurrentFolder`.
 
@@ -204,4 +205,5 @@ responsibility of `DotNetGenerator.Parse` before constructing the model.
 
 N/A — this is an internal class with no external interfaces exposed beyond its assembly.
 
-The file intentionally declares several closely related types (the model, its argument record, NamespaceDescription and the context records) together, because they form one data-model unit.
+The file intentionally declares several closely related types (the model, its argument record, NamespaceDescription and
+the context records) together, because they form one data-model unit.

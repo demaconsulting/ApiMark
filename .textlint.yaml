@@ -8,6 +8,30 @@
 # - NEVER add a misspelled word - fix the typo in the source instead
 # - NEVER add a British-English spelling - correct to US-English in the source
 # - PROPOSE only genuine technical terms/names as needed
+#
+# Run from the repository root (the pinned tool is restored by 'dotnet tool restore'):
+#   dotnet textlint
+#
+# WHERE AN EXCEPTION BELONGS:
+# - Never ours (vendored, generated, build output): 'ignorePaths'. It always wins and cannot use '!'.
+# - What is permanently in scope: 'files', with '!' excludes. Patterns apply in order and the last match wins.
+# - Ours, but skipped for a stated reason: an override with 'enabled: false' and a comment giving the reason.
+# - Different rules for some files (fixtures, test data, a folder in another dialect): an override with settings.
+#
+# OVERRIDES (examples; add real entries under 'overrides:' at the end of this file):
+# - List settings ('words', 'ignoreWords', 'flagWords', 'ignoreRegExpList', 'patterns') add to the top-level
+#   values; single values ('language', 'minWordLength', 'ignoreRandomStrings', 'minRandomLength', 'enabled')
+#   replace them. Matching entries apply in the order written, so put general entries first.
+# - An 'enabled: false' entry must not hold other settings.
+#
+# overrides:
+#   # Test fixtures contain ticket numbers that are not words
+#   - filename: test/**/Fixtures/**
+#     ignoreRegExpList:
+#       - /\bticket-\d+\b/
+#   # Skipped: the sample transcripts are captured from a third-party service in another language
+#   - filename: docs/samples/transcripts/**
+#     enabled: false
 version: '0.2'
 language: en
 files: ['**/*.{md,yaml,yml,json,cs,cpp,hpp,h,txt}']
@@ -54,6 +78,7 @@ words:
   - linkifies
   - Linkify
   - linkifying
+  - lintmark
   - maxcount
   - metacharacter
   - misdescribes
@@ -107,4 +132,3 @@ ignorePaths:
   - '**/generated/**'
   - '**/packages/**'
   - '**/VhdlAst/Antlr/**'
-  - package-lock.json

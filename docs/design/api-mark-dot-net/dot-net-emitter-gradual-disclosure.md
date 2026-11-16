@@ -78,10 +78,12 @@ single namespace.
   paragraph; otherwise the "No description provided." placeholder is emitted ONLY
   when remarks are also absent (see "Placeholder Suppression" below) — when remarks
   alone are present, nothing is written here and the remarks paragraph (emitted next)
-  carries the type's description; emits structured example blocks via `ctx.XmlDocs.GetExampleBlocks(typeMemberId, linkContext)`; groups all
+  carries the type's description; emits structured example blocks via
+  `ctx.XmlDocs.GetExampleBlocks(typeMemberId, linkContext)`; groups all
   visible members by kind (Constructors, Properties, Fields, Events, Methods,
   Operators, Nested Types) and writes one table row per member (or one representative row
-  per method overload group) with a link to the member's dedicated page; calls per-kind page writers for each member or member group.
+  per method overload group) with a link to the member's dedicated page; calls per-kind
+  page writers for each member or member group.
   The Nested Types section is written unconditionally via `WriteNestedTypesSection`,
   even when the containing type has no own members/operators, since a type can be a
   pure namespace-like container for nested types; this must match
@@ -96,16 +98,14 @@ for a single method (or one overload) onto the caller-supplied writer.
   XML-doc member ID used for lookup; `MethodDocContext context` — namespace name,
   XML doc reader, resolver, current folder, and external type accumulator.
 - *Returns*: `void`
-- *Algorithm*: Emits the C# method signature via `writer.WriteSignature("csharp", ...)`, which produces a fenced C# code block; fetches the XML
-  summary via `GetSummaryMarkdown` and the remarks text before deciding what to
-  write: a present summary is written as a paragraph; otherwise the "No
-  description provided." placeholder is written only when remarks are also
-  absent (see "Placeholder Suppression" below); if the method has parameters,
-  writes a parameter table with Parameter, Type, and Description columns — type cells are
-  resolved via `resolver.Linkify` and external types are accumulated into
-  `context.ExternalTypes`; if a returns value is documented, writes a `**Returns:**`
-  paragraph; writes exception and remarks sections when present; writes structured
-  example blocks from `xmlDocs.GetExampleBlocks`, each code block fenced with its own `lang`.
+- *Algorithm*: Emits the C# method signature via `writer.WriteSignature("csharp", ...)`, which produces a fenced C# code
+  block; fetches the XML summary via `GetSummaryMarkdown` and the remarks text before deciding what to write: a present
+  summary is written as a paragraph; otherwise the "No description provided." placeholder is written only when remarks
+  are also absent (see "Placeholder Suppression" below); if the method has parameters, writes a parameter table with
+  Parameter, Type, and Description columns — type cells are resolved via `resolver.Linkify` and external types are
+  accumulated into `context.ExternalTypes`; if a returns value is documented, writes a `**Returns:**` paragraph; writes
+  exception and remarks sections when present; writes structured example blocks from `xmlDocs.GetExampleBlocks`, each
+  code block fenced with its own `lang`.
 
 **WriteMethodOverloadPage** (private static): Writes a single shared Markdown page for a
 pure method overload group (all methods sharing the same exact case-sensitive sanitized file name).
@@ -161,12 +161,18 @@ a type that defines operator overloads.
   `WriteMethodDocumentation`; accumulates external type references and emits them
   via `WriteExternalTypesSection`.
 
-**WriteNestedTypePage** (via recursive `WriteTypePage`): Writes a dedicated Markdown page for each visible nested type under its containing type's folder.
+**WriteNestedTypePage** (via recursive `WriteTypePage`): Writes a dedicated Markdown page for each visible nested type
+under its containing type's folder.
 
-- *Parameters*: `TypePageWriteContext ctx` — context for the nested type, where `NamespaceFolderPath` is set to `{parentNamespaceFolderPath}/{GetTypeFileName(containingType)}` and `Type` is the nested type definition.
+- *Parameters*: `TypePageWriteContext ctx` — context for the nested type, where `NamespaceFolderPath` is set to
+  `{parentNamespaceFolderPath}/{GetTypeFileName(containingType)}` and `Type` is the nested type definition.
 - *Returns*: `void`
-- *Path pattern*: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(containingType)}", GetTypeFileName(nestedType))` — the nested type's page is placed under its containing type's folder segment.
-- *Algorithm*: Called from `WriteTypePage` for each element of `GetVisibleNestedTypes(ctx.Type)`. Each nested type's page is written by recursively calling `WriteTypePage` with the updated context; the nested type's own members are iterated and documented on that page following the same process as any other type page.
+- *Path pattern*:
+  `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(containingType)}", GetTypeFileName(nestedType))` — the
+  nested type's page is placed under its containing type's folder segment.
+- *Algorithm*: Called from `WriteTypePage` for each element of `GetVisibleNestedTypes(ctx.Type)`. Each nested type's
+  page is written by recursively calling `WriteTypePage` with the updated context; the nested type's own members are
+  iterated and documented on that page following the same process as any other type page.
 
 **WriteMemberPage** (private static): Creates the dedicated detail page for a single
 non-overloaded, non-collision member.
@@ -228,12 +234,11 @@ non-method member (property, field, or event) to the supplied Markdown writer.
   `string memberId`, `MethodDocContext ctx` — provides namespace name, XML docs,
   resolver, current folder, and external type accumulator.
 - *Returns*: `void`
-- *Algorithm*: Emits the C# member signature via `writer.WriteSignature("csharp", ...)`, which produces a fenced C# code block; fetches the XML
-  summary via `GetSummaryMarkdown` and the remarks text before deciding what to
-  write (same placeholder-suppression rule as `WriteMethodDocumentation` — see
-  "Placeholder Suppression" below); emits returns,
-  exceptions, remarks, and example sections when present, following the same
-  pattern as `WriteMethodDocumentation` for non-method member kinds.
+- *Algorithm*: Emits the C# member signature via `writer.WriteSignature("csharp", ...)`, which produces a fenced C# code
+  block; fetches the XML summary via `GetSummaryMarkdown` and the remarks text before deciding what to write (same
+  placeholder-suppression rule as `WriteMethodDocumentation` — see "Placeholder Suppression" below); emits returns,
+  exceptions, remarks, and example sections when present, following the same pattern as `WriteMethodDocumentation` for
+  non-method member kinds.
 
 #### BuildMemberPageIndex and BuildCrefLinkContext
 
@@ -345,16 +350,15 @@ never fenced.
 H1, on type, member, overload, operators and combined pages. It is written only in
 gradual-disclosure output; single-file output has no breadcrumbs.
 
-- *Algorithm*: Always starts with an `API Reference` crumb linking to `api.md` relative to the
-  current page folder (also for global-namespace pages). Builds the chain of declaring types from the outermost to the page's type.
-  Recovers the namespace folder by dropping one folder segment per nested level from the
-  type's folder path (so nested and dotted namespace folders resolve correctly). Emits the
-  namespace crumb whenever a namespace folder exists; a global-namespace type gets a
-  `(global namespace)` crumb linking to the synthetic `global-namespace` page. Then emits one crumb per chain entry using
-  the flattened-arity page key, linked relative to the current page folder; the type itself
-  is included only when `includeType` is true (member, overload, operators and combined
-  pages), because a type page already shows its own name as H1. Crumbs are joined with the
-  `BreadcrumbSeparator` constant (`" › "`), and the paragraph is followed by a blank line.
+- *Algorithm*: Always starts with an `API Reference` crumb linking to `api.md` relative to the current page folder (also
+  for global-namespace pages). Builds the chain of declaring types from the outermost to the page's type. Recovers the
+  namespace folder by dropping one folder segment per nested level from the type's folder path (so nested and dotted
+  namespace folders resolve correctly). Emits the namespace crumb whenever a namespace folder exists; a global-namespace
+  type gets a `(global namespace)` crumb linking to the synthetic `global-namespace` page. Then emits one crumb per
+  chain entry using the flattened-arity page key, linked relative to the current page folder; the type itself is
+  included only when `includeType` is true (member, overload, operators and combined pages), because a type page already
+  shows its own name as H1. Crumbs are joined with the `BreadcrumbSeparator` constant (`" › "`), and the paragraph is
+  followed by a blank line.
 - Types declared without a namespace (the empty namespace) are documented on a synthetic
   namespace page whose folder and file short name is `global-namespace`
   (`DotNetEmitter.GetNamespaceFolderPath("")`); the H1, the `api.md` link text and the
@@ -397,10 +401,11 @@ member, and operators page patterns.
   predictable name, because the other package's collisions are not known.
 - Type page: `factory.CreateMarkdown(namespaceFolderPath, GetTypeFileName(type))`
   where `GetTypeFileName` starts from `FlattenArity`, which replaces backtick-arity notation
-  (e.g. `` SampleGenericClass`1 ``) with brace arity (`SampleGenericClass{1}`); the registry then
+  (e.g. ``SampleGenericClass`1``) with brace arity (`SampleGenericClass{1}`); the registry then
   applies the escape, reserved-name, and collision rules. This is distinct
   from `StripArity`, which removes the arity suffix entirely and is used for display names.
-- Member detail: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", GetSanitizedMemberFileName(member, type))`
+- Member detail:
+  `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", GetSanitizedMemberFileName(member, type))`
 - Operators page: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", "operators")`
   (a member literally named `operators` is displaced to `operators-2` so the pages cannot collide)
 - Residual combined page: `factory.CreateMarkdown("{namespaceFolderPath}/{GetTypeFileName(type)}", lowerKey)`
