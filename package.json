@@ -1,8 +1,0 @@
-{
-  "private": true,
-  "devDependencies": {
-    "mermaid": "^11.15.0",
-    "mermaid-filter": "1.4.7",
-    "markdownlint-cli2": "0.22.1"
-  }
-}

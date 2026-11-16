@@ -17,16 +17,6 @@ tools:
     command: dotnet tool list
     regex: (?i)dotnet-sonarscanner\s+(?<version>\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?)
 
-  # Node.js
-  node:
-    command: node --version
-    regex: (?i)v(?<version>\d+\.\d+\.\d+)
-
-  # npm
-  npm:
-    command: npm --version
-    regex: (?<version>\d+\.\d+\.\d+)
-
   # Pandoc (DemaConsulting.PandocTool from dotnet tool list)
   pandoc:
     command: dotnet tool list
@@ -76,6 +66,11 @@ tools:
   textlint:
     command: dotnet tool list
     regex: (?i)demaconsulting\.textlint\.tool\s+(?<version>\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?)
+
+  # LintMark (DemaConsulting.LintMark from dotnet tool list)
+  lintmark:
+    command: dotnet tool list
+    regex: (?i)demaconsulting\.lintmark\s+(?<version>\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?)
 
   # SysML2Tools (DemaConsulting.SysML2Tools.Tool from dotnet tool list)
   sysml2tools:

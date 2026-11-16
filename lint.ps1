@@ -57,30 +57,30 @@ if (-not $skipPython) {
     deactivate
 }
 
-# --- Markdown ---
-Write-Host "Linting: markdown..."
-$skipNpm = $false
-$env:PUPPETEER_SKIP_DOWNLOAD = "true"
-npm install --silent
-if ($LASTEXITCODE -ne 0) { $lintError = $true; $skipNpm = $true }
-
-if (-not $skipNpm) {
-    npx markdownlint-cli2 "**/*.md"
-    if ($LASTEXITCODE -ne 0) { $lintError = $true }
-}
-
-# [PROJECT-SPECIFIC] Add additional npm-based lint checks here.
-
-# --- Compliance Tools ---
-Write-Host "Linting: compliance tools..."
+# --- dotnet Tools ---
 $skipDotnetTools = $false
 dotnet tool restore > $null
 if ($LASTEXITCODE -ne 0) { $lintError = $true; $skipDotnetTools = $true }
 
+# --- Spelling ---
+Write-Host "Linting: spelling..."
 if (-not $skipDotnetTools) {
     dotnet textlint
     if ($LASTEXITCODE -ne 0) { $lintError = $true }
+}
 
+# --- Markdown ---
+Write-Host "Linting: markdown..."
+if (-not $skipDotnetTools) {
+    dotnet lintmark
+    if ($LASTEXITCODE -ne 0) { $lintError = $true }
+}
+
+# [PROJECT-SPECIFIC] Add additional lint checks here.
+
+# --- Compliance Tools ---
+Write-Host "Linting: compliance tools..."
+if (-not $skipDotnetTools) {
     dotnet reqstream --lint --enforce --requirements requirements.yaml
     if ($LASTEXITCODE -ne 0) { $lintError = $true }
 
