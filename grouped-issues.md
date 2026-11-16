@@ -45,7 +45,7 @@ system requirement. ReqStream uses this parent-child linkage to validate the dec
 Orphaned requirements cannot be traced back to an approved system-level need.
 
 | File | Orphaned requirements |
-| :--- | :-------------------- |
+| :--- | :--- |
 | `docs/reqstream/api-mark-core.yaml` | `IMarkdownWriterFactory-RejectInvalidOutputDirectory`, `IMarkdownWriterFactory-EnsureOutputDirectory` (2 of 4 children missing) |
 | `docs/reqstream/api-mark-cpp.yaml` | 12 of 17 unit requirements unlisted (see full list in X-A01) |
 | `docs/reqstream/api-mark-dot-net.yaml` | `EmitCombinedMemberPageForCaseInsensitiveCollisions`, `ApiMdListsAllNamespacesWithTypeCount`, `ShowDirectInheritanceInTypeSignature`, `EmitIntraDocLinksInTableCells`, `EmitExternalTypesSection` (5 of N missing) |
@@ -59,7 +59,10 @@ Orphaned requirements cannot be traced back to an approved system-level need.
 
 **Impact**: Designed, implemented, and tested features with no backing requirement (design-first violation)  
 **Severity**: High  
-**Status**: ✅ Done — 4 MSBuild requirements added; 1 Tool parent + 4 Tool children added. Note: several tests referenced do not yet exist (`ApiMarkTask_Cpp_LibraryDescription_ForwardedToTool`, `ApiMarkTask_Cpp_ClangPath_ForwardedToTool`, `ApiMarkTask_DotNet_EmptyXmlDocPath_SkipsExecution`, and the 4 Context option tests).
+**Status**: ✅ Done — 4 MSBuild requirements added; 1 Tool parent + 4 Tool children added. Note: several tests
+referenced do not yet exist (`ApiMarkTask_Cpp_LibraryDescription_ForwardedToTool`,
+`ApiMarkTask_Cpp_ClangPath_ForwardedToTool`, `ApiMarkTask_DotNet_EmptyXmlDocPath_SkipsExecution`, and the 4 Context
+option tests).
 
 Several features are fully built and tested but have no requirement. This violates the
 unidirectional flow principle (requirements → design → implementation → verification).
@@ -114,7 +117,8 @@ a reviewer to form a wrong mental model of what path operations are permitted.
 
 **Impact**: Published interface undocumented at unit level; design inconsistency  
 **Severity**: Medium  
-**Status**: ✅ Done — `IContext context` added to Generate Key Method in both unit designs; `IMarkdownWriterFactory` and `IContext` added as consumed interfaces in DotNet system design.
+**Status**: ✅ Done — `IContext context` added to Generate Key Method in both unit designs; `IMarkdownWriterFactory` and
+`IContext` added as consumed interfaces in DotNet system design.
 
 The system design for both DotNet and Cpp documents the `Generate` method signature as:
 
@@ -147,7 +151,7 @@ design has the correct signature — one of them may need correction rather than
 Three documents describe the `--includes` option differently:
 
 | Document | Claims |
-| :------- | :----- |
+| :--- | :--- |
 | `docs/reqstream/api-mark-tool/cli/context.yaml` (`ParseIncludes` requirement) | "repeated --includes flags" accumulate paths |
 | `docs/design/api-mark-tool/cli/context.md` | "each --includes flag appends a single directory path" |
 | `docs/verification/api-mark-tool/cli/context.md` (Acceptance Criteria) | "`--includes` splits on commas and sets Includes to the resulting array" |
@@ -164,7 +168,9 @@ simultaneously. The actual implementation is the ground truth here.
 
 **Impact**: Unit design too incomplete for code review; factual contradiction  
 **Severity**: Medium  
-**Status**: ✅ Done — created `docs/design/api-mark-cpp/clang-ast-parser.md`; moved disk-existence check from constructor preconditions to Generate preconditions in `cpp-generator.md`; added ClangAstParser to design introduction tree and `ApiMark-Cpp-Generator` review set.
+**Status**: ✅ Done — created `docs/design/api-mark-cpp/clang-ast-parser.md`; moved disk-existence check from
+constructor preconditions to Generate preconditions in `cpp-generator.md`; added ClangAstParser to design introduction
+tree and `ApiMark-Cpp-Generator` review set.
 
 **Gap 1 — ClangAstParser and CppAstModel undocumented** (X-D01)
 
@@ -190,7 +196,8 @@ repeat this contradiction.
 
 **Impact**: Reader of system design cannot determine the full set of MSBuild properties or C++ process arguments  
 **Severity**: High  
-**Status**: ✅ Done — added all 6 missing C++ properties to task contract; updated C++ process contract with all arguments.
+**Status**: ✅ Done — added all 6 missing C++ properties to task contract; updated C++ process contract with all
+arguments.
 
 `docs/design/api-mark-msbuild.md` External Interfaces documents the C++ process contract as:
 
@@ -213,13 +220,15 @@ The corresponding MSBuild task contract property list also omits six properties:
 
 **Impact**: Reviewers cannot confirm test strategies for three implemented features  
 **Severity**: High  
-**Status**: ✅ Done — added test scenarios for `EmitIntraDocLinksInTableCells`, `ApplyGitignoreStylePatternSelectionToHeaders` (5 tests), and `EmitExternalTypesSection`; added corresponding acceptance criteria bullets.
+**Status**: ✅ Done — added test scenarios for `EmitIntraDocLinksInTableCells`,
+`ApplyGitignoreStylePatternSelectionToHeaders` (5 tests), and `EmitExternalTypesSection`; added corresponding acceptance
+criteria bullets.
 
 Three implemented and tested requirements have no documentation in either the unit or system
 verification document. A reviewer cannot confirm coverage without reading test source code.
 
 | Requirement | Linked test(s) | Missing from |
-| :---------- | :------------- | :----------- |
+| :--- | :--- | :--- |
 | `EmitIntraDocLinksInTableCells` | `CppGenerator_Generate_IntraLibraryReturnType_EmitsMarkdownLinkInReturnsCell` | Both unit and system verification |
 | `ApplyGitignoreStylePatternSelectionToHeaders` | 5 tests (include, exclude, re-include patterns) | Both unit and system verification |
 | `EmitExternalTypesSection` | `CppTypeLinkResolver_Linkify_UnknownNamespacedType_TracksExternalType` | Both unit and system verification |
@@ -234,7 +243,9 @@ No Acceptance Criteria entries cover these three features in either document.
 
 **Impact**: Unit and system verification documents inconsistent; requirement-linked tests undocumented  
 **Severity**: Medium  
-**Status**: ✅ Done — added `ApiMarkApiHeaders` criterion to unit doc; added `WithDotNetProject` scenario to both docs; aligned `WithCppProject` "not yet implemented" caveat in system doc; added `ApiHeaders_ForwardedAsIndividualFlags` scenario to unit doc.
+**Status**: ✅ Done — added `ApiMarkApiHeaders` criterion to unit doc; added `WithDotNetProject` scenario to both docs;
+aligned `WithCppProject` "not yet implemented" caveat in system doc; added `ApiHeaders_ForwardedAsIndividualFlags`
+scenario to unit doc.
 
 Four issues in the MSBuild verification documents:
 
@@ -261,7 +272,8 @@ Four issues in the MSBuild verification documents:
 
 **Impact**: Design documents incomplete; program.md and context.md are internally contradictory  
 **Severity**: Medium  
-**Status**: ✅ Done — added 5 missing properties (`LibraryName`, `LibraryDescription`, `Defines`, `CppStandard`, `ClangPath`) to `context.md` Data Model table; updated `cli.md` property list and recognized options list.
+**Status**: ✅ Done — added 5 missing properties (`LibraryName`, `LibraryDescription`, `Defines`, `CppStandard`,
+`ClangPath`) to `context.md` Data Model table; updated `cli.md` property list and recognized options list.
 
 `program.md` Key Methods (CreateGenerator) reads four cpp-specific properties from the Context to
 populate `CppGeneratorOptions`:
@@ -282,7 +294,8 @@ These three documents are mutually contradictory about what the Context exposes.
 
 **Impact**: Requirement-linked tests have no scenario documentation  
 **Severity**: Medium  
-**Status**: ✅ Done — added IContext criterion and scenario to system doc; added 6 DoesNotThrow scenarios to `i-markdown-writer.md`; added `HasCreateMarkdown_Method` scenario to `i-markdown-writer-factory.md`.
+**Status**: ✅ Done — added IContext criterion and scenario to system doc; added 6 DoesNotThrow scenarios to
+`i-markdown-writer.md`; added `HasCreateMarkdown_Method` scenario to `i-markdown-writer-factory.md`.
 
 Three gaps in Core verification documents:
 
@@ -304,12 +317,15 @@ Three gaps in Core verification documents:
 
 **Impact**: Individual behaviors cannot fail independently; compliance evidence is ambiguous  
 **Severity**: Low  
-**Status**: ✅ Done — fixed YAML bug in `api-mark-task.yaml` (`ForwardApiHeaders` missing `- id:`); added 4 missing children to `api-mark-msbuild.yaml`; simplified compound requirement titles for `IncludeObsoleteApisWhenRequested`, `RenderDoxygenDocComments`, `ShowDirectInheritanceInTypeSignature`; expanded `DocumentOperatorOverloads` title to include `~ReturnType` suffix explicitly.
+**Status**: ✅ Done — fixed YAML bug in `api-mark-task.yaml` (`ForwardApiHeaders` missing `- id:`); added 4 missing
+children to `api-mark-msbuild.yaml`; simplified compound requirement titles for `IncludeObsoleteApisWhenRequested`,
+`RenderDoxygenDocComments`, `ShowDirectInheritanceInTypeSignature`; expanded `DocumentOperatorOverloads` title to
+include `~ReturnType` suffix explicitly.
 
 Several requirements bundle multiple independently testable behaviors into one statement:
 
 | System | Requirement | Bundled behaviors |
-| :----- | :---------- | :---------------- |
+| :--- | :--- | :--- |
 | DotNet | `IncludeObsoleteApisWhenRequested` | Include-when-enabled AND exclude-when-disabled |
 | DotNet | `DocumentOperatorOverloads` | Grouping + C# operator symbols as headings + `~ReturnType` suffix resolution |
 | DotNet | `EmitDetailPageForEveryMember` | General rule + case-collision exception (referenced but not linked) |
@@ -325,12 +341,15 @@ Several requirements bundle multiple independently testable behaviors into one s
 
 **Impact**: Design documents incomplete or inaccurate; minor correctness issues  
 **Severity**: Low  
-**Status**: ✅ Done — added `XmlDocReader`, `FileMarkdownWriterFactory` to Software Structure; added `DemaConsulting.TestResults` to OTS; fixed `ToolTask` naming error; removed unverified precondition; added Preconditions to 5 writer methods; added `CppGenerator` to Callers in both core docs; fixed grammar in `cpp-generator.md`; moved `ExternalTypeInfo` to Data Model.
+**Status**: ✅ Done — added `XmlDocReader`, `FileMarkdownWriterFactory` to Software Structure; added
+`DemaConsulting.TestResults` to OTS; fixed `ToolTask` naming error; removed unverified precondition; added Preconditions
+to 5 writer methods; added `CppGenerator` to Callers in both core docs; fixed grammar in `cpp-generator.md`; moved
+`ExternalTypeInfo` to Data Model.
 
 A collection of smaller individual documentation issues:
 
 | ID | File | Issue |
-| :-- | :--- | :---- |
+| :--- | :--- | :--- |
 | DN-D02 | `design/api-mark-dot-net/dot-net-generator.md` | `XmlDocReader` has a dedicated source file with non-trivial logic (XML parsing, O(1) member-key indexing) but is not a declared unit in the Software Structure — documented only as a dependency note. |
 | DN-A05 | `design/introduction.md` | `XmlDocReader.cs` appears in the Folder Layout but is absent from the Software Structure. |
 | T-A02 | `design/introduction.md` | `DemaConsulting.TestResults` is cited in `api-mark-tool.md` Dependencies but has no entry in the Software Structure. |
@@ -343,7 +362,8 @@ A collection of smaller individual documentation issues:
 | X-A05, X-D04 | `design/api-mark-cpp/cpp-generator.md` | Grammar: "If a section do not apply" → "does not apply." |
 | DN-D03 | `design/api-mark-dot-net/dot-net-generator.md` | `ExternalTypeInfo` documented under Key Methods instead of Data Model. |
 
-**Source findings**: DN-D02, DN-A05, T-A02, C-A05, C-R02, M-D02, M-D03, C-D02, C-D03, DN-A04, DN-V01, X-V05, X-A05, X-D04, DN-D03
+**Source findings**: DN-D02, DN-A05, T-A02, C-A05, C-R02, M-D02, M-D03, C-D02, C-D03, DN-A04, DN-V01, X-V05, X-A05,
+X-D04, DN-D03
 
 ---
 
@@ -351,7 +371,8 @@ A collection of smaller individual documentation issues:
 
 **Impact**: Users get incomplete or incorrect guidance from the documentation  
 **Severity**: Low  
-**Status**: ✅ Done — created `CONTRIBUTING.md`; added C++ MSBuild section to `installation.md`; added `APIMARK_CLANG_PATH` to clang prerequisites; fixed References section (removed internal links, now "None.").
+**Status**: ✅ Done — created `CONTRIBUTING.md`; added C++ MSBuild section to `installation.md`; added
+`APIMARK_CLANG_PATH` to clang prerequisites; fixed References section (removed internal links, now "None.").
 
 Four issues in the user-facing documentation:
 
@@ -378,7 +399,7 @@ Four issues in the user-facing documentation:
 Suggested order — highest impact / most decisions needed first:
 
 | # | Group | Key decision needed |
-| :- | :---- | :------------------ |
+| :--- | :--- | :--- |
 | 1 | GRP-01 | Update verification introduction (mostly mechanical, just approval to proceed) |
 | 2 | GRP-02 | Add missing children to reqstream YAML files (mechanical) |
 | 3 | GRP-03 | Write 8 missing requirements — need to agree on wording |

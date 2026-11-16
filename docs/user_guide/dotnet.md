@@ -132,18 +132,18 @@ Additional details rendered in signatures:
 
 ### Generic types and navigation
 
-Generic types use escaped headings (`PropertyEditorRegistry\<TEditor\>`), a Type Parameters
-table taken from `<typeparam>`, and `where` constraints in signatures. Their file names use brace arity, `Name{arity}` (for example `PropertyEditorRegistry{1}.md` for
-`PropertyEditorRegistry<TEditor>` and `KeyedPair{2}.md` for `KeyedPair<TKey, TValue>`). Braces cannot
-appear in a C# identifier, so `Foo{1}.md` (for `Foo<T>`) never collides with `Foo1.md` (for a type named
-`Foo1`), and `Foo.md`, `Foo{1}.md` and `Foo{2}.md` stay distinct. Overload rows
-list every distinct return type (including `void`); the row shows the summary only when every overload has the same summary; when they differ, or any overload has
-none, it shows `Overloaded; see the member page.` instead of one overload's summary. Cross-reference links to an overload
-include the signature in the link text (`UndoHistory.Transact(string, Action)`) and end with an anchor to
-that overload's heading on the shared page. `<paramref>`, `<typeparamref>`, and `<see langword>` render as
-code spans. In cref link text a single type parameter is shown as `T` and several as `T1`..`Tn`, because the
-real names are not in the cref. A text-only `<example>` is shown as prose. Namespace pages start with
-a breadcrumb back to `api.md`, and `api.md` has a Start here link and a Key Types column.
+Generic types use escaped headings (`PropertyEditorRegistry\<TEditor\>`), a Type Parameters table taken from
+`<typeparam>`, and `where` constraints in signatures. Their file names use brace arity, `Name{arity}` (for example
+`PropertyEditorRegistry{1}.md` for `PropertyEditorRegistry<TEditor>` and `KeyedPair{2}.md` for
+`KeyedPair<TKey, TValue>`). Braces cannot appear in a C# identifier, so `Foo{1}.md` (for `Foo<T>`) never collides with
+`Foo1.md` (for a type named `Foo1`), and `Foo.md`, `Foo{1}.md` and `Foo{2}.md` stay distinct. Overload rows list every
+distinct return type (including `void`); the row shows the summary only when every overload has the same summary; when
+they differ, or any overload has none, it shows `Overloaded; see the member page.` instead of one overload's summary.
+Cross-reference links to an overload include the signature in the link text (`UndoHistory.Transact(string, Action)`) and
+end with an anchor to that overload's heading on the shared page. `<paramref>`, `<typeparamref>`, and `<see langword>`
+render as code spans. In cref link text a single type parameter is shown as `T` and several as `T1`..`Tn`, because the
+real names are not in the cref. A text-only `<example>` is shown as prose. Namespace pages start with a breadcrumb back
+to `api.md`, and `api.md` has a Start here link and a Key Types column.
 
 ### Legal File Names
 

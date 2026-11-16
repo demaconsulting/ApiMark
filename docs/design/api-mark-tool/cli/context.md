@@ -19,7 +19,7 @@ argument array.
 **Properties** (all `private init`; set during construction):
 
 | Property | Type | Default | Description |
-| :------- | :--- | :------ | :---------- |
+| :--- | :--- | :--- | :--- |
 | `Version` | `bool` | `false` | `--version` / `-v` flag |
 | `Help` | `bool` | `false` | `--help` / `-?` / `-h` flag |
 | `Silent` | `bool` | `false` | `--silent` flag |
@@ -135,8 +135,8 @@ to stderr (in red) and to the log file.
   name in the message.
 - Flags that require a value (e.g., `--assembly`) throw `ArgumentException`
   when the value token is absent or is another flag.
-- A malformed `--external-link` value (no `=`, empty or whitespace-only assembly name, or empty or whitespace-only path) throws
-  `ArgumentException` whose message names `--external-link` and the offending value.
+- A malformed `--external-link` value (no `=`, empty or whitespace-only assembly name, or empty or whitespace-only path)
+  throws `ArgumentException` whose message names `--external-link` and the offending value.
 - A `@<file>` response-file token referencing a missing or unreadable file
   throws `ArgumentException` naming the offending response-file path, rather
   than propagating the underlying `IOException`/`UnauthorizedAccessException`

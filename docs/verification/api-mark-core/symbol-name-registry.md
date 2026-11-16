@@ -29,7 +29,8 @@ rule NR-06 to NR-09 with exact outputs and the legality predicate.
 
 **SymbolNameRegistry_Resolve_UniqueNames_AreUnchanged**, **..._IdentityName_BeatsTransformedName**,
 **..._NamespaceAndType_NamespaceWins**, **..._ReservedName_KeepsNameAndDisplacesSymbol**,
-**..._DisplacedParent_ChildrenFollow**, **..._BracesBracketsAndEscapeLookalikes_AreDistinctAndExact**: Verify rules NR-14 and NR-16.
+**..._DisplacedParent_ChildrenFollow**, **..._BracesBracketsAndEscapeLookalikes_AreDistinctAndExact**: Verify rules
+NR-14 and NR-16.
 
 **SymbolNameRegistry_Resolve_CaseTwins_LowestKeyWinsAndOtherGetsSuffix**,
 **..._SuffixCandidateTaken_UsesNextNumber**, **..._CanonicallyEquivalentNames_AreDistinguished**: Verify
@@ -40,8 +41,9 @@ rule NR-15.
 uniqueness property over a generated symbol set.
 
 **SymbolNameRegistry_Resolve_CalledTwice_Throws**, **..._GetName_BeforeResolve_Throws**,
-**..._Register_AfterResolve_Throws**, **..._Register_InvalidInput_Throws**, **..._Register_EmptyKey_ThrowsArgumentException**,
-**..._GetName_UnknownKey_Throws**: Verify call-order and input validation.
+**..._Register_AfterResolve_Throws**, **..._Register_InvalidInput_Throws**,
+**..._Register_EmptyKey_ThrowsArgumentException**, **..._GetName_UnknownKey_Throws**: Verify call-order and input
+validation.
 
 **LinkPath_Relative_Pages_ReturnsForwardSlashRelativePath**, **LinkPath_Escape_LinkHostileCharacters_AreEncoded**,
 **LinkPath_Escape_RawAndAlreadyEncodedInput_IsEncodedExactlyOncePerCall**: Verify rule NR-19, including

@@ -21,13 +21,17 @@ service, network dependency, or machine-specific configuration is required.
 - All ApiMark.DotNet tests pass with zero failures.
 - The generator discovers namespaces, types, and members from representative fixture assemblies.
 - Type names and member signatures are simplified into the expected C#-friendly display form.
-- Every visible member receives a dedicated detail page (pure method overloads share one overload page), and is linked from the type page.
+- Every visible member receives a dedicated detail page (pure method overloads share one overload page), and is linked
+  from the type page.
 - Visibility filtering excludes members outside the selected audience.
 - Obsolete member filtering correctly excludes or includes deprecated APIs based on the IncludeObsolete option.
 - Documentation coverage enforcement correctly identifies undocumented types and members at the
   configured enforcement visibility tier, independent of the emission visibility tier.
-- Cross-assembly `<inheritdoc/>` resolution correctly resolves `<inheritdoc/>` targets defined in externally referenced assemblies (e.g. NuGet package dependencies) via `ExternalXmlDocResolver`, including graceful degradation when a referenced assembly's XML documentation is absent or corrupt.
-- Cross-reference linking correctly renders a resolvable `<see cref>`/`<seealso cref>` target as a real relative Markdown link to that target's page in gradual-disclosure output, and leaves single-file output entirely unaffected.
+- Cross-assembly `<inheritdoc/>` resolution correctly resolves `<inheritdoc/>` targets defined in externally referenced
+  assemblies (e.g. NuGet package dependencies) via `ExternalXmlDocResolver`, including graceful degradation when a
+  referenced assembly's XML documentation is absent or corrupt.
+- Cross-reference linking correctly renders a resolvable `<see cref>`/`<seealso cref>` target as a real relative
+  Markdown link to that target's page in gradual-disclosure output, and leaves single-file output entirely unaffected.
 
 ## Test Scenarios
 

@@ -628,7 +628,7 @@ link's label; otherwise returns the code-span text unchanged.
     `TryLinkifyCref` is ever called). The code span is built first via
     `FormatAsInlineCodeSpan`, and that code-span string is then passed into
     `TryLinkifyCref` as the link's label, so a successful link renders as
-    `` [`Type.Member`](path.md) `` — the code span nested inside the link's
+    ``[`Type.Member`](path.md)`` — the code span nested inside the link's
     label.
   - In both cases, an unresolved cref falls back to the label unchanged
     (plain explicit text, or `` `Type.Member` ``), exactly as it did before

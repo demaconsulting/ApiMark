@@ -84,12 +84,12 @@ included if they already exist on disk at pack time.
 
 ## See Also
 
-See the _.NET Documentation_ section for C#-specific MSBuild properties such as
+See the *.NET Documentation* section for C#-specific MSBuild properties such as
 `ApiMarkAssemblyPath`, `ApiMarkXmlDocPath`, `ApiMarkVisibility`,
 `ApiMarkIncludeObsolete`, `ApiMarkExternalLinks`, and the opt-in `ApiMarkEnforceDocs`/
 `ApiMarkEnforceDocsSeverity` documentation-coverage enforcement properties.
 
-See the _C++ Documentation_ section for C++-specific MSBuild properties such as
+See the *C++ Documentation* section for C++-specific MSBuild properties such as
 `ApiMarkIncludePaths`, `ApiMarkApiHeaders`, `ApiMarkDefines`, `ApiMarkCppStandard`,
 `ApiMarkClangPath`, and the opt-in `ApiMarkEnforceDocs`/`ApiMarkEnforceDocsSeverity`
 documentation-coverage enforcement properties (supported for `cpp` alongside

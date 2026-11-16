@@ -31,8 +31,10 @@ and give the resulting Markdown to an AI agent or ship it with your package.
 - 🔍 **Gradual Disclosure** - Index → namespace → type → member detail
 - 🗂️ **Multiple Output Formats** - Gradual-disclosure (file-per-type) or single `api.md` via `--format`
 - 💡 **Example Code Blocks** - `<example><code>` (C#) and `@code`/`@endcode` (Doxygen) blocks rendered in output
-- 🔷 **C#/.NET Support** - Mono.Cecil + XML documentation comments, inherited-member listings, cross-assembly `<inheritdoc/>` and `<see cref>` links
-- 📝 **Documentation Coverage Enforcement** - opt-in `--enforce-docs` warns or fails the build on undocumented API surface (.NET, C++, VHDL)
+- 🔷 **C#/.NET Support** - Mono.Cecil + XML documentation comments, inherited-member listings, cross-assembly
+  `<inheritdoc/>` and `<see cref>` links
+- 📝 **Documentation Coverage Enforcement** - opt-in `--enforce-docs` warns or fails the build on undocumented API
+  surface (.NET, C++, VHDL)
 - ➕ **C++ Support** - `clang -ast-dump=json` + Doxygen-style comments
 - 🔶 **VHDL Support** - Entities, packages, and subprograms from ANTLR4 vhdl2008 grammar + `--!` doc comments
 - 🔧 **MSBuild Integration** - Auto-documents `.csproj` and `.vcxproj` builds
@@ -143,7 +145,8 @@ apimark vhdl --source "src/**/*.vhd" --output docs/api
 apimark vhdl --source "src/**/*.vhd" --source "!src/tb/**/*.vhd" --output docs/api
 ```
 
-Run `apimark --help` for all options. Run `apimark dotnet --help`, `apimark cpp --help`, or `apimark vhdl --help` for language-specific options.
+Run `apimark --help` for all options. Run `apimark dotnet --help`, `apimark cpp --help`, or `apimark vhdl --help` for
+language-specific options.
 
 ### MSBuild Usage
 
@@ -170,8 +173,9 @@ Documentation is generated automatically after every build. Output goes to
 </PropertyGroup>
 ```
 
-See the [User Guide](https://github.com/DemaConsulting/ApiMark/releases) for the full list of properties including C++-specific options.
-(The user guide is published as a release artifact so it is accessible from the NuGet package page, which has no access to repository files.)
+See the [User Guide](https://github.com/DemaConsulting/ApiMark/releases) for the full list of properties including
+C++-specific options. (The user guide is published as a release artifact so it is accessible from the NuGet package
+page, which has no access to repository files.)
 
 ## Building
 
@@ -181,7 +185,8 @@ pwsh ./build.ps1
 
 ## User Guide
 
-The ApiMark User Guide is available on the [ApiMark releases page](https://github.com/DemaConsulting/ApiMark/releases) (published as a release artifact — the guide is not bundled in the NuGet package).
+The ApiMark User Guide is available on the [ApiMark releases page](https://github.com/DemaConsulting/ApiMark/releases)
+(published as a release artifact — the guide is not bundled in the NuGet package).
 
 ## Contributing
 
@@ -189,7 +194,8 @@ See [CONTRIBUTING.md](https://github.com/DemaConsulting/ApiMark/blob/main/CONTRI
 
 ## License
 
-This project is licensed under the MIT License — see [LICENSE](https://github.com/DemaConsulting/ApiMark/blob/main/LICENSE).
+This project is licensed under the MIT License — see
+[LICENSE](https://github.com/DemaConsulting/ApiMark/blob/main/LICENSE).
 
 ## Support
 

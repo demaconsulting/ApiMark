@@ -28,12 +28,15 @@ up after itself. No other external files, services, or configuration are require
 - `--depth <n>` sets `HeadingDepth` to `n`; values outside 1–6 or non-integers throw `ArgumentException`.
 - `--depth 4` with no `--format` flag is accepted (`HeadingDepth = 4`).
 - `--depth 6` is accepted as the upper boundary of the valid ATX heading range (`HeadingDepth = 6`).
-- Context validates only that the value is an integer in the range 1–6 (valid ATX heading levels). It does not enforce format-specific constraints such as the single-file depth limit; those are cross-argument constraints enforced by the program layer after all arguments are parsed.
+- Context validates only that the value is an integer in the range 1–6 (valid ATX heading levels). It does not enforce
+  format-specific constraints such as the single-file depth limit; those are cross-argument constraints enforced by the
+  program layer after all arguments are parsed.
 - `--results`/`--result` sets `ResultsFile` to the supplied path.
 - Flag tokens (starting with `-`) supplied as values for string-valued options are rejected with `ArgumentException`.
 - `--includes` accepts one directory path per flag; repeated flags accumulate paths into `Includes`.
 - `--exclude` accepts one wildcard pattern per flag; repeated flags accumulate patterns into `Excludes` in order.
-- `--reference-paths` accepts one referenced assembly DLL path per flag; repeated flags accumulate paths into `ReferencePaths` in order.
+- `--reference-paths` accepts one referenced assembly DLL path per flag; repeated flags accumulate paths into
+  `ReferencePaths` in order.
 - `--api-headers` patterns are accumulated in order; `!`-prefixed exclusion patterns are forwarded verbatim.
 - `--source` patterns are accumulated in order; `!`-prefixed exclusion patterns are forwarded verbatim.
 - C++ named options (`--library-name`, `--defines`, `--cpp-standard`) set their
@@ -252,9 +255,9 @@ throws `ArgumentException`.
 flags (`Lib.One=../One/api`, `Lib.Two=https://example.com/api`). Act: `Context.Create`.
 Expected: `ExternalLinks` contains both raw entries in order.
 
-**`Context_Create_WithMalformedExternalLink_ThrowsArgumentException`**: Arrange a value with no
-`=` (`NoSeparator`), an empty name (`=path`), a whitespace-only name (`=x`) or an empty path (`Assembly=`). Act: `Context.Create`.
-Expected: `ArgumentException` whose message names `--external-link`.
+**`Context_Create_WithMalformedExternalLink_ThrowsArgumentException`**: Arrange a value with no `=` (`NoSeparator`), an
+empty name (`=path`), a whitespace-only name (`=x`) or an empty path (`Assembly=`). Act: `Context.Create`. Expected:
+`ArgumentException` whose message names `--external-link`.
 
 **`Context_Create_WithBlankExternalLinkValue_SkipsEntry`**: Arrange one valid entry and a second
 `--external-link` whose value is empty or whitespace. Expected: only the valid entry is retained,

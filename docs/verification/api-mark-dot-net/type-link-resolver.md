@@ -22,15 +22,19 @@ output location is needed.
 - A null type reference returns an empty string.
 - `System.Int32` resolves to the C# alias `int`.
 - `System.String` resolves to the C# alias `string`.
-- A System-namespace external type (e.g. `System.IO.Stream`) is returned as plain text and is not tracked as an external dependency.
-- A non-System external type (e.g. `Acme.Widgets.Widget`) is returned as plain text and is added to the external types accumulator.
+- A System-namespace external type (e.g. `System.IO.Stream`) is returned as plain text and is not tracked as an external
+  dependency.
+- A non-System external type (e.g. `Acme.Widgets.Widget`) is returned as plain text and is added to the external types
+  accumulator.
 - An intra-assembly type produces a Markdown link when `generateLinks` is `true`.
 - An intra-assembly type produces plain text when `generateLinks` is `false`.
 - A nullable generic parameter appends `?` when `isNullableAnnotated` is `true`.
-- A `Nullable<T>` value type is unwrapped and rendered as the inner type's C# alias followed by `?` (e.g., `Nullable<int>` renders as `int?`).
+- A `Nullable<T>` value type is unwrapped and rendered as the inner type's C# alias followed by `?` (e.g.,
+  `Nullable<int>` renders as `int?`).
 - A nullable intra-assembly type produces a Markdown link followed by a `?` suffix.
 - An array type appends the array rank suffix (e.g., `[]`) to the element type name.
-- A multi-dimensional array type appends the multi-dimensional rank suffix (e.g., `[,]` for rank-2) to the element type name.
+- A multi-dimensional array type appends the multi-dimensional rank suffix (e.g., `[,]` for rank-2) to the element type
+  name.
 - A nullable array type appends the array rank suffix followed by the `?` suffix (e.g., `string[]?`).
 - A generic container type appends angle-bracket notation listing the resolved type arguments.
 - A nested type referenced as a field type resolves to the correct nested-type page path.
@@ -38,19 +42,28 @@ output location is needed.
 - A nested type referenced as a method parameter type resolves to the correct nested-type page path.
 - A nested type referenced as a generic type argument resolves to the correct nested-type page path.
 - A type nested two levels deep (Outer.Middle.Inner) resolves to the full ancestor-chain page path.
-- Linking to a nested type from within its own parent type's page produces a shorter relative path than linking to the same nested type from an unrelated namespace/type's page.
-- `LinkifyResolvedType` returns a Markdown link to a resolved intra-assembly type's page when link generation is enabled.
+- Linking to a nested type from within its own parent type's page produces a shorter relative path than linking to the
+  same nested type from an unrelated namespace/type's page.
+- `LinkifyResolvedType` returns a Markdown link to a resolved intra-assembly type's page when link generation is
+  enabled.
 - `LinkifyResolvedType` returns the display text unchanged when link generation is disabled.
 - `LinkifyResolvedMember` returns a Markdown link when the member is found in the supplied member-page index.
 - `LinkifyResolvedMember` returns the display text unchanged when the member has no entry in the member-page index.
 - `LinkifyResolvedMember` returns the display text unchanged when link generation is disabled.
-- A type from a mapped external assembly links to that assembly's documentation using an http(s) base or a relative path (normalized and climbed from the current folder), for plain, generic, and nested types, and is not tracked as external.
+- A type from a mapped external assembly links to that assembly's documentation using an http(s) base or a relative path
+  (normalized and climbed from the current folder), for plain, generic, and nested types, and is not tracked as
+  external.
 - Assembly-name lookup is case-insensitive regardless of the caller dictionary's comparer.
-- Rooted and `file:` API paths produce absolute `file:` links, and spaces/parentheses in link targets are percent-encoded.
-- A type from an unmapped assembly, or any external type when `generateLinks` is `false`, stays plain text and is tracked as external.
-- Nullable flags are applied per position in pre-order (generic arguments, array elements); value types never receive `?`; exhausted flags fall back to the default.
+- Rooted and `file:` API paths produce absolute `file:` links, and spaces/parentheses in link targets are
+  percent-encoded.
+- A type from an unmapped assembly, or any external type when `generateLinks` is `false`, stays plain text and is
+  tracked as external.
+- Nullable flags are applied per position in pre-order (generic arguments, array elements); value types never receive
+  `?`; exhausted flags fall back to the default.
 - A by-reference type resolves to its element type without a trailing `&` and consumes no nullable flag.
-- A type scoped to a module other than the documented module (a base type of a referenced assembly) is treated as external: plain text and tracked when unmapped, linked into the mapped documentation when mapped, and never rendered as a link into the documented tree.
+- A type scoped to a module other than the documented module (a base type of a referenced assembly) is treated as
+  external: plain text and tracked when unmapped, linked into the mapped documentation when mapped, and never rendered
+  as a link into the documented tree.
 
 ### Test Scenarios
 
@@ -288,9 +301,9 @@ nullable delegate type arguments render with the same annotations as the signatu
 `DotNetEmitterGradualDisclosure_Emit_NullableMatrixAndParams_OverviewRowsMatchSignature`.
 
 **External generic types**: Arrange `ExternalGenericConsumer` (properties typed
-`ExternalGenericFormat<Dictionary<string, List<int>>>`, `<int[]>` and a nested format). Act by
-emitting gradual disclosure. Expected: External Types rows use aliases, nested and array arguments,
-with escaped angle brackets. Tested by `DotNetEmitterGradualDisclosure_Emit_ExternalGenericTypes_AreSimplifiedAndEscaped`.
+`ExternalGenericFormat<Dictionary<string, List<int>>>`, `<int[]>` and a nested format). Act by emitting gradual
+disclosure. Expected: External Types rows use aliases, nested and array arguments, with escaped angle brackets. Tested
+by `DotNetEmitterGradualDisclosure_Emit_ExternalGenericTypes_AreSimplifiedAndEscaped`.
 
 **External crefs**: Arrange `ExternalCrefClass` (summary crefs to `ExternalBaseClass`, its `DescribeBase`
 member, and `System.String`) with the external fixture mapped to a relative path, mapped to an `https` URL,
@@ -315,6 +328,17 @@ and `NestedGenericHost<T>.Inner<U>` link to `.../NestedHost/Inner.md`, `.../Nest
 the names the target assembly's own registry produces; tested by
 `DotNetEmitterGradualDisclosure_Emit_ExternalLinks_MatchTargetAssemblyRegistryNames`.
 
-**Foreign-module types are external (unit level)**: Construct the resolver with the documented module and linkify a type read from the external fixture assembly (a different module). Expected: unmapped, plain text and the type is tracked as external; mapped, a link into the mapped documentation; a type of the documented module still links locally. Tested by `TypeLinkResolver_Linkify_ForeignModuleType_RendersPlainTextAndTracksExternal`, `TypeLinkResolver_Linkify_ForeignModuleType_MappedAssembly_LinksExternally`, and `TypeLinkResolver_Linkify_DocumentedModuleType_StillLinksLocally`.
+**Foreign-module types are external (unit level)**: Construct the resolver with the documented module and linkify a type
+read from the external fixture assembly (a different module). Expected: unmapped, plain text and the type is tracked as
+external; mapped, a link into the mapped documentation; a type of the documented module still links locally. Tested by
+`TypeLinkResolver_Linkify_ForeignModuleType_RendersPlainTextAndTracksExternal`,
+`TypeLinkResolver_Linkify_ForeignModuleType_MappedAssembly_LinksExternally`, and
+`TypeLinkResolver_Linkify_DocumentedModuleType_StillLinksLocally`.
 
-**Foreign-module types are external**: Arrange `InheritedFromExternalChain`, whose base `ExternalChainMiddle` derives from `ExternalChainTop` in the same external assembly, and emit with reference paths, first unmapped and then with `ExternalLinks` mapping the external fixture assembly. Expected: unmapped, both inherited headings are plain text; mapped, both link into the external documentation; and every relative link on every page resolves to an emitted page. Tested by `DotNetEmitterGradualDisclosure_Emit_ExternalBaseChain_Unmapped_RendersPlainTextHeadings`, `DotNetEmitterGradualDisclosure_Emit_ExternalBaseChain_Mapped_LinksEveryHeadingIntoExternalDocs`, and `DotNetEmitterGradualDisclosure_Emit_WithReferences_AllRelativeLinksResolveToEmittedPages`.
+**Foreign-module types are external**: Arrange `InheritedFromExternalChain`, whose base `ExternalChainMiddle` derives
+from `ExternalChainTop` in the same external assembly, and emit with reference paths, first unmapped and then with
+`ExternalLinks` mapping the external fixture assembly. Expected: unmapped, both inherited headings are plain text;
+mapped, both link into the external documentation; and every relative link on every page resolves to an emitted page.
+Tested by `DotNetEmitterGradualDisclosure_Emit_ExternalBaseChain_Unmapped_RendersPlainTextHeadings`,
+`DotNetEmitterGradualDisclosure_Emit_ExternalBaseChain_Mapped_LinksEveryHeadingIntoExternalDocs`, and
+`DotNetEmitterGradualDisclosure_Emit_WithReferences_AllRelativeLinksResolveToEmittedPages`.

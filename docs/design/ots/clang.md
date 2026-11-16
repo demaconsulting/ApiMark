@@ -59,7 +59,7 @@ Clang is consumed by `ClangAstParser` in `src/ApiMark.Cpp/CppAst/ClangAstParser.
 integration follows these steps:
 
 1. `ClangAstParser.Parse` discovers the clang executable using the priority order described
-   under _Features Used_ above: explicit `CppGeneratorOptions.ClangPath` → `APIMARK_CLANG_PATH`
+   under *Features Used* above: explicit `CppGeneratorOptions.ClangPath` → `APIMARK_CLANG_PATH`
    environment variable → `clang` on PATH → `xcrun` on macOS → vswhere / default LLVM path on Windows.
 2. The parser builds a combined `#include` header file that includes every file in the configured
    public include roots (after applying `ApiHeaderPatterns` gitignore-style filters).

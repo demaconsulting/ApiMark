@@ -27,13 +27,16 @@ or writable output location is needed.
 - An unknown type identifier returns `false` from `TryResolveType`.
 - An external-assembly type's identifier (e.g. a `System.*` type) returns `false` from `TryResolveType`.
 - A method's XML-doc identifier resolves via `TryResolveMember`.
-- A private member's XML-doc identifier still resolves via `TryResolveMember` — CrefTargetResolver applies no visibility filtering.
+- A private member's XML-doc identifier still resolves via `TryResolveMember` — CrefTargetResolver applies no visibility
+  filtering.
 - An unknown member identifier returns `false` from `TryResolveMember`.
 - A malformed cref string returns `false` from `TryResolveType`.
 - A field's XML-doc identifier resolves via `TryResolveMember`.
 - An indexer's XML-doc identifier includes its index parameter type list and resolves via `TryResolveMember`.
-- A generic method's own type parameter used as an array element type (e.g. `T[]`) resolves to XML-doc positional notation, not the raw source name.
-- `DeclaresCrefType` reports a cref of a type, or of a member (existing or not) of a type, of the indexed assembly, so such a cref is never routed to an external link mapping.
+- A generic method's own type parameter used as an array element type (e.g. `T[]`) resolves to XML-doc positional
+  notation, not the raw source name.
+- `DeclaresCrefType` reports a cref of a type, or of a member (existing or not) of a type, of the indexed assembly, so
+  such a cref is never routed to an external link mapping.
 
 ### Test Scenarios
 
@@ -122,4 +125,7 @@ prefix, a foreign `System` type or member, an unknown type, and malformed or emp
 `CrefTargetResolver_DeclaresCrefType_ExplicitInterfaceMember_ReturnsTrue`, and
 `CrefTargetResolver_DeclaresCrefType_ForeignOrMalformed_ReturnsFalse`.
 
-**Own-assembly crefs never link externally**: Arrange the fixture assembly mapped onto itself in `ExternalLinks` (forcing a namespace-prefix overlap) and a cref to a filtered-out private member. Expected: the cref stays a plain code span and no external link is emitted. Tested by `DotNetEmitterGradualDisclosure_Emit_OwnAssemblyCref_NotEmitted_NeverLinksExternally`.
+**Own-assembly crefs never link externally**: Arrange the fixture assembly mapped onto itself in `ExternalLinks`
+(forcing a namespace-prefix overlap) and a cref to a filtered-out private member. Expected: the cref stays a plain code
+span and no external link is emitted. Tested by
+`DotNetEmitterGradualDisclosure_Emit_OwnAssemblyCref_NotEmitted_NeverLinksExternally`.

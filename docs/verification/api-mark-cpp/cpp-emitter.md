@@ -16,25 +16,28 @@ Tests run with the standard xUnit.net test runner.
 - `CppEmitter.Emit` rejects a null factory.
 - Gradual-disclosure dispatch produces multiple files.
 - Single-file dispatch produces exactly one `api` file.
-- File names come from the shared registry: illegal characters, template brackets, and reserved device names become legal forms once, and collisions are resolved up front.
+- File names come from the shared registry: illegal characters, template brackets, and reserved device names become
+  legal forms once, and collisions are resolved up front.
 - `BuildClassDeclaration` renders non-final, final, and inherited class declarations correctly.
 - `WriteCombinedMemberPage` emits one shared page for all overloads of a member name.
 - `WriteCombinedMemberPage` rejects a `members` list containing fewer than two elements with `ArgumentException`.
-- `GetIncludePath` returns a root-relative path when the source file is under a configured public root; returns the full normalized path when no root matches.
+- `GetIncludePath` returns a root-relative path when the source file is under a configured public root; returns the full
+  normalized path when no root matches.
 - `GetIncludePath` rejects a null `sourceFile` with `ArgumentNullException`.
-- `WriteExternalTypesSection` writes an H2 "External Types" heading and a table row per entry when the set is non-empty; writes nothing when the set is empty.
+- `WriteExternalTypesSection` writes an H2 "External Types" heading and a table row per entry when the set is non-empty;
+  writes nothing when the set is empty.
 
 ### Test Scenarios
 
-**Registry-based file names**: Verifies that file names come from the shared registry: illegal characters are
-replaced once, collisions are separated, and every link resolves. Tested by
+**Registry-based file names**: Verifies that file names come from the shared registry: illegal characters are replaced
+once, collisions are separated, and every link resolves. Tested by
 `CppNames_ClassEnumAliasFunctionSameName_AreSeparatedInKindOrder`, `CppNames_CaseTwinClasses_SecondGetsSuffix`,
 `CppNames_ReservedNames_AreNeverTaken`, `CppNames_TemplateAndDeviceNames_AreEscapedOnce`,
 `CppNames_QualifiedNamespaceKey_IsOneEscapedSegment`, `CppNames_AngleTemplateAndLiteralBraceNames_AreDistinctPages`,
 `CppEmitter_NestedTemplateInEscapedNamespace_LinkTargetEqualsWrittenPath`,
 `CppEmitter_OverloadedFreeFunctions_ShareOnePageWithEveryOverload`,
-`CppEmitter_ClassAndFunctionSameName_BothPagesWrittenAndLinked`, `CppEmitter_CollisionModel_AllPagesUniqueLegalAndLinksResolve`,
-and `CppEmitter_CollisionModel_IsDeterministic`.
+`CppEmitter_ClassAndFunctionSameName_BothPagesWrittenAndLinked`,
+`CppEmitter_CollisionModel_AllPagesUniqueLegalAndLinksResolve`, and `CppEmitter_CollisionModel_IsDeterministic`.
 
 **Null factory rejection**: Verifies that passing null to `CppEmitter.Emit` throws
 `ArgumentNullException` before any I/O occurs. Tested by

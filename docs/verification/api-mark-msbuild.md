@@ -38,7 +38,8 @@ on non-Windows environments.
 - For C++ projects, `ApiMarkClangTimeoutMs` is forwarded as `--clang-timeout-ms` when set.
 - `ApiMarkIncludeObsolete` set to `true` adds the `--include-obsolete` flag to the spawned tool
   command.
-- `ApiMarkReferencePaths` is forwarded to the tool as repeated `--reference-paths` flags for .NET builds, and is auto-populated from `@(ReferencePath)` via the `.targets` file when not explicitly set by the project.
+- `ApiMarkReferencePaths` is forwarded to the tool as repeated `--reference-paths` flags for .NET builds, and is
+  auto-populated from `@(ReferencePath)` via the `.targets` file when not explicitly set by the project.
 - When `ApiMarkXmlDocPath` is empty or unset for a .NET project, the task returns success
   immediately without invoking the tool.
 - A non-zero exit code from the spawned tool causes Execute to return false and log an MSBuild error.

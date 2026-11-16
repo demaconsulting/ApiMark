@@ -250,7 +250,7 @@ These helpers are grouped by concern:
 - *Parameters*: `string name` — the raw IL type name that may contain a backtick arity
   suffix (e.g. `Dictionary\`2`).
 - *Returns*: `string` — the name with the backtick and arity digit removed entirely
-  (e.g. `Dictionary\`2` → `Dictionary`). Returns the input unchanged when no backtick is
+  (e.g. `Dictionary\`2`→`Dictionary`). Returns the input unchanged when no backtick is
   present.
 - *Algorithm*: Locates the first backtick character in `name`; if found, returns the
   substring before it; otherwise returns the input unchanged. Does not delegate to
@@ -265,11 +265,11 @@ name to a filesystem-safe form by replacing the backtick arity with brace arity.
 - *Parameters*: `string name` — the raw IL type name that may contain a backtick
   arity suffix (e.g. `Dictionary\`2`).
 - *Returns*: `string` — the name with the backtick arity replaced by brace arity
-  (e.g. `Dictionary\`2` → `Dictionary{2}`). Returns the input unchanged
+  (e.g. `Dictionary\`2`→`Dictionary{2}`). Returns the input unchanged
   when no backtick is present.
 - *Note*: This method delegates to `TypeNameSimplifier.FlattenArity`.
 - *Used by*: Both sub-emitters when constructing folder and file paths for generic
-  types, so that `List\`1` produces a filesystem path segment `List1` rather than
+  types, so that `List\`1`produces a filesystem path segment`List1` rather than
   embedding a backtick in the path.
 
 **DotNetEmitter.BuildPropertyAccessors** (internal static): Builds the accessor
@@ -448,7 +448,9 @@ Signature rendering is deliberately tolerant of incomplete metadata and never th
 ### Dependencies
 
 - **IApiEmitter** — DotNetEmitter implements this interface from ApiMarkCore.
-- **EmitConfig** — DotNetEmitter reads `Format` to select the sub-emitter; `HeadingDepth` is consumed by `DotNetEmitterSingleFile` to offset all heading levels and is not used by `DotNetEmitterGradualDisclosure`, which writes separate files each beginning at H1.
+- **EmitConfig** — DotNetEmitter reads `Format` to select the sub-emitter; `HeadingDepth` is consumed by
+  `DotNetEmitterSingleFile` to offset all heading levels and is not used by `DotNetEmitterGradualDisclosure`, which
+  writes separate files each beginning at H1.
 - **IMarkdownWriterFactory** — received through `Emit`; forwarded to sub-emitters.
 - **DotNetAstModel** — held by reference; passed to sub-emitters.
 - **DotNetEmitterGradualDisclosure** — sub-emitter created and called by Emit.

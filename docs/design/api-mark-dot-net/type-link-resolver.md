@@ -152,9 +152,10 @@ scope is an `AssemblyNameReference`, or the `ModuleDefinition` of another assemb
 owning assembly's name is used), present in `_externalLinks`. Returns `null` when
 links are disabled or the assembly is not mapped. See External Assembly Links.
 
-**TypeLinkResolver.BuildTypePageKey** (private static; type file names come from `DotNetEmitter.GetTypeFileName`, which reads the approved names from the symbol-name registry): Computes a type's page key
-for a given set of root namespaces. `GetTypePageKey` calls it with this assembly's
-root namespaces; `TryLinkExternalType` calls it with the mapped assembly's.
+**TypeLinkResolver.BuildTypePageKey** (private static; type file names come from `DotNetEmitter.GetTypeFileName`, which
+reads the approved names from the symbol-name registry): Computes a type's page key for a given set of root namespaces.
+`GetTypePageKey` calls it with this assembly's root namespaces; `TryLinkExternalType` calls it with the mapped
+assembly's.
 
 **TypeLinkResolver.LinkifyResolvedType**: Resolves a `cref` target already
 known to be a type declared in the assembly being documented to a Markdown
@@ -269,7 +270,7 @@ Markdown (see External Assembly Links).
   types and as display text for generic arguments. `TypeNameSimplifier.FlattenArity`
   converts a backtick arity suffix to a plain numeric suffix (e.g. `List\`1` →
   `List1`) for use in file-path generation, while`TypeNameSimplifier.StripArity`
-  removes the backtick suffix entirely (e.g. `List\`1` → `List`) for display name
+  removes the backtick suffix entirely (e.g. `List\`1`→`List`) for display name
   generation. These two methods serve distinct purposes and must not be substituted
   for each other.
 - **DotNetEmitter.GetNamespaceFolderPath** — called to compute the documentation

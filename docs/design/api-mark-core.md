@@ -35,19 +35,15 @@ flowchart TD
     DocumentationCoverageResult --> |contains| UndocumentedApiItem
 ```
 
-ApiMarkDotNet, ApiMarkCpp, and ApiMarkVhdl each implement IApiGenerator. The `Parse`
-method returns an `IApiEmitter` (a private nested class) that holds the parsed symbol
-model. The caller then calls `IApiEmitter.Emit` with an `EmitConfig` and
-`IMarkdownWriterFactory` to write the documentation tree. ApiMarkTool directly
-consumes IApiGenerator; ApiMarkMsbuild spawns ApiMarkTool as a child process
-and never calls IApiGenerator in-process. `PathHelpers` is a public utility —
-consumed in-process by ApiMarkDotNet and ApiMarkCpp for on-disk case
-normalization in addition to ApiMarkCore's own internal `SafePathCombine` use
-— rather than an internal-only implementation detail. GlobFileCollector is a public static utility consumed by ApiMarkCpp
-and ApiMarkVhdl to discover source files using glob patterns.
-`IDocumentationCoverageCapable` is an optional capability interface implemented
-by `DotNetGenerator`, `CppGenerator`, and `VhdlGenerator`; ApiMarkTool tests for
-it via `generator is IDocumentationCoverageCapable` to keep the
+ApiMarkDotNet, ApiMarkCpp, and ApiMarkVhdl each implement IApiGenerator. The `Parse` method returns an `IApiEmitter` (a
+private nested class) that holds the parsed symbol model. The caller then calls `IApiEmitter.Emit` with an `EmitConfig`
+and `IMarkdownWriterFactory` to write the documentation tree. ApiMarkTool directly consumes IApiGenerator;
+ApiMarkMsbuild spawns ApiMarkTool as a child process and never calls IApiGenerator in-process. `PathHelpers` is a public
+utility — consumed in-process by ApiMarkDotNet and ApiMarkCpp for on-disk case normalization in addition to
+ApiMarkCore's own internal `SafePathCombine` use — rather than an internal-only implementation detail. GlobFileCollector
+is a public static utility consumed by ApiMarkCpp and ApiMarkVhdl to discover source files using glob patterns.
+`IDocumentationCoverageCapable` is an optional capability interface implemented by `DotNetGenerator`, `CppGenerator`,
+and `VhdlGenerator`; ApiMarkTool tests for it via `generator is IDocumentationCoverageCapable` to keep the
 `--enforce-docs` CLI wiring language-agnostic.
 
 ## External Interfaces
