@@ -34,8 +34,8 @@ process dependencies are required.
 - Edge-case inputs — null context namespace, type with no applicable rules, deeply nested generic
   arguments — do not cause exceptions. The null-context-namespace case is verified for exact
   output by `TypeNameSimplifier_Simplify_NullContextNamespace_ReturnsExactNames` (and for
-  not throwing by `TypeNameSimplifier_Simplify_NullContextNamespace_DoesNotThrow`). Nested-
-  namespace prefix stripping is verified by
+  not throwing by `TypeNameSimplifier_Simplify_NullContextNamespace_DoesNotThrow`). Nested-namespace
+  prefix stripping is verified by
   `TypeNameSimplifier_Simplify_ContextNamespaceTypes_NestedNamespace_StripsSharedPrefix`.
 - By-reference unwrapping, multi-dimensional arrays with per-position nullability,
   struct-constrained generic parameters with an inherited flag of 2, `NullableContext`
