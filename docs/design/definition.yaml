@@ -6,14 +6,47 @@ input-files:
   - docs/design/introduction.md
   - docs/design/api-mark-core.md
   - docs/design/api-mark-core/i-api-generator.md
+  - docs/design/api-mark-core/i-api-emitter.md
+  - docs/design/api-mark-core/emit-config.md
+  - docs/design/api-mark-core/i-context.md
   - docs/design/api-mark-core/i-markdown-writer-factory.md
   - docs/design/api-mark-core/i-markdown-writer.md
+  - docs/design/api-mark-core/file-markdown-writer-factory.md
+  - docs/design/api-mark-core/file-markdown-writer.md
+  - docs/design/api-mark-core/glob-file-collector.md
+  - docs/design/api-mark-core/i-documentation-coverage-capable.md
   - docs/design/api-mark-core/path-helpers.md
   - docs/design/api-mark-core/symbol-name-registry.md
   - docs/design/api-mark-core/file-naming-rules.md
   - docs/design/api-mark-dot-net.md
   - docs/design/api-mark-dot-net/dot-net-generator.md
+  - docs/design/api-mark-dot-net/dot-net-ast-model.md
+  - docs/design/api-mark-dot-net/dot-net-emitter.md
+  - docs/design/api-mark-dot-net/dot-net-emitter-gradual-disclosure.md
+  - docs/design/api-mark-dot-net/dot-net-emitter-single-file.md
+  - docs/design/api-mark-dot-net/type-link-resolver.md
+  - docs/design/api-mark-dot-net/cref-target-resolver.md
   - docs/design/api-mark-dot-net/type-name-simplifier.md
+  - docs/design/api-mark-dot-net/xml-doc-reader.md
+  - docs/design/api-mark-dot-net/external-xml-doc-resolver.md
+  - docs/design/api-mark-dot-net/documentation-coverage-checker.md
+  - docs/design/api-mark-cpp.md
+  - docs/design/api-mark-cpp/cpp-generator.md
+  - docs/design/api-mark-cpp/cpp-ast-model.md
+  - docs/design/api-mark-cpp/clang-ast-parser.md
+  - docs/design/api-mark-cpp/cpp-emitter.md
+  - docs/design/api-mark-cpp/cpp-emitter-gradual-disclosure.md
+  - docs/design/api-mark-cpp/cpp-emitter-single-file.md
+  - docs/design/api-mark-cpp/cpp-type-link-resolver.md
+  - docs/design/api-mark-cpp/documentation-coverage-checker.md
+  - docs/design/api-mark-vhdl.md
+  - docs/design/api-mark-vhdl/vhdl-generator.md
+  - docs/design/api-mark-vhdl/vhdl-ast-model.md
+  - docs/design/api-mark-vhdl/vhdl-ast-parser.md
+  - docs/design/api-mark-vhdl/vhdl-emitter.md
+  - docs/design/api-mark-vhdl/vhdl-emitter-gradual-disclosure.md
+  - docs/design/api-mark-vhdl/vhdl-emitter-single-file.md
+  - docs/design/api-mark-vhdl/documentation-coverage-checker.md
   - docs/design/api-mark-msbuild.md
   - docs/design/api-mark-msbuild/api-mark-task.md
   - docs/design/api-mark-tool.md
@@ -24,6 +57,11 @@ input-files:
   - docs/design/api-mark-tool/program.md
   - docs/design/ots.md
   - docs/design/ots/mono-cecil.md
+  - docs/design/ots/clang.md
+  - docs/design/ots/antlr4.md
+  - docs/design/ots/file-system-globbing.md
+  - docs/design/ots/dema-consulting-test-results.md
+  - docs/design/ots/cpp-ast-net.md
 template: template.html
 table-of-contents: true
 number-sections: true

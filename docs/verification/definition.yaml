@@ -5,13 +5,46 @@ input-files:
   - docs/verification/introduction.md
   - docs/verification/api-mark-core.md
   - docs/verification/api-mark-core/i-api-generator.md
+  - docs/verification/api-mark-core/i-api-emitter.md
+  - docs/verification/api-mark-core/emit-config.md
+  - docs/verification/api-mark-core/i-context.md
   - docs/verification/api-mark-core/i-markdown-writer-factory.md
   - docs/verification/api-mark-core/i-markdown-writer.md
+  - docs/verification/api-mark-core/file-markdown-writer-factory.md
+  - docs/verification/api-mark-core/file-markdown-writer.md
+  - docs/verification/api-mark-core/glob-file-collector.md
+  - docs/verification/api-mark-core/i-documentation-coverage-capable.md
   - docs/verification/api-mark-core/path-helpers.md
   - docs/verification/api-mark-core/symbol-name-registry.md
   - docs/verification/api-mark-dot-net.md
   - docs/verification/api-mark-dot-net/dot-net-generator.md
+  - docs/verification/api-mark-dot-net/dot-net-ast-model.md
+  - docs/verification/api-mark-dot-net/dot-net-emitter.md
+  - docs/verification/api-mark-dot-net/dot-net-emitter-gradual-disclosure.md
+  - docs/verification/api-mark-dot-net/dot-net-emitter-single-file.md
+  - docs/verification/api-mark-dot-net/type-link-resolver.md
+  - docs/verification/api-mark-dot-net/cref-target-resolver.md
   - docs/verification/api-mark-dot-net/type-name-simplifier.md
+  - docs/verification/api-mark-dot-net/xml-doc-reader.md
+  - docs/verification/api-mark-dot-net/external-xml-doc-resolver.md
+  - docs/verification/api-mark-dot-net/documentation-coverage-checker.md
+  - docs/verification/api-mark-cpp.md
+  - docs/verification/api-mark-cpp/cpp-generator.md
+  - docs/verification/api-mark-cpp/cpp-ast-model.md
+  - docs/verification/api-mark-cpp/clang-ast-parser.md
+  - docs/verification/api-mark-cpp/cpp-emitter.md
+  - docs/verification/api-mark-cpp/cpp-emitter-gradual-disclosure.md
+  - docs/verification/api-mark-cpp/cpp-emitter-single-file.md
+  - docs/verification/api-mark-cpp/cpp-type-link-resolver.md
+  - docs/verification/api-mark-cpp/documentation-coverage-checker.md
+  - docs/verification/api-mark-vhdl.md
+  - docs/verification/api-mark-vhdl/vhdl-generator.md
+  - docs/verification/api-mark-vhdl/vhdl-ast-model.md
+  - docs/verification/api-mark-vhdl/vhdl-ast-parser.md
+  - docs/verification/api-mark-vhdl/vhdl-emitter.md
+  - docs/verification/api-mark-vhdl/vhdl-emitter-gradual-disclosure.md
+  - docs/verification/api-mark-vhdl/vhdl-emitter-single-file.md
+  - docs/verification/api-mark-vhdl/documentation-coverage-checker.md
   - docs/verification/api-mark-msbuild.md
   - docs/verification/api-mark-msbuild/api-mark-task.md
   - docs/verification/api-mark-tool.md
@@ -22,6 +55,11 @@ input-files:
   - docs/verification/api-mark-tool/program.md
   - docs/verification/ots.md
   - docs/verification/ots/mono-cecil.md
+  - docs/verification/ots/clang.md
+  - docs/verification/ots/antlr4.md
+  - docs/verification/ots/file-system-globbing.md
+  - docs/verification/ots/dema-consulting-test-results.md
+  - docs/verification/ots/cpp-ast-net.md
 template: template.html
 table-of-contents: true
 number-sections: true
