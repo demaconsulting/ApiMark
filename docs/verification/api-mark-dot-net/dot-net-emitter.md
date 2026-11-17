@@ -36,7 +36,7 @@ service or network dependency is needed.
   accessibility (e.g., a protected property with protected get and set renders as
   `protected { get; set; }` without redundant prefixes).
 - `BuildPropertyAccessors` emits `init;` for init-only (C# 9+) property setters.
-- `ToXmlDocTypeName` converts Cecil generic type names (e.g. `List\`1`) to XML doc member-ID format (e.g.`List{T}`) so
+- `ToXmlDocTypeName` converts Cecil generic type names (e.g. ``List`1``) to XML doc member-ID format (e.g. `List{T}`) so
   XML doc lookups use the correct key format.
 - `ToXmlDocTypeName` converts Cecil byref type names (trailing `&`, used for `ref`/`out`/`in` parameters) to XML doc
   member-ID format (trailing `@`) so XML doc lookups use the correct key format.
@@ -48,8 +48,8 @@ service or network dependency is needed.
   declaring type is unresolvable (e.g. an external assembly not supplied via
   `ReferencePaths`), and classifies such a constructor as not implicit.
 - `IsImplicitDefaultConstructor` returns `false` for a bodyless constructor (e.g. one whose
-  implementation attributes mark it `InternalCall`, simulating a metadata-only/reference-
-  assembly stub or an `extern`/P/Invoke-declared constructor), regardless of its sequence-point
+  implementation attributes mark it `InternalCall`, simulating a
+  metadata-only/reference-assembly stub or an `extern`/P/Invoke-declared constructor), regardless of its sequence-point
   data.
 - `BuildFieldSignature` appends `" = " + FormatConstantValue(field.Constant)` to the signature
   for a field with `HasConstant == true`, including enum members rendered via their underlying

@@ -362,7 +362,7 @@ according to the following element-to-text mappings:
 - `<see cref="..."/>` → formatted cref value via the `FormatCref` helper (strips the
   type-kind prefix, strips the namespace path to leave just the type name, and replaces
   generic arity markers with angle-bracket type-parameter placeholders via
-  `FormatTypeArity`, e.g. `List\`1` → `List<T>`,`Dictionary\`2` → `Dictionary<T1, T2>`).
+  `FormatTypeArity`, e.g. ``List`1`` → `List<T>`, ``Dictionary`2`` → `Dictionary<T1, T2>`).
   Unless the cref is a constructor (`#ctor`), the formatted text is additionally
   wrapped in an inline Markdown code span — this applies to type-only crefs as well
   as crefs to a type member (property, field, event, or non-constructor method); see
@@ -411,8 +411,8 @@ display string, returning a `(string Text, bool ShouldWrapInCodeSpan)` tuple.
 - *Algorithm*: Strips the type-kind prefix (`T:`, `M:`, `P:`, `F:`, `E:`); strips
   the namespace path from the remaining qualified name to leave just the type and
   member name; replaces generic arity markers (`` `1 ``, `` `2 ``) with angle-bracket
-  type-parameter placeholder notation via `FormatTypeArity` (e.g., `List\`1` →
-  `List<T>`,`Dictionary\`2` → `Dictionary<T1, T2>`); replaces`#ctor` with the
+  type-parameter placeholder notation via `FormatTypeArity` (e.g., ``List`1`` →
+  `List<T>`, ``Dictionary`2`` → `Dictionary<T1, T2>`); replaces `#ctor` with the
   declaring type name for constructor crefs; appends `()` to method crefs that
   include a parameter list.
 - *Return contract*: `ShouldWrapInCodeSpan` is `false` only for a constructor
@@ -632,8 +632,8 @@ link's label; otherwise returns the code-span text unchanged.
     label.
   - In both cases, an unresolved cref falls back to the label unchanged
     (plain explicit text, or `` `Type.Member` ``), exactly as it did before
-    this feature existed. The nesting is deliberately link-outside/code-span-
-    inside rather than the reverse: Markdown code-span content is rendered
+    this feature existed. The nesting is deliberately
+    link-outside/code-span-inside rather than the reverse: Markdown code-span content is rendered
     literally, so a link placed inside a code span would show as inert
     `[...](...)` text rather than a clickable link.
 

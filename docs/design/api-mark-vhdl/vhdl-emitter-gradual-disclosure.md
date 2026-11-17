@@ -57,18 +57,18 @@ index page.
 **VhdlEmitterGradualDisclosure.EmitEntityPage** (private static): Writes a single
 entity detail page.
 
-- H1 entity name, `*Entity declared in \`{fileName}\`*` attribution paragraph,
+- H1 entity name, ``*Entity declared in `{fileName}`*`` attribution paragraph,
   summary, details, Generics section (H2 — table when generics are present,
   `NoItemsPlaceholder` paragraph when empty), optional Ports table
   (H2 Name/Direction/Type/Description — section omitted when the entity has no ports),
   optional Architectures section (H2 — section omitted when no architectures implement
   the entity; when present, one bold entry per architecture formatted as
-  `**{name}** (\`{fileName}\`): {summary}` with optional details paragraph).
+  ``**{name}** (`{fileName}`): {summary}`` with optional details paragraph).
 
 **VhdlEmitterGradualDisclosure.EmitPackagePage** (private static): Writes a single
 package detail page and calls `EmitSubprogramDetailPage` for each subprogram.
 
-- H1 package name, `*Package declared in \`{fileName}\`*` attribution paragraph,
+- H1 package name, ``*Package declared in `{fileName}`*`` attribution paragraph,
   summary, details, Types paragraphs, Constants paragraphs,
   Components as `**name** — summary` paragraphs, Subprograms section with links
   to per-subprogram detail pages.

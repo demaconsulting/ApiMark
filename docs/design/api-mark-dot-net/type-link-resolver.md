@@ -268,9 +268,9 @@ Markdown (see External Assembly Links).
 
 - **TypeNameSimplifier** — called to produce simplified type names for primitive
   types and as display text for generic arguments. `TypeNameSimplifier.FlattenArity`
-  converts a backtick arity suffix to a plain numeric suffix (e.g. `List\`1` →
-  `List1`) for use in file-path generation, while`TypeNameSimplifier.StripArity`
-  removes the backtick suffix entirely (e.g. `List\`1`→`List`) for display name
+  converts a backtick arity suffix to brace arity (e.g. ``List`1`` →
+  `List{1}`) for use in file-path generation, while `TypeNameSimplifier.StripArity`
+  removes the backtick suffix entirely (e.g. ``List`1`` → `List`) for display name
   generation. These two methods serve distinct purposes and must not be substituted
   for each other.
 - **DotNetEmitter.GetNamespaceFolderPath** — called to compute the documentation

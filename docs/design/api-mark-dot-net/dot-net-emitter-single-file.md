@@ -84,7 +84,7 @@ contains nested types.
   is written only when remarks are also absent — matching the same
   placeholder-suppression rule as `DotNetEmitterGradualDisclosure`'s
   member-detail-page bodies (see that unit's design doc for the full rationale).
-- For nested types, a notice paragraph `"Nested type of \`{OuterType}\`."` is
+- For nested types, a notice paragraph ``"Nested type of `{OuterType}`."`` is
   emitted immediately after the H{depth+2} heading to establish parent context.
 - When the type is a delegate (detected via `DotNetEmitter.IsDelegate`), the
   method returns early after emitting the declaration, summary, remarks, and
