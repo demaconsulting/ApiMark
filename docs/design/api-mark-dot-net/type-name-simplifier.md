@@ -140,7 +140,7 @@ Simplification rules, numbered 0 through 7 (eight rules), applied in this order:
 suffix from a type name.
 
 - *Parameters*: `string name` — raw type name that may contain a backtick arity
-  suffix (e.g. `List\`1`).
+  suffix (e.g. ``List`1``).
 - *Returns*: `string` — the name without the arity suffix (e.g. `List`).
 - *Callers*: TypeLinkResolver (when computing external type display names and
   type page keys).
@@ -155,7 +155,7 @@ still distinguishes generic types by parameter count. Braces cannot occur in a C
 identifier, so `Foo{1}` never collides with a real type named `Foo1`.
 
 - *Parameters*: `string name` — raw IL type name that may contain a backtick arity
-  suffix (e.g. `Foo\`2`).
+  suffix (e.g. ``Foo`2``).
 - *Returns*: `string` — the name with the backtick arity replaced by brace arity
   (e.g. `Foo{2}`). Unchanged when no backtick is present.
 - *Callers*: TypeLinkResolver (when computing type page keys via `GetTypePageKey`),

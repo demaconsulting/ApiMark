@@ -36,7 +36,7 @@ service or network dependency is needed.
   accessibility (e.g., a protected property with protected get and set renders as
   `protected { get; set; }` without redundant prefixes).
 - `BuildPropertyAccessors` emits `init;` for init-only (C# 9+) property setters.
-- `ToXmlDocTypeName` converts Cecil generic type names (e.g. `List\`1`) to XML doc member-ID format (e.g.`List{T}`) so
+- `ToXmlDocTypeName` converts Cecil generic type names (e.g. ``List`1``) to XML doc member-ID format (e.g. `List{T}`) so
   XML doc lookups use the correct key format.
 - `ToXmlDocTypeName` converts Cecil byref type names (trailing `&`, used for `ref`/`out`/`in` parameters) to XML doc
   member-ID format (trailing `@`) so XML doc lookups use the correct key format.
