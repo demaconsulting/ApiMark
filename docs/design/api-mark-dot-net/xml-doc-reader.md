@@ -632,8 +632,8 @@ link's label; otherwise returns the code-span text unchanged.
     label.
   - In both cases, an unresolved cref falls back to the label unchanged
     (plain explicit text, or `` `Type.Member` ``), exactly as it did before
-    this feature existed. The nesting is deliberately link-outside/code-span-
-    inside rather than the reverse: Markdown code-span content is rendered
+    this feature existed. The nesting is deliberately
+    link-outside/code-span-inside rather than the reverse: Markdown code-span content is rendered
     literally, so a link placed inside a code span would show as inert
     `[...](...)` text rather than a clickable link.
 

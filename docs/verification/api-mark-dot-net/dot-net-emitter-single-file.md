@@ -215,7 +215,7 @@ default for each supported constant kind, and init-only properties render `init`
 `DotNetEmitterSingleFile_Emit_InitOnlyProperties_RenderInitAccessor`.
 
 **No breadcrumbs**: Arrange the fixture assembly. Act by emitting single-file output.
-Expected: no paragraph contains a breadcrumb (`›` with links). Tested by
+Expected: no paragraph contains a breadcrumb (`" › "` with links). Tested by
 `DotNetEmitterSingleFile_Emit_ValidModel_EmitsNoBreadcrumbs`.
 
 **Nullable parameter annotation**: Arrange a nullable reference parameter. Expected: the type

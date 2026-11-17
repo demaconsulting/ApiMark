@@ -48,8 +48,8 @@ service or network dependency is needed.
   declaring type is unresolvable (e.g. an external assembly not supplied via
   `ReferencePaths`), and classifies such a constructor as not implicit.
 - `IsImplicitDefaultConstructor` returns `false` for a bodyless constructor (e.g. one whose
-  implementation attributes mark it `InternalCall`, simulating a metadata-only/reference-
-  assembly stub or an `extern`/P/Invoke-declared constructor), regardless of its sequence-point
+  implementation attributes mark it `InternalCall`, simulating a
+  metadata-only/reference-assembly stub or an `extern`/P/Invoke-declared constructor), regardless of its sequence-point
   data.
 - `BuildFieldSignature` appends `" = " + FormatConstantValue(field.Constant)` to the signature
   for a field with `HasConstant == true`, including enum members rendered via their underlying
