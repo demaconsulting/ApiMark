@@ -269,7 +269,7 @@ name to a filesystem-safe form by replacing the backtick arity with brace arity.
   when no backtick is present.
 - *Note*: This method delegates to `TypeNameSimplifier.FlattenArity`.
 - *Used by*: Both sub-emitters when constructing folder and file paths for generic
-  types, so that ``List`1`` produces a filesystem path segment `List1` rather than
+  types, so that ``List`1`` produces a filesystem path segment `List{1}` rather than
   embedding a backtick in the path.
 
 **DotNetEmitter.BuildPropertyAccessors** (internal static): Builds the accessor
