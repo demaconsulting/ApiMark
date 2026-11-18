@@ -99,6 +99,13 @@
         "sysml2tools"
       ],
       "rollForward": false
+    },
+    "demaconsulting.docdown.tool": {
+      "version": "0.3.0-beta.6",
+      "commands": [
+        "docdown"
+      ],
+      "rollForward": false
     }
   }
 }
