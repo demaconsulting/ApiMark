@@ -12,6 +12,8 @@
 [![Security](https://sonarcloud.io/api/project_badges/measure?project=demaconsulting_ApiMark&metric=security_rating)](https://sonarcloud.io/dashboard?id=demaconsulting_ApiMark)
 [![NuGet](https://img.shields.io/nuget/v/DemaConsulting.ApiMark.MSBuild?style=plastic)](https://www.nuget.org/packages/DemaConsulting.ApiMark.MSBuild)
 
+![ApiMark banner: the ApiMark name with the tagline 'Your API, in Markdown. Every gap, caught.' and the command 'apimark vhdl --source rtl/*.vhd --output api'. .NET assemblies with their XML documentation, C++ headers, VHDL sources, and MSBuild projects flow on curved arrows into the apimark .NET tool, and arrows lead out to Markdown API pages with member tables and cross-links, a documentation-coverage gate that flags a missing doc comment, a Pandoc PDF, and docs published to the repository, the NuGet package, and AI agents][hero]
+
 ## Overview
 
 ApiMark generates compact, AI-friendly API reference documentation in Markdown
@@ -41,7 +43,8 @@ and give the resulting Markdown to an AI agent or ship it with your package.
 - 🖥️ **CLI Tool** - `apimark` dotnet tool covering all languages
 - 🤖 **AI-Optimized** - Minimal noise, explicit navigation links
 - 🌐 **Multi-Platform** - Windows, Linux, and macOS on .NET 10 and 11
-- ✅ **Self-Validation** - Built-in qualification tests for regulated environments
+- ✅ **Self-Validation** - Built-in qualification tests that generate and check sample API docs end to end, for
+  regulated environments
 
 ## Platform Support
 
@@ -201,3 +204,5 @@ This project is licensed under the MIT License — see
 
 - [Report a bug or request a feature](https://github.com/DemaConsulting/ApiMark/issues)
 - [Ask a question or start a discussion](https://github.com/DemaConsulting/ApiMark/discussions)
+
+[hero]: https://raw.githubusercontent.com/demaconsulting/ApiMark/main/docs/images/hero.png
