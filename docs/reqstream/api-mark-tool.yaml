@@ -33,3 +33,4 @@ sections:
           - Program_Main_DotNetCommand_GeneratesExpectedOutput
           - ApiMark_DotNetGeneration
           - ApiMark_VhdlGeneration
+          - ApiMark_CppGeneration
