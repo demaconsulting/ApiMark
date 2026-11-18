@@ -34,12 +34,30 @@ the full option reference and usage details for each language subcommand.
 ## Self-Validation
 
 The `--validate` flag runs ApiMark's built-in self-validation suite without generating
-any API documentation. Use this in CI to verify that the installed tool is functioning
-correctly. In addition to basic version/help checks, the suite exercises the real
-DotNet, C++, and VHDL documentation generators end to end against small embedded
-sample sources. The C++ check is automatically skipped (not failed) when no clang
-installation can be found — install LLVM clang or set `APIMARK_CLANG_PATH` to include
-it in validation.
+any API documentation for your project. Use this in CI to verify that the installed tool
+is functioning correctly: the results file is evidence that the pinned tool does its job
+on that machine, not only that it starts. Each test runs the tool end to end, in-process,
+on small sample sources it writes into its own temporary folder (removed afterwards), and
+passes only when the exit code, the reported findings, and the generated Markdown are
+exactly as expected.
+
+- `ApiMark_VersionDisplay` - `--version` prints exactly the tool version.
+- `ApiMark_HelpDisplay` - `--help` prints the usage and the options of every subcommand.
+- `ApiMark_DotNetGeneration` - `dotnet --format single-file` documents a sample assembly's types, members,
+  signatures, and descriptions in one `api.md`.
+- `ApiMark_GradualDisclosureOutput` - `dotnet` writes the expected index, namespace, type, and member pages, and
+  every link between them resolves.
+- `ApiMark_CppGeneration` - `cpp` documents a sample header's struct and field.
+- `ApiMark_VhdlGeneration` - `vhdl` documents a sample entity's description, generics, and ports.
+- `ApiMark_DotNetEnforceDocs` - `--enforce-docs` reports exactly a missing .NET doc comment and fails the run only
+  at `Error` severity.
+- `ApiMark_CppEnforceDocs` - `--enforce-docs` reports exactly an undocumented C++ field and fails the run.
+- `ApiMark_VhdlEnforceDocs` - `--enforce-docs` reports exactly an undocumented VHDL port and fails the run.
+
+The .NET sample assembly is built in memory by the tool itself, so no SDK or compiler is
+needed. The two C++ tests need clang, which is not part of the tool package; they are
+automatically skipped (not failed) when no clang installation can be found — install
+LLVM clang or set `APIMARK_CLANG_PATH` to include them in validation.
 
 ```bash
 apimark --validate

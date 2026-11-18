@@ -20,12 +20,13 @@ and `ApiMark_HelpDisplay`. This scenario is tested by
 
 **Results collection serializes to TRX when requested**: Verifies that when `context.ResultsFile`
 has a `.trx` extension, a `.trx` file is written containing TRX XML that round-trips correctly:
-the deserialized collection contains exactly two results (`ApiMark_VersionDisplay` and
-`ApiMark_HelpDisplay`, both `Passed`). This scenario is tested by
+the deserialized collection contains all nine self-test results, including
+`ApiMark_VersionDisplay` and `ApiMark_HelpDisplay` as `Passed` and the clang-gated C++ tests as
+`Passed` or `NotExecuted`. This scenario is tested by
 `Validation_Run_WithResultsTrxFile_CreatesTrxFile`.
 
 **Results collection serializes to JUnit XML when requested**: Verifies that when
 `context.ResultsFile` has a `.xml` extension, a `.xml` file is written containing JUnit XML that
-round-trips correctly: the deserialized collection contains exactly two results
-(`ApiMark_VersionDisplay` and `ApiMark_HelpDisplay`, both `Passed`). This scenario is tested by
+round-trips correctly: the deserialized collection contains the same nine results as the TRX
+scenario. This scenario is tested by
 `Validation_Run_WithResultsXmlFile_CreatesXmlFile`.

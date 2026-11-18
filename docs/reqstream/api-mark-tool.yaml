@@ -29,4 +29,7 @@ sections:
           - ApiMarkTool-Program-ExternalLinkInvalid
           - ApiMarkTool-Cli-ProvideCliArgumentParsing
           - ApiMarkTool-SelfTest-RunSelfValidation
-        tests: [Program_Main_DotNetCommand_GeneratesExpectedOutput]
+        tests:
+          - Program_Main_DotNetCommand_GeneratesExpectedOutput
+          - ApiMark_DotNetGeneration
+          - ApiMark_VhdlGeneration

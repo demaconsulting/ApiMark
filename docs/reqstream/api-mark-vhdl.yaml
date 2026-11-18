@@ -32,4 +32,6 @@ sections:
           - ApiMarkVhdl-VhdlAstParser-RejectInvalidSyntax
           - ApiMarkVhdl-VhdlAstParser-RenderInlineEmphasis
           - ApiMarkVhdl-VhdlAstParser-CodeBlockLanguage
-        tests: [VhdlGenerator_Generate_FixtureFile_CreatesApiEntrypoint]
+        tests:
+          - VhdlGenerator_Generate_FixtureFile_CreatesApiEntrypoint
+          - ApiMark_VhdlGeneration
