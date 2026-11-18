@@ -45,10 +45,11 @@ public sealed class ValidationTests
             Assert.True(File.Exists(trxPath), "TRX results file must be created");
             var trxContent = File.ReadAllText(trxPath);
             var trxResults = TrxSerializer.Deserialize(trxContent);
-            Assert.Equal(8, trxResults.Results.Count);
+            Assert.Equal(9, trxResults.Results.Count);
             Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_VersionDisplay" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_HelpDisplay" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_DotNetGeneration" && r.Outcome == TestOutcome.Passed);
+            Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_GradualDisclosureOutput" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_VhdlGeneration" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_DotNetEnforceDocs" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(trxResults.Results, r => r.Name == "ApiMark_VhdlEnforceDocs" && r.Outcome == TestOutcome.Passed);
@@ -91,10 +92,11 @@ public sealed class ValidationTests
             Assert.True(File.Exists(xmlPath), "XML results file must be created");
             var xmlContent = File.ReadAllText(xmlPath);
             var xmlResults = JUnitSerializer.Deserialize(xmlContent);
-            Assert.Equal(8, xmlResults.Results.Count);
+            Assert.Equal(9, xmlResults.Results.Count);
             Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_VersionDisplay" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_HelpDisplay" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_DotNetGeneration" && r.Outcome == TestOutcome.Passed);
+            Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_GradualDisclosureOutput" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_VhdlGeneration" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_DotNetEnforceDocs" && r.Outcome == TestOutcome.Passed);
             Assert.Contains(xmlResults.Results, r => r.Name == "ApiMark_VhdlEnforceDocs" && r.Outcome == TestOutcome.Passed);
@@ -200,6 +202,7 @@ public sealed class ValidationTests
             var output = File.ReadAllText(logPath);
             Assert.Multiple(
                 () => Assert.Contains("ApiMark_DotNetGeneration", output),
+                () => Assert.Contains("ApiMark_GradualDisclosureOutput", output),
                 () => Assert.Contains("ApiMark_CppGeneration", output),
                 () => Assert.Contains("ApiMark_VhdlGeneration", output),
                 () => Assert.Contains("ApiMark_DotNetEnforceDocs", output),
@@ -292,8 +295,8 @@ public sealed class ValidationTests
 
     /// <summary>
     ///     Validates that the DotNet enforce-docs functional self-test passes, confirming that
-    ///     the documentation-coverage checker runs end to end against the tool's own assembly
-    ///     and reports internally consistent counts.
+    ///     the documentation-coverage check of the generated sample assembly reports nothing when
+    ///     it is fully documented and exactly the method whose documentation was removed otherwise.
     /// </summary>
     [Fact]
     public void Validation_Run_DotNetEnforceDocsTestPasses()

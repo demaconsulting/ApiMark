@@ -1,86 +1,105 @@
-using ApiMark.Core;
-using ApiMark.DotNet;
-using ApiMark.Tool.Cli;
-
 namespace ApiMark.Tool.SelfTest;
 
 /// <summary>
-///     Provides the DotNet functional self-validation test for ApiMark Tool.
+///     Provides the .NET generation self-tests (single-file and gradual-disclosure output) for
+///     ApiMark Tool.
 /// </summary>
 internal static partial class Validation
 {
     /// <summary>
-    ///     Runs a functional test that exercises the real <see cref="DotNetGenerator"/>
-    ///     pipeline (<c>Parse</c> then <c>Emit</c>) against ApiMark.Tool's own already-built
-    ///     assembly and XML documentation file, and verifies the generated Markdown contains
-    ///     expected content.
+    ///     Checks that <c>apimark dotnet ... --format single-file</c> documents the sample assembly
+    ///     (see <see cref="WriteSampleAssembly"/>) in a single <c>api.md</c> with every type, member
+    ///     signature, summary, parameter, and return description.
     /// </summary>
-    /// <remarks>
-    ///     The currently-executing <see cref="Program"/> assembly is used as the sample source
-    ///     rather than compiling a fresh mini-assembly: <c>ApiMark.Tool.csproj</c> already sets
-    ///     <c>GenerateDocumentationFile=true</c>, so the sibling <c>.xml</c> doc file is
-    ///     guaranteed present at build output alongside the DLL, keeping this test
-    ///     dependency-free (no Roslyn compile-at-runtime step required).
-    ///     The generator's own informational <c>WriteLine</c> output (e.g. "Parsing assembly:
-    ///     ..." / "Found N types...") is routed to a silent, log-capturing child
-    ///     <see cref="Context"/> rather than the outer validation <paramref name="context"/>, so
-    ///     it never interleaves with the pass/fail transcript — matching the pattern used by
-    ///     <see cref="RunVersionTest"/> and <see cref="RunHelpTest"/>.
-    /// </remarks>
-    /// <param name="context">The context for output.</param>
-    /// <param name="testResults">The test results collection to append results to.</param>
-    private static void RunDotNetGenerationTest(Context context, DemaConsulting.TestResults.TestResults testResults)
+    /// <returns><see langword="null"/> on success; otherwise the failure message.</returns>
+    private static string? DotNetGenerationTest()
     {
-        var startTime = DateTime.UtcNow;
-        var test = CreateTestResult("ApiMark_DotNetGeneration");
+        using var workspace = new TemporaryDirectory();
+        var (assemblyPath, xmlDocPath) = WriteSampleAssembly(workspace.DirectoryPath);
+        var output = workspace.PathOf("api");
 
-        try
-        {
-            using var tempDir = new TemporaryDirectory();
-            var logFile = Path.Join(tempDir.DirectoryPath, "dotnet-generation.log");
+        var run = RunApiMark(
+            workspace,
+            "dotnet", "--assembly", assemblyPath, "--xml-doc", xmlDocPath, "--output", output, "--format", "single-file");
 
-            var assemblyPath = typeof(Program).Assembly.Location;
-            var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
+        return CheckExitCode(run, 0)
+               ?? CheckContains("output", run.Log, "Found 2 types across 1 namespace(s).")
+               ?? CheckFiles(output, "api.md")
+               ?? CheckContains(
+                   "api.md",
+                   File.ReadAllText(Path.Join(output, "api.md")),
+                   "# ApiMarkSample API Reference\n",
+                   "\n## ApiMarkSample\n",
+                   "\n### Reading\n",
+                   "public sealed class Reading",
+                   "A single temperature reading.",
+                   "\n#### Celsius\n",
+                   "public double Celsius { get; }",
+                   "\n### Thermostat\n",
+                   "public sealed class Thermostat",
+                   "Regulates a heater to hold a target temperature.",
+                   "- **SetTarget(double celsius)**: Sets the target temperature.",
+                   "\n#### Thermostat(double)\n",
+                   "| initialTarget | double | The initial target temperature in degrees Celsius. |",
+                   "\n#### SetTarget(double)\n",
+                   "public void SetTarget(double celsius)",
+                   "| celsius | double | The new target temperature in degrees Celsius. |",
+                   "\n#### Read()\n",
+                   "public Reading Read()",
+                   "**Returns:** The current `Reading`.");
+    }
 
-            var options = new DotNetGeneratorOptions
-            {
-                AssemblyPath = assemblyPath,
-                XmlDocPath = xmlDocPath,
-                // ApiMark.Tool's own types are internal, so the "All" tier is required here to
-                // exercise the generator meaningfully against this self-contained sample source.
-                Visibility = ApiVisibility.All,
-            };
+    /// <summary>
+    ///     Checks that <c>apimark dotnet ...</c> with the default gradual-disclosure format writes the
+    ///     index, namespace, type, and member pages of the sample assembly, with the expected tables
+    ///     and cross-links, and that every link between the pages resolves.
+    /// </summary>
+    /// <returns><see langword="null"/> on success; otherwise the failure message.</returns>
+    private static string? GradualDisclosureOutputTest()
+    {
+        using var workspace = new TemporaryDirectory();
+        var (assemblyPath, xmlDocPath) = WriteSampleAssembly(workspace.DirectoryPath);
+        var output = workspace.PathOf("api");
 
-            // Route the generator's own informational output to a silent, log-capturing child
-            // context so it doesn't interleave with the validation transcript.
-            using var genContext = Context.Create(["--silent", "--log", logFile]);
+        var run = RunApiMark(workspace, "dotnet", "--assembly", assemblyPath, "--xml-doc", xmlDocPath, "--output", output);
 
-            var generator = new DotNetGenerator(options);
-            var emitter = generator.Parse(genContext);
-
-            var factory = new FileMarkdownWriterFactory(tempDir.DirectoryPath);
-            emitter.Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, genContext);
-
-            var markdown = File.ReadAllText(Path.Join(tempDir.DirectoryPath, "api.md"));
-            if (markdown.Contains("Program") && markdown.Contains("ApiMark.Tool"))
-            {
-                test.Outcome = DemaConsulting.TestResults.TestOutcome.Passed;
-                context.WriteLine("✓ ApiMark_DotNetGeneration - Passed");
-            }
-            else
-            {
-                test.Outcome = DemaConsulting.TestResults.TestOutcome.Failed;
-                test.ErrorMessage = "Expected content not found in generated Markdown";
-                context.WriteError("✗ ApiMark_DotNetGeneration - Failed: Expected content not found in generated Markdown");
-            }
-        }
-        // Generic catch is justified here as this is a test framework — any exception should be
-        // recorded as a test failure to ensure robust test execution and reporting.
-        catch (Exception ex)
-        {
-            HandleTestException(test, context, "ApiMark_DotNetGeneration", ex);
-        }
-
-        FinalizeTestResult(test, startTime, testResults);
+        return CheckExitCode(run, 0)
+               ?? CheckFiles(
+                   output,
+                   "api.md",
+                   "ApiMarkSample.md",
+                   "ApiMarkSample/Reading.md",
+                   "ApiMarkSample/Reading/Reading.md",
+                   "ApiMarkSample/Reading/Celsius.md",
+                   "ApiMarkSample/Thermostat.md",
+                   "ApiMarkSample/Thermostat/Thermostat.md",
+                   "ApiMarkSample/Thermostat/SetTarget.md",
+                   "ApiMarkSample/Thermostat/Read.md")
+               ?? CheckContains(
+                   "api.md",
+                   File.ReadAllText(Path.Join(output, "api.md")),
+                   "# ApiMarkSample API Reference\n",
+                   "| [ApiMarkSample](ApiMarkSample.md) | 2 | [Reading](ApiMarkSample/Reading.md), [Thermostat](ApiMarkSample/Thermostat.md) |")
+               ?? CheckContains(
+                   "ApiMarkSample.md",
+                   File.ReadAllText(Path.Join(output, "ApiMarkSample.md")),
+                   "| [Reading](ApiMarkSample/Reading.md) | A single temperature reading. |",
+                   "| [Thermostat](ApiMarkSample/Thermostat.md) | Regulates a heater to hold a target temperature. |")
+               ?? CheckContains(
+                   "ApiMarkSample/Thermostat.md",
+                   File.ReadAllText(Path.Join(output, "ApiMarkSample", "Thermostat.md")),
+                   "# Thermostat\n",
+                   "[API Reference](../api.md) › [ApiMarkSample](../ApiMarkSample.md)",
+                   "| [Thermostat(double initialTarget)](Thermostat/Thermostat.md) | Creates a thermostat. |",
+                   "| [Read()](Thermostat/Read.md) | [Reading](Reading.md) | Takes a reading from the sensor. |",
+                   "| [SetTarget(double celsius)](Thermostat/SetTarget.md) | void | Sets the target temperature. |")
+               ?? CheckContains(
+                   "ApiMarkSample/Thermostat/Read.md",
+                   File.ReadAllText(Path.Join(output, "ApiMarkSample", "Thermostat", "Read.md")),
+                   "# Read()\n",
+                   "[API Reference](../../api.md) › [ApiMarkSample](../../ApiMarkSample.md) › [Thermostat](../Thermostat.md)",
+                   "public Reading Read()",
+                   "**Returns:** The current [`Reading`](../Reading.md).")
+               ?? CheckLinksResolve(output);
     }
 }
