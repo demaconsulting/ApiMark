@@ -7,30 +7,71 @@
 
 #### Purpose
 
-Validation runs in-process self-tests that confirm core ApiMarkTool
-functionality works correctly in the deployment environment. Two
-functionality tests invoke the tool's own dispatch path through a child
-`Context` instance, capture output to a temporary log file, and check the
-log content against expected patterns. Three functional generation tests
-invoke each language generator's real `Parse`/`Emit` pipeline
-(`DotNetGenerator`, `CppGenerator`, `VhdlGenerator`) directly against a tiny
-embedded sample source, and verify the generated Markdown contains expected
-content — mirroring `Program.RunToolLogic`. Three functional enforcement tests
-invoke each language generator's real `CheckDocumentationCoverage` pipeline
-(`DotNetGenerator`, `CppGenerator`, `VhdlGenerator`) — the C++ and VHDL tests
-run against a sample source containing one documented and one deliberately
-undocumented declaration and verify enforcement correctly detects the
-violation; the DotNet test reuses the tool's own already-built assembly (see
-`RunDotNetGenerationTest`) and verifies the checker runs to completion with
-internally consistent counts — mirroring the `--enforce-docs` wiring in
-`Program.RunToolLogic`. Every generator call is routed through a silent,
-log-capturing child `Context` (not the outer validation context), so the
-generators' own informational output (e.g. "Parsing assembly: ..." or "Found
-N types...") never interleaves with the pass/fail transcript. The C++
-generation and C++ enforcement tests are each gated on clang availability
-(via `ApiMark.Cpp.CppAst.ClangDiscovery`) and are recorded as skipped, not
-failed, when clang cannot be located. Results are accumulated in a
-`TestResults` collection and optionally written to a `.trx` or `.xml` file.
+Validation runs in-process self-tests that show the installed ApiMarkTool
+works in the deployment environment: not only that it starts, but that it
+generates and checks API documentation correctly. Downstream projects treat
+the tool as off-the-shelf software and use the self-validation results file
+as evidence that the pinned version does its job, so every test asserts
+specific observable outcomes — exact exit codes, exact report lines, the exact
+set of generated files, and exact Markdown fragments — rather than "ran
+without an exception".
+
+Every test runs the tool end to end through `Program.Run` with a silent,
+log-capturing child `Context` (via `RunApiMark`), so the command-line parsing,
+dispatch, generator, emitter, and coverage-reporting paths are all exercised
+exactly as a user invocation would exercise them, and the tool's own output
+(e.g. "Parsing assembly: ...") never interleaves with the pass/fail
+transcript. Each test writes its sample sources into its own
+`TemporaryDirectory`, passes absolute paths, never changes the current
+directory, and deletes the directory afterwards, so results do not depend on
+the machine's files or configuration.
+
+The tests are:
+
+- `ApiMark_VersionDisplay` — `--version` prints exactly the tool version.
+- `ApiMark_HelpDisplay` — `--help` prints the usage line, the common options,
+  and the options of every language subcommand.
+- `ApiMark_DotNetGeneration` — `dotnet --format single-file` on the sample
+  assembly writes only `api.md`, containing every sample type and member with
+  its signature, summary, parameter, and return description.
+- `ApiMark_GradualDisclosureOutput` — `dotnet` with the default format on the
+  sample assembly writes exactly the expected index, namespace, type, and
+  member pages, with the expected tables, breadcrumbs, and cross-links, and
+  every relative link between the pages resolves to an existing page and,
+  when it has a `#fragment`, to a heading anchor of that page.
+- `ApiMark_CppGeneration` — `cpp --format single-file` on an embedded header
+  documents the struct, its include line, and its documented field.
+- `ApiMark_VhdlGeneration` — `vhdl --format single-file` on an embedded entity
+  documents its description, generic table row, and port table row.
+- `ApiMark_DotNetEnforceDocs` — `dotnet --enforce-docs Public` on the sample
+  assembly reports nothing and exits 0 at `Error` severity when it is fully
+  documented; with the `Thermostat.Read` documentation removed, reports exactly
+  that method, exits 1 at `Error` severity, and exits 0 at the default
+  `Warning` severity.
+- `ApiMark_CppEnforceDocs` — `cpp --enforce-docs Public --enforce-docs-severity
+  Error` on an embedded header reports exactly the undocumented field and
+  exits 1.
+- `ApiMark_VhdlEnforceDocs` — `vhdl --enforce-docs Public
+  --enforce-docs-severity Error` on an embedded entity reports exactly the
+  undocumented port and exits 1.
+
+The .NET sample is the `ApiMarkSample` assembly, built in-process by
+`WriteSampleAssembly` with `System.Reflection.Emit.PersistedAssemblyBuilder`
+together with a matching XML documentation file, so the .NET tests need no
+compiler, SDK, or fixture file and their expected output is exact. It contains
+two public sealed classes — `Reading` (constructor and `Celsius` property) and
+`Thermostat` (constructor, the overloads `SetTarget(double)` and
+`SetTarget(double, double)`, and `Read()` returning `Reading`, whose remarks
+reference the second overload) — giving eight documentable items, one
+cross-type reference, and one overload page linked by heading anchor.
+
+The C++ tests need an external clang executable, which is not part of the tool
+package. They are gated on clang availability (via
+`ApiMark.Cpp.CppAst.ClangDiscovery`, the discovery logic the `cpp` subcommand
+uses) and are recorded as skipped, not failed, when clang cannot be located.
+The VHDL parser is embedded, so the VHDL tests always run. Results are
+accumulated in a `TestResults` collection and optionally written to a `.trx`
+or `.xml` file.
 
 #### Data Model
 
@@ -40,7 +81,8 @@ variables within each method for test results and temporary file paths.
 All test result objects are `DemaConsulting.TestResults.TestResult` instances
 created via `CreateTestResult(testName)` and collected in a
 `DemaConsulting.TestResults.TestResults` object named
-`"ApiMark Tool Self-Validation"`.
+`"ApiMark Tool Self-Validation"`. Each in-process tool run is returned as a
+private `ApiMarkRun(int ExitCode, string Log)` record.
 
 #### Key Methods
 
@@ -51,138 +93,83 @@ created via `CreateTestResult(testName)` and collected in a
 - *Algorithm*:
   1. Print validation header (tool version, machine name, OS, runtime, timestamp).
   2. Create a `TestResults` collection.
-  3. Call `RunVersionTest(context, testResults)`.
-  4. Call `RunHelpTest(context, testResults)`.
-  5. Call `RunDotNetGenerationTest(context, testResults)`.
-  6. Call `RunCppGenerationTest(context, testResults)`.
-  7. Call `RunVhdlGenerationTest(context, testResults)`.
-  8. Call `RunDotNetEnforceDocsTest(context, testResults)`.
-  9. Call `RunCppEnforceDocsTest(context, testResults)`.
-  10. Call `RunVhdlEnforceDocsTest(context, testResults)`.
-  11. Print summary (total, passed, skipped, failed counts).
-  12. If `context.ResultsFile` is set, call `WriteResultsFile`.
+  3. Call `RunTest` for each self-test in the order listed under Purpose,
+     passing `CppSkipReason` as the skip check for the two C++ tests.
+  4. Print summary (total, passed, skipped, failed counts).
+  5. If `context.ResultsFile` is set, call `WriteResultsFile`.
 - *Preconditions*: `context` must be non-null.
 - *Postconditions*: All self-tests have run; results are written to context;
   `context.ExitCode` is `1` if any test failed. Skipped tests (recorded with
   `TestOutcome.NotExecuted`, e.g. the C++ tests when clang is unavailable)
   never set `context.ExitCode` to `1`.
 
-**RunVersionTest(Context context, TestResults testResults)** — Private static.
+**RunTest(Context context, TestResults testResults, string testName, test, skipReason)** — Private static.
 
-- Creates a `TemporaryDirectory` to hold the log file; the directory is
-  disposed automatically on exit from the method.
-- Creates a child context with `["--silent", "--log", logFile, "--version"]`
-  where `logFile` is a path inside the temporary directory.
-- Calls `Program.Run(testContext)` and checks exit code.
-- Reads the log file and verifies it contains a version number pattern
-  (`\b\d+\.\d+\.\d+`).
-- Appends a `TestResult` named `"ApiMark_VersionDisplay"` to `testResults`.
+- `test` is a `Func<string?>` test body and `skipReason` an optional
+  `Func<string?>` skip check.
 
-**RunHelpTest(Context context, TestResults testResults)** — Private static.
+- Calls `skipReason` (when given); a non-null reason records the test as
+  `NotExecuted` and writes `⊘ {name} - Skipped: {reason}` via
+  `context.WriteLine`, so a skip never affects the exit code.
+- Otherwise calls `test`; `null` records `Passed` and writes
+  `✓ {name} - Passed`, and a message records `Failed` with that message as the
+  error message and writes `✗ {name} - Failed: {message}` via
+  `context.WriteError`.
+- Any exception is caught and recorded as a failure in the same way.
+- Sets the duration and appends the result to `testResults`.
 
-- Creates a `TemporaryDirectory` to hold the log file; the directory is
-  disposed automatically on exit from the method.
-- Creates a child context with `["--silent", "--log", logFile, "--help"]`
-  where `logFile` is a path inside the temporary directory.
-- Calls `Program.Run(testContext)` and checks exit code.
-- Reads the log file and verifies it contains both `"Usage:"` and
-  `"Options:"`.
-- Appends a `TestResult` named `"ApiMark_HelpDisplay"` to `testResults`.
+**Test bodies** (`VersionDisplayTest`, `HelpDisplayTest`,
+`DotNetGenerationTest`, `GradualDisclosureOutputTest`, `CppGenerationTest`,
+`VhdlGenerationTest`, `DotNetEnforceDocsTest`, `CppEnforceDocsTest`,
+`VhdlEnforceDocsTest`) — Private static, each returning `null` on success or
+the first failure message.
 
-**RunDotNetGenerationTest(Context context, TestResults testResults)** — Private static.
+- Create a `TemporaryDirectory`, write the sample sources into it, run the tool
+  with `RunApiMark`, and chain the checks listed under Purpose with
+  `CheckExitCode`, `CheckContains`, `CheckDoesNotContain`, `CheckFiles`, and
+  `CheckLinksResolve`.
 
-- Constructs `DotNetGeneratorOptions` pointing at the currently-executing
-  `ApiMark.Tool` assembly (`typeof(Program).Assembly.Location`) and its
-  sibling `.xml` doc file (present because `GenerateDocumentationFile=true`),
-  with `Visibility = ApiVisibility.All` since the tool's own types are internal.
-- Creates a silent, log-capturing child `Context` (via
-  `Context.Create(["--silent", "--log", logFile])`) so the generator's own
-  informational output does not interleave with the validation transcript.
-- Calls `new DotNetGenerator(options).Parse(genContext)` then
-  `emitter.Emit(...)` with `OutputFormat.SingleFile` into a `TemporaryDirectory`.
-- Verifies the generated Markdown contains `"Program"` and `"ApiMark.Tool"`.
-- Appends a `TestResult` named `"ApiMark_DotNetGeneration"` to `testResults`.
+**RunApiMark(TemporaryDirectory workspace, params string[] args)** — Private static.
 
-**RunCppGenerationTest(Context context, TestResults testResults)** — Private static.
+- Creates a child context with `["--silent", "--log", logFile, ..args]`, where
+  `logFile` is a unique file in the workspace; `args` never contains
+  `--validate`, so there is no recursion.
+- Calls `Program.Run` inside an explicit `using` block and captures the exit
+  code, so the context — and with it the log file — is closed before the log
+  is read and deleted (an open file cannot be read or deleted on Windows).
+- Returns the exit code and the log content as an `ApiMarkRun`.
 
-- First calls `ApiMark.Cpp.CppAst.ClangDiscovery.IsAvailable()`. When
-  `false`, sets the test outcome to `TestOutcome.NotExecuted`, writes a
-  skip message via `context.WriteLine` (never `WriteError`, so the skip
-  never affects `context.ExitCode`), and returns early.
-- When clang is available, writes a tiny embedded sample header (a
-  documented struct with one documented member) to a `TemporaryDirectory`,
-  constructs `CppGeneratorOptions` pointing at it. Creates a silent,
-  log-capturing child `Context` so the generator's own informational output
-  does not interleave with the validation transcript. Calls
-  `new CppGenerator(options).Parse(genContext)` then `emitter.Emit(...)`.
-- Verifies the generated Markdown contains the sample type name and its
-  documentation summary text.
-- Appends a `TestResult` named `"ApiMark_CppGeneration"` to `testResults`.
+**Check helpers** — Private static, each returning `null` or a failure message.
 
-**RunVhdlGenerationTest(Context context, TestResults testResults)** — Private static.
+- `CheckExitCode(run, expected)` — compares the exit code; the message includes
+  the run's output.
+- `CheckContains(what, text, expected...)` / `CheckDoesNotContain(what, text,
+  unexpected...)` — ordinal fragment checks after normalizing line endings to
+  `\n`; the message names the first offending fragment.
+- `CheckFiles(directory, expected...)` — compares the complete, sorted set of
+  files under a directory with the expected relative paths.
+- `CheckLinksResolve(directory)` — checks that every relative `.md` link in
+  every page under a directory points to an existing file and that every
+  `#fragment` (on a page link or a same-page link) matches a heading anchor of
+  the target page. Anchors are computed by `BuildHeadingAnchor` with the
+  emitters' GitHub-style slug rules (lowercase; only letters, digits, spaces,
+  hyphens, and underscores kept; spaces become hyphens), implemented
+  independently so that an emitter defect is detected rather than reproduced;
+  headings inside fenced code blocks are ignored.
 
-- Writes a minimal valid VHDL entity (with `--!` doc comments on the entity
-  and one port/generic) to a `TemporaryDirectory`, constructs
-  `VhdlGeneratorOptions` referencing it. Creates a silent, log-capturing
-  child `Context` so the generator's own informational output does not
-  interleave with the validation transcript. Calls
-  `new VhdlGenerator(options).Parse(genContext)` then `emitter.Emit(...)`.
-- Verifies the generated Markdown contains the entity name and its
-  documented port/generic text.
-- No clang-style gating: VHDL parsing is entirely in-process via an
-  embedded ANTLR4 grammar, with no external tool dependency.
-- Appends a `TestResult` named `"ApiMark_VhdlGeneration"` to `testResults`.
+**WriteSampleAssembly(string directory, bool documentRead = true)** — Private static.
 
-**RunDotNetEnforceDocsTest(Context context, TestResults testResults)** — Private static.
+- Builds the `ApiMarkSample` assembly with `PersistedAssemblyBuilder` and saves
+  it as `ApiMarkSample.dll`, then writes `ApiMarkSample.xml` from the
+  `SampleDocumentation` entries, omitting the `Thermostat.Read` entry when
+  `documentRead` is `false`.
+- Returns the paths of both files.
 
-- Constructs `DotNetGeneratorOptions` pointing at the currently-executing
-  `ApiMark.Tool` assembly and its sibling `.xml` doc file, with
-  `Visibility = ApiVisibility.All` (same self-referencing approach as
-  `RunDotNetGenerationTest`; see its remarks for rationale). Creates a silent,
-  log-capturing child `Context` so the generator's own informational output
-  does not interleave with the validation transcript.
-- Calls `new DotNetGenerator(options).Parse(genContext)` then
-  `generator.CheckDocumentationCoverage("All")` — the same
-  `IDocumentationCoverageCapable` API `Program.RunToolLogic` calls when
-  `--enforce-docs` is supplied on the command line.
-- Verifies the checker completes and reports internally consistent counts
-  (`CheckedCount > 0` and `UndocumentedCount <= CheckedCount`), rather than
-  asserting an exact violation count, since the tool's own already-built
-  assembly's undocumented-item count varies by build configuration and
-  target framework.
-- Appends a `TestResult` named `"ApiMark_DotNetEnforceDocs"` to `testResults`.
+**CppSkipReason()** — Private static.
 
-**RunCppEnforceDocsTest(Context context, TestResults testResults)** — Private static.
-
-- First calls `ApiMark.Cpp.CppAst.ClangDiscovery.IsAvailable()`. When
-  `false`, sets the test outcome to `TestOutcome.NotExecuted`, writes a
-  skip message via `context.WriteLine` (never `WriteError`), and returns early.
-- When clang is available, writes a tiny embedded sample header (a struct
-  with one documented member and one deliberately undocumented member) to a
-  `TemporaryDirectory`, constructs `CppGeneratorOptions` pointing at it.
-  Creates a silent, log-capturing child `Context` so the generator's own
-  informational output does not interleave with the validation transcript.
-- Calls `new CppGenerator(options).Parse(genContext)` then
-  `generator.CheckDocumentationCoverage("Public")`.
-- Verifies the result reports a violation for the undocumented member and
-  does *not* report a violation for the documented member.
-- Appends a `TestResult` named `"ApiMark_CppEnforceDocs"` to `testResults`.
-
-**RunVhdlEnforceDocsTest(Context context, TestResults testResults)** — Private static.
-
-- Writes a tiny embedded VHDL entity with one documented port (`clk`) and
-  one deliberately undocumented port (`rst`) to a `TemporaryDirectory`,
-  constructs `VhdlGeneratorOptions` referencing it. VHDL is used because it
-  needs no external tool and its sample source is entirely self-contained.
-- Creates a silent, log-capturing child `Context` so the generator's own
-  informational output does not interleave with the validation transcript.
-- Calls `new VhdlGenerator(options).Parse(genContext)` then
-  `generator.CheckDocumentationCoverage("Public")` — the same
-  `IDocumentationCoverageCapable` API `Program.RunToolLogic` calls when
-  `--enforce-docs` is supplied on the command line.
-- Verifies the result reports a violation for the undocumented `rst` port
-  and does *not* report a violation for the documented `clk` port.
-- Appends a `TestResult` named `"ApiMark_VhdlEnforceDocs"` to `testResults`.
+- Returns `null` when `ClangDiscovery.IsAvailable()` is `true`; otherwise the
+  skip reason, which tells the user to install LLVM clang or set
+  `APIMARK_CLANG_PATH`.
 
 **WriteResultsFile(Context context, TestResults testResults)** — Private static.
 
@@ -204,25 +191,16 @@ created via `CreateTestResult(testName)` and collected in a
 - Returns a new `TestResult` pre-populated with `Name = testName`,
   `ClassName = "Validation"`, and `CodeBase = "ApiMark.Tool"`.
 
-**FinalizeTestResult(TestResult test, DateTime startTime, TestResults testResults)** — Private static helper.
-
-- Sets `test.Duration` to `DateTime.UtcNow − startTime` and appends `test`
-  to `testResults.Results`.
-
-**HandleTestException(TestResult test, Context context, string testName, Exception ex)** — Private static helper.
-
-- Sets `test.Outcome` to `Failed`, records `ex.Message` in
-  `test.ErrorMessage`, and calls `context.WriteError` with a diagnostic line.
-  Called from the generic `catch` blocks in `RunVersionTest` and `RunHelpTest`.
-
 **TemporaryDirectory** — Private sealed nested class implementing `IDisposable`.
 
 - On construction, creates a uniquely named directory under
   `Path.GetTempPath()`.
+- `PathOf(relativePath)` returns a path inside it and
+  `CreateSubdirectory(relativePath)` creates a subdirectory.
 - On `Dispose`, deletes the directory and its entire subtree; I/O and access
   errors during deletion are silently swallowed (best-effort cleanup).
-- Used by `RunVersionTest` and `RunHelpTest` via `using var`, guaranteeing
-  log-file cleanup even when those methods throw.
+- Every test body holds one via `using var`, guaranteeing cleanup even when
+  the test throws.
 
 #### Error Handling
 
@@ -232,25 +210,24 @@ created via `CreateTestResult(testName)` and collected in a
 - Unsupported results file extension calls `context.WriteError` and returns
   without writing a file.
 - I/O errors during results file write call `context.WriteError`.
-- Any exception within a test method is caught, recorded as a failed test,
-  and reported via `context.WriteError`. This generic catch is intentional
+- Any exception within a test is caught by `RunTest`, recorded as a failed
+  test, and reported via `context.WriteError`. This generic catch is intentional
   to ensure the test framework remains operational even if an individual test
   throws unexpectedly.
 
 #### Dependencies
 
 - **Context** (Cli subsystem) — used for output routing and to create
-  child contexts for each self-test.
-- **Program** — called with child contexts to exercise the dispatch path.
-- **DotNetGenerator / CppGenerator / VhdlGenerator** (`ApiMark.DotNet`,
-  `ApiMark.Cpp`, `ApiMark.Vhdl`) — invoked directly via `IApiGenerator.Parse`
-  and `IApiEmitter.Emit` in the three functional generation tests, and via
-  `IDocumentationCoverageCapable.CheckDocumentationCoverage` in the three
-  functional enforcement tests.
+  child contexts for each in-process tool run.
+- **Program** — `Program.Run` is called with child contexts, so every test
+  exercises the real command-line dispatch and, through it, the
+  `DotNetGenerator`, `CppGenerator`, and `VhdlGenerator` pipelines and the
+  `--enforce-docs` coverage reporting.
+- **System.Reflection.Emit.PersistedAssemblyBuilder** (.NET runtime) — builds
+  the `ApiMarkSample` assembly used by the .NET tests.
 - **ApiMark.Cpp.CppAst.ClangDiscovery** — public pre-flight helper used to
   detect clang availability before running the C++ generation and C++
-  enforcement functional tests, sharing the same discovery logic as
-  `ClangAstParser`.
+  enforcement tests, sharing the same discovery logic as `ClangAstParser`.
 - **DemaConsulting.TestResults** — `TestResults`, `TestResult`, `TestOutcome`,
   `TrxSerializer`, and `JUnitSerializer` are used to build, accumulate, and
   serialize test results. `TestOutcome` has no dedicated "skipped" value;

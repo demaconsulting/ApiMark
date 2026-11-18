@@ -1,89 +1,66 @@
-using ApiMark.Core;
-using ApiMark.DotNet;
-using ApiMark.Tool.Cli;
-
 namespace ApiMark.Tool.SelfTest;
 
 /// <summary>
-///     Provides the DotNet documentation-coverage enforcement (<c>--enforce-docs</c>)
-///     functional self-validation test for ApiMark Tool.
+///     Provides the .NET documentation-coverage enforcement (<c>--enforce-docs</c>) self-test for
+///     ApiMark Tool.
 /// </summary>
 internal static partial class Validation
 {
     /// <summary>
-    ///     Runs a functional test that exercises the real <see cref="DotNetGenerator.CheckDocumentationCoverage"/>
-    ///     pipeline (<c>Parse</c> then <c>CheckDocumentationCoverage</c>) against ApiMark.Tool's own
-    ///     already-built assembly and XML documentation file, and verifies enforcement runs
-    ///     successfully and reports a well-formed result.
+    ///     Checks <c>--enforce-docs Public</c> on the sample assembly (see
+    ///     <see cref="WriteSampleAssembly"/>): with complete XML documentation nothing is reported and
+    ///     the run succeeds even at <c>Error</c> severity; with the <c>Thermostat.Read</c> entry removed
+    ///     exactly that method is reported, the run fails at <c>Error</c> severity, and it succeeds at
+    ///     the default <c>Warning</c> severity.
     /// </summary>
-    /// <remarks>
-    ///     Reuses the same self-referencing assembly/XML doc approach as
-    ///     <see cref="RunDotNetGenerationTest"/> (see its remarks for rationale) rather than a
-    ///     purpose-built undocumented/documented pair, since the exact undocumented-item count
-    ///     of the tool's own already-built assembly varies by build configuration and target
-    ///     framework (see <c>RunDotNetGenerationTest</c> remarks). This test therefore verifies
-    ///     that the enforcement pipeline runs to completion and reports internally consistent
-    ///     counts (<c>UndocumentedCount &lt;= CheckedCount</c>), rather than asserting an exact
-    ///     violation. This test exercises
-    ///     <see cref="IDocumentationCoverageCapable.CheckDocumentationCoverage"/> directly (the
-    ///     same API <c>Program.RunToolLogic</c> calls when <c>--enforce-docs</c> is supplied on
-    ///     the command line). The generator's own informational <c>WriteLine</c> output is routed
-    ///     to a silent, log-capturing child <see cref="Context"/> rather than the outer validation
-    ///     <paramref name="context"/>, so it never interleaves with the pass/fail transcript.
-    /// </remarks>
-    /// <param name="context">The context for output.</param>
-    /// <param name="testResults">The test results collection to append results to.</param>
-    private static void RunDotNetEnforceDocsTest(Context context, DemaConsulting.TestResults.TestResults testResults)
+    /// <returns><see langword="null"/> on success; otherwise the failure message.</returns>
+    private static string? DotNetEnforceDocsTest()
     {
-        var startTime = DateTime.UtcNow;
-        var test = CreateTestResult("ApiMark_DotNetEnforceDocs");
+        using var workspace = new TemporaryDirectory();
+        var documented = WriteSampleAssembly(workspace.CreateSubdirectory("documented"));
+        var gap = WriteSampleAssembly(workspace.CreateSubdirectory("gap"), documentRead: false);
+        const string Undocumented = "  [Undocumented] Method: ApiMarkSample.Thermostat.Read()";
 
-        try
+        // Fully documented: no finding, success at Error severity
+        var clean = RunApiMark(
+            workspace,
+            "dotnet", "--assembly", documented.AssemblyPath, "--xml-doc", documented.XmlDocPath,
+            "--output", workspace.PathOf("out-documented"), "--enforce-docs", "Public", "--enforce-docs-severity", "Error");
+        var failure = CheckExitCode(clean, 0)
+                      ?? CheckContains("output of the documented run", clean.Log, "Documentation coverage: 0 undocumented of 8 checked.")
+                      ?? CheckDoesNotContain("output of the documented run", clean.Log, "[Undocumented]");
+        if (failure != null)
         {
-            using var tempDir = new TemporaryDirectory();
-            var logFile = Path.Join(tempDir.DirectoryPath, "dotnet-enforce-docs.log");
-
-            var assemblyPath = typeof(Program).Assembly.Location;
-            var xmlDocPath = Path.ChangeExtension(assemblyPath, ".xml");
-
-            var options = new DotNetGeneratorOptions
-            {
-                AssemblyPath = assemblyPath,
-                XmlDocPath = xmlDocPath,
-                // ApiMark.Tool's own types are internal, so the "All" tier is required here to
-                // exercise the checker meaningfully against this self-contained sample source.
-                Visibility = ApiVisibility.All,
-            };
-
-            // Route the generator's own informational output to a silent, log-capturing child
-            // context so it doesn't interleave with the validation transcript.
-            using var genContext = Context.Create(["--silent", "--log", logFile]);
-
-            var generator = new DotNetGenerator(options);
-            generator.Parse(genContext);
-
-            var result = generator.CheckDocumentationCoverage("All");
-
-            if (result.CheckedCount > 0 && result.UndocumentedCount <= result.CheckedCount)
-            {
-                test.Outcome = DemaConsulting.TestResults.TestOutcome.Passed;
-                context.WriteLine("✓ ApiMark_DotNetEnforceDocs - Passed");
-            }
-            else
-            {
-                test.Outcome = DemaConsulting.TestResults.TestOutcome.Failed;
-                test.ErrorMessage = "Documentation-coverage enforcement did not report expected results";
-                context.WriteError(
-                    "✗ ApiMark_DotNetEnforceDocs - Failed: Documentation-coverage enforcement did not report expected results");
-            }
-        }
-        // Generic catch is justified here as this is a test framework — any exception should be
-        // recorded as a test failure to ensure robust test execution and reporting.
-        catch (Exception ex)
-        {
-            HandleTestException(test, context, "ApiMark_DotNetEnforceDocs", ex);
+            return failure;
         }
 
-        FinalizeTestResult(test, startTime, testResults);
+        // Missing documentation at Error severity: the method is reported and the run fails
+        var error = RunApiMark(
+            workspace,
+            "dotnet", "--assembly", gap.AssemblyPath, "--xml-doc", gap.XmlDocPath,
+            "--output", workspace.PathOf("out-error"), "--enforce-docs", "Public", "--enforce-docs-severity", "Error");
+        failure = CheckExitCode(error, 1)
+                  ?? CheckContains(
+                      "output of the Error-severity run",
+                      error.Log,
+                      $"{Undocumented}\n",
+                      "Documentation coverage: 1 undocumented of 8 checked.",
+                      "Error: 1 undocumented API item(s) found (--enforce-docs-severity Error).");
+        if (failure != null)
+        {
+            return failure;
+        }
+
+        // Missing documentation at the default Warning severity: reported, but the run succeeds
+        var warning = RunApiMark(
+            workspace,
+            "dotnet", "--assembly", gap.AssemblyPath, "--xml-doc", gap.XmlDocPath,
+            "--output", workspace.PathOf("out-warning"), "--enforce-docs", "Public");
+        return CheckExitCode(warning, 0)
+               ?? CheckContains(
+                   "output of the Warning-severity run",
+                   warning.Log,
+                   $"{Undocumented}\n",
+                   "Documentation coverage: 1 undocumented of 8 checked.");
     }
 }

@@ -22,26 +22,30 @@ privileged configuration, or network access is required.
 - `.trx` results files are created and contain TRX XML content.
 - `.xml` results files are created.
 - Unsupported results file extensions set `ExitCode` to 1.
-- Output mentions `ApiMark_VersionDisplay`, `ApiMark_HelpDisplay`,
-  `ApiMark_DotNetGeneration`, `ApiMark_CppGeneration`, and
-  `ApiMark_VhdlGeneration`.
-- The C++ functional test is recorded as skipped (`TestOutcome.NotExecuted`),
-  not failed, when clang cannot be located, and does not set `ExitCode` to 1.
+- Output mentions all nine self-test names: `ApiMark_VersionDisplay`,
+  `ApiMark_HelpDisplay`, `ApiMark_DotNetGeneration`,
+  `ApiMark_GradualDisclosureOutput`, `ApiMark_CppGeneration`,
+  `ApiMark_VhdlGeneration`, `ApiMark_DotNetEnforceDocs`,
+  `ApiMark_CppEnforceDocs`, and `ApiMark_VhdlEnforceDocs`.
+- Every self-test except the clang-gated C++ tests passes, showing that the
+  tool generates and checks API documentation correctly, not only that it
+  starts.
+- The C++ functional tests are recorded as skipped (`TestOutcome.NotExecuted`),
+  not failed, when clang cannot be located, and do not set `ExitCode` to 1.
 - The summary output includes a `Skipped: N` line.
 
 ### Test Scenarios
 
 **Self-validation with valid context exits zero**: Verifies that
-`Validation.Run` completes with `ExitCode = 0` when both internal self-tests
-pass. Tested by `Validation_Run_WithValidContext_ExitsZero`.
+`Validation.Run` completes with `ExitCode = 0` when every self-test passes
+or is skipped. Tested by `Validation_Run_WithValidContext_ExitsZero`.
 
-**TRX results file is created**: Verifies that when `--results` specifies a
-`.trx` path, the file is created and contains `"TestRun"` and all five
-self-test results, including the C++ test's `Passed` or `NotExecuted`
-outcome. Tested by `Validation_Run_WithResultsTrxFile_CreatesTrxFile`.
+**TRX results file is created**: Verifies that when `--results` specifies a `.trx` path, the file is created and
+round-trips all nine self-test results, including the C++ tests' `Passed` or `NotExecuted` outcome. Tested by
+`Validation_Run_WithResultsTrxFile_CreatesTrxFile`.
 
 **XML results file is created**: Verifies that when `--results` specifies a
-`.xml` path, the file is created and contains all five self-test results.
+`.xml` path, the file is created and round-trips all nine self-test results.
 Tested by `Validation_Run_WithResultsXmlFile_CreatesXmlFile`.
 
 **Unsupported extension sets exit code to 1**: Verifies that a `.json`
@@ -52,17 +56,20 @@ by `Validation_Run_WithUnsupportedResultsExtension_SetsExitCodeToOne`.
 contains both `"ApiMark_VersionDisplay"` and `"ApiMark_HelpDisplay"`. Tested
 by `Validation_Run_WritesVersionAndHelpTestResults`.
 
-**Output mentions all three functional generation test names**: Verifies
-that the log output contains `"ApiMark_DotNetGeneration"`,
-`"ApiMark_CppGeneration"`, and `"ApiMark_VhdlGeneration"`. Tested by
+**Output mentions all functional test names**: Verifies that the log output
+contains `"ApiMark_DotNetGeneration"`, `"ApiMark_GradualDisclosureOutput"`,
+`"ApiMark_CppGeneration"`, `"ApiMark_VhdlGeneration"`,
+`"ApiMark_DotNetEnforceDocs"`, `"ApiMark_CppEnforceDocs"`, and
+`"ApiMark_VhdlEnforceDocs"`. Tested by
 `Validation_Run_WritesFunctionalGenerationTestResults`.
 
 **Summary includes a Skipped count line**: Verifies that the summary output
 always includes a line matching `Skipped: \d+`, regardless of clang
 availability. Tested by `Validation_Run_WritesSkippedSummaryLine`.
 
-**C++ generation test is skipped, not failed, when clang is unavailable**:
-Verifies that forcing clang discovery to fail (by pointing
-`APIMARK_CLANG_PATH` at a nonexistent path) records `ApiMark_CppGeneration`
-with `TestOutcome.NotExecuted` and leaves `context.ExitCode` at `0`. Tested
-by `Validation_Run_CppGenerationSkippedWhenClangUnavailable`.
+**C++ tests are skipped, not failed, when clang is unavailable**: Verifies
+that forcing clang discovery to fail (by pointing `APIMARK_CLANG_PATH` at a
+nonexistent path) records `ApiMark_CppGeneration` and
+`ApiMark_CppEnforceDocs` with `TestOutcome.NotExecuted` and leaves
+`context.ExitCode` at `0`. Tested by
+`Validation_Run_CppTestsSkippedWhenClangUnavailable`.

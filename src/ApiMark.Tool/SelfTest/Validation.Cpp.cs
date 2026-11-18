@@ -1,100 +1,63 @@
-using ApiMark.Core;
-using ApiMark.Cpp;
 using ApiMark.Cpp.CppAst;
-using ApiMark.Tool.Cli;
 
 namespace ApiMark.Tool.SelfTest;
 
 /// <summary>
-///     Provides the C++ functional self-validation test for ApiMark Tool.
+///     Provides the C++ generation self-test for ApiMark Tool.
 /// </summary>
 internal static partial class Validation
 {
+    /// <summary>A documented C++ struct with one documented field, used by the C++ generation self-test.</summary>
+    private const string CppGenerationSample =
+        "/// Represents a single point in 2D space.\n" +
+        "struct ApiMarkSamplePoint\n" +
+        "{\n" +
+        "    /// The horizontal coordinate.\n" +
+        "    int x;\n" +
+        "};\n";
+
     /// <summary>
-    ///     Runs a functional test that exercises the real <see cref="CppGenerator"/> pipeline
-    ///     (<c>Parse</c> then <c>Emit</c>) against a tiny embedded sample header, and verifies
-    ///     the generated Markdown contains expected content.
+    ///     Returns the reason the C++ self-tests are skipped, or <see langword="null"/> when they can run.
     /// </summary>
     /// <remarks>
-    ///     Requires a clang executable to be discoverable using the same resolution logic as
-    ///     <see cref="ClangAstParser"/> (checked via <see cref="ClangDiscovery.IsAvailable"/>).
-    ///     When clang is unavailable, the test is recorded as <see cref="DemaConsulting.TestResults.TestOutcome.NotExecuted"/>
-    ///     (skipped) rather than failed, and a message is written via <c>context.WriteLine</c>
-    ///     (never <c>WriteError</c>) so the skip never causes a non-zero exit code. The
-    ///     generator's own informational <c>WriteLine</c> output is routed to a silent,
-    ///     log-capturing child <see cref="Context"/> rather than the outer validation
-    ///     <paramref name="context"/>, so it never interleaves with the pass/fail transcript.
+    ///     C++ parsing runs an external clang executable, which is not part of the tool package, so
+    ///     the C++ self-tests run only when clang can be found with the same discovery logic the
+    ///     <c>cpp</c> subcommand uses (<see cref="ClangDiscovery.IsAvailable"/>). Otherwise they are
+    ///     recorded as skipped, never failed, so the exit code is unaffected.
     /// </remarks>
-    /// <param name="context">The context for output.</param>
-    /// <param name="testResults">The test results collection to append results to.</param>
-    private static void RunCppGenerationTest(Context context, DemaConsulting.TestResults.TestResults testResults)
+    /// <returns>The skip reason, or <see langword="null"/>.</returns>
+    private static string? CppSkipReason() =>
+        ClangDiscovery.IsAvailable()
+            ? null
+            : "clang not found; install LLVM clang or set APIMARK_CLANG_PATH to validate C++ support";
+
+    /// <summary>
+    ///     Checks that <c>apimark cpp ... --format single-file</c> documents a sample header with the
+    ///     struct's summary, its include line, and its documented field.
+    /// </summary>
+    /// <returns><see langword="null"/> on success; otherwise the failure message.</returns>
+    private static string? CppGenerationTest()
     {
-        var startTime = DateTime.UtcNow;
-        var test = CreateTestResult("ApiMark_CppGeneration");
+        using var workspace = new TemporaryDirectory();
+        var include = workspace.CreateSubdirectory("include");
+        File.WriteAllText(Path.Join(include, "point.h"), CppGenerationSample);
+        var output = workspace.PathOf("api");
 
-        try
-        {
-            if (!ClangDiscovery.IsAvailable())
-            {
-                test.Outcome = DemaConsulting.TestResults.TestOutcome.NotExecuted;
-                context.WriteLine(
-                    "⊘ ApiMark_CppGeneration - Skipped: clang not found; install LLVM clang or " +
-                    "set APIMARK_CLANG_PATH to validate C++ support");
-                FinalizeTestResult(test, startTime, testResults);
-                return;
-            }
+        var run = RunApiMark(
+            workspace,
+            "cpp", "--includes", include, "--output", output, "--library-name", "ApiMarkSelfTest", "--format", "single-file");
 
-            using var tempDir = new TemporaryDirectory();
-            var logFile = Path.Join(tempDir.DirectoryPath, "cpp-generation.log");
-
-            const string SampleHeader =
-                "/// Represents a single point in 2D space.\n" +
-                "struct ApiMarkSamplePoint\n" +
-                "{\n" +
-                "    /// The horizontal coordinate.\n" +
-                "    int x;\n" +
-                "};\n";
-
-            var headerPath = Path.Join(tempDir.DirectoryPath, "point.h");
-            File.WriteAllText(headerPath, SampleHeader);
-
-            var options = new CppGeneratorOptions
-            {
-                LibraryName = "ApiMarkSelfTest",
-                PublicIncludeRoots = [tempDir.DirectoryPath],
-            };
-
-            // Route the generator's own informational output to a silent, log-capturing child
-            // context so it doesn't interleave with the validation transcript.
-            using var genContext = Context.Create(["--silent", "--log", logFile]);
-
-            var generator = new CppGenerator(options);
-            var emitter = generator.Parse(genContext);
-
-            var outputDir = Path.Join(tempDir.DirectoryPath, "out");
-            var factory = new FileMarkdownWriterFactory(outputDir);
-            emitter.Emit(factory, new EmitConfig { Format = OutputFormat.SingleFile }, genContext);
-
-            var markdown = File.ReadAllText(Path.Join(outputDir, "api.md"));
-            if (markdown.Contains("ApiMarkSamplePoint") && markdown.Contains("Represents a single point in 2D space"))
-            {
-                test.Outcome = DemaConsulting.TestResults.TestOutcome.Passed;
-                context.WriteLine("✓ ApiMark_CppGeneration - Passed");
-            }
-            else
-            {
-                test.Outcome = DemaConsulting.TestResults.TestOutcome.Failed;
-                test.ErrorMessage = "Expected content not found in generated Markdown";
-                context.WriteError("✗ ApiMark_CppGeneration - Failed: Expected content not found in generated Markdown");
-            }
-        }
-        // Generic catch is justified here as this is a test framework — any exception should be
-        // recorded as a test failure to ensure robust test execution and reporting.
-        catch (Exception ex)
-        {
-            HandleTestException(test, context, "ApiMark_CppGeneration", ex);
-        }
-
-        FinalizeTestResult(test, startTime, testResults);
+        return CheckExitCode(run, 0)
+               ?? CheckFiles(output, "api.md")
+               ?? CheckContains(
+                   "api.md",
+                   File.ReadAllText(Path.Join(output, "api.md")),
+                   "# ApiMarkSelfTest API Reference\n",
+                   "\n### ApiMarkSamplePoint\n",
+                   "#include \"point.h\"",
+                   "Represents a single point in 2D space.",
+                   "- **x**: The horizontal coordinate.",
+                   "\n#### x\n",
+                   "int x;");
     }
 }

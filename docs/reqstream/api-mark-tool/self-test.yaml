@@ -20,6 +20,7 @@ sections:
               - ApiMarkTool-SelfTest-Validation-SetExitCodeOnFailure
               - ApiMarkTool-SelfTest-Validation-RejectUnsupportedExtension
               - ApiMarkTool-SelfTest-Validation-RunDotNetGenerationTest
+              - ApiMarkTool-SelfTest-Validation-RunGradualDisclosureOutputTest
               - ApiMarkTool-SelfTest-Validation-RunCppGenerationTest
               - ApiMarkTool-SelfTest-Validation-RunVhdlGenerationTest
               - ApiMarkTool-SelfTest-Validation-SkipCppWhenClangUnavailable
@@ -28,4 +29,14 @@ sections:
               - ApiMarkTool-SelfTest-Validation-RunCppEnforceDocsTest
               - ApiMarkTool-SelfTest-Validation-RunVhdlEnforceDocsTest
               - ApiMarkTool-SelfTest-Validation-SuppressGeneratorOutput
-            tests: [Validation_Run_WithValidContext_ExitsZero]
+            tests:
+              - Validation_Run_WithValidContext_ExitsZero
+              - ApiMark_VersionDisplay
+              - ApiMark_HelpDisplay
+              - ApiMark_DotNetGeneration
+              - ApiMark_GradualDisclosureOutput
+              - ApiMark_CppGeneration
+              - ApiMark_VhdlGeneration
+              - ApiMark_DotNetEnforceDocs
+              - ApiMark_CppEnforceDocs
+              - ApiMark_VhdlEnforceDocs

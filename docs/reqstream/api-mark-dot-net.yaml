@@ -181,7 +181,10 @@ sections:
           - ApiMarkDotNet-ExternalXmlDocResolver-LocateAndCacheReferencedAssemblyDocs
           - ApiMarkDotNet-ExternalXmlDocResolver-RejectNullReferencePaths
           - ApiMarkDotNet-ExternalXmlDocResolver-ProbeHintedAssemblyBeforeFullScan
-        tests: [ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown]
+        tests:
+          - ApiMarkDotNet_Generate_ValidAssemblyAndXml_ProducesMarkdown
+          - ApiMark_DotNetGeneration
+          - ApiMark_GradualDisclosureOutput
       - id: ApiMarkDotNet-TypeNameSimplifier-ProduceReadableTypeNames
         title: ApiMarkDotNet shall render .NET type names in a concise C#-style form
           that is readable in generated documentation.
@@ -231,3 +234,4 @@ sections:
           - ApiMarkDotNet-DocumentationCoverageChecker-InheritDocCountsAsDocumented
         tests:
           - DotNetGenerator_CheckDocumentationCoverage_AfterParse_ReturnsViolationsAndAllowsSubsequentEmit
+          - ApiMark_DotNetEnforceDocs

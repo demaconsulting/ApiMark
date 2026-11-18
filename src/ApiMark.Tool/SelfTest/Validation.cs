@@ -8,11 +8,26 @@ namespace ApiMark.Tool.SelfTest;
 /// <summary>
 ///     Provides self-validation functionality for ApiMark Tool.
 /// </summary>
+/// <remarks>
+///     Besides the version and help tests, every self-test runs the tool end to end in-process
+///     (through <see cref="Program.Run"/> with a child <see cref="Context"/>) against sample sources
+///     it writes into its own temporary directory, and passes only when the exit code, the
+///     reported findings, and the generated Markdown are exactly as expected. A passing run
+///     therefore shows that the installed tool generates and checks API documentation correctly,
+///     not only that it starts.
+/// </remarks>
 internal static partial class Validation
 {
-    /// <summary>Regular expression that matches a semantic version number (e.g. <c>1.2.3</c>).</summary>
-    [GeneratedRegex(@"\b\d+\.\d+\.\d+")]
-    private static partial Regex VersionPattern();
+    /// <summary>
+    ///     Regular expression that matches a Markdown link to a relative <c>.md</c> page with an optional
+    ///     <c>#fragment</c>, or to a <c>#fragment</c> in the same page. Absolute URLs are not matched.
+    /// </summary>
+    [GeneratedRegex(@"\]\((?:(?<path>[^)#:\s]+\.md)(?:#(?<anchor>[^)\s]+))?|#(?<anchor>[^)\s]+))\)")]
+    private static partial Regex MarkdownLinkPattern();
+
+    /// <summary>Regular expression that matches an ATX heading line and captures its text.</summary>
+    [GeneratedRegex(@"^#{1,6}\s+(?<text>.+?)\s*$")]
+    private static partial Regex HeadingPattern();
 
     /// <summary>
     ///     Runs self-validation tests and optionally writes results to a file.
@@ -40,18 +55,19 @@ internal static partial class Validation
         };
 
         // Run core functionality tests
-        RunVersionTest(context, testResults);
-        RunHelpTest(context, testResults);
+        RunTest(context, testResults, "ApiMark_VersionDisplay", VersionDisplayTest);
+        RunTest(context, testResults, "ApiMark_HelpDisplay", HelpDisplayTest);
 
         // Run functional generator tests
-        RunDotNetGenerationTest(context, testResults);
-        RunCppGenerationTest(context, testResults);
-        RunVhdlGenerationTest(context, testResults);
+        RunTest(context, testResults, "ApiMark_DotNetGeneration", DotNetGenerationTest);
+        RunTest(context, testResults, "ApiMark_GradualDisclosureOutput", GradualDisclosureOutputTest);
+        RunTest(context, testResults, "ApiMark_CppGeneration", CppGenerationTest, CppSkipReason);
+        RunTest(context, testResults, "ApiMark_VhdlGeneration", VhdlGenerationTest);
 
         // Run documentation-coverage enforcement tests
-        RunDotNetEnforceDocsTest(context, testResults);
-        RunCppEnforceDocsTest(context, testResults);
-        RunVhdlEnforceDocsTest(context, testResults);
+        RunTest(context, testResults, "ApiMark_DotNetEnforceDocs", DotNetEnforceDocsTest);
+        RunTest(context, testResults, "ApiMark_CppEnforceDocs", CppEnforceDocsTest, CppSkipReason);
+        RunTest(context, testResults, "ApiMark_VhdlEnforceDocs", VhdlEnforceDocsTest);
 
         // Calculate totals
         var totalTests = testResults.Results.Count;
@@ -103,125 +119,263 @@ internal static partial class Validation
     }
 
     /// <summary>
-    ///     Runs a test for version display functionality.
+    ///     Runs one self-test, prints its outcome, and records it in the test results.
     /// </summary>
     /// <param name="context">The context for output.</param>
-    /// <param name="testResults">The test results collection to append results to.</param>
-    private static void RunVersionTest(Context context, DemaConsulting.TestResults.TestResults testResults)
+    /// <param name="testResults">The test results collection to append the result to.</param>
+    /// <param name="testName">The name of the test.</param>
+    /// <param name="test">The test body; returns <see langword="null"/> on success or a failure message.</param>
+    /// <param name="skipReason">
+    ///     Optional pre-check; returns <see langword="null"/> when the test can run or the reason it is
+    ///     skipped. A skipped test is recorded as <c>NotExecuted</c> and reported with
+    ///     <c>context.WriteLine</c>, so it never affects the exit code.
+    /// </param>
+    private static void RunTest(
+        Context context,
+        DemaConsulting.TestResults.TestResults testResults,
+        string testName,
+        Func<string?> test,
+        Func<string?>? skipReason = null)
     {
         var startTime = DateTime.UtcNow;
-        var test = CreateTestResult("ApiMark_VersionDisplay");
+        var result = CreateTestResult(testName);
 
         try
         {
-            using var tempDir = new TemporaryDirectory();
-            var logFile = Path.Join(tempDir.DirectoryPath, "version-test.log");
-
-            // Build child command-line arguments — never include --validate to avoid recursion
-            var args = new[] { "--silent", "--log", logFile, "--version" };
-
-            // Run the program in a child context so version output goes to the log file
-            int exitCode;
-            using (var testContext = Context.Create(args))
+            var skip = skipReason?.Invoke();
+            var failure = skip == null ? test() : null;
+            if (skip != null)
             {
-                Program.Run(testContext);
-                exitCode = testContext.ExitCode;
+                result.Outcome = DemaConsulting.TestResults.TestOutcome.NotExecuted;
+                context.WriteLine($"⊘ {testName} - Skipped: {skip}");
             }
-
-            // Check if execution succeeded
-            if (exitCode == 0)
+            else if (failure == null)
             {
-                // Read log content and verify the version string is present
-                var logContent = File.ReadAllText(logFile);
-                var versionPattern = VersionPattern();
-                if (!string.IsNullOrWhiteSpace(logContent) && versionPattern.IsMatch(logContent))
-                {
-                    test.Outcome = DemaConsulting.TestResults.TestOutcome.Passed;
-                    context.WriteLine("✓ ApiMark_VersionDisplay - Passed");
-                }
-                else
-                {
-                    test.Outcome = DemaConsulting.TestResults.TestOutcome.Failed;
-                    test.ErrorMessage = "Version string not found in log";
-                    context.WriteError("✗ ApiMark_VersionDisplay - Failed: Version string not found in log");
-                }
+                result.Outcome = DemaConsulting.TestResults.TestOutcome.Passed;
+                context.WriteLine($"✓ {testName} - Passed");
             }
             else
             {
-                test.Outcome = DemaConsulting.TestResults.TestOutcome.Failed;
-                test.ErrorMessage = $"Program exited with code {exitCode}";
-                context.WriteError($"✗ ApiMark_VersionDisplay - Failed: Exit code {exitCode}");
+                result.Outcome = DemaConsulting.TestResults.TestOutcome.Failed;
+                result.ErrorMessage = failure;
+                context.WriteError($"✗ {testName} - Failed: {failure}");
             }
         }
         // Generic catch is justified here as this is a test framework — any exception should be
         // recorded as a test failure to ensure robust test execution and reporting.
         catch (Exception ex)
         {
-            HandleTestException(test, context, "ApiMark_VersionDisplay", ex);
+            result.Outcome = DemaConsulting.TestResults.TestOutcome.Failed;
+            result.ErrorMessage = $"Exception: {ex.Message}";
+            context.WriteError($"✗ {testName} - Failed: {ex.Message}");
         }
 
-        FinalizeTestResult(test, startTime, testResults);
+        result.Duration = DateTime.UtcNow - startTime;
+        testResults.Results.Add(result);
     }
 
     /// <summary>
-    ///     Runs a test for help display functionality.
+    ///     Checks that <c>--version</c> prints exactly the tool version and exits with code 0.
     /// </summary>
-    /// <param name="context">The context for output.</param>
-    /// <param name="testResults">The test results collection to append results to.</param>
-    private static void RunHelpTest(Context context, DemaConsulting.TestResults.TestResults testResults)
+    /// <returns><see langword="null"/> on success; otherwise the failure message.</returns>
+    private static string? VersionDisplayTest()
     {
-        var startTime = DateTime.UtcNow;
-        var test = CreateTestResult("ApiMark_HelpDisplay");
-
-        try
-        {
-            using var tempDir = new TemporaryDirectory();
-            var logFile = Path.Join(tempDir.DirectoryPath, "help-test.log");
-
-            // Build child command-line arguments — never include --validate to avoid recursion
-            var args = new[] { "--silent", "--log", logFile, "--help" };
-
-            // Run the program in a child context so help output goes to the log file
-            int exitCode;
-            using (var testContext = Context.Create(args))
-            {
-                Program.Run(testContext);
-                exitCode = testContext.ExitCode;
-            }
-
-            // Check if execution succeeded
-            if (exitCode == 0)
-            {
-                // Read log content and verify help text is present
-                var logContent = File.ReadAllText(logFile);
-                if (logContent.Contains("Usage:") && logContent.Contains("Options:"))
-                {
-                    test.Outcome = DemaConsulting.TestResults.TestOutcome.Passed;
-                    context.WriteLine("✓ ApiMark_HelpDisplay - Passed");
-                }
-                else
-                {
-                    test.Outcome = DemaConsulting.TestResults.TestOutcome.Failed;
-                    test.ErrorMessage = "Help text not found in log";
-                    context.WriteError("✗ ApiMark_HelpDisplay - Failed: Help text not found in log");
-                }
-            }
-            else
-            {
-                test.Outcome = DemaConsulting.TestResults.TestOutcome.Failed;
-                test.ErrorMessage = $"Program exited with code {exitCode}";
-                context.WriteError($"✗ ApiMark_HelpDisplay - Failed: Exit code {exitCode}");
-            }
-        }
-        // Generic catch is justified here as this is a test framework — any exception should be
-        // recorded as a test failure to ensure robust test execution and reporting.
-        catch (Exception ex)
-        {
-            HandleTestException(test, context, "ApiMark_HelpDisplay", ex);
-        }
-
-        FinalizeTestResult(test, startTime, testResults);
+        using var workspace = new TemporaryDirectory();
+        var run = RunApiMark(workspace, "--version");
+        return CheckExitCode(run, 0)
+               ?? (run.Log.Trim() == Program.Version ? null : $"Expected version '{Program.Version}' but got '{run.Log.Trim()}'");
     }
+
+    /// <summary>
+    ///     Checks that <c>--help</c> prints the usage, the common options, and the options of every
+    ///     language subcommand, and exits with code 0.
+    /// </summary>
+    /// <returns><see langword="null"/> on success; otherwise the failure message.</returns>
+    private static string? HelpDisplayTest()
+    {
+        using var workspace = new TemporaryDirectory();
+        var run = RunApiMark(workspace, "--help");
+        return CheckExitCode(run, 0)
+               ?? CheckContains(
+                   "help output",
+                   run.Log,
+                   "Usage: apimark [options] [language [language-options]]",
+                   "Options:",
+                   "--validate",
+                   "dotnet options:",
+                   "cpp options:",
+                   "vhdl options:");
+    }
+
+    /// <summary>
+    ///     Runs the tool in-process with the given arguments, capturing its output in a log file in
+    ///     <paramref name="workspace"/>.
+    /// </summary>
+    /// <param name="workspace">The temporary directory of the calling test.</param>
+    /// <param name="args">The command-line arguments; never includes <c>--validate</c>, to avoid recursion.</param>
+    /// <returns>The exit code and the captured output of the run.</returns>
+    private static ApiMarkRun RunApiMark(TemporaryDirectory workspace, params string[] args)
+    {
+        var logFile = Path.Join(workspace.DirectoryPath, $"run-{Guid.NewGuid():N}.log");
+
+        // Dispose the run context before reading the log so the log file is flushed and closed
+        // (an open log file cannot be read or deleted on Windows)
+        int exitCode;
+        using (var runContext = Context.Create(["--silent", "--log", logFile, .. args]))
+        {
+            Program.Run(runContext);
+            exitCode = runContext.ExitCode;
+        }
+
+        var log = File.ReadAllText(logFile);
+        File.Delete(logFile);
+        return new ApiMarkRun(exitCode, log);
+    }
+
+    /// <summary>
+    ///     Compares the exit code of a run with the expected one.
+    /// </summary>
+    /// <param name="run">The run to check.</param>
+    /// <param name="expected">The expected exit code.</param>
+    /// <returns><see langword="null"/> when they match; otherwise the failure message.</returns>
+    private static string? CheckExitCode(ApiMarkRun run, int expected) =>
+        run.ExitCode == expected
+            ? null
+            : $"Expected exit code {expected} but got {run.ExitCode}: {run.Log.Trim()}";
+
+    /// <summary>
+    ///     Checks that a text contains every expected fragment.
+    /// </summary>
+    /// <param name="what">A description of the text, used in the failure message.</param>
+    /// <param name="text">The text to check.</param>
+    /// <param name="expected">The fragments the text must contain.</param>
+    /// <returns><see langword="null"/> when all are present; otherwise a message naming the first missing one.</returns>
+    private static string? CheckContains(string what, string text, params string[] expected)
+    {
+        var normalized = text.ReplaceLineEndings("\n");
+        var missing = expected.FirstOrDefault(e => !normalized.Contains(e, StringComparison.Ordinal));
+        return missing == null ? null : $"Expected {what} to contain '{missing}'";
+    }
+
+    /// <summary>
+    ///     Checks that a text contains none of the given fragments.
+    /// </summary>
+    /// <param name="what">A description of the text, used in the failure message.</param>
+    /// <param name="text">The text to check.</param>
+    /// <param name="unexpected">The fragments the text must not contain.</param>
+    /// <returns><see langword="null"/> when none is present; otherwise a message naming the first one found.</returns>
+    private static string? CheckDoesNotContain(string what, string text, params string[] unexpected)
+    {
+        var normalized = text.ReplaceLineEndings("\n");
+        var found = unexpected.FirstOrDefault(u => normalized.Contains(u, StringComparison.Ordinal));
+        return found == null ? null : $"Expected {what} not to contain '{found}'";
+    }
+
+    /// <summary>
+    ///     Checks that a directory contains exactly the expected files.
+    /// </summary>
+    /// <param name="directory">The directory to check.</param>
+    /// <param name="expected">The expected file paths, relative to <paramref name="directory"/>, using <c>/</c>.</param>
+    /// <returns><see langword="null"/> when the file set matches; otherwise the failure message.</returns>
+    private static string? CheckFiles(string directory, params string[] expected)
+    {
+        var actual = Directory.Exists(directory)
+            ? Directory.GetFiles(directory, "*", SearchOption.AllDirectories)
+                .Select(f => Path.GetRelativePath(directory, f).Replace('\\', '/'))
+                .Order(StringComparer.Ordinal)
+                .ToList()
+            : [];
+        var sorted = expected.Order(StringComparer.Ordinal).ToList();
+        return actual.SequenceEqual(sorted, StringComparer.Ordinal)
+            ? null
+            : $"Expected files [{string.Join(", ", sorted)}] but got [{string.Join(", ", actual)}]";
+    }
+
+    /// <summary>
+    ///     Checks that every relative Markdown page link in every page under a directory resolves to an
+    ///     existing page and, when the link has a <c>#fragment</c>, to a heading anchor of that page.
+    /// </summary>
+    /// <param name="directory">The output directory to check.</param>
+    /// <returns><see langword="null"/> when every link resolves; otherwise a message naming the first broken link.</returns>
+    private static string? CheckLinksResolve(string directory)
+    {
+        var anchorsByPage = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        foreach (var page in Directory.GetFiles(directory, "*.md", SearchOption.AllDirectories))
+        {
+            foreach (Match match in MarkdownLinkPattern().Matches(File.ReadAllText(page)))
+            {
+                var path = match.Groups["path"].Success ? match.Groups["path"].Value : null;
+                var anchor = match.Groups["anchor"].Success ? match.Groups["anchor"].Value : null;
+                var target = path == null ? page : Path.GetFullPath(Path.Join(Path.GetDirectoryName(page), path));
+                var link = match.Value[2..^1];
+                if (!File.Exists(target))
+                {
+                    return $"Broken link '{link}' in {Path.GetRelativePath(directory, page)}";
+                }
+
+                if (anchor == null)
+                {
+                    continue;
+                }
+
+                if (!anchorsByPage.TryGetValue(target, out var anchors))
+                {
+                    anchors = ReadHeadingAnchors(target);
+                    anchorsByPage[target] = anchors;
+                }
+
+                if (!anchors.Contains(anchor))
+                {
+                    return $"Broken anchor in link '{link}' in {Path.GetRelativePath(directory, page)}";
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    ///     Reads the heading anchors of a Markdown page, ignoring lines inside fenced code blocks.
+    /// </summary>
+    /// <param name="page">The page to read.</param>
+    /// <returns>The anchor slugs of every heading of the page.</returns>
+    private static HashSet<string> ReadHeadingAnchors(string page)
+    {
+        var anchors = new HashSet<string>(StringComparer.Ordinal);
+        var inFence = false;
+        foreach (var line in File.ReadLines(page))
+        {
+            if (line.TrimStart().StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                continue;
+            }
+
+            var heading = inFence ? null : HeadingPattern().Match(line);
+            if (heading is { Success: true })
+            {
+                anchors.Add(BuildHeadingAnchor(heading.Groups["text"].Value));
+            }
+        }
+
+        return anchors;
+    }
+
+    /// <summary>
+    ///     Builds the GitHub-style anchor slug of a heading with the rules the emitters use: lowercase,
+    ///     every character other than letters, digits, spaces, hyphens, and underscores removed (including
+    ///     Markdown backslash escapes), and spaces replaced by hyphens.
+    /// </summary>
+    /// <remarks>
+    ///     Implemented independently of the emitters (rather than calling them) so that a defect in the
+    ///     emitters' anchor generation is detected instead of reproduced.
+    /// </remarks>
+    /// <param name="heading">The heading text as written to the page.</param>
+    /// <returns>The anchor slug without the leading <c>#</c>.</returns>
+    private static string BuildHeadingAnchor(string heading) =>
+        string.Concat(heading.ToLowerInvariant()
+            .Where(c => c == ' ' || char.IsLetterOrDigit(c) || c is '-' or '_')
+            .Select(c => c == ' ' ? '-' : c));
 
     /// <summary>
     ///     Writes test results to a file in TRX or JUnit format.
@@ -277,37 +431,11 @@ internal static partial class Validation
     }
 
     /// <summary>
-    ///     Finalizes a test result by setting its duration and adding it to the collection.
+    ///     The outcome of one in-process run of the tool.
     /// </summary>
-    /// <param name="test">The test result to finalize.</param>
-    /// <param name="startTime">The start time of the test.</param>
-    /// <param name="testResults">The test results collection to add to.</param>
-    private static void FinalizeTestResult(
-        DemaConsulting.TestResults.TestResult test,
-        DateTime startTime,
-        DemaConsulting.TestResults.TestResults testResults)
-    {
-        test.Duration = DateTime.UtcNow - startTime;
-        testResults.Results.Add(test);
-    }
-
-    /// <summary>
-    ///     Handles test exceptions by setting failure information and logging the error.
-    /// </summary>
-    /// <param name="test">The test result to update.</param>
-    /// <param name="context">The context for output.</param>
-    /// <param name="testName">The name of the test for error messages.</param>
-    /// <param name="ex">The exception that occurred.</param>
-    private static void HandleTestException(
-        DemaConsulting.TestResults.TestResult test,
-        Context context,
-        string testName,
-        Exception ex)
-    {
-        test.Outcome = DemaConsulting.TestResults.TestOutcome.Failed;
-        test.ErrorMessage = $"Exception: {ex.Message}";
-        context.WriteError($"✗ {testName} - FAILED: {ex.Message}");
-    }
+    /// <param name="ExitCode">The exit code of the run.</param>
+    /// <param name="Log">Everything the run wrote to its output.</param>
+    private sealed record ApiMarkRun(int ExitCode, string Log);
 
     /// <summary>
     ///     Represents a temporary directory that is automatically deleted when disposed.
@@ -337,6 +465,21 @@ internal static partial class Validation
                 throw new InvalidOperationException($"Failed to create temporary directory: {ex.Message}", ex);
             }
         }
+
+        /// <summary>
+        ///     Gets the full path of a file or directory inside the temporary directory.
+        /// </summary>
+        /// <param name="relativePath">The path relative to the temporary directory.</param>
+        /// <returns>The full path.</returns>
+        public string PathOf(string relativePath) => Path.Join(DirectoryPath, relativePath);
+
+        /// <summary>
+        ///     Creates a subdirectory inside the temporary directory.
+        /// </summary>
+        /// <param name="relativePath">The path of the subdirectory relative to the temporary directory.</param>
+        /// <returns>The full path of the created subdirectory.</returns>
+        public string CreateSubdirectory(string relativePath) =>
+            Directory.CreateDirectory(PathOf(relativePath)).FullName;
 
         /// <summary>
         ///     Deletes the temporary directory and all its contents.
