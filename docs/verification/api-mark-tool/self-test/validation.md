@@ -21,7 +21,9 @@ shows that the tool generated or checked documentation correctly on that
 platform and runtime. The CI integration-test job runs `apimark --validate
 --results` on every operating system and .NET runtime in the matrix, and the
 system-level and Validation requirements link the `ApiMark_*` test names
-directly.
+directly. The C++ tests are included: the Windows, Linux, and macOS runner
+images provide a clang that `ClangDiscovery` finds (the same one the C++ unit
+tests use), so they run and pass there rather than being skipped.
 
 #### Test Environment
 

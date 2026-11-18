@@ -27,7 +27,7 @@ internal static partial class Validation
             "dotnet", "--assembly", documented.AssemblyPath, "--xml-doc", documented.XmlDocPath,
             "--output", workspace.PathOf("out-documented"), "--enforce-docs", "Public", "--enforce-docs-severity", "Error");
         var failure = CheckExitCode(clean, 0)
-                      ?? CheckContains("output of the documented run", clean.Log, "Documentation coverage: 0 undocumented of 7 checked.")
+                      ?? CheckContains("output of the documented run", clean.Log, "Documentation coverage: 0 undocumented of 8 checked.")
                       ?? CheckDoesNotContain("output of the documented run", clean.Log, "[Undocumented]");
         if (failure != null)
         {
@@ -44,7 +44,7 @@ internal static partial class Validation
                       "output of the Error-severity run",
                       error.Log,
                       $"{Undocumented}\n",
-                      "Documentation coverage: 1 undocumented of 7 checked.",
+                      "Documentation coverage: 1 undocumented of 8 checked.",
                       "Error: 1 undocumented API item(s) found (--enforce-docs-severity Error).");
         if (failure != null)
         {
@@ -61,6 +61,6 @@ internal static partial class Validation
                    "output of the Warning-severity run",
                    warning.Log,
                    $"{Undocumented}\n",
-                   "Documentation coverage: 1 undocumented of 7 checked.");
+                   "Documentation coverage: 1 undocumented of 8 checked.");
     }
 }

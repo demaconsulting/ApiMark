@@ -35,6 +35,8 @@ sections:
               - ApiMark_HelpDisplay
               - ApiMark_DotNetGeneration
               - ApiMark_GradualDisclosureOutput
+              - ApiMark_CppGeneration
               - ApiMark_VhdlGeneration
               - ApiMark_DotNetEnforceDocs
+              - ApiMark_CppEnforceDocs
               - ApiMark_VhdlEnforceDocs

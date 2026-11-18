@@ -27,8 +27,13 @@ internal static partial class Validation
             "<summary>Creates a thermostat.</summary><param name=\"initialTarget\">The initial target temperature in degrees Celsius.</param>"),
         ("M:ApiMarkSample.Thermostat.SetTarget(System.Double)",
             "<summary>Sets the target temperature.</summary><param name=\"celsius\">The new target temperature in degrees Celsius.</param>"),
+        ("M:ApiMarkSample.Thermostat.SetTarget(System.Double,System.Double)",
+            "<summary>Sets the target temperature and the allowed deviation.</summary>" +
+            "<param name=\"celsius\">The new target temperature in degrees Celsius.</param>" +
+            "<param name=\"tolerance\">The allowed deviation in degrees Celsius.</param>"),
         (SampleReadDocumentationId,
-            "<summary>Takes a reading from the sensor.</summary><returns>The current <see cref=\"T:ApiMarkSample.Reading\"/>.</returns>"),
+            "<summary>Takes a reading from the sensor.</summary><returns>The current <see cref=\"T:ApiMarkSample.Reading\"/>.</returns>" +
+            "<remarks>The target is set with <see cref=\"M:ApiMarkSample.Thermostat.SetTarget(System.Double,System.Double)\"/>.</remarks>"),
     ];
 
     /// <summary>
@@ -40,9 +45,10 @@ internal static partial class Validation
     ///     .NET self-tests need no compiler, SDK, or fixture file. It declares two public sealed
     ///     classes in the <c>ApiMarkSample</c> namespace:
     ///     <c>Reading</c> (constructor <c>Reading(double celsius)</c> and property <c>double Celsius</c>) and
-    ///     <c>Thermostat</c> (constructor <c>Thermostat(double initialTarget)</c>, method
-    ///     <c>void SetTarget(double celsius)</c>, and method <c>Reading Read()</c>), giving seven
-    ///     documentable public items and one cross-type reference.
+    ///     <c>Thermostat</c> (constructor <c>Thermostat(double initialTarget)</c>, the overloads
+    ///     <c>void SetTarget(double celsius)</c> and <c>void SetTarget(double celsius, double tolerance)</c>,
+    ///     and method <c>Reading Read()</c>), giving eight documentable public items, one cross-type
+    ///     reference, and one overload page whose sections are linked by heading anchor.
     /// </remarks>
     /// <param name="directory">The directory to write into.</param>
     /// <param name="documentRead">
@@ -89,6 +95,14 @@ internal static partial class Validation
         var setTarget = thermostat.DefineMethod("SetTarget", MethodAttributes.Public | MethodAttributes.HideBySig, typeof(void), [typeof(double)]);
         setTarget.DefineParameter(1, ParameterAttributes.None, "celsius");
         EmitStoreArgument(setTarget.GetILGenerator(), null, targetField);
+        var setTargetWithTolerance = thermostat.DefineMethod(
+            "SetTarget",
+            MethodAttributes.Public | MethodAttributes.HideBySig,
+            typeof(void),
+            [typeof(double), typeof(double)]);
+        setTargetWithTolerance.DefineParameter(1, ParameterAttributes.None, "celsius");
+        setTargetWithTolerance.DefineParameter(2, ParameterAttributes.None, "tolerance");
+        EmitStoreArgument(setTargetWithTolerance.GetILGenerator(), null, targetField);
         var read = thermostat.DefineMethod("Read", MethodAttributes.Public | MethodAttributes.HideBySig, reading, Type.EmptyTypes);
         il = read.GetILGenerator();
         il.Emit(OpCodes.Ldarg_0);

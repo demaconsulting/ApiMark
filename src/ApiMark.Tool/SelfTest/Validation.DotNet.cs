@@ -1,3 +1,4 @@
+// cspell:ignore settargetdouble
 namespace ApiMark.Tool.SelfTest;
 
 /// <summary>
@@ -44,6 +45,10 @@ internal static partial class Validation
                    "\n#### SetTarget(double)\n",
                    "public void SetTarget(double celsius)",
                    "| celsius | double | The new target temperature in degrees Celsius. |",
+                   "- **SetTarget(double celsius, double tolerance)**: Sets the target temperature and the allowed deviation.",
+                   "\n#### SetTarget(double, double)\n",
+                   "public void SetTarget(double celsius, double tolerance)",
+                   "| tolerance | double | The allowed deviation in degrees Celsius. |",
                    "\n#### Read()\n",
                    "public Reading Read()",
                    "**Returns:** The current `Reading`.");
@@ -52,7 +57,8 @@ internal static partial class Validation
     /// <summary>
     ///     Checks that <c>apimark dotnet ...</c> with the default gradual-disclosure format writes the
     ///     index, namespace, type, and member pages of the sample assembly, with the expected tables
-    ///     and cross-links, and that every link between the pages resolves.
+    ///     and cross-links, and that every link between the pages resolves, including the heading
+    ///     anchor of the link to the second <c>SetTarget</c> overload.
     /// </summary>
     /// <returns><see langword="null"/> on success; otherwise the failure message.</returns>
     private static string? GradualDisclosureOutputTest()
@@ -92,14 +98,23 @@ internal static partial class Validation
                    "[API Reference](../api.md) › [ApiMarkSample](../ApiMarkSample.md)",
                    "| [Thermostat(double initialTarget)](Thermostat/Thermostat.md) | Creates a thermostat. |",
                    "| [Read()](Thermostat/Read.md) | [Reading](Reading.md) | Takes a reading from the sensor. |",
-                   "| [SetTarget(double celsius)](Thermostat/SetTarget.md) | void | Sets the target temperature. |")
+                   "| [SetTarget (2 overloads)](Thermostat/SetTarget.md) | void | Overloaded; see the member page. |")
+               ?? CheckContains(
+                   "ApiMarkSample/Thermostat/SetTarget.md",
+                   File.ReadAllText(Path.Join(output, "ApiMarkSample", "Thermostat", "SetTarget.md")),
+                   "\n## SetTarget(double)\n",
+                   "public void SetTarget(double celsius)",
+                   "\n## SetTarget(double, double)\n",
+                   "public void SetTarget(double celsius, double tolerance)",
+                   "| tolerance | double | The allowed deviation in degrees Celsius. |")
                ?? CheckContains(
                    "ApiMarkSample/Thermostat/Read.md",
                    File.ReadAllText(Path.Join(output, "ApiMarkSample", "Thermostat", "Read.md")),
                    "# Read()\n",
                    "[API Reference](../../api.md) › [ApiMarkSample](../../ApiMarkSample.md) › [Thermostat](../Thermostat.md)",
                    "public Reading Read()",
-                   "**Returns:** The current [`Reading`](../Reading.md).")
+                   "**Returns:** The current [`Reading`](../Reading.md).",
+                   "The target is set with [`Thermostat.SetTarget(double, double)`](SetTarget.md#settargetdouble-double).")
                ?? CheckLinksResolve(output);
     }
 }

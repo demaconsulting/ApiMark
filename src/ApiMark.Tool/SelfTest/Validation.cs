@@ -18,9 +18,16 @@ namespace ApiMark.Tool.SelfTest;
 /// </remarks>
 internal static partial class Validation
 {
-    /// <summary>Regular expression that matches a Markdown link to a relative <c>.md</c> page.</summary>
-    [GeneratedRegex(@"\]\((?<target>[^)#:]+\.md)\)")]
+    /// <summary>
+    ///     Regular expression that matches a Markdown link to a relative <c>.md</c> page with an optional
+    ///     <c>#fragment</c>, or to a <c>#fragment</c> in the same page. Absolute URLs are not matched.
+    /// </summary>
+    [GeneratedRegex(@"\]\((?:(?<path>[^)#:\s]+\.md)(?:#(?<anchor>[^)\s]+))?|#(?<anchor>[^)\s]+))\)")]
     private static partial Regex MarkdownLinkPattern();
+
+    /// <summary>Regular expression that matches an ATX heading line and captures its text.</summary>
+    [GeneratedRegex(@"^#{1,6}\s+(?<text>.+?)\s*$")]
+    private static partial Regex HeadingPattern();
 
     /// <summary>
     ///     Runs self-validation tests and optionally writes results to a file.
@@ -286,25 +293,89 @@ internal static partial class Validation
 
     /// <summary>
     ///     Checks that every relative Markdown page link in every page under a directory resolves to an
-    ///     existing page.
+    ///     existing page and, when the link has a <c>#fragment</c>, to a heading anchor of that page.
     /// </summary>
     /// <param name="directory">The output directory to check.</param>
     /// <returns><see langword="null"/> when every link resolves; otherwise a message naming the first broken link.</returns>
     private static string? CheckLinksResolve(string directory)
     {
+        var anchorsByPage = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         foreach (var page in Directory.GetFiles(directory, "*.md", SearchOption.AllDirectories))
         {
-            var broken = MarkdownLinkPattern().Matches(File.ReadAllText(page))
-                .Select(match => match.Groups["target"].Value)
-                .FirstOrDefault(target => !File.Exists(Path.GetFullPath(Path.Join(Path.GetDirectoryName(page), target))));
-            if (broken != null)
+            foreach (Match match in MarkdownLinkPattern().Matches(File.ReadAllText(page)))
             {
-                return $"Broken link '{broken}' in {Path.GetRelativePath(directory, page)}";
+                var path = match.Groups["path"].Success ? match.Groups["path"].Value : null;
+                var anchor = match.Groups["anchor"].Success ? match.Groups["anchor"].Value : null;
+                var target = path == null ? page : Path.GetFullPath(Path.Join(Path.GetDirectoryName(page), path));
+                var link = match.Value[2..^1];
+                if (!File.Exists(target))
+                {
+                    return $"Broken link '{link}' in {Path.GetRelativePath(directory, page)}";
+                }
+
+                if (anchor == null)
+                {
+                    continue;
+                }
+
+                if (!anchorsByPage.TryGetValue(target, out var anchors))
+                {
+                    anchors = ReadHeadingAnchors(target);
+                    anchorsByPage[target] = anchors;
+                }
+
+                if (!anchors.Contains(anchor))
+                {
+                    return $"Broken anchor in link '{link}' in {Path.GetRelativePath(directory, page)}";
+                }
             }
         }
 
         return null;
     }
+
+    /// <summary>
+    ///     Reads the heading anchors of a Markdown page, ignoring lines inside fenced code blocks.
+    /// </summary>
+    /// <param name="page">The page to read.</param>
+    /// <returns>The anchor slugs of every heading of the page.</returns>
+    private static HashSet<string> ReadHeadingAnchors(string page)
+    {
+        var anchors = new HashSet<string>(StringComparer.Ordinal);
+        var inFence = false;
+        foreach (var line in File.ReadLines(page))
+        {
+            if (line.TrimStart().StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                continue;
+            }
+
+            var heading = inFence ? null : HeadingPattern().Match(line);
+            if (heading is { Success: true })
+            {
+                anchors.Add(BuildHeadingAnchor(heading.Groups["text"].Value));
+            }
+        }
+
+        return anchors;
+    }
+
+    /// <summary>
+    ///     Builds the GitHub-style anchor slug of a heading with the rules the emitters use: lowercase,
+    ///     every character other than letters, digits, spaces, hyphens, and underscores removed (including
+    ///     Markdown backslash escapes), and spaces replaced by hyphens.
+    /// </summary>
+    /// <remarks>
+    ///     Implemented independently of the emitters (rather than calling them) so that a defect in the
+    ///     emitters' anchor generation is detected instead of reproduced.
+    /// </remarks>
+    /// <param name="heading">The heading text as written to the page.</param>
+    /// <returns>The anchor slug without the leading <c>#</c>.</returns>
+    private static string BuildHeadingAnchor(string heading) =>
+        string.Concat(heading.ToLowerInvariant()
+            .Where(c => c == ' ' || char.IsLetterOrDigit(c) || c is '-' or '_')
+            .Select(c => c == ' ' ? '-' : c));
 
     /// <summary>
     ///     Writes test results to a file in TRX or JUnit format.

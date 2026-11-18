@@ -76,7 +76,8 @@ sections:
                   output on the sample assembly, and verify the run exits with code 0, writes
                   exactly the expected index, namespace, type, and member pages with the
                   expected tables and cross-links, and that every link between the pages
-                  resolves.
+                  resolves to an existing page and, when it has a fragment, to a heading
+                  anchor of that page.
                 justification: |
                   Gradual disclosure is the default output format and the one AI readers
                   navigate by following links, so self-validation must show that the page set
@@ -98,6 +99,7 @@ sections:
                 tests:
                   - Validation_Run_WritesFunctionalGenerationTestResults
                   - Validation_Run_WithValidContext_ExitsZero
+                  - ApiMark_CppGeneration
               - id: ApiMarkTool-SelfTest-Validation-RunVhdlGenerationTest
                 title: Validation shall run apimark vhdl with single-file output on a tiny
                   embedded sample VHDL entity, and verify the run exits with code 0 and that
@@ -162,6 +164,7 @@ sections:
                   - Validation_Run_CppTestsSkippedWhenClangUnavailable
                   - Validation_Run_WritesFunctionalGenerationTestResults
                   - Validation_Run_WithValidContext_ExitsZero
+                  - ApiMark_CppEnforceDocs
               - id: ApiMarkTool-SelfTest-Validation-RunVhdlEnforceDocsTest
                 title: Validation shall run apimark vhdl with --enforce-docs Public and Error
                   severity on a sample entity with one documented and one deliberately

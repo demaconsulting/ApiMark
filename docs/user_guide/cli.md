@@ -46,7 +46,7 @@ exactly as expected.
 - `ApiMark_DotNetGeneration` - `dotnet --format single-file` documents a sample assembly's types, members,
   signatures, and descriptions in one `api.md`.
 - `ApiMark_GradualDisclosureOutput` - `dotnet` writes the expected index, namespace, type, and member pages, and
-  every link between them resolves.
+  every link between them, including heading anchors, resolves.
 - `ApiMark_CppGeneration` - `cpp` documents a sample header's struct and field.
 - `ApiMark_VhdlGeneration` - `vhdl` documents a sample entity's description, generics, and ports.
 - `ApiMark_DotNetEnforceDocs` - `--enforce-docs` reports exactly a missing .NET doc comment and fails the run only

@@ -37,7 +37,8 @@ The tests are:
 - `ApiMark_GradualDisclosureOutput` — `dotnet` with the default format on the
   sample assembly writes exactly the expected index, namespace, type, and
   member pages, with the expected tables, breadcrumbs, and cross-links, and
-  every relative link between the pages resolves.
+  every relative link between the pages resolves to an existing page and,
+  when it has a `#fragment`, to a heading anchor of that page.
 - `ApiMark_CppGeneration` — `cpp --format single-file` on an embedded header
   documents the struct, its include line, and its documented field.
 - `ApiMark_VhdlGeneration` — `vhdl --format single-file` on an embedded entity
@@ -59,8 +60,10 @@ The .NET sample is the `ApiMarkSample` assembly, built in-process by
 together with a matching XML documentation file, so the .NET tests need no
 compiler, SDK, or fixture file and their expected output is exact. It contains
 two public sealed classes — `Reading` (constructor and `Celsius` property) and
-`Thermostat` (constructor, `SetTarget(double)`, and `Read()` returning
-`Reading`) — giving seven documentable items and one cross-type reference.
+`Thermostat` (constructor, the overloads `SetTarget(double)` and
+`SetTarget(double, double)`, and `Read()` returning `Reading`, whose remarks
+reference the second overload) — giving eight documentable items, one
+cross-type reference, and one overload page linked by heading anchor.
 
 The C++ tests need an external clang executable, which is not part of the tool
 package. They are gated on clang availability (via
@@ -146,7 +149,13 @@ the first failure message.
 - `CheckFiles(directory, expected...)` — compares the complete, sorted set of
   files under a directory with the expected relative paths.
 - `CheckLinksResolve(directory)` — checks that every relative `.md` link in
-  every page under a directory points to an existing file.
+  every page under a directory points to an existing file and that every
+  `#fragment` (on a page link or a same-page link) matches a heading anchor of
+  the target page. Anchors are computed by `BuildHeadingAnchor` with the
+  emitters' GitHub-style slug rules (lowercase; only letters, digits, spaces,
+  hyphens, and underscores kept; spaces become hyphens), implemented
+  independently so that an emitter defect is detected rather than reproduced;
+  headings inside fenced code blocks are ignored.
 
 **WriteSampleAssembly(string directory, bool documentRead = true)** — Private static.
 
