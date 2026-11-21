@@ -103,13 +103,16 @@ jobs:
           dotnet-version: |
             10.x
             11.x
-      # Pin a modern clang rather than relying on the runner's preinstalled LLVM:
+      # Windows: pin a modern clang rather than relying on the runner's preinstalled LLVM;
       # newer Visual Studio C++ standard library headers reject older clang versions
-      # (STL1000), which breaks the C++ parser tests on Windows.
+      # (STL1000), which breaks the C++ parser tests. Linux and macOS use the system clang
+      # (the action's library-path variables crash dotnet on macOS).
       - name: Setup clang
+        if: runner.os == 'Windows'
         uses: KyleMayes/install-llvm-action@v2
         with:
           version: "21"
+          directory: ${{ runner.temp }}/llvm
       - name: Restore Tools
         run: >
           dotnet tool restore
@@ -309,12 +312,14 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
-      # Same pinned clang as the build job so the C++ self-validation tests run
-      # (and are not rejected by newer Visual Studio standard library headers).
+      # Same pinned Windows clang as the build job so the C++ self-validation tests are
+      # not rejected by newer Visual Studio standard library headers.
       - name: Setup clang
+        if: runner.os == 'Windows'
         uses: KyleMayes/install-llvm-action@v2
         with:
           version: "21"
+          directory: ${{ runner.temp }}/llvm
       - name: Restore Tools
         run: >
           dotnet tool restore
