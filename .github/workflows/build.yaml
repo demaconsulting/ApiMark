@@ -114,14 +114,14 @@ jobs:
           # The action's asset list stops at 21.x for Windows x64; Visual Studio 18.12's
           # standard library (MSVC 14.52) requires clang 22 or newer.
           version: "22.1.8"
-          force-url: https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/clang+llvm-22.1.8-x86_64-pc-windows-msvc.tar.xz
+          force-url: https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/LLVM-22.1.8-win64.exe
           directory: ${{ runner.temp }}/llvm
       # Point ApiMark at the pinned clang explicitly; PATH may still resolve the runner's older LLVM.
       - name: Use the pinned clang
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          # The release archive may extract under a versioned top-level folder.
+          # Locate clang.exe rather than assume the installer's folder layout.
           $clang = Get-ChildItem -Path $env:LLVM_PATH -Recurse -Filter clang.exe |
             Where-Object { $_.Directory.Name -eq 'bin' } | Select-Object -First 1
           if (-not $clang) { throw "clang.exe not found under $env:LLVM_PATH" }
@@ -335,14 +335,14 @@ jobs:
           # The action's asset list stops at 21.x for Windows x64; Visual Studio 18.12's
           # standard library (MSVC 14.52) requires clang 22 or newer.
           version: "22.1.8"
-          force-url: https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/clang+llvm-22.1.8-x86_64-pc-windows-msvc.tar.xz
+          force-url: https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/LLVM-22.1.8-win64.exe
           directory: ${{ runner.temp }}/llvm
       # Point ApiMark at the pinned clang explicitly; PATH may still resolve the runner's older LLVM.
       - name: Use the pinned clang
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          # The release archive may extract under a versioned top-level folder.
+          # Locate clang.exe rather than assume the installer's folder layout.
           $clang = Get-ChildItem -Path $env:LLVM_PATH -Recurse -Filter clang.exe |
             Where-Object { $_.Directory.Name -eq 'bin' } | Select-Object -First 1
           if (-not $clang) { throw "clang.exe not found under $env:LLVM_PATH" }
