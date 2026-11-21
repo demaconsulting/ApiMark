@@ -6,9 +6,7 @@ sections:
       - title: XmlDocReader Requirements
         requirements:
           - id: ApiMarkDotNet-XmlDocReader-ProvideMemberDocumentationFromXmlFile
-            title: XmlDocReader shall provide the summary, remarks, parameters, returns,
-              exceptions, and example content for any member documented in a .NET
-              XML documentation file, given that member's documentation identifier.
+            title: XmlDocReader shall provide the summary, remarks, parameters, returns, exceptions, and example content for any member documented in a .NET XML documentation file, given that member's documentation identifier.
             justification: |
               Assembly documentation comes from compiler-produced XML files. Every
               per-member lookup used during emission — summary, remarks, parameters,
@@ -42,8 +40,7 @@ sections:
               - XmlDocReader_GetReturns_MemberAbsent_ReturnsNull
               - XmlDocReader_GetExample_MemberAbsent_ReturnsNull
           - id: ApiMarkDotNet-XmlDocReader-RenderXmlDocLists
-            title: XmlDocReader shall render `<list>` elements (bullet, number, table)
-              with `<item>`/`<term>`/`<description>` as Markdown lists or tables.
+            title: XmlDocReader shall render `<list>` elements (bullet, number, table) with `<item>`/`<term>`/`<description>` as Markdown lists or tables.
             justification: |
               XML documentation authors use `<list>` elements to express bullet lists,
               numbered lists, and tables. Rendering these as their Markdown equivalents —
@@ -62,8 +59,7 @@ sections:
               - XmlDocReader_GetRemarks_TableListCellWithPipe_EscapesPipe
               - XmlDocReader_GetRemarks_NestedListInsideItem_RendersInlineWithoutBrokenMarkdown
           - id: ApiMarkDotNet-XmlDocReader-InheritDoc
-            title: XmlDocReader shall resolve `<inheritdoc />` references and inherit
-              XML documentation from base members and interface members.
+            title: XmlDocReader shall resolve `<inheritdoc />` references and inherit XML documentation from base members and interface members.
             justification: >
               C# XML documentation supports `<inheritdoc />` to inherit documentation
               from base class members or interface members. ApiMark must resolve these
@@ -98,11 +94,7 @@ sections:
               - XmlDocReader_GetSummary_NoExternalResolverConfigured_LocalMiss_ReturnsNullUnchanged
               - XmlDocReader_GetSummary_LocalMemberUndocumented_ExternalLookupNotConsulted_ReturnsNull
           - id: ApiMarkDotNet-XmlDocReader-RenderSummaryListsAsMultiLineMarkdown
-            title: XmlDocReader shall provide a GetSummaryMarkdown method that renders
-              `<list>` elements (bullet, number, table) inside a `<summary>` as real
-              multi-line Markdown — a blank line before the list, each item on its
-              own line, and any trailing prose after the `</list>` as a separate
-              paragraph — for use on member-detail-page bodies.
+            title: XmlDocReader shall provide a GetSummaryMarkdown method that renders `<list>` elements (bullet, number, table) inside a `<summary>` as real multi-line Markdown — a blank line before the list, each item on its own line, and any trailing prose after the `</list>` as a separate paragraph — for use on member-detail-page bodies.
             justification: |
               GetSummary always collapsed `<summary>` text to a single line for compact
               contexts such as table cells, which destroyed list structure when a
@@ -119,12 +111,7 @@ sections:
               - XmlDocReader_GetSummaryMarkdown_TableList_RendersMultiLineTable
               - DotNetEmitterGradualDisclosure_Emit_TypeWithListSummary_RendersNumberedListInMarkdown
           - id: ApiMarkDotNet-XmlDocReader-RenderSummaryListsAsInlineMarkersWhenSingleLine
-            title: XmlDocReader's GetSummary shall render a `<list>` element (bullet,
-              number, or table) encountered in a `<summary>` using single-line
-              numbered markers such as "(1) item one (2) item two", instead of
-              concatenating the item text together with no separation, and shall
-              preserve a `<listheader>` label (fully bolded, not double-wrapped)
-              when present rather than silently dropping it.
+            title: XmlDocReader's GetSummary shall render a `<list>` element (bullet, number, or table) encountered in a `<summary>` using single-line numbered markers such as "(1) item one (2) item two", instead of concatenating the item text together with no separation, and shall preserve a `<listheader>` label (fully bolded, not double-wrapped) when present rather than silently dropping it.
             justification: |
               Table cells and other compact contexts require single-line summary text.
               Before this fix, a `<list>` inside a `<summary>` was flattened by the
@@ -143,10 +130,7 @@ sections:
               - XmlDocReader_GetSummary_BulletList_RendersInlineNumberedMarkers
               - XmlDocReader_GetSummary_TableList_RendersInlineNumberedMarkers
           - id: ApiMarkDotNet-XmlDocReader-IncludeTypeNameForPropertyFieldEventCrefs
-            title: XmlDocReader shall include the declaring type name (rendered as
-              `Type.Member`) for `<see cref="P:...">`, `<see cref="F:...">`, and
-              `<see cref="E:...">` references to another member, matching the
-              existing behavior for `M:` method crefs.
+            title: XmlDocReader shall include the declaring type name (rendered as `Type.Member`) for `<see cref="P:...">`, `<see cref="F:...">`, and `<see cref="E:...">` references to another member, matching the existing behavior for `M:` method crefs.
             justification: |
               FormatMemberReference previously only included the declaring type name
               for method crefs (or when the type was a primitive), so a property,
@@ -163,9 +147,7 @@ sections:
               - XmlDocReader_GetSummary_WithInlineReferences_PreservesReferencedNames
               - DotNetGenerator_Generate_InlineReferences_PreserveSymbolNamesInMarkdown
           - id: ApiMarkDotNet-XmlDocReader-RenderBrAndCodeInRemarksAndSummary
-            title: XmlDocReader shall render `<br/>` as a paragraph break and `<code>`
-              as an inline code span or fenced Markdown code block — never silently
-              dropping either — within `<remarks>` and `<summary>` content.
+            title: XmlDocReader shall render `<br/>` as a paragraph break and `<code>` as an inline code span or fenced Markdown code block — never silently dropping either — within `<remarks>` and `<summary>` content.
             justification: |
               A real-world consumer (DemaConsulting.Bicameral.Core, built with
               ApiMarkVisibility=All) reported that `<br/>` and `<code>` elements
@@ -189,10 +171,7 @@ sections:
               - XmlDocReader_GetRemarks_BrAndCodeFromGeneratedRegexExample_RendersAsDistinctBlocks
               - XmlDocReader_GetRemarks_NestedCodeInsideListItemDescription_RendersAsInlineSpanNotFencedBlock
           - id: ApiMarkDotNet-XmlDocReader-CollapseExcessBlankLineRuns
-            title: XmlDocReader shall collapse runs of two or more consecutive blank
-              lines produced by adjacent block-level separators (list, `<br/>`,
-              fenced `<code>`) down to a single blank line in `<remarks>`/`<summary>`
-              output.
+            title: XmlDocReader shall collapse runs of two or more consecutive blank lines produced by adjacent block-level separators (list, `<br/>`, fenced `<code>`) down to a single blank line in `<remarks>`/`<summary>` output.
             justification: |
               Each block-level separator (a `<list>`, a `<br/>`, a fenced `<code>`
               block) independently surrounds itself with a blank line so it renders
@@ -207,10 +186,7 @@ sections:
               - XmlDocReader_GetRemarks_MultipleConsecutiveBrTags_AtMostOneBlankLineBetween
               - XmlDocReader_GetRemarks_BrAndCodeFromGeneratedRegexExample_RendersAsDistinctBlocks
           - id: ApiMarkDotNet-XmlDocReader-WrapMemberCrefDisplayInCodeSpan
-            title: XmlDocReader shall render the display text of a `<see>`/`<seealso>`
-              reference to a type or type member (property, field, event, or method)
-              in an inline Markdown code span, while leaving `langword`, explicit
-              inner text, and constructor crefs unwrapped.
+            title: XmlDocReader shall render the display text of a `<see>`/`<seealso>` reference to a type or type member (property, field, event, or method) in an inline Markdown code span, while leaving `langword`, explicit inner text, and constructor crefs unwrapped.
             justification: |
               A real-world consumer (DemaConsulting.Bicameral.Core) reported that a
               `<see cref="Type.Member"/>` reference rendered as plain prose
@@ -246,14 +222,7 @@ sections:
               - XmlDocReader_GetExampleParts_WithMixedInlineElements_ProseAccumulatedAsOnePart
               - DotNetGenerator_Generate_InlineReferences_PreserveSymbolNamesInMarkdown
           - id: ApiMarkDotNet-XmlDocReader-LinkifyResolvedCrefReferences
-            title: XmlDocReader shall render a `<see cref>`/`<seealso cref>`
-              reference as a real relative Markdown link to the target's page when
-              linking context is supplied and the target resolves to an
-              intra-assembly type or member that will actually be emitted;
-              otherwise it shall continue rendering exactly as before (code-span
-              text, no link) for external types, filtered-out members, malformed
-              crefs, and constructors, and single-file output shall be entirely
-              unaffected because it never supplies linking context.
+            title: XmlDocReader shall render a `<see cref>`/`<seealso cref>` reference as a real relative Markdown link to the target's page when linking context is supplied and the target resolves to an intra-assembly type or member that will actually be emitted; otherwise it shall continue rendering exactly as before (code-span text, no link) for external types, filtered-out members, malformed crefs, and constructors, and single-file output shall be entirely unaffected because it never supplies linking context.
             justification: |
               Code-span-wrapped plain text for every cref (the PR #54 fallback) is
               strictly less useful than a real clickable cross-reference whenever the
@@ -338,8 +307,7 @@ sections:
               - XmlDocReader_GetExampleBlocks_CodeInsideNestedPara_HonorsLang
               - XmlDocReader_GetExampleParts_WithMixedInlineElementsContainingMultiLineCodeInsidePara_SplitsIntoCodePart
           - id: ApiMarkDotNet-XmlDocReader-InlineReferenceCodeSpans
-            title: XmlDocReader shall render paramref, typeparamref, and langword references as inline code
-              in the summary, returns, remarks, param, typeparam, exception, and example text.
+            title: XmlDocReader shall render paramref, typeparamref, and langword references as inline code in the summary, returns, remarks, param, typeparam, exception, and example text.
             justification: |
               Parameter names and keywords such as null read ambiguously as plain prose.
             tests:
@@ -347,24 +315,20 @@ sections:
               - XmlDocReader_GetSummary_LangwordWithPipeSummary_StaysSingleLineCodeSpan
               - XmlDocReader_GetSummary_WithInlineReferences_PreservesReferencedNames
           - id: ApiMarkDotNet-XmlDocReader-OverloadCrefSignature
-            title: XmlDocReader shall keep the C# short parameter types, and generic method arguments, in
-              the link text of a cref to a method with a parameter list.
+            title: XmlDocReader shall keep the C# short parameter types, and generic method arguments, in the link text of a cref to a method with a parameter list.
             justification: |
               Without the parameter types a reader cannot tell which overload a reference means.
             tests:
               - XmlDocReader_GetSummary_SeeCrefToOverload_KeepsSignatureInCodeSpan
           - id: ApiMarkDotNet-XmlDocReader-RenderEmphasis
-            title: XmlDocReader shall render the b, strong, i, and em elements as Markdown bold and
-              italic emphasis.
+            title: XmlDocReader shall render the b, strong, i, and em elements as Markdown bold and italic emphasis.
             justification: |
               Authors use these elements to stress words; dropping them loses meaning in the
               generated documentation.
             tests:
               - XmlDocReader_GetSummary_EmphasisElements_RendersMarkdownEmphasis
           - id: ApiMarkDotNet-XmlDocReader-CodeBlockLanguage
-            title: XmlDocReader shall emit fenced code blocks from code elements with the language given by
-              the lang or language attribute, restricted to letters, digits, and a few safe symbols,
-              defaulting to csharp.
+            title: XmlDocReader shall emit fenced code blocks from code elements with the language given by the lang or language attribute, restricted to letters, digits, and a few safe symbols, defaulting to csharp.
             justification: |
               A language tag enables syntax highlighting; sanitizing the hint prevents it from
               corrupting the fence line.

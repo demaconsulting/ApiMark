@@ -6,16 +6,14 @@ sections:
       - title: IContext Requirements
         requirements:
           - id: ApiMarkCore-IContext-DefineWriteLineMethod
-            title: IContext shall define a WriteLine method that accepts a string
-              message parameter for informational output.
+            title: IContext shall define a WriteLine method that accepts a string message parameter for informational output.
             justification: |
               Generators need a consistent way to emit informational messages
               without depending on Console so output can be captured, suppressed,
               or redirected by different hosts (CLI, test doubles, MSBuild tasks).
             tests: [IContext_WriteLine_CapturesMessage_InLines]
           - id: ApiMarkCore-IContext-DefineWriteErrorMethod
-            title: IContext shall define a WriteError method that accepts a string
-              message parameter for error and warning output.
+            title: IContext shall define a WriteError method that accepts a string message parameter for error and warning output.
             justification: |
               Generators need to distinguish error and warning messages from
               informational output so hosts can route them to the appropriate
@@ -23,8 +21,7 @@ sections:
               parsing message content.
             tests: [IContext_WriteError_CapturesMessage_InErrors]
           - id: ApiMarkCore-IContext-RejectNullWriteLine
-            title: IContext implementations shall throw ArgumentNullException when
-              WriteLine is called with a null message.
+            title: IContext implementations shall throw ArgumentNullException when WriteLine is called with a null message.
             justification: |
               Null messages would corrupt the captured message list and mislead
               downstream assertions in test doubles. Enforcing the null contract
@@ -32,8 +29,7 @@ sections:
               immediately attributable to the misuse.
             tests: [InMemoryContext_WriteLine_NullMessage_ThrowsArgumentNullException]
           - id: ApiMarkCore-IContext-RejectNullWriteError
-            title: IContext implementations shall throw ArgumentNullException when
-              WriteError is called with a null message.
+            title: IContext implementations shall throw ArgumentNullException when WriteError is called with a null message.
             justification: |
               Null messages would corrupt the captured message list and mislead
               downstream assertions in test doubles. Enforcing the null contract

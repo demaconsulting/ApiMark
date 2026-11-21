@@ -6,8 +6,7 @@ sections:
       - title: FileSystemGlobbing Requirements
         requirements:
           - id: FileSystemGlobbing-Matcher-MatchIncludePatterns
-            title: Microsoft.Extensions.FileSystemGlobbing shall match files against
-              gitignore-style glob include patterns rooted at a given directory.
+            title: Microsoft.Extensions.FileSystemGlobbing shall match files against gitignore-style glob include patterns rooted at a given directory.
             justification: |
               GlobFileCollector depends on Matcher to enumerate files matching
               caller-supplied glob patterns. Any defect in pattern evaluation would
@@ -16,16 +15,14 @@ sections:
               - GlobFileCollector_Collect_RelativeVhdPattern_FindsVhdFiles
               - GlobFileCollector_Collect_AbsolutePattern_FindsFiles
           - id: FileSystemGlobbing-Matcher-ApplyExclusionPatterns
-            title: Microsoft.Extensions.FileSystemGlobbing shall exclude files matching
-              gitignore-style exclusion patterns prefixed with '!'.
+            title: Microsoft.Extensions.FileSystemGlobbing shall exclude files matching gitignore-style exclusion patterns prefixed with '!'.
             justification: |
               GlobFileCollector passes '!'-prefixed patterns to Matcher as exclusion
               rules. Any defect in exclusion evaluation would cause excluded files to
               appear in language-generator input.
             tests: [GlobFileCollector_Collect_ExclusionPattern_RemovesMatchedFiles]
           - id: FileSystemGlobbing-Matcher-HandleNonExistentRoot
-            title: Microsoft.Extensions.FileSystemGlobbing shall return an empty result
-              when the root directory does not exist, without throwing.
+            title: Microsoft.Extensions.FileSystemGlobbing shall return an empty result when the root directory does not exist, without throwing.
             justification: |
               GlobFileCollector passes a working directory that may not exist on disk.
               A silent empty result is the correct behavior; an exception would

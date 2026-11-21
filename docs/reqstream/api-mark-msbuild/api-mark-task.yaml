@@ -6,8 +6,7 @@ sections:
       - title: ApiMarkTask Requirements
         requirements:
           - id: ApiMarkMsbuild-ApiMarkTask-InferLanguageFromProjectType
-            title: ApiMarkTask shall infer the documentation language from the project
-              extension when ApiMarkLanguage is not explicitly set.
+            title: ApiMarkTask shall infer the documentation language from the project extension when ApiMarkLanguage is not explicitly set.
             justification: |
               Most projects do not need to set ApiMarkLanguage explicitly; convention-based
               inference removes boilerplate and makes the package easy to adopt for both
@@ -16,8 +15,7 @@ sections:
               - ApiMarkTask_Language_InferredAsCpp_ForVcxproj
               - ApiMarkTask_Language_InferredAsDotNet_ForCsproj
           - id: ApiMarkMsbuild-ApiMarkTask-SpawnToolForDotNet
-            title: ApiMarkTask shall spawn ApiMark.Tool with the dotnet subcommand
-              and pass assembly and XML documentation paths for .NET builds.
+            title: ApiMarkTask shall spawn ApiMark.Tool with the dotnet subcommand and pass assembly and XML documentation paths for .NET builds.
             justification: |
               Out-of-process generation allows ApiMark.Tool to use net10.0 libraries that
               do not support netstandard2.0, keeping the MSBuild task thin and broadly
@@ -26,8 +24,7 @@ sections:
               - ApiMarkTask_DotNet_SpawnsToolWithCorrectAssemblyAndXmlDocArguments
               - ApiMarkTask_Execute_WithDotNetProject_GeneratesDocumentation
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardExcludePatterns
-            title: ApiMarkTask shall forward the ApiMarkExclude property to the tool
-              as repeated --exclude flags for .NET builds.
+            title: ApiMarkTask shall forward the ApiMarkExclude property to the tool as repeated --exclude flags for .NET builds.
             justification: |
               Build authors need to exclude generated or third-party namespaces (such as
               ANTLR parser output) from documentation without modifying the NuGet package
@@ -35,8 +32,7 @@ sections:
               repeated --includes flags for C++ builds.
             tests: [ApiMarkTask_DotNet_SpawnsToolWithCorrectExcludeArguments]
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardReferencePathsProperty
-            title: ApiMarkTask shall forward the ApiMarkReferencePaths property to
-              the tool as repeated --reference-paths flags for .NET builds.
+            title: ApiMarkTask shall forward the ApiMarkReferencePaths property to the tool as repeated --reference-paths flags for .NET builds.
             justification: |
               Build authors need cross-assembly <inheritdoc/> resolution to work for
               referenced assemblies without modifying the NuGet package reference or
@@ -105,10 +101,7 @@ sections:
             tests:
               - ApiMarkMsbuild_NuGetPackage_DotNetProject_DisableReferencePathsHarvest_SuppressesAutoHarvest
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardEnforceDocsProperties
-            title: ApiMarkTask shall forward the ApiMarkEnforceDocs and ApiMarkEnforceDocsSeverity
-              properties to the tool as --enforce-docs and --enforce-docs-severity
-              arguments for .NET and C++ builds, omitting either flag entirely when
-              the corresponding property is not set.
+            title: ApiMarkTask shall forward the ApiMarkEnforceDocs and ApiMarkEnforceDocsSeverity properties to the tool as --enforce-docs and --enforce-docs-severity arguments for .NET and C++ builds, omitting either flag entirely when the corresponding property is not set.
             justification: |
               Build authors need to opt in to documentation-coverage enforcement (and
               its severity) from the project file, matching the CLI vocabulary exactly.
@@ -125,45 +118,39 @@ sections:
               - ApiMarkTask_Cpp_WithEnforceDocsOnly_OmitsSeverityArgument
               - ApiMarkMsbuild_NuGetPackage_DotNetProject_EnforceDocs_FailsBuildOnUndocumentedApi
           - id: ApiMarkMsbuild-ApiMarkTask-SpawnToolForCpp
-            title: ApiMarkTask shall spawn ApiMark.Tool with the cpp subcommand and
-              pass include paths for C++ builds.
+            title: ApiMarkTask shall spawn ApiMark.Tool with the cpp subcommand and pass include paths for C++ builds.
             justification: |
               ApiMark.Cpp invokes system clang and targets net10.0+; the out-of-process
               model is the only viable integration strategy for vcxproj builds run under
               .NET Framework MSBuild inside Visual Studio.
             tests: [ApiMarkTask_Cpp_SpawnsToolWithCorrectIncludePathArguments]
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardOutputDirectoryProperty
-            title: ApiMarkTask shall forward the ApiMarkOutputDir property to the
-              tool as the --output argument.
+            title: ApiMarkTask shall forward the ApiMarkOutputDir property to the tool as the --output argument.
             justification: |
               Build authors need to control where generated documentation is written so it
               fits their packaging, publishing, and CI artifact workflows.
             tests: [ApiMarkTask_OutputDir_ForwardedToToolAsOutputArgument]
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardVisibilityProperty
-            title: ApiMarkTask shall forward the ApiMarkVisibility property to the
-              tool as the --visibility argument.
+            title: ApiMarkTask shall forward the ApiMarkVisibility property to the tool as the --visibility argument.
             justification: |
               MSBuild integration must expose the same public-surface filtering choices as
               the underlying generators so project files can select the intended audience.
             tests: [ApiMarkTask_Visibility_ForwardedToToolAsVisibilityArgument]
           - id: ApiMarkMsbuild-ApiMarkTask-SupportDisableProperty
-            title: ApiMarkTask shall return success immediately without spawning the
-              tool when DisableApiMark is true.
+            title: ApiMarkTask shall return success immediately without spawning the tool when DisableApiMark is true.
             justification: |
               Projects must be able to suppress generation in specific configurations
               (e.g., debug builds, CI environments without the SDK) without removing the
               NuGet package reference or breaking the build.
             tests: [ApiMarkTask_DisableApiMark_True_SkipsToolInvocation]
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardIncludeObsoleteFlag
-            title: ApiMarkTask shall forward the ApiMarkIncludeObsolete property to
-              the tool as the --include-obsolete flag when true.
+            title: ApiMarkTask shall forward the ApiMarkIncludeObsolete property to the tool as the --include-obsolete flag when true.
             justification: |
               Build authors need to opt in to including deprecated API surface in generated
               documentation without modifying the NuGet package reference or the build pipeline.
             tests: [ApiMarkTask_IncludeObsolete_True_ForwardsIncludeObsoleteFlag]
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardCppLibraryName
-            title: ApiMarkTask shall forward the ApiMarkLibraryName property to the
-              tool as the --library-name argument for C++ builds.
+            title: ApiMarkTask shall forward the ApiMarkLibraryName property to the tool as the --library-name argument for C++ builds.
             justification: |
               C++ projects need to set a human-readable library name that appears as the top-level
               heading in the generated api.md, independent of the project file name.
@@ -179,8 +166,7 @@ sections:
               conversion must happen in the task before spawning the child process.
             tests: [ApiMarkTask_Cpp_Defines_SemicolonsConvertedToCommas]
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardCppStandard
-            title: ApiMarkTask shall forward the ApiMarkCppStandard property to the
-              tool as the --cpp-standard argument for C++ builds.
+            title: ApiMarkTask shall forward the ApiMarkCppStandard property to the tool as the --cpp-standard argument for C++ builds.
             justification: |
               Different C++ projects target different language standards; the standard must be
               forwarded so the Clang parser interprets the headers under the same standard as
@@ -197,9 +183,7 @@ sections:
               build, parallel to the dotnet behavior when ApiMarkXmlDocPath is absent.
             tests: [ApiMarkTask_Cpp_EmptyIncludePaths_SkipsExecution]
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardLibraryDescription
-            title: ApiMarkTask shall forward the ApiMarkLibraryDescription property
-              to the tool as the --library-description argument for .NET and C++
-              builds.
+            title: ApiMarkTask shall forward the ApiMarkLibraryDescription property to the tool as the --library-description argument for .NET and C++ builds.
             justification: |
               .NET and C++ projects need to set a human-readable library description that
               appears in the generated api.md, independent of any project metadata. Forwarding
@@ -211,16 +195,14 @@ sections:
               - ApiMarkTask_Cpp_LibraryDescription_ForwardedToTool
               - ApiMarkTask_DotNet_LibraryDescription_ForwardedToTool
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardClangPath
-            title: ApiMarkTask shall forward the ApiMarkClangPath property to the
-              tool as the --clang-path argument for C++ builds when set.
+            title: ApiMarkTask shall forward the ApiMarkClangPath property to the tool as the --clang-path argument for C++ builds when set.
             justification: |
               CI environments and multi-toolchain projects frequently have clang installed at a
               non-default path. Forwarding ApiMarkClangPath lets build authors specify the
               executable path without modifying system PATH, keeping the build reproducible.
             tests: [ApiMarkTask_Cpp_ClangPath_ForwardedToTool]
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardClangTimeoutMs
-            title: ApiMarkTask shall forward the ApiMarkClangTimeoutMs property to the
-              tool as the --clang-timeout-ms argument for C++ builds when set.
+            title: ApiMarkTask shall forward the ApiMarkClangTimeoutMs property to the tool as the --clang-timeout-ms argument for C++ builds when set.
             justification: |
               Large C++ projects with a slow clang invocation need a way to raise the default
               120-second timeout without forking ApiMark. Forwarding ApiMarkClangTimeoutMs lets
@@ -263,8 +245,7 @@ sections:
               them.
             tests: [ApiMarkTask_Cpp_ApiHeaders_ForwardedAsIndividualFlags]
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardFormatProperty
-            title: ApiMarkTask shall forward the ApiMarkFormat property to the tool
-              as the --format argument.
+            title: ApiMarkTask shall forward the ApiMarkFormat property to the tool as the --format argument.
             justification: |
               Build authors need to choose between gradual-disclosure output and single-file output
               without changing the command line in every project file.
@@ -373,8 +354,7 @@ sections:
               surfaces problems in the IDE error list and CI failure summary.
             tests: [ApiMarkTask_Execute_ToolWritesToStderr_ForwardsToMsBuildErrors]
           - id: ApiMarkMsbuild-ApiMarkTask-ForwardExternalLinks
-            title: ApiMarkTask shall forward each non-empty entry of ApiMarkExternalLinks as a
-              separate --external-link argument for the dotnet language.
+            title: ApiMarkTask shall forward each non-empty entry of ApiMarkExternalLinks as a separate --external-link argument for the dotnet language.
             justification: |
               MSBuild users configure links to separately generated ApiMark documentation through
               a property; the targets file must pass it to the task and the task must translate
@@ -384,8 +364,7 @@ sections:
               - ApiMarkTask_DotNet_ExternalLinks_EvaluatedPackageVersionPassesThroughUnchanged
               - ApiMarkTargets_PassesExternalLinksToTask
           - id: ApiMarkMsbuild-ApiMarkTask-OmitUnsetVisibility
-            title: ApiMarkTask shall omit the --visibility argument when ApiMarkVisibility is unset
-              and the targets file shall not force a default value.
+            title: ApiMarkTask shall omit the --visibility argument when ApiMarkVisibility is unset and the targets file shall not force a default value.
             justification: |
               The tool owns the per-language visibility default (PublicAndProtected for dotnet,
               Public for cpp and vhdl); forcing a value in MSBuild would override it.
@@ -393,10 +372,7 @@ sections:
               - ApiMarkTask_VisibilityUnset_OmitsVisibilityArgument
               - ApiMarkTargets_NoForcedVisibilityDefault
           - id: ApiMarkMsbuild-ApiMarkTask-VersionTokenPrecedence
-            title: ApiMarkTask shall expand the {version} token in ApiMarkExternalLinks using
-              ApiMarkLinkVersion, then PackageVersion, then Version, leave the token unchanged when none
-              is set, and warn when PackageVersion and Version differ while external links are
-              configured.
+            title: ApiMarkTask shall expand the {version} token in ApiMarkExternalLinks using ApiMarkLinkVersion, then PackageVersion, then Version, leave the token unchanged when none is set, and warn when PackageVersion and Version differ while external links are configured.
             justification: |
               NuGet packs with PackageVersion when it is set, so a link built from the wrong property
               would point at documentation of a different version.

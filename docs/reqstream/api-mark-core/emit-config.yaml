@@ -6,8 +6,7 @@ sections:
       - title: EmitConfig Requirements
         requirements:
           - id: ApiMarkCore-EmitConfig-DefineFormat
-            title: EmitConfig shall make the output format selectable, defaulting
-              to gradual-disclosure (multi-file) output.
+            title: EmitConfig shall make the output format selectable, defaulting to gradual-disclosure (multi-file) output.
             justification: |
               The output format must be selectable at emit time rather than at parse time
               so that callers (CLI, MSBuild task) can control the file-layout strategy
@@ -19,8 +18,7 @@ sections:
               - IApiEmitter_Emit_GradualDisclosure_ProducesMultipleFiles
               - IApiEmitter_Emit_SingleFile_ProducesSingleApiMd
           - id: ApiMarkCore-EmitConfig-DefineHeadingDepth
-            title: EmitConfig shall make the top-level heading level selectable, defaulting
-              to level 1.
+            title: EmitConfig shall make the top-level heading level selectable, defaulting to level 1.
             justification: |
               When producing single-file output, the caller must be able to embed the
               generated content inside a larger document at any heading level. HeadingDepth
@@ -31,8 +29,7 @@ sections:
               - EmitConfig_DefaultHeadingDepth_IsOne
               - IApiEmitter_Emit_SingleFile_ProducesSingleApiMd
           - id: ApiMarkCore-EmitConfig-ValidateHeadingDepthRange
-            title: EmitConfig shall reject HeadingDepth values outside the range 1–6
-              by throwing ArgumentOutOfRangeException at init time.
+            title: EmitConfig shall reject HeadingDepth values outside the range 1–6 by throwing ArgumentOutOfRangeException at init time.
             justification: |
               Valid ATX Markdown heading levels are H1–H6; values outside 1–6 cannot
               produce valid headings regardless of nesting depth. Format-specific

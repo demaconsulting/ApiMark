@@ -180,7 +180,29 @@ requires it and the modification preserves the documented design intent:
 
 - `.reviewmark.yaml`, `.textlint.yaml`, `.editorconfig`
 - `.lintmark.yaml`, `.yamllint.yaml`
-- `requirements.yaml`, `fix.ps1`, `lint.ps1`
+- `requirements.yaml`
+
+# Project Scripts
+
+`build.ps1`, `lint.ps1`, and `fix.ps1` belong to the project: extend them as it grows. Add project-specific
+steps, update tool versions, and add optional parameters that focus a run (for example one library in a
+multi-library repository, or headless tests without GUI automation). Two rules keep them trustworthy:
+
+- Run with no arguments, each script still does its full job (CI and the agents rely on that); slow or
+  environment-dependent test tiers may be opt-in switches of `build.ps1`.
+- Never remove or weaken a check to make lint or tests pass.
+
+# Repository-Specific Standards Exceptions
+
+## SysML2 package structure (legacy layout, migration pending)
+
+The model under `docs/sysml2/` still uses the earlier layout: each system package (`ApiMarkCore`, `ApiMarkCpp`,
+`ApiMarkDotNet`, `ApiMarkMsbuild`, `ApiMarkTool`, `ApiMarkVhdl`) is reopened in its root file and in every unit file
+under its folder (2 to 13 model files each), and `views/design-views.sysml` reopens all six instead of declaring one
+`ApiMarkDesignViews` package. `OtsDependencies` and `SoftwareItemMetadata` already match; there are no Shared Packages.
+The Package Structure rules in `sysml2-modeling.md` and the matching qualified-name examples in the `sysml2tools-query`
+skill apply once the model is migrated in a dedicated PR; until then, query and extend the model using the existing
+package names and do not partially restructure it.
 
 # Continuous Compliance Overview
 

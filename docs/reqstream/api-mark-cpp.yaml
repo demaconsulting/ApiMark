@@ -4,8 +4,7 @@ sections:
   - title: ApiMarkCpp Requirements
     requirements:
       - id: ApiMarkCpp-CppGenerator-GenerateDocumentationFromCppHeaders
-        title: ApiMarkCpp shall generate API documentation from C++ header files and
-          their Doxygen doc comments.
+        title: ApiMarkCpp shall generate API documentation from C++ header files and their Doxygen doc comments.
         tags: [system]
         justification: |
           ApiMark needs to document C++ libraries from public header files without requiring
@@ -48,8 +47,7 @@ sections:
           - ApiMark_CppGeneration
           - ApiMark_CppEnforceDocs
       - id: ApiMarkCpp-EmitExternalTypesSection
-        title: ApiMarkCpp shall render unrecognized non-std type references in an
-          External Types section on the affected page.
+        title: ApiMarkCpp shall render unrecognized non-std type references in an External Types section on the affected page.
         tags: [system]
         justification: |
           When a documented type references a type outside the library and outside the

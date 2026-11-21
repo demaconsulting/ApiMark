@@ -4,8 +4,7 @@ sections:
   - title: ApiMarkTool Requirements
     requirements:
       - id: ApiMarkTool-ProvideMultiLanguageCli
-        title: ApiMarkTool shall provide a .NET executable that supports multiple
-          documentation language subcommands.
+        title: ApiMarkTool shall provide a .NET executable that supports multiple documentation language subcommands.
         tags: [system]
         justification: |
           A command-line executable gives ApiMarkTask and developers an automation-friendly

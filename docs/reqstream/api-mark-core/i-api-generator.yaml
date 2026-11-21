@@ -23,8 +23,7 @@ sections:
               - IApiGenerator_Parse_WithMinimalStub_ExecutesSuccessfully
               - IApiGenerator_Parse_NullContext_ThrowsArgumentNullException
           - id: ApiMarkCore-IApiGenerator-AcceptContextParameter
-            title: IApiGenerator.Parse shall accept an IContext parameter as the caller-supplied
-              diagnostic channel for informational and error output.
+            title: IApiGenerator.Parse shall accept an IContext parameter as the caller-supplied diagnostic channel for informational and error output.
             justification: |
               IContext decouples generators from Console so output can be captured,
               suppressed, or redirected by the caller without changing the generator
@@ -32,8 +31,7 @@ sections:
               generator uses for all diagnostic output during parsing.
             tests: [IApiGenerator_Parse_WithMinimalStub_ExecutesSuccessfully]
           - id: ApiMarkCore-IApiGenerator-ReturnIApiEmitter
-            title: IApiGenerator.Parse shall return an IApiEmitter that holds all
-              data required to emit the parsed component's documentation.
+            title: IApiGenerator.Parse shall return an IApiEmitter that holds all data required to emit the parsed component's documentation.
             justification: |
               Returning an IApiEmitter separates the I/O-heavy parsing phase from
               output-format selection, allowing the caller to choose the output format
@@ -42,8 +40,7 @@ sections:
               when invoking IApiEmitter.Emit.
             tests: [ApiMarkCore_GeneratorContract_SupportedLanguage_CanBeInvoked]
           - id: ApiMarkCore-IApiGenerator-AllowConstructionTimeConfiguration
-            title: IApiGenerator shall allow language-specific configuration to be
-              supplied when an implementation is constructed before Parse is called.
+            title: IApiGenerator shall allow language-specific configuration to be supplied when an implementation is constructed before Parse is called.
             justification: |
               Language modules require different inputs and policies, such as input
               file paths or visibility settings, so configuration must be captured

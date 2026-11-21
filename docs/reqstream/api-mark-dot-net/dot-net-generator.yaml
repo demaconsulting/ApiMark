@@ -6,25 +6,21 @@ sections:
       - title: DotNetGenerator Requirements
         requirements:
           - id: ApiMarkDotNet-DotNetGenerator-AcceptAssemblyAndXmlInputs
-            title: DotNetGenerator shall accept an assembly path and an XML documentation
-              path as generator inputs.
+            title: DotNetGenerator shall accept an assembly path and an XML documentation path as generator inputs.
             justification: |
               The generator cannot produce complete .NET documentation unless it can
               locate both the compiled API surface and the compiler-produced XML
               documentation that describes it.
             tests: [DotNetGenerator_Constructor_AcceptsAssemblyAndXmlPaths]
           - id: ApiMarkDotNet-DotNetGenerator-DiscoverTypesAndMembers
-            title: DotNetGenerator shall discover types and members from a compiled
-              .NET assembly and make them available for markdown generation.
+            title: DotNetGenerator shall discover types and members from a compiled .NET assembly and make them available for markdown generation.
             justification: |
               Assembly inspection must reliably surface the compiled API surface so
               documentation generation can run against arbitrary build outputs and
               dependency graphs.
             tests: [DotNetGenerator_ReadAssembly_WithMonoCecil_ReturnsTypesAndMembers]
           - id: ApiMarkDotNet-DotNetGenerator-ReadXmlDocumentationComments
-            title: DotNetGenerator shall read XML documentation comments from the
-              configured XML documentation file and include that content in generated
-              markdown.
+            title: DotNetGenerator shall read XML documentation comments from the configured XML documentation file and include that content in generated markdown.
             justification: |
               Developer-authored summaries, remarks, parameter descriptions, returns,
               exceptions, examples, and example code blocks belong in the published API
@@ -37,8 +33,7 @@ sections:
               - DotNetGenerator_Generate_ConstructorWithXmlParams_WritesParamDescriptionsToMemberPage
               - DotNetGenerator_Generate_MethodWithExample_EmitsCodeBlockOnMemberPage
           - id: ApiMarkDotNet-DotNetGenerator-FilterByVisibility
-            title: DotNetGenerator shall support ApiVisibility filtering for Public,
-              PublicAndProtected, and All.
+            title: DotNetGenerator shall support ApiVisibility filtering for Public, PublicAndProtected, and All.
             justification: |
               Different consumers need different views of the same assembly, ranging from
               a public API reference to broader internal documentation for development.
@@ -46,15 +41,13 @@ sections:
               - DotNetGenerator_Visibility_PublicPublicAndProtectedAll_FilterExpectedApis
               - DotNetGenerator_Generate_AllVisibility_IncludesPrivateMembers
           - id: ApiMarkDotNet-DotNetGenerator-IncludeObsoleteApisWhenRequested
-            title: DotNetGenerator shall control obsolete API inclusion via the IncludeObsolete
-              flag, including them when enabled and omitting them when disabled.
+            title: DotNetGenerator shall control obsolete API inclusion via the IncludeObsolete flag, including them when enabled and omitting them when disabled.
             justification: |
               Teams sometimes need complete historical reference output and sometimes need
               only the actively supported API surface, so obsolete items must be controllable.
             tests: [DotNetGenerator_IncludeObsolete_Toggle_ControlsObsoleteOutput]
           - id: ApiMarkDotNet-DotNetGenerator-FilterByExcludePattern
-            title: DotNetGenerator shall exclude types and namespaces matching a configured
-              wildcard exclude pattern from all generated output, including indexes.
+            title: DotNetGenerator shall exclude types and namespaces matching a configured wildcard exclude pattern from all generated output, including indexes.
             justification: |
               Teams documenting assemblies that bundle generated code (such as ANTLR parser
               output) need a way to omit entire namespaces or specific types from generated
@@ -66,8 +59,7 @@ sections:
               - DotNetGenerator_Generate_WildcardExcludePattern_RemovesEntireNamespaceFromIndex
               - DotNetGenerator_Generate_NonMatchingExcludePattern_LeavesOutputUnaffected
           - id: ApiMarkDotNet-DotNetGenerator-RecognizeNamespaceDocCarrierClass
-            title: DotNetGenerator shall recognize internal static NamespaceDoc classes
-              as namespace documentation carriers.
+            title: DotNetGenerator shall recognize internal static NamespaceDoc classes as namespace documentation carriers.
             justification: |
               The NamespaceDoc convention is the standard way to attach documentation to a
               namespace in C#. ApiMark must identify these carrier classes so their XML
@@ -76,16 +68,14 @@ sections:
               - DotNetGenerator_Generate_NamespaceDocClass_ExcludedFromTypeListing
               - DotNetGenerator_NamespacePage_NamespaceDocSummary_AppearsAsNamespaceDescription
           - id: ApiMarkDotNet-DotNetGenerator-ExcludeNamespaceDocCarrierFromTypeListing
-            title: DotNetGenerator shall exclude NamespaceDoc carrier classes from
-              generated type listings.
+            title: DotNetGenerator shall exclude NamespaceDoc carrier classes from generated type listings.
             justification: |
               Including the carrier class in type listings would pollute the API surface with
               an implementation detail not intended for public consumption.
             tests:
               - DotNetGenerator_Generate_NamespaceDocClass_ExcludedFromTypeListing
           - id: ApiMarkDotNet-DotNetGenerator-UseNamespaceDocSummaryAsNamespaceDescription
-            title: DotNetGenerator shall use the XML summary of a NamespaceDoc class
-              as the description for its containing namespace.
+            title: DotNetGenerator shall use the XML summary of a NamespaceDoc class as the description for its containing namespace.
             justification: |
               Developer-authored namespace descriptions belong in the published API reference.
               The NamespaceDoc carrier class is the standard mechanism for providing this
@@ -94,8 +84,7 @@ sections:
               - DotNetGenerator_NamespacePage_NamespaceDocClass_ExcludedFromTypeListing
               - DotNetGenerator_NamespacePage_NamespaceDocSummary_AppearsAsNamespaceDescription
           - id: ApiMarkDotNet-DotNetGenerator-UseNamespaceDocRemarksAndExamples
-            title: DotNetGenerator shall extract the NamespaceDoc `<remarks>` and
-              `<example>` content in addition to the `<summary>`.
+            title: DotNetGenerator shall extract the NamespaceDoc `<remarks>` and `<example>` content in addition to the `<summary>`.
             justification: |
               A NamespaceDoc carrier class can document a namespace with remarks and worked
               examples just as a type does. Extracting the remarks and structured example
@@ -107,24 +96,21 @@ sections:
               - DotNetGenerator_NamespacePage_NamespaceDocExample_EmitsCodeBlock
               - DotNetGenerator_Generate_RemarksWithBulletList_RendersListInMarkdown
           - id: ApiMarkDotNet-DotNetGenerator-RejectMissingAssemblyPath
-            title: DotNetGenerator shall throw FileNotFoundException when the configured
-              assembly path does not exist.
+            title: DotNetGenerator shall throw FileNotFoundException when the configured assembly path does not exist.
             justification: |
               Fail-fast on a missing assembly avoids a confusing downstream error and gives
               the caller an actionable exception with the missing path.
             tests:
               - DotNetGenerator_Parse_MissingAssemblyPath_ThrowsFileNotFoundException
           - id: ApiMarkDotNet-DotNetGenerator-RejectMissingXmlDocPath
-            title: DotNetGenerator shall throw FileNotFoundException when the configured
-              XML documentation path does not exist.
+            title: DotNetGenerator shall throw FileNotFoundException when the configured XML documentation path does not exist.
             justification: |
               Fail-fast on a missing XML documentation file avoids a confusing downstream
               error and gives the caller an actionable exception with the missing path.
             tests:
               - DotNetGenerator_Generate_XmlDocMissing_ThrowsFileNotFoundException
           - id: ApiMarkDotNet-DotNetGenerator-RejectNullOptions
-            title: DotNetGenerator constructor shall throw ArgumentNullException when
-              options is null.
+            title: DotNetGenerator constructor shall throw ArgumentNullException when options is null.
             justification: |
               Null options would produce a NullReferenceException at an unpredictable point
               during generation. Rejecting null at construction gives the caller a precise,
@@ -132,16 +118,14 @@ sections:
             tests:
               - DotNetGenerator_Constructor_NullOptions_ThrowsArgumentNullException
           - id: ApiMarkDotNet-DotNetGenerator-RejectNullContext
-            title: DotNetGenerator.Parse shall throw ArgumentNullException when context
-              is null.
+            title: DotNetGenerator.Parse shall throw ArgumentNullException when context is null.
             justification: |
               A null context would produce a NullReferenceException at the first
               context.WriteLine call. Rejecting null eagerly gives the caller a precise,
               actionable failure.
             tests: [DotNetGenerator_Parse_NullContext_ThrowsArgumentNullException]
           - id: ApiMarkDotNet-DotNetGenerator-ResolveBareInheritdocFromBaseTypes
-            title: DotNetGenerator shall resolve bare inheritdoc elements (without
-              a cref attribute) to documentation inherited from the base type or interface.
+            title: DotNetGenerator shall resolve bare inheritdoc elements (without a cref attribute) to documentation inherited from the base type or interface.
             justification: |
               Bare inheritdoc elements (without a cref attribute) rely on the type's
               inheritance relationships to find the correct base documentation, so a
@@ -154,10 +138,7 @@ sections:
               - DotNetGenerator_MapAccessorReferenceToPropertyId_ExplicitIndexerGetterOverride_IncludesIndexParameter
               - DotNetGenerator_MapAccessorReferenceToPropertyId_ExplicitIndexerSetterOverride_ExcludesValueParameter
           - id: ApiMarkDotNet-DotNetGenerator-ResolveInheritdocAcrossReferencedAssemblies
-            title: DotNetGenerator shall resolve `<inheritdoc />` elements that target
-              base types, interfaces, or members defined in externally referenced
-              assemblies when ReferencePaths is configured, and shall leave such references
-              unresolved without error when ReferencePaths is not configured.
+            title: DotNetGenerator shall resolve `<inheritdoc />` elements that target base types, interfaces, or members defined in externally referenced assemblies when ReferencePaths is configured, and shall leave such references unresolved without error when ReferencePaths is not configured.
             justification: |
               A type that derives from or implements a base type/interface defined in a
               referenced assembly (such as a NuGet package dependency) commonly documents
@@ -176,11 +157,7 @@ sections:
               - DotNetGenerator_Parse_ExternalBaseWithoutReferencePaths_LeavesInheritDocUnresolved
               - DotNetGenerator_Parse_ReferencePathHasDifferentCasingThanOnDisk_StillResolvesInheritedDocumentation
           - id: ApiMarkDotNet-DotNetGenerator-ResolveInheritdocAcrossMultipleExternalHops
-            title: DotNetGenerator shall resolve a bare `<inheritdoc />` element even when
-              its immediate external base member is itself an undocumented bare
-              `<inheritdoc />` override, so documentation remains available however far up
-              the base type/interface hierarchy — and across however many externally
-              referenced assemblies — the real documentation actually resides.
+            title: DotNetGenerator shall resolve a bare `<inheritdoc />` element even when its immediate external base member is itself an undocumented bare `<inheritdoc />` override, so documentation remains available however far up the base type/interface hierarchy — and across however many externally referenced assemblies — the real documentation actually resides.
             justification: |
               A referenced assembly's own type hierarchy can itself use bare
               `<inheritdoc />` one or more levels above the member a local override
@@ -200,9 +177,7 @@ sections:
             tests:
               - DotNetGenerator_Parse_ExternalBaseTwoHops_ResolvesInheritedDocumentationAcrossBothHops
           - id: ApiMarkDotNet-DotNetGenerator-AcceptLibraryDescriptionOption
-            title: DotNetGenerator shall accept an optional LibraryDescription option
-              and propagate it unchanged into the parsed model's options for use by
-              the emitters.
+            title: DotNetGenerator shall accept an optional LibraryDescription option and propagate it unchanged into the parsed model's options for use by the emitters.
             justification: |
               Teams documenting a .NET assembly need a way to supply an explicit library
               description for the introductory paragraph of the generated api.md, in the
@@ -215,9 +190,7 @@ sections:
             tests:
               - DotNetGenerator_Parse_WithLibraryDescription_PropagatesToModelOptions
           - id: ApiMarkDotNet-DotNetGenerator-BuildCrefLinkingIndicesAfterEmitterConstruction
-            title: DotNetGenerator shall ensure every visible type and member in the
-              parsed assembly is present in the model's cref link index before
-              DotNetGenerator.Parse returns.
+            title: DotNetGenerator shall ensure every visible type and member in the parsed assembly is present in the model's cref link index before DotNetGenerator.Parse returns.
             justification: |
               Full <see cref>/<seealso cref> cross-reference linking requires knowing,
               for every member, the exact gradual-disclosure page path it will be
@@ -242,8 +215,7 @@ sections:
               - DotNetGenerator_Generate_GradualDisclosure_EveryGeneratedLinkResolvesToExistingPage
               - BuildMemberPageIndex_AllEntries_MatchActualWrittenPages
           - id: ApiMarkDotNet-DotNetGenerator-DefaultVisibilityPublicAndProtected
-            title: DotNetGeneratorOptions shall default Visibility to PublicAndProtected,
-              so that protected members are emitted when Visibility is not set.
+            title: DotNetGeneratorOptions shall default Visibility to PublicAndProtected, so that protected members are emitted when Visibility is not set.
             justification: |
               Protected members are part of the inheritable API surface that derived-type
               authors rely on, so they belong in the default documentation output.
@@ -251,16 +223,14 @@ sections:
               - DotNetGeneratorOptions_Defaults_VisibilityIsPublicAndProtectedWithNoEnforcement
               - DotNetGenerator_Generate_DefaultVisibility_EmitsProtectedMembersButNotPrivate
           - id: ApiMarkDotNet-DotNetGenerator-DefaultDocumentationEnforcementDisabled
-            title: DotNetGeneratorOptions shall leave documentation enforcement disabled
-              by default, independently of Visibility.
+            title: DotNetGeneratorOptions shall leave documentation enforcement disabled by default, independently of Visibility.
             justification: |
               Enforcement fails a build when documentation is missing, so it must remain an
               explicit opt-in and must not change when the default Visibility changes.
             tests:
               - DotNetGeneratorOptions_Defaults_VisibilityIsPublicAndProtectedWithNoEnforcement
           - id: ApiMarkDotNet-DotNetGenerator-PropagateExampleCodeLanguage
-            title: DotNetGenerator shall emit each example code block with the language
-              given by its lang attribute, falling back to csharp when absent.
+            title: DotNetGenerator shall emit each example code block with the language given by its lang attribute, falling back to csharp when absent.
             justification: |
               Examples in languages other than C# need the correct code-fence language for
               syntax highlighting. The attribute parsing itself is specified by
@@ -269,9 +239,7 @@ sections:
             tests:
               - DotNetGenerator_Generate_ExampleWithLangAttribute_EmitsMatchingCodeFenceLanguage
           - id: ApiMarkDotNet-DotNetGenerator-AcceptExternalLinksMapping
-            title: DotNetGenerator shall accept an ExternalLinks option that maps a referenced
-              assembly simple name (matched case-insensitively) to the location of that
-              assembly's generated ApiMark documentation.
+            title: DotNetGenerator shall accept an ExternalLinks option that maps a referenced assembly simple name (matched case-insensitively) to the location of that assembly's generated ApiMark documentation.
             justification: |
               Projects that publish documentation for several assemblies need to point each
               dependency's types at that dependency's own documentation. The mapping value is
@@ -285,8 +253,7 @@ sections:
               - DotNetGenerator_Generate_ExternalLinksDirectoryReferencePath_FindsAssembly
               - DotNetGenerator_Generate_ExternalLinksMultipleMappings_HonorsUsableOnes
           - id: ApiMarkDotNet-DotNetGenerator-LinkMappedAssemblyTypes
-            title: DotNetGenerator shall render types from a mapped assembly as links into
-              that assembly's documentation and omit them from the External Types table.
+            title: DotNetGenerator shall render types from a mapped assembly as links into that assembly's documentation and omit them from the External Types table.
             justification: |
               Listing a dependency whose documentation is available elsewhere in a table adds
               no navigation value; a link lets readers follow the type to its documentation.
@@ -295,17 +262,14 @@ sections:
             tests:
               - DotNetGenerator_Generate_ExternalLinksMapped_LinksTypeAndSkipsExternalTypesTable
           - id: ApiMarkDotNet-DotNetGenerator-TreatGlobalNamespaceAsRoot
-            title: DotNetGenerator shall treat the global namespace as a sibling root namespace
-              that neither hides nor is hidden by other root namespaces.
+            title: DotNetGenerator shall treat the global namespace as a sibling root namespace that neither hides nor is hidden by other root namespaces.
             justification: |
               Types declared without a namespace must keep their own root so gradual-disclosure
               output and external link targets include them instead of nesting or dropping them.
             tests:
               - DotNetGenerator_ComputeRootNamespaces_GlobalNamespaceAmongNamespaces_TreatedAsSiblingRoot
           - id: ApiMarkDotNet-DotNetGenerator-FallBackToExternalTypesTableForUnusableMapping
-            title: DotNetGenerator shall ignore an external link mapping whose assembly DLL
-              is not found or cannot be read, emit a warning through the context, and keep
-              listing that assembly's types in the External Types table.
+            title: DotNetGenerator shall ignore an external link mapping whose assembly DLL is not found or cannot be read, emit a warning through the context, and keep listing that assembly's types in the External Types table.
             justification: |
               A stale or wrong mapping must not abort documentation generation, and the
               warning tells the operator why links were not produced. Any failure reading a
@@ -314,8 +278,7 @@ sections:
               - DotNetGenerator_Generate_ExternalLinksWithoutReferenceDll_FallsBackToExternalTypesTable
               - DotNetGenerator_Generate_ExternalLinksCorruptDll_WarnsAndFallsBack
           - id: ApiMarkDotNet-DotNetGenerator-RejectUnsafeExternalLinkValues
-            title: DotNetGenerator shall accept only a relative path or an http(s) URL as an
-              external link mapping value, ignoring any other value with a warning.
+            title: DotNetGenerator shall accept only a relative path or an http(s) URL as an external link mapping value, ignoring any other value with a warning.
             justification: |
               Values such as javascript: or file: URIs would become link targets in generated
               Markdown; restricting the accepted forms keeps generated documentation safe and

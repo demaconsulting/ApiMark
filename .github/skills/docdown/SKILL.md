@@ -21,7 +21,9 @@ dotnet docdown --help
 
 ## Scratch Folder
 
-The default `--overwrite clean` deletes everything in the scratch folder, so always pass a new
+The default `--overwrite clean` only replaces an earlier DocDown extraction: it deletes the files that
+folder's DocDown manifest lists and refuses to run if the folder holds anything else
+(`--overwrite overwrite` deletes everything and is never needed here). Still, always pass a new
 subfolder dedicated to the one document - never an existing folder:
 
 - **Preferred**: the agent session folder, when the host provides one, for example
@@ -39,8 +41,9 @@ Never extract into the repository.
    dotnet docdown --input path/to/data-sheet.pdf --scratch {scratch}/data-sheet
    ```
 
-   The last line of output is the path to `summary.txt`. Exit code `1` means the document was
-   unreadable or an argument was bad.
+   The last line of output is the path to `summary.txt`. Exit code `1` means the run failed for an
+   expected reason - an unreadable document, a bad argument, or an option such as `--log` whose file
+   could not be opened; the message says which.
 
 2. Read `summary.txt` first: what was extracted, what is where, and notes on anything that could
    not be read.

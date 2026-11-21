@@ -6,9 +6,7 @@ sections:
       - title: GlobFileCollector Requirements
         requirements:
           - id: ApiMarkCore-GlobFileCollector-CollectFilesViaGlobPatterns
-            title: GlobFileCollector shall collect files from the filesystem using
-              an ordered list of glob patterns, returning a sorted deduplicated list
-              of absolute file paths.
+            title: GlobFileCollector shall collect files from the filesystem using an ordered list of glob patterns, returning a sorted deduplicated list of absolute file paths.
             justification: |
               ApiMark language generators (C++ and VHDL) need a single reusable
               utility to discover source files based on caller-supplied glob patterns
@@ -18,8 +16,7 @@ sections:
               - GlobFileCollector_Collect_RelativeVhdPattern_FindsVhdFiles
               - GlobFileCollector_Collect_OverlappingPatterns_ReturnsSortedDeduplicated
           - id: ApiMarkCore-GlobFileCollector-SupportAbsolutePatterns
-            title: GlobFileCollector shall support absolute path patterns so that
-              callers can discover files outside the current working directory.
+            title: GlobFileCollector shall support absolute path patterns so that callers can discover files outside the current working directory.
             justification: |
               C++ include roots and VHDL source trees may reside anywhere on the
               filesystem, including paths on different drives or mount points. Absolute
@@ -27,9 +24,7 @@ sections:
               working-directory change.
             tests: [GlobFileCollector_Collect_AbsolutePattern_FindsFiles]
           - id: ApiMarkCore-GlobFileCollector-InferExtensionsFromBareStar
-            title: GlobFileCollector shall filter results to the configured language
-              extensions when a pattern's final path segment is a bare wildcard (*)
-              with no extension.
+            title: GlobFileCollector shall filter results to the configured language extensions when a pattern's final path segment is a bare wildcard (*) with no extension.
             justification: |
               Users who write patterns like src/** or ** want all files of the relevant
               language type without needing to enumerate each extension explicitly.
@@ -37,16 +32,14 @@ sections:
             tests:
               - GlobFileCollector_Collect_BareStarWithVhdlExtensions_FiltersToVhdlOnly
           - id: ApiMarkCore-GlobFileCollector-SupportExclusionPatterns
-            title: GlobFileCollector shall remove files matched by exclusion patterns
-              (entries prefixed with !) from the accumulated inclusion result.
+            title: GlobFileCollector shall remove files matched by exclusion patterns (entries prefixed with !) from the accumulated inclusion result.
             justification: |
               Callers need to exclude subsets of files (e.g., test benches, detail
               headers) from an otherwise broad inclusion pattern. Exclusion support
               allows this without requiring callers to enumerate every included path.
             tests: [GlobFileCollector_Collect_ExclusionPattern_RemovesMatchedFiles]
           - id: ApiMarkCore-GlobFileCollector-SkipNonExistentRoots
-            title: GlobFileCollector shall return an empty result when a pattern's
-              root directory does not exist, without throwing an exception.
+            title: GlobFileCollector shall return an empty result when a pattern's root directory does not exist, without throwing an exception.
             justification: |
               Callers may supply patterns for directories that do not yet exist on the
               current machine (e.g., optional SDK paths). Silent skipping prevents
@@ -54,10 +47,7 @@ sections:
             tests:
               - GlobFileCollector_Collect_NonExistentRoot_ReturnsEmptyWithoutThrowing
           - id: ApiMarkCore-GlobFileCollector-SupportLiteralAbsolutePaths
-            title: GlobFileCollector shall treat an absolute pattern with no glob
-              metacharacters as a literal file path and add or remove it directly
-              without directory traversal, when the file exists and its extension
-              appears in languageExtensions.
+            title: GlobFileCollector shall treat an absolute pattern with no glob metacharacters as a literal file path and add or remove it directly without directory traversal, when the file exists and its extension appears in languageExtensions.
             justification: |
               Callers need to include or exclude individual files by exact path without
               glob syntax. Literal-path support covers this use case and avoids the
@@ -66,8 +56,7 @@ sections:
               - GlobFileCollector_Collect_LiteralAbsoluteFilePath_SelectsExactFile
               - GlobFileCollector_Collect_LiteralAbsoluteExclusionPath_RemovesExactFile
           - id: ApiMarkCore-GlobFileCollector-RejectNullArguments
-            title: GlobFileCollector.Collect shall throw ArgumentNullException when
-              patterns, languageExtensions, or workingDirectory is null.
+            title: GlobFileCollector.Collect shall throw ArgumentNullException when patterns, languageExtensions, or workingDirectory is null.
             justification: |
               Null arguments indicate a programming error in the caller. Rejecting them
               immediately with a clear diagnostic prevents a deferred NullReferenceException

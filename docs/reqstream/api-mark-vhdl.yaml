@@ -4,8 +4,7 @@ sections:
   - title: ApiMarkVhdl Requirements
     requirements:
       - id: ApiMarkVhdl-VhdlGenerator-GenerateDocumentationFromVhdlSources
-        title: ApiMarkVhdl shall generate API documentation from VHDL source files
-          and their --! doc comments.
+        title: ApiMarkVhdl shall generate API documentation from VHDL source files and their --! doc comments.
         tags: [system]
         justification: |
           ApiMark needs to document VHDL IP cores from .vhd source files so that AI agents

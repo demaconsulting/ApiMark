@@ -103,6 +103,30 @@ jobs:
           dotnet-version: |
             10.x
             11.x
+      # Windows: pin a modern clang rather than relying on the runner's preinstalled LLVM;
+      # newer Visual Studio C++ standard library headers reject older clang versions
+      # (STL1000), which breaks the C++ parser tests. Linux and macOS use the system clang
+      # (the action's library-path variables crash dotnet on macOS).
+      - name: Setup clang
+        if: runner.os == 'Windows'
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          # The action's asset list stops at 21.x for Windows x64; Visual Studio 18.12's
+          # standard library (MSVC 14.52) requires clang 22 or newer.
+          version: "22.1.8"
+          force-url: https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/LLVM-22.1.8-win64.exe
+          directory: ${{ runner.temp }}/llvm
+      # Point ApiMark at the pinned clang explicitly; PATH may still resolve the runner's older LLVM.
+      - name: Use the pinned clang
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Locate clang.exe rather than assume the installer's folder layout.
+          $clang = Get-ChildItem -Path $env:LLVM_PATH -Recurse -Filter clang.exe |
+            Where-Object { $_.Directory.Name -eq 'bin' } | Select-Object -First 1
+          if (-not $clang) { throw "clang.exe not found under $env:LLVM_PATH" }
+          & $clang.FullName --version
+          Add-Content -Path $env:GITHUB_ENV -Value "APIMARK_CLANG_PATH=$($clang.FullName)"
       - name: Restore Tools
         run: >
           dotnet tool restore
@@ -302,6 +326,28 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
+      # Same pinned Windows clang as the build job so the C++ self-validation tests are
+      # not rejected by newer Visual Studio standard library headers.
+      - name: Setup clang
+        if: runner.os == 'Windows'
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          # The action's asset list stops at 21.x for Windows x64; Visual Studio 18.12's
+          # standard library (MSVC 14.52) requires clang 22 or newer.
+          version: "22.1.8"
+          force-url: https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/LLVM-22.1.8-win64.exe
+          directory: ${{ runner.temp }}/llvm
+      # Point ApiMark at the pinned clang explicitly; PATH may still resolve the runner's older LLVM.
+      - name: Use the pinned clang
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Locate clang.exe rather than assume the installer's folder layout.
+          $clang = Get-ChildItem -Path $env:LLVM_PATH -Recurse -Filter clang.exe |
+            Where-Object { $_.Directory.Name -eq 'bin' } | Select-Object -First 1
+          if (-not $clang) { throw "clang.exe not found under $env:LLVM_PATH" }
+          & $clang.FullName --version
+          Add-Content -Path $env:GITHUB_ENV -Value "APIMARK_CLANG_PATH=$($clang.FullName)"
       - name: Restore Tools
         run: >
           dotnet tool restore
@@ -368,8 +414,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: artifacts-validation-${{ matrix.os }}-dotnet${{ matrix.dotnet-version
-            }}
+          name: artifacts-validation-${{ matrix.os }}-dotnet${{ matrix.dotnet-version }}
           path: artifacts/
 
   # Builds the supporting documentation including user guides, requirements,

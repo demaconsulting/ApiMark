@@ -30,8 +30,7 @@ sections:
               - ApiMarkVhdl-VhdlEmitter-ValidatesNullFactory
             tests: [VhdlEmitter_ImplementsIApiEmitter]
           - id: ApiMarkVhdl-VhdlEmitter-DispatchesFormat
-            title: VhdlEmitter shall dispatch to VhdlEmitterGradualDisclosure or VhdlEmitterSingleFile
-              based on config.Format.
+            title: VhdlEmitter shall dispatch to VhdlEmitterGradualDisclosure or VhdlEmitterSingleFile based on config.Format.
             justification: |
               The dispatcher separates format selection from emission logic, allowing
               each format-specific emitter to be developed and tested independently.
@@ -40,8 +39,7 @@ sections:
               - VhdlEmitter_Emit_SingleFileFormat_ProducesSingleOutputFile
               - VhdlEmitter_Emit_EmptyFileModels_ProducesNoOutput
           - id: ApiMarkVhdl-VhdlEmitter-ValidatesNullFactory
-            title: VhdlEmitter shall throw ArgumentNullException when the factory
-              argument is null.
+            title: VhdlEmitter shall throw ArgumentNullException when the factory argument is null.
             justification: |
               Failing fast on a null factory provides a clear error before any writer
               or pipeline logic is invoked.

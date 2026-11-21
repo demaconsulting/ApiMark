@@ -6,9 +6,7 @@ sections:
       - title: DocumentationCoverageChecker Requirements
         requirements:
           - id: ApiMarkDotNet-DocumentationCoverageChecker-ScanAtVisibilityTier
-            title: DocumentationCoverageChecker shall scan a parsed assembly for types
-              and members lacking a non-empty XML doc `<summary>`, at a caller-supplied
-              visibility tier independent of the emission visibility tier.
+            title: DocumentationCoverageChecker shall scan a parsed assembly for types and members lacking a non-empty XML doc `<summary>`, at a caller-supplied visibility tier independent of the emission visibility tier.
             justification: |
               Enforcement projects may want to check documentation completeness at a
               different visibility tier than the one used for Markdown emission (for
@@ -21,9 +19,7 @@ sections:
               - Check_RealFixtureDoc_ReportsUndocumentedMethod
               - Check_PublicAndProtectedTier_IncludesProtectedMembersNotSeenAtPublicTier
           - id: ApiMarkDotNet-DocumentationCoverageChecker-DetectMissingSummaryByKind
-            title: DocumentationCoverageChecker shall classify each undocumented item
-              it finds by kind (type, method, property, field, or event) and report
-              its fully-qualified display name.
+            title: DocumentationCoverageChecker shall classify each undocumented item it finds by kind (type, method, property, field, or event) and report its fully-qualified display name.
             justification: |
               A documentation-coverage report is only actionable if it names exactly
               which type or member is missing a summary and what kind of API element
@@ -35,8 +31,7 @@ sections:
               - Check_FieldMissingSummary_ReportsFieldViolation
               - Check_EventMissingSummary_ReportsEventViolation
           - id: ApiMarkDotNet-DocumentationCoverageChecker-RecurseNestedTypes
-            title: DocumentationCoverageChecker shall recurse into nested types visible
-              at the same enforcement tier and check their members as well.
+            title: DocumentationCoverageChecker shall recurse into nested types visible at the same enforcement tier and check their members as well.
             justification: |
               Nested types are part of the public API surface just like top-level
               types; omitting them from the enforcement scan would let undocumented
@@ -45,9 +40,7 @@ sections:
               - Check_NestedTypeFullyDocumented_ChecksBothLevelsWithZeroViolations
               - Check_NestedTypeMemberMissingSummary_ReportsViolationOnNestedType
           - id: ApiMarkDotNet-DocumentationCoverageChecker-ApplyExcludePatternsAndObsoleteFilter
-            title: DocumentationCoverageChecker shall honor the same exclude-pattern
-              and obsolete-inclusion filters used for Markdown emission, and shall
-              never check a NamespaceDoc carrier type.
+            title: DocumentationCoverageChecker shall honor the same exclude-pattern and obsolete-inclusion filters used for Markdown emission, and shall never check a NamespaceDoc carrier type.
             justification: |
               Enforcement should respect the same namespace/type exclusions and
               obsolete-member policy already configured for emission so that types
@@ -60,10 +53,7 @@ sections:
               - Check_IncludeObsoleteTrue_ScansObsoleteTypeAndReportsMissingSummary
               - Check_NamespaceDocCarrier_IsNeverChecked
           - id: ApiMarkDotNet-DocumentationCoverageChecker-ExcludeRecordEqualityContract
-            title: DocumentationCoverageChecker shall never report a record's
-              synthesized `EqualityContract` property as undocumented, regardless
-              of enforcement visibility tier, while still reporting a hand-written
-              property that happens to share that name.
+            title: DocumentationCoverageChecker shall never report a record's synthesized `EqualityContract` property as undocumented, regardless of enforcement visibility tier, while still reporting a hand-written property that happens to share that name.
             justification: |
               EqualityContract is synthesized by the compiler for every record
               (private in a sealed record, protected virtual/override otherwise)
@@ -78,9 +68,7 @@ sections:
               - Check_DerivedRecordAtAllVisibility_DoesNotReportEqualityContract
               - Check_HandWrittenEqualityContractProperty_IsStillReported
           - id: ApiMarkDotNet-DocumentationCoverageChecker-ExcludeEventBackingField
-            title: DocumentationCoverageChecker shall never report a field-like
-              event's compiler-generated backing field as undocumented, while
-              still checking the event itself.
+            title: DocumentationCoverageChecker shall never report a field-like event's compiler-generated backing field as undocumented, while still checking the event itself.
             justification: |
               A field-like event's backing field is synthesized to store the
               event's invocation list and is named exactly like the event, so it
@@ -90,11 +78,7 @@ sections:
             tests:
               - Check_DocumentedFieldLikeEvent_DoesNotReportBackingField
           - id: ApiMarkDotNet-DocumentationCoverageChecker-ExemptDelegateMembers
-            title: DocumentationCoverageChecker shall not report the
-              compiler-synthesized members of a delegate type (constructor,
-              Invoke, BeginInvoke, EndInvoke) as undocumented at any enforcement
-              tier, for generic and non-generic delegates, while still checking
-              the delegate type itself.
+            title: DocumentationCoverageChecker shall not report the compiler-synthesized members of a delegate type (constructor, Invoke, BeginInvoke, EndInvoke) as undocumented at any enforcement tier, for generic and non-generic delegates, while still checking the delegate type itself.
             justification: |
               Delegate members are synthesized by the compiler and have no
               source location an author could attach a `<summary>` to, so
@@ -107,11 +91,7 @@ sections:
               - Check_DelegateAtPublicVisibility_DoesNotReportSynthesizedMembers
               - Check_DocumentedDelegates_ReportsZeroViolations
           - id: ApiMarkDotNet-DocumentationCoverageChecker-AcceptRemarksForGeneratedCodeMembers
-            title: DocumentationCoverageChecker shall accept a non-empty `<remarks>`
-              as documentation for a member carrying
-              `System.CodeDom.Compiler.GeneratedCodeAttribute`, when no `<summary>`
-              is present, but shall not extend this fallback to hand-written
-              members.
+            title: DocumentationCoverageChecker shall accept a non-empty `<remarks>` as documentation for a member carrying `System.CodeDom.Compiler.GeneratedCodeAttribute`, when no `<summary>` is present, but shall not extend this fallback to hand-written members.
             justification: |
               Some source generators (e.g. the `[GeneratedRegex]` partial-method
               generator) attach their own `<remarks>` to the generated
@@ -124,8 +104,7 @@ sections:
               - Check_GeneratedRegexMethodWithOnlyRemarks_IsNotReported
               - Check_HandWrittenMethodWithOnlyRemarks_IsStillReported
           - id: ApiMarkDotNet-DocumentationCoverageChecker-InheritDocCountsAsDocumented
-            title: DocumentationCoverageChecker shall treat a member whose XML entry contains an
-              inheritdoc element as documented even when the inherited summary cannot be resolved.
+            title: DocumentationCoverageChecker shall treat a member whose XML entry contains an inheritdoc element as documented even when the inherited summary cannot be resolved.
             justification: |
               An unresolved inheritdoc (for example a missing reference XML file) means the
               documentation lives in a base member; reporting it as undocumented would fail

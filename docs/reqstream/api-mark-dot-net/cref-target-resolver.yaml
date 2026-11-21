@@ -6,11 +6,7 @@ sections:
       - title: CrefTargetResolver Requirements
         requirements:
           - id: ApiMarkDotNet-CrefTargetResolver-IndexAssemblyTypesAndMembersByXmlDocId
-            title: CrefTargetResolver shall index every type (including nested types at
-              any depth) and every method, property, field, and event declared in a
-              single assembly, keyed by the same XML-doc identifier format the C#
-              compiler emits, so that a raw cref attribute string can be resolved to
-              the Mono.Cecil symbol it names.
+            title: CrefTargetResolver shall index every type (including nested types at any depth) and every method, property, field, and event declared in a single assembly, keyed by the same XML-doc identifier format the C# compiler emits, so that a raw cref attribute string can be resolved to the Mono.Cecil symbol it names.
             justification: |
               Full <see cref>/<seealso cref> cross-reference linking requires knowing
               whether a cref target is declared in the assembly being documented
@@ -28,9 +24,7 @@ sections:
               - CrefTargetResolver_TryResolveMember_Indexer_IncludesParameterListAndResolves
               - CrefTargetResolver_TryResolveMember_GenericMethodWithArrayParameter_ResolvesPositionalNotation
           - id: ApiMarkDotNet-CrefTargetResolver-ResolveWithoutVisibilityFiltering
-            title: CrefTargetResolver shall resolve cref identifiers purely by symbol
-              existence in the assembly, applying no visibility, obsolete, or
-              exclude-pattern filtering of its own.
+            title: CrefTargetResolver shall resolve cref identifiers purely by symbol existence in the assembly, applying no visibility, obsolete, or exclude-pattern filtering of its own.
             justification: |
               Distinguishing "no such symbol" (external assembly, or a malformed
               cref) from "the symbol exists but is filtered out of the generated
@@ -42,10 +36,7 @@ sections:
             tests:
               - CrefTargetResolver_TryResolveMember_PrivateMember_StillResolves
           - id: ApiMarkDotNet-CrefTargetResolver-ReturnFalseForUnresolvableIdentifiers
-            title: CrefTargetResolver shall return false, without throwing, from
-              TryResolveType/TryResolveMember for any identifier not found in the
-              indexed assembly, including external-assembly types and malformed cref
-              strings.
+            title: CrefTargetResolver shall return false, without throwing, from TryResolveType/TryResolveMember for any identifier not found in the indexed assembly, including external-assembly types and malformed cref strings.
             justification: |
               External framework types (e.g. System.ArgumentNullException) and
               malformed/misspelled cref strings must fall back to the existing
@@ -58,9 +49,7 @@ sections:
               - CrefTargetResolver_TryResolveMember_UnknownIdentifier_ReturnsFalse
               - CrefTargetResolver_TryResolveType_MalformedCref_ReturnsFalse
           - id: ApiMarkDotNet-CrefTargetResolver-DeclareOwnAssemblyCrefTypes
-            title: CrefTargetResolver shall report, through DeclaresCrefType, whether a cref
-              names a type of the indexed assembly or a member (existing or not) whose
-              declaring type is a type of the indexed assembly.
+            title: CrefTargetResolver shall report, through DeclaresCrefType, whether a cref names a type of the indexed assembly or a member (existing or not) whose declaring type is a type of the indexed assembly.
             justification: |
               A cref that belongs to the documented assembly but is not linked locally (filtered
               out, or a member the index does not hold) must never be routed to an external

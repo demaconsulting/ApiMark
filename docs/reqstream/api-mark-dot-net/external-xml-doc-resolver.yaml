@@ -6,11 +6,7 @@ sections:
       - title: ExternalXmlDocResolver Requirements
         requirements:
           - id: ApiMarkDotNet-ExternalXmlDocResolver-LocateAndCacheReferencedAssemblyDocs
-            title: ExternalXmlDocResolver shall locate a referenced assembly's XML
-              documentation file (via a sibling `.xml` file or a `ref/`/`lib/` folder-segment
-              swap fallback), lazily parse it on first use, and cache both per-file
-              and per-(declaring-assembly-hint, member-ID) results (including misses)
-              so repeated lookups never re-touch disk.
+            title: ExternalXmlDocResolver shall locate a referenced assembly's XML documentation file (via a sibling `.xml` file or a `ref/`/`lib/` folder-segment swap fallback), lazily parse it on first use, and cache both per-file and per-(declaring-assembly-hint, member-ID) results (including misses) so repeated lookups never re-touch disk.
             justification: >
               Cross-assembly `<inheritdoc />` resolution needs to find and read a
               referenced assembly's own XML documentation file, but reference-assembly
@@ -38,8 +34,7 @@ sections:
               - ExternalXmlDocResolver_TryGetMember_CorruptXmlDocFile_ReturnsNullWithoutThrowing
               - ExternalXmlDocResolver_TryGetMember_RepeatedMissForSameMember_DoesNotReReadDiskAfterFirstMiss
           - id: ApiMarkDotNet-ExternalXmlDocResolver-RejectNullReferencePaths
-            title: ExternalXmlDocResolver constructor shall throw ArgumentNullException
-              when referenceAssemblyPaths is null.
+            title: ExternalXmlDocResolver constructor shall throw ArgumentNullException when referenceAssemblyPaths is null.
             justification: >
               Failing fast with ArgumentNullException at construction gives callers
               (DotNetGenerator.Parse) a clear, immediate error rather than a deferred
@@ -50,11 +45,7 @@ sections:
             tests:
               - ExternalXmlDocResolver_Constructor_NullReferencePaths_ThrowsArgumentNullException
           - id: ApiMarkDotNet-ExternalXmlDocResolver-ProbeHintedAssemblyBeforeFullScan
-            title: ExternalXmlDocResolver shall accept an optional declaring-assembly-name
-              hint per lookup and resolve a member declared by that assembly without
-              locating and parsing every configured reference path's XML documentation,
-              while still resolving correctly when the hint is absent, stale, or does not
-              match any configured reference path.
+            title: ExternalXmlDocResolver shall accept an optional declaring-assembly-name hint per lookup and resolve a member declared by that assembly without locating and parsing every configured reference path's XML documentation, while still resolving correctly when the hint is absent, stale, or does not match any configured reference path.
             justification: >
               With MSBuild's auto-harvested ReferencePaths default, the configured
               reference assembly list can contain every resolved dependency of a

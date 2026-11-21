@@ -4,9 +4,7 @@ sections:
   - title: ApiMarkCore Requirements
     requirements:
       - id: ApiMarkCore-IApiGenerator-ProvideLanguageGeneratorContract
-        title: ApiMarkCore shall provide a two-stage language-generator contract (Parse
-          + Emit) that callers can use to invoke any supported language module with
-          a configurable output format.
+        title: ApiMarkCore shall provide a two-stage language-generator contract (Parse + Emit) that callers can use to invoke any supported language module with a configurable output format.
         tags: [system]
         justification: |
           ApiMark needs a common contract so the CLI and any build integration can
@@ -19,9 +17,7 @@ sections:
           - ApiMarkCore-IApiGenerator-AllowConstructionTimeConfiguration
         tests: [ApiMarkCore_GeneratorContract_SupportedLanguage_CanBeInvoked]
       - id: ApiMarkCore-IContext-ProvideOutputChannel
-        title: ApiMarkCore shall provide a minimal output channel interface that language
-          generators can use to emit informational and error messages without depending
-          on Console.
+        title: ApiMarkCore shall provide a minimal output channel interface that language generators can use to emit informational and error messages without depending on Console.
         tags: [system]
         justification: |
           ApiMark generators need to emit diagnostic output without depending on
@@ -35,8 +31,7 @@ sections:
           - ApiMarkCore-IContext-RejectNullWriteError
         tests: [InMemoryContext_WriteLineAndWriteError_RouteToSeparateChannels]
       - id: ApiMarkCore-IMarkdownWriterFactory-ProvideMarkdownWriterFactoryInterface
-        title: ApiMarkCore shall provide a factory interface for creating per-file
-          Markdown writers so that language generators are decoupled from the file-system.
+        title: ApiMarkCore shall provide a factory interface for creating per-file Markdown writers so that language generators are decoupled from the file-system.
         tags: [system]
         justification: |
           Decoupling generators from the file-system via a factory contract allows
@@ -60,8 +55,7 @@ sections:
           - ApiMarkCore-FileMarkdownWriterFactory-RejectIllegalNames
         tests: [ApiMarkCore_WriterFactory_CanCreate_RootAndSubfolderWriters]
       - id: ApiMarkCore-IMarkdownWriter-ProvideMarkdownOutputInterface
-        title: ApiMarkCore shall provide a markdown output interface for writing individual
-          documentation files.
+        title: ApiMarkCore shall provide a markdown output interface for writing individual documentation files.
         tags: [system]
         justification: |
           A shared markdown-writing abstraction keeps the generated document shape
@@ -111,8 +105,7 @@ sections:
           - ApiMarkCore-FileMarkdownWriter-RejectNullCellElements
         tests: [InMemoryMarkdownWriter_Write_AllOperations_RecordsInOrder]
       - id: ApiMarkCore-PathHelpers-ProvideSafePathCombinationHelper
-        title: ApiMarkCore shall provide an internal helper for safely combining caller-supplied
-          relative path segments with a trusted base path.
+        title: ApiMarkCore shall provide an internal helper for safely combining caller-supplied relative path segments with a trusted base path.
         tags: [system]
         justification: |
           ApiMark needs one auditable place to enforce path-safety rules so file-based
@@ -127,9 +120,7 @@ sections:
           - PathHelpers_SafePathCombine_AbsoluteSegment_WithinBase_CombinesCorrectly
           - PathHelpers_SafePathCombine_NullBasePath_ThrowsArgumentNullException
       - id: ApiMarkCore-PathHelpers-ProvideCaseNormalizationHelper
-        title: ApiMarkCore shall provide a public helper that resolves a path to its
-          actual on-disk casing so callers can deduplicate and cache file-system paths
-          correctly regardless of platform or file-system case sensitivity.
+        title: ApiMarkCore shall provide a public helper that resolves a path to its actual on-disk casing so callers can deduplicate and cache file-system paths correctly regardless of platform or file-system case sensitivity.
         tags: [system]
         justification: |
           DotNetGenerator and ExternalXmlDocResolver both need a single, auditable place
@@ -148,9 +139,7 @@ sections:
           - PathHelpers_NormalizeCase_CaseSensitiveFileSystemWithBothCasings_PrefersExactMatch
           - PathHelpers_NormalizeCaseDirectory_DriveLetterRoot_DoesNotResolveToCurrentDirectory
       - id: ApiMarkCore-SymbolNameRegistry-ProvideUniqueFileNames
-        title: ApiMarkCore shall provide a symbol-name registry that assigns every generated
-          page a legal, deterministic, case-insensitively unique file name before any
-          file or link is written.
+        title: ApiMarkCore shall provide a symbol-name registry that assigns every generated page a legal, deterministic, case-insensitively unique file name before any file or link is written.
         tags: [system]
         justification: |
           Every language emitter writes files named after source declarations. One
@@ -204,8 +193,7 @@ sections:
           - EmitConfig_HeadingDepth_AboveMaximum_ThrowsArgumentOutOfRangeException
           - EmitConfig_HeadingDepth_ValidNonDefault_SetsCorrectly
       - id: ApiMarkCore-GlobFileCollector-ProvideGlobFileCollector
-        title: ApiMark Core shall provide a shared utility for discovering files from
-          the filesystem using gitignore-style glob patterns.
+        title: ApiMark Core shall provide a shared utility for discovering files from the filesystem using gitignore-style glob patterns.
         tags: [system]
         justification: |
           Multiple language generators (C++ and VHDL) need to discover source files
@@ -230,9 +218,7 @@ sections:
           - GlobFileCollector_Collect_NonExistentRoot_ReturnsEmptyWithoutThrowing
           - GlobFileCollector_Collect_OverlappingPatterns_ReturnsSortedDeduplicated
       - id: ApiMarkCore-IDocumentationCoverageCapable-ProvideEnforcementContract
-        title: ApiMark Core shall provide an optional documentation-coverage enforcement
-          capability interface that language generators can implement to expose a
-          language-agnostic coverage scan to callers.
+        title: ApiMark Core shall provide an optional documentation-coverage enforcement capability interface that language generators can implement to expose a language-agnostic coverage scan to callers.
         tags: [system]
         justification: |
           ApiMark supports opt-in documentation-coverage enforcement
