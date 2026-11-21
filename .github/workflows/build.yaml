@@ -116,6 +116,13 @@ jobs:
           version: "22.1.8"
           force-url: https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/clang+llvm-22.1.8-x86_64-pc-windows-msvc.tar.xz
           directory: ${{ runner.temp }}/llvm
+      # Point ApiMark at the pinned clang explicitly; PATH may still resolve the runner's older LLVM.
+      - name: Use the pinned clang
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >
+          Add-Content -Path $env:GITHUB_ENV
+          -Value "APIMARK_CLANG_PATH=$env:LLVM_PATH\bin\clang.exe"
       - name: Restore Tools
         run: >
           dotnet tool restore
@@ -326,6 +333,13 @@ jobs:
           version: "22.1.8"
           force-url: https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/clang+llvm-22.1.8-x86_64-pc-windows-msvc.tar.xz
           directory: ${{ runner.temp }}/llvm
+      # Point ApiMark at the pinned clang explicitly; PATH may still resolve the runner's older LLVM.
+      - name: Use the pinned clang
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >
+          Add-Content -Path $env:GITHUB_ENV
+          -Value "APIMARK_CLANG_PATH=$env:LLVM_PATH\bin\clang.exe"
       - name: Restore Tools
         run: >
           dotnet tool restore
