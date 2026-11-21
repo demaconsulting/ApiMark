@@ -1,4 +1,4 @@
-# ApiMark
+# ![ApiMark: Markdown API reference from .NET, C++ and VHDL. Writes an index, namespace and type pages or one api.md, and can enforce doc coverage. CLI tool or MSBuild. Shown with the command 'apimark vhdl --source rtl/*.vhd --output api' and the note '.NET 10 and 11, Windows, Linux, macOS'. .NET assemblies with their XML documentation, C++ headers, VHDL sources, and MSBuild projects flow into the apimark .NET tool, and arrows lead out to Markdown API pages with member tables and cross-links, a documentation-coverage gate that flags a missing doc comment, a PDF made from the Markdown by Pandoc, and docs published to the repository, the NuGet package, and AI agents][hero]
 
 <!-- IMPORTANT: All links in this file must be absolute URLs.
      This file is distributed in packages and relative links will not resolve. -->
@@ -11,8 +11,6 @@
 [![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=demaconsulting_ApiMark&metric=alert_status)](https://sonarcloud.io/dashboard?id=demaconsulting_ApiMark)
 [![Security](https://sonarcloud.io/api/project_badges/measure?project=demaconsulting_ApiMark&metric=security_rating)](https://sonarcloud.io/dashboard?id=demaconsulting_ApiMark)
 [![NuGet](https://img.shields.io/nuget/v/DemaConsulting.ApiMark.MSBuild?style=plastic)](https://www.nuget.org/packages/DemaConsulting.ApiMark.MSBuild)
-
-![ApiMark banner: the ApiMark name with the tagline 'Your API, in Markdown. Every gap, caught.' and the command 'apimark vhdl --source rtl/*.vhd --output api'. .NET assemblies with their XML documentation, C++ headers, VHDL sources, and MSBuild projects flow on curved arrows into the apimark .NET tool, and arrows lead out to Markdown API pages with member tables and cross-links, a documentation-coverage gate that flags a missing doc comment, a Pandoc PDF, and docs published to the repository, the NuGet package, and AI agents][hero]
 
 ## Overview
 
