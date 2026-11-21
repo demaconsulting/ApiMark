@@ -597,7 +597,8 @@ public partial class ClangAstParserTests
         var result = ClangAstParser.Parse(headers, options);
 
         // Assert: clean fixture headers must not produce any error-class diagnostics
-        Assert.Empty(result.Errors);
+        // (the message lists them in full, since Assert.Empty truncates long paths)
+        Assert.True(result.Errors.Count == 0, string.Join(Environment.NewLine, result.Errors));
     }
 
     /// <summary>
