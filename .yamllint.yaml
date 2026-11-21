@@ -19,7 +19,7 @@ rules:
     allowed-values: ['true', 'false']
     check-keys: false
 
-  # Disable line-length rule
+  # No YAML line-length limit in DEMA repositories (yamlfix uses line_length = 10000 for the same reason)
   line-length: disable
 
   # Ensure proper indentation
