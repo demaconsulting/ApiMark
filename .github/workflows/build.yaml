@@ -120,9 +120,13 @@ jobs:
       - name: Use the pinned clang
         if: runner.os == 'Windows'
         shell: pwsh
-        run: >
-          Add-Content -Path $env:GITHUB_ENV
-          -Value "APIMARK_CLANG_PATH=$env:LLVM_PATH\bin\clang.exe"
+        run: |
+          # The release archive may extract under a versioned top-level folder.
+          $clang = Get-ChildItem -Path $env:LLVM_PATH -Recurse -Filter clang.exe |
+            Where-Object { $_.Directory.Name -eq 'bin' } | Select-Object -First 1
+          if (-not $clang) { throw "clang.exe not found under $env:LLVM_PATH" }
+          & $clang.FullName --version
+          Add-Content -Path $env:GITHUB_ENV -Value "APIMARK_CLANG_PATH=$($clang.FullName)"
       - name: Restore Tools
         run: >
           dotnet tool restore
@@ -337,9 +341,13 @@ jobs:
       - name: Use the pinned clang
         if: runner.os == 'Windows'
         shell: pwsh
-        run: >
-          Add-Content -Path $env:GITHUB_ENV
-          -Value "APIMARK_CLANG_PATH=$env:LLVM_PATH\bin\clang.exe"
+        run: |
+          # The release archive may extract under a versioned top-level folder.
+          $clang = Get-ChildItem -Path $env:LLVM_PATH -Recurse -Filter clang.exe |
+            Where-Object { $_.Directory.Name -eq 'bin' } | Select-Object -First 1
+          if (-not $clang) { throw "clang.exe not found under $env:LLVM_PATH" }
+          & $clang.FullName --version
+          Add-Content -Path $env:GITHUB_ENV -Value "APIMARK_CLANG_PATH=$($clang.FullName)"
       - name: Restore Tools
         run: >
           dotnet tool restore
