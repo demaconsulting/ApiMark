@@ -200,8 +200,7 @@ reviews:
       - src/ApiMark.Core/GlobFileCollector.cs
       - test/ApiMark.Core.Tests/GlobFileCollectorTests.cs
   - id: ApiMark-Core-IDocumentationCoverageCapable
-    title: Review that ApiMark Core IDocumentationCoverageCapable Implementation is
-      Correct
+    title: Review that ApiMark Core IDocumentationCoverageCapable Implementation is Correct
     context:
       - docs/design/api-mark-core.md
       - docs/reqstream/api-mark-core.yaml
@@ -291,8 +290,7 @@ reviews:
       - test/ApiMark.DotNet.Tests/DotNetEmitterModifierAndConstraintTests.cs
       - test/ApiMark.DotNet.Tests/DotNetEmitterInheritanceDocsTests.cs
   - id: ApiMark-DotNet-DotNetEmitterGradualDisclosure
-    title: Review that ApiMark DotNet DotNetEmitterGradualDisclosure Implementation
-      is Correct
+    title: Review that ApiMark DotNet DotNetEmitterGradualDisclosure Implementation is Correct
     context:
       - docs/design/api-mark-dot-net.md
       - docs/reqstream/api-mark-dot-net.yaml
@@ -355,8 +353,7 @@ reviews:
       - src/ApiMark.DotNet/ExternalXmlDocResolver.cs
       - test/ApiMark.DotNet.Tests/ExternalXmlDocResolverTests.cs
   - id: ApiMark-DotNet-DocumentationCoverageChecker
-    title: Review that ApiMark DotNet DocumentationCoverageChecker Implementation
-      is Correct
+    title: Review that ApiMark DotNet DocumentationCoverageChecker Implementation is Correct
     context:
       - docs/design/api-mark-dot-net.md
       - docs/reqstream/api-mark-dot-net.yaml
@@ -516,8 +513,7 @@ reviews:
       - test/ApiMark.Cpp.Tests/ClangDiscoveryTests.cs
       - test/ApiMark.Cpp.Tests/ClangEnvironmentCollection.cs
   - id: ApiMark-Cpp-DocumentationCoverageChecker
-    title: Review that ApiMark Cpp DocumentationCoverageChecker Implementation is
-      Correct
+    title: Review that ApiMark Cpp DocumentationCoverageChecker Implementation is Correct
     context: [docs/design/api-mark-cpp.md, docs/reqstream/api-mark-cpp.yaml]
     paths:
       - docs/reqstream/api-mark-cpp/documentation-coverage-checker.yaml
@@ -584,8 +580,7 @@ reviews:
       - src/ApiMark.Vhdl/VhdlEmitter.cs
       - test/ApiMark.Vhdl.Tests/VhdlEmitterTests.cs
   - id: ApiMark-Vhdl-VhdlEmitterGradualDisclosure
-    title: Review that ApiMark Vhdl VhdlEmitterGradualDisclosure Implementation is
-      Correct
+    title: Review that ApiMark Vhdl VhdlEmitterGradualDisclosure Implementation is Correct
     context:
       - docs/design/api-mark-vhdl.md
       - docs/reqstream/api-mark-vhdl.yaml
@@ -636,8 +631,7 @@ reviews:
       - test/ApiMark.Vhdl.Tests/Fixtures/counter.vhd
       - test/ApiMark.Vhdl.Tests/VhdlAstParserTests.cs
   - id: ApiMark-Vhdl-DocumentationCoverageChecker
-    title: Review that ApiMark Vhdl DocumentationCoverageChecker Implementation is
-      Correct
+    title: Review that ApiMark Vhdl DocumentationCoverageChecker Implementation is Correct
     context:
       - docs/design/api-mark-vhdl.md
       - docs/reqstream/api-mark-vhdl.yaml

@@ -6,9 +6,7 @@ sections:
       - title: TypeLinkResolver Requirements
         requirements:
           - id: ApiMarkDotNet-TypeLinkResolver-ResolveIntraAssemblyTypesToMarkdownLinks
-            title: TypeLinkResolver shall resolve intra-assembly type references to
-              relative Markdown links when generateLinks is true, and plain text when
-              false.
+            title: TypeLinkResolver shall resolve intra-assembly type references to relative Markdown links when generateLinks is true, and plain text when false.
             justification: |
               Intra-document cross-references improve navigability for both AI agents
               and human readers. Controlling link generation via generateLinks allows
@@ -21,9 +19,7 @@ sections:
               - TypeLinkResolver_Linkify_NullableGenericParameter_AppendsQuestionMark
               - DotNetGenerator_Generate_IntraAssemblyReturnType_EmitsMarkdownLinkInReturnsCell
           - id: ApiMarkDotNet-TypeLinkResolver-ResolvePrimitiveAndSystemTypesToPlainText
-            title: TypeLinkResolver shall resolve C# primitive types and System-namespace
-              types to their plain simplified names without tracking them as external
-              dependencies.
+            title: TypeLinkResolver shall resolve C# primitive types and System-namespace types to their plain simplified names without tracking them as external dependencies.
             justification: |
               Primitive and System types are universally known and do not require
               readers to install separate packages, so they must be rendered as
@@ -34,9 +30,7 @@ sections:
               - TypeLinkResolver_Linkify_StringType_ReturnsCSharpAlias
               - TypeLinkResolver_Linkify_SystemNamespaceExternalType_ReturnsPlainTextAndDoesNotTrack
           - id: ApiMarkDotNet-TypeLinkResolver-TrackNonSystemExternalTypesForExternalTypesSection
-            title: TypeLinkResolver shall resolve non-System external type references
-              to plain text and add them to the caller-supplied external type set
-              for later emission in the External Types section.
+            title: TypeLinkResolver shall resolve non-System external type references to plain text and add them to the caller-supplied external type set for later emission in the External Types section.
             justification: |
               Non-System external types originate from third-party packages that readers
               must install separately. Accumulating them per output file and emitting an
@@ -46,8 +40,7 @@ sections:
               - TypeLinkResolver_Linkify_ExternalNonSystemType_ReturnsPlainNameAndTracksExternalType
               - DotNetGenerator_Generate_ExternalNonSystemParameterType_EmitsExternalTypesSection
           - id: ApiMarkDotNet-TypeLinkResolver-RenderArrayTypesWithSuffix
-            title: TypeLinkResolver shall render array types by appending the array
-              rank suffix to the element type name.
+            title: TypeLinkResolver shall render array types by appending the array rank suffix to the element type name.
             justification: |
               C# array types such as string[] and int[,] are common in API signatures. Rendering
               them with the correct suffix ensures the generated Markdown matches the C# syntax
@@ -57,8 +50,7 @@ sections:
               - TypeLinkResolver_Linkify_ArrayType_AppendsArraySuffix
               - TypeLinkResolver_Linkify_MultiDimensionalArrayType_AppendsRankSuffix
           - id: ApiMarkDotNet-TypeLinkResolver-RenderGenericTypesWithTypeArguments
-            title: TypeLinkResolver shall render generic container types by appending
-              the resolved type argument list in angle-bracket notation.
+            title: TypeLinkResolver shall render generic container types by appending the resolved type argument list in angle-bracket notation.
             justification: |
               Generic types such as List<string> and Dictionary<string, int> appear frequently
               in .NET API signatures. Rendering the full generic form — including resolved type
@@ -66,8 +58,7 @@ sections:
               single table cell read.
             tests: [TypeLinkResolver_Linkify_GenericType_RendersTypeArguments]
           - id: ApiMarkDotNet-TypeLinkResolver-UnwrapNullableValueTypes
-            title: TypeLinkResolver shall unwrap Nullable<T> generic instances and
-              render the inner type with a ? suffix.
+            title: TypeLinkResolver shall unwrap Nullable<T> generic instances and render the inner type with a ? suffix.
             justification: |
               C# value types such as int? and DateTime? are Nullable<T> generic instances
               at the CLR level. Rendering them as "int?" rather than "Nullable<int>" matches
@@ -75,10 +66,7 @@ sections:
             tests:
               - TypeLinkResolver_Linkify_NullableValueType_ReturnsInnerAliasWithQuestionMark
           - id: ApiMarkDotNet-TypeLinkResolver-ResolveNestedTypesToCorrectPageKey
-            title: TypeLinkResolver shall resolve nested type references to the
-              correct nested-type page path by deriving the namespace folder from
-              the outermost non-nested ancestor and appending every declaring-type
-              name from outermost to innermost, for arbitrary nesting depth.
+            title: TypeLinkResolver shall resolve nested type references to the correct nested-type page path by deriving the namespace folder from the outermost non-nested ancestor and appending every declaring-type name from outermost to innermost, for arbitrary nesting depth.
             justification: |
               Mono.Cecil gives nested types an empty Namespace — only the outermost
               non-nested ancestor carries the namespace. Using a nested type's own
@@ -97,13 +85,7 @@ sections:
               - TypeLinkResolver_Linkify_NestedType_FromParentPageVsOtherPage_ProducesDifferentRelativePaths
               - DotNetGenerator_Generate_GradualDisclosure_EveryGeneratedLinkResolvesToExistingPage
           - id: ApiMarkDotNet-TypeLinkResolver-ResolveCrefTargetsToMarkdownLinks
-            title: TypeLinkResolver shall expose LinkifyResolvedType and
-              LinkifyResolvedMember methods that resolve an already-resolved
-              intra-assembly cref target (a TypeDefinition or IMemberDefinition) to
-              a Markdown link wrapping caller-supplied display text, returning the
-              display text unchanged when link generation is disabled or (for
-              members) when the target has no entry in the supplied member-page
-              index.
+            title: TypeLinkResolver shall expose LinkifyResolvedType and LinkifyResolvedMember methods that resolve an already-resolved intra-assembly cref target (a TypeDefinition or IMemberDefinition) to a Markdown link wrapping caller-supplied display text, returning the display text unchanged when link generation is disabled or (for members) when the target has no entry in the supplied member-page index.
             justification: |
               Full cross-reference linking for `<see cref>`/`<seealso cref>`
               references requires converting an already-resolved cref target (from
@@ -122,9 +104,7 @@ sections:
               - TypeLinkResolver_LinkifyResolvedMember_NotInIndex_ReturnsDisplayTextUnchanged
               - TypeLinkResolver_LinkifyResolvedMember_GenerateLinksFalse_ReturnsDisplayTextUnchanged
           - id: ApiMarkDotNet-TypeLinkResolver-LinkMappedExternalAssemblies
-            title: TypeLinkResolver shall render a type from a mapped external assembly as
-              a Markdown link into that assembly's documentation, built from the mapped
-              API path and the page key derived with that assembly's root namespaces.
+            title: TypeLinkResolver shall render a type from a mapped external assembly as a Markdown link into that assembly's documentation, built from the mapped API path and the page key derived with that assembly's root namespaces.
             justification: |
               Mapped dependencies are documented by their own ApiMark run, so their types
               link to that documentation. The mapped API path is either a relative path,
@@ -141,8 +121,7 @@ sections:
               - TypeLinkResolver_Linkify_RootedOrFileApiPath_ReturnsAbsoluteFileLink
               - DotNetGenerator_Generate_ExternalLinksMapped_LinksTypeAndSkipsExternalTypesTable
           - id: ApiMarkDotNet-TypeLinkResolver-NotTrackMappedExternalTypes
-            title: TypeLinkResolver shall not add types from a mapped external assembly to
-              the caller-supplied external type set.
+            title: TypeLinkResolver shall not add types from a mapped external assembly to the caller-supplied external type set.
             justification: |
               Types that are linked no longer need an entry in the External Types section;
               listing them would duplicate the information the link already provides.
@@ -150,8 +129,7 @@ sections:
               - TypeLinkResolver_Linkify_MappedHttpsApiPath_ReturnsAbsoluteLinkAndSkipsTracking
               - TypeLinkResolver_Linkify_MappedGenericType_LinksContainerWithArguments
           - id: ApiMarkDotNet-TypeLinkResolver-KeepUnmappedOrUnlinkedExternalTypesAsText
-            title: TypeLinkResolver shall render a type from an unmapped assembly, or any
-              external type when generateLinks is false, as plain text tracked as external.
+            title: TypeLinkResolver shall render a type from an unmapped assembly, or any external type when generateLinks is false, as plain text tracked as external.
             justification: |
               Single-file output never emits links, and assemblies without a mapping have
               no documentation location to link to, so the table-only behavior applies.
@@ -159,18 +137,14 @@ sections:
               - TypeLinkResolver_Linkify_UnmappedAssembly_ReturnsPlainTextAndTracksType
               - TypeLinkResolver_Linkify_MappedAssemblyWithGenerateLinksFalse_ReturnsPlainTextAndTracksType
           - id: ApiMarkDotNet-TypeLinkResolver-EscapeExternalLinkTargets
-            title: TypeLinkResolver shall percent-encode spaces, parentheses, and angle
-              brackets in external link targets.
+            title: TypeLinkResolver shall percent-encode spaces, parentheses, and angle brackets in external link targets.
             justification: |
               A configured API path containing such characters would otherwise terminate
               or corrupt the Markdown inline link.
             tests:
               - TypeLinkResolver_Linkify_ApiPathWithSpacesAndParentheses_EscapesLinkTarget
           - id: ApiMarkDotNet-TypeLinkResolver-ApplyNullabilityPerTypePosition
-            title: TypeLinkResolver shall apply the nullable-reference annotation per type
-              position, consuming one flag per position in pre-order (outer type, then
-              array element or generic arguments left to right), and shall not append ? to
-              value types.
+            title: TypeLinkResolver shall apply the nullable-reference annotation per type position, consuming one flag per position in pre-order (outer type, then array element or generic arguments left to right), and shall not append ? to value types.
             justification: |
               Annotations such as List<string?>? or string?[] differ by position, so a single
               outermost flag is insufficient. Value types are never nullable references, so a
@@ -185,8 +159,7 @@ sections:
               - TypeLinkResolver_Linkify_NullableIntraAssemblyType_ReturnsLinkWithQuestionMark
               - TypeLinkResolver_Linkify_NullableArrayType_AppendsArraySuffixThenQuestionMark
           - id: ApiMarkDotNet-TypeLinkResolver-UnwrapByReferenceTypes
-            title: TypeLinkResolver shall unwrap by-reference (ref/out/in) types to their
-              element type without consuming a nullable flag.
+            title: TypeLinkResolver shall unwrap by-reference (ref/out/in) types to their element type without consuming a nullable flag.
             justification: |
               The ref/out/in keyword is rendered by the caller; the link text and target must
               use the real element type name, never a name with a trailing ampersand, and the
@@ -195,16 +168,14 @@ sections:
               - TypeLinkResolver_Linkify_ByReferenceType_ReturnsLinkWithPlainTypeName
               - TypeLinkResolver_Linkify_CursorWithByReference_ByRefConsumesNoFlag
           - id: ApiMarkDotNet-TypeLinkResolver-LinkGlobalNamespaceTypes
-            title: TypeLinkResolver shall link a type declared in the global namespace to its page
-              under the global-namespace folder.
+            title: TypeLinkResolver shall link a type declared in the global namespace to its page under the global-namespace folder.
             justification: |
               Types without a namespace are documented under a synthetic folder; links to them
               must target that folder or they would be broken.
             tests:
               - TypeLinkResolver_Linkify_GlobalNamespaceType_LinksToGlobalNamespacePage
           - id: ApiMarkDotNet-TypeLinkResolver-LinkifyTuplesAndNullableFlags
-            title: TypeLinkResolver shall render tuple types in tuple syntax with linked elements, and
-              consume nullable flags only for positions the compiler encodes.
+            title: TypeLinkResolver shall render tuple types in tuple syntax with linked elements, and consume nullable flags only for positions the compiler encodes.
             justification: |
               Row type cells must agree with the signature block; a flag consumed for a non-generic
               value type would shift every later annotation by one position.
@@ -217,9 +188,7 @@ sections:
             tests:
               - DotNetEmitterGradualDisclosure_Emit_ExternalGenericTypes_AreSimplifiedAndEscaped
           - id: ApiMarkDotNet-TypeLinkResolver-ExternalCrefLinks
-            title: TypeLinkResolver shall link a cref to a type or member of an external assembly to the
-              mapped documentation when its namespace belongs to an external link mapping, and leave
-              it a plain code span otherwise.
+            title: TypeLinkResolver shall link a cref to a type or member of an external assembly to the mapped documentation when its namespace belongs to an external link mapping, and leave it a plain code span otherwise.
             justification: |
               Cross-references to types documented in another assembly's ApiMark output should be
               clickable, but must never produce links to unmapped locations.
@@ -228,17 +197,14 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_ExternalCref_AbsoluteMappingLinksType
               - DotNetEmitterGradualDisclosure_Emit_ExternalCref_UnmappedStaysPlainCodeSpan
           - id: ApiMarkDotNet-TypeLinkResolver-OverloadAnchorLinks
-            title: TypeLinkResolver shall append the heading anchor stored in the member page index to a
-              member link, so a link to an overload targets that overload's section.
+            title: TypeLinkResolver shall append the heading anchor stored in the member page index to a member link, so a link to an overload targets that overload's section.
             justification: |
               Overloads share one page; the anchor selects the intended section.
             tests:
               - DotNetEmitterGradualDisclosure_Emit_OverloadCref_LinksToOverloadHeadingAnchor
               - DotNetEmitterGradualDisclosure_Emit_AllLinkAnchors_MatchRealHeadings
           - id: ApiMarkDotNet-TypeLinkResolver-ExternalNestedCrefs
-            title: TypeLinkResolver shall link crefs to nested and generic-nested types of mapped
-              external assemblies using the real namespace, the nested-type chain, and hyphenated
-              arity names.
+            title: TypeLinkResolver shall link crefs to nested and generic-nested types of mapped external assemblies using the real namespace, the nested-type chain, and hyphenated arity names.
             justification: |
               A nested external type's namespace and its enclosing types cannot be told apart from
               the name alone, and unflattened generic names point to pages that do not exist.
@@ -247,10 +213,7 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_ExternalNestedPropertyTypes_LinkToNestedPages
               - DotNetEmitterGradualDisclosure_Emit_ExternalLinks_MatchTargetAssemblyRegistryNames
           - id: ApiMarkDotNet-TypeLinkResolver-ForeignModuleTypesAreExternal
-            title: TypeLinkResolver shall, when given the documented module, treat only types
-              scoped to exactly that module as intra-assembly, and shall treat a type scoped to
-              any other module (such as a base type resolved from another assembly) as external,
-              linking it into the mapped documentation or rendering it as plain text.
+            title: TypeLinkResolver shall, when given the documented module, treat only types scoped to exactly that module as intra-assembly, and shall treat a type scoped to any other module (such as a base type resolved from another assembly) as external, linking it into the mapped documentation or rendering it as plain text.
             justification: |
               Resolving a base type from a referenced assembly yields a type whose scope is that
               assembly's own module, which is indistinguishable by scope kind from a type of the

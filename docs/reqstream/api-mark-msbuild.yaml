@@ -4,8 +4,7 @@ sections:
   - title: ApiMarkMsbuild Requirements
     requirements:
       - id: ApiMarkMsbuild-ApiMarkTask-IntegrateWithMsbuild
-        title: ApiMarkMsbuild shall integrate ApiMark documentation generation as
-          an MSBuild task for both .csproj and .vcxproj builds.
+        title: ApiMarkMsbuild shall integrate ApiMark documentation generation as an MSBuild task for both .csproj and .vcxproj builds.
         tags: [system]
         justification: |
           Teams using C# and C++ need documentation generation to run automatically
@@ -52,8 +51,7 @@ sections:
           - ApiMarkMsbuild_NuGetPackage_DotNetProject_AutoDocumentsOnBuild
           - windows@ApiMarkMsbuild_NuGetPackage_CppVcxprojProject_AutoDocumentsOnBuild
       - id: ApiMarkMsbuild-IncludeDocsInNuGetPackage
-        title: ApiMarkMsbuild shall support an opt-in ApiMarkPackDocs property that,
-          when set to true, includes generated documentation in the NuGet package.
+        title: ApiMarkMsbuild shall support an opt-in ApiMarkPackDocs property that, when set to true, includes generated documentation in the NuGet package.
         tags: [system]
         justification: |
           Projects that distribute API documentation alongside their library need a single

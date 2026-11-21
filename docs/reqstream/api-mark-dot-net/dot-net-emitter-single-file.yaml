@@ -6,8 +6,7 @@ sections:
       - title: DotNetEmitterSingleFile Requirements
         requirements:
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-EmitAllApiIntoSingleFile
-            title: DotNetEmitterSingleFile shall emit all assembly API documentation
-              into a single api.md file.
+            title: DotNetEmitterSingleFile shall emit all assembly API documentation into a single api.md file.
             justification: |
               Single-file output provides a compact, linear reference for contexts where a
               hierarchical file tree is unwanted, such as embedding documentation in a pull
@@ -21,8 +20,7 @@ sections:
               - DotNetGenerator_Generate_SingleFileOutput_WritesSingleApiMarkdown
               - DotNetGenerator_SingleFile_MethodWithExample_EmitsCodeBlock
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-OffsetHeadingsByHeadingDepth
-            title: DotNetEmitterSingleFile shall offset all heading levels in the
-              output by the HeadingDepth value specified in EmitConfig.
+            title: DotNetEmitterSingleFile shall offset all heading levels in the output by the HeadingDepth value specified in EmitConfig.
             justification: |
               HeadingDepth allows the generated content to be embedded into a larger
               document without conflicting with the host document's heading hierarchy.
@@ -30,10 +28,7 @@ sections:
             tests:
               - DotNetEmitterSingleFile_Emit_NonDefaultHeadingDepth_OffsetsHeadings
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-EmitAssemblyDescription
-            title: DotNetEmitterSingleFile shall emit a paragraph following the assembly-level
-              heading containing an explicitly-supplied LibraryDescription option when
-              present, falling back to the compiled AssemblyDescriptionAttribute value
-              when LibraryDescription is null, empty, or consists only of whitespace.
+            title: DotNetEmitterSingleFile shall emit a paragraph following the assembly-level heading containing an explicitly-supplied LibraryDescription option when present, falling back to the compiled AssemblyDescriptionAttribute value when LibraryDescription is null, empty, or consists only of whitespace.
             justification: |
               The assembly description provides high-level context for the documented library
               and is immediately discoverable in single-file output without navigation. An
@@ -46,8 +41,7 @@ sections:
               - DotNetEmitterSingleFile_Emit_LibraryDescriptionSupplied_OverridesAssemblyDescription
               - DotNetEmitterSingleFile_Emit_LibraryDescriptionWhitespace_FallsBackToAssemblyDescription
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-EmitNamespaceDocSummary
-            title: DotNetEmitterSingleFile shall emit the NamespaceDoc XML summary
-              as a paragraph following the namespace heading.
+            title: DotNetEmitterSingleFile shall emit the NamespaceDoc XML summary as a paragraph following the namespace heading.
             justification: |
               Namespace descriptions authored via the NamespaceDoc convention must appear in
               single-file output so readers have namespace context without navigating separate
@@ -55,16 +49,14 @@ sections:
             tests:
               - DotNetEmitterSingleFile_Emit_NamespaceWithDoc_EmitsNamespaceSummary
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-EmitGlobalNamespaceTypes
-            title: DotNetEmitterSingleFile shall emit types declared without a namespace
-              under a "(global namespace)" heading.
+            title: DotNetEmitterSingleFile shall emit types declared without a namespace under a "(global namespace)" heading.
             justification: |
               Types in the global namespace must not abort single-file output; they are grouped
               under a synthetic "(global namespace)" section like any other namespace.
             tests:
               - DotNetEmitterSingleFile_Emit_GlobalNamespaceTypes_EmitsGlobalNamespaceSection
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-EmitNamespaceDocRemarksAndExamples
-            title: DotNetEmitterSingleFile shall emit the NamespaceDoc remarks and
-              example parts after the namespace summary.
+            title: DotNetEmitterSingleFile shall emit the NamespaceDoc remarks and example parts after the namespace summary.
             justification: |
               A NamespaceDoc carrier can document a namespace with remarks and worked
               examples. Emitting the remarks paragraph and structured example parts after the
@@ -75,11 +67,7 @@ sections:
               - DotNetEmitterSingleFile_Emit_NamespaceWithDoc_EmitsNamespaceExampleCodeBlock
               - DotNetEmitterSingleFile_Emit_TypeWithListRemarks_RendersTableInMarkdown
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-SuppressPlaceholderWhenRemarksPresent
-            title: DotNetEmitterSingleFile shall render a type's or member's
-              `<summary>` via GetSummaryMarkdown (multi-line list rendering) and
-              suppress the "No description provided." placeholder when a
-              `<summary>` is absent but `<remarks>` content is present, at both
-              the type-section and member-section level.
+            title: DotNetEmitterSingleFile shall render a type's or member's `<summary>` via GetSummaryMarkdown (multi-line list rendering) and suppress the "No description provided." placeholder when a `<summary>` is absent but `<remarks>` content is present, at both the type-section and member-section level.
             justification: |
               GetSummary always collapsed a `<summary>` to a single line, which
               destroyed `<list>` structure in single-file output just as it did in
@@ -96,41 +84,35 @@ sections:
               - DotNetEmitterSingleFile_Emit_TypeWithRemarksOnly_SuppressesPlaceholderAndShowsRemarks
               - DotNetEmitterSingleFile_Emit_MemberWithRemarksOnly_SuppressesPlaceholderAndShowsRemarks
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-EmitCompactMemberBulletList
-            title: DotNetEmitterSingleFile shall emit a compact bullet list of member
-              names and summaries before the per-member heading sections within each
-              type section.
+            title: DotNetEmitterSingleFile shall emit a compact bullet list of member names and summaries before the per-member heading sections within each type section.
             justification: |
               The bullet list provides a quick overview of all members before diving into the
               detail sections, reducing reading time for large types.
             tests:
               - DotNetEmitterSingleFile_Emit_TypeWithMembers_EmitsBulletListBeforeMemberHeadings
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-EmitMembersConstructorsFirst
-            title: DotNetEmitterSingleFile shall emit constructor members before all
-              other members, with remaining members ordered alphabetically.
+            title: DotNetEmitterSingleFile shall emit constructor members before all other members, with remaining members ordered alphabetically.
             justification: |
               Constructors are the primary entry point for using a type; placing them first
               matches the reader's natural expectation when learning an API.
             tests:
               - DotNetEmitterSingleFile_Emit_TypeWithConstructorAndMethods_ConstructorAppearsFirst
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-SkipMemberListForDelegates
-            title: DotNetEmitterSingleFile shall omit the member listing section for
-              delegate types.
+            title: DotNetEmitterSingleFile shall omit the member listing section for delegate types.
             justification: |
               Delegate types expose compiler-generated members (Invoke, BeginInvoke, EndInvoke)
               that are not meaningful API content; omitting them keeps the delegate section
               focused on signature and description.
             tests: [DotNetEmitterSingleFile_Emit_DelegateType_NoMemberSectionsEmitted]
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-EmitNestedTypeParentNotice
-            title: DotNetEmitterSingleFile shall emit a parent-context notice paragraph
-              for nested types indicating their containing type.
+            title: DotNetEmitterSingleFile shall emit a parent-context notice paragraph for nested types indicating their containing type.
             justification: |
               In single-file output there is no folder hierarchy to convey nesting
               relationships; an explicit notice paragraph makes the containing type
               relationship discoverable.
             tests: [DotNetEmitterSingleFile_Emit_NestedType_EmitsParentNotice]
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-EmitPlainTextParameterTypes
-            title: DotNetEmitterSingleFile shall render parameter type cells as plain
-              text rather than Markdown links.
+            title: DotNetEmitterSingleFile shall render parameter type cells as plain text rather than Markdown links.
             justification: |
               Relative file links are meaningless inside a single document; plain-text type
               names keep the output valid in any Markdown renderer without broken link
@@ -138,10 +120,7 @@ sections:
             tests:
               - DotNetEmitterSingleFile_Emit_MethodWithParameter_TypeCellIsPlainText
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-NeverLinkCrefReferences
-            title: DotNetEmitterSingleFile shall render every `<see cref>`/`<seealso
-              cref>` reference as code-span-only text, never as a Markdown link,
-              regardless of whether the cref's target would otherwise be resolvable
-              and emitted.
+            title: DotNetEmitterSingleFile shall render every `<see cref>`/`<seealso cref>` reference as code-span-only text, never as a Markdown link, regardless of whether the cref's target would otherwise be resolvable and emitted.
             justification: |
               Relative Markdown links are meaningless inside a single document, the
               same reason parameter type cells are already rendered as plain text
@@ -202,23 +181,19 @@ sections:
             tests:
               - DotNetEmitterSingleFile_Emit_LangExample_TagsCodeBlocksWithLanguage
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-RenderFullSignatureText
-            title: DotNetEmitterSingleFile shall render bullets, headings, and signatures with parameter
-              names, nullability, params, modifiers, and visibility-filtered accessors.
+            title: DotNetEmitterSingleFile shall render bullets, headings, and signatures with parameter names, nullability, params, modifiers, and visibility-filtered accessors.
             justification: |
               The single-file output must carry the same signature information as gradual disclosure.
             tests:
               - DotNetEmitterSingleFile_Emit_NullableParamsAndAccessorShapes_RendersExactText
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-GenericTypeText
-            title: DotNetEmitterSingleFile shall escape angle brackets in headings and render type
-              parameter tables and constraints for generic types and methods.
+            title: DotNetEmitterSingleFile shall escape angle brackets in headings and render type parameter tables and constraints for generic types and methods.
             justification: |
               Single-file output must match gradual disclosure for generic declarations.
             tests:
               - DotNetEmitterSingleFile_Emit_GenericType_EscapesHeadingsAndListsTypeParameters
           - id: ApiMarkDotNet-DotNetEmitterSingleFile-OverloadSections
-            title: DotNetEmitterSingleFile shall attach an example only to the overload that documents it,
-              document each generic overload's type parameters in a table, and render parameter,
-              type-parameter, and language keyword references as inline code.
+            title: DotNetEmitterSingleFile shall attach an example only to the overload that documents it, document each generic overload's type parameters in a table, and render parameter, type-parameter, and language keyword references as inline code.
             justification: |
               Single-file output must match gradual disclosure for overloads and inline references.
             tests:

@@ -8,8 +8,7 @@ sections:
           - title: Context Requirements
             requirements:
               - id: ApiMarkTool-Cli-Context-ParseGlobalFlags
-                title: Context shall parse the global flags -v/--version, -?/-h/--help,
-                  --silent, and --validate.
+                title: Context shall parse the global flags -v/--version, -?/-h/--help, --silent, and --validate.
                 justification: |
                   Global flags must be available regardless of the language subcommand so that
                   users can check the version, get help, or request silent operation without
@@ -22,16 +21,14 @@ sections:
                   - Context_Create_WithSilentFlag_SetsSilentTrue
                   - Context_Create_WithValidateFlag_SetsValidateTrue
               - id: ApiMarkTool-Cli-Context-ParseLanguageSubcommand
-                title: Context shall set the Language property to the first positional
-                  non-flag token in the argument list.
+                title: Context shall set the Language property to the first positional non-flag token in the argument list.
                 justification: |
                   A positional subcommand allows users to specify the documentation language
                   without a flag prefix, matching common CLI conventions and keeping the
                   invocation concise.
                 tests: [Context_Create_WithLanguageSubcommand_SetsLanguage]
               - id: ApiMarkTool-Cli-Context-ParseLanguageOptions
-                title: Context shall parse the language-specific options --assembly,
-                  --xml-doc, --output, --visibility, and --include-obsolete.
+                title: Context shall parse the language-specific options --assembly, --xml-doc, --output, --visibility, and --include-obsolete.
                 justification: |
                   Language-specific options must be available to callers as typed properties so
                   that generators can be configured without re-parsing the command line.
@@ -42,8 +39,7 @@ sections:
                   - Context_Create_WithVisibilityOption_SetsVisibility
                   - Context_Create_WithIncludeObsoleteFlag_SetsIncludeObsoleteTrue
               - id: ApiMarkTool-Cli-Context-ParseIncludes
-                title: Context shall parse repeated --includes flags and accumulate
-                  each plain directory path into the Includes array in order.
+                title: Context shall parse repeated --includes flags and accumulate each plain directory path into the Includes array in order.
                 justification: |
                   C++ projects pass one include root per --includes flag; the context must
                   accumulate all supplied paths in order so CppGenerator receives the complete
@@ -53,9 +49,7 @@ sections:
                   - Context_Create_WithRepeatedIncludes_AccumulatesAllPaths
                   - Context_Create_WithSingleInclude_SetsSinglePath
               - id: ApiMarkTool-Cli-Context-ParseApiHeaders
-                title: Context shall parse repeated --api-headers flags and accumulate
-                  each pattern into the ApiHeaders array in order, forwarding '!'-prefixed
-                  exclusion patterns verbatim.
+                title: Context shall parse repeated --api-headers flags and accumulate each pattern into the ApiHeaders array in order, forwarding '!'-prefixed exclusion patterns verbatim.
                 justification: |
                   C++ projects express gitignore-style header selection as an ordered sequence of
                   include patterns and '!'-prefixed exclusion patterns. The context must accumulate all
@@ -66,11 +60,7 @@ sections:
                   - Context_Create_WithApiHeadersExclusionPattern_ForwardsVerbatim
                   - Context_Create_WithNoArguments_HasEmptyApiHeaders
               - id: ApiMarkTool-Cli-Context-ParseCppNamedOptions
-                title: Context shall parse the named options --library-name, --library-description,
-                  --defines, and --cpp-standard into the corresponding Context properties,
-                  where --library-name is shared by the C++ and VHDL subcommands and
-                  --library-description is shared by all three (dotnet, C++, and VHDL)
-                  subcommands.
+                title: Context shall parse the named options --library-name, --library-description, --defines, and --cpp-standard into the corresponding Context properties, where --library-name is shared by the C++ and VHDL subcommands and --library-description is shared by all three (dotnet, C++, and VHDL) subcommands.
                 justification: |
                   C++ and VHDL documentation generation share the --library-name option, while
                   --library-description is shared across all three language subcommands
@@ -89,16 +79,14 @@ sections:
                   - Context_Create_WithDefinesOption_SetsDefines
                   - Context_Create_WithCppStandardOption_SetsCppStandard
               - id: ApiMarkTool-Cli-Context-ParseLibraryName
-                title: Context shall parse the --library-name option and store it
-                  in the LibraryName property.
+                title: Context shall parse the --library-name option and store it in the LibraryName property.
                 justification: |
                   Program.CreateGenerator passes LibraryName to both CppGeneratorOptions and
                   VhdlGeneratorOptions so that the generated api.md uses the project-supplied
                   display name rather than a filename for both C++ and VHDL subcommands.
                 tests: [Context_Create_WithLibraryNameOption_SetsLibraryName]
               - id: ApiMarkTool-Cli-Context-ParseLibraryDescription
-                title: Context shall parse the --library-description option and store
-                  it in the LibraryDescription property.
+                title: Context shall parse the --library-description option and store it in the LibraryDescription property.
                 justification: |
                   Program.CreateGenerator passes LibraryDescription to CppGeneratorOptions,
                   VhdlGeneratorOptions, and DotNetGeneratorOptions so the generated api.md
@@ -108,24 +96,20 @@ sections:
                 tests:
                   - Context_Create_WithLibraryDescriptionOption_SetsLibraryDescription
               - id: ApiMarkTool-Cli-Context-ParseDefines
-                title: Context shall parse the --defines option and store the comma-separated
-                  values in the Defines array.
+                title: Context shall parse the --defines option and store the comma-separated values in the Defines array.
                 justification: |
                   C++ projects rely on preprocessor defines (e.g. export macros) for correct
                   parsing. Context must split the comma-separated list and store each define so
                   Program.CreateGenerator can pass them to CppGeneratorOptions.
                 tests: [Context_Create_WithDefinesOption_SetsDefines]
               - id: ApiMarkTool-Cli-Context-ParseCppStandard
-                title: Context shall parse the --cpp-standard option and store it
-                  in the CppStandard property.
+                title: Context shall parse the --cpp-standard option and store it in the CppStandard property.
                 justification: |
                   Different C++ projects target different language standards; CppGenerator must
                   receive the same standard as the actual build to parse headers correctly.
                 tests: [Context_Create_WithCppStandardOption_SetsCppStandard]
               - id: ApiMarkTool-Cli-Context-ParseDepthOption
-                title: Context shall parse the --depth option and set HeadingDepth
-                  to the specified integer value in the range 1–6, defaulting to
-                  1 when the option is absent.
+                title: Context shall parse the --depth option and set HeadingDepth to the specified integer value in the range 1–6, defaulting to 1 when the option is absent.
                 justification: |
                   The --depth option controls the Markdown heading level used in generated output,
                   allowing ApiMark output to be embedded into an existing document at the correct
@@ -136,16 +120,13 @@ sections:
                   - Context_Create_WithDepth3AndSingleFileFormat_Succeeds
                   - Context_Create_WithDepthOptionOutOfRange_ThrowsArgumentException
               - id: ApiMarkTool-Cli-Context-ParseResultsOption
-                title: Context shall parse the --results (alias --result) option and
-                  set ResultsFile to the specified path.
+                title: Context shall parse the --results (alias --result) option and set ResultsFile to the specified path.
                 justification: |
                   ApiMarkTask passes a results file path so that self-test output can be written
                   to a discoverable location for the build pipeline to collect test evidence.
                 tests: [Context_Create_WithResultsOption_SetsResultsFile]
               - id: ApiMarkTool-Cli-Context-OpenLogFileOnRequest
-                title: Context shall open the file specified by --log and mirror all
-                  subsequent output written through `WriteLine` and `WriteError` to
-                  that file.
+                title: Context shall open the file specified by --log and mirror all subsequent output written through `WriteLine` and `WriteError` to that file.
                 justification: |
                   ApiMarkTask invokes ApiMarkTool out-of-process; the log file captures both
                   normal output and error messages, making it a reliable capture path for both
@@ -154,16 +135,14 @@ sections:
                   - Context_Create_WithLogFile_OpensAndWritesToLog
                   - Context_OpenLogFile_ErrorOutputAlsoWrittenToLog
               - id: ApiMarkTool-Cli-Context-TrackErrorsViaWriteError
-                title: Context shall set ExitCode to 1 when WriteError is called at
-                  least once.
+                title: Context shall set ExitCode to 1 when WriteError is called at least once.
                 justification: |
                   Callers must be able to detect that errors occurred without inspecting
                   individual error messages; a non-zero exit code is the conventional
                   failure signal for command-line tools.
                 tests: [Context_WriteError_SetsExitCodeToOne]
               - id: ApiMarkTool-Cli-Context-ParseFormatOption
-                title: Context shall parse the --format option and store it in the
-                  Format property.
+                title: Context shall parse the --format option and store it in the Format property.
                 justification: |
                   The output format controls whether ApiMark writes the gradual-disclosure tree or
                   the single-file api.md variant, so the CLI must forward the user's choice into
@@ -174,16 +153,13 @@ sections:
                   - Context_Create_WithNoFormatOption_DefaultsToGradualDisclosure
                   - Context_Create_WithInvalidFormat_ThrowsArgumentException
               - id: ApiMarkTool-Cli-Context-ParseClangPath
-                title: Context shall parse the --clang-path <path> option and expose
-                  the value for use by the cpp subcommand.
+                title: Context shall parse the --clang-path <path> option and expose the value for use by the cpp subcommand.
                 justification: |
                   The cpp subcommand passes ClangPath to the CppGenerator to override the default
                   clang binary location discovered via PATH, xcrun (macOS), or vswhere (Windows).
                 tests: [Context_Create_WithClangPathOption_SetsClangPath]
               - id: ApiMarkTool-Cli-Context-ParseClangTimeoutMsOption
-                title: Context shall parse the --clang-timeout-ms <ms> option and expose
-                  the value for use by the cpp subcommand, rejecting values below
-                  1000ms.
+                title: Context shall parse the --clang-timeout-ms <ms> option and expose the value for use by the cpp subcommand, rejecting values below 1000ms.
                 justification: |
                   The cpp subcommand passes ClangTimeoutMilliseconds to the CppGenerator to
                   override the default 120-second clang subprocess timeout, letting large C++
@@ -193,9 +169,7 @@ sections:
                   - Context_Create_WithoutClangTimeoutMsOption_LeavesClangTimeoutMillisecondsNull
                   - Context_Create_WithClangTimeoutMsOptionBelowMinimum_ThrowsArgumentException
               - id: ApiMarkTool-Cli-Context-ParseVhdlSourceOptions
-                title: Context shall parse repeated --source flags and accumulate
-                  them into the Sources array in order, preserving any leading ! exclusion
-                  prefix.
+                title: Context shall parse repeated --source flags and accumulate them into the Sources array in order, preserving any leading ! exclusion prefix.
                 justification: |
                   VHDL projects select source files using gitignore-style glob patterns supplied
                   via repeated --source flags. Patterns prefixed with ! are exclusion patterns.
@@ -206,8 +180,7 @@ sections:
                   - Context_Create_WithRepeatedSource_AccumulatesAllPaths
                   - Context_Create_WithSourceExclusionPattern_ForwardsVerbatim
               - id: ApiMarkTool-Cli-Context-RejectFlagAsOptionValue
-                title: Context shall throw ArgumentException when a flag token (starting
-                  with '-') is supplied as the value of a string-valued option.
+                title: Context shall throw ArgumentException when a flag token (starting with '-') is supplied as the value of a string-valued option.
                 justification: |
                   Accepting a flag token as a value silently consumes it as data instead of
                   raising a parse error, causing confusing behavior where the intended flag is
@@ -216,8 +189,7 @@ sections:
                   - Context_Create_WithFlagValueForOutput_ThrowsArgumentException
                   - Context_Create_WithFlagValueForLog_ThrowsArgumentException
               - id: ApiMarkTool-Cli-Context-ParseExcludes
-                title: Context shall parse repeated --exclude flags and accumulate
-                  each wildcard pattern into the Excludes array in order.
+                title: Context shall parse repeated --exclude flags and accumulate each wildcard pattern into the Excludes array in order.
                 justification: |
                   .NET projects pass one exclusion pattern per --exclude flag; the context must
                   accumulate all supplied patterns in order so DotNetGenerator receives the
@@ -226,9 +198,7 @@ sections:
                   - Context_Create_WithExcludeOption_SetsExcludes
                   - Context_Create_WithRepeatedExcludeFlags_AccumulatesAllPatternsInOrder
               - id: ApiMarkTool-Cli-Context-ParseReferencePaths
-                title: Context shall parse repeated --reference-paths flags and accumulate
-                  each referenced assembly DLL path into the ReferencePaths array
-                  in order.
+                title: Context shall parse repeated --reference-paths flags and accumulate each referenced assembly DLL path into the ReferencePaths array in order.
                 justification: |
                   .NET projects pass one referenced assembly DLL path per --reference-paths
                   flag; the context must accumulate all supplied paths in order so
@@ -238,9 +208,7 @@ sections:
                   - Context_Create_WithReferencePathsOption_SetsReferencePaths
                   - Context_Create_WithRepeatedReferencePathsFlags_AccumulatesAllPathsInOrder
               - id: ApiMarkTool-Cli-Context-ParseEnforceDocsOption
-                title: Context shall parse --enforce-docs into the EnforceDocs property,
-                  which is null when the option is absent, meaning enforcement is
-                  disabled.
+                title: Context shall parse --enforce-docs into the EnforceDocs property, which is null when the option is absent, meaning enforcement is disabled.
                 justification: |
                   Documentation-coverage enforcement is opt-in: the flag must be absent by
                   default so existing invocations remain unaffected.
@@ -249,8 +217,7 @@ sections:
                   - Context_Create_WithoutEnforceDocsOption_LeavesEnforceDocsNull
                   - Context_Create_WithFlagValueForEnforceDocs_ThrowsArgumentException
               - id: ApiMarkTool-Cli-Context-ParseEnforceDocsSeverityOption
-                title: Context shall parse --enforce-docs-severity into the EnforceDocsSeverity
-                  property, defaulting to "Warning" when absent.
+                title: Context shall parse --enforce-docs-severity into the EnforceDocsSeverity property, defaulting to "Warning" when absent.
                 justification: |
                   The severity must default to a non-breaking Warning rather than Error
                   so that adopting the --enforce-docs flag alone never fails an existing
@@ -259,9 +226,7 @@ sections:
                   - Context_Create_WithEnforceDocsSeverityOption_SetsEnforceDocsSeverity
                   - Context_Create_WithoutEnforceDocsSeverityOption_DefaultsToWarning
               - id: ApiMarkTool-Cli-Context-ExpandResponseFileArguments
-                title: Context shall expand any @<file> response-file tokens in the
-                  raw command-line arguments into their constituent arguments, one
-                  per non-blank line, before the rest of argument parsing runs.
+                title: Context shall expand any @<file> response-file tokens in the raw command-line arguments into their constituent arguments, one per non-blank line, before the rest of argument parsing runs.
                 justification: |
                   MSBuild-driven invocations can harvest a very large number of reference
                   assembly paths for ApiMarkReferencePaths, which risks exceeding operating-system
@@ -277,8 +242,7 @@ sections:
                   - Context_Create_WithResponseFileArgumentForMissingFile_ThrowsArgumentException
                   - Context_Create_WithEscapedAtSignArgument_PassesThroughLiteralValue
               - id: ApiMarkTool-Cli-Context-ExternalLinkOption
-                title: Context shall parse repeatable --external-link options, retaining each
-                  non-blank Assembly=path value in order in ExternalLinks (empty by default).
+                title: Context shall parse repeatable --external-link options, retaining each non-blank Assembly=path value in order in ExternalLinks (empty by default).
                 justification: |
                   External documentation links must be configurable from the command line so
                   generated documentation can link to separately generated ApiMark docs. Blank
@@ -289,9 +253,7 @@ sections:
                   - Context_Create_WithDuplicateAndCaseDifferingExternalLinks_RetainsAllEntriesInOrder
                   - Context_Create_WithNoArguments_HasDefaultValues
               - id: ApiMarkTool-Cli-Context-ExternalLinkValidation
-                title: Context shall throw ArgumentException naming --external-link when the value is
-                  missing, is another flag, or lacks a non-blank assembly name, a "=" separator, or a
-                  non-blank path.
+                title: Context shall throw ArgumentException naming --external-link when the value is missing, is another flag, or lacks a non-blank assembly name, a "=" separator, or a non-blank path.
                 justification: |
                   A malformed mapping would silently produce unlinked documentation; failing fast
                   with a message naming the option makes the configuration error actionable.
@@ -300,8 +262,7 @@ sections:
                   - Context_Create_WithExternalLinkMissingValue_ThrowsArgumentException
                   - Context_Create_WithExternalLinkFlagAsValue_ThrowsArgumentException
               - id: ApiMarkTool-Cli-Context-VisibilityDefaultsToNull
-                title: Context shall leave Visibility null when --visibility is not supplied, deferring to
-                  the per-language default applied by Program.
+                title: Context shall leave Visibility null when --visibility is not supplied, deferring to the per-language default applied by Program.
                 justification: |
                   Different languages have different default visibilities (dotnet
                   PublicAndProtected; cpp and vhdl Public), so the parser must not impose one;

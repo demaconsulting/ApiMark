@@ -8,8 +8,7 @@ sections:
           - title: Validation Requirements
             requirements:
               - id: ApiMarkTool-SelfTest-Validation-RunVersionDisplayTest
-                title: Validation shall invoke apimark --version and verify it exits with
-                  code 0 and prints exactly the tool version.
+                title: Validation shall invoke apimark --version and verify it exits with code 0 and prints exactly the tool version.
                 justification: |
                   Version display is the simplest observable behavior of the tool and confirms
                   that the executable is intact and able to run its own dispatch path.
@@ -18,9 +17,7 @@ sections:
                   - Validation_Run_WithValidContext_ExitsZero
                   - ApiMark_VersionDisplay
               - id: ApiMarkTool-SelfTest-Validation-RunHelpDisplayTest
-                title: Validation shall invoke apimark --help and verify it exits with
-                  code 0 and prints the usage line, the common options, and the options
-                  of every language subcommand.
+                title: Validation shall invoke apimark --help and verify it exits with code 0 and prints the usage line, the common options, and the options of every language subcommand.
                 justification: |
                   Help display exercises a larger fraction of the dispatch path than --version
                   and confirms that the tool's usage information is intact and readable.
@@ -29,8 +26,7 @@ sections:
                   - Validation_Run_WithValidContext_ExitsZero
                   - ApiMark_HelpDisplay
               - id: ApiMarkTool-SelfTest-Validation-WriteResultsFileOnRequest
-                title: Validation shall write test results to the file specified by
-                  --results when the extension is .trx or .xml.
+                title: Validation shall write test results to the file specified by --results when the extension is .trx or .xml.
                 justification: |
                   CI systems need machine-readable test results for automated pass/fail
                   reporting and traceability; .trx is the native Visual Studio format and
@@ -47,19 +43,14 @@ sections:
                   code reflects the failure.
                 tests: [Validation_Run_WithUnsupportedResultsExtension_SetsExitCodeToOne]
               - id: ApiMarkTool-SelfTest-Validation-RejectUnsupportedExtension
-                title: Validation shall set ExitCode to 1 and write a diagnostic message
-                  when the results file extension is not .trx or .xml.
+                title: Validation shall set ExitCode to 1 and write a diagnostic message when the results file extension is not .trx or .xml.
                 justification: |
                   An unsupported file extension indicates a misconfigured caller; rejecting
                   it with a non-zero exit code and a clear message lets the caller detect
                   and correct the configuration error without inspecting partial output.
                 tests: [Validation_Run_WithUnsupportedResultsExtension_SetsExitCodeToOne]
               - id: ApiMarkTool-SelfTest-Validation-RunDotNetGenerationTest
-                title: Validation shall run apimark dotnet with single-file output on a
-                  sample assembly and XML documentation file that it writes itself, and
-                  verify the run exits with code 0, writes only api.md, and that api.md
-                  contains every sample type and member with its signature, summary,
-                  parameter, and return description.
+                title: Validation shall run apimark dotnet with single-file output on a sample assembly and XML documentation file that it writes itself, and verify the run exits with code 0, writes only api.md, and that api.md contains every sample type and member with its signature, summary, parameter, and return description.
                 justification: |
                   Exercising the actual command end to end (rather than just the CLI
                   dispatch path) confirms the DotNet documentation generation feature is
@@ -72,12 +63,7 @@ sections:
                   - Validation_Run_WithResultsTrxFile_CreatesTrxFile
                   - ApiMark_DotNetGeneration
               - id: ApiMarkTool-SelfTest-Validation-RunGradualDisclosureOutputTest
-                title: Validation shall run apimark dotnet with the default gradual-disclosure
-                  output on the sample assembly, and verify the run exits with code 0, writes
-                  exactly the expected index, namespace, type, and member pages with the
-                  expected tables and cross-links, and that every link between the pages
-                  resolves to an existing page and, when it has a fragment, to a heading
-                  anchor of that page.
+                title: Validation shall run apimark dotnet with the default gradual-disclosure output on the sample assembly, and verify the run exits with code 0, writes exactly the expected index, namespace, type, and member pages with the expected tables and cross-links, and that every link between the pages resolves to an existing page and, when it has a fragment, to a heading anchor of that page.
                 justification: |
                   Gradual disclosure is the default output format and the one AI readers
                   navigate by following links, so self-validation must show that the page set
@@ -88,10 +74,7 @@ sections:
                   - Validation_Run_WithResultsTrxFile_CreatesTrxFile
                   - ApiMark_GradualDisclosureOutput
               - id: ApiMarkTool-SelfTest-Validation-RunCppGenerationTest
-                title: Validation shall run apimark cpp with single-file output on a tiny
-                  embedded sample header, and verify the run exits with code 0 and that
-                  api.md contains the struct with its summary, include line, and documented
-                  field, when clang is available.
+                title: Validation shall run apimark cpp with single-file output on a tiny embedded sample header, and verify the run exits with code 0 and that api.md contains the struct with its summary, include line, and documented field, when clang is available.
                 justification: |
                   Exercising the actual C++ generator end to end confirms the C++
                   documentation generation feature is functional in the deployed tool
@@ -101,10 +84,7 @@ sections:
                   - Validation_Run_WithValidContext_ExitsZero
                   - ApiMark_CppGeneration
               - id: ApiMarkTool-SelfTest-Validation-RunVhdlGenerationTest
-                title: Validation shall run apimark vhdl with single-file output on a tiny
-                  embedded sample VHDL entity, and verify the run exits with code 0 and that
-                  api.md contains the entity with its description, generic table row, and
-                  port table row.
+                title: Validation shall run apimark vhdl with single-file output on a tiny embedded sample VHDL entity, and verify the run exits with code 0 and that api.md contains the entity with its description, generic table row, and port table row.
                 justification: |
                   VHDL parsing has no external tool dependency, so this test can always
                   run and confirms the VHDL documentation generation feature is functional
@@ -114,9 +94,7 @@ sections:
                   - Validation_Run_WithValidContext_ExitsZero
                   - ApiMark_VhdlGeneration
               - id: ApiMarkTool-SelfTest-Validation-SkipCppWhenClangUnavailable
-                title: Validation shall record the C++ generation and C++ enforcement
-                  tests as skipped (not failed) and must not set ExitCode to a non-zero
-                  value when clang cannot be located.
+                title: Validation shall record the C++ generation and C++ enforcement tests as skipped (not failed) and must not set ExitCode to a non-zero value when clang cannot be located.
                 justification: |
                   Requiring clang for every environment running --validate would make
                   self-validation unreliable on machines without a C++ toolchain;
@@ -124,20 +102,14 @@ sections:
                   non-blocking signal while still validating C++ support when possible.
                 tests: [Validation_Run_CppTestsSkippedWhenClangUnavailable]
               - id: ApiMarkTool-SelfTest-Validation-ReportSkippedCount
-                title: 'Validation shall print a "Skipped: N" line in its summary
-                  output reflecting the number of self-tests recorded as skipped.'
+                title: 'Validation shall print a "Skipped: N" line in its summary output reflecting the number of self-tests recorded as skipped.'
                 justification: |
                   Operators and CI logs need visibility into how many self-tests were
                   skipped (as distinct from passed or failed) so that a skip is not
                   silently mistaken for either a pass or the absence of that test.
                 tests: [Validation_Run_WritesSkippedSummaryLine]
               - id: ApiMarkTool-SelfTest-Validation-RunDotNetEnforceDocsTest
-                title: Validation shall run apimark dotnet with --enforce-docs Public on the
-                  sample assembly, and verify that with complete XML documentation nothing
-                  is reported and the run exits with code 0 at Error severity, and that with
-                  one method's documentation removed exactly that method is reported, the
-                  run exits with code 1 at Error severity, and exits with code 0 at the
-                  default Warning severity.
+                title: Validation shall run apimark dotnet with --enforce-docs Public on the sample assembly, and verify that with complete XML documentation nothing is reported and the run exits with code 0 at Error severity, and that with one method's documentation removed exactly that method is reported, the run exits with code 1 at Error severity, and exits with code 0 at the default Warning severity.
                 justification: |
                   Exercising the actual documentation-coverage enforcement path end to
                   end (rather than just the CLI dispatch path) confirms the
@@ -152,10 +124,7 @@ sections:
                   - Validation_Run_WithValidContext_ExitsZero
                   - ApiMark_DotNetEnforceDocs
               - id: ApiMarkTool-SelfTest-Validation-RunCppEnforceDocsTest
-                title: Validation shall run apimark cpp with --enforce-docs Public and Error
-                  severity on a tiny embedded sample struct with one documented and one
-                  deliberately undocumented field, and verify exactly the undocumented field
-                  is reported and the run exits with code 1, when clang is available.
+                title: Validation shall run apimark cpp with --enforce-docs Public and Error severity on a tiny embedded sample struct with one documented and one deliberately undocumented field, and verify exactly the undocumented field is reported and the run exits with code 1, when clang is available.
                 justification: |
                   Exercising the actual documentation-coverage enforcement path end to
                   end confirms the --enforce-docs feature is functional for C++ in the
@@ -166,10 +135,7 @@ sections:
                   - Validation_Run_WithValidContext_ExitsZero
                   - ApiMark_CppEnforceDocs
               - id: ApiMarkTool-SelfTest-Validation-RunVhdlEnforceDocsTest
-                title: Validation shall run apimark vhdl with --enforce-docs Public and Error
-                  severity on a sample entity with one documented and one deliberately
-                  undocumented port, and verify exactly the undocumented port is reported
-                  and the run exits with code 1.
+                title: Validation shall run apimark vhdl with --enforce-docs Public and Error severity on a sample entity with one documented and one deliberately undocumented port, and verify exactly the undocumented port is reported and the run exits with code 1.
                 justification: |
                   Exercising the actual documentation-coverage enforcement path end to
                   end (rather than just the CLI dispatch path) confirms the
@@ -182,10 +148,7 @@ sections:
                   - Validation_Run_WithValidContext_ExitsZero
                   - ApiMark_VhdlEnforceDocs
               - id: ApiMarkTool-SelfTest-Validation-SuppressGeneratorOutput
-                title: Validation shall run each self-test's tool invocation with a silent,
-                  log-capturing child Context in a temporary directory that is removed
-                  afterwards, so the tool's own output does not interleave with the
-                  pass/fail transcript.
+                title: Validation shall run each self-test's tool invocation with a silent, log-capturing child Context in a temporary directory that is removed afterwards, so the tool's own output does not interleave with the pass/fail transcript.
                 justification: |
                   Generators emit their own progress diagnostics (e.g. "Parsing
                   assembly: ..." or "Found N types...") as part of normal operation;

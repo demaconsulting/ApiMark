@@ -368,8 +368,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: artifacts-validation-${{ matrix.os }}-dotnet${{ matrix.dotnet-version
-            }}
+          name: artifacts-validation-${{ matrix.os }}-dotnet${{ matrix.dotnet-version }}
           path: artifacts/
 
   # Builds the supporting documentation including user guides, requirements,

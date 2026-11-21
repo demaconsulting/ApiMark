@@ -7,8 +7,7 @@ sections:
       - title: DotNetEmitter Requirements
         requirements:
           - id: ApiMarkDotNet-DotNetEmitter-DispatchToFormatSpecificEmitter
-            title: DotNetEmitter shall dispatch to the appropriate format-specific
-              sub-emitter based on EmitConfig.Format.
+            title: DotNetEmitter shall dispatch to the appropriate format-specific sub-emitter based on EmitConfig.Format.
             justification: |
               The IApiEmitter contract requires a single Emit entry point. DotNetEmitter
               reads the requested OutputFormat and forwards the call — along with the
@@ -19,8 +18,7 @@ sections:
               - DotNetEmitter_Emit_GradualDisclosureFormat_ProducesMultipleFiles
               - DotNetEmitter_Emit_SingleFileFormat_ProducesSingleApiFile
           - id: ApiMarkDotNet-DotNetEmitter-RejectNullArguments
-            title: DotNetEmitter.Emit shall throw ArgumentNullException when factory,
-              config, or context is null.
+            title: DotNetEmitter.Emit shall throw ArgumentNullException when factory, config, or context is null.
             justification: |
               Null arguments at the Emit entry point would produce unpredictable failures
               during generation; rejecting them immediately gives callers precise,
@@ -30,9 +28,7 @@ sections:
               - DotNetEmitter_Emit_NullConfig_ThrowsArgumentNullException
               - DotNetEmitter_Emit_NullContext_ThrowsArgumentNullException
           - id: ApiMarkDotNet-DotNetEmitter-ComputeNamespaceFolderPath
-            title: DotNetEmitter shall compute the file-system folder path for a namespace,
-              treating root namespaces as atomic path segments and child namespaces
-              as slash-separated paths.
+            title: DotNetEmitter shall compute the file-system folder path for a namespace, treating root namespaces as atomic path segments and child namespaces as slash-separated paths.
             justification: |
               Both sub-emitters rely on a consistent folder path convention so that the
               generated Markdown tree is navigable and predictable. Centralizing the path
@@ -43,9 +39,7 @@ sections:
               - DotNetEmitter_GetNamespaceFolderPath_ChildNamespace_ReturnsSlashSeparated
               - DotNetEmitter_GetNamespaceFolderPath_UnknownNamespace_ReturnsFullName
           - id: ApiMarkDotNet-DotNetEmitter-ShowDirectInheritanceInTypeSignature
-            title: DotNetEmitter shall include the direct base class and directly
-              declared interfaces in the type signature, omitting well-known implicit
-              bases such as System.Object, System.ValueType, System.Enum, and System.MulticastDelegate.
+            title: DotNetEmitter shall include the direct base class and directly declared interfaces in the type signature, omitting well-known implicit bases such as System.Object, System.ValueType, System.Enum, and System.MulticastDelegate.
             justification: |
               The direct inheritance list tells AI agents the contract a type satisfies
               without requiring them to navigate to the source file. Suppressing well-known
@@ -54,8 +48,7 @@ sections:
               - DotNetGenerator_Generate_SampleImplementation_TypeSignatureShowsInterface
               - DotNetGenerator_Generate_EnumTypeSignature_HasNoBaseClass
           - id: ApiMarkDotNet-DotNetEmitter-EmitOperatorsPageWithSymbolHeadings
-            title: DotNetEmitter shall use C# operator symbols as headings on the
-              operators page.
+            title: DotNetEmitter shall use C# operator symbols as headings on the operators page.
             justification: |
               C# operator symbols (operator +, operator ==, implicit/explicit) are the form
               developers expect to read, so each heading must render the operator in its
@@ -63,8 +56,7 @@ sections:
             tests:
               - DotNetGenerator_Generate_TypeWithOperators_OperatorsPageUsesSymbolHeadings
           - id: ApiMarkDotNet-DotNetEmitter-EmitConversionOperators
-            title: DotNetEmitter shall document conversion operators on the operators
-              page and include their summaries.
+            title: DotNetEmitter shall document conversion operators on the operators page and include their summaries.
             justification: |
               Conversion operators are part of the public API surface and must be included
               on the operators page with their XML summary so readers understand the
@@ -73,8 +65,7 @@ sections:
               - DotNetGenerator_Generate_TypeWithConversionOperators_OperatorsPageContainsSummaries
               - DotNetGenerator_Generate_ConversionOperatorReturningNestedType_OperatorsPageContainsSummary
           - id: ApiMarkDotNet-DotNetEmitter-EmitConversionOperatorsWithConversionSyntax
-            title: DotNetEmitter shall use conversion syntax headings for conversion
-              operators on the operators page.
+            title: DotNetEmitter shall use conversion syntax headings for conversion operators on the operators page.
             justification: |
               Implicit and explicit conversion operators have distinct syntax from arithmetic
               operators. Rendering them with conversion syntax (e.g., "implicit operator
@@ -83,8 +74,7 @@ sections:
             tests:
               - DotNetGenerator_Generate_TypeWithConversionOperators_OperatorsPageUsesConversionSyntax
           - id: ApiMarkDotNet-DotNetEmitter-RenderClassModifiersInTypeSignature
-            title: DotNetEmitter shall include the abstract, sealed, or static modifier
-              in the type signature for classes that declare that modifier.
+            title: DotNetEmitter shall include the abstract, sealed, or static modifier in the type signature for classes that declare that modifier.
             justification: |
               Generated type signatures must match the C# declaration so that readers
               can immediately identify abstract, sealed, and static classes without
@@ -94,17 +84,14 @@ sections:
               - DotNetEmitter_BuildTypeSignature_SealedClass_ContainsSealedModifier
               - DotNetEmitter_BuildTypeSignature_StaticClass_ContainsStaticModifier
           - id: ApiMarkDotNet-DotNetEmitter-RenderInitOnlyPropertyAccessor
-            title: DotNetEmitter shall emit init; rather than set; in property signatures
-              for C# 9+ init-only setters.
+            title: DotNetEmitter shall emit init; rather than set; in property signatures for C# 9+ init-only setters.
             justification: |
               Init-only setters are semantically distinct from regular setters — they can
               only be assigned during object initialization. Rendering them as set; would
               mislead readers into believing the property is mutable after construction.
             tests: [DotNetEmitter_BuildPropertyAccessors_InitOnlySetter_EmitsInit]
           - id: ApiMarkDotNet-DotNetEmitter-RenderConstantFieldValue
-            title: DotNetEmitter shall append the compiler-folded constant value to a
-              field signature when the field has a compile-time constant (HasConstant),
-              including enum member fields.
+            title: DotNetEmitter shall append the compiler-folded constant value to a field signature when the field has a compile-time constant (HasConstant), including enum member fields.
             justification: |
               Readers and AI agents need to see the actual value of a const field or enum
               member to use the API correctly without opening the implementation. Mono.Cecil
@@ -196,8 +183,7 @@ sections:
               - DotNetEmitter_ResolveNullableContext_ResolvesInheritedContext
               - DotNetEmitter_CreateMemberTypeNullability_ReadsPrimaryTypeAnnotation
           - id: ApiMarkDotNet-DotNetEmitter-RenderGlobalNamespace
-            title: DotNetEmitter shall map the global namespace to the global-namespace folder
-              and the (global namespace) display name, and treat it as a sibling root.
+            title: DotNetEmitter shall map the global namespace to the global-namespace folder and the (global namespace) display name, and treat it as a sibling root.
             justification: |
               Types declared without a namespace must have a stable folder, a readable display
               name, and a root of their own so they are neither dropped nor nested under
@@ -208,25 +194,21 @@ sections:
               - DotNetEmitter_GetNamespaceDisplayName_GlobalNamespace_ReturnsPlaceholder
               - DotNetGenerator_ComputeRootNamespaces_GlobalNamespace_IsRootAndDoesNotHideOthers
           - id: ApiMarkDotNet-DotNetEmitter-ReservedApiNamespace
-            title: DotNetEmitter shall move a root namespace whose name equals the reserved api index
-              page aside so its namespace page never overwrites api.md.
+            title: DotNetEmitter shall move a root namespace whose name equals the reserved api index page aside so its namespace page never overwrites api.md.
             justification: |
               A root namespace named api is legal; its namespace page and the assembly index page
               would otherwise be written to the same file.
             tests:
               - DotNetEmitter_GetNamespaceFolderPath_NamespaceNamedApi_IsMovedAsideFromApiIndexPage
           - id: ApiMarkDotNet-DotNetEmitter-RenderParamsKeyword
-            title: DotNetEmitter shall render the params (or params collection) modifier on parameters
-              in method, constructor, and delegate signatures.
+            title: DotNetEmitter shall render the params (or params collection) modifier on parameters in method, constructor, and delegate signatures.
             justification: |
               Dropping params changes the documented calling convention of the member.
             tests:
               - DotNetEmitter_BuildMemberSignature_NullableMatrixAndParams_RendersExactSignature
               - DotNetEmitter_BuildDelegateSignature_ParamsDelegate_RendersParamsKeyword
           - id: ApiMarkDotNet-DotNetEmitter-RenderInheritanceModifiers
-            title: DotNetEmitter shall render new, virtual, override, sealed override, abstract, and static modifiers
-              on method, property, and event signatures, and none on interface members, static members,
-              or interface implementations.
+            title: DotNetEmitter shall render new, virtual, override, sealed override, abstract, and static modifiers on method, property, and event signatures, and none on interface members, static members, or interface implementations.
             justification: |
               Readers must know whether a member can be or has been overridden.
             tests:
@@ -234,16 +216,14 @@ sections:
               - DotNetEmitter_BuildMemberSignature_HidingAndStaticEvent_RendersNewAndStatic
               - DotNetEmitter_BuildMethodSignature_HidingVirtualAndOverload_RendersNewOnlyOnHider
           - id: ApiMarkDotNet-DotNetEmitter-HideInvisibleAccessors
-            title: DotNetEmitter shall omit property accessors that are not visible at the selected
-              visibility tier.
+            title: DotNetEmitter shall omit property accessors that are not visible at the selected visibility tier.
             justification: |
               A private or internal setter is not part of the documented surface at the public tier;
               showing it leaks implementation detail and is incorrect.
             tests:
               - DotNetEmitter_BuildMemberSignature_AccessorShapes_HidesNonVisibleAccessors
           - id: ApiMarkDotNet-DotNetEmitter-ConsistentNullableTypeText
-            title: DotNetEmitter shall render nullability, defaults, tuples, and params identically in
-              overview rows, page headings, and signature blocks.
+            title: DotNetEmitter shall render nullability, defaults, tuples, and params identically in overview rows, page headings, and signature blocks.
             justification: |
               Rows and headings that differ from the signature block mislead readers and make
               overloads indistinguishable.
@@ -251,9 +231,7 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_MatrixTypes_RowParametersEqualSignatureParameters
               - DotNetEmitterGradualDisclosure_Emit_AllFixtures_NeverRenderNullableVoid
           - id: ApiMarkDotNet-DotNetEmitter-InheritedMembers
-            title: DotNetEmitter shall list the members a type inherits from its base types in an
-              Inherited Members section grouped by declaring type, excluding overridden, hidden,
-              constructor, operator, and Object members, without creating member pages.
+            title: DotNetEmitter shall list the members a type inherits from its base types in an Inherited Members section grouped by declaring type, excluding overridden, hidden, constructor, operator, and Object members, without creating member pages.
             justification: |
               Readers of a derived type need to discover what it inherits; the listing must not
               duplicate overridden members, must not enter coverage or cross-reference indexes, and
@@ -266,8 +244,7 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_ExternalBaseWithReferences_ListsExternalMembers
               - DocumentationCoverageChecker_Check_InheritedMembers_AreNotChecked
           - id: ApiMarkDotNet-DotNetEmitter-InheritDocPlaceholder
-            title: DotNetEmitter shall render the text "Inherits documentation from base member." for a
-              member whose bare inheritdoc cannot be resolved, and the resolved text when it can.
+            title: DotNetEmitter shall render the text "Inherits documentation from base member." for a member whose bare inheritdoc cannot be resolved, and the resolved text when it can.
             justification: |
               An unresolved inheritdoc is documented upstream; showing "No description provided."
               wrongly implies missing documentation.
@@ -275,9 +252,7 @@ sections:
               - XmlDocReader_GetEffectiveSummary_UnresolvedInheritDoc_ReturnsPlaceholder
               - DotNetEmitterGradualDisclosure_Emit_InheritDoc_UnresolvedRendersPlaceholderResolvedRendersText
           - id: ApiMarkDotNet-DotNetEmitter-RecordPrimaryConstructorSummary
-            title: DotNetEmitter shall replace the compiler-copied type summary on a record's primary
-              constructor with "Initializes a new instance of the `Type` record." and preserve
-              explicitly documented constructors.
+            title: DotNetEmitter shall replace the compiler-copied type summary on a record's primary constructor with "Initializes a new instance of the `Type` record." and preserve explicitly documented constructors.
             justification: |
               The compiler copies the record's summary onto the primary constructor, so the
               constructor would otherwise repeat the type description verbatim.
@@ -286,10 +261,7 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_RecordExplicitConstructor_PreservesSummary
               - DotNetEmitterSingleFile_Emit_RecordPrimaryConstructor_UsesStandardSummary
           - id: ApiMarkDotNet-DotNetEmitter-InheritedMembersHonorTier
-            title: DotNetEmitter shall list inherited members per declaring base type at the configured
-              visibility tier (public; public and protected; every non-private member), skipping
-              overridden or hidden members, resolve external bases through reference assemblies, and
-              link each "Inherited from" heading only to a page that exists, including nested bases.
+            title: DotNetEmitter shall list inherited members per declaring base type at the configured visibility tier (public; public and protected; every non-private member), skipping overridden or hidden members, resolve external bases through reference assemblies, and link each "Inherited from" heading only to a page that exists, including nested bases.
             justification: |
               Inherited members must match what a consumer can actually use at the selected tier, and
               a heading must never link to a page that was not emitted.
@@ -304,8 +276,7 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_InheritedFromLinks_ResolveToEmittedPages
               - DotNetEmitterSingleFile_Emit_InheritedMembers_ProtectedTierListsProtectedMembers
           - id: ApiMarkDotNet-DotNetEmitter-ExternalInheritDocEndToEnd
-            title: DotNetEmitter shall resolve bare inheritdoc against the real XML documentation of
-              referenced assemblies across one and two hops in both output formats.
+            title: DotNetEmitter shall resolve bare inheritdoc against the real XML documentation of referenced assemblies across one and two hops in both output formats.
             justification: |
               Documentation inherited from an external base must appear end to end, not only in
               unit-level resolver tests.
@@ -314,9 +285,7 @@ sections:
               - DotNetGenerator_Parse_ExternalBaseWithReferencePaths_ResolvesInheritedDocumentation
               - DotNetGenerator_Parse_ExternalBaseTwoHops_ResolvesInheritedDocumentationAcrossBothHops
           - id: ApiMarkDotNet-DotNetEmitter-NewModifierAllMemberKinds
-            title: DotNetEmitter shall render the new modifier on fields, constants, properties, events,
-              and methods that hide an accessible base member of any kind with the same name, and
-              shall not render it for private base members or members without a base counterpart.
+            title: DotNetEmitter shall render the new modifier on fields, constants, properties, events, and methods that hide an accessible base member of any kind with the same name, and shall not render it for private base members or members without a base counterpart.
             justification: |
               Metadata does not record the new modifier; recovering it from the compiler's hiding rule
               keeps signatures compilable. Misses are preferred over false positives.
@@ -324,9 +293,7 @@ sections:
               - DotNetEmitterGradualDisclosure_Emit_NewModifier_RenderedForEveryHidingMemberKind
               - DotNetEmitterGradualDisclosure_Emit_NewModifier_BaseTypeMembersHaveNone
           - id: ApiMarkDotNet-DotNetEmitter-RecoverableConstraints
-            title: DotNetEmitter shall render the notnull, unmanaged, struct, class, class?, new(), and
-              nullable type constraints that metadata allows recovering, and no clause for
-              unconstrained parameters.
+            title: DotNetEmitter shall render the notnull, unmanaged, struct, class, class?, new(), and nullable type constraints that metadata allows recovering, and no clause for unconstrained parameters.
             justification: |
               Generic signatures are incomplete without their constraints.
             tests:

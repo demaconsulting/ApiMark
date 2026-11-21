@@ -25,8 +25,7 @@ sections:
               - CppGenerator_Generate_ApiHeaderPatterns_CwdRelativeExclusionPattern_ExcludesMatchingFiles
               - CppGenerator_Generate_ApiHeaderPatterns_NullWorkingDirectory_FallsBackToCurrentDirectory
           - id: ApiMarkCpp-CppGenerator-ParseHeadersViaClang
-            title: CppGenerator shall parse public header files via clang -ast-dump=json
-              to obtain a fully resolved C++ AST.
+            title: CppGenerator shall parse public header files via clang -ast-dump=json to obtain a fully resolved C++ AST.
             justification: |
               A fully resolved AST is required so that type references, template arguments, and
               inheritance relationships across headers are available for accurate documentation
@@ -69,8 +68,7 @@ sections:
               - CppGenerator_AllMembers_GetSeparateFiles
               - CppGenerator_Generate_MethodWithParameters_CreatesMemberPage
           - id: ApiMarkCpp-CppGenerator-EmitSeparatePagesForCaseInsensitiveCollisions
-            title: CppGenerator shall emit a separate member page for each member whose
-              name differs from another member's only in case.
+            title: CppGenerator shall emit a separate member page for each member whose name differs from another member's only in case.
             justification: |
               On case-insensitive filesystems (Windows, macOS), two members whose names
               differ only in case would produce colliding filenames. Each such member keeps
@@ -106,8 +104,7 @@ sections:
               - CppGenerator_Generate_IncludeDeprecatedFalse_ExcludesDeprecatedClass
               - CppGenerator_Generate_IncludeDeprecatedTrue_IncludesDeprecatedClass
           - id: ApiMarkCpp-CppGenerator-RenderDoxygenDocComments
-            title: CppGenerator shall extract and render Doxygen doc comments from
-              parsed declarations.
+            title: CppGenerator shall extract and render Doxygen doc comments from parsed declarations.
             justification: |
               Developer-authored Doxygen comments contain the descriptions, parameter explanations,
               return-value documentation, and example code that belong in the published API reference.
@@ -122,38 +119,33 @@ sections:
               - ApiMarkCpp-CppGenerator-RenderCodeExampleDocComments
               - ApiMarkCpp-CppGenerator-RenderMissingCommentPlaceholder
           - id: ApiMarkCpp-CppGenerator-RenderBriefDocComment
-            title: CppGenerator shall render @brief text as the declaration summary
-              paragraph.
+            title: CppGenerator shall render @brief text as the declaration summary paragraph.
             justification: |
               The summary paragraph is the primary description shown on type and member pages.
             tests:
               - CppGenerator_Generate_TypeWithDocComment_WritesSummaryToParagraph
               - CppGenerator_Generate_MethodWithDocComment_WritesSummaryToParagraph
           - id: ApiMarkCpp-CppGenerator-RenderParamAndReturnDocComments
-            title: CppGenerator shall render @param and @return text in their corresponding
-              sections.
+            title: CppGenerator shall render @param and @return text in their corresponding sections.
             justification: |
               Parameter and return documentation are necessary for correct API consumption.
             tests:
               - CppGenerator_Generate_MethodWithParameters_CreatesMemberPage
               - CppGenerator_Generate_IntraLibraryReturnType_EmitsMarkdownLinkInReturnsCell
           - id: ApiMarkCpp-CppGenerator-RenderCodeExampleDocComments
-            title: CppGenerator shall render @code/@endcode blocks as fenced code
-              examples.
+            title: CppGenerator shall render @code/@endcode blocks as fenced code examples.
             justification: |
               Example blocks provide usage guidance without requiring readers to open source files.
             tests:
               - CppGenerator_Generate_MethodWithCodeExample_EmitsCodeBlockOnMemberPage
               - CppGenerator_SingleFile_MethodWithCodeExample_EmitsCodeBlock
           - id: ApiMarkCpp-CppGenerator-RenderMissingCommentPlaceholder
-            title: CppGenerator shall emit a standard placeholder when a declaration
-              has no doc comment.
+            title: CppGenerator shall emit a standard placeholder when a declaration has no doc comment.
             justification: |
               A consistent placeholder makes undocumented symbols obvious while keeping the page shape stable.
             tests: [CppGenerator_Generate_MissingDocComment_WritesPlaceholder]
           - id: ApiMarkCpp-CppGenerator-ProduceConsistentOutputFileStructure
-            title: CppGenerator shall produce output files following a consistent
-              naming convention.
+            title: CppGenerator shall produce output files following a consistent naming convention.
             justification: |
               Consistent file and folder naming allows navigation between the entrypoint,
               namespace summaries, type pages, and member detail pages without relying on a
@@ -163,8 +155,7 @@ sections:
               - CppGenerator_Generate_ValidHeaders_CreatesNamespacePage
               - CppGenerator_Generate_ValidHeaders_CreatesTypePageForSampleClass
           - id: ApiMarkCpp-CppGenerator-ApiMdListsAllNamespacesWithTypeCount
-            title: CppGenerator shall list all namespaces in api.md with a declaration
-              count column.
+            title: CppGenerator shall list all namespaces in api.md with a declaration count column.
             justification: |
               Listing every namespace in api.md gives AI agents a complete navigation map in
               a single read. The declaration count (classes + enums + free functions) provides
@@ -204,8 +195,7 @@ sections:
               - CppGenerator_Generate_InheritanceClass_EmitsBaseClassInSignature
               - CppGenerator_Generate_FinalClass_EmitsFinalKeywordInSignature
           - id: ApiMarkCpp-CppGenerator-EmitIntraDocLinksInTableCells
-            title: CppGenerator shall emit Markdown links in type and parameter type
-              table cells when the referenced type is documented in the same library.
+            title: CppGenerator shall emit Markdown links in type and parameter type table cells when the referenced type is documented in the same library.
             justification: |
               AI agents and human readers navigating API documentation benefit from
               clickable links that jump directly to the referenced type page rather
@@ -292,8 +282,7 @@ sections:
               - CppGenerator_Generate_ClassScopedTypeAlias_CreatesAliasPage
               - CppGenerator_Generate_ClassScopedTypeAlias_ListedOnClassPage
           - id: ApiMarkCpp-CppGenerator-EmitSingleFileOutput
-            title: CppGenerator shall emit a single api.md file when OutputFormat.SingleFile
-              is selected.
+            title: CppGenerator shall emit a single api.md file when OutputFormat.SingleFile is selected.
             justification: |
               Single-file output is required for consumers who want a compact, linear reference
               instead of the gradual-disclosure folder tree.

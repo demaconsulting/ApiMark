@@ -6,9 +6,7 @@ sections:
       - title: VhdlEmitterGradualDisclosure Requirements
         requirements:
           - id: ApiMarkVhdl-VhdlEmitterGradualDisclosure
-            title: VhdlEmitterGradualDisclosure shall write one file per entity/package
-              plus an api index, with architectures rendered inline on entity detail
-              pages.
+            title: VhdlEmitterGradualDisclosure shall write one file per entity/package plus an api index, with architectures rendered inline on entity detail pages.
             justification: |
               Separate files per declaration enable gradual disclosure navigation.
             children:
@@ -21,8 +19,7 @@ sections:
               - VhdlEmitterGradualDisclosure_Emit_WithArchitecture_EntityPageHasInlineArchitecturesSection
               - VhdlEmitterGradualDisclosure_Emit_WithArchitecture_ArchitectureParagraphContainsFilename
           - id: ApiMarkVhdl-VhdlEmitterGradualDisclosure-EmitSubprogramDetailPage
-            title: VhdlEmitterGradualDisclosure shall write one detail file per subprogram
-              declared in a package, placed under a per-package subfolder ({packageName}/{subprogramName}.md).
+            title: VhdlEmitterGradualDisclosure shall write one detail file per subprogram declared in a package, placed under a per-package subfolder ({packageName}/{subprogramName}.md).
             justification: |
               Per-subprogram detail files enable fine-grained gradual disclosure so an
               AI can navigate from the package index to individual subprogram signatures
@@ -33,8 +30,7 @@ sections:
               - VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_EmitsSubprogramsSection
               - VhdlEmitterGradualDisclosure_Emit_PackageWithSubprograms_PackagePageLinkUsesSubfolderPath
           - id: ApiMarkVhdl-VhdlEmitterGradualDisclosure-ReservedApiPageName
-            title: VhdlEmitterGradualDisclosure shall move an entity or package page whose name equals
-              the reserved api index page aside so it never overwrites api.md, and link to the moved page.
+            title: VhdlEmitterGradualDisclosure shall move an entity or package page whose name equals the reserved api index page aside so it never overwrites api.md, and link to the moved page.
             justification: |
               Api is a legal VHDL identifier; without an escape the entity or package page and the index
               page would be written to the same file and one would silently replace the other.

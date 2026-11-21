@@ -51,8 +51,7 @@ sections:
               detailed type or free-function pages.
             tests: [CppEmitterGradualDisclosure_Emit_MinimalData_CreatesNamespacePage]
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitTypePage
-            title: CppEmitterGradualDisclosure shall produce a type page for each
-              documented class.
+            title: CppEmitterGradualDisclosure shall produce a type page for each documented class.
             justification: |
               Type pages aggregate member links, nested types, aliases, and inheritance context.
             tests:
@@ -81,29 +80,25 @@ sections:
               - CppEmitterGradualDisclosure_Emit_FieldWithLiteralValue_SignatureContainsValue
               - CppEmitterGradualDisclosure_Emit_FieldWithoutValue_SignatureContainsNoEquals
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitFreeFunctionPage
-            title: CppEmitterGradualDisclosure shall produce a detail page for each
-              regular free function.
+            title: CppEmitterGradualDisclosure shall produce a detail page for each regular free function.
             justification: |
               Namespace-level free functions need stable standalone pages in the multi-file layout.
             tests:
               - CppEmitterGradualDisclosure_Emit_FreeFunction_CreatesFreeFunctionPage
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitEnumPage
-            title: CppEmitterGradualDisclosure shall produce a detail page for each
-              documented enum.
+            title: CppEmitterGradualDisclosure shall produce a detail page for each documented enum.
             justification: |
               Enum pages preserve value tables and associated documentation without
               inflating namespace pages.
             tests: [CppEmitterGradualDisclosure_Emit_Enum_CreatesEnumPage]
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitNamespaceLevelTypeAliasPage
-            title: CppEmitterGradualDisclosure shall produce a detail page for each
-              namespace-level type alias.
+            title: CppEmitterGradualDisclosure shall produce a detail page for each namespace-level type alias.
             justification: |
               Public namespace-level aliases are first-class API declarations and require
               stable paths in the multi-file layout.
             tests: [CppEmitterGradualDisclosure_Emit_TypeAlias_CreatesTypeAliasPage]
           - id: ApiMarkCpp-CppEmitterGradualDisclosure-EmitClassScopedTypeAliasPage
-            title: CppEmitterGradualDisclosure shall produce a detail page for each
-              class-scoped type alias under the owning class folder.
+            title: CppEmitterGradualDisclosure shall produce a detail page for each class-scoped type alias under the owning class folder.
             justification: |
               Class-scoped aliases are part of the type's API surface and must receive
               their own pages at {namespace}/{TypeName}/{AliasName} so they are
