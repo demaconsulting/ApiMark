@@ -111,7 +111,10 @@ jobs:
         if: runner.os == 'Windows'
         uses: KyleMayes/install-llvm-action@v2
         with:
-          version: "21"
+          # The action's asset list stops at 21.x for Windows x64; Visual Studio 18.12's
+          # standard library (MSVC 14.52) requires clang 22 or newer.
+          version: "22.1.8"
+          force-url: https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/clang+llvm-22.1.8-x86_64-pc-windows-msvc.tar.xz
           directory: ${{ runner.temp }}/llvm
       - name: Restore Tools
         run: >
@@ -318,7 +321,10 @@ jobs:
         if: runner.os == 'Windows'
         uses: KyleMayes/install-llvm-action@v2
         with:
-          version: "21"
+          # The action's asset list stops at 21.x for Windows x64; Visual Studio 18.12's
+          # standard library (MSVC 14.52) requires clang 22 or newer.
+          version: "22.1.8"
+          force-url: https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/clang+llvm-22.1.8-x86_64-pc-windows-msvc.tar.xz
           directory: ${{ runner.temp }}/llvm
       - name: Restore Tools
         run: >
