@@ -170,6 +170,7 @@ once, not after every edit:
 - **Before handing back**, run the full gates your agent requires once; re-run them only if you
   change files after they pass
 - Never report a targeted check as the full gate - state which full gates ran in your report
+
 # Scope Discipline (ALL Agents Must Follow)
 
 - **No generated file access**: Files inside any `generated/` folder are build
