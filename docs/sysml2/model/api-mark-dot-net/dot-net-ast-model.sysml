@@ -1,4 +1,4 @@
-package ApiMarkDotNet {
+package ApiMarkDotNet_DotNetAstModel {
     private import SoftwareItemMetadata::*;
 
     part def DotNetAstModel {

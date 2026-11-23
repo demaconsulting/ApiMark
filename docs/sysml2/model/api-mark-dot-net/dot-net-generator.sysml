@@ -1,4 +1,4 @@
-package ApiMarkDotNet {
+package ApiMarkDotNet_DotNetGenerator {
     private import SoftwareItemMetadata::*;
 
     part def DotNetGenerator {

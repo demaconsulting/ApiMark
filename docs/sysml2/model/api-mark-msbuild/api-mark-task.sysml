@@ -1,4 +1,4 @@
-package ApiMarkMsbuild {
+package ApiMarkMsbuild_ApiMarkTask {
     private import SoftwareItemMetadata::*;
 
     part def ApiMarkTask {

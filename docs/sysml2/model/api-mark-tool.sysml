@@ -1,4 +1,7 @@
 package ApiMarkTool {
+    public import ApiMarkTool_CliSubsystem::*;
+    public import ApiMarkTool_Program::*;
+    public import ApiMarkTool_SelfTestSubsystem::*;
     private import SoftwareItemMetadata::*;
 
     doc

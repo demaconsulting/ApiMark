@@ -1,4 +1,4 @@
-package ApiMarkCpp {
+package ApiMarkCpp_DocumentationCoverageChecker {
     private import SoftwareItemMetadata::*;
 
     part def DocumentationCoverageChecker {

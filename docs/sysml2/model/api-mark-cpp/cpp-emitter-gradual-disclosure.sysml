@@ -1,4 +1,4 @@
-package ApiMarkCpp {
+package ApiMarkCpp_CppEmitterGradualDisclosure {
     private import SoftwareItemMetadata::*;
 
     part def CppEmitterGradualDisclosure {

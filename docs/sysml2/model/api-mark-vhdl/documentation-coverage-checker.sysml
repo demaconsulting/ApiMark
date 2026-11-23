@@ -1,4 +1,4 @@
-package ApiMarkVhdl {
+package ApiMarkVhdl_DocumentationCoverageChecker {
     private import SoftwareItemMetadata::*;
 
     part def DocumentationCoverageChecker {

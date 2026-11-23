@@ -1,4 +1,4 @@
-package ApiMarkCore {
+package ApiMarkCore_GlobFileCollector {
     private import SoftwareItemMetadata::*;
 
     part def GlobFileCollector {

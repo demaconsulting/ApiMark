@@ -1,7 +1,14 @@
 package ApiMarkVhdl {
+    public import ApiMarkVhdl_DocumentationCoverageChecker::*;
+    public import ApiMarkVhdl_VhdlAstModel::*;
+    public import ApiMarkVhdl_VhdlAstParser::*;
+    public import ApiMarkVhdl_VhdlEmitterGradualDisclosure::*;
+    public import ApiMarkVhdl_VhdlEmitterSingleFile::*;
+    public import ApiMarkVhdl_VhdlEmitter::*;
+    public import ApiMarkVhdl_VhdlGenerator::*;
+    private import OtsDependencies::*;
     private import SoftwareItemMetadata::*;
 
-    import OtsDependencies::*;
 
     doc
     /*

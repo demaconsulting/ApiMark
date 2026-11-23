@@ -1,4 +1,4 @@
-package ApiMarkDotNet {
+package ApiMarkDotNet_XmlDocReader {
     private import SoftwareItemMetadata::*;
 
     part def XmlDocReader {

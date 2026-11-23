@@ -1,4 +1,5 @@
 package ApiMarkMsbuild {
+    public import ApiMarkMsbuild_ApiMarkTask::*;
     private import SoftwareItemMetadata::*;
 
     doc

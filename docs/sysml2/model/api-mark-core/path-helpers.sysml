@@ -1,4 +1,4 @@
-package ApiMarkCore {
+package ApiMarkCore_PathHelpers {
     private import SoftwareItemMetadata::*;
 
     part def PathHelpers {

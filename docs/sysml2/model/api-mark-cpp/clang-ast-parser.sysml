@@ -1,4 +1,4 @@
-package ApiMarkCpp {
+package ApiMarkCpp_ClangAstParser {
     private import SoftwareItemMetadata::*;
 
     part def ClangAstParser {

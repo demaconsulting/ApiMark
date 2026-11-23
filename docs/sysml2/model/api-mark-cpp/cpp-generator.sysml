@@ -1,4 +1,4 @@
-package ApiMarkCpp {
+package ApiMarkCpp_CppGenerator {
     private import SoftwareItemMetadata::*;
 
     part def CppGenerator {

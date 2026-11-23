@@ -1,7 +1,19 @@
 package ApiMarkCore {
+    public import ApiMarkCore_EmitConfig::*;
+    public import ApiMarkCore_FileMarkdownWriterFactory::*;
+    public import ApiMarkCore_FileMarkdownWriter::*;
+    public import ApiMarkCore_GlobFileCollector::*;
+    public import ApiMarkCore_IApiEmitter::*;
+    public import ApiMarkCore_IApiGenerator::*;
+    public import ApiMarkCore_IContext::*;
+    public import ApiMarkCore_IDocumentationCoverageCapable::*;
+    public import ApiMarkCore_IMarkdownWriterFactory::*;
+    public import ApiMarkCore_IMarkdownWriter::*;
+    public import ApiMarkCore_PathHelpers::*;
+    public import ApiMarkCore_SymbolNameRegistry::*;
+    private import OtsDependencies::*;
     private import SoftwareItemMetadata::*;
 
-    import OtsDependencies::*;
 
     doc
     /*

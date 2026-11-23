@@ -1,4 +1,4 @@
-package ApiMarkDotNet {
+package ApiMarkDotNet_CrefTargetResolver {
     private import SoftwareItemMetadata::*;
 
     part def CrefTargetResolver {

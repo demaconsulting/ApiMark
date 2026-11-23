@@ -1,4 +1,4 @@
-package ApiMarkCore {
+package ApiMarkCore_EmitConfig {
     private import SoftwareItemMetadata::*;
 
     part def EmitConfig {

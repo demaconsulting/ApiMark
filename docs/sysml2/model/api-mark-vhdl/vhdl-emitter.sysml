@@ -1,4 +1,4 @@
-package ApiMarkVhdl {
+package ApiMarkVhdl_VhdlEmitter {
     private import SoftwareItemMetadata::*;
 
     part def VhdlEmitter {

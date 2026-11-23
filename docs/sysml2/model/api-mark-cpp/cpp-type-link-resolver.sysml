@@ -1,4 +1,4 @@
-package ApiMarkCpp {
+package ApiMarkCpp_CppTypeLinkResolver {
     private import SoftwareItemMetadata::*;
 
     part def CppTypeLinkResolver {

@@ -1,4 +1,4 @@
-package ApiMarkCore {
+package ApiMarkCore_SymbolNameRegistry {
     private import SoftwareItemMetadata::*;
 
     part def SymbolNameRegistry {

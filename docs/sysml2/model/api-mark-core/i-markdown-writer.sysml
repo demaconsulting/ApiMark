@@ -1,4 +1,4 @@
-package ApiMarkCore {
+package ApiMarkCore_IMarkdownWriter {
     private import SoftwareItemMetadata::*;
 
     part def IMarkdownWriter {

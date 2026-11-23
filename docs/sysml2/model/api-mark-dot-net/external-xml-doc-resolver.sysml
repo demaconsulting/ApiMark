@@ -1,4 +1,4 @@
-package ApiMarkDotNet {
+package ApiMarkDotNet_ExternalXmlDocResolver {
     private import SoftwareItemMetadata::*;
 
     part def ExternalXmlDocResolver {

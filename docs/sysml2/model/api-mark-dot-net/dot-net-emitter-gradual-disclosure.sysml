@@ -1,4 +1,4 @@
-package ApiMarkDotNet {
+package ApiMarkDotNet_DotNetEmitterGradualDisclosure {
     private import SoftwareItemMetadata::*;
 
     part def DotNetEmitterGradualDisclosure {
