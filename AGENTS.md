@@ -202,3 +202,9 @@ multi-library repository, or headless tests without GUI automation). Two rules k
 - Run with no arguments, each script still does its full job (CI and the agents rely on that); slow or
   environment-dependent test tiers may be opt-in switches of `build.ps1`.
 - Never remove or weaken a check to make lint or tests pass.
+
+# Continuous Compliance Overview
+
+This repository follows the [Continuous Compliance](https://github.com/demaconsulting/ContinuousCompliance)
+approach. Tools: **ReqStream** (requirements traceability), **ReviewMark** (file review enforcement),
+**BuildMark** (tool versions), **VersionMark** (version tracking).
