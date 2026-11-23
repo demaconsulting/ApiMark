@@ -11,7 +11,8 @@ querying this model over grepping/reading source files when you need to understa
 
 ## Prerequisites
 
-The `sysml2tools` CLI is a local .NET tool pinned in `.config/dotnet-tools.json`.
+The `sysml2tools` CLI (minimum version 0.3.0-beta.6) is a local .NET tool pinned in
+`.config/dotnet-tools.json`.
 Restore it once per session if not already available:
 
 ```pwsh
@@ -20,16 +21,18 @@ dotnet tool restore
 
 ## Model files
 
-- `docs/sysml2/model/{system-name}.sysml` — system-level `part def` only (no subsystems/units
-  inline), in package `{SystemName}`. A repository may contain more than one system.
+- `docs/sysml2/model/{system-name}.sysml` — system-level `part def` only (no subsystems/units inline), in package
+  `{SystemName}`, a facade that `public import`s its direct subsystems and any units it owns directly, so
+  `{SystemName}::{AnyItem}` resolves. A repository may contain more than one system.
 - `docs/sysml2/model/{system-name}/{subsystem-name}.sysml` and
   `docs/sysml2/model/{system-name}/{subsystem-name}/{unit-name}.sysml` — one file per
   Subsystem/Unit, nested to mirror the same folder depth as that item's companion
   `docs/design/`, `docs/reqstream/`, and `docs/verification/` files. Each declares its own
   uniquely named package; by default `{SystemName}_{SubsystemName}Subsystem` or
   `{SystemName}_{UnitName}`, qualified with the subsystem path
-  (`{SystemName}_{SubsystemName}_{UnitName}`) when the short name would collide. An element's
-  qualified name is e.g. `{SystemName}_{UnitName}::{UnitName}`.
+  (`{SystemName}_{SubsystemName}_{UnitName}`) when the short name would collide. A subsystem
+  package is a facade (`public import` of the packages it owns). An element's qualified name is
+  e.g. `{SystemName}_{UnitName}::{UnitName}`.
 - `docs/sysml2/model/ots.sysml` — off-the-shelf (OTS) dependency parts (present when OTS items
   exist).
 - `docs/sysml2/model/shared.sysml` — Shared Package parts (present when Shared Package items
@@ -38,10 +41,19 @@ dotnet tool restore
   sibling of `model/`, not nested inside it. Not usually needed for query workflows, but
   useful to see how diagrams are scoped.
 
+`query describe -e` (and the other element-argument verbs) accepts either the declared
+qualified name (`{Package}::{Element}`) or a facade path such as `{SystemName}::{UnitName}`,
+resolved through the facades' `public import`s and aliases, as `lint` resolves it. When the
+name was reached through a facade, the output shows a `Looked up as:` line next to the declared
+qualified name. A name that denotes more than one distinct element is reported as ambiguous,
+with its candidates; use the declared qualified name to choose. `query find --name` shows the
+declared qualified name.
+
 Always pass all `.sysml` files (or a glob covering them) to every `sysml2tools`
 invocation — the model spans multiple files and cross-references between them (each file
-declares one uniquely named package and references others through `import` or qualified
-names; same-named packages in different files are not merged), so every file a reference
+declares one uniquely named package; facade packages `public import` the packages they own,
+and other references use `private import` or qualified names; same-named packages in
+different files are not merged), so every file a reference
 points at must be loaded. As of `sysml2tools` 0.1.0-beta.5, every subcommand
 (`lint`, `render`, `query`) expands `*`/`**` glob patterns internally and recurses
 correctly — pass a single **quoted** glob string and let the tool resolve it, rather than
@@ -157,5 +169,5 @@ standard for full modeling and view-authoring conventions.
 Before committing changes to any `.sysml` file, lint it:
 
 ```pwsh
-dotnet sysml2tools lint 'docs/sysml2/**/*.sysml'
+dotnet sysml2tools lint --strict-unresolved 'docs/sysml2/**/*.sysml'
 ```
