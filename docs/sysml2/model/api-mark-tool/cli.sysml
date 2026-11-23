@@ -1,4 +1,5 @@
-package ApiMarkTool {
+package ApiMarkTool_CliSubsystem {
+    public import ApiMarkTool_Context::*;
     private import SoftwareItemMetadata::*;
 
     part def CliSubsystem {

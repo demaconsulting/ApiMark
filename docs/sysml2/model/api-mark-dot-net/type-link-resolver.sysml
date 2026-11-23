@@ -1,4 +1,4 @@
-package ApiMarkDotNet {
+package ApiMarkDotNet_TypeLinkResolver {
     private import SoftwareItemMetadata::*;
 
     part def TypeLinkResolver {

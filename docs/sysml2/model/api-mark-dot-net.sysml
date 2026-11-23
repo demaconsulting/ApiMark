@@ -1,7 +1,18 @@
 package ApiMarkDotNet {
+    public import ApiMarkDotNet_CrefTargetResolver::*;
+    public import ApiMarkDotNet_DocumentationCoverageChecker::*;
+    public import ApiMarkDotNet_DotNetAstModel::*;
+    public import ApiMarkDotNet_DotNetEmitterGradualDisclosure::*;
+    public import ApiMarkDotNet_DotNetEmitterSingleFile::*;
+    public import ApiMarkDotNet_DotNetEmitter::*;
+    public import ApiMarkDotNet_DotNetGenerator::*;
+    public import ApiMarkDotNet_ExternalXmlDocResolver::*;
+    public import ApiMarkDotNet_TypeLinkResolver::*;
+    public import ApiMarkDotNet_TypeNameSimplifier::*;
+    public import ApiMarkDotNet_XmlDocReader::*;
+    private import OtsDependencies::*;
     private import SoftwareItemMetadata::*;
 
-    import OtsDependencies::*;
 
     doc
     /*

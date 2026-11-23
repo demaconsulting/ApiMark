@@ -1,4 +1,4 @@
-package ApiMarkCore {
+package ApiMarkCore_IApiGenerator {
     private import SoftwareItemMetadata::*;
 
     part def IApiGenerator {

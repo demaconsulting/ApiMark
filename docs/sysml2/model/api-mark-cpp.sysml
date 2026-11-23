@@ -1,7 +1,15 @@
 package ApiMarkCpp {
+    public import ApiMarkCpp_ClangAstParser::*;
+    public import ApiMarkCpp_CppAstModel::*;
+    public import ApiMarkCpp_CppEmitterGradualDisclosure::*;
+    public import ApiMarkCpp_CppEmitterSingleFile::*;
+    public import ApiMarkCpp_CppEmitter::*;
+    public import ApiMarkCpp_CppGenerator::*;
+    public import ApiMarkCpp_CppTypeLinkResolver::*;
+    public import ApiMarkCpp_DocumentationCoverageChecker::*;
+    private import OtsDependencies::*;
     private import SoftwareItemMetadata::*;
 
-    import OtsDependencies::*;
 
     doc
     /*

@@ -55,6 +55,7 @@ words:
   - Dema
   - demaconsulting
   - desync
+  - distinguishability
   - docstrings
   - downcasting
   - DOWNTO
@@ -98,9 +99,11 @@ words:
   - REQIMP
   - REQTEST
   - sarif
+  - Sensmetry
   - shopt
   - sonarscanner
   - Stfld
+  - Syside
   - testbenches
   - testlib
   - thirdparty

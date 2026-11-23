@@ -1,4 +1,4 @@
-package ApiMarkCore {
+package ApiMarkCore_IApiEmitter {
     private import SoftwareItemMetadata::*;
 
     part def IApiEmitter {

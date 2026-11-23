@@ -1,4 +1,4 @@
-package ApiMarkCore {
+package ApiMarkCore_IDocumentationCoverageCapable {
     private import SoftwareItemMetadata::*;
 
     part def IDocumentationCoverageCapable {

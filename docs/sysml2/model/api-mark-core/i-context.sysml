@@ -1,4 +1,4 @@
-package ApiMarkCore {
+package ApiMarkCore_IContext {
     private import SoftwareItemMetadata::*;
 
     part def IContext {

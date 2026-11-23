@@ -1,4 +1,4 @@
-package ApiMarkVhdl {
+package ApiMarkVhdl_VhdlEmitterGradualDisclosure {
     private import SoftwareItemMetadata::*;
 
     part def VhdlEmitterGradualDisclosure {

@@ -1,4 +1,4 @@
-package ApiMarkTool {
+package ApiMarkTool_Validation {
     private import SoftwareItemMetadata::*;
 
     part def Validation {

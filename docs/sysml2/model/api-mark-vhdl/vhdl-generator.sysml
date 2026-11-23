@@ -1,4 +1,4 @@
-package ApiMarkVhdl {
+package ApiMarkVhdl_VhdlGenerator {
     private import SoftwareItemMetadata::*;
 
     part def VhdlGenerator {

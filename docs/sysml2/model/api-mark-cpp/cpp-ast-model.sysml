@@ -1,4 +1,4 @@
-package ApiMarkCpp {
+package ApiMarkCpp_CppAstModel {
     private import SoftwareItemMetadata::*;
 
     part def CppAstModel {

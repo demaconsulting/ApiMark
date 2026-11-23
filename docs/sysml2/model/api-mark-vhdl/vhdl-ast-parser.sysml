@@ -1,4 +1,4 @@
-package ApiMarkVhdl {
+package ApiMarkVhdl_VhdlAstParser {
     private import SoftwareItemMetadata::*;
 
     part def VhdlAstParser {

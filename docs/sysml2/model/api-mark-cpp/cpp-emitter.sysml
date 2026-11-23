@@ -1,4 +1,4 @@
-package ApiMarkCpp {
+package ApiMarkCpp_CppEmitter {
     private import SoftwareItemMetadata::*;
 
     part def CppEmitter {

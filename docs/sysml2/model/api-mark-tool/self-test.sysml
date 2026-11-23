@@ -1,7 +1,7 @@
-package ApiMarkTool {
+package ApiMarkTool_SelfTestSubsystem {
+    public import ApiMarkTool_Validation::*;
+    private import OtsDependencies::*;
     private import SoftwareItemMetadata::*;
-
-    import OtsDependencies::*;
 
     part def SelfTestSubsystem {
         doc /* SelfTest subsystem: runs in-process self-validation tests to verify core ApiMarkTool functionality. */

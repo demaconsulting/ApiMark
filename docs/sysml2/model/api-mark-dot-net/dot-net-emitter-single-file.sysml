@@ -1,4 +1,4 @@
-package ApiMarkDotNet {
+package ApiMarkDotNet_DotNetEmitterSingleFile {
     private import SoftwareItemMetadata::*;
 
     part def DotNetEmitterSingleFile {
