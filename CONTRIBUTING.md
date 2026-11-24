@@ -22,14 +22,17 @@ Thank you for your interest in contributing to ApiMark.
 2. Build and run all tests:
 
    ```pwsh
-   pwsh ./build.ps1
+   pwsh ./build.ps1 -All
    ```
 
 3. Run the auto-formatter before committing:
 
    ```pwsh
-   pwsh ./fix.ps1
+   pwsh ./fix.ps1 -All
    ```
+
+   While iterating, `pwsh ./build.ps1 -Changed`, `pwsh ./fix.ps1 -Changed`, and `pwsh ./lint.ps1 -Changed` limit
+   the work to what your change affects. Each script requires a scope and prints its usage with `-Help`.
 
 ## Submitting Changes
 
@@ -43,7 +46,7 @@ Thank you for your interest in contributing to ApiMark.
 ## Code Style
 
 Code formatting is enforced by `.editorconfig` and `dotnet format`. Run
-`pwsh ./fix.ps1` to apply all auto-fixers before committing.
+`pwsh ./fix.ps1 -All` to apply all auto-fixers before committing (`-Changed` while iterating).
 
 ## Reporting Bugs
 

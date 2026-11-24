@@ -64,7 +64,7 @@ jobs:
       # Downstream projects: Add any additional quality check steps here.
       - name: Run linters
         shell: pwsh
-        run: ./lint.ps1
+        run: ./lint.ps1 -All
 
       # === UPLOAD ARTIFACTS ===
       # This section uploads all generated artifacts for use by downstream jobs.
