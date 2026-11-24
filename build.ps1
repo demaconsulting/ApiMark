@@ -58,7 +58,7 @@ param(
     # Git reference to compare against for -Changed (default: origin/main, else main).
     [string]$Base,
 
-    # Build and test only the projects affected by these projects (full or short names, e.g. Core, Tests).
+    # Build and test only the projects affected by these projects (full or short names, e.g. Core, DotNet.Tests).
     [string[]]$Project,
 
     # Print the selection and exit without building.
@@ -156,7 +156,7 @@ function Show-Usage {
             '-DryRun'          = 'Print what would be built, tested, and skipped, then exit 0 without running anything.'
             '-Help'            = 'Print this text and exit 0.'
         }) `
-        -ChecksLabel 'Projects and aliases (-Project names; short names such as Core or Tests also work)' `
+        -ChecksLabel 'Projects and aliases (-Project names; short names such as Core, Cpp, or DotNet.Tests also work)' `
         -Checks @(try { Get-ProjectNameList (Get-ApiMarkProjectGraph) $ProjectAliases } catch { }) `
         -Examples @('-Changed', '-Project Core', '-Changed -DryRun', '-All')
 }
