@@ -181,7 +181,7 @@ page, which has no access to repository files.)
 ## Building
 
 ```pwsh
-pwsh ./build.ps1
+pwsh ./build.ps1 -All
 ```
 
 ## User Guide

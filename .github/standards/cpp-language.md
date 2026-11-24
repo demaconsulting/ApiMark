@@ -89,12 +89,12 @@ Key qualities demonstrated above:
 Apply clang-format using the repository `.clang-format` configuration:
 
 - **Format file**: `clang-format -i my_file.cpp`
-- Run `pwsh ./fix.ps1` to apply across the project
+- Run `pwsh ./fix.ps1 -Changed` to apply to the changed files (`-All` for the whole project)
 
 # Quality Checks
 
 - [ ] Zero compiler warnings (`-Wall -Wextra -Werror`)
 - [ ] Doxygen documentation complete on all symbols
-- [ ] clang-format applied (run `pwsh ./fix.ps1`)
+- [ ] clang-format applied (run `pwsh ./fix.ps1 -Changed`)
 - [ ] All headers protected with `#pragma once`
 - [ ] No raw owning pointers - use `std::unique_ptr` or `std::shared_ptr`

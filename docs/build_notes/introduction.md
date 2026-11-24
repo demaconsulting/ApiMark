@@ -36,7 +36,7 @@ dotnet tool restore                   # .NET tools
 Then build and test the solution:
 
 ```powershell
-pwsh ./build.ps1
+pwsh ./build.ps1 -All
 ```
 
 ## Breaking Changes
