@@ -12,7 +12,7 @@
 #   pwsh ./build.ps1 -All                      Full local build and all tests
 #   pwsh ./build.ps1 -Changed [-Base <ref>]    Only the test projects affected by the changes since <ref>
 #                                              (default origin/main, else main) plus uncommitted changes
-#   pwsh ./build.ps1 -Project Core,Tests       Only the test projects affected by the named projects
+#   pwsh ./build.ps1 -Project Core,DotNet.Tests  Only the test projects affected by the named projects
 #   Add -DryRun to any scope to print the selection without building anything.
 #   With no arguments the usage text is printed and the script exits 1 (a scope must be chosen).
 #
