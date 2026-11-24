@@ -159,6 +159,14 @@ if ($Changed) {
         $formatInclude = $formatScope.Include
 
         # [PROJECT-SPECIFIC] Add input filters for repository-specific checks here.
+
+        # A change to this script or the shared module changes the selection logic itself, so every selected
+        # check runs over the whole repository (no input filter could say what it affects)
+        if (Test-AnyMatch $files '^(lint\.ps1|scripts/ProjectScripts\.psm1)$') {
+            Write-Host "Running all selected checks over the whole repository: lint.ps1 or scripts/ProjectScripts.psm1 changed."
+            foreach ($name in $checks.Keys) { $inputsChanged[$name] = $true }
+            $formatInclude = @()
+        }
     }
 }
 

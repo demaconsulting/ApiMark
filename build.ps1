@@ -12,13 +12,14 @@
 #   pwsh ./build.ps1 -All                      Full local build and all tests
 #   pwsh ./build.ps1 -Changed [-Base <ref>]    Only the test projects affected by the changes since <ref>
 #                                              (default origin/main, else main) plus uncommitted changes
-#   pwsh ./build.ps1 -Project Core,DotNet.Tests  Only the test projects affected by the named projects
+#   pwsh ./build.ps1 -Project Core,DotNet.Tests  Only the test projects affected by the named projects (full or short
+#                                              names: Cpp finds ApiMark.Cpp, Core is the core library; -Help lists them)
 #   Add -DryRun to any scope to print the selection without building anything.
 #   With no arguments the usage text is printed and the script exits 1 (a scope must be chosen).
 #
 #   A changed project selects every project that references it, directly or transitively, from the
 #   ProjectReference graph, and files linked into another project (Compile/None/EmbeddedResource items
-#   that point outside the project folder) select that project too. Changes that affect the whole
+#   that point outside the project folder; any item or file property) select that project too. Changes that affect the whole
 #   build (solution, project, props/targets, global.json, .editorconfig, nuget.config, tool manifest,
 #   this script, scripts/ProjectScripts.psm1) fall back to the full build; repository files tests read
 #   at run time select their test projects through $RuntimeReads; other changes the build does not
@@ -28,6 +29,10 @@
 #   package, which bundles the tool and every library, so a change to any project under src/ also
 #   selects them and packs ApiMark.MSBuild into test/packages first. The sample projects under
 #   test/*/Fixtures are inputs of the package tests, not part of the project graph.
+#
+#   The test platform is detected from global.json: "test": { "runner": "Microsoft.Testing.Platform" } runs
+#   'dotnet test --project <path> --report-trx', anything else (this repository, which has no global.json) runs
+#   VSTest 'dotnet test <path> --logger trx'; results go to artifacts/tests either way.
 #
 # EXTENSION POINTS:
 #   Search for "[PROJECT-SPECIFIC]" comments to find the designated locations
@@ -53,7 +58,7 @@ param(
     # Git reference to compare against for -Changed (default: origin/main, else main).
     [string]$Base,
 
-    # Build and test only the projects affected by these projects (full or short names, e.g. Core, Tests).
+    # Build and test only the projects affected by these projects (full or short names, e.g. Core, DotNet.Tests).
     [string[]]$Project,
 
     # Print the selection and exit without building.
@@ -71,6 +76,53 @@ Import-Module (Join-Path $PSScriptRoot 'scripts/ProjectScripts.psm1') -Force
 $RuntimeReads = [ordered]@{
     '^test/ApiMark\.Cpp\.Fixtures/'          = 'ApiMark.Cpp.Tests'
     '^test/ApiMark\.Cpp\.Fixtures/include/'  = 'ApiMark.MSBuild.Tests'
+}
+
+# [PROJECT-SPECIFIC] Short -Project names that no resolution rule can derive (exact name, unique dot-segment suffix,
+# Core), as data: alias = project name. None are needed here (Core, Cpp, DotNet.Tests, MSBuild, ... all resolve).
+$ProjectAliases = @{}
+
+# [PROJECT-SPECIFIC] Folders scanned for projects. The sample projects under test/ApiMark.MSBuild.PackageTests/Fixtures
+# are inputs of the package tests (some are deliberately not well-formed project files), so that folder is left out
+# of the scan and its project is added to the graph by hand (see Get-ApiMarkProjectGraph).
+$packageTestsDir = 'test/ApiMark.MSBuild.PackageTests'
+$ProjectRoots = @('src') + @(Get-ChildItem test -Directory -ErrorAction SilentlyContinue |
+        Where-Object { "test/$($_.Name)" -ne $packageTestsDir } | ForEach-Object { "test/$($_.Name)" })
+
+# Test platform: global.json selects Microsoft.Testing.Platform with "test": { "runner": "Microsoft.Testing.Platform" };
+# otherwise VSTest is used. The platform decides the 'dotnet test' arguments (see Invoke-DotnetTest).
+$UseTestingPlatform = $false
+if (Test-Path global.json) {
+    try { $UseTestingPlatform = (Get-Content -Raw global.json | ConvertFrom-Json).test.runner -eq 'Microsoft.Testing.Platform' }
+    catch { Write-Host "Warning: global.json could not be read; assuming VSTest." }
+}
+
+function Invoke-DotnetTest {
+    # Runs the tests of one project, or of the whole solution when no path is given, against the existing build
+    param([string]$Path)
+
+    # @(...) keeps a one-element list an array, so the splat passes the path whole and not character by character
+    if ($UseTestingPlatform) {
+        $target = @(if ($Path) { '--project'; $Path })
+        dotnet test @target --no-build --configuration Release --report-trx --results-directory artifacts/tests
+    } else {
+        $target = @(if ($Path) { $Path })
+        dotnet test @target --no-build --configuration Release --logger trx --results-directory artifacts/tests
+    }
+}
+
+# [PROJECT-SPECIFIC] The project graph of $ProjectRoots plus the package tests project, which is added with its known
+# shape (no project references and no linked files) because its folder is not scanned.
+function Get-ApiMarkProjectGraph {
+    $graph = Get-ProjectGraph -Root $ProjectRoots
+    $graph['ApiMark.MSBuild.PackageTests'] = [pscustomobject]@{
+        Name       = 'ApiMark.MSBuild.PackageTests'
+        Path       = "$packageTestsDir/ApiMark.MSBuild.PackageTests.csproj"
+        Directory  = $packageTestsDir
+        References = @()
+        Links      = @()
+    }
+    return $graph
 }
 
 # [PROJECT-SPECIFIC] The package integration tests consume the packed ApiMark.MSBuild package; pack it into
@@ -104,6 +156,8 @@ function Show-Usage {
             '-DryRun'          = 'Print what would be built, tested, and skipped, then exit 0 without running anything.'
             '-Help'            = 'Print this text and exit 0.'
         }) `
+        -ChecksLabel 'Projects and aliases (-Project names; short names such as Core, Cpp, or DotNet.Tests also work)' `
+        -Checks @(try { Get-ProjectNameList (Get-ApiMarkProjectGraph) $ProjectAliases } catch { }) `
         -Examples @('-Changed', '-Project Core', '-Changed -DryRun', '-All')
 }
 
@@ -130,29 +184,21 @@ $buildError = $false
 
 $scoped = $false
 if (-not $All) {
-    # [PROJECT-SPECIFIC] The sample projects under test/ApiMark.MSBuild.PackageTests/Fixtures are inputs of the
-    # package tests (some are deliberately not well-formed project files), so that project is scanned by hand
-    # and added with its known shape: no project references and no linked files.
-    $packageTestsDir = 'test/ApiMark.MSBuild.PackageTests'
-    $scanRoots = @('src') + @(Get-ChildItem test -Directory | Where-Object { "test/$($_.Name)" -ne $packageTestsDir } | ForEach-Object { "test/$($_.Name)" })
-    $graph = Get-ProjectGraph -Root $scanRoots
-    $graph['ApiMark.MSBuild.PackageTests'] = [pscustomobject]@{
-        Name       = 'ApiMark.MSBuild.PackageTests'
-        Path       = "$packageTestsDir/ApiMark.MSBuild.PackageTests.csproj"
-        Directory  = $packageTestsDir
-        References = @()
-        Links      = @()
-    }
+    $graph = Get-ApiMarkProjectGraph
     $selected = [System.Collections.Generic.HashSet[string]]::new()
     $fullReason = $null
 
-    foreach ($single in @($Project | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })) {
-        # [PROJECT-SPECIFIC] Short names are relative to the ApiMark. prefix (Core, DotNet.Tests, MSBuild, ...); the
-        # module's own short-name rule assumes the core library has the shortest name, which ApiMark.Cpp breaks.
-        if ($graph.Contains("ApiMark.$single")) { $single = "ApiMark.$single" }
-        $resolved = Resolve-ProjectName $graph $single
+    $names = @($Project | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $known = (Get-ProjectNameList $graph $ProjectAliases) -join ', '
+    if ($Project -and $names.Count -eq 0) {
+        Write-Host "Error: no project named in '$($Project -join ' ')'. Known projects: $known"
+        exit 1
+    }
+    foreach ($single in $names) {
+        try { $resolved = Resolve-ProjectName $graph $single $ProjectAliases }
+        catch { Write-Host "Error: $($_.Exception.Message)"; exit 1 }
         if (-not $resolved) {
-            Write-Host "Unknown project '$single'. Known projects: $($graph.Keys -join ', ')"
+            Write-Host "Unknown project '$single'. Known projects: $known"
             exit 1
         }
         [void]$selected.Add($resolved)
@@ -220,7 +266,7 @@ if (-not $All) {
         if (-not $buildError) {
             foreach ($entry in $tests) {
                 Write-Host "Running tests: $($entry.Name)..."
-                dotnet test $entry.Path --no-build --configuration Release --logger trx --results-directory artifacts/tests
+                Invoke-DotnetTest $entry.Path
                 if ($LASTEXITCODE -ne 0) { $buildError = $true }
             }
         } else {
@@ -237,25 +283,28 @@ if ($DryRun -and -not $scoped) { Write-Host "Dry run: would run the full build a
 
 if (-not $scoped) {
     # Each step runs only if the steps before it succeeded, so tests never run against stale binaries
+    $failedStep = $null   # the step that failed first, so the skip message names the real cause
     Write-Host "Restoring dependencies..."
     dotnet restore
-    if ($LASTEXITCODE -ne 0) { $buildError = $true }
+    if ($LASTEXITCODE -ne 0) { $buildError = $true; $failedStep = 'restore' }
 
     if (-not $buildError) {
         Write-Host "Building..."
         dotnet build --no-restore --configuration Release
-        if ($LASTEXITCODE -ne 0) { $buildError = $true }
+        if ($LASTEXITCODE -ne 0) { $buildError = $true; $failedStep = 'build' }
     }
 
     # [PROJECT-SPECIFIC] Pack ApiMark.MSBuild for the package integration tests (the tests read test/packages)
     if (-not $buildError) {
-        if (-not (Invoke-PackageBuild -NoBuild)) { $buildError = $true }
+        if (-not (Invoke-PackageBuild -NoBuild)) { $buildError = $true; $failedStep = 'pack' }
     }
 
     if (-not $buildError) {
         Write-Host "Running tests..."
-        dotnet test --no-build --configuration Release --logger trx --results-directory artifacts/tests
+        Invoke-DotnetTest
         if ($LASTEXITCODE -ne 0) { $buildError = $true }
+    } elseif ($failedStep -eq 'restore') {
+        Write-Host "Skipping build and tests: restore failed."
     } else {
         Write-Host "Skipping tests: the build failed."
     }
