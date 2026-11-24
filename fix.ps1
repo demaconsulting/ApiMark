@@ -150,6 +150,20 @@ function Get-ScopedFiles {
     return [pscustomobject]@{ Files = $selected; Reason = $null }
 }
 
+# Lists every YAML file of the repository that is not in a vendored or generated folder (the same exclusions as the
+# scoped path and Convert-YamlLineEndings), so a whole-repository run never touches vendored or generated YAML.
+# Uses git so ignored folders are not walked; falls back to a recursive search outside a git repository.
+function Get-AllYamlFiles {
+    $listed = @(git -c core.quotePath=false ls-files --cached --others --exclude-standard -- '*.yaml' '*.yml' 2>$null)
+    if ($LASTEXITCODE -ne 0) {
+        $listed = @(Get-ChildItem -Recurse -File -Include '*.yaml', '*.yml' |
+                ForEach-Object { [System.IO.Path]::GetRelativePath((Get-Location).Path, $_.FullName) })
+    }
+    return @($listed | ForEach-Object { $_ -replace '\\', '/' } |
+            Where-Object { $_ -notmatch $vendoredPattern -and (Test-Path -LiteralPath $_ -PathType Leaf) } |
+            Sort-Object -Unique)
+}
+
 # Normalizes the given YAML files to LF line endings (UTF-8 without a BOM), as Convert-YamlLineEndings does for all
 function Convert-ListedYamlLineEndings {
     param([string[]]$Files)
@@ -218,6 +232,16 @@ if ($Changed) {
         $formatInclude = $formatScope.Include
 
         # [PROJECT-SPECIFIC] Add input filters for repository-specific fixers here.
+
+        # A change to this script or the shared module changes the selection logic itself, so every selected
+        # fixer runs over the whole repository (no input filter could say what it affects)
+        if (Test-AnyMatch $files '^(fix\.ps1|scripts/ProjectScripts\.psm1)$') {
+            Write-Host "Running all selected fixers over the whole repository: fix.ps1 or scripts/ProjectScripts.psm1 changed."
+            foreach ($name in $fixers.Keys) { $inputsChanged[$name] = $true }
+            $fixFiles = @{ yamlfix = @(); lintmark = @() }
+            $fixReason.yamlfix = $fixReason.lintmark = 'fix.ps1 or scripts/ProjectScripts.psm1 changed'
+            $formatInclude = @()
+        }
     }
 }
 
@@ -258,20 +282,19 @@ if ($DryRun) {
 # --- YAML Auto-Fix ---
 if ($run.yamlfix) {
     $yamlFiles = $fixFiles.yamlfix
-    if ($yamlFiles.Count -gt 0) { Write-Host "Fixing: YAML ($($yamlFiles.Count) changed files)..." }
+    $wholeRepo = $yamlFiles.Count -eq 0
+    if ($wholeRepo) { $yamlFiles = Get-AllYamlFiles }
+    if (-not $wholeRepo) { Write-Host "Fixing: YAML ($($yamlFiles.Count) changed files)..." }
     else { Write-Host "Fixing: YAML..." }
     if (Initialize-PythonVenv -Silent) {
-        if ($yamlFiles.Count -gt 0) {
-            for ($i = 0; $i -lt $yamlFiles.Count; $i += $batchSize) {
-                $batch = @($yamlFiles[$i..([Math]::Min($i + $batchSize, $yamlFiles.Count) - 1)])
-                yamlfix @batch 2>$null
-            }
-        } else {
-            yamlfix . 2>$null
+        # Always pass explicit files (never 'yamlfix .'), so vendored and generated YAML is never rewritten
+        for ($i = 0; $i -lt $yamlFiles.Count; $i += $batchSize) {
+            $batch = @($yamlFiles[$i..([Math]::Min($i + $batchSize, $yamlFiles.Count) - 1)])
+            yamlfix @batch 2>$null
         }
         deactivate 2>$null
     }
-    if ($yamlFiles.Count -gt 0) { Convert-ListedYamlLineEndings $yamlFiles } else { Convert-YamlLineEndings }
+    if (-not $wholeRepo) { Convert-ListedYamlLineEndings $yamlFiles } else { Convert-YamlLineEndings }
 } else {
     Write-Host "Fixing: YAML... skipped ($($skipReason.yamlfix))"
 }
