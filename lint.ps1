@@ -11,10 +11,11 @@
 #   pwsh ./lint.ps1 -All                      All checks (CI merge gate)
 #   pwsh ./lint.ps1 -Changed [-Base <ref>]    Only the checks whose inputs changed since <ref>
 #                                             (default origin/main, else main) plus uncommitted changes;
-#                                             dotnet format is limited to the changed .cs files unless
-#                                             project or build configuration files changed
-#   pwsh ./lint.ps1 -Check lintmark,textlint  Only the named checks, in full; combine with -Changed to
-#                                             limit them to changed inputs
+#                                             a selected check runs over the whole repository (read-only),
+#                                             except dotnet format, which is limited to the changed .cs files
+#                                             unless project or build configuration files changed
+#   pwsh ./lint.ps1 -Check lintmark,textlint  Only the named checks, in full; with -Changed, only the named
+#                                             checks whose inputs changed
 #   Add -DryRun to any scope to print which checks would run without running them.
 #   With no arguments the usage text is printed and the script exits 1 (a scope must be chosen).
 #
@@ -81,9 +82,9 @@ function Show-Usage {
         -Purpose 'run the lint checks (the CI merge gate); exits 1 if any check fails.' `
         -Options ([ordered]@{
             '-All'           = 'Every check (what CI runs); cannot be combined with another scope.'
-            '-Changed'       = 'Only the checks whose inputs changed since the base, plus uncommitted files.'
+            '-Changed'       = 'Only the checks whose inputs changed (since the base, plus uncommitted); they run repository-wide.'
             '-Base <ref>'    = 'Base reference for -Changed (default origin/main, else main).'
-            '-Check <names>' = 'Only the named checks, in full; with -Changed, limited to changed inputs.'
+            '-Check <names>' = 'Only the named checks, in full; with -Changed, only the named checks whose inputs changed.'
             '-DryRun'        = 'Print which checks would run or be skipped, then exit 0 without running anything.'
             '-Help'          = 'Print this text and exit 0.'
         }) `

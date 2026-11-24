@@ -10,11 +10,14 @@
 #   pwsh ./fix.ps1 -Help                      Print the usage text and exit 0
 #   pwsh ./fix.ps1 -All                       All fixers
 #   pwsh ./fix.ps1 -Changed [-Base <ref>]     Only the fixers for the file types changed since <ref>
-#                                             (default origin/main, else main) plus uncommitted changes;
-#                                             dotnet format is limited to the changed .cs files unless
-#                                             project or build configuration files changed
-#   pwsh ./fix.ps1 -Check lintmark,format     Only the named fixers, in full; combine with -Changed to
-#                                             limit them to changed inputs
+#                                             (default origin/main, else main) plus uncommitted changes.
+#                                             yamlfix, LintMark, and dotnet format are limited to the changed,
+#                                             still-existing .yml/.yaml, .md, and .cs files (minus configured
+#                                             ignores) unless their configuration changed (.yamlfix.toml or
+#                                             pip-requirements.txt; .lintmark.yaml or .editorconfig; project or
+#                                             build files) or more than 200 files changed: then the whole repository
+#   pwsh ./fix.ps1 -Check lintmark,format     Only the named fixers, in full; with -Changed, only when their
+#                                             inputs changed, and then limited as above
 #   Add -DryRun to any scope to print which fixers would run without running them.
 #   With no arguments the usage text is printed and the script exits 1 (a scope must be chosen).
 #
@@ -76,10 +79,10 @@ function Show-Usage {
         -Purpose 'apply the auto-fixers (formatting); a fixer run always exits 0.' `
         -Options ([ordered]@{
             '-All'           = 'Every fixer; cannot be combined with another scope.'
-            '-Changed'       = 'Only the fixers for file types changed since the base, plus uncommitted files.'
+            '-Changed'       = 'Fixers for changed file types, limited to the changed files (all files if config changed or >200 files).'
             '-Base <ref>'    = 'Base reference for -Changed (default origin/main, else main).'
-            '-Check <names>' = 'Only the named fixers, in full; with -Changed, limited to changed inputs.'
-            '-DryRun'        = 'Print which fixers would run or be skipped, then exit 0 without running anything.'
+            '-Check <names>' = 'Only the named fixers, in full; with -Changed, only those with changed inputs, limited the same way.'
+            '-DryRun'        = 'Print which fixers would run or be skipped, and their file scope, then exit 0.'
             '-Help'          = 'Print this text and exit 0.'
         }) `
         -ChecksLabel 'Fixers (-Check names)' -Checks @($fixers.Keys) `
@@ -107,6 +110,59 @@ if ($Check) {
 }
 
 # ==============================================================================
+# FILE SCOPING (-Changed)
+# yamlfix and LintMark fix only the changed, still-existing files, so a change to one file never
+# rewrites others. A fixer runs over the whole repository when its configuration changed or when
+# more than $maxScopedFiles files changed (a long command line costs more than a full run).
+# The same vendored and generated folders are skipped as by Convert-YamlLineEndings.
+# ==============================================================================
+
+$maxScopedFiles = 200
+$batchSize = 50
+$vendoredPattern = '(^|/)(\.git|node_modules|\.venv|thirdparty|third-party|3rd-party|\.agent-logs|generated)/'
+
+# Lists the string items of a top-level key in a YAML file (for example the 'ignore' globs of .lintmark.yaml)
+function Get-YamlList {
+    param([string]$Path, [string]$Key)
+    $items = @()
+    $inList = $false
+    foreach ($line in Get-Content -LiteralPath $Path -ErrorAction SilentlyContinue) {
+        if ($line -match "^${Key}:") { $inList = $true; continue }
+        if ($inList -and $line -match '^\s+-\s+["'']?([^"''#\s]+)') { $items += $Matches[1] }
+        elseif ($inList -and $line -match '^\S') { $inList = $false }
+    }
+    return $items
+}
+
+# Selects the changed, still-existing files with an extension, minus vendored folders and the given globs.
+# Returns the files to pass (possibly none) or $null to run over the whole repository, with the reason.
+function Get-ScopedFiles {
+    param([string[]]$Files, [string]$Pattern, [string[]]$IgnoreGlobs = @())
+    $ignore = @($IgnoreGlobs | ForEach-Object { Convert-GlobToRegex $_ })
+    $selected = @($Files | Where-Object {
+            $file = $_
+            $_ -match $Pattern -and $_ -notmatch $vendoredPattern -and (Test-Path -LiteralPath $_ -PathType Leaf) -and
+            -not @($ignore | Where-Object { $file -match $_ }).Count
+        })
+    if ($selected.Count -gt $maxScopedFiles) {
+        return [pscustomobject]@{ Files = $null; Reason = "more than $maxScopedFiles changed files" }
+    }
+    return [pscustomobject]@{ Files = $selected; Reason = $null }
+}
+
+# Normalizes the given YAML files to LF line endings (UTF-8 without a BOM), as Convert-YamlLineEndings does for all
+function Convert-ListedYamlLineEndings {
+    param([string[]]$Files)
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    foreach ($file in $Files) {
+        $path = (Resolve-Path -LiteralPath $file).Path
+        $raw = [System.IO.File]::ReadAllText($path)
+        $fixed = $raw.Replace("`r`n", "`n")
+        if ($raw -ne $fixed) { [System.IO.File]::WriteAllText($path, $fixed, $utf8NoBom) }
+    }
+}
+
+# ==============================================================================
 # FIXER SELECTION
 # A fixer runs when it is wanted (-All, or named by -Check) and, with -Changed, when a file
 # type it handles changed. When the changed files cannot be determined, every wanted fixer runs.
@@ -115,15 +171,48 @@ if ($Check) {
 $inputsChanged = @{}
 foreach ($name in $fixers.Keys) { $inputsChanged[$name] = $true }
 $formatInclude = @()
+$fixFiles = @{ yamlfix = @(); lintmark = @() }   # files to pass to the fixer; empty means the whole repository
+$fixReason = @{ yamlfix = ''; lintmark = '' }    # why a -Changed run covers the whole repository
 
 if ($Changed) {
     $files = Get-ChangedFiles -Base $Base
     if ($null -eq $files) {
         Write-Host "Running all selected fixers: the changed files could not be determined."
+        $fixReason.yamlfix = $fixReason.lintmark = 'the changed files could not be determined'
     } else {
         Write-Host "Changed files: $($files.Count)"
-        $inputsChanged.yamlfix = Test-AnyMatch $files '\.ya?ml$|^\.yamlfix\.toml$'
-        $inputsChanged.lintmark = Test-AnyMatch $files '\.md$|(^|/)\.lintmark\.yaml$|(^|/)\.editorconfig$'
+
+        # yamlfix: changed YAML files; the whole repository when its configuration or Python packages changed.
+        # yamlfix has no exclude setting in .yamlfix.toml, so only the vendored folders are filtered out.
+        if (Test-AnyMatch $files '^\.yamlfix\.toml$|^pip-requirements\.txt$') {
+            $fixReason.yamlfix = '.yamlfix.toml or pip-requirements.txt changed'
+        } elseif (Test-AnyMatch $files '\.ya?ml$') {
+            $scope = Get-ScopedFiles $files '\.ya?ml$'
+            if ($null -eq $scope.Files) { $fixReason.yamlfix = $scope.Reason }
+            elseif ($scope.Files.Count -eq 0) {
+                $inputsChanged.yamlfix = $false
+                $fixers.yamlfix.Skip = 'no changed YAML files remain after exclusions'
+            } else { $fixFiles.yamlfix = $scope.Files }
+        } else {
+            $inputsChanged.yamlfix = $false
+        }
+
+        # LintMark: changed Markdown files; the whole repository when .lintmark.yaml or .editorconfig changed.
+        # The 'ignore' (and 'exclude') globs of .lintmark.yaml are applied here so explicit paths cannot bypass them.
+        if (Test-AnyMatch $files '(^|/)\.lintmark\.yaml$|(^|/)\.editorconfig$') {
+            $fixReason.lintmark = '.lintmark.yaml or .editorconfig changed'
+        } elseif (Test-AnyMatch $files '\.md$') {
+            $lintMarkIgnore = @(Get-YamlList '.lintmark.yaml' 'ignore') + @(Get-YamlList '.lintmark.yaml' 'exclude')
+            $scope = Get-ScopedFiles $files '\.md$' $lintMarkIgnore
+            if ($null -eq $scope.Files) { $fixReason.lintmark = $scope.Reason }
+            elseif ($scope.Files.Count -eq 0) {
+                $inputsChanged.lintmark = $false
+                $fixers.lintmark.Skip = 'no changed Markdown files remain after ignores and deletions'
+            } else { $fixFiles.lintmark = $scope.Files }
+        } else {
+            $inputsChanged.lintmark = $false
+        }
+
         $formatScope = Get-DotnetFormatScope $files
         $inputsChanged.format = $formatScope.Run
         $formatInclude = $formatScope.Include
@@ -145,6 +234,16 @@ if ($DryRun) {
     foreach ($name in $fixers.Keys) {
         Write-Host ("  {0,-12} {1}" -f $name, ($run[$name] ? 'run' : "skip ($($skipReason[$name]))"))
     }
+    foreach ($name in 'yamlfix', 'lintmark') {
+        if (-not $run[$name]) { continue }
+        if ($fixFiles[$name].Count -gt 0) {
+            Write-Host "  $name limited to $($fixFiles[$name].Count) file(s): $($fixFiles[$name] -join ' ')"
+        } elseif ($fixReason[$name]) {
+            Write-Host "  $name over the whole repository ($($fixReason[$name]))"
+        } else {
+            Write-Host "  $name over the whole repository"
+        }
+    }
     if ($formatInclude.Count -gt 0) { Write-Host "  dotnet format limited to: $($formatInclude -join ' ')" }
     Write-Host "Dry run: no fixer was run."
     exit 0
@@ -158,22 +257,40 @@ if ($DryRun) {
 
 # --- YAML Auto-Fix ---
 if ($run.yamlfix) {
-    Write-Host "Fixing: YAML..."
+    $yamlFiles = $fixFiles.yamlfix
+    if ($yamlFiles.Count -gt 0) { Write-Host "Fixing: YAML ($($yamlFiles.Count) changed files)..." }
+    else { Write-Host "Fixing: YAML..." }
     if (Initialize-PythonVenv -Silent) {
-        yamlfix . 2>$null
+        if ($yamlFiles.Count -gt 0) {
+            for ($i = 0; $i -lt $yamlFiles.Count; $i += $batchSize) {
+                $batch = @($yamlFiles[$i..([Math]::Min($i + $batchSize, $yamlFiles.Count) - 1)])
+                yamlfix @batch 2>$null
+            }
+        } else {
+            yamlfix . 2>$null
+        }
         deactivate 2>$null
     }
-    Convert-YamlLineEndings
+    if ($yamlFiles.Count -gt 0) { Convert-ListedYamlLineEndings $yamlFiles } else { Convert-YamlLineEndings }
 } else {
     Write-Host "Fixing: YAML... skipped ($($skipReason.yamlfix))"
 }
 
 # --- Markdown Auto-Fix ---
 if ($run.lintmark) {
-    Write-Host "Fixing: markdown..."
+    $markdownFiles = $fixFiles.lintmark
+    if ($markdownFiles.Count -gt 0) { Write-Host "Fixing: markdown ($($markdownFiles.Count) changed files)..." }
+    else { Write-Host "Fixing: markdown..." }
     dotnet tool restore > $null 2>&1
     if ($LASTEXITCODE -eq 0) {
-        dotnet lintmark --fix 2>$null
+        if ($markdownFiles.Count -gt 0) {
+            for ($i = 0; $i -lt $markdownFiles.Count; $i += $batchSize) {
+                $batch = @($markdownFiles[$i..([Math]::Min($i + $batchSize, $markdownFiles.Count) - 1)])
+                dotnet lintmark --fix @batch 2>$null
+            }
+        } else {
+            dotnet lintmark --fix 2>$null
+        }
     }
 } else {
     Write-Host "Fixing: markdown... skipped ($($skipReason.lintmark))"

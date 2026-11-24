@@ -223,6 +223,8 @@ if (-not $All) {
                 dotnet test $entry.Path --no-build --configuration Release --logger trx --results-directory artifacts/tests
                 if ($LASTEXITCODE -ne 0) { $buildError = $true }
             }
+        } else {
+            Write-Host "Skipping tests: the build failed."
         }
     }
 }
@@ -234,20 +236,29 @@ if ($DryRun -and -not $scoped) { Write-Host "Dry run: would run the full build a
 # ==============================================================================
 
 if (-not $scoped) {
+    # Each step runs only if the steps before it succeeded, so tests never run against stale binaries
     Write-Host "Restoring dependencies..."
     dotnet restore
     if ($LASTEXITCODE -ne 0) { $buildError = $true }
 
-    Write-Host "Building..."
-    dotnet build --no-restore --configuration Release
-    if ($LASTEXITCODE -ne 0) { $buildError = $true }
+    if (-not $buildError) {
+        Write-Host "Building..."
+        dotnet build --no-restore --configuration Release
+        if ($LASTEXITCODE -ne 0) { $buildError = $true }
+    }
 
     # [PROJECT-SPECIFIC] Pack ApiMark.MSBuild for the package integration tests (the tests read test/packages)
-    if (-not (Invoke-PackageBuild -NoBuild)) { $buildError = $true }
+    if (-not $buildError) {
+        if (-not (Invoke-PackageBuild -NoBuild)) { $buildError = $true }
+    }
 
-    Write-Host "Running tests..."
-    dotnet test --no-build --configuration Release --logger trx --results-directory artifacts/tests
-    if ($LASTEXITCODE -ne 0) { $buildError = $true }
+    if (-not $buildError) {
+        Write-Host "Running tests..."
+        dotnet test --no-build --configuration Release --logger trx --results-directory artifacts/tests
+        if ($LASTEXITCODE -ne 0) { $buildError = $true }
+    } else {
+        Write-Host "Skipping tests: the build failed."
+    }
 }
 
 if (-not $buildError) {
