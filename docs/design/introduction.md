@@ -12,7 +12,8 @@ systems: ApiMark.Core (shared contracts and file-path helpers), ApiMark.DotNet
 .NET executable invoked by ApiMarkTask and directly by users or CI pipelines).
 Several OTS items provide library support: Mono.Cecil for the DotNet system, clang (via
 `clang -ast-dump=json`) for the Cpp system, DemaConsulting.TestResults for the SelfTest
-subsystem, Antlr4.Runtime.Standard with an ANTLR4 vhdl2008 grammar for the Vhdl system, and
+subsystem, DemaConsulting.HelpCards for the built-in help of the Cli subsystem,
+Antlr4.Runtime.Standard with an ANTLR4 vhdl2008 grammar for the Vhdl system, and
 Microsoft.Extensions.FileSystemGlobbing for glob-based file discovery in ApiMarkCore.
 An archived OTS item, cpp-ast-net, is retained for historical reference.
 
@@ -33,6 +34,7 @@ OTS items:
 - **Mono.Cecil**: integration and usage design.
 - **clang**: integration and usage design (via `clang -ast-dump=json`).
 - **DemaConsulting.TestResults**: integration and usage design.
+- **DemaConsulting.HelpCards**: integration and usage design.
 - **Antlr4.Runtime.Standard / ANTLR4 vhdl2008 grammar**: integration and usage design.
 - **Microsoft.Extensions.FileSystemGlobbing**: integration and usage design.
 - **cpp-ast-net**: integration and usage design (archived; retained for historical reference).
@@ -67,7 +69,8 @@ src/
 │   └── VhdlAst/         - VHDL AST data model and ANTLR4 parser
 ├── ApiMark.MSBuild/     - MSBuild task that spawns ApiMark.Tool out-of-process
 └── ApiMark.Tool/        - CLI entry point
-    ├── Cli/             - command-line argument parsing and context construction
+    ├── Cli/             - command-line argument parsing, context construction, and the help command
+    ├── Help/            - built-in help cards (Markdown with front matter), embedded in the assembly
     └── SelfTest/        - self-validation subsystem
 ```
 

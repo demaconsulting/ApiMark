@@ -96,6 +96,21 @@ sections:
             tests:
               - Program_Main_WithHelpFlag_PrintsHelpAndExitsZero
               - Program_Main_WithHelpAfterSubcommand_PrintsHelpAndExitsZero
+          - id: ApiMarkTool-Program-AnswerHelpCommand
+            title: Program shall answer the help command before the command-line options are parsed and return its exit code.
+            justification: |
+              The help command is not an option or a language, so the option parser would reject
+              it. Offering the arguments to the help command first lets apimark help work while
+              every other run continues to the option parser unchanged.
+            tests:
+              - Program_Main_WithHelpVerb_PrintsHelpIndex
+          - id: ApiMarkTool-Program-HelpFooter
+            title: Program shall end its usage information with a pointer to the help command.
+            justification: |
+              The short usage text stays short and still tells a reader where the help topics with
+              worked examples are.
+            tests:
+              - Program_Main_WithHelpFlag_PrintsHelpAndExitsZero
           - id: ApiMarkTool-Program-SupportSilentAndLogOptions
             title: Program shall support --silent to suppress console output and --log <file> to capture all output.
             justification: |

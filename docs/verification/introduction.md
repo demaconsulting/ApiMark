@@ -80,6 +80,8 @@ Local items:
 - **ApiMarkTool**: system-level verification of the CLI entry point.
 - **Cli**: subsystem-level verification of command-line argument parsing and context construction.
 - **Context**: unit verification of argument parsing, option storage, and output routing.
+- **HelpCommand**: unit verification of the built-in `help` command, the shipped help cards, and
+  their printed line width.
 - **SelfTest**: subsystem-level verification of the self-validation subsystem.
 - **Validation**: unit verification of the self-test execution logic.
 - **Program**: unit verification of CLI argument parsing, language dispatch, and error handling.
@@ -112,6 +114,9 @@ OTS items:
   and produces AST output that ApiMark can parse correctly.
 - **DemaConsulting.TestResults**: integration verification that the test-result recording and
   serialization APIs used by the SelfTest subsystem produce correct TRX and JUnit XML output.
+- **DemaConsulting.HelpCards**: integration verification that the help command, the card
+  validator, and the example runner used by the Cli subsystem and its tests work with the shipped
+  help cards.
 - **Antlr4.Runtime.Standard / ANTLR4 vhdl2008 grammar**: integration verification
   that the committed generated parser code correctly parses VHDL-2008 source files,
   verified indirectly through the VhdlAstParser test suite.
@@ -166,6 +171,7 @@ Local items have parallel artifacts in:
   `docs/reqstream/api-mark-tool/program.yaml`,
   `docs/reqstream/api-mark-tool/cli.yaml`,
   `docs/reqstream/api-mark-tool/cli/context.yaml`,
+  `docs/reqstream/api-mark-tool/cli/help-command.yaml`,
   `docs/reqstream/api-mark-tool/self-test.yaml`,
   `docs/reqstream/api-mark-tool/self-test/validation.yaml`
 - Design: `docs/design/api-mark-core.md`, `docs/design/api-mark-core/i-api-generator.md`,
@@ -204,6 +210,7 @@ Local items have parallel artifacts in:
   `docs/design/api-mark-msbuild/api-mark-task.md`,
   `docs/design/api-mark-tool.md`, `docs/design/api-mark-tool/program.md`,
   `docs/design/api-mark-tool/cli.md`, `docs/design/api-mark-tool/cli/context.md`,
+  `docs/design/api-mark-tool/cli/help-command.md`,
   `docs/design/api-mark-tool/self-test.md`, `docs/design/api-mark-tool/self-test/validation.md`
 - Verification: `docs/verification/api-mark-core.md`,
   `docs/verification/api-mark-core/i-api-generator.md`,
@@ -244,6 +251,7 @@ Local items have parallel artifacts in:
   `docs/verification/api-mark-msbuild/api-mark-task.md`,
   `docs/verification/api-mark-tool.md`, `docs/verification/api-mark-tool/program.md`,
   `docs/verification/api-mark-tool/cli.md`, `docs/verification/api-mark-tool/cli/context.md`,
+  `docs/verification/api-mark-tool/cli/help-command.md`,
   `docs/verification/api-mark-tool/self-test.md`,
   `docs/verification/api-mark-tool/self-test/validation.md`
 - Source: `src/ApiMark.Core/`, `src/ApiMark.Cpp/`, `src/ApiMark.DotNet/`,
@@ -255,14 +263,17 @@ Local items have parallel artifacts in:
 
 OTS items have integration and usage artifacts parallel to the system folders: `docs/reqstream/ots/mono-cecil.yaml`,
   `docs/reqstream/ots/dema-consulting-test-results.yaml`, `docs/reqstream/ots/antlr4.yaml`,
-  `docs/reqstream/ots/file-system-globbing.yaml`, `docs/reqstream/ots/cpp-ast-net.yaml`
+  `docs/reqstream/ots/file-system-globbing.yaml`, `docs/reqstream/ots/cpp-ast-net.yaml`,
+  `docs/reqstream/ots/help-cards.yaml`
 
 - Design: `docs/design/ots/clang.md`, `docs/design/ots/mono-cecil.md`,
   `docs/design/ots/dema-consulting-test-results.md`, `docs/design/ots/antlr4.md`,
-  `docs/design/ots/file-system-globbing.md`, `docs/design/ots/cpp-ast-net.md`
+  `docs/design/ots/file-system-globbing.md`, `docs/design/ots/cpp-ast-net.md`,
+  `docs/design/ots/help-cards.md`
 - Verification: `docs/verification/ots/clang.md`, `docs/verification/ots/mono-cecil.md`,
   `docs/verification/ots/dema-consulting-test-results.md`, `docs/verification/ots/antlr4.md`,
-  `docs/verification/ots/file-system-globbing.md`, `docs/verification/ots/cpp-ast-net.md`
+  `docs/verification/ots/file-system-globbing.md`, `docs/verification/ots/cpp-ast-net.md`,
+  `docs/verification/ots/help-cards.md`
 
 Review-sets are defined in `.reviewmark.yaml`.
 

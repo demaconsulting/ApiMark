@@ -8,6 +8,11 @@ directly, confirming all parsed properties, default values, error conditions, an
 file behavior. Tests use the real `Context.Create` factory with no mocking; each test
 exercises one specific parsing scenario in isolation.
 
+The `HelpCommand` unit is verified by `test/ApiMark.Tool.Tests/Cli/HelpCommandTests.cs` (see
+HelpCommand Unit Verification). At the subsystem level, `test/ApiMark.Tool.Tests/Cli/CliSubsystemTests.cs`
+asks the help command for a topic through its public `TryRun` entry point, with the real help
+cards embedded in the tool assembly and in-memory writers in place of the console.
+
 ### Test Environment
 
 Standard .NET test runner. No external files are required except for the log-file test
@@ -27,6 +32,7 @@ Standard .NET test runner. No external files are required except for the log-fil
   methods write unconditionally to any open log file regardless of the `--silent` flag.
 - `--reference-paths` (repeatable) is parsed and accumulated into `Context.ReferencePaths`, consistent with the other
   repeatable dotnet-only options (`--exclude`, `--includes`, `--api-headers`, `--source`).
+- The help command answers a requested topic from the built-in help cards with exit code 0.
 
 ### Test Scenarios
 
@@ -45,6 +51,10 @@ Tested by `Context_Create_WithLogFile_OpensAndWritesToLog` and
 **Silent with log captures output**: Verifies that `--silent --log` combination allows
 the tool to run silently while still capturing all output. Tested by
 `Program_Main_WithSilentAndLog_DotNetCommand_ExitsZero`.
+
+**Help command prints a requested topic**: Verifies that `help command-line` is answered from
+the built-in help cards with exit code 0 and that the output holds the card's title. Tested by
+`CliSubsystem_HelpCommand_TopicRequested_PrintsTopic`.
 
 For detailed unit-level test scenarios covering individual flags, options, default
 values, error conditions, and log file behavior, see the Context Unit Verification.

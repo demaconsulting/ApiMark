@@ -38,6 +38,7 @@ includes:
   - docs/reqstream/api-mark-tool/program.yaml
   - docs/reqstream/api-mark-tool/cli.yaml
   - docs/reqstream/api-mark-tool/cli/context.yaml
+  - docs/reqstream/api-mark-tool/cli/help-command.yaml
   - docs/reqstream/api-mark-tool/self-test.yaml
   - docs/reqstream/api-mark-tool/self-test/validation.yaml
   - docs/reqstream/quality.yaml
@@ -64,3 +65,4 @@ includes:
   - docs/reqstream/ots/cpp-ast-net.yaml
   - docs/reqstream/ots/dema-consulting-test-results.yaml
   - docs/reqstream/ots/file-system-globbing.yaml
+  - docs/reqstream/ots/help-cards.yaml
