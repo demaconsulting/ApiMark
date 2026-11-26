@@ -157,7 +157,8 @@ the first failure message.
   independently so that an emitter defect is detected rather than reproduced;
   headings inside fenced code blocks are ignored.
 
-**WriteSampleAssembly(string directory, bool documentRead = true)** — Private static.
+**WriteSampleAssembly(string directory, bool documentRead = true)** — Internal static, so that the
+help example-runner test of ApiMarkTool can stage the same sample as `MyLib.dll` and `MyLib.xml`.
 
 - Builds the `ApiMarkSample` assembly with `PersistedAssemblyBuilder` and saves
   it as `ApiMarkSample.dll`, then writes `ApiMarkSample.xml` from the

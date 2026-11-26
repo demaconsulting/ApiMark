@@ -102,6 +102,16 @@ verification focus is the subset of capabilities the product depends on: creatin
 `TrxSerializer` and `JUnitSerializer`. See
 `docs/verification/ots/dema-consulting-test-results.md` for detailed test scenarios.
 
+## DemaConsulting.HelpCards
+
+`DemaConsulting.HelpCards` is verified through the help tests in `test/ApiMark.Tool.Tests/`:
+the `HelpCommand` unit tests in `Cli/HelpCommandTests.cs` and the system tests in
+`IntegrationTests.cs` that run the compiled tool. These tests use the real package and the help
+cards embedded in the tool assembly, which is the sole consumer of the package. The verification
+focus is the subset of capabilities the product depends on: answering the `help` command,
+validating the shipped catalog, and running every command example of the cards. See
+`docs/verification/ots/help-cards.md` for detailed test scenarios.
+
 ## cpp-ast-net (Archived)
 
 The `cpp-ast-net` OTS item is archived and retained for historical reference only. It was

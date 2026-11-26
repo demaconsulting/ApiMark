@@ -44,6 +44,7 @@
     <ProjectReference Include="..\ApiMark.Vhdl\ApiMark.Vhdl.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="DemaConsulting.HelpCards" Version="0.1.0-beta.3" />
     <PackageReference Include="DemaConsulting.TestResults" Version="1.7.0" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.401" PrivateAssets="All" />
   </ItemGroup>

@@ -52,6 +52,7 @@ input-files:
   - docs/design/api-mark-tool.md
   - docs/design/api-mark-tool/cli.md
   - docs/design/api-mark-tool/cli/context.md
+  - docs/design/api-mark-tool/cli/help-command.md
   - docs/design/api-mark-tool/self-test.md
   - docs/design/api-mark-tool/self-test/validation.md
   - docs/design/api-mark-tool/program.md
@@ -61,6 +62,7 @@ input-files:
   - docs/design/ots/antlr4.md
   - docs/design/ots/file-system-globbing.md
   - docs/design/ots/dema-consulting-test-results.md
+  - docs/design/ots/help-cards.md
   - docs/design/ots/cpp-ast-net.md
 template: template.html
 table-of-contents: true

@@ -14,11 +14,14 @@ runtimes) and optionally as a standalone dotnet tool in the NuGet package
 `DemaConsulting.ApiMark.Tool`.
 
 - `Cli` subsystem — provides the `Context` unit, which parses command-line arguments into
-  typed properties and routes all program output (stdout, stderr, and an optional log file).
+  typed properties and routes all program output (stdout, stderr, and an optional log file),
+  and the `HelpCommand` unit, which answers the built-in `help` command from help cards
+  embedded in the tool assembly.
 - `SelfTest` subsystem — provides the `Validation` unit, which runs in-process
   self-validation tests when `--validate` is specified.
-- `Program` unit — the CLI entry point; creates a `Context`, dispatches to the appropriate
-  action (version display, help, self-validation, or main tool logic), constructs the
+- `Program` unit — the CLI entry point; offers the arguments to `HelpCommand` first, otherwise
+  creates a `Context`, dispatches to the appropriate action (version display, help,
+  self-validation, or main tool logic), constructs the
   appropriate `IApiGenerator` implementation for the requested language subcommand, calls
   `Parse()` to obtain an `IApiEmitter`, then calls `IApiEmitter.Emit()` with an `EmitConfig`
   built from the parsed context.
@@ -36,7 +39,8 @@ users or CI pipelines.
 - *Type*: .NET executable (run via `dotnet ApiMark.Tool.dll` or `apimark` when
   installed as a dotnet tool).
 - *Role*: Provider — ApiMarkTask and end users invoke the tool directly.
-- *Contract*: `apimark [options] [language [language-options]]`. Standard options:
+- *Contract*: `apimark help [topic]` when `help` is the first argument (see *Help Command*
+  below); otherwise `apimark [options] [language [language-options]]`. Standard options:
   `-v, --version`, `-?, -h, --help`, `--silent`, `--validate`,
   `--results <file>` (alias: `--result <file>`), `--format <format>` (values:
   `gradual (default)`, `single-file`), `--depth <#>`, `--log <file>`.
@@ -71,8 +75,22 @@ users or CI pipelines.
   generator implements `IDocumentationCoverageCapable`, dispatched polymorphically to
   scan and report undocumented items — this applies uniformly to `dotnet`, `cpp`, and
   `vhdl`; see the ApiMarkTool Program design document for the full dispatch flow.
-- *Constraints*: Exits non-zero on error; writes a descriptive message to stderr;
-  writes Markdown files to the directory specified by `--output`.
+- *Constraints*: Exits 0 on success and 1 on error; writes a descriptive message to stderr;
+  writes Markdown files to the directory specified by `--output`. Argument errors are found
+  before `--silent` and `--log` take effect, so they are always printed and never logged.
+
+**Help Command (provided)**: Built-in help, answered from help cards embedded in the tool
+assembly.
+
+- *Type*: CLI.
+- *Role*: Provider — users, CI pipelines, and AI agents run `apimark help` from the shell.
+- *Contract*: `apimark help` prints the topic index and `apimark help <topic>` prints a topic
+  card with its examples; HelpCards adds `--example`, `--search`, and `--json`. Returns exit
+  code 0 for success, 2 for a wrong help argument or an unknown topic, and 70 for a defective
+  card catalog.
+- *Constraints*: `help` must be the first argument. It is answered before the options are
+  parsed, so `--silent` and `--log` do not apply, `@file` response files are not expanded, and
+  no banner is printed.
 
 **IApiGenerator / IApiEmitter (consumed)**: Program constructs language-specific `IApiGenerator`
 implementations from ApiMarkCore and dispatches to them using the two-stage pipeline.
@@ -101,6 +119,9 @@ implementations from ApiMarkCore and dispatches to them using the two-stage pipe
 - **DemaConsulting.TestResults**: Program uses `TrxSerializer` and `JUnitSerializer`
   from this package when writing `--validate` results to a file —
   see DemaConsulting.TestResults OTS Design.
+- **DemaConsulting.HelpCards**: the `HelpCommand` unit uses this package to load, validate,
+  and serve the built-in help cards for the `help` command — see *DemaConsulting.HelpCards
+  Integration Design*.
 
 ## Risk Control Measures
 
@@ -110,15 +131,18 @@ N/A - not a safety-classified software item.
 
 1. The host environment (ApiMarkTask, user, or CI pipeline) invokes
    `dotnet ApiMark.Tool.dll [options] <language> [options]`.
-2. Program creates a `Context` object via `Context.Create(args)` (Cli subsystem), which
+2. Program offers the arguments to `HelpCommand` (Cli subsystem). When the first argument is
+   `help`, `HelpCommand` writes the help answer to standard output (or an error to standard
+   error) and Program exits with its exit code; the remaining steps do not run.
+3. Program creates a `Context` object via `Context.Create(args)` (Cli subsystem), which
    parses the command-line arguments using a single-pass parser. Program then dispatches
    to the appropriate priority path (version, help, validate, or main tool logic).
-3. Program validates that all required options for the requested language are
+4. Program validates that all required options for the requested language are
    present; exits non-zero with a usage message if any are missing.
-4. Program constructs the appropriate `IApiGenerator` implementation based on the
+5. Program constructs the appropriate `IApiGenerator` implementation based on the
    language subcommand (`DotNetGenerator` for `dotnet`; `CppGenerator` for `cpp`;
    `VhdlGenerator` for `vhdl`).
-5. Program creates a `FileMarkdownWriterFactory` for the output directory, builds an
+6. Program creates a `FileMarkdownWriterFactory` for the output directory, builds an
    `EmitConfig` from the parsed context (using `--format` and `--depth`), calls
    `IApiGenerator.Parse(context)` to obtain an `IApiEmitter`, then — strictly between
    `Parse` and `Emit`, while the parsed generator state is still available — checks
@@ -126,11 +150,11 @@ N/A - not a safety-classified software item.
    generator implements `IDocumentationCoverageCapable` (true for `dotnet`, `cpp`,
    and `vhdl` alike), and finally calls
    `IApiEmitter.Emit(factory, emitConfig, context)`.
-6. When the documentation-coverage check runs, violations are written
+7. When the documentation-coverage check runs, violations are written
    to standard output; if `--enforce-docs-severity Error` was specified and at least
    one violation was found, Program reports a build failure via the same non-zero
    exit path used for other errors.
-7. On success, Program exits 0. On error, exceptions are caught, written to stderr,
+8. On success, Program exits 0. On error, exceptions are caught, written to stderr,
    and Program exits non-zero.
 
 ## Design Constraints

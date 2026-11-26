@@ -11,6 +11,7 @@ needs-review:
   - docs/design/**/*.md  # Design documentation files
   - docs/verification/**/*.md  # Verification documentation files
   - docs/user_guide/**/*.md  # User guide documentation
+  - 'src/**/Help/**'  # Built-in help cards
   - '!**/obj/**'  # Exclude build output
   - '!**/bin/**'  # Exclude build output
   - '!**/generated/**'  # Exclude generated output
@@ -703,6 +704,8 @@ reviews:
       - docs/design/api-mark-tool.md
       - docs/verification/introduction.md
       - docs/verification/api-mark-tool.md
+      - test/ApiMark.Tool.Tests/IntegrationTests.cs
+      - test/ApiMark.Tool.Tests/Runner.cs
   - id: ApiMark-Tool-AllRequirements
     title: Review that All ApiMark Tool Requirements are Complete
     context:
@@ -748,6 +751,7 @@ reviews:
       - docs/reqstream/api-mark-tool/cli.yaml
       - docs/design/api-mark-tool/cli.md
       - docs/verification/api-mark-tool/cli.md
+      - test/ApiMark.Tool.Tests/Cli/CliSubsystemTests.cs
   - id: ApiMark-Tool-Cli-Context
     title: Review that ApiMark Tool Cli Context Implementation is Correct
     context:
@@ -761,6 +765,20 @@ reviews:
       - docs/verification/api-mark-tool/cli/context.md
       - src/ApiMark.Tool/Cli/Context.cs
       - test/ApiMark.Tool.Tests/Cli/ContextTests.cs
+  - id: ApiMark-Tool-Cli-HelpCommand
+    title: Review that ApiMark Tool Cli HelpCommand Implementation is Correct
+    context:
+      - docs/design/api-mark-tool.md
+      - docs/reqstream/api-mark-tool.yaml
+      - docs/design/api-mark-tool/cli.md
+      - docs/reqstream/api-mark-tool/cli.yaml
+    paths:
+      - docs/reqstream/api-mark-tool/cli/help-command.yaml
+      - docs/design/api-mark-tool/cli/help-command.md
+      - docs/verification/api-mark-tool/cli/help-command.md
+      - src/ApiMark.Tool/Cli/HelpCommand.cs
+      - src/ApiMark.Tool/Help/**
+      - test/ApiMark.Tool.Tests/Cli/HelpCommandTests.cs
 
   # ApiMarkTool.SelfTest - Units
   - id: ApiMark-Tool-SelfTest
@@ -824,3 +842,9 @@ reviews:
       - docs/reqstream/ots/file-system-globbing.yaml
       - docs/design/ots/file-system-globbing.md
       - docs/verification/ots/file-system-globbing.md
+  - id: OTS-HelpCards
+    title: Review that HelpCards Provides Required Functionality
+    paths:
+      - docs/reqstream/ots/help-cards.yaml
+      - docs/design/ots/help-cards.md
+      - docs/verification/ots/help-cards.md

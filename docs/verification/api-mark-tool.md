@@ -9,11 +9,25 @@ dispatch so they confirm that the shipped CLI correctly selects the generation p
 arguments, and reports failures in a way that users and build pipelines can act on. No internal
 components are mocked; the integration path runs end to end.
 
+The built-in `help` command is verified out of process by `IntegrationTests.cs`, which runs the
+compiled `ApiMark.Tool.dll` with `dotnet` through `Runner.Run` and asserts on the exit code and
+the captured output. The command examples of the help cards are verified with the example runner
+of `DemaConsulting.HelpCards`: it gives each card a fresh scratch folder and calls a test delegate
+for each command example. The delegate copies the input files the examples read into that folder
+— `test/ApiMark.Tool.Tests/TestData/HelpExamples/counter.vhd`, and the self-validation sample
+assembly written by `Validation.WriteSampleAssembly`, copied as `MyLib.dll` and `MyLib.xml` —
+unless the card saved a file of the same name from its own source example. It then runs the
+compiled tool there with `Runner.RunInDirectory`, and the runner compares the exit code and the
+output with the `exit` and `expect` values of the example. The C++ generation examples are
+snippets that the runner does not execute, because they need clang.
+
 ## Test Environment
 
 Tests require the .NET SDK, compiled sample assemblies with XML documentation files, and a writable
 output directory. No external service, privileged machine configuration, or network access is
-required.
+required. The help tests also need the `dotnet` host on the `PATH` to run the compiled tool, and
+the example runner writes a scratch folder per card in the temporary directory; clang is not
+needed.
 
 ## Acceptance Criteria
 
@@ -30,6 +44,8 @@ required.
   scope, rejects invalid `--enforce-docs` / `--enforce-docs-severity` values with a non-zero
   exit code, and is dispatched polymorphically for `dotnet`, `cpp`, and `vhdl` alike via
   `IDocumentationCoverageCapable` rather than being a dotnet-only behavior.
+- The `help` command lists the topics with exit code 0, and exits with code 2 for an unknown topic.
+- Every command example in the help cards gives the exit code and output that its card states.
 
 ## Test Scenarios
 
@@ -84,3 +100,17 @@ that `--enforce-docs` for the `cpp` subcommand is fully enforced (not a no-op) v
 like `dotnet`. This scenario is tested at the Program unit level by
 `Program_Main_Cpp_WithInvalidEnforceDocsValue_ReturnsNonZeroExitCode` and the full suite of
 `Program_Main_Vhdl_*` tests; see the *ApiMarkTool Program* section for the complete list.
+
+**Help command lists the topics**: Invokes the compiled tool with `help` as the sole argument and
+asserts that the exit code is 0, that the output lists every topic with its command, and that no
+banner is printed. This scenario is tested by `ApiMarkTool_HelpTopics_HelpVerb_ListsTopics`.
+
+**Unknown help topic returns the usage-error exit code**: Invokes the compiled tool with
+`help no-such-topic` and asserts that the exit code is 2 and that the output names the topic.
+This scenario is tested by `ApiMarkTool_HelpTopics_UnknownTopic_ReturnsUsageError`.
+
+**Every help example gives its stated result**: Builds the catalog that the tool ships and runs
+every command example of every card against the compiled tool in a scratch folder that holds the
+staged input files; asserts that at least one command example exists and that each gives the exit
+code and output fragment its card states. This scenario is tested by
+`ApiMarkTool_HelpExamples_AllCommandExamples_GiveStatedResults`.

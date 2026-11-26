@@ -53,6 +53,16 @@ package OtsDependencies {
         }
     }
 
+    part def HelpCards {
+        doc /* OTS: DemaConsulting.HelpCards, used by the Cli subsystem to serve the built-in help command from help cards embedded in the tool assembly. */
+
+        metadata info : SoftwareInfo {
+            designFiles = ("docs/design/ots/help-cards.md");
+            verificationFiles = ("docs/verification/ots/help-cards.md");
+            requirementFiles = ("docs/reqstream/ots/help-cards.yaml");
+        }
+    }
+
     part def CppAstNet {
         doc /* OTS: archived — retained for historical reference; not referenced by any current system. */
 

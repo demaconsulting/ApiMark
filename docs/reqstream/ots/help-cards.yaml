@@ -1,0 +1,28 @@
+---
+# DemaConsulting.HelpCards OTS requirements
+#
+# Requirements for the DemaConsulting.HelpCards library, which serves the built-in help of
+# ApiMarkTool from Markdown help cards embedded in the tool assembly.
+sections:
+  - title: OTS Software Requirements
+    sections:
+      - title: HelpCards Requirements
+        requirements:
+          - id: HelpCards-Cli-AnswerHelpCommand
+            title: DemaConsulting.HelpCards shall answer the help command of a tool from the help cards embedded in the tool assembly.
+            justification: |
+              The tool serves 'apimark help' to people and AI agents through the command-line
+              helper of DemaConsulting.HelpCards, whose build targets embed the cards in the
+              assembly so the tool package needs no loose files.
+            tests:
+              - HelpCommand_TryRun_HelpVerb_PrintsTopicIndexAndReturnsZero
+              - ApiMarkTool_HelpTopics_HelpVerb_ListsTopics
+          - id: HelpCards-Testing-ReportCardDefects
+            title: DemaConsulting.HelpCards shall report defects in help cards, and differences between the stated and the actual results of their command examples, to the tests of a tool.
+            justification: |
+              Help that disagrees with the tool is worse than no help. The validator and the
+              example runner of the package let the test suite fail on a defective card or an
+              example that no longer gives the result its card states.
+            tests:
+              - HelpCommand_CreateOptions_ShippedCatalog_PassesValidation
+              - ApiMarkTool_HelpExamples_AllCommandExamples_GiveStatedResults

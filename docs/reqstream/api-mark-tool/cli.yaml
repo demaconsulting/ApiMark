@@ -53,3 +53,13 @@ sections:
               - Context_Create_WithLogFile_OpensAndWritesToLog
               - Context_OpenLogFile_ErrorOutputAlsoWrittenToLog
               - Program_Main_WithSilentAndLog_DotNetCommand_ExitsZero
+          - id: ApiMarkTool-Cli-AnswerHelpTopics
+            title: The Cli subsystem shall answer the help command from built-in help cards.
+            justification: |
+              Users and AI agents need help topics with worked examples from the installed tool,
+              without a network connection or a copy of the repository.
+            children:
+              - ApiMarkTool-Cli-HelpCommand-AnswerHelpVerb
+              - ApiMarkTool-Cli-HelpCommand-ServeValidCards
+              - ApiMarkTool-Cli-HelpCommand-FitLineWidth
+            tests: [CliSubsystem_HelpCommand_TopicRequested_PrintsTopic]

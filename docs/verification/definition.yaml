@@ -50,6 +50,7 @@ input-files:
   - docs/verification/api-mark-tool.md
   - docs/verification/api-mark-tool/cli.md
   - docs/verification/api-mark-tool/cli/context.md
+  - docs/verification/api-mark-tool/cli/help-command.md
   - docs/verification/api-mark-tool/self-test.md
   - docs/verification/api-mark-tool/self-test/validation.md
   - docs/verification/api-mark-tool/program.md
@@ -59,6 +60,7 @@ input-files:
   - docs/verification/ots/antlr4.md
   - docs/verification/ots/file-system-globbing.md
   - docs/verification/ots/dema-consulting-test-results.md
+  - docs/verification/ots/help-cards.md
   - docs/verification/ots/cpp-ast-net.md
 template: template.html
 table-of-contents: true

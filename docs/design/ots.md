@@ -32,7 +32,8 @@ OTS version upgrades in ApiMark are managed as follows:
 OTS items are consumed in two ways, depending on their delivery mechanism:
 
 - **NuGet packages** (Mono.Cecil, Antlr4.Runtime.Standard, Microsoft.Extensions.FileSystemGlobbing,
-  DemaConsulting.TestResults): consumed via their public NuGet package API. No wrapper classes are
+  DemaConsulting.TestResults, DemaConsulting.HelpCards): consumed via their public NuGet package API.
+  No wrapper classes are
   introduced unless the OTS API surface is too broad or its error model is incompatible with ApiMark
   conventions.
 - **External CLI tools** (clang): invoked as an out-of-process command (`clang -ast-dump=json`).
@@ -59,6 +60,9 @@ error-handling responsibility described above:
 - **DemaConsulting.TestResults**: consumed by ApiMarkTool (`Program`, via the SelfTest subsystem's
   `Validation` unit) to serialize `--validate` self-validation results to TRX or JUnit XML; see the
   DemaConsulting.TestResults OTS design.
+- **DemaConsulting.HelpCards**: consumed by ApiMarkTool (the Cli subsystem's `HelpCommand` unit) to
+  serve the built-in `help` command from help cards embedded in the tool assembly; see the
+  DemaConsulting.HelpCards OTS design.
 - **cpp-ast-net** (archived): previously consumed by ApiMarkCpp; retained for historical reference
   only and no longer integrated by any current system.
 

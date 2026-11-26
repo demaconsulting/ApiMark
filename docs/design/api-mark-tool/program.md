@@ -7,7 +7,8 @@
 
 ### Purpose
 
-Program is the CLI entry point for ApiMarkTool. It parses command-line arguments
+Program is the CLI entry point for ApiMarkTool. It hands the `help` command to
+`HelpCommand`, otherwise parses command-line arguments
 via the `Context` class, dispatches to the appropriate priority path (version, help,
 self-validation, or main tool logic), constructs the appropriate `IApiGenerator`
 implementation for the requested language using a language switch, calls `Parse` to
@@ -36,13 +37,17 @@ the full design.
 **Program.Main**: CLI entry point.
 
 - *Parameters*: `string[] args` — command-line arguments from the host environment.
-- *Returns*: `int` — exit code; 0 on success, non-zero on error.
+- *Returns*: `int` — exit code; 0 on success, 1 on error; for the `help` command, the exit
+  code of `HelpCommand` (see *Help Command* in the ApiMarkTool system design).
 - *Preconditions*: None — `Main` handles all argument parsing errors gracefully.
 - *Postconditions*: On success, the output directory contains a complete Markdown
   tree for the requested component. On error, a descriptive message is written to
   stderr and the process exits non-zero.
 
-Execution steps: create `Context` from args; call `Run`; return `context.ExitCode`.
+Execution steps: first call `HelpCommand.Default.TryRun(args, out exitCode)` — the `help`
+command is not an option or a language, so `Context.Create` would not recognize it — and
+return that exit code when the help command answers; otherwise create `Context` from args,
+call `Run`, and return `context.ExitCode`.
 `ArgumentException` and `InvalidOperationException` from `Context.Create` are
 caught, written to `Console.Error`, and exit 1 is returned. All other exceptions
 are written to `Console.Error` and re-thrown.
@@ -186,7 +191,10 @@ entries of `Context.ExternalLinks` into the dictionary consumed by
 version, copyright line, and a blank line).
 
 **Program.PrintHelp** (private static): Prints usage, options, languages, and
-language-specific options to the context output stream.
+language-specific options to the context output stream. The usage synopsis includes the
+line `apimark help [topic]` (taken from `HelpCommand.ToolName`), and the text ends with a
+blank line and `HelpCommand.Default.Footer`, the pointer to the help command. Called for
+`--help` and after each missing-option error in `RunToolLogic`.
 
 ### Error Handling
 
@@ -205,6 +213,9 @@ re-thrown.
 
 ### Dependencies
 
+- **HelpCommand** (Cli subsystem) — answers the `help` command before the options are
+  parsed, and supplies the usage line tool name and the footer that ends the usage text —
+  see *HelpCommand Unit Design* (`cli/help-command.md`).
 - **Context** (Cli subsystem) — owns argument parsing and output routing; created by
   Program — see *Cli Subsystem Design* (`cli.md`) and *Context Unit Design*
   (`cli/context.md`).

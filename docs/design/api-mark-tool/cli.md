@@ -15,6 +15,14 @@ have been reported. By isolating argument parsing in a dedicated subsystem,
 Program.cs is kept free of parsing logic and the argument-parsing contract
 can be tested independently.
 
+The subsystem also answers the built-in `help` command through the `HelpCommand`
+unit, which serves the help cards embedded in the tool assembly. It contains two
+units:
+
+- **`Context`** (`Cli/Context.cs`) — argument parsing, output routing, and error tracking
+- **`HelpCommand`** (`Cli/HelpCommand.cs`) — the built-in `help` command, answered from
+  embedded help cards
+
 ### Interfaces
 
 **Provided**:
@@ -32,16 +40,34 @@ can be tested independently.
   `LibraryDescription`, `Defines`, `CppStandard`, `ClangPath`, `ClangTimeoutMilliseconds`,
   `Excludes`, `ReferencePaths`, `EnforceDocs`, `EnforceDocsSeverity`, `ExitCode`)
   and provides `WriteLine` and `WriteError` for all program output routing.
+- `HelpCommand.Default.TryRun(string[] args, out int exitCode)` — answers the `help`
+  command. Returns `false`, writing nothing, when the first argument is not `help`.
+  Otherwise writes the answer to the console, returns `true`, and sets the exit code
+  (see *Help Command* in the ApiMarkTool system design). Does not throw for user input
+  and does not use `Context`.
+- `HelpCommand.Default.Footer` — the one-line pointer to the help command that ends the
+  usage text. Reading it never builds the help catalog.
 
 **Consumed**:
 
 - **IContext (ApiMark.Core)** — `Context` implements `IContext` so it can be
   passed directly to `IApiGenerator.Parse`/`IApiEmitter.Emit` without an
   adapter; see `IContext` Unit Design.
+- **DemaConsulting.HelpCards (OTS)** — `HelpCommand` serves the help cards through the
+  command-line helper of this package; see *DemaConsulting.HelpCards Integration Design*.
 
 ### Design
 
-The Cli subsystem contains one unit: `Context` (see Context Unit Design).
+The Cli subsystem contains two units: `Context` (see Context Unit Design) and
+`HelpCommand` (see HelpCommand Unit Design).
+
+`Context` and `HelpCommand` do not call each other. `Program.Main` offers the arguments
+to `HelpCommand.TryRun` first; when the help command answers, the invocation ends with
+its exit code and no `Context` is created. `HelpCommand` writes its answers to the
+console itself. It is the one exception to `Context` owning all output, because the
+`help` command is answered before a `Context` exists.
+
+For every other invocation, `Context` does the parsing described below.
 
 `Context` implements parsing through a private `ArgumentParser` inner class
 that performs a single left-to-right pass over the argument array. Standard

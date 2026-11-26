@@ -43,6 +43,8 @@ and give the resulting Markdown to an AI agent or ship it with your package.
 - 🌐 **Multi-Platform** - Windows, Linux, and macOS on .NET 10 and 11
 - ✅ **Self-Validation** - Built-in qualification tests that generate and check sample API docs end to end, for
   regulated environments
+- 💡 **Built-in Help** - `apimark help` serves help topics with runnable examples, search, and JSON output for AI
+  agents
 
 ## Platform Support
 
@@ -144,10 +146,14 @@ apimark vhdl --source "src/**/*.vhd" --output docs/api
 
 # Generate with exclusions (gitignore-style)
 apimark vhdl --source "src/**/*.vhd" --source "!src/tb/**/*.vhd" --output docs/api
+
+# List the built-in help topics, then read one
+apimark help
+apimark help getting-started
 ```
 
-Run `apimark --help` for all options. Run `apimark dotnet --help`, `apimark cpp --help`, or `apimark vhdl --help` for
-language-specific options.
+Run `apimark --help` for all options. Run `apimark help` for help topics with worked examples, including one topic
+per language: `apimark help dotnet`, `apimark help cpp`, and `apimark help vhdl`.
 
 ### MSBuild Usage
 

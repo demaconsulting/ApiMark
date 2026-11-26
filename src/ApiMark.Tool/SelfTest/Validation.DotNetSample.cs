@@ -56,7 +56,7 @@ internal static partial class Validation
     ///     XML documentation file.
     /// </param>
     /// <returns>The paths of the written assembly and XML documentation file.</returns>
-    private static (string AssemblyPath, string XmlDocPath) WriteSampleAssembly(string directory, bool documentRead = true)
+    internal static (string AssemblyPath, string XmlDocPath) WriteSampleAssembly(string directory, bool documentRead = true)
     {
         var assemblyBuilder = new PersistedAssemblyBuilder(new AssemblyName(SampleAssemblyName), typeof(object).Assembly);
         var module = assemblyBuilder.DefineDynamicModule(SampleAssemblyName);

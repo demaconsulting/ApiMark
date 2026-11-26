@@ -34,7 +34,11 @@ output directory. No external service, privileged configuration, or network acce
   ApiMark documentation (case-insensitive names, last entry wins, blank values skipped); missing or
   malformed values return a non-zero exit code naming --external-link.
 - Missing input files produce a non-zero exit code and a clear file-not-found diagnostic.
-- `--help` before and after a subcommand both display usage information and return exit code zero.
+- `--help` before and after a subcommand both display usage information and return exit code zero;
+  the usage information includes the `apimark help [topic]` line and ends with the pointer to the
+  help command.
+- `help` as the first argument prints the help topic index without the banner and returns exit
+  code zero, because it is answered before the options are parsed.
 - `--silent` suppresses console output; `--log <file>` captures output to a file.
 - `--validate` runs self-validation tests and returns exit code zero when all pass.
 - `--validate --results <file>` additionally writes the results to the specified file path.
@@ -92,8 +96,14 @@ file-not-found message and exits with a non-zero code. This scenario is tested b
 `Program_Main_WithMissingAssembly_PrintsErrorAndFails`.
 
 **Help flag displays usage and exits zero**: Verifies that `--help` prints usage information
-including "Usage:" and "Options:" sections and returns exit code zero. This scenario is tested by
+including "Usage:" and "Options:" sections and the `apimark help [topic]` usage line, ends with the
+pointer to the help command, and returns exit code zero. This scenario is tested by
 `Program_Main_WithHelpFlag_PrintsHelpAndExitsZero`.
+
+**Help verb prints the help index**: Verifies that `Program.Main` invoked with `help`, which is not
+an option or a language, exits with code 0, prints the help topic index, and prints no banner,
+confirming that the help command is answered before the options are parsed. This scenario is
+tested by `Program_Main_WithHelpVerb_PrintsHelpIndex`.
 
 **Help flag after subcommand displays usage and exits zero**: Verifies that the single-pass parser
 accepts `--help` after the language token and still dispatches to help display. This scenario is
