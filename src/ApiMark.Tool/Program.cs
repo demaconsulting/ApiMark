@@ -15,7 +15,9 @@ namespace ApiMark.Tool;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Dispatch is priority-ordered: version check first (no banner), then banner, then help,
+///         The <c>help</c> command, when it is the first argument, is answered by
+///         <see cref="Cli.HelpCommand"/> before the options are parsed. Otherwise, dispatch is
+///         priority-ordered: version check first (no banner), then banner, then help,
 ///         then self-validation, then main tool logic. Only the highest-priority matching action
 ///         is executed per invocation.
 ///     </para>
@@ -67,10 +69,21 @@ internal static class Program
     /// <exception cref="Exception">
     ///     Thrown when an unexpected error occurs; re-thrown after writing to stderr.
     /// </exception>
+    /// <remarks>
+    ///     The <c>help</c> command is answered first, by <see cref="HelpCommand"/>, before the
+    ///     command-line options are parsed: <c>help</c> is a command and not an option or a language,
+    ///     so <see cref="Context.Create"/> would not recognize it. Its exit code is returned as is.
+    /// </remarks>
     public static int Main(string[] args)
     {
         try
         {
+            // Answer the help command before the options are parsed
+            if (HelpCommand.Default.TryRun(args, out var helpExitCode))
+            {
+                return helpExitCode;
+            }
+
             // Create context from command-line arguments; argument parsing failures throw here
             using var context = Context.Create(args);
 
@@ -520,6 +533,7 @@ internal static class Program
     private static void PrintHelp(Context context)
     {
         context.WriteLine("Usage: apimark [options] [language [language-options]]");
+        context.WriteLine($"       {HelpCommand.ToolName} help [topic]");
         context.WriteLine("");
         context.WriteLine("Any argument may instead be given as @<file>, which is expanded in place into");
         context.WriteLine("the file's non-blank lines, each treated as one argument — useful for avoiding");
@@ -574,6 +588,8 @@ internal static class Program
         context.WriteLine("  --output <dir>             Output directory for Markdown files (required)");
         context.WriteLine("  --library-name <name>      Library name used as the top-level heading (default: output directory name)");
         context.WriteLine("  --library-description <d>  Optional description for the library api.md introduction");
+        context.WriteLine("");
+        context.WriteLine(HelpCommand.Default.Footer);
     }
 }
 

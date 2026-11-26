@@ -716,6 +716,37 @@ public class ProgramTests
             Assert.Contains("Options:", output);
             Assert.Contains("dotnet options:", output);
             Assert.Contains("--library-description <d>  Optional description for the library api.md introduction", output);
+            Assert.Contains($"{HelpCommand.ToolName} help [topic]", output);
+            Assert.EndsWith(HelpCommand.Default.Footer, output.TrimEnd());
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
+    /// <summary>
+    ///     Validates that <c>Main</c> answers the help verb from the help cards before the options are parsed.
+    /// </summary>
+    [Fact]
+    public void Program_Main_WithHelpVerb_PrintsHelpIndex()
+    {
+        // Arrange: capture console output
+        var originalOut = Console.Out;
+        using var writer = new StringWriter();
+
+        try
+        {
+            Console.SetOut(writer);
+
+            // Act: invoke Main with the help verb, which is not an option or a language
+            var exitCode = Program.Main(["help"]);
+
+            // Assert: the topic index is printed without the banner, and the exit code is success
+            var output = writer.ToString();
+            Assert.Equal(0, exitCode);
+            Assert.Contains($"{HelpCommand.ToolName} help {HelpCommand.RootCardIds[0]}", output);
+            Assert.DoesNotContain("Copyright", output);
         }
         finally
         {
