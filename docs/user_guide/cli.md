@@ -4,6 +4,7 @@
 
 ```text
 Usage: apimark [options] [language [language-options]]
+       apimark help [topic]
 ```
 
 ## Global Options
@@ -19,6 +20,30 @@ Usage: apimark [options] [language [language-options]]
 | `--log <file>` | Write all output to log file |
 
 The `--depth` value is restricted to `1`–`3` when `--format single-file` is used.
+
+Argument errors (an unknown option, a missing option value, or a value that starts with `-`)
+are found before `--silent` and `--log` take effect, so they are always printed and never
+logged. Errors found later, such as a missing required option or a generation failure,
+follow `--silent` and `--log`.
+
+## Built-in Help
+
+The `help` command prints help topics that explain each task with worked examples, for people
+and for AI agents that have only the installed tool. The `--help` usage text ends with a
+pointer to it. List the topics, then print one with its examples:
+
+```bash
+apimark help
+apimark help getting-started
+```
+
+The topics cover getting started, the command line, each language (`dotnet`, `cpp`, `vhdl`),
+the generated output, documentation coverage, response files, the MSBuild package,
+self-validation, and troubleshooting. Add `--search <words>` to find a topic,
+`--example <name>` to print one example of a topic, and `--json` to get any help answer as
+JSON. `help` is a command, not an option or a language: it must be the first argument, and
+`--silent`, `--log`, and `@file` response files do not apply to it. An unknown topic or a
+wrong help argument prints a hint and exits with code 2 (see *Exit Codes*).
 
 ## Languages
 
@@ -82,3 +107,16 @@ unavailable) never affect the exit code.
 | Windows x64 | ✅ | ✅ | ✅ |
 | Linux x64 | ✅ | ✅ | ✅ |
 | macOS | ✅ | ✅ | ✅ |
+
+## Exit Codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Success |
+| `1` | Error |
+| `2` | The `help` command was given an unknown topic or a wrong help argument |
+
+Exit code `0` includes `--version`, `--help`, the `help` command, and a passing `--validate`
+run. Exit code `1` covers argument errors, a missing required option, a generation error, a
+failed self-validation test, and undocumented items found with `--enforce-docs-severity Error`.
+Exit code `2` comes only from the `help` command.
