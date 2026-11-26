@@ -60,8 +60,10 @@ see [[command-line]] for which of them `--silent` hides.
 - `no .vhd or .vhdl files matched`: globs are relative to the current
   folder; quote them so that the shell does not expand them.
 - `Public include root not found`: an `--includes` folder is missing.
-- `Clang executable not found`, or clang did not finish in time: see the
-  clang discovery and time limit in [[cpp]].
+- `Clang executable not found`: install LLVM clang, also on the CI
+  runner, or set `--clang-path` or `APIMARK_CLANG_PATH` to the clang
+  program, not its folder; see [[cpp]] for the search order.
+- clang did not finish in time: raise `--clang-timeout-ms`; see [[cpp]].
 - `clang reported errors in public headers`: add the missing `--includes`
   or `--defines`, or fix the header.
 - `--depth must be 1-3 for single-file output`: lower `--depth`.
@@ -79,3 +81,5 @@ run: `help` that is not the first argument is read as a language.
 **Pages without descriptions or without types.** For .NET, check that the
 XML file belongs to the same build as the assembly. A reference without
 types means that `--visibility` or `--exclude` left nothing to document.
+For C++, some kinds of declarations, such as concepts and `typedef`
+declarations, are never documented; [[cpp]] lists them.

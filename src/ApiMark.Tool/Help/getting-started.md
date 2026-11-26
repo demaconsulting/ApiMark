@@ -75,7 +75,8 @@ writes Markdown API reference pages into the folder that `--output` names.
    commit that file. In GitHub Actions, copy the steps that
    [[#ci-steps]] prints. They set up .NET 10 with
    `actions/setup-dotnet`, run `dotnet tool restore`, and then run
-   `dotnet {{tool}}`. For one machine, install it globally and run it
+   `dotnet {{tool}}`. For C++, also install LLVM clang on the runner; see
+   [[cpp]]. For one machine, install it globally and run it
    as `{{tool}}`:
 
    ```bash
